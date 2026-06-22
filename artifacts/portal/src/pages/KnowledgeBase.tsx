@@ -17,6 +17,7 @@ import {
   GraduationCap,
   Users,
   Rocket,
+  Bookmark,
 } from "lucide-react";
 import { customFetch } from "@workspace/api-client-react";
 import {
@@ -33,6 +34,7 @@ interface KBResult {
   sourceLabel: string | null;
   snippet: string;
   rank: number;
+  isBookmarked?: boolean;
 }
 
 const CATEGORY_LABELS: Record<string, string> = {
@@ -112,6 +114,19 @@ async function fetchKBCounts(): Promise<Record<string, number>> {
   return data.counts ?? {};
 }
 
+async function fetchBookmarks(): Promise<KBResult[]> {
+  const data = await customFetch<{ results: KBResult[] }>(`/api/kb/bookmarks`);
+  return data.results ?? [];
+}
+
+async function toggleBookmark(docId: number): Promise<boolean> {
+  const data = await customFetch<{ isBookmarked: boolean }>(
+    `/api/kb/bookmarks/${docId}`,
+    { method: "POST" },
+  );
+  return data.isBookmarked;
+}
+
 function stripHtmlTags(html: string): string {
   return html.replace(/<[^>]+>/g, "");
 }
@@ -141,14 +156,43 @@ function renderSnippet(snippet: string) {
   );
 }
 
-function ResultItem({ result }: { result: KBResult }) {
+function ResultItem({
+  result,
+  isBookmarked,
+  onToggleBookmark,
+}: {
+  result: KBResult;
+  isBookmarked: boolean;
+  onToggleBookmark: (result: KBResult) => void;
+}) {
   const categoryLabel = result.sourceLabel ?? CATEGORY_LABELS[result.category] ?? result.category;
   const colorClass = CATEGORY_COLORS[result.category] ?? "bg-slate-100 text-slate-700 border-slate-200";
 
   const hasSnippet = stripHtmlTags(result.snippet).trim().length > 0;
 
-  const content = (
-    <div className="group flex items-start gap-3 p-4 rounded-lg border border-border hover:border-primary/30 hover:bg-accent/40 transition-all cursor-pointer">
+  const bookmarkButton = (
+    <button
+      type="button"
+      onClick={(e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        onToggleBookmark(result);
+      }}
+      aria-pressed={isBookmarked}
+      aria-label={isBookmarked ? "Remove bookmark" : "Save article"}
+      title={isBookmarked ? "Remove bookmark" : "Save for later"}
+      className="shrink-0 mt-0.5 p-1 -m-1 rounded-md text-muted-foreground hover:text-primary hover:bg-accent transition-colors"
+    >
+      <Bookmark
+        className={`w-4 h-4 transition-colors ${
+          isBookmarked ? "fill-primary text-primary" : ""
+        }`}
+      />
+    </button>
+  );
+
+  const body = (
+    <>
       <div className="mt-0.5 shrink-0">
         <BookOpen className="w-4 h-4 text-muted-foreground group-hover:text-primary transition-colors" />
       </div>
@@ -170,25 +214,62 @@ function ResultItem({ result }: { result: KBResult }) {
           </p>
         )}
       </div>
-      <ChevronRight className="w-4 h-4 text-muted-foreground shrink-0 mt-0.5 group-hover:text-primary transition-colors" />
-    </div>
+    </>
   );
 
-  if (result.sourcePath) {
-    return <Link href={result.sourcePath}>{content}</Link>;
-  }
-  return content;
+  return (
+    <div className="group flex items-start gap-3 p-4 rounded-lg border border-border hover:border-primary/30 hover:bg-accent/40 transition-all">
+      {result.sourcePath ? (
+        <Link href={result.sourcePath} className="flex items-start gap-3 flex-1 min-w-0 cursor-pointer">
+          {body}
+        </Link>
+      ) : (
+        <div className="flex items-start gap-3 flex-1 min-w-0">{body}</div>
+      )}
+      {bookmarkButton}
+    </div>
+  );
 }
 
 function BrowseLanding({
   onSelectCategory,
   counts,
+  bookmarks,
+  bookmarkedIds,
+  onToggleBookmark,
 }: {
   onSelectCategory: (cat: string) => void;
   counts: Record<string, number> | null;
+  bookmarks: KBResult[];
+  bookmarkedIds: Set<number>;
+  onToggleBookmark: (result: KBResult) => void;
 }) {
   return (
     <div className="space-y-8">
+      {bookmarks.length > 0 && (
+        <section>
+          <div className="flex items-center gap-2 mb-3">
+            <Bookmark className="w-4 h-4 text-primary fill-primary" />
+            <h2 className="text-sm font-semibold text-foreground uppercase tracking-wide">
+              Saved articles
+            </h2>
+            <Badge variant="outline" className="text-[10px] border ml-1">
+              {bookmarks.length}
+            </Badge>
+          </div>
+          <div className="space-y-2">
+            {bookmarks.map((r) => (
+              <ResultItem
+                key={r.id}
+                result={r}
+                isBookmarked={bookmarkedIds.has(r.id)}
+                onToggleBookmark={onToggleBookmark}
+              />
+            ))}
+          </div>
+        </section>
+      )}
+
       <section>
         <div className="flex items-center gap-2 mb-3">
           <Rocket className="w-4 h-4 text-primary" />
@@ -303,9 +384,13 @@ function BrowseLanding({
 function CategoryBrowse({
   category,
   onBack,
+  bookmarkedIds,
+  onToggleBookmark,
 }: {
   category: string;
   onBack: () => void;
+  bookmarkedIds: Set<number>;
+  onToggleBookmark: (result: KBResult) => void;
 }) {
   const [results, setResults] = useState<KBResult[] | null>(null);
   const [loading, setLoading] = useState(true);
@@ -370,7 +455,12 @@ function CategoryBrowse({
       {!loading && results && results.length > 0 && (
         <div className="space-y-2">
           {results.map((r) => (
-            <ResultItem key={r.id} result={r} />
+            <ResultItem
+              key={r.id}
+              result={r}
+              isBookmarked={bookmarkedIds.has(r.id)}
+              onToggleBookmark={onToggleBookmark}
+            />
           ))}
         </div>
       )}
@@ -388,6 +478,8 @@ export default function KnowledgeBase() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [counts, setCounts] = useState<Record<string, number> | null>(null);
+  const [bookmarks, setBookmarks] = useState<KBResult[]>([]);
+  const [bookmarkedIds, setBookmarkedIds] = useState<Set<number>>(new Set());
   const debounceRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
   useEffect(() => {
@@ -396,6 +488,62 @@ export default function KnowledgeBase() {
       .then((c) => { if (!cancelled) setCounts(c); })
       .catch(() => { /* counts are non-critical; cards render without them */ });
     return () => { cancelled = true; };
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetchBookmarks()
+      .then((res) => {
+        if (cancelled) return;
+        setBookmarks(res);
+        setBookmarkedIds(new Set(res.map((r) => r.id)));
+      })
+      .catch(() => {
+        /* non-fatal: bookmarks just won't show */
+      });
+    return () => { cancelled = true; };
+  }, []);
+
+  const handleToggleBookmark = useCallback((result: KBResult) => {
+    // Optimistically flip based on the *latest* state (functional updates),
+    // never a closure-bound snapshot, so rapid repeated clicks stay consistent.
+    let optimisticallyBookmarked = false;
+    setBookmarkedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(result.id)) {
+        next.delete(result.id);
+        optimisticallyBookmarked = false;
+      } else {
+        next.add(result.id);
+        optimisticallyBookmarked = true;
+      }
+      return next;
+    });
+    setBookmarks((prev) =>
+      prev.some((b) => b.id === result.id)
+        ? prev.filter((b) => b.id !== result.id)
+        : [{ ...result, isBookmarked: true }, ...prev],
+    );
+
+    const setBookmarkState = (isBookmarked: boolean) => {
+      setBookmarkedIds((prev) => {
+        const next = new Set(prev);
+        if (isBookmarked) next.add(result.id);
+        else next.delete(result.id);
+        return next;
+      });
+      setBookmarks((prev) => {
+        if (isBookmarked) {
+          if (prev.some((b) => b.id === result.id)) return prev;
+          return [{ ...result, isBookmarked: true }, ...prev];
+        }
+        return prev.filter((b) => b.id !== result.id);
+      });
+    };
+
+    toggleBookmark(result.id)
+      .then((isBookmarked) => setBookmarkState(isBookmarked))
+      .catch(() => setBookmarkState(!optimisticallyBookmarked));
   }, []);
 
   const runSearch = useCallback((q: string, category: string | null) => {
@@ -506,13 +654,21 @@ export default function KnowledgeBase() {
         )}
 
         {!hasQuery && !browseCategory && (
-          <BrowseLanding onSelectCategory={handleBrowseCategory} counts={counts} />
+          <BrowseLanding
+            onSelectCategory={handleBrowseCategory}
+            counts={counts}
+            bookmarks={bookmarks}
+            bookmarkedIds={bookmarkedIds}
+            onToggleBookmark={handleToggleBookmark}
+          />
         )}
 
         {!hasQuery && browseCategory && (
           <CategoryBrowse
             category={browseCategory}
             onBack={handleBackToLanding}
+            bookmarkedIds={bookmarkedIds}
+            onToggleBookmark={handleToggleBookmark}
           />
         )}
 
@@ -558,7 +714,12 @@ export default function KnowledgeBase() {
               )}
             </div>
             {results!.map((r) => (
-              <ResultItem key={r.id} result={r} />
+              <ResultItem
+                key={r.id}
+                result={r}
+                isBookmarked={bookmarkedIds.has(r.id)}
+                onToggleBookmark={handleToggleBookmark}
+              />
             ))}
           </div>
         )}

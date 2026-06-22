@@ -29,6 +29,7 @@ export * from "./chat-daily-usage";
 export * from "./chat-prompts";
 export * from "./chat-system-prompts";
 export * from "./knowledgebase-docs";
+export * from "./knowledgebase-bookmarks";
 export * from "./chat-rate-limits";
 export * from "./communications";
 export * from "./affiliate-profiles";

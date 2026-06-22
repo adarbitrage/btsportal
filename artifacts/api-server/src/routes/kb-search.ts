@@ -1,8 +1,31 @@
 import { Router, type Request, type Response } from "express";
-import { db } from "@workspace/db";
-import { sql } from "drizzle-orm";
+import { db, knowledgebaseBookmarksTable } from "@workspace/db";
+import { sql, and, eq, inArray } from "drizzle-orm";
 
 const router = Router();
+
+/**
+ * Fetch the set of doc ids the given user has bookmarked, restricted to the
+ * supplied candidate ids when provided (avoids loading the entire bookmark set
+ * when we only need to annotate a page of results).
+ */
+async function getBookmarkedDocIds(
+  userId: number,
+  docIds?: number[],
+): Promise<Set<number>> {
+  if (docIds && docIds.length === 0) return new Set();
+  const where = docIds
+    ? and(
+        eq(knowledgebaseBookmarksTable.userId, userId),
+        inArray(knowledgebaseBookmarksTable.docId, docIds),
+      )
+    : eq(knowledgebaseBookmarksTable.userId, userId);
+  const rows = await db
+    .select({ docId: knowledgebaseBookmarksTable.docId })
+    .from(knowledgebaseBookmarksTable)
+    .where(where);
+  return new Set(rows.map((r) => r.docId));
+}
 
 /**
  * Build an OR-style tsquery from a plain search string.
@@ -140,7 +163,13 @@ router.get("/kb/browse", async (req: Request, res: Response): Promise<void> => {
       );
     }
 
-    const rows = (results.rows as any[]).map((r) => ({
+    const rawRows = results.rows as any[];
+    const bookmarked = await getBookmarkedDocIds(
+      req.userId,
+      rawRows.map((r) => r.id as number),
+    );
+
+    const rows = rawRows.map((r) => ({
       id: r.id as number,
       title: r.title as string,
       category: r.category as string,
@@ -148,6 +177,7 @@ router.get("/kb/browse", async (req: Request, res: Response): Promise<void> => {
       sourceLabel: (r.source_label as string | null) ?? null,
       snippet: (r.snippet as string | null) ?? "",
       rank: 0,
+      isBookmarked: bookmarked.has(r.id as number),
     }));
 
     res.json({ results: rows });
@@ -245,6 +275,11 @@ router.get("/kb/search", async (req: Request, res: Response): Promise<void> => {
       usedFallback = rows.length > 0;
     }
 
+    const bookmarked = await getBookmarkedDocIds(
+      req.userId,
+      rows.map((r) => r.id as number),
+    );
+
     const results = rows.map((r) => ({
       id: r.id as number,
       title: r.title as string,
@@ -253,6 +288,7 @@ router.get("/kb/search", async (req: Request, res: Response): Promise<void> => {
       sourceLabel: (r.source_label as string | null) ?? null,
       snippet: (r.snippet as string | null) ?? "",
       rank: parseFloat(r.rank),
+      isBookmarked: bookmarked.has(r.id as number),
     }));
 
     res.json({ results, usedFallback });
@@ -264,5 +300,123 @@ router.get("/kb/search", async (req: Request, res: Response): Promise<void> => {
     res.status(500).json({ error: "Search failed" });
   }
 });
+
+/**
+ * Toggle a bookmark for the authenticated member on a single KB doc.
+ * Returns the resulting bookmark state so the client can update optimistically.
+ */
+router.post(
+  "/kb/bookmarks/:docId",
+  async (req: Request, res: Response): Promise<void> => {
+    if (!req.userId) {
+      res.status(401).json({ error: "Authentication required" });
+      return;
+    }
+
+    const docId = parseInt(String(req.params.docId), 10);
+    if (isNaN(docId)) {
+      res.status(400).json({ error: "Invalid document ID" });
+      return;
+    }
+
+    try {
+      const [doc] = (
+        await db.execute(
+          sql`SELECT id FROM knowledgebase_docs
+              WHERE id = ${docId}
+                AND audience = 'member'
+                AND source_path IS NOT NULL`,
+        )
+      ).rows as any[];
+
+      if (!doc) {
+        res.status(404).json({ error: "Article not found" });
+        return;
+      }
+
+      const [existing] = await db
+        .select()
+        .from(knowledgebaseBookmarksTable)
+        .where(
+          and(
+            eq(knowledgebaseBookmarksTable.userId, req.userId),
+            eq(knowledgebaseBookmarksTable.docId, docId),
+          ),
+        );
+
+      if (existing) {
+        await db
+          .delete(knowledgebaseBookmarksTable)
+          .where(eq(knowledgebaseBookmarksTable.id, existing.id));
+        res.json({ isBookmarked: false });
+      } else {
+        await db
+          .insert(knowledgebaseBookmarksTable)
+          .values({ userId: req.userId, docId })
+          .onConflictDoNothing();
+        res.json({ isBookmarked: true });
+      }
+    } catch (err) {
+      console.error(
+        "[KB Bookmark] Error:",
+        err instanceof Error ? err.message : err,
+      );
+      res.status(500).json({ error: "Failed to update bookmark" });
+    }
+  },
+);
+
+/**
+ * List the authenticated member's bookmarked KB articles, most-recently saved
+ * first. Joins against knowledgebase_docs so renamed/removed/admin-only docs are
+ * filtered out and never surface stale bookmarks.
+ */
+router.get(
+  "/kb/bookmarks",
+  async (req: Request, res: Response): Promise<void> => {
+    if (!req.userId) {
+      res.status(401).json({ error: "Authentication required" });
+      return;
+    }
+
+    try {
+      const results = await db.execute(
+        sql`SELECT
+              d.id,
+              d.title,
+              d.category,
+              d.source_path,
+              d.source_label,
+              left(d.content, 200) AS snippet
+            FROM knowledgebase_bookmarks b
+            INNER JOIN knowledgebase_docs d ON d.id = b.doc_id
+            WHERE
+              b.user_id = ${req.userId}
+              AND d.audience = 'member'
+              AND d.source_path IS NOT NULL
+            ORDER BY b.created_at DESC`,
+      );
+
+      const rows = (results.rows as any[]).map((r) => ({
+        id: r.id as number,
+        title: r.title as string,
+        category: r.category as string,
+        sourcePath: (r.source_path as string | null) ?? null,
+        sourceLabel: (r.source_label as string | null) ?? null,
+        snippet: (r.snippet as string | null) ?? "",
+        rank: 0,
+        isBookmarked: true,
+      }));
+
+      res.json({ results: rows });
+    } catch (err) {
+      console.error(
+        "[KB Bookmarks] Error:",
+        err instanceof Error ? err.message : err,
+      );
+      res.status(500).json({ error: "Failed to load bookmarks" });
+    }
+  },
+);
 
 export default router;
