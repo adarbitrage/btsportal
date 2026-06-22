@@ -136,8 +136,8 @@ export default function Home() {
                 and digest when taken a little slower.
               </p>
               <p>
-                We recommend you start with the 7 Pillars and then move into The Blitz™, completing each
-                lesson in the order it's delivered. Go through the material as it is laid out, top to bottom,
+                <strong className="text-foreground">We recommend you start with the 7 Pillars and then move into The Blitz™, completing each
+                lesson in the order it's delivered.</strong> Go through the material as it is laid out, top to bottom,
                 and when you need help, our support team and amazing mentors will be available to answer your
                 questions.
               </p>
@@ -191,12 +191,7 @@ export default function Home() {
               </p>
             </div>
 
-            <div className="bg-muted/40 border border-border/60 rounded-xl p-4 space-y-3">
-              <p className="text-sm text-muted-foreground leading-relaxed">
-                <strong className="text-foreground">What to know before you start:</strong> work through
-                the material top to bottom, in order. It's built to be consumed over time, not in one
-                sitting — and our support team and mentors are here whenever you get stuck.
-              </p>
+            <div className="bg-muted/40 border border-border/60 rounded-xl p-4">
               <p className="text-sm text-muted-foreground leading-relaxed italic">
                 "Roll up your sleeves and let's get to work! Remember, you can learn at your own pace, and if
                 there's anything you don't understand, or need clarification on, please ask away. Having access
