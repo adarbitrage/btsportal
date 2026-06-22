@@ -146,10 +146,12 @@ export default function SevenPillars() {
             business — the seven elements that turn paid traffic into a profitable
             digital business.
           </p>
-          <p className="mt-3 text-sm text-muted-foreground">
-            <strong className="text-foreground">Start here.</strong> This is where your path begins — it
-            gives you the big-picture model so the hands-on build in The Blitz™ makes sense.
-          </p>
+          <div className="mt-4 rounded-xl border border-border/60 bg-muted/40 p-4">
+            <p className="text-sm text-muted-foreground">
+              <strong className="text-foreground">Start here.</strong> This is where your path begins — it
+              gives you the big-picture model so the hands-on build in The Blitz™ makes sense.
+            </p>
+          </div>
           <div className="mt-6 overflow-hidden rounded-xl border border-border/60 shadow-sm">
             <VidalyticsEmbed
               embedId="CsHMvOhZEPEm1Dpp"
