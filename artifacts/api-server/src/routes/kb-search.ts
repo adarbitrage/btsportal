@@ -157,6 +157,34 @@ router.get("/kb/browse", async (req: Request, res: Response): Promise<void> => {
   }
 });
 
+router.get("/kb/counts", async (req: Request, res: Response): Promise<void> => {
+  if (!req.userId) {
+    res.status(401).json({ error: "Authentication required" });
+    return;
+  }
+
+  try {
+    const results = await db.execute(
+      sql`SELECT category, COUNT(*)::int AS count
+            FROM knowledgebase_docs
+            WHERE
+              audience = 'member'
+              AND source_path IS NOT NULL
+            GROUP BY category`,
+    );
+
+    const counts: Record<string, number> = {};
+    for (const r of results.rows as any[]) {
+      counts[r.category as string] = Number(r.count);
+    }
+
+    res.json({ counts });
+  } catch (err) {
+    console.error("[KB Counts] Error:", err instanceof Error ? err.message : err);
+    res.status(500).json({ error: "Counts failed" });
+  }
+});
+
 router.get("/kb/search", async (req: Request, res: Response): Promise<void> => {
   if (!req.userId) {
     res.status(401).json({ error: "Authentication required" });

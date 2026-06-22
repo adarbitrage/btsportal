@@ -97,6 +97,11 @@ async function browseKB(category: string): Promise<KBResult[]> {
   return data.results ?? [];
 }
 
+async function fetchKBCounts(): Promise<Record<string, number>> {
+  const data = await customFetch<{ counts: Record<string, number> }>(`/api/kb/counts`);
+  return data.counts ?? {};
+}
+
 function stripHtmlTags(html: string): string {
   return html.replace(/<[^>]+>/g, "");
 }
@@ -139,7 +144,13 @@ function ResultItem({ result }: { result: KBResult }) {
   return content;
 }
 
-function BrowseLanding({ onSelectCategory }: { onSelectCategory: (cat: string) => void }) {
+function BrowseLanding({
+  onSelectCategory,
+  counts,
+}: {
+  onSelectCategory: (cat: string) => void;
+  counts: Record<string, number> | null;
+}) {
   return (
     <div className="space-y-8">
       <section>
@@ -174,6 +185,7 @@ function BrowseLanding({ onSelectCategory }: { onSelectCategory: (cat: string) =
           {ALL_CATEGORIES.map((cat) => {
             const style = CATEGORY_CARD_STYLES[cat];
             const Icon = style?.icon ?? BookOpen;
+            const count = counts ? (counts[cat] ?? 0) : undefined;
             return (
               <button
                 key={cat}
@@ -184,6 +196,11 @@ function BrowseLanding({ onSelectCategory }: { onSelectCategory: (cat: string) =
                 <span className="text-sm font-medium text-foreground">
                   {CATEGORY_LABELS[cat] ?? cat}
                 </span>
+                {count !== undefined && (
+                  <span className="text-xs text-muted-foreground">
+                    {count} {count === 1 ? "article" : "articles"}
+                  </span>
+                )}
               </button>
             );
           })}
@@ -332,7 +349,16 @@ export default function KnowledgeBase() {
   const [results, setResults] = useState<KBResult[] | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [counts, setCounts] = useState<Record<string, number> | null>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetchKBCounts()
+      .then((c) => { if (!cancelled) setCounts(c); })
+      .catch(() => { /* counts are non-critical; cards render without them */ });
+    return () => { cancelled = true; };
+  }, []);
 
   const runSearch = useCallback((q: string, category: string | null) => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
@@ -438,7 +464,7 @@ export default function KnowledgeBase() {
         )}
 
         {!hasQuery && !browseCategory && (
-          <BrowseLanding onSelectCategory={handleBrowseCategory} />
+          <BrowseLanding onSelectCategory={handleBrowseCategory} counts={counts} />
         )}
 
         {!hasQuery && browseCategory && (
