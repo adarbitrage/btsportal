@@ -146,6 +146,10 @@ export default function SevenPillars() {
             business — the seven elements that turn paid traffic into a profitable
             digital business.
           </p>
+          <p className="mt-3 text-sm text-muted-foreground">
+            <strong className="text-foreground">Start here.</strong> This is where your path begins — it
+            gives you the big-picture model so the hands-on build in The Blitz™ makes sense.
+          </p>
           <div className="mt-6 overflow-hidden rounded-xl border border-border/60 shadow-sm">
             <VidalyticsEmbed
               embedId="CsHMvOhZEPEm1Dpp"
@@ -418,13 +422,13 @@ export default function SevenPillars() {
               </p>
               <div className="flex flex-col sm:flex-row gap-3 pt-2">
                 <Button asChild className="gap-2">
-                  <Link href="/core-training/quick-start">
+                  <Link href="/blitz">
+                    Next: Start The Blitz™
                     <ArrowRight className="w-4 h-4" />
-                    Head to the Quick-Start Guide
                   </Link>
                 </Button>
                 <Button asChild variant="outline" className="gap-2">
-                  <Link href="/core-training">Back to Core Training</Link>
+                  <Link href="/">Back to Welcome</Link>
                 </Button>
               </div>
             </CardContent>

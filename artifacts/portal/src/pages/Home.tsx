@@ -1,5 +1,6 @@
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { useGetCurrentMember } from "@workspace/api-client-react";
 import { Link } from "wouter";
 import {
@@ -17,10 +18,28 @@ const pillars = [
   { icon: Shield, title: "Pillar 7: Sustainability", desc: "Create a business that generates long-term, passive income." },
 ];
 
-const getStartedLinks = [
-  { href: "/core-training/7-pillars", icon: Layers, title: "7 Pillars", desc: "The BTS framework" },
-  { href: "/blitz", icon: Zap, title: "The Blitz™", desc: "30-day launch sprint" },
-  { href: "/coaching", icon: Video, title: "Coaching Calls", desc: "Live group sessions" },
+const firstSteps = [
+  {
+    href: "/core-training/7-pillars",
+    icon: Layers,
+    title: "Learn the 7 Pillars",
+    desc: "Get the big-picture model behind the whole program before you build anything.",
+  },
+  {
+    href: "/blitz",
+    icon: Zap,
+    title: "Start the Blitz™",
+    desc: "Build · Test · Scale — your step-by-step sprint from setup to your first live campaign.",
+  },
+  {
+    href: "/coaching",
+    icon: Video,
+    title: "Join a live group coaching call",
+    desc: "Get your questions answered live and keep your momentum going.",
+  },
+];
+
+const exploreLinks = [
   { href: "/apps", icon: AppWindow, title: "Apps", desc: "Proprietary BTS tools" },
   { href: "/ai-assistant", icon: MessageSquare, title: "AI Assistant", desc: "Get instant help" },
   { href: "/support", icon: Rocket, title: "Support", desc: "We're here for you" },
@@ -42,6 +61,59 @@ export default function Home() {
             You are now officially enrolled in <strong className="text-foreground">Build Test Scale™</strong> Mentorship.
           </p>
         </div>
+
+        <Card className="border-primary/30 shadow-sm bg-primary/[0.03]">
+          <CardContent className="p-5 sm:p-8 md:p-10 space-y-6">
+            <div>
+              <h2 className="text-xl font-bold text-foreground">Your First Steps</h2>
+              <p className="text-muted-foreground leading-relaxed mt-2">
+                New here? Follow these three steps in order — it's the fastest path from signing up to
+                running your first campaign.
+              </p>
+            </div>
+
+            <div className="space-y-3">
+              {firstSteps.map((s) => (
+                <Link
+                  key={s.href}
+                  href={s.href}
+                  className="block rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                >
+                  <div className="flex items-start gap-4 p-4 rounded-xl border border-border/60 bg-background hover:border-foreground/30 hover:bg-muted/40 transition-all cursor-pointer group">
+                    <div className="w-10 h-10 rounded-full bg-primary/10 text-primary flex items-center justify-center shrink-0">
+                      <s.icon className="w-5 h-5" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <h4 className="font-semibold text-foreground">{s.title}</h4>
+                      <p className="text-sm text-muted-foreground mt-1">{s.desc}</p>
+                    </div>
+                    <ArrowRight className="w-4 h-4 text-muted-foreground self-center ml-auto opacity-0 group-hover:opacity-100 transition-opacity" />
+                  </div>
+                </Link>
+              ))}
+            </div>
+
+            <div className="flex flex-col sm:flex-row sm:items-center gap-3 pt-1">
+              <Button asChild size="lg" className="gap-2">
+                <Link href="/core-training/7-pillars">
+                  Start with the 7 Pillars
+                  <ArrowRight className="w-4 h-4" />
+                </Link>
+              </Button>
+              <p className="text-sm text-muted-foreground">
+                Start at the top — no setup required yet.
+              </p>
+            </div>
+
+            <div className="bg-muted/40 border border-border/60 rounded-xl p-4">
+              <p className="text-sm text-muted-foreground leading-relaxed">
+                <strong className="text-foreground">What to know before you start:</strong> work through
+                the material top to bottom, in order. It's built to be consumed over time, not in one
+                sitting — and our support team and mentors are here whenever you get stuck.
+              </p>
+            </div>
+          </CardContent>
+        </Card>
 
         <Card className="border-border/60 shadow-sm">
           <CardContent className="p-5 sm:p-8 md:p-10 space-y-6">
@@ -123,9 +195,10 @@ export default function Home() {
                 and digest when taken a little slower.
               </p>
               <p>
-                We recommend you complete each lesson in the Core Training section in the order it's delivered.
-                Go through the material as it is laid out, top to bottom, and when you need help, our support
-                team and amazing mentors will be available to answer your questions.
+                We recommend you start with the 7 Pillars and then move into The Blitz™, completing each
+                lesson in the order it's delivered. Go through the material as it is laid out, top to bottom,
+                and when you need help, our support team and amazing mentors will be available to answer your
+                questions.
               </p>
             </div>
           </CardContent>
@@ -133,9 +206,12 @@ export default function Home() {
 
         <Card className="border-border/60 shadow-sm">
           <CardContent className="p-5 sm:p-8 md:p-10">
-            <h2 className="text-xl font-bold text-foreground mb-6">Get Started Now</h2>
+            <h2 className="text-xl font-bold text-foreground mb-1">Explore Your Portal</h2>
+            <p className="text-sm text-muted-foreground mb-6">
+              Once you've started the path above, here's everything else you have access to.
+            </p>
             <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {getStartedLinks.map((l) => (
+              {exploreLinks.map((l) => (
                 <Link key={l.href} href={l.href}>
                   <div className="flex items-center gap-3 p-4 rounded-xl border border-border/60 hover:border-foreground/30 hover:bg-muted/40 transition-all cursor-pointer group h-full">
                     <l.icon className="w-7 h-7 text-foreground shrink-0" />

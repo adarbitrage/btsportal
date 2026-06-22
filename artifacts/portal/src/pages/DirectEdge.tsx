@@ -213,7 +213,7 @@ export default function DirectEdge() {
               <Link href="/core-training">
                 <Button variant="outline" className="gap-2">
                   <ArrowRight className="w-4 h-4 rotate-180" />
-                  Back to Core Training
+                  Back to Training
                 </Button>
               </Link>
             </div>

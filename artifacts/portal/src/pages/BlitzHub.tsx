@@ -3,7 +3,7 @@ import { Link } from "wouter";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Zap, ArrowUpRight, Check, Lock } from "lucide-react";
+import { Zap, ArrowUpRight, Check, Lock, ArrowLeft } from "lucide-react";
 import {
   BLITZ_SECTIONS,
   BLITZ_SECTION_COUNT,
@@ -514,6 +514,19 @@ export default function BlitzHub() {
             launching profitable affiliate marketing campaigns. Work through each module in order, make
             decisions based on data, and the results will follow.
           </p>
+
+          <div className="rounded-xl border border-border/60 bg-muted/40 p-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-sm text-muted-foreground">
+              <strong className="text-foreground">Just finished the 7 Pillars?</strong> You've learned the
+              framework — now you build. Start at the Introduction below and follow the steps in order.
+            </p>
+            <Button asChild variant="outline" size="sm" className="gap-2 shrink-0">
+              <Link href="/core-training/7-pillars">
+                <ArrowLeft className="w-4 h-4" />
+                Back to the 7 Pillars
+              </Link>
+            </Button>
+          </div>
         </div>
 
         {phaseGroups.map((group) => {
