@@ -83,7 +83,7 @@ function PillarQuickNav() {
   };
 
   return (
-    <nav aria-label="Jump to a pillar" className="-mt-3 -mb-3">
+    <nav aria-label="Jump to a pillar" className="-mt-3">
       <div className="overflow-x-auto pb-1">
         <div className="grid grid-cols-8 gap-1.5 sm:gap-2 min-w-[680px]">
           {pillars.map((pillar) => {
