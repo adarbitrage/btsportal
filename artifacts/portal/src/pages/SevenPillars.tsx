@@ -83,7 +83,7 @@ function PillarQuickNav() {
   };
 
   return (
-    <nav aria-label="Jump to a pillar" className="-mt-3">
+    <nav aria-label="Jump to a pillar" className="!mt-3">
       <div className="overflow-x-auto pb-1">
         <div className="grid grid-cols-8 gap-1.5 sm:gap-2 min-w-[680px]">
           {pillars.map((pillar) => {
@@ -112,7 +112,7 @@ function PillarQuickNav() {
           <button
             type="button"
             onClick={() => scrollToPillar("conclusion")}
-            className="group flex flex-col items-center gap-1.5 rounded-xl border border-primary/30 bg-primary/5 px-1 py-2.5 text-center transition-colors hover:border-primary/50 hover:bg-primary/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
+            className="group flex flex-col items-center gap-1.5 rounded-xl border border-border/60 bg-card px-1 py-2.5 text-center transition-colors hover:border-primary/40 hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
           >
             <span className="flex h-8 w-8 items-center justify-center rounded-lg border bg-primary/10 border-primary/30 shrink-0">
               <Rocket className="h-4 w-4 text-primary" />
@@ -215,7 +215,7 @@ export default function SevenPillars() {
 
         <PillarQuickNav />
 
-        <section id="welcome">
+        <section id="welcome" className="!mt-3">
           <Card className="border-border/60 shadow-sm">
             <CardContent className="p-8 md:p-10 space-y-5">
               <h2 className="text-2xl font-bold text-foreground">
