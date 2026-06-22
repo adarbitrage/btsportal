@@ -1,0 +1,16 @@
+1. The search problem — what to ask your developer for
+Since it's flat files/CMS without a real database, the search is probably running client-side or through a simple indexed search library (think Lunr.js, Algolia, Fuse.js, or a basic CMS plugin). The fix isn't re-architecting anything — it's a matching mode change. Specifically, ask your developer to check/change:
+
+Switch from AND/phrase matching to OR matching with relevance scoring. Every good search tool (Algolia, Fuse.js, Lunr, Elasticsearch) supports this — it's usually one config flag, not a rebuild. The fix is making sure individual keyword matches still surface results, ranked by relevance, rather than requiring all words to match closely together.
+Add fuzzy matching / typo tolerance if not already on — catches "starting" matching "start," "started," "getting started."
+Check what fields are actually indexed. If search only looks at title + a one-line description, that explains weak results. Ask whether body content, tags, and phase/step metadata are included in the search index.
+Weight title matches higher than body matches so the most relevant lesson surfaces first instead of getting buried.
+
+This is worth raising as its own ticket to whoever handles your changes — it's likely a quick fix once someone looks at the search config, and it'll have the single biggest impact on usability since it affects every search a mentee runs.
+2. The navigation/design problem — what you can likely do yourself
+Even with great search, 100+ items needs browse paths for people who don't know what to search for yet. Right now the page only offers a search box — there's no way to browse by category without typing something first. A few concrete additions:
+
+Show popular/featured categories or starting points by default, before anyone types anything — e.g. "New to BTS? Start here" with links to Lesson 1-3, or cards for each Phase.
+Use your existing filter tags as a browsable grid, not just post-search filters. Blitz Guide, Resource Library, Glossary, Apps & Tools, FAQ, Training, Coaching — turn these into clickable cards on the landing page itself.
+Surface your Blitz phase structure (Phase 1, 2, 3 — I can see "Phase 2 — Test" in your results) as its own browsing hierarchy, since mentees will often know their phase before they know the exact lesson name.
+
