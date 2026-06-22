@@ -7,7 +7,6 @@ import {
   Search,
   BookOpen,
   Loader2,
-  ChevronRight,
   ArrowLeft,
   Zap,
   Library,
@@ -16,15 +15,9 @@ import {
   HelpCircle,
   GraduationCap,
   Users,
-  Rocket,
   Bookmark,
 } from "lucide-react";
 import { customFetch } from "@workspace/api-client-react";
-import {
-  BLITZ_PHASES,
-  BLITZ_SECTIONS,
-  type BlitzPhaseKey,
-} from "@workspace/blitz-curriculum";
 
 interface KBResult {
   id: number;
@@ -69,22 +62,6 @@ const CATEGORY_CARD_STYLES: Record<string, { icon: React.ElementType; bg: string
 };
 
 const ALL_CATEGORIES = ["blitz", "resource", "glossary", "tools", "faq", "curriculum", "coaching"];
-
-const PHASE_FIRST_LESSON: Partial<Record<BlitzPhaseKey, number>> = Object.fromEntries(
-  BLITZ_PHASES.map((phase) => {
-    const first = BLITZ_SECTIONS.find((s) => s.phase === phase.key);
-    return [phase.key, first?.id];
-  }).filter(([, id]) => id !== undefined),
-) as Partial<Record<BlitzPhaseKey, number>>;
-
-const PHASE_DESCRIPTIONS: Record<BlitzPhaseKey, string> = {
-  intro: "What affiliate arbitrage is and how the system works.",
-  build: "Set up your campaign, creative assets, and go live.",
-  test:  "Run structured testing rounds to find your winners.",
-  scale: "Maximize your best placements and grow revenue.",
-};
-
-const START_HERE_LESSONS = BLITZ_SECTIONS.filter((s) => s.id <= 3);
 
 interface KBSearchResponse {
   results: KBResult[];
@@ -271,30 +248,6 @@ export function BrowseLanding({
       )}
 
       <section>
-        <div className="flex items-center gap-2 mb-3">
-          <Rocket className="w-4 h-4 text-primary" />
-          <h2 className="text-sm font-semibold text-foreground uppercase tracking-wide">
-            New to BTS? Start here
-          </h2>
-        </div>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-          {START_HERE_LESSONS.map((lesson) => (
-            <Link key={lesson.id} href={`/blitz/guide/${lesson.id}`}>
-              <div className="group flex flex-col gap-1.5 p-4 rounded-lg border border-blue-200 bg-blue-50 hover:border-blue-400 hover:bg-blue-100 transition-all cursor-pointer">
-                <span className="text-[10px] font-semibold uppercase tracking-wide text-blue-500">
-                  Lesson {lesson.id}
-                </span>
-                <span className="text-sm font-medium text-blue-900 group-hover:text-blue-700 leading-snug">
-                  {lesson.title}
-                </span>
-                <ChevronRight className="w-3.5 h-3.5 text-blue-400 group-hover:text-blue-600 mt-auto self-end transition-colors" />
-              </div>
-            </Link>
-          ))}
-        </div>
-      </section>
-
-      <section>
         <h2 className="text-sm font-semibold text-foreground uppercase tracking-wide mb-3">
           Browse by category
         </h2>
@@ -324,59 +277,6 @@ export function BrowseLanding({
         </div>
       </section>
 
-      <section>
-        <div className="flex items-center gap-2 mb-3">
-          <Zap className="w-4 h-4 text-primary" />
-          <h2 className="text-sm font-semibold text-foreground uppercase tracking-wide">
-            Blitz phases
-          </h2>
-        </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          {BLITZ_PHASES.filter((p) => p.key !== "intro").map((phase) => {
-            const firstLesson = PHASE_FIRST_LESSON[phase.key];
-            if (firstLesson === undefined) return null;
-            const lessonCount = BLITZ_SECTIONS.filter((s) => s.phase === phase.key).length;
-            return (
-              <Link key={phase.key} href={`/blitz/guide/${firstLesson}`}>
-                <div
-                  className="group flex items-start gap-3 p-4 rounded-lg border transition-all cursor-pointer hover:shadow-sm"
-                  style={{
-                    borderColor: `${phase.color}40`,
-                    backgroundColor: `${phase.color}0d`,
-                  }}
-                  onMouseEnter={(e) => {
-                    (e.currentTarget as HTMLDivElement).style.borderColor = `${phase.color}99`;
-                    (e.currentTarget as HTMLDivElement).style.backgroundColor = `${phase.color}1a`;
-                  }}
-                  onMouseLeave={(e) => {
-                    (e.currentTarget as HTMLDivElement).style.borderColor = `${phase.color}40`;
-                    (e.currentTarget as HTMLDivElement).style.backgroundColor = `${phase.color}0d`;
-                  }}
-                >
-                  <div
-                    className="mt-0.5 w-2.5 h-2.5 rounded-full shrink-0 mt-1.5"
-                    style={{ backgroundColor: phase.color }}
-                  />
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="text-sm font-semibold text-foreground group-hover:opacity-80 transition-opacity">
-                        {phase.label}
-                      </span>
-                      <span className="text-[10px] text-muted-foreground shrink-0">
-                        {lessonCount} lessons
-                      </span>
-                    </div>
-                    <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">
-                      {PHASE_DESCRIPTIONS[phase.key]}
-                    </p>
-                  </div>
-                  <ChevronRight className="w-4 h-4 text-muted-foreground shrink-0 mt-0.5 group-hover:text-foreground transition-colors" />
-                </div>
-              </Link>
-            );
-          })}
-        </div>
-      </section>
     </div>
   );
 }

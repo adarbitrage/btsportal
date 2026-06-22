@@ -1,3 +1,6 @@
+import fs from "fs";
+import path from "path";
+import { fileURLToPath } from "url";
 import { db, toolsTable, vaultResourcesTable } from "@workspace/db";
 import { sql, eq } from "drizzle-orm";
 import { BLITZ_SECTIONS, BLITZ_PHASE_MAP } from "@workspace/blitz-curriculum";
@@ -170,6 +173,79 @@ async function buildVaultResourceDocs(): Promise<MemberDoc[]> {
   }));
 }
 
+const QA_ARTICLES_PATH = path.join(
+  path.dirname(fileURLToPath(import.meta.url)),
+  "../knowledge-base/qa-articles.txt",
+);
+
+const COACHING_TITLE_KEYWORDS = [
+  "coaching call",
+  "coaching calls",
+  "kick-off call",
+  "kickoff call",
+  "launchpad onboarding call",
+  "book a session with the bts concierge",
+  "book a 1-on-1",
+  "thursday live coaching",
+  "missed my launchpad onboarding call",
+];
+
+function isCoachingEntry(title: string): boolean {
+  const lc = title.toLowerCase();
+  return COACHING_TITLE_KEYWORDS.some((kw) => lc.includes(kw));
+}
+
+function parseQAArticlesFile(): Array<{ title: string; content: string }> {
+  let raw = "";
+  try {
+    raw = fs.readFileSync(QA_ARTICLES_PATH, "utf-8");
+  } catch {
+    console.warn("[seed-kb-member] Could not read qa-articles.txt — coaching/faq docs skipped.");
+    return [];
+  }
+  const entries: Array<{ title: string; content: string }> = [];
+  const parts = raw.split(/\n### /);
+  for (let i = 1; i < parts.length; i++) {
+    const part = parts[i];
+    const lines = part.split("\n");
+    const title = lines[0].trim();
+    if (!title) continue;
+    const rest = lines.slice(1).join("\n");
+    const contentMatch = rest.match(/Content:\s*\n([\s\S]*?)(?:\* \* \*|$)/);
+    const content = contentMatch
+      ? contentMatch[1].trim()
+      : rest.replace(/Description:.*\n/, "").trim();
+    if (title && content && content.length > 30) {
+      entries.push({ title, content: content.slice(0, 6000) });
+    }
+  }
+  return entries;
+}
+
+function buildCoachingDocs(): MemberDoc[] {
+  return parseQAArticlesFile()
+    .filter((e) => isCoachingEntry(e.title))
+    .map((e) => ({
+      title: e.title,
+      category: "coaching",
+      content: e.content,
+      sourcePath: "/coaching",
+      sourceLabel: "Coaching",
+    }));
+}
+
+function buildFaqDocs(): MemberDoc[] {
+  return parseQAArticlesFile()
+    .filter((e) => !isCoachingEntry(e.title))
+    .map((e) => ({
+      title: e.title,
+      category: "faq",
+      content: e.content,
+      sourcePath: "/support",
+      sourceLabel: "Support",
+    }));
+}
+
 export async function seedMemberBroadContent(): Promise<void> {
   console.log("[seed-kb-member] Seeding member-facing broad content index...");
 
@@ -179,6 +255,8 @@ export async function seedMemberBroadContent(): Promise<void> {
     ...buildBlitzDocs(),
     ...buildResourceLibraryDocs(),
     ...buildGlossaryDocs(),
+    ...buildCoachingDocs(),
+    ...buildFaqDocs(),
     ...toolDocs,
     ...vaultDocs,
   ];
@@ -194,6 +272,7 @@ export async function seedMemberBroadContent(): Promise<void> {
         sql`INSERT INTO knowledgebase_docs (title, category, content, audience, source_path, source_label)
             VALUES (${cleanTitle}, ${doc.category}, ${cleanContent}, 'member', ${doc.sourcePath}, ${doc.sourceLabel})
             ON CONFLICT (title) DO UPDATE SET
+              category = EXCLUDED.category,
               content = EXCLUDED.content,
               source_path = EXCLUDED.source_path,
               source_label = EXCLUDED.source_label,
