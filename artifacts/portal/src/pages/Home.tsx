@@ -5,17 +5,17 @@ import { useGetCurrentMember } from "@workspace/api-client-react";
 import { Link } from "wouter";
 import {
   Layers, ArrowRight, Mail, Target,
-  DollarSign, Lightbulb, Users, GraduationCap, Shield, Sparkles, Video, Zap
+  Sparkles, Video, Zap, Briefcase, ShoppingBag, Users2, Heart
 } from "lucide-react";
 
 const pillars = [
-  { icon: Target, title: "Pillar 1: Foundation", desc: "Set up your digital business infrastructure the right way from day one." },
-  { icon: Mail, title: "Pillar 2: Traffic Mastery", desc: "Learn paid email media buys — the fastest way to generate mass traffic." },
-  { icon: DollarSign, title: "Pillar 3: Monetization", desc: "Turn that traffic into consistent, scalable revenue streams." },
-  { icon: Lightbulb, title: "Pillar 4: Optimization", desc: "Refine your campaigns for maximum ROI using data-driven strategies." },
-  { icon: Users, title: "Pillar 5: Relationships", desc: "Build lasting partnerships with traffic sources and affiliate networks." },
-  { icon: GraduationCap, title: "Pillar 6: Scaling", desc: "Take what works and multiply it across new markets and offers." },
-  { icon: Shield, title: "Pillar 7: Sustainability", desc: "Create a business that generates long-term, passive income." },
+  { icon: Briefcase, title: "Pillar 1: The Business Model", desc: "Affiliate Arbitrage — use paid advertising to promote affiliate offers for profit." },
+  { icon: ShoppingBag, title: "Pillar 2: The Market", desc: "Choose markets that consistently deliver, like trendy gadgets and health & wellness." },
+  { icon: Users2, title: "Pillar 3: The Demographic", desc: "Target the audience that spends, with a focus on Baby Boomers." },
+  { icon: Mail, title: "Pillar 4: The Traffic Channel", desc: "Promote through email by leveraging existing email lists." },
+  { icon: Target, title: "Pillar 5: The Strategy", desc: "A two-phase approach: email sponsorships, then dedicated emails." },
+  { icon: Zap, title: "Pillar 6: The Edge", desc: "Proprietary software (Paid Media Suite™) and the BTS Concierge™." },
+  { icon: Heart, title: "Pillar 7: The Commitment", desc: "A legitimate business model requiring consistent, dedicated action." },
 ];
 
 const firstSteps = [
