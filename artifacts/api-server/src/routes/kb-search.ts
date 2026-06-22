@@ -93,6 +93,70 @@ async function trigramFallback(
   }
 }
 
+router.get("/kb/browse", async (req: Request, res: Response): Promise<void> => {
+  if (!req.userId) {
+    res.status(401).json({ error: "Authentication required" });
+    return;
+  }
+
+  const rawLimit = parseInt(String(req.query.limit ?? "30"), 10);
+  const limit = isNaN(rawLimit) || rawLimit < 1 ? 30 : Math.min(rawLimit, 50);
+  const category = typeof req.query.category === "string" && req.query.category ? req.query.category : null;
+
+  try {
+    let results;
+    if (category) {
+      results = await db.execute(
+        sql`SELECT
+              id,
+              title,
+              category,
+              source_path,
+              source_label,
+              left(content, 200) AS snippet
+            FROM knowledgebase_docs
+            WHERE
+              audience = 'member'
+              AND source_path IS NOT NULL
+              AND category = ${category}
+            ORDER BY title ASC
+            LIMIT ${limit}`,
+      );
+    } else {
+      results = await db.execute(
+        sql`SELECT
+              id,
+              title,
+              category,
+              source_path,
+              source_label,
+              left(content, 200) AS snippet
+            FROM knowledgebase_docs
+            WHERE
+              audience = 'member'
+              AND source_path IS NOT NULL
+            ORDER BY category ASC, title ASC
+            LIMIT ${limit}`,
+      );
+    }
+
+    const rows = (results.rows as any[]).map((r) => ({
+      id: r.id as number,
+      title: r.title as string,
+      category: r.category as string,
+      sourcePath: (r.source_path as string | null) ?? null,
+      sourceLabel: (r.source_label as string | null) ?? null,
+      snippet: (r.snippet as string | null) ?? "",
+      rank: 0,
+    }));
+
+    res.json({ results: rows });
+  } catch (err) {
+    console.error("[KB Browse] Error:", err instanceof Error ? err.message : err);
+    res.status(500).json({ error: "Browse failed" });
+  }
+});
+
 router.get("/kb/search", async (req: Request, res: Response): Promise<void> => {
   if (!req.userId) {
     res.status(401).json({ error: "Authentication required" });
