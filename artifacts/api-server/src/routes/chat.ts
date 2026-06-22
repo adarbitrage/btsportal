@@ -14,7 +14,7 @@ import {
 } from "@workspace/db";
 import { eq, and, desc, sql, asc } from "drizzle-orm";
 import { getAnthropicClient } from "@workspace/integrations-anthropic-ai";
-import { getUserEntitlements } from "../lib/entitlements";
+import { getUserEntitlements, hasMemberAccessBypass } from "../lib/entitlements";
 
 const router: IRouter = Router();
 
@@ -26,10 +26,11 @@ interface ChatTierConfig {
   knowledgebaseCategories: string[];
 }
 
-function getChatTier(entitlements: Set<string>): string {
+function getChatTier(entitlements: Set<string>, bypass = false): string {
   if (entitlements.has("chat:custom")) return "chat:custom";
   if (entitlements.has("chat:full")) return "chat:full";
   if (entitlements.has("chat:basic")) return "chat:basic";
+  if (bypass) return "chat:full";
   return "none";
 }
 
@@ -186,7 +187,7 @@ router.post("/chat", async (req, res): Promise<void> => {
   }
 
   const entitlements = await getUserEntitlements(userId);
-  const chatTier = getChatTier(entitlements);
+  const chatTier = getChatTier(entitlements, await hasMemberAccessBypass(userId));
 
   if (chatTier === "none") {
     res.status(403).json({ error: "You do not have access to the AI chat assistant. Please upgrade your plan." });
@@ -320,7 +321,7 @@ router.get("/chat/sessions", async (req, res): Promise<void> => {
   const offset = (page - 1) * limit;
 
   const entitlements = await getUserEntitlements(userId);
-  const chatTier = getChatTier(entitlements);
+  const chatTier = getChatTier(entitlements, await hasMemberAccessBypass(userId));
   const config = await getTierConfig(chatTier);
   const retentionCutoff = getRetentionFilter(config.sessionRetentionDays);
 
@@ -378,7 +379,7 @@ router.get("/chat/sessions/:sessionId", async (req, res): Promise<void> => {
   }
 
   const entitlements = await getUserEntitlements(userId);
-  const chatTier = getChatTier(entitlements);
+  const chatTier = getChatTier(entitlements, await hasMemberAccessBypass(userId));
   const config = await getTierConfig(chatTier);
   const retentionCutoff = getRetentionFilter(config.sessionRetentionDays);
 
@@ -432,7 +433,7 @@ router.delete("/chat/sessions/:sessionId", async (req, res): Promise<void> => {
 router.get("/chat/status", async (req, res): Promise<void> => {
   const userId = req.userId!;
   const entitlements = await getUserEntitlements(userId);
-  const chatTier = getChatTier(entitlements);
+  const chatTier = getChatTier(entitlements, await hasMemberAccessBypass(userId));
   const config = await getTierConfig(chatTier);
   const usedToday = await getDailyUsage(userId);
 
@@ -586,7 +587,7 @@ function generateTicketNumber(): string {
 router.post("/chat/create-ticket", async (req, res): Promise<void> => {
   const userId = req.userId!;
   const entitlements = await getUserEntitlements(userId);
-  const chatTier = getChatTier(entitlements);
+  const chatTier = getChatTier(entitlements, await hasMemberAccessBypass(userId));
 
   if (chatTier !== "chat:full" && chatTier !== "chat:custom") {
     res.status(403).json({ error: "Creating tickets from chat is only available for chat:full and chat:custom tiers" });

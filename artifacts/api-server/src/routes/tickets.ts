@@ -24,7 +24,7 @@ import {
 } from "@workspace/api-zod";
 import { createSlaForTicket, resumeSla, recordFirstResponse } from "../lib/sla";
 import { autoRouteTicket } from "../lib/ticket-routing";
-import { getUserEntitlements, getSupportTicketLimit } from "../lib/entitlements";
+import { getUserEntitlements, getSupportTicketLimit, hasMemberAccessBypass } from "../lib/entitlements";
 import { sendError } from "../lib/api-errors";
 import { CommunicationService } from "../lib/communication-service";
 import { TICKET_CATEGORY } from "@workspace/support-config";
@@ -205,7 +205,9 @@ router.post("/tickets", async (req, res): Promise<void> => {
   // ticket-create requests for *the same user* without contending across
   // different members.
   const entitlements = await getUserEntitlements(userId);
-  const ticketLimit = getSupportTicketLimit(entitlements);
+  const ticketLimit = (await hasMemberAccessBypass(userId))
+    ? -1
+    : getSupportTicketLimit(entitlements);
 
   type CreateOutcome =
     | { kind: "ok"; ticket: typeof ticketsTable.$inferSelect }

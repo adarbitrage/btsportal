@@ -1,5 +1,6 @@
-import { db, userProductsTable, productsTable } from "@workspace/db";
+import { db, userProductsTable, productsTable, usersTable } from "@workspace/db";
 import { eq, and, or, isNull, gte } from "drizzle-orm";
+import { isAdminRole, isCoachRole } from "@workspace/auth";
 
 export async function getUserEntitlements(userId: number): Promise<Set<string>> {
   const now = new Date();
@@ -39,6 +40,25 @@ export async function getUserEntitlements(userId: number): Promise<Set<string>> 
 export async function hasEntitlement(userId: number, key: string): Promise<boolean> {
   const entitlements = await getUserEntitlements(userId);
   return entitlements.has(key);
+}
+
+/**
+ * Coaches and admins get full access to member features regardless of which
+ * products they own. Entitlements are strictly product-derived (see
+ * getUserEntitlements), so this role-based bypass is enforced separately at each
+ * member-feature gate — mirroring the frontend (Sidebar + EntitlementRoute),
+ * which grants the same bypass via `isAdminUser || isCoach`.
+ *
+ * Never fold this into getUserEntitlements: tier/label/commission math must stay
+ * strictly product-derived (e.g. getHighestProductLabel, commission tiers).
+ */
+export async function hasMemberAccessBypass(userId: number): Promise<boolean> {
+  const [user] = await db
+    .select({ role: usersTable.role })
+    .from(usersTable)
+    .where(eq(usersTable.id, userId))
+    .limit(1);
+  return !!user && (isAdminRole(user.role) || isCoachRole(user.role));
 }
 
 export async function getUserProducts(userId: number) {

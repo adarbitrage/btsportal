@@ -3,7 +3,7 @@ import { db, usersTable, voiceCallsTable, voiceDailyUsageTable, knowledgebaseDoc
 import { eq, sql, and, desc } from "drizzle-orm";
 import { isAdminRole } from "@workspace/auth";
 import Retell from "retell-sdk";
-import { hasEntitlement } from "../lib/entitlements";
+import { hasEntitlement, hasMemberAccessBypass } from "../lib/entitlements";
 import { buildMemberVoiceContext } from "../lib/voice-context";
 import { requirePermission } from "../middleware/rbac";
 import { csvEscape } from "../lib/csv";
@@ -90,7 +90,7 @@ router.get("/voice/status", async (req: Request, res: Response): Promise<void> =
   const userId = req.userId!;
 
   const isAdmin = await getIsAdmin(userId);
-  const hasAccess = isAdmin || (await hasEntitlement(userId, "voice:access"));
+  const hasAccess = isAdmin || (await hasMemberAccessBypass(userId)) || (await hasEntitlement(userId, "voice:access"));
   const secondsUsedToday = await getDailySecondsUsed(userId);
   const secondsRemaining = Math.max(0, VOICE_DAILY_SECONDS_CAP - secondsUsedToday);
 
@@ -216,7 +216,7 @@ router.post("/voice/web-call", async (req: Request, res: Response): Promise<void
   }
 
   const isAdmin = await getIsAdmin(userId);
-  const hasAccess = isAdmin || (await hasEntitlement(userId, "voice:access"));
+  const hasAccess = isAdmin || (await hasMemberAccessBypass(userId)) || (await hasEntitlement(userId, "voice:access"));
 
   if (!hasAccess) {
     res.status(403).json({ error: "voice_access_required", message: "Voice assistant requires a higher membership level." });

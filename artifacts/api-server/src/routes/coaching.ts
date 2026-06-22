@@ -2,7 +2,7 @@ import { Router, type IRouter } from "express";
 import { db, coachingCallsTable, coachesTable, coachingCallAttendanceTable } from "@workspace/db";
 import { and, eq, gte, isNotNull, sql } from "drizzle-orm";
 import { ListCoachingCallsResponse, ListCoachesResponse } from "@workspace/api-zod";
-import { getUserEntitlements } from "../lib/entitlements";
+import { getUserEntitlements, hasMemberAccessBypass } from "../lib/entitlements";
 import { getCallUpgradeUrl } from "../lib/coaching-upgrade";
 import { queueGHLSync } from "../lib/ghl-queue";
 
@@ -12,7 +12,10 @@ router.get("/coaching-calls", async (req, res): Promise<void> => {
   const userId = req.userId!;
   const upcoming = req.query.upcoming === "true";
   const now = new Date();
-  const entitlements = await getUserEntitlements(userId);
+  const [entitlements, bypass] = await Promise.all([
+    getUserEntitlements(userId),
+    hasMemberAccessBypass(userId),
+  ]);
 
   let query = db
     .select({
@@ -53,7 +56,7 @@ router.get("/coaching-calls", async (req, res): Promise<void> => {
     : await query;
 
   const mapped = calls.map(({ registeredAt, cancelledAt, ...c }) => {
-    const isAccessible = entitlements.has(c.requiredEntitlement);
+    const isAccessible = bypass || entitlements.has(c.requiredEntitlement);
     const cancelled = cancelledAt !== null;
     return {
       ...c,
@@ -90,8 +93,11 @@ async function getAccessibleCall(
     .from(coachingCallsTable)
     .where(eq(coachingCallsTable.id, callId));
   if (!call) return null;
-  const entitlements = await getUserEntitlements(userId);
-  if (!entitlements.has(call.requiredEntitlement)) return null;
+  const [entitlements, bypass] = await Promise.all([
+    getUserEntitlements(userId),
+    hasMemberAccessBypass(userId),
+  ]);
+  if (!bypass && !entitlements.has(call.requiredEntitlement)) return null;
   return { id: call.id, cancelledAt: call.cancelledAt };
 }
 

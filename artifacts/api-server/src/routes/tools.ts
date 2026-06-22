@@ -2,9 +2,22 @@ import { getParam } from "../lib/params";
 import { Router, type IRouter } from "express";
 import { db, toolsTable, toolCategoriesTable, toolUserDataTable, toolUsageLogTable, toolDailyUsageTable } from "@workspace/db";
 import { eq, and, sql, desc } from "drizzle-orm";
-import { getUserEntitlements } from "../lib/entitlements";
+import { getUserEntitlements, hasMemberAccessBypass } from "../lib/entitlements";
 
 const router: IRouter = Router();
+
+// Coaches and admins get the full software tier regardless of purchased products
+// (mirrors the frontend Sidebar/EntitlementRoute bypass). Augmenting the set
+// here keeps every downstream access/tier check in this router working unchanged
+// without granting these keys in getUserEntitlements.
+async function getToolEntitlements(userId: number): Promise<Set<string>> {
+  const entitlements = await getUserEntitlements(userId);
+  if (await hasMemberAccessBypass(userId)) {
+    entitlements.add("software:base");
+    entitlements.add("software:expanded");
+  }
+  return entitlements;
+}
 
 async function verifyToolAccess(toolId: number, entitlements: Set<string>): Promise<{ allowed: boolean; tool?: any }> {
   if (isNaN(toolId) || toolId < 1) return { allowed: false };
@@ -25,7 +38,7 @@ function resolveAccess(
 
 router.get("/tools", async (req, res): Promise<void> => {
   const userId = req.userId!;
-  const entitlements = await getUserEntitlements(userId);
+  const entitlements = await getToolEntitlements(userId);
 
   if (!entitlements.has("software:base") && !entitlements.has("software:expanded")) {
     res.status(403).json({ error: "Software entitlement required" });
@@ -70,7 +83,7 @@ router.get("/tools", async (req, res): Promise<void> => {
 router.get("/tools/:slug", async (req, res): Promise<void> => {
   const userId = req.userId!;
   const slug = getParam(req.params.slug);
-  const entitlements = await getUserEntitlements(userId);
+  const entitlements = await getToolEntitlements(userId);
 
   if (!entitlements.has("software:base") && !entitlements.has("software:expanded")) {
     res.status(403).json({ error: "Software entitlement required" });
@@ -144,7 +157,7 @@ router.get("/tools/:slug", async (req, res): Promise<void> => {
 router.get("/tools/:toolId/data", async (req, res): Promise<void> => {
   const userId = req.userId!;
   const toolId = parseInt(req.params.toolId);
-  const entitlements = await getUserEntitlements(userId);
+  const entitlements = await getToolEntitlements(userId);
   const { allowed } = await verifyToolAccess(toolId, entitlements);
   if (!allowed) {
     res.status(403).json({ error: "Access denied to this tool" });
@@ -174,7 +187,7 @@ router.post("/tools/:toolId/data", async (req, res): Promise<void> => {
     res.status(400).json({ error: "dataKey and dataValue are required" });
     return;
   }
-  const entitlements = await getUserEntitlements(userId);
+  const entitlements = await getToolEntitlements(userId);
   const { allowed } = await verifyToolAccess(toolId, entitlements);
   if (!allowed) {
     res.status(403).json({ error: "Access denied to this tool" });
@@ -209,7 +222,7 @@ router.put("/tools/:toolId/data/:dataKey", async (req, res): Promise<void> => {
     res.status(400).json({ error: "dataValue is required" });
     return;
   }
-  const entitlements = await getUserEntitlements(userId);
+  const entitlements = await getToolEntitlements(userId);
   const { allowed } = await verifyToolAccess(toolId, entitlements);
   if (!allowed) {
     res.status(403).json({ error: "Access denied to this tool" });
@@ -247,7 +260,7 @@ router.delete("/tools/:toolId/data/:dataKey", async (req, res): Promise<void> =>
   const userId = req.userId!;
   const toolId = parseInt(req.params.toolId);
   const dataKey = getParam(req.params.dataKey);
-  const entitlements = await getUserEntitlements(userId);
+  const entitlements = await getToolEntitlements(userId);
   const { allowed } = await verifyToolAccess(toolId, entitlements);
   if (!allowed) {
     res.status(403).json({ error: "Access denied to this tool" });
@@ -275,7 +288,7 @@ router.post("/tools/:toolId/usage", async (req, res): Promise<void> => {
     res.status(400).json({ error: "action is required" });
     return;
   }
-  const entitlements = await getUserEntitlements(userId);
+  const entitlements = await getToolEntitlements(userId);
   const { allowed } = await verifyToolAccess(toolId, entitlements);
   if (!allowed) {
     res.status(403).json({ error: "Access denied to this tool" });
@@ -368,7 +381,7 @@ async function verifyToolBySlug(slug: string, entitlements: Set<string>): Promis
 
 router.post("/tools/headline-generator/generate", async (req, res): Promise<void> => {
   const userId = req.userId!;
-  const entitlements = await getUserEntitlements(userId);
+  const entitlements = await getToolEntitlements(userId);
 
   const access = await verifyToolBySlug("headline-generator", entitlements);
   if (!access.allowed || !access.tool) {
@@ -462,7 +475,7 @@ Generate ${headlineCount} headlines:`;
 
 router.post("/tools/campaign-calculator/analyze", async (req, res): Promise<void> => {
   const userId = req.userId!;
-  const entitlements = await getUserEntitlements(userId);
+  const entitlements = await getToolEntitlements(userId);
 
   const access = await verifyToolBySlug("campaign-calculator", entitlements);
   if (!access.allowed || !access.tool) {

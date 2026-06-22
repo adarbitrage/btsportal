@@ -2,20 +2,23 @@ import { Router, type IRouter } from "express";
 import { db, tracksTable, modulesTable, lessonsTable, progressTable } from "@workspace/db";
 import { eq, count, sql, and } from "drizzle-orm";
 import { ListTracksResponse, GetModuleParams, GetModuleResponse, GetLessonParams, GetLessonResponse } from "@workspace/api-zod";
-import { getUserEntitlements } from "../lib/entitlements";
+import { getUserEntitlements, hasMemberAccessBypass } from "../lib/entitlements";
 
 const router: IRouter = Router();
 
 router.get("/tracks", async (req, res): Promise<void> => {
   const userId = req.userId!;
-  const entitlements = await getUserEntitlements(userId);
+  const [entitlements, bypass] = await Promise.all([
+    getUserEntitlements(userId),
+    hasMemberAccessBypass(userId),
+  ]);
   const tracks = await db.select().from(tracksTable)
     .where(and(eq(tracksTable.status, "published"), eq(tracksTable.archived, false)))
     .orderBy(tracksTable.sortOrder);
 
   const result = [];
   for (const track of tracks) {
-    const isLocked = !entitlements.has(track.requiredEntitlement);
+    const isLocked = !bypass && !entitlements.has(track.requiredEntitlement);
     const modules = await db.select().from(modulesTable).where(eq(modulesTable.trackId, track.id)).orderBy(modulesTable.sortOrder);
 
     let totalLessons = 0;
@@ -85,7 +88,10 @@ router.get("/modules/:id", async (req, res): Promise<void> => {
     return;
   }
 
-  const entitlements = await getUserEntitlements(userId);
+  const [entitlements, bypass] = await Promise.all([
+    getUserEntitlements(userId),
+    hasMemberAccessBypass(userId),
+  ]);
   const lessons = await db.select().from(lessonsTable)
     .where(and(eq(lessonsTable.moduleId, mod.id), eq(lessonsTable.status, "published")))
     .orderBy(lessonsTable.sortOrder);
@@ -99,7 +105,7 @@ router.get("/modules/:id", async (req, res): Promise<void> => {
   const mappedLessons = lessons.map((l) => ({
     ...l,
     isCompleted: completedSet.has(l.id),
-    isLocked: !entitlements.has(l.requiredEntitlement),
+    isLocked: !bypass && !entitlements.has(l.requiredEntitlement),
   }));
 
   res.json(GetModuleResponse.parse({ ...mod, lessons: mappedLessons }));
@@ -119,8 +125,11 @@ router.get("/lessons/:id", async (req, res): Promise<void> => {
     return;
   }
 
-  const entitlements = await getUserEntitlements(userId);
-  const isLocked = !entitlements.has(lesson.requiredEntitlement);
+  const [entitlements, bypass] = await Promise.all([
+    getUserEntitlements(userId),
+    hasMemberAccessBypass(userId),
+  ]);
+  const isLocked = !bypass && !entitlements.has(lesson.requiredEntitlement);
 
   if (isLocked) {
     res.status(403).json({ error: "You do not have access to this lesson. Upgrade your plan to unlock it." });

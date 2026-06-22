@@ -5,7 +5,7 @@ import {
   productsTable, usersTable
 } from "@workspace/db";
 import { eq, and, desc, sql, gte, lte, asc } from "drizzle-orm";
-import { getUserEntitlements } from "../lib/entitlements";
+import { getUserEntitlements, hasMemberAccessBypass } from "../lib/entitlements";
 import { hasCommissionEntitlement, ensureAffiliateProfile, resolveCommissionTier } from "../lib/commissions";
 
 const router = Router();
@@ -18,7 +18,7 @@ async function requireCommissionAccess(req: Request, res: Response): Promise<{ a
   }
 
   const entitlements = await getUserEntitlements(userId);
-  if (!hasCommissionEntitlement(entitlements)) {
+  if (!hasCommissionEntitlement(entitlements) && !(await hasMemberAccessBypass(userId))) {
     res.status(403).json({ error: "Commission access required" });
     return null;
   }
