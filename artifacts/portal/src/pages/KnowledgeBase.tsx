@@ -231,7 +231,7 @@ function ResultItem({
   );
 }
 
-function BrowseLanding({
+export function BrowseLanding({
   onSelectCategory,
   counts,
   bookmarks,
