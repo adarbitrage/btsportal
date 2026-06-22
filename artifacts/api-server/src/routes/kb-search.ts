@@ -4,6 +4,95 @@ import { sql } from "drizzle-orm";
 
 const router = Router();
 
+/**
+ * Build an OR-style tsquery from a plain search string.
+ *
+ * Strategy:
+ *   1. Run the query through `to_tsvector` so Postgres stems/normalises every
+ *      word (e.g. "starting" → "start") and strips stop-words.
+ *   2. Collect the resulting lexemes and join them with the tsquery OR operator
+ *      `|`, so *any* single-word match surfaces a document instead of requiring
+ *      all words to match (the old implicit-AND behaviour of plainto_tsquery).
+ *   3. Fall back to `plainto_tsquery` when to_tsvector produces no lexemes
+ *      (e.g. the entire query was stop-words), which would otherwise yield NULL.
+ *
+ * Returns a SQL fragment that evaluates to a tsquery value.
+ */
+function buildOrTsquery(q: string) {
+  return sql`(
+    SELECT COALESCE(
+      NULLIF(
+        (SELECT to_tsquery('english', string_agg(lexeme, ' | '))
+         FROM unnest(to_tsvector('english', ${q}))),
+        NULL
+      ),
+      plainto_tsquery('english', ${q})
+    )
+  )`;
+}
+
+/**
+ * Weighted tsvector for ranking: title hits (weight A) outrank body hits (B).
+ * The existing GIN index covers to_tsvector('english', title || ' ' || content)
+ * and is used for the WHERE @@ clause; the weighted vector is computed only for
+ * the ORDER BY expression so no index change is needed.
+ */
+function buildWeightedVector() {
+  return sql`(
+    setweight(to_tsvector('english', title), 'A') ||
+    setweight(to_tsvector('english', content), 'B')
+  )`;
+}
+
+/**
+ * Trigram-similarity fallback used when the full-text search returns no rows
+ * (e.g. a misspelled query whose lexeme matches nothing).  Requires pg_trgm.
+ * Ranks by the best of title-similarity, word-similarity-in-title, and
+ * word-similarity-in-content so misspelled title terms still surface the
+ * correct lesson.
+ */
+async function trigramFallback(
+  q: string,
+  category: string | null,
+  limit: number,
+): Promise<any[]> {
+  try {
+    const categoryClause = category
+      ? sql`AND category = ${category}`
+      : sql``;
+
+    const result = await db.execute(
+      sql`SELECT
+            id,
+            title,
+            category,
+            source_path,
+            source_label,
+            left(content, 300) AS snippet,
+            GREATEST(
+              similarity(title, ${q}),
+              word_similarity(${q}, title),
+              word_similarity(${q}, content)
+            ) AS rank
+          FROM knowledgebase_docs
+          WHERE
+            (
+              similarity(title, ${q}) > 0.15
+              OR word_similarity(${q}, title) > 0.2
+              OR word_similarity(${q}, content) > 0.15
+            )
+            AND audience = 'member'
+            AND source_path IS NOT NULL
+            ${categoryClause}
+          ORDER BY rank DESC
+          LIMIT ${limit}`,
+    );
+    return result.rows as any[];
+  } catch {
+    return [];
+  }
+}
+
 router.get("/kb/search", async (req: Request, res: Response): Promise<void> => {
   if (!req.userId) {
     res.status(401).json({ error: "Authentication required" });
@@ -19,67 +108,50 @@ router.get("/kb/search", async (req: Request, res: Response): Promise<void> => {
   const rawLimit = parseInt(String(req.query.limit ?? "20"), 10);
   const limit = isNaN(rawLimit) || rawLimit < 1 ? 20 : Math.min(rawLimit, 50);
 
-  const category = typeof req.query.category === "string" && req.query.category ? req.query.category : null;
+  const category =
+    typeof req.query.category === "string" && req.query.category
+      ? req.query.category
+      : null;
 
   try {
-    let results;
+    const orTsquery = buildOrTsquery(q);
+    const weightedVector = buildWeightedVector();
+    const categoryClause = category ? sql`AND category = ${category}` : sql``;
 
-    if (category) {
-      results = await db.execute(
-        sql`SELECT
-              id,
-              title,
-              category,
-              source_path,
-              source_label,
-              ts_headline(
-                'english',
-                content,
-                plainto_tsquery('english', ${q}),
-                'MaxWords=35, MinWords=15, ShortWord=3, HighlightAll=false, MaxFragments=1, FragmentDelimiter=" … "'
-              ) AS snippet,
-              ts_rank(
-                to_tsvector('english', title || ' ' || content),
-                plainto_tsquery('english', ${q})
-              ) AS rank
-            FROM knowledgebase_docs
-            WHERE
-              to_tsvector('english', title || ' ' || content) @@ plainto_tsquery('english', ${q})
-              AND audience = 'member'
-              AND source_path IS NOT NULL
-              AND category = ${category}
-            ORDER BY rank DESC
-            LIMIT ${limit}`,
-      );
-    } else {
-      results = await db.execute(
-        sql`SELECT
-              id,
-              title,
-              category,
-              source_path,
-              source_label,
-              ts_headline(
-                'english',
-                content,
-                plainto_tsquery('english', ${q}),
-                'MaxWords=35, MinWords=15, ShortWord=3, HighlightAll=false, MaxFragments=1, FragmentDelimiter=" … "'
-              ) AS snippet,
-              ts_rank(
-                to_tsvector('english', title || ' ' || content),
-                plainto_tsquery('english', ${q})
-              ) AS rank
-            FROM knowledgebase_docs
-            WHERE
-              to_tsvector('english', title || ' ' || content) @@ plainto_tsquery('english', ${q})
-              AND audience = 'member'
-              AND source_path IS NOT NULL
-            ORDER BY rank DESC
-            LIMIT ${limit}`,
-      );
+    const ftResult = await db.execute(
+      sql`SELECT
+            id,
+            title,
+            category,
+            source_path,
+            source_label,
+            ts_headline(
+              'english',
+              content,
+              ${orTsquery},
+              'MaxWords=35, MinWords=15, ShortWord=3, HighlightAll=false, MaxFragments=1, FragmentDelimiter=" … "'
+            ) AS snippet,
+            ts_rank_cd(
+              ${weightedVector},
+              ${orTsquery}
+            ) AS rank
+          FROM knowledgebase_docs
+          WHERE
+            to_tsvector('english', title || ' ' || content) @@ ${orTsquery}
+            AND audience = 'member'
+            AND source_path IS NOT NULL
+            ${categoryClause}
+          ORDER BY rank DESC
+          LIMIT ${limit}`,
+    );
+
+    let rows = ftResult.rows as any[];
+
+    if (rows.length === 0) {
+      rows = await trigramFallback(q, category, limit);
     }
 
-    const rows = (results.rows as any[]).map((r) => ({
+    const results = rows.map((r) => ({
       id: r.id as number,
       title: r.title as string,
       category: r.category as string,
@@ -89,9 +161,12 @@ router.get("/kb/search", async (req: Request, res: Response): Promise<void> => {
       rank: parseFloat(r.rank),
     }));
 
-    res.json({ results: rows });
+    res.json({ results });
   } catch (err) {
-    console.error("[KB Search] Error:", err instanceof Error ? err.message : err);
+    console.error(
+      "[KB Search] Error:",
+      err instanceof Error ? err.message : err,
+    );
     res.status(500).json({ error: "Search failed" });
   }
 });
