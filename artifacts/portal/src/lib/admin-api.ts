@@ -707,11 +707,19 @@ export function fetchKnowledgebaseDocs(params?: { category?: string; search?: st
   return adminFetch<KnowledgebaseDoc[]>(`/admin/chat/knowledgebase?${qs.toString()}`);
 }
 
-export function createKnowledgebaseDoc(data: { title: string; category: string; content: string; audience?: "member" | "admin" }) {
-  return adminFetch("/admin/chat/knowledgebase", {
-    method: "POST",
-    body: JSON.stringify(data),
-  });
+export interface KbManualReviewResult {
+  stagingDocId: number;
+  title: string;
+  action: "auto_approved" | "auto_rejected" | "needs_review";
+  confidenceScore: number | null;
+  summary: string;
+}
+
+export function createKnowledgebaseDocWithReview(data: { title: string; category: string; content: string; audience?: "member" | "admin" }) {
+  return adminFetch<KbManualReviewResult>(
+    "/admin/knowledgebase/pipeline/create-from-text",
+    { method: "POST", body: JSON.stringify(data) },
+  );
 }
 
 export function updateKnowledgebaseDoc(id: number, data: { title?: string; category?: string; content?: string; audience?: "member" | "admin" }) {

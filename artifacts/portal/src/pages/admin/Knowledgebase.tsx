@@ -35,12 +35,13 @@ import {
 } from "lucide-react";
 import {
   fetchKnowledgebaseDocs,
-  createKnowledgebaseDoc,
+  createKnowledgebaseDocWithReview,
   updateKnowledgebaseDoc,
   deleteKnowledgebaseDoc,
   requestKbUploadUrl,
   createKbStagingFromUpload,
   getKbStagingDoc,
+  type KbManualReviewResult,
 } from "@/lib/admin-api";
 import { format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
@@ -475,11 +476,26 @@ export default function Knowledgebase() {
   });
 
   const createMutation = useMutation({
-    mutationFn: createKnowledgebaseDoc,
-    onSuccess: () => {
+    mutationFn: createKnowledgebaseDocWithReview,
+    onSuccess: (result: KbManualReviewResult) => {
       queryClient.invalidateQueries({ queryKey: ["admin-knowledgebase"] });
       resetForm();
-      toast({ title: "Document created" });
+      if (result.action === "auto_approved") {
+        toast({
+          title: "AI approved — published live",
+          description: result.summary
+            ? `Added to the knowledge base. ${result.summary}`
+            : "The document was reviewed by AI and added to the live knowledge base.",
+        });
+      } else {
+        toast({
+          title: "Sent to the review queue",
+          description:
+            result.action === "auto_rejected"
+              ? "AI flagged this document. Approve or discard it in Review Staged Documents."
+              : "AI couldn't auto-approve this document. Approve it in Review Staged Documents.",
+        });
+      }
     },
     onError: (err: Error) => {
       toast({ title: "Failed to create", description: err.message, variant: "destructive" });
@@ -625,9 +641,21 @@ export default function Knowledgebase() {
                   Estimated chunks: {Math.ceil(formContent.length / 500)} (auto-chunked on save)
                 </p>
               </div>
+              {!editingDoc && (
+                <p className="text-xs text-muted-foreground flex items-center gap-1.5">
+                  <CheckCircle2 className="w-3.5 h-3.5 text-primary" />
+                  New documents are reviewed by AI first — auto-published if approved, otherwise sent to the review queue for approval.
+                </p>
+              )}
               <div className="flex gap-2">
                 <Button onClick={handleSubmit} disabled={createMutation.isPending || updateMutation.isPending}>
-                  {editingDoc ? "Update Document" : "Create Document"}
+                  {createMutation.isPending && !editingDoc ? (
+                    <><Loader2 className="w-4 h-4 mr-1 animate-spin" />Reviewing…</>
+                  ) : editingDoc ? (
+                    "Update Document"
+                  ) : (
+                    "Create Document"
+                  )}
                 </Button>
                 <Button variant="outline" onClick={resetForm}>Cancel</Button>
               </div>

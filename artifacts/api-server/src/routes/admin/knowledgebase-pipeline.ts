@@ -12,7 +12,7 @@ import { createRequire } from "module";
 import { matchVideoToCurriculum, type BlitzLesson } from "./blitz-curriculum.js";
 import AdmZip from "adm-zip";
 import { runTriageBackground } from "./knowledgebase-staging.js";
-import { getTriageSettings, runAutoTriageOnDoc } from "../../lib/kb-triage.js";
+import { getTriageSettings, runAutoTriageOnDoc, type AutoTriageDocResult } from "../../lib/kb-triage.js";
 import { ObjectStorageService } from "../../lib/objectStorage.js";
 import mammoth from "mammoth";
 
@@ -1494,6 +1494,84 @@ router.post("/create-from-upload", async (req: Request, res: Response) => {
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : "Unknown error";
     console.error("[KB Upload] Error:", message);
+    res.status(500).json({ error: message });
+  }
+});
+
+// Manually-entered documents (the "Add Document" form) are routed through the
+// same AI triage as uploads instead of being written straight to the live KB.
+// The content is already supplied, so triage runs synchronously (one AI call)
+// and the final outcome is returned immediately. Possible outcomes:
+//   - auto_approved → pushed live by runAutoTriageOnDoc
+//   - auto_rejected → kept in the review queue as "rejected"
+//   - needs_review  → kept in the review queue for a human to approve
+router.post("/create-from-text", async (req: Request, res: Response) => {
+  try {
+    const { title, category, content, audience } = req.body as {
+      title?: string;
+      category?: string;
+      content?: string;
+      audience?: string;
+    };
+
+    if (!title || !title.trim() || !content || !content.trim()) {
+      res.status(400).json({ error: "Title and content are required" });
+      return;
+    }
+
+    const docAudience = (audience === "admin" ? "admin" : "member") as "admin" | "member";
+
+    const [inserted] = await db
+      .insert(kbStagingDocsTable)
+      .values({
+        title: title.trim(),
+        category: category || "faq",
+        content: content.trim(),
+        tags: "",
+        status: "processing",
+        source: "manual",
+        audience: docAudience,
+        adminNotes: "Manually entered via the Add Document form.",
+        processingStage: "Running AI triage…",
+      })
+      .returning();
+
+    let action: AutoTriageDocResult["action"] = "needs_review";
+    let confidenceScore: number | null = null;
+    let summary = "";
+
+    try {
+      const settings = await getTriageSettings();
+      const result = await runAutoTriageOnDoc(inserted, settings);
+      action = result.action;
+      confidenceScore = result.confidenceScore;
+      summary = result.summary;
+    } catch (triageErr) {
+      // Triage is best-effort; on failure the doc still belongs in the human
+      // review queue rather than going live unreviewed.
+      console.error("[KB Manual] Triage error:", triageErr);
+      await db
+        .update(kbStagingDocsTable)
+        .set({ status: "needs_review" })
+        .where(eq(kbStagingDocsTable.id, inserted.id));
+    }
+
+    // Clear the live-progress stage now that triage is complete.
+    await db
+      .update(kbStagingDocsTable)
+      .set({ processingStage: null })
+      .where(eq(kbStagingDocsTable.id, inserted.id));
+
+    res.json({
+      stagingDocId: inserted.id,
+      title: inserted.title,
+      action,
+      confidenceScore,
+      summary,
+    });
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : "Unknown error";
+    console.error("[KB Manual] Error:", message);
     res.status(500).json({ error: message });
   }
 });
