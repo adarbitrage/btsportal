@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Link } from "wouter";
 import {
   Layers, Briefcase, ShoppingBag, Users2, Mail,
-  Target, Zap, Heart, ChevronUp, ArrowRight, CheckCircle2,
+  Target, Zap, Heart, ChevronUp, ArrowRight, CheckCircle2, Rocket,
 } from "lucide-react";
 import { useRef, type ComponentType, type SVGProps, type RefObject } from "react";
 
@@ -83,12 +83,9 @@ function PillarQuickNav() {
   };
 
   return (
-    <nav aria-label="Jump to a pillar">
-      <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-2">
-        Jump to a pillar
-      </p>
+    <nav aria-label="Jump to a pillar" className="-mt-3 -mb-3">
       <div className="overflow-x-auto pb-1">
-        <div className="grid grid-cols-7 gap-1.5 sm:gap-2 min-w-[600px]">
+        <div className="grid grid-cols-8 gap-1.5 sm:gap-2 min-w-[680px]">
           {pillars.map((pillar) => {
             const Icon = pillar.icon;
             return (
@@ -112,6 +109,21 @@ function PillarQuickNav() {
               </button>
             );
           })}
+          <button
+            type="button"
+            onClick={() => scrollToPillar("conclusion")}
+            className="group flex flex-col items-center gap-1.5 rounded-xl border border-primary/30 bg-primary/5 px-1 py-2.5 text-center transition-colors hover:border-primary/50 hover:bg-primary/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
+          >
+            <span className="flex h-8 w-8 items-center justify-center rounded-lg border bg-primary/10 border-primary/30 shrink-0">
+              <Rocket className="h-4 w-4 text-primary" />
+            </span>
+            <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground leading-none">
+              Up Next
+            </span>
+            <span className="text-[11px] font-semibold leading-tight text-foreground">
+              Next Steps
+            </span>
+          </button>
         </div>
       </div>
     </nav>
@@ -424,7 +436,10 @@ export default function SevenPillars() {
         <section id="conclusion">
           <Card className="border-border/60 shadow-sm">
             <CardContent className="p-8 md:p-10 space-y-5">
-              <h2 className="text-2xl font-bold text-foreground">Conclusion & Next Steps</h2>
+              <h2 className="flex items-center gap-2 text-2xl font-bold text-foreground">
+                <Rocket className="w-6 h-6 text-primary" />
+                Conclusion & Next Steps
+              </h2>
               <p className="text-muted-foreground leading-relaxed">
                 Build Test Scale is a comprehensive training program that covers all aspects of affiliate marketing — from the business model to the product, the market, the demographic, the traffic, the edge, and the commitment. It's designed to provide you with a <strong className="text-foreground">clear, step-by-step guide to building a successful affiliate marketing business</strong>.
               </p>
