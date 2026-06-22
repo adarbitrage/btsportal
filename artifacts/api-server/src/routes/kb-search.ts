@@ -221,7 +221,7 @@ router.get("/kb/search", async (req: Request, res: Response): Promise<void> => {
               'english',
               content,
               ${orTsquery},
-              'MaxWords=35, MinWords=15, ShortWord=3, HighlightAll=false, MaxFragments=1, FragmentDelimiter=" … "'
+              'StartSel=[[[HL]]], StopSel=[[[/HL]]], MaxWords=35, MinWords=15, ShortWord=3, HighlightAll=false, MaxFragments=1, FragmentDelimiter=" … "'
             ) AS snippet,
             ts_rank_cd(
               ${weightedVector},
@@ -238,9 +238,11 @@ router.get("/kb/search", async (req: Request, res: Response): Promise<void> => {
     );
 
     let rows = ftResult.rows as any[];
+    let usedFallback = false;
 
     if (rows.length === 0) {
       rows = await trigramFallback(q, category, limit);
+      usedFallback = rows.length > 0;
     }
 
     const results = rows.map((r) => ({
@@ -253,7 +255,7 @@ router.get("/kb/search", async (req: Request, res: Response): Promise<void> => {
       rank: parseFloat(r.rank),
     }));
 
-    res.json({ results });
+    res.json({ results, usedFallback });
   } catch (err) {
     console.error(
       "[KB Search] Error:",

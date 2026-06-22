@@ -84,11 +84,21 @@ const PHASE_DESCRIPTIONS: Record<BlitzPhaseKey, string> = {
 
 const START_HERE_LESSONS = BLITZ_SECTIONS.filter((s) => s.id <= 3);
 
-async function searchKB(query: string, category: string | null): Promise<KBResult[]> {
+interface KBSearchResponse {
+  results: KBResult[];
+  usedFallback: boolean;
+}
+
+async function searchKB(
+  query: string,
+  category: string | null,
+): Promise<KBSearchResponse> {
   const params = new URLSearchParams({ q: query, limit: "20" });
   if (category) params.set("category", category);
-  const data = await customFetch<{ results: KBResult[] }>(`/api/kb/search?${params}`);
-  return data.results ?? [];
+  const data = await customFetch<{ results?: KBResult[]; usedFallback?: boolean }>(
+    `/api/kb/search?${params}`,
+  );
+  return { results: data.results ?? [], usedFallback: data.usedFallback ?? false };
 }
 
 async function browseKB(category: string): Promise<KBResult[]> {
@@ -106,10 +116,36 @@ function stripHtmlTags(html: string): string {
   return html.replace(/<[^>]+>/g, "");
 }
 
+const HL_SPLIT_RE = /\[\[\[HL\]\]\]([\s\S]*?)\[\[\[\/HL\]\]\]/;
+
+/**
+ * Render a `ts_headline` snippet with the matched terms highlighted.
+ * The API wraps matches in `[[[HL]]] … [[[/HL]]]` markers (chosen so they
+ * survive HTML stripping). We strip any other tags for safety, then split on
+ * the markers and wrap matched segments in <mark> — never injecting raw HTML.
+ */
+function renderSnippet(snippet: string) {
+  const clean = stripHtmlTags(snippet);
+  const parts = clean.split(HL_SPLIT_RE);
+  return parts.map((part, i) =>
+    i % 2 === 1 ? (
+      <mark
+        key={i}
+        className="bg-yellow-200/70 text-foreground rounded-sm px-0.5"
+      >
+        {part}
+      </mark>
+    ) : (
+      <span key={i}>{part}</span>
+    ),
+  );
+}
+
 function ResultItem({ result }: { result: KBResult }) {
   const categoryLabel = result.sourceLabel ?? CATEGORY_LABELS[result.category] ?? result.category;
   const colorClass = CATEGORY_COLORS[result.category] ?? "bg-slate-100 text-slate-700 border-slate-200";
-  const cleanSnippet = stripHtmlTags(result.snippet);
+
+  const hasSnippet = stripHtmlTags(result.snippet).trim().length > 0;
 
   const content = (
     <div className="group flex items-start gap-3 p-4 rounded-lg border border-border hover:border-primary/30 hover:bg-accent/40 transition-all cursor-pointer">
@@ -128,9 +164,9 @@ function ResultItem({ result }: { result: KBResult }) {
             {categoryLabel}
           </Badge>
         </div>
-        {cleanSnippet && (
+        {hasSnippet && (
           <p className="text-xs text-muted-foreground leading-relaxed line-clamp-2">
-            {cleanSnippet}
+            {renderSnippet(result.snippet)}
           </p>
         )}
       </div>
@@ -347,6 +383,8 @@ export default function KnowledgeBase() {
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
   const [browseCategory, setBrowseCategory] = useState<string | null>(null);
   const [results, setResults] = useState<KBResult[] | null>(null);
+  const [usedFallback, setUsedFallback] = useState(false);
+  const [submittedQuery, setSubmittedQuery] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [counts, setCounts] = useState<Record<string, number> | null>(null);
@@ -364,6 +402,7 @@ export default function KnowledgeBase() {
     if (debounceRef.current) clearTimeout(debounceRef.current);
     if (q.trim().length < 2) {
       setResults(null);
+      setUsedFallback(false);
       setLoading(false);
       setError(null);
       return;
@@ -373,10 +412,13 @@ export default function KnowledgeBase() {
     debounceRef.current = setTimeout(async () => {
       try {
         const res = await searchKB(q.trim(), category);
-        setResults(res);
+        setResults(res.results);
+        setUsedFallback(res.usedFallback);
+        setSubmittedQuery(q.trim());
       } catch {
         setError("Search failed. Please try again.");
         setResults(null);
+        setUsedFallback(false);
       } finally {
         setLoading(false);
       }
@@ -503,10 +545,18 @@ export default function KnowledgeBase() {
 
         {hasResults && (
           <div className="space-y-2">
-            <p className="text-xs text-muted-foreground">
-              {results!.length} result{results!.length !== 1 ? "s" : ""}
-              {activeCategory ? ` in ${CATEGORY_LABELS[activeCategory] ?? activeCategory}` : ""}
-            </p>
+            <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+              <p className="text-xs text-muted-foreground">
+                {results!.length} result{results!.length !== 1 ? "s" : ""} for "
+                {submittedQuery}"
+                {activeCategory ? ` in ${CATEGORY_LABELS[activeCategory] ?? activeCategory}` : ""}
+              </p>
+              {usedFallback && (
+                <p className="text-xs text-muted-foreground italic opacity-70">
+                  Showing approximate matches
+                </p>
+              )}
+            </div>
             {results!.map((r) => (
               <ResultItem key={r.id} result={r} />
             ))}
