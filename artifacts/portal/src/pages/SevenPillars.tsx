@@ -388,9 +388,6 @@ export default function SevenPillars() {
               <p className="text-muted-foreground leading-relaxed">
                 But remember, the training program is just a tool. It's a roadmap to success. But you are the driver. You are the one who must take the wheel and steer your business towards your goals.
               </p>
-              <p className="text-lg font-bold text-foreground">
-                You are made for BIG things. This is YOUR time, so PLAY BIG!
-              </p>
               <div className="flex flex-col sm:flex-row gap-3 pt-2">
                 <Button asChild className="gap-2">
                   <Link href="/blitz">
