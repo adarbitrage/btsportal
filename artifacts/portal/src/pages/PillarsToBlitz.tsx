@@ -146,7 +146,7 @@ function PillarQuickNav() {
                   Pillar #{bridge.num}
                 </span>
                 <span className="text-[11px] font-semibold leading-tight text-foreground">
-                  {bridge.title}
+                  {bridge.title.split(" — ")[0]}
                 </span>
               </button>
             );
