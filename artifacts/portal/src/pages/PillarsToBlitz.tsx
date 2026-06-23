@@ -227,7 +227,7 @@ export default function PillarsToBlitz() {
             <Route className="w-6 h-6 text-primary" />
             <h1 className="text-3xl font-bold">What The Blitz™ Is — And Why It's Built the Way It Is</h1>
           </div>
-          <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+          <p className="text-muted-foreground">
             A bridge from the 7 Pillars™ to your first campaign
           </p>
 
