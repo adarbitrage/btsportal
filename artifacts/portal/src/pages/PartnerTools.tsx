@@ -3,8 +3,15 @@ import { AppLayout } from "@/components/layout/AppLayout";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
-import { Wrench, CheckCircle2, Copy, Check } from "lucide-react";
+import { Wrench, CheckCircle2, Copy, Check, PlayCircle } from "lucide-react";
 import scrapebotLogo from "@assets/scrapebot-new-logo-resources-image-250x222_1778795701373.jpg";
 import cropbotLogo from "@assets/cropbot-new-logo-resources-image-250x222_1778795879400.jpg";
 import affiliateCmoLogo from "@assets/affiliatecmo-logo-250x222_1778796180683.png";
@@ -96,7 +103,17 @@ type ChromeExtension = {
   logo: string;
   downloadUrl: string;
   collapsible?: boolean;
+  trainingVideoUrl?: string;
 };
+
+/**
+ * Google Drive "view" links (…/file/d/<id>/view) can't be embedded directly;
+ * the embeddable player URL is …/file/d/<id>/preview.
+ */
+function toDriveEmbedUrl(url: string): string | null {
+  const match = url.match(/\/file\/d\/([^/]+)/);
+  return match ? `https://drive.google.com/file/d/${match[1]}/preview` : null;
+}
 
 const CHROME_EXTENSIONS: ChromeExtension[] = [
   {
@@ -114,6 +131,7 @@ const CHROME_EXTENSIONS: ChromeExtension[] = [
     downloadUrl:
       "https://chromewebstore.google.com/detail/scrapebot-207/beongpingjcjghpgfcngccpkpmhgldjm",
     collapsible: true,
+    trainingVideoUrl: "https://drive.google.com/file/d/1D5aSEhCLtBqPc9qgOF6Tj3Y4gz-rBV0O/view",
   },
   {
     name: "CropBot™",
@@ -130,6 +148,7 @@ const CHROME_EXTENSIONS: ChromeExtension[] = [
     downloadUrl:
       "https://chrome.google.com/webstore/detail/cropbot-201/kkabdjjmpkogggbjoenafjejhkalkjdd",
     collapsible: true,
+    trainingVideoUrl: "https://drive.google.com/file/d/1FvCt5IMPsqERcZSVAk8Xmu3ORJBPEacK/view",
   },
 ];
 
@@ -285,77 +304,115 @@ function PartnerToolCard({ tool }: { tool: PartnerTool }) {
 
 function ExtensionCard({ ext }: { ext: ChromeExtension }) {
   const [expanded, setExpanded] = useState(!ext.collapsible);
+  const [trainingOpen, setTrainingOpen] = useState(false);
   const showHighlights = !ext.collapsible || expanded;
 
+  const embedUrl = ext.trainingVideoUrl ? toDriveEmbedUrl(ext.trainingVideoUrl) : null;
+
   return (
-    <Card className="border-border/60 shadow-sm overflow-hidden">
-      <CardContent className="p-0">
-        <div className="flex flex-col md:flex-row">
-          <div className="bg-white flex items-center justify-center p-6 md:p-8 md:w-56 shrink-0 border-b md:border-b-0 md:border-r border-border">
-            <img
-              src={ext.logo}
-              alt={`${ext.name} logo`}
-              className="max-h-28 max-w-full object-contain"
-            />
-          </div>
-
-          <div className="flex-1 p-5 flex flex-col">
-            <div className="mb-2">
-              <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-                <h2 className="text-xl font-bold text-foreground">{ext.name}</h2>
-                <Badge
-                  variant="outline"
-                  className="bg-emerald-50 text-emerald-800 border-emerald-200 text-[10px] font-bold tracking-wide uppercase"
-                >
-                  {ext.category}
-                </Badge>
-              </div>
-              <p className="text-sm text-muted-foreground mt-1">{ext.tagline}</p>
+    <>
+      <Card className="border-border/60 shadow-sm overflow-hidden">
+        <CardContent className="p-0">
+          <div className="flex flex-col md:flex-row">
+            <div className="bg-white flex items-center justify-center p-6 md:p-8 md:w-56 shrink-0 border-b md:border-b-0 md:border-r border-border">
+              <img
+                src={ext.logo}
+                alt={`${ext.name} logo`}
+                className="max-h-28 max-w-full object-contain"
+              />
             </div>
 
-            <p className="text-sm text-foreground/90 leading-relaxed mb-3">
-              {ext.description}
-            </p>
-
-            {showHighlights && (
-              <ul className="space-y-1 mb-4">
-                {ext.highlights.map((h, i) => (
-                  <li key={i} className="flex items-start gap-2 text-sm text-foreground/85">
-                    <CheckCircle2 className="w-4 h-4 text-emerald-700 mt-0.5 shrink-0" />
-                    <span>{h}</span>
-                  </li>
-                ))}
-              </ul>
-            )}
-
-            <div className="mt-auto flex items-end justify-between gap-3 flex-wrap">
-              <div className="min-w-0 flex-1">
-                {ext.collapsible && (
-                  <button
-                    type="button"
-                    onClick={() => setExpanded((v) => !v)}
-                    className="text-xs font-medium text-primary hover:underline"
-                    data-testid={`button-toggle-details-${ext.name}`}
+            <div className="flex-1 p-5 flex flex-col">
+              <div className="mb-2">
+                <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                  <h2 className="text-xl font-bold text-foreground">{ext.name}</h2>
+                  <Badge
+                    variant="outline"
+                    className="bg-emerald-50 text-emerald-800 border-emerald-200 text-[10px] font-bold tracking-wide uppercase"
                   >
-                    {expanded ? "Show less" : "Read more"}
-                  </button>
-                )}
+                    {ext.category}
+                  </Badge>
+                </div>
+                <p className="text-sm text-muted-foreground mt-1">{ext.tagline}</p>
               </div>
-              <div className="flex items-center gap-2 flex-wrap justify-end">
-                <Button asChild size="sm">
-                  <a href={ext.downloadUrl} target="_blank" rel="noopener noreferrer">
-                    Download Extension
-                  </a>
-                </Button>
-                <Button size="sm" variant="outline" disabled>
-                  Watch Training (coming soon)
-                </Button>
+
+              <p className="text-sm text-foreground/90 leading-relaxed mb-3">
+                {ext.description}
+              </p>
+
+              {showHighlights && (
+                <ul className="space-y-1 mb-4">
+                  {ext.highlights.map((h, i) => (
+                    <li key={i} className="flex items-start gap-2 text-sm text-foreground/85">
+                      <CheckCircle2 className="w-4 h-4 text-emerald-700 mt-0.5 shrink-0" />
+                      <span>{h}</span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+
+              <div className="mt-auto flex items-end justify-between gap-3 flex-wrap">
+                <div className="min-w-0 flex-1">
+                  {ext.collapsible && (
+                    <button
+                      type="button"
+                      onClick={() => setExpanded((v) => !v)}
+                      className="text-xs font-medium text-primary hover:underline"
+                      data-testid={`button-toggle-details-${ext.name}`}
+                    >
+                      {expanded ? "Show less" : "Read more"}
+                    </button>
+                  )}
+                </div>
+                <div className="flex items-center gap-2 flex-wrap justify-end">
+                  <Button asChild size="sm">
+                    <a href={ext.downloadUrl} target="_blank" rel="noopener noreferrer">
+                      Download Extension
+                    </a>
+                  </Button>
+                  {embedUrl ? (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="gap-1.5"
+                      onClick={() => setTrainingOpen(true)}
+                      data-testid={`button-watch-training-${ext.name}`}
+                    >
+                      <PlayCircle className="w-4 h-4" />
+                      Watch Training
+                    </Button>
+                  ) : (
+                    <Button size="sm" variant="outline" disabled>
+                      Watch Training (coming soon)
+                    </Button>
+                  )}
+                </div>
               </div>
             </div>
           </div>
-        </div>
-      </CardContent>
-    </Card>
+        </CardContent>
+      </Card>
+
+      {embedUrl && (
+        <Dialog open={trainingOpen} onOpenChange={setTrainingOpen}>
+          <DialogContent className="max-w-3xl p-0 overflow-hidden bg-black border-0 sm:rounded-lg">
+            <DialogHeader className="sr-only">
+              <DialogTitle>{ext.name} Training</DialogTitle>
+              <DialogDescription>Training video for {ext.name}.</DialogDescription>
+            </DialogHeader>
+            {trainingOpen && (
+              <iframe
+                key={embedUrl}
+                src={embedUrl}
+                allow="autoplay"
+                allowFullScreen
+                className="w-full aspect-video bg-black border-0"
+              />
+            )}
+          </DialogContent>
+        </Dialog>
+      )}
+    </>
   );
 }
 
