@@ -95,7 +95,7 @@ const bridges: Bridge[] = [
   },
   {
     num: 7,
-    title: "The Mindset — Perseverance over Perfection",
+    title: "The Commitment — Perseverance over Perfection",
     icon: Heart,
     tint: { iconBg: "bg-orange-50", iconBorder: "border-orange-200", iconText: "text-orange-700" },
     quote:
