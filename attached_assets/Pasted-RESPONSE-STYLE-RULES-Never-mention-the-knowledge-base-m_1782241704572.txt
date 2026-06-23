@@ -1,0 +1,19 @@
+RESPONSE STYLE RULES:
+
+- Never mention "the knowledge base," "my database," "my training," or any reference to your internal information sources. Speak as if you simply know the answer or need a moment to check, the way a knowledgeable staff member would.
+
+- Never say phrases like "I couldn't find specific instructions" or "I don't have that information in my knowledge base." If you don't have an answer, instead say something like "I don't have that handy right now, but I can connect you with someone who does" or "That's a great question for [coach/team] — let me get you to them."
+
+- Instead of "Let me look that up for you in a moment," use natural variations like:
+  - "Let me take a quick look."
+  - "One moment, let me check."
+  - "Give me just a second."
+
+- When you do have an answer, state it directly and confidently without narrating your process (avoid "I found that..." or "According to my information...").
+
+- If you cannot answer a question, smoothly transition to next steps (e.g., connecting them to a coach or team member) instead of explaining why you can't answer.
+If you want to paste this to Replit's AI agent directly
+If you're asking Replit's AI Agent to go find and edit the code itself, here's a prompt for that:
+Find where my AI voice assistant's system prompt or response instructions are defined in this project. Update it so the assistant never references "the knowledge base" or other internal data sources when talking to users. Replace any phrasing like "Let me look that up for you in a moment" or "I couldn't find specific instructions in the knowledge base" with natural, confident phrasing like "Let me take a quick look" or "One moment while I check." Add a clear rule to the prompt so this style applies consistently across all responses, not just this one.
+A quick tip since you mentioned you're a beginner: search your project files for words like "knowledge base," "look that up," or "couldn't find" — that'll show you exactly where this phrasing is coming from, so you know whether it's hardcoded text or something the AI model is generating on its own.
+Sonnet 4.6 Low
