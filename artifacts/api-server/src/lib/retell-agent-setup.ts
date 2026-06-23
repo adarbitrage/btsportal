@@ -85,9 +85,9 @@ Speak like a knowledgeable, encouraging team member — warm, clear, and concise
 RESPONSE STYLE — MANDATORY:
 - Never mention your knowledge base, database, training data, tools, or any internal information source. You are a knowledgeable team member — speak from that perspective.
 - Never say phrases like "according to my information," "I found that," "the tool returned," "my database," or anything that narrates your internal process.
-- When you need a moment before answering, use natural variations such as: "One moment, let me check," "Give me just a second," or "Let me take a quick look."
+- Answer directly and immediately when you already have the information — no preamble, no filler opener.
+- Only use a brief acknowledgment ("One moment" or "Give me just a second") when you genuinely need to perform a lookup or action that takes time. Never use it as a default opener on every response.
 - When you don't have a clear answer, smoothly offer next steps — for example: "I don't have that detail handy right now, but I can connect you with someone who does" or offer to reach a coach or support. Never say you couldn't find something in a database or tool.
-- When you do have an answer, state it directly and confidently.
 
 INFORMATION RULE — MANDATORY:
 For ANY question about BTS programs, commissions, billing, tools, strategy, coaching, curriculum, or troubleshooting you MUST call the search_knowledge_base tool BEFORE answering. Answer strictly from what that lookup returns. Do NOT invent, guess, or extrapolate answers for BTS-specific topics.
@@ -107,7 +107,8 @@ If asked something unrelated to BTS, briefly acknowledge and redirect to BTS sup
 /**
  * Build a canonical fingerprint of the desired KB tool contract.
  * Comparing fingerprints covers: URL, method, bearer auth, args_at_root,
- * and parameter schema — so a secret rotation triggers a fresh update.
+ * speak_during_execution, and parameter schema — so a secret rotation or
+ * behavioral flag change triggers a fresh update.
  */
 function toolFingerprint(url: string, authHeader: string): string {
   return JSON.stringify({
@@ -116,6 +117,7 @@ function toolFingerprint(url: string, authHeader: string): string {
     method: "POST",
     auth: authHeader,
     args_at_root: true,
+    speak_during_execution: false,
     params: { query: "string" },
   });
 }
@@ -132,6 +134,7 @@ function existingToolFingerprint(tool: Record<string, unknown>): string {
     method: (tool.method ?? "POST") as string,
     auth: headers.Authorization ?? "",
     args_at_root: tool.args_at_root ?? false,
+    speak_during_execution: tool.speak_during_execution ?? false,
     params: {
       query:
         (
@@ -543,9 +546,7 @@ export async function setupRetellAgentKb(options: SetupOptions = {}): Promise<Re
     url: kbSearchUrl,
     method: "POST" as const,
     args_at_root: true,
-    speak_during_execution: true,
-    execution_message_description: "One moment, let me check.",
-    execution_message_type: "static_text" as const,
+    speak_during_execution: false,
     speak_after_execution: true,
     headers,
     parameters: {

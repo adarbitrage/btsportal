@@ -224,6 +224,19 @@ export async function bootstrapCriticalPrerequisites(): Promise<PrerequisiteResu
     missing.push("ensureCompanyAddressUpdated");
   }
 
+  // 7. Replace every numeric "14-Day Blitz" / "14-day blitz" / "14 Day Blitz"
+  //    variant with the spelled-out "Fourteen-Day Blitz" in knowledgebase_docs
+  //    and kb_staging_docs. This ensures the text-to-speech engine says
+  //    "fourteen-day" rather than "one-four-day". Idempotent: rows that already
+  //    carry the spelled-out form (or don't contain the phrase at all) are
+  //    untouched. Must run at boot so production also receives the fix.
+  try {
+    await ensureFourteenDayBlitzPronunciation();
+  } catch (err) {
+    console.error("[Bootstrap] ensureFourteenDayBlitzPronunciation() threw:", err);
+    missing.push("ensureFourteenDayBlitzPronunciation");
+  }
+
   if (missing.length === 0) {
     console.log("[Bootstrap] All critical prerequisites OK");
   }
@@ -401,5 +414,66 @@ async function ensureCompanyAddressUpdated(): Promise<void> {
   const tosUpdated = ((tosResult as any).rows ?? tosResult).length;
   if (tosUpdated > 0) {
     console.log(`[Bootstrap] Added mailing address to Terms of Service contact section.`);
+  }
+}
+
+/**
+ * Replace every numeric "14-Day Blitz" variant with the spelled-out
+ * "Fourteen-Day Blitz" in knowledgebase_docs (live, read by the assistant)
+ * and kb_staging_docs (staging / pending-review). Idempotent: rows that
+ * already carry the correct form are untouched.
+ *
+ * Why at boot: source-file edits and the seeder's ON CONFLICT DO NOTHING
+ * never update already-ingested rows. Prod is a separate database the agent
+ * cannot reach except via a deploy, so this hook is the only reliable path
+ * to propagate the fix there.
+ */
+async function ensureFourteenDayBlitzPronunciation(): Promise<void> {
+  const replaceExpr = (col: string) =>
+    `REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(${col},
+      '14-Day Blitz','Fourteen-Day Blitz'),
+      '14-day Blitz','Fourteen-Day Blitz'),
+      '14 Day Blitz','Fourteen-Day Blitz'),
+      '14-day blitz','Fourteen-Day Blitz'),
+      '14 day blitz','Fourteen-Day Blitz')`;
+
+  const likeFilter =
+    `(content ILIKE '%14-Day Blitz%' OR content ILIKE '%14 Day Blitz%'` +
+    ` OR content ILIKE '%14-day blitz%'` +
+    ` OR title   ILIKE '%14-Day Blitz%' OR title   ILIKE '%14 Day Blitz%'` +
+    ` OR title   ILIKE '%14-day blitz%')`;
+
+  const kbResult = await db.execute(
+    sql.raw(
+      `UPDATE knowledgebase_docs
+       SET content = ${replaceExpr("content")},
+           title   = ${replaceExpr("title")}
+       WHERE ${likeFilter}
+       RETURNING id`,
+    ),
+  );
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const kbUpdated = ((kbResult as any).rows ?? kbResult).length;
+  if (kbUpdated > 0) {
+    console.log(
+      `[Bootstrap] Replaced "14-Day Blitz" with "Fourteen-Day Blitz" in ${kbUpdated} knowledgebase_docs row(s).`,
+    );
+  }
+
+  const stagingResult = await db.execute(
+    sql.raw(
+      `UPDATE kb_staging_docs
+       SET content = ${replaceExpr("content")},
+           title   = ${replaceExpr("title")}
+       WHERE ${likeFilter}
+       RETURNING id`,
+    ),
+  );
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const stagingUpdated = ((stagingResult as any).rows ?? stagingResult).length;
+  if (stagingUpdated > 0) {
+    console.log(
+      `[Bootstrap] Replaced "14-Day Blitz" with "Fourteen-Day Blitz" in ${stagingUpdated} kb_staging_docs row(s).`,
+    );
   }
 }
