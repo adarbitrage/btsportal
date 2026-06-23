@@ -11,6 +11,7 @@ import {
   QUEUE_FALLBACK_ALERT_ACTION_TYPE,
   QUEUE_FALLBACK_ALERT_ENTITY_TYPE,
 } from "../lib/queue-fallback-alerter";
+import { RETELL_AGENT_ALERT_ACTION_TYPE } from "../lib/retell-agent-alerter";
 import { buildTestAppWithRouters } from "./test-app";
 
 const JWT_SECRET = process.env.JWT_SECRET || "dev-secret-change-me";
@@ -233,6 +234,34 @@ describe("GET /api/admin/system/queue-fallback-alert-events", () => {
 
     const fallbackRow = res.body.events.find((e: { id: number }) => e.id === noQueueChannelInMetaId);
     expect(fallbackRow.queueChannel).toBe("email");
+  });
+
+  it("includes voice-assistant alert rows in the timeline with their actionType populated", async () => {
+    // The System Health alert timeline unions every alerter that writes
+    // entityType="alert" rows. Voice-assistant (Retell) fire/clear pages must
+    // appear alongside queue-fallback rows AND carry their own `actionType`
+    // (`retell_agent_alert`) so the UI can label the source "Voice assistant"
+    // and deep-link the row to the Voice Assistant panel. A future alerter
+    // wiring change that drops the action type from the union or stops echoing
+    // it back would silently break that path — this guards it.
+    const voiceId = await insertAlertRow({
+      queueChannel: "email",
+      deliveryChannel: "pagerduty",
+      kind: "fire",
+      outcome: "failed",
+      reason: "Agent pointing at a broken conversation_flow engine",
+      actionType: RETELL_AGENT_ALERT_ACTION_TYPE,
+      entityType: QUEUE_FALLBACK_ALERT_ENTITY_TYPE,
+    });
+
+    const res = await request(app)
+      .get("/api/admin/system/queue-fallback-alert-events?limit=200")
+      .set("Cookie", adminCookie);
+
+    expect(res.status).toBe(200);
+    const voiceRow = res.body.events.find((e: { id: number }) => e.id === voiceId);
+    expect(voiceRow).toBeDefined();
+    expect(voiceRow.actionType).toBe("retell_agent_alert");
   });
 
   it("ignores audit rows with the wrong actionType or entityType", async () => {
