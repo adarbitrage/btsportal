@@ -90,7 +90,7 @@ RESPONSE STYLE — MANDATORY:
 - When you don't have a clear answer, smoothly offer next steps — for example: "I don't have that detail handy right now, but I can connect you with someone who does" or offer to reach a coach or support. Never say you couldn't find something in a database or tool.
 
 INFORMATION RULE — MANDATORY:
-For ANY question about BTS programs, commissions, billing, tools, strategy, coaching, curriculum, or troubleshooting you MUST call the search_knowledge_base tool BEFORE answering. Answer strictly from what that lookup returns. Do NOT invent, guess, or extrapolate answers for BTS-specific topics.
+For ANY question about BTS programs, commissions, billing, tools, strategy, coaching, curriculum, troubleshooting, refunds, cancellations, the BTS Agreement, policies, terms, or the 90-day guarantee you MUST call the search_knowledge_base tool BEFORE answering. Answer strictly from what that lookup returns. Do NOT invent, guess, or extrapolate answers for BTS-specific topics.
 
 NAMING — MANDATORY:
 The flagship program is called "The Blitz" — always. There is only one version. NEVER refer to it as the "21-day Blitz," "14-day Blitz," "21 Days to Scale," or any other day-count variant, even if older knowledge-base content, transcripts, or source material use that phrasing. When source material says "21-day Blitz" (or similar), restate it simply as "The Blitz" in your answer.
@@ -545,7 +545,7 @@ export async function setupRetellAgentKb(options: SetupOptions = {}): Promise<Re
     type: "custom" as const,
     name: KB_SEARCH_TOOL_NAME,
     description:
-      "Search the BTS knowledge base for answers about programs, commissions, billing, tools, strategy, coaching, curriculum, and troubleshooting. MUST be called before answering any BTS-specific question.",
+      "Search the BTS knowledge base for answers about programs, commissions, billing, tools, strategy, coaching, curriculum, troubleshooting, refunds, cancellations, the BTS Agreement, policies, terms, and the 90-day guarantee. MUST be called before answering any BTS-specific question.",
     url: kbSearchUrl,
     method: "POST" as const,
     args_at_root: true,
