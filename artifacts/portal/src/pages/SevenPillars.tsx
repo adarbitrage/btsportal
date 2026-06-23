@@ -448,8 +448,8 @@ export default function SevenPillars() {
               </p>
               <div className="flex flex-col sm:flex-row gap-3 pt-2">
                 <Button asChild className="gap-2">
-                  <Link href="/blitz">
-                    Next: Start The Blitz™
+                  <Link href="/core-training/pillars-to-blitz">
+                    Next: Before You Start The Blitz™
                     <ArrowRight className="w-4 h-4" />
                   </Link>
                 </Button>

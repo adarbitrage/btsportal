@@ -12,6 +12,7 @@ import Home from "@/pages/Home";
 import CoreTraining from "@/pages/CoreTraining";
 import QuickStartGuide from "@/pages/QuickStartGuide";
 import SevenPillars from "@/pages/SevenPillars";
+import PillarsToBlitz from "@/pages/PillarsToBlitz";
 import DirectEdge from "@/pages/DirectEdge";
 import TipsAndTricks from "@/pages/TipsAndTricks";
 import Concierge from "@/pages/Concierge";
@@ -389,6 +390,7 @@ function Router() {
       <Route path="/core-training">{() => <ProtectedRoute component={CoreTraining} />}</Route>
       <Route path="/core-training/quick-start">{() => <ProtectedRoute component={QuickStartGuide} />}</Route>
       <Route path="/core-training/7-pillars">{() => <ProtectedRoute component={SevenPillars} />}</Route>
+      <Route path="/core-training/pillars-to-blitz">{() => <ProtectedRoute component={PillarsToBlitz} />}</Route>
       <Route path="/core-training/direct-edge">{() => <ProtectedRoute component={DirectEdge} />}</Route>
       <Route path="/tips-and-tricks">{() => <ProtectedRoute component={TipsAndTricks} />}</Route>
       <Route path="/concierge">{() => <ProtectedRoute component={Concierge} />}</Route>

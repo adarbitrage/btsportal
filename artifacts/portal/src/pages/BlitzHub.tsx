@@ -518,7 +518,14 @@ export default function BlitzHub() {
           <div className="rounded-xl border border-border/60 bg-muted/40 p-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <p className="text-sm text-muted-foreground">
               <strong className="text-foreground">Just finished the 7 Pillars?</strong> You've learned the
-              framework — now you build. Start at the Introduction below and follow the steps in order.
+              framework — now you build. New here?{" "}
+              <Link
+                href="/core-training/pillars-to-blitz"
+                className="text-primary font-medium hover:underline"
+              >
+                See how each pillar becomes The Blitz™
+              </Link>
+              , then start at the Introduction below.
             </p>
             <Button asChild variant="outline" size="sm" className="gap-2 shrink-0">
               <Link href="/core-training/7-pillars">
