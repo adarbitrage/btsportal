@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Link } from "wouter";
 import {
   Briefcase, ShoppingBag, Users2, Mail, Target, Zap, Heart,
-  Route, ArrowRight, ArrowLeft, Sparkles, ChevronUp,
+  Route, ArrowRight, ArrowLeft, Sparkles, ChevronUp, Rocket,
 } from "lucide-react";
 import { useRef, type ComponentType, type SVGProps, type RefObject } from "react";
 
@@ -119,10 +119,63 @@ function BackToTop({ topRef }: { topRef: RefObject<HTMLDivElement | null> }) {
   );
 }
 
+function PillarQuickNav() {
+  const scrollTo = (id: string) => {
+    document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
+
+  return (
+    <nav aria-label="Jump to a pillar" className="!mt-3">
+      <div className="overflow-x-auto pb-1">
+        <div className="grid grid-cols-8 gap-1.5 sm:gap-2 min-w-[680px]">
+          {bridges.map((bridge) => {
+            const Icon = bridge.icon;
+            return (
+              <button
+                key={bridge.num}
+                type="button"
+                onClick={() => scrollTo(`bridge${bridge.num}`)}
+                className="group flex flex-col items-center gap-1.5 rounded-xl border border-border/60 bg-card px-1 py-2.5 text-center transition-colors hover:border-primary/40 hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
+              >
+                <span
+                  className={`flex h-8 w-8 items-center justify-center rounded-lg border ${bridge.tint.iconBg} ${bridge.tint.iconBorder} shrink-0`}
+                >
+                  <Icon className={`h-4 w-4 ${bridge.tint.iconText}`} />
+                </span>
+                <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground leading-none">
+                  Pillar #{bridge.num}
+                </span>
+                <span className="text-[11px] font-semibold leading-tight text-foreground">
+                  {bridge.title}
+                </span>
+              </button>
+            );
+          })}
+          <button
+            type="button"
+            onClick={() => scrollTo("next-steps")}
+            className="group flex flex-col items-center gap-1.5 rounded-xl border border-border/60 bg-card px-1 py-2.5 text-center transition-colors hover:border-primary/40 hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
+          >
+            <span className="flex h-8 w-8 items-center justify-center rounded-lg border bg-primary/10 border-primary/30 shrink-0">
+              <Rocket className="h-4 w-4 text-primary" />
+            </span>
+            <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground leading-none">
+              Up Next
+            </span>
+            <span className="text-[11px] font-semibold leading-tight text-foreground">
+              Next Steps
+            </span>
+          </button>
+        </div>
+      </div>
+    </nav>
+  );
+}
+
 function BridgeCard({ bridge, topRef }: { bridge: Bridge; topRef: RefObject<HTMLDivElement | null> }) {
   const Icon = bridge.icon;
   return (
-    <Card className="border-border/60 shadow-sm overflow-hidden">
+    <Card id={`bridge${bridge.num}`} className="border-border/60 shadow-sm overflow-hidden scroll-mt-6">
       <div className="flex items-start gap-4 p-6 border-b border-border/60 bg-muted/30">
         <div
           className={`w-12 h-12 rounded-xl border ${bridge.tint.iconBg} ${bridge.tint.iconBorder} flex items-center justify-center shrink-0`}
@@ -202,11 +255,13 @@ export default function PillarsToBlitz() {
           </span>
         </div>
 
+        <PillarQuickNav />
+
         {bridges.map((bridge) => (
           <BridgeCard key={bridge.num} bridge={bridge} topRef={topRef} />
         ))}
 
-        <Card className="border-primary/30 bg-primary/5 shadow-sm">
+        <Card id="next-steps" className="border-primary/30 bg-primary/5 shadow-sm scroll-mt-6">
           <CardContent className="p-8 md:p-10 space-y-5">
             <h2 className="flex items-center gap-2 text-2xl font-bold text-foreground">
               <Sparkles className="w-6 h-6 text-primary" />
