@@ -93,6 +93,7 @@ timeoutMs = 420000
 [userenv]
 
 [userenv.shared]
+RETELL_API_BASE_URL = "https://portal.buildtestscale.com/api"
 
 [userenv.production]
 PORTAL_URL = "https://portal.buildtestscale.com"

@@ -331,6 +331,8 @@ router.get(
       agent_response_engine_type: cached.agentResponseEngineType ?? null,
       repointed: cached.repointed ?? false,
       conversation_flow_assessment: cached.conversationFlowAssessment ?? null,
+      new_agent_id: cached.newAgentId ?? null,
+      requires_agent_id_update: cached.requiresAgentIdUpdate ?? false,
       ran_at: cached.ranAt,
     });
   },
@@ -341,7 +343,7 @@ router.post(
   requirePermission("system:view"),
   async (req: Request, res: Response): Promise<void> => {
     try {
-      const result = await setupRetellAgentKb();
+      const result = await setupRetellAgentKb({ forceRepoint: true });
       setCachedRetellSetupResult(result);
       res.json({
         skipped: result.skipped,
@@ -351,6 +353,8 @@ router.post(
         agent_response_engine_type: result.agentResponseEngineType ?? null,
         repointed: result.repointed ?? false,
         conversation_flow_assessment: result.conversationFlowAssessment ?? null,
+        new_agent_id: result.newAgentId ?? null,
+        requires_agent_id_update: result.requiresAgentIdUpdate ?? false,
         ran_at: result.ranAt,
       });
     } catch (err: any) {

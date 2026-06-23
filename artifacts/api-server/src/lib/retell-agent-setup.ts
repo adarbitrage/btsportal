@@ -189,7 +189,26 @@ export interface RetellSetupResult {
   repointed?: boolean;
   /** Human-readable summary of the Conversation Flow assessment (set when agent was on a non-LLM engine). */
   conversationFlowAssessment?: string;
+  /**
+   * Set when the Retell API blocked an in-place engine-type change (400 "Cannot
+   * update response engine to different response engine type").  A new agent was
+   * created instead — the caller must update RETELL_AGENT_ID to this value and
+   * republish for the change to take effect.
+   */
+  newAgentId?: string;
+  /** True when newAgentId is set and RETELL_AGENT_ID must be updated. */
+  requiresAgentIdUpdate?: boolean;
   ranAt: string;
+}
+
+export interface SetupOptions {
+  /**
+   * When true, the substantial-Conversation-Flow safety gate is overridden:
+   * the flow assessment still runs (and is logged) for traceability, but a
+   * complex/order-taking flow no longer blocks the repoint.  Use this for the
+   * BTS-owned agent where the order flow is unwanted and KB should always win.
+   */
+  forceRepoint?: boolean;
 }
 
 // ---------------------------------------------------------------------------
@@ -207,7 +226,8 @@ export function setCachedRetellSetupResult(result: RetellSetupResult): void {
   _cachedResult = result;
 }
 
-export async function setupRetellAgentKb(): Promise<RetellSetupResult> {
+export async function setupRetellAgentKb(options: SetupOptions = {}): Promise<RetellSetupResult> {
+  const { forceRepoint = false } = options;
   const apiKey = (process.env.RETELL_API_KEY ?? "").trim();
   const agentId = (process.env.RETELL_AGENT_ID ?? "").trim();
   const functionSecret = (process.env.RETELL_FUNCTION_SECRET ?? "").trim();
@@ -359,13 +379,20 @@ export async function setupRetellAgentKb(): Promise<RetellSetupResult> {
     console.log(`[RetellSetup] Flow assessment: ${flowAssessment.summary}`);
 
     if (flowAssessment.substantial) {
-      return {
-        skipped: true,
-        reason: `Agent is on "${agentResponseEngineType}" engine with substantial Conversation Flow logic — manual review required before auto-repoint. ${flowAssessment.summary}`,
-        agentResponseEngineType,
-        conversationFlowAssessment: flowAssessment.summary,
-        ranAt: stamp(),
-      };
+      if (!forceRepoint) {
+        return {
+          skipped: true,
+          reason: `Agent is on "${agentResponseEngineType}" engine with substantial Conversation Flow logic — manual review required before auto-repoint. ${flowAssessment.summary}`,
+          agentResponseEngineType,
+          conversationFlowAssessment: flowAssessment.summary,
+          ranAt: stamp(),
+        };
+      }
+      // forceRepoint=true — override the gate and proceed.
+      // The assessment is logged for traceability so the intent is auditable.
+      console.log(
+        `[RetellSetup] forceRepoint=true — overriding substantial-flow gate and repointing. Previous engine: "${agentResponseEngineType}". Flow: ${flowAssessment.summary}`,
+      );
     }
 
     // Step 2: find or create a Retell LLM with the desired KB config.
@@ -426,27 +453,102 @@ export async function setupRetellAgentKb(): Promise<RetellSetupResult> {
     }
 
     // Step 3: repoint the agent to the LLM.
-    await client.agent.update(agentId, {
-      response_engine: {
-        type: "retell-llm",
-        llm_id: targetLlmId!,
-      } as Parameters<typeof client.agent.update>[1]["response_engine"],
-    });
+    //
+    // The Retell API blocks changing response_engine.type via agent.update
+    // (400 "Cannot update response engine to different response engine type").
+    // When that happens we fall back to creating a new agent that clones the
+    // key voice/behavior settings from the original and uses the retell-llm
+    // engine.  The new agent_id is returned so the caller can update
+    // RETELL_AGENT_ID.
+    try {
+      await client.agent.update(agentId, {
+        response_engine: {
+          type: "retell-llm",
+          llm_id: targetLlmId!,
+        } as Parameters<typeof client.agent.update>[1]["response_engine"],
+      });
 
-    console.log(
-      `[RetellSetup] Repointed agent ${agentId} from "${agentResponseEngineType}" to Retell LLM ${targetLlmId}.`,
-    );
+      console.log(
+        `[RetellSetup] Repointed agent ${agentId} from "${agentResponseEngineType}" to Retell LLM ${targetLlmId}.`,
+      );
 
-    return {
-      skipped: false,
-      reason: `Created/reused Retell LLM ${targetLlmId} and repointed agent from "${agentResponseEngineType}" engine — KB tool and prompt configured`,
-      llmId: targetLlmId!,
-      kbSearchUrl,
-      agentResponseEngineType,
-      repointed: true,
-      conversationFlowAssessment: flowAssessment.summary,
-      ranAt: stamp(),
-    };
+      return {
+        skipped: false,
+        reason: `Created/reused Retell LLM ${targetLlmId} and repointed agent from "${agentResponseEngineType}" engine — KB tool and prompt configured`,
+        llmId: targetLlmId!,
+        kbSearchUrl,
+        agentResponseEngineType,
+        repointed: true,
+        conversationFlowAssessment: flowAssessment.summary,
+        ranAt: stamp(),
+      };
+    } catch (updateErr) {
+      const errMsg = (updateErr as Error)?.message ?? String(updateErr);
+      const isEngineTypeErr = /different response engine type/i.test(errMsg);
+
+      if (!isEngineTypeErr) {
+        // Not the engine-type constraint — propagate so the caller sees it.
+        throw updateErr;
+      }
+
+      // Retell API blocked engine-type change in place.
+      // Create a new agent, cloning key voice/behavior settings from the
+      // existing one, then point it at the KB LLM.
+      console.warn(
+        `[RetellSetup] agent.update blocked engine-type change (${errMsg}). Creating a new agent instead.`,
+      );
+
+      const existingAgent = agent as unknown as {
+        voice_id?: string;
+        agent_name?: string | null;
+        language?: string | null;
+        interruption_sensitivity?: number | null;
+        ambient_sound?: string | null;
+        enable_backchannel?: boolean;
+      };
+
+      const newAgentBody: Record<string, unknown> = {
+        response_engine: { type: "retell-llm", llm_id: targetLlmId! },
+        // voice_id is required for create; fall back to a known-good default
+        // if the original value is missing (shouldn't happen in practice).
+        voice_id: existingAgent.voice_id ?? "retell-Cimo",
+      };
+      if (existingAgent.agent_name) newAgentBody.agent_name = existingAgent.agent_name;
+      if (existingAgent.language) newAgentBody.language = existingAgent.language;
+      if (existingAgent.interruption_sensitivity != null) {
+        newAgentBody.interruption_sensitivity = existingAgent.interruption_sensitivity;
+      }
+      if (existingAgent.ambient_sound) newAgentBody.ambient_sound = existingAgent.ambient_sound;
+      if (existingAgent.enable_backchannel != null) {
+        newAgentBody.enable_backchannel = existingAgent.enable_backchannel;
+      }
+
+      const newAgent = await (client.agent.create as unknown as (
+        body: Record<string, unknown>,
+      ) => Promise<{ agent_id: string }>)(newAgentBody);
+      const newAgentId = newAgent.agent_id;
+
+      console.log(
+        `[RetellSetup] Created new agent ${newAgentId} with retell-llm engine. ` +
+        `Update RETELL_AGENT_ID from "${agentId}" to "${newAgentId}" and republish to activate.`,
+      );
+
+      return {
+        skipped: false,
+        reason:
+          `Retell API blocked in-place engine-type change — created new agent ${newAgentId} ` +
+          `with retell-llm engine + KB tool. ` +
+          `⚠️ Update RETELL_AGENT_ID to "${newAgentId}" and republish to activate.`,
+        llmId: targetLlmId!,
+        kbSearchUrl,
+        agentResponseEngineType,
+        repointed: false,
+        newAgentId,
+        requiresAgentIdUpdate: true,
+        conversationFlowAssessment: flowAssessment.summary,
+        ranAt: stamp(),
+      };
+    }
   }
 
   // ---------------------------------------------------------------------------

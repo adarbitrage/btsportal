@@ -68,6 +68,7 @@ function makeRetellClient(overrides: {
     agent: {
       retrieve: vi.fn().mockResolvedValue(agentRetrieveResult),
       update: vi.fn().mockResolvedValue({}),
+      create: vi.fn().mockResolvedValue({ agent_id: "agent_new_clone" }),
     },
     llm: {
       retrieve: vi.fn().mockResolvedValue({
@@ -366,6 +367,227 @@ describe("setupRetellAgentKb — conversation flow complexity gate", () => {
     expect(result.conversationFlowAssessment).toMatch(/API timeout/);
     expect(result.reason).toMatch(/manual review/i);
     expect(mockClient.agent.update).not.toHaveBeenCalled();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Non-LLM agent: forceRepoint override bypasses substantial-flow gate
+// ---------------------------------------------------------------------------
+
+describe("setupRetellAgentKb — forceRepoint override (substantial flow)", () => {
+  it("repoints agent even when flow has transfer_call nodes when forceRepoint=true", async () => {
+    process.env.NODE_ENV = "development";
+    process.env.RETELL_API_KEY = "key_test";
+    process.env.RETELL_AGENT_ID = "agent_abc";
+    process.env.RETELL_FUNCTION_SECRET = "my-secret";
+    process.env.RETELL_API_BASE_URL = "https://api.example.com";
+
+    const mockClient = makeRetellClient({
+      agentType: "conversation_flow",
+      llmId: undefined as any,
+      conversationFlowId: "cf_complex",
+      conversationFlowNodes: [
+        { type: "conversation" },
+        { type: "transfer_call" },
+        { type: "conversation" },
+        { type: "end" },
+      ],
+      createdLlmId: "llm_forced123",
+    });
+
+    vi.doMock("retell-sdk", () => ({
+      default: vi.fn(() => mockClient),
+    }));
+
+    const { setupRetellAgentKb } = await import("../lib/retell-agent-setup");
+    const result = await setupRetellAgentKb({ forceRepoint: true });
+
+    expect(result.skipped).toBe(false);
+    expect(result.repointed).toBe(true);
+    expect(result.llmId).toBe("llm_forced123");
+    expect(result.agentResponseEngineType).toBe("conversation_flow");
+    // Assessment was still run and is reported for traceability
+    expect(result.conversationFlowAssessment).toMatch(/transfer_call/);
+
+    expect(mockClient.llm.create).toHaveBeenCalledOnce();
+    const createCall = mockClient.llm.create.mock.calls[0][0];
+    expect(createCall.general_tools[0].name).toBe("search_knowledge_base");
+
+    expect(mockClient.agent.update).toHaveBeenCalledOnce();
+    expect(mockClient.agent.update.mock.calls[0][1].response_engine).toMatchObject({
+      type: "retell-llm",
+      llm_id: "llm_forced123",
+    });
+  });
+
+  it("repoints agent even when flow has branch nodes when forceRepoint=true", async () => {
+    process.env.NODE_ENV = "development";
+    process.env.RETELL_API_KEY = "key_test";
+    process.env.RETELL_AGENT_ID = "agent_abc";
+    process.env.RETELL_FUNCTION_SECRET = "my-secret";
+    process.env.RETELL_API_BASE_URL = "https://api.example.com";
+
+    const mockClient = makeRetellClient({
+      agentType: "conversation_flow",
+      llmId: undefined as any,
+      conversationFlowId: "cf_branch",
+      conversationFlowNodes: [
+        { type: "conversation" },
+        { type: "branch" },
+        { type: "conversation" },
+      ],
+      createdLlmId: "llm_forced_branch",
+    });
+
+    vi.doMock("retell-sdk", () => ({
+      default: vi.fn(() => mockClient),
+    }));
+
+    const { setupRetellAgentKb } = await import("../lib/retell-agent-setup");
+    const result = await setupRetellAgentKb({ forceRepoint: true });
+
+    expect(result.skipped).toBe(false);
+    expect(result.repointed).toBe(true);
+    expect(result.llmId).toBe("llm_forced_branch");
+    expect(result.conversationFlowAssessment).toMatch(/branch/);
+    expect(mockClient.agent.update).toHaveBeenCalledOnce();
+  });
+
+  it("repoints agent even when flow exceeds node-count threshold when forceRepoint=true", async () => {
+    process.env.NODE_ENV = "development";
+    process.env.RETELL_API_KEY = "key_test";
+    process.env.RETELL_AGENT_ID = "agent_abc";
+    process.env.RETELL_FUNCTION_SECRET = "";
+    process.env.RETELL_API_BASE_URL = "https://api.example.com";
+
+    const mockClient = makeRetellClient({
+      agentType: "conversation_flow",
+      llmId: undefined as any,
+      conversationFlowId: "cf_many",
+      conversationFlowNodes: [
+        { type: "conversation" },
+        { type: "conversation" },
+        { type: "conversation" },
+        { type: "conversation" },
+      ],
+      createdLlmId: "llm_forced_many",
+    });
+
+    vi.doMock("retell-sdk", () => ({
+      default: vi.fn(() => mockClient),
+    }));
+
+    const { setupRetellAgentKb } = await import("../lib/retell-agent-setup");
+    const result = await setupRetellAgentKb({ forceRepoint: true });
+
+    expect(result.skipped).toBe(false);
+    expect(result.repointed).toBe(true);
+    expect(result.llmId).toBe("llm_forced_many");
+    expect(result.conversationFlowAssessment).toMatch(/threshold/);
+    expect(mockClient.agent.update).toHaveBeenCalledOnce();
+    expect(mockClient.agent.update.mock.calls[0][1].response_engine).toMatchObject({
+      type: "retell-llm",
+      llm_id: "llm_forced_many",
+    });
+  });
+
+  it("still skips the genuine skip paths even when forceRepoint=true (missing key)", async () => {
+    process.env.RETELL_API_KEY = "";
+    process.env.RETELL_AGENT_ID = "agent_abc";
+    const { setupRetellAgentKb } = await import("../lib/retell-agent-setup");
+    const result = await setupRetellAgentKb({ forceRepoint: true });
+    expect(result.skipped).toBe(true);
+    expect(result.reason).toMatch(/RETELL_API_KEY/);
+  });
+
+  it("still skips in production when RETELL_FUNCTION_SECRET is missing even with forceRepoint=true", async () => {
+    process.env.NODE_ENV = "production";
+    process.env.RETELL_API_KEY = "key_test";
+    process.env.RETELL_AGENT_ID = "agent_abc";
+    process.env.RETELL_FUNCTION_SECRET = "";
+    const { setupRetellAgentKb } = await import("../lib/retell-agent-setup");
+    const result = await setupRetellAgentKb({ forceRepoint: true });
+    expect(result.skipped).toBe(true);
+    expect(result.reason).toMatch(/RETELL_FUNCTION_SECRET/);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Non-LLM agent: Retell API engine-type constraint → create new agent fallback
+// ---------------------------------------------------------------------------
+
+describe("setupRetellAgentKb — engine-type change blocked (create new agent fallback)", () => {
+  it("creates a new agent and returns newAgentId when agent.update rejects with engine-type error", async () => {
+    process.env.NODE_ENV = "development";
+    process.env.RETELL_API_KEY = "key_test";
+    process.env.RETELL_AGENT_ID = "agent_abc";
+    process.env.RETELL_FUNCTION_SECRET = "my-secret";
+    process.env.RETELL_API_BASE_URL = "https://api.example.com";
+
+    const mockClient = makeRetellClient({
+      agentType: "conversation_flow",
+      llmId: undefined as any,
+      createdLlmId: "llm_for_new_agent",
+    });
+    // Make agent.update throw the Retell engine-type constraint error
+    mockClient.agent.update.mockRejectedValue(
+      new Error("400 Cannot update response engine to different response engine type"),
+    );
+    // Make agent.retrieve return voice_id so the clone can copy it
+    mockClient.agent.retrieve.mockResolvedValue({
+      response_engine: { type: "conversation_flow" },
+      voice_id: "retell-Cimo",
+      agent_name: "BTS Assistant",
+    });
+    mockClient.agent.create.mockResolvedValue({ agent_id: "agent_new_clone999" });
+
+    vi.doMock("retell-sdk", () => ({
+      default: vi.fn(() => mockClient),
+    }));
+
+    const { setupRetellAgentKb } = await import("../lib/retell-agent-setup");
+    const result = await setupRetellAgentKb({ forceRepoint: true });
+
+    expect(result.skipped).toBe(false);
+    expect(result.repointed).toBe(false);
+    expect(result.requiresAgentIdUpdate).toBe(true);
+    expect(result.newAgentId).toBe("agent_new_clone999");
+    expect(result.reason).toMatch(/agent_new_clone999/);
+    expect(result.reason).toMatch(/RETELL_AGENT_ID/);
+    expect(result.llmId).toBe("llm_for_new_agent");
+
+    // Must NOT have updated the original agent
+    expect(mockClient.agent.update).toHaveBeenCalledOnce();
+    // Must have created a new agent
+    expect(mockClient.agent.create).toHaveBeenCalledOnce();
+    const createCall = mockClient.agent.create.mock.calls[0][0] as Record<string, unknown>;
+    expect(createCall.voice_id).toBe("retell-Cimo");
+    expect(createCall.agent_name).toBe("BTS Assistant");
+    expect((createCall.response_engine as Record<string, unknown>).type).toBe("retell-llm");
+    expect((createCall.response_engine as Record<string, unknown>).llm_id).toBe("llm_for_new_agent");
+  });
+
+  it("re-throws non-engine-type errors from agent.update", async () => {
+    process.env.NODE_ENV = "development";
+    process.env.RETELL_API_KEY = "key_test";
+    process.env.RETELL_AGENT_ID = "agent_abc";
+    process.env.RETELL_FUNCTION_SECRET = "my-secret";
+    process.env.RETELL_API_BASE_URL = "https://api.example.com";
+
+    const mockClient = makeRetellClient({
+      agentType: "conversation_flow",
+      llmId: undefined as any,
+      createdLlmId: "llm_new",
+    });
+    mockClient.agent.update.mockRejectedValue(new Error("500 Internal Server Error"));
+
+    vi.doMock("retell-sdk", () => ({
+      default: vi.fn(() => mockClient),
+    }));
+
+    const { setupRetellAgentKb } = await import("../lib/retell-agent-setup");
+    await expect(setupRetellAgentKb({ forceRepoint: true })).rejects.toThrow("500 Internal Server Error");
+    expect(mockClient.agent.create).not.toHaveBeenCalled();
   });
 });
 

@@ -178,7 +178,7 @@ startAuthRateLimitAuditCleanupJob();
 startUpgradePromptEventsCleanupJob();
 startAuditLogRetentionJob();
 startYseGrantRetryJob();
-setupRetellAgentKb()
+setupRetellAgentKb({ forceRepoint: true })
   .then((result) => {
     setCachedRetellSetupResult(result);
     if (result.skipped) {
