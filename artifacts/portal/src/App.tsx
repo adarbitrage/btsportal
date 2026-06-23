@@ -16,6 +16,7 @@ import PillarsToBlitz from "@/pages/PillarsToBlitz";
 import DirectEdge from "@/pages/DirectEdge";
 import TipsAndTricks from "@/pages/TipsAndTricks";
 import Concierge from "@/pages/Concierge";
+import BookVaCall from "@/pages/concierge/BookVaCall";
 import CoachingSession from "@/pages/CoachingSession";
 import Advantage from "@/pages/Advantage";
 import ComplianceReview from "@/pages/ComplianceReview";
@@ -393,6 +394,7 @@ function Router() {
       <Route path="/core-training/pillars-to-blitz">{() => <ProtectedRoute component={PillarsToBlitz} />}</Route>
       <Route path="/core-training/direct-edge">{() => <ProtectedRoute component={DirectEdge} />}</Route>
       <Route path="/tips-and-tricks">{() => <ProtectedRoute component={TipsAndTricks} />}</Route>
+      <Route path="/concierge/book-va-call">{() => <EntitlementRoute component={BookVaCall} entitlement="coaching:group" />}</Route>
       <Route path="/concierge">{() => <ProtectedRoute component={Concierge} />}</Route>
       <Route path="/coaching/sessions">{() => <ProtectedRoute component={CoachingSession} />}</Route>
       <Route path="/advantage">{() => <ProtectedRoute component={Advantage} />}</Route>

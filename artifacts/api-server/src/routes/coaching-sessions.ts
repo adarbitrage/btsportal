@@ -17,6 +17,7 @@ import {
 } from "../lib/session-credits";
 import { fetchCalendarBusy, CalendarScopeError } from "../lib/google-oauth";
 import { getAccessTokenForUser } from "../lib/coach-google-connections";
+import { getUserEntitlements, hasMemberAccessBypass } from "../lib/entitlements";
 import {
   getFreeSlots,
   upsertContact,
@@ -62,6 +63,15 @@ const MEMBER_BOOKING_COLUMNS = {
 const CALL_DURATION_MINUTES = 60;
 const BUFFER_MINUTES = 30;
 const BLOCK_DURATION_MINUTES = CALL_DURATION_MINUTES + BUFFER_MINUTES;
+// Call types as stored in coach_call_calendars. Private coaching and the free
+// 1-on-1 VA calls book against entirely separate per-coach calendars.
+const PRIVATE_CALL_TYPE = "private_coaching";
+const VA_CALL_TYPE = "one_on_one_va";
+// 1-on-1 VA calls are a flat 30-minute block with NO trailing buffer, booked
+// against the VA's own "one_on_one_va" calendar. They are FREE: no session
+// credit is ever checked, spent, or refunded anywhere in the VA flow.
+const VA_CALL_DURATION_MINUTES = 30;
+const VA_BLOCK_DURATION_MINUTES = 30;
 // Sessions must be booked at least this far in advance.
 const MIN_LEAD_TIME_MS = 60 * 60 * 1000; // 1 hour
 // Cancelling at least this far ahead refunds the credit.
@@ -99,6 +109,7 @@ function splitName(name: string): { firstName: string; lastName: string } {
 // busy block, so a human looking at that calendar knows where the hold came
 // from. It is a block slot, not a member appointment — no PII is included.
 const CONFLICT_BLOCK_TITLE = "BTS private coaching (cross-company hold)";
+const VA_CONFLICT_BLOCK_TITLE = "BTS 1-on-1 VA call (cross-company hold)";
 
 interface CalendarBinding {
   calendarId: string;
@@ -620,7 +631,13 @@ router.get("/coaching/sessions/mine", async (req, res): Promise<void> => {
   const userId = req.userId!;
   const status = typeof req.query.status === "string" ? req.query.status : undefined;
 
-  const conditions = [eq(sessionPackBookingsTable.memberId, userId)];
+  const conditions = [
+    eq(sessionPackBookingsTable.memberId, userId),
+    // Private-coaching list only. Free 1-on-1 VA calls live under their own
+    // /coaching/va-calls/mine endpoint and must never appear here (nor be
+    // manageable via the credit-refunding private cancel/reschedule routes).
+    ne(sessionPackCoachesTable.type, "va"),
+  ];
   if (status) {
     conditions.push(eq(sessionPackBookingsTable.status, status));
   }
@@ -677,6 +694,28 @@ router.patch("/coaching/sessions/:id/cancel", async (req, res): Promise<void> =>
   const bookingId = parseInt(req.params.id, 10);
   if (!Number.isInteger(bookingId) || bookingId <= 0) {
     res.status(400).json({ error: "Invalid booking id" });
+    return;
+  }
+
+  // Private-coaching cancel only. A VA booking is FREE (no credit ledger), so a
+  // >24h cancel here would wrongly refund a credit that was never spent. VA
+  // calls must be cancelled via /coaching/va-calls/:id/cancel. Coach type is
+  // immutable per booking, so this pre-check is race-free.
+  const [guard] = await db
+    .select({ type: sessionPackCoachesTable.type })
+    .from(sessionPackBookingsTable)
+    .innerJoin(
+      sessionPackCoachesTable,
+      eq(sessionPackBookingsTable.coachId, sessionPackCoachesTable.id),
+    )
+    .where(
+      and(
+        eq(sessionPackBookingsTable.id, bookingId),
+        eq(sessionPackBookingsTable.memberId, userId),
+      ),
+    );
+  if (!guard || guard.type === "va") {
+    res.status(404).json({ error: "Session not found" });
     return;
   }
 
@@ -831,6 +870,7 @@ router.patch("/coaching/sessions/:id/reschedule", async (req, res): Promise<void
       bookingConflictGhlLocationId: sessionPackBookingsTable.conflictGhlLocationId,
       coachId: sessionPackBookingsTable.coachId,
       title: sessionPackBookingsTable.title,
+      coachType: sessionPackCoachesTable.type,
     })
     .from(sessionPackBookingsTable)
     .innerJoin(
@@ -843,7 +883,8 @@ router.patch("/coaching/sessions/:id/reschedule", async (req, res): Promise<void
         eq(sessionPackBookingsTable.memberId, userId),
       ),
     );
-  if (!existing) {
+  // Private-coaching reschedule only — VA calls use the VA reschedule endpoint.
+  if (!existing || existing.coachType === "va") {
     res.status(404).json({ error: "Session not found" });
     return;
   }
@@ -1002,6 +1043,685 @@ router.patch("/coaching/sessions/:id/reschedule", async (req, res): Promise<void
     await client.query("ROLLBACK");
     console.error("[coaching-sessions] reschedule failed:", err);
     res.status(500).json({ error: "Could not reschedule the session. Please try again." });
+  } finally {
+    client.release();
+  }
+});
+
+// ===========================================================================
+// 1-on-1 VA calls (FREE, 30-minute) — /coaching/va-calls/*
+//
+// A parallel booking flow to private coaching, but: booked against each VA's own
+// 30-minute "one_on_one_va" calendar, FREE (no session credit is ever checked,
+// spent or refunded), and tier-gated to full-membership tiers via the
+// coaching:group entitlement (admins/coaches bypass). It reuses the same GHL +
+// advisory-lock machinery and the same session_pack_bookings table; VA bookings
+// are distinguished from private coaching purely by the coach's type === "va".
+// ===========================================================================
+
+// Full-membership gate. coaching:group is present on exactly the 3-/6-month,
+// 1-year and lifetime tiers (absent on launchpad + all frontend products), so it
+// is the canonical full-membership key. Admins/coaches bypass via member access.
+async function isVaCallEligible(userId: number): Promise<boolean> {
+  if (await hasMemberAccessBypass(userId)) return true;
+  const ents = await getUserEntitlements(userId);
+  return ents.has("coaching:group");
+}
+
+// Load an active VA who offers 1-on-1 VA calls. Returns null otherwise so every
+// VA route uniformly 404s a non-VA / non-opted-in coach id.
+async function loadVaCoach(coachId: number) {
+  const [va] = await db
+    .select()
+    .from(sessionPackCoachesTable)
+    .where(
+      and(
+        eq(sessionPackCoachesTable.id, coachId),
+        eq(sessionPackCoachesTable.isActive, true),
+        eq(sessionPackCoachesTable.type, "va"),
+        eq(sessionPackCoachesTable.doesOneOnOneVaCalls, true),
+      ),
+    );
+  return va ?? null;
+}
+
+// ---------------------------------------------------------------------------
+// VA availability
+// ---------------------------------------------------------------------------
+
+router.get("/coaching/va-calls/vas/:vaId/slots", async (req, res): Promise<void> => {
+  if (!(await isVaCallEligible(req.userId!))) {
+    res.status(403).json({ error: "Your membership doesn't include 1-on-1 VA calls." });
+    return;
+  }
+  const vaId = parseInt(req.params.vaId, 10);
+  if (!Number.isInteger(vaId) || vaId <= 0) {
+    res.status(400).json({ error: "Invalid VA id" });
+    return;
+  }
+
+  const va = await loadVaCoach(vaId);
+  if (!va) {
+    res.status(404).json({ error: "VA not found" });
+    return;
+  }
+
+  const startDate = typeof req.query.startDate === "string" ? req.query.startDate : undefined;
+  const endDate = typeof req.query.endDate === "string" ? req.query.endDate : undefined;
+
+  let startMs: number;
+  let endMs: number;
+  if (startDate) {
+    startMs = Date.parse(`${startDate}T00:00:00Z`);
+  } else {
+    startMs = Date.now();
+  }
+  if (endDate) {
+    endMs = Date.parse(`${endDate}T23:59:59Z`);
+  } else {
+    endMs = startMs + DEFAULT_LOOKAHEAD_DAYS * 24 * 60 * 60 * 1000;
+  }
+  if (Number.isNaN(startMs) || Number.isNaN(endMs) || endMs <= startMs) {
+    res.status(400).json({ error: "Invalid date range" });
+    return;
+  }
+
+  const cals = await loadCoachCalendars(vaId, VA_CALL_TYPE);
+  if (!cals) {
+    res.status(404).json({ error: "VA not found" });
+    return;
+  }
+
+  try {
+    const slots = await freeSlotsAcrossCalendars(cals, startMs, endMs);
+    const cutoff = Date.now() + MIN_LEAD_TIME_MS;
+    const usable = slots.filter((s) => new Date(s.startTime).getTime() >= cutoff);
+    res.json({ coachId: vaId, slots: usable });
+  } catch (err) {
+    console.error("[coaching-sessions] VA free-slots failed:", err);
+    res.status(502).json({ error: "Could not load availability. Please try again." });
+  }
+});
+
+router.get(
+  "/coaching/va-calls/vas/:vaId/calendar-busy",
+  async (req, res): Promise<void> => {
+    if (!(await isVaCallEligible(req.userId!))) {
+      res.status(403).json({ error: "Your membership doesn't include 1-on-1 VA calls." });
+      return;
+    }
+    const vaId = parseInt(req.params.vaId, 10);
+    if (!Number.isInteger(vaId) || vaId <= 0) {
+      res.status(400).json({ error: "Invalid VA id" });
+      return;
+    }
+
+    const va = await loadVaCoach(vaId);
+    if (!va) {
+      res.status(404).json({ error: "VA not found" });
+      return;
+    }
+    if (va.userId === null) {
+      res.json({ connected: false, busy: [] });
+      return;
+    }
+
+    const fromRaw = req.query.from;
+    const toRaw = req.query.to;
+    const fromDate = typeof fromRaw === "string" ? new Date(fromRaw) : null;
+    const toDate = typeof toRaw === "string" ? new Date(toRaw) : null;
+    if (
+      !fromDate ||
+      !toDate ||
+      Number.isNaN(fromDate.getTime()) ||
+      Number.isNaN(toDate.getTime()) ||
+      fromDate.getTime() >= toDate.getTime()
+    ) {
+      res.status(400).json({ error: "Invalid from/to range" });
+      return;
+    }
+    const MAX_WINDOW_MS = 70 * 24 * 60 * 60 * 1000;
+    if (toDate.getTime() - fromDate.getTime() > MAX_WINDOW_MS) {
+      res.status(400).json({ error: "Range too large" });
+      return;
+    }
+
+    const accessToken = await getAccessTokenForUser(va.userId);
+    if (!accessToken) {
+      res.json({ connected: false, busy: [] });
+      return;
+    }
+
+    try {
+      const busy = await fetchCalendarBusy(
+        accessToken,
+        fromDate.toISOString(),
+        toDate.toISOString(),
+      );
+      res.json({ connected: true, busy });
+    } catch (err) {
+      if (err instanceof CalendarScopeError) {
+        res.json({ connected: false, busy: [] });
+        return;
+      }
+      console.error("[coaching-sessions] VA calendar-busy failed:", err);
+      res.status(502).json({ error: "Could not load VA availability." });
+    }
+  },
+);
+
+// ---------------------------------------------------------------------------
+// VA book (FREE — no credit checked, spent, or refunded)
+// ---------------------------------------------------------------------------
+
+router.post("/coaching/va-calls/book", async (req, res): Promise<void> => {
+  const userId = req.userId!;
+  if (!(await isVaCallEligible(userId))) {
+    res.status(403).json({ error: "Your membership doesn't include 1-on-1 VA calls." });
+    return;
+  }
+
+  const { coachId: rawCoachId, startTime, discussionTopic: rawDiscussionTopic } = req.body || {};
+  const coachId = typeof rawCoachId === "number" ? rawCoachId : parseInt(rawCoachId, 10);
+  const discussionTopic =
+    typeof rawDiscussionTopic === "string" && rawDiscussionTopic.trim()
+      ? rawDiscussionTopic.trim().slice(0, 2000)
+      : null;
+
+  if (!Number.isInteger(coachId) || coachId <= 0) {
+    res.status(400).json({ error: "Invalid VA id" });
+    return;
+  }
+  if (typeof startTime !== "string" || Number.isNaN(Date.parse(startTime))) {
+    res.status(400).json({ error: "Invalid start time" });
+    return;
+  }
+
+  const scheduledAt = new Date(startTime);
+  if (scheduledAt.getTime() < Date.now() + MIN_LEAD_TIME_MS) {
+    res.status(400).json({ error: "Calls must be booked at least 1 hour in advance" });
+    return;
+  }
+
+  const va = await loadVaCoach(coachId);
+  const cals = await loadCoachCalendars(coachId, VA_CALL_TYPE);
+  if (!va || !cals) {
+    res.status(404).json({ error: "VA not found" });
+    return;
+  }
+
+  const [member] = await db
+    .select({ name: usersTable.name, email: usersTable.email })
+    .from(usersTable)
+    .where(eq(usersTable.id, userId));
+  if (!member) {
+    res.status(404).json({ error: "Member not found" });
+    return;
+  }
+
+  const dayMs = scheduledAt.getTime();
+  const freeSlots = await freeSlotsAcrossCalendars(cals, dayMs - 60_000, dayMs + 24 * 60 * 60 * 1000);
+  const slotOpen = freeSlots.some((s) => new Date(s.startTime).getTime() === scheduledAt.getTime());
+  if (!slotOpen) {
+    res.status(409).json({ error: "That time slot is no longer available" });
+    return;
+  }
+
+  const endAt = new Date(scheduledAt.getTime() + VA_CALL_DURATION_MINUTES * 60000);
+  // VA calls have no trailing buffer — the calendar block equals the call length.
+  const blockEndAt = new Date(scheduledAt.getTime() + VA_BLOCK_DURATION_MINUTES * 60000);
+  const endTimeIso = isoWithMatchingOffset(blockEndAt, startTime);
+
+  const client = await pool.connect();
+  let createdAppointmentId: string | null = null;
+  let createdBlockEventId: string | null = null;
+  try {
+    await client.query("BEGIN");
+    const txDb = drizzle(client);
+
+    // Serialize booking writes against this VA so two members can't both pass the
+    // free-slot check and double-book the same instant. No member credit lock:
+    // VA calls are free, so there is no credit to serialize.
+    await txDb.execute(sql`SELECT pg_advisory_xact_lock(${coachBookingLockKey(coachId)})`);
+
+    const recheck = await freeSlotsAcrossCalendars(cals, dayMs - 60_000, dayMs + 60_000);
+    if (!recheck.some((s) => new Date(s.startTime).getTime() === scheduledAt.getTime())) {
+      await client.query("ROLLBACK");
+      res.status(409).json({ error: "That time slot is no longer available" });
+      return;
+    }
+
+    const contactId = await upsertContact({
+      email: member.email,
+      ...splitName(member.name),
+      locationId: cals.booking.locationId,
+    });
+    const title = `1-on-1 VA Call with ${va.name}`;
+    const appointment = await createAppointment({
+      calendarId: cals.booking.calendarId,
+      contactId,
+      startTime,
+      endTime: endTimeIso,
+      title,
+      locationId: cals.booking.locationId,
+    });
+    createdAppointmentId = appointment.id;
+
+    if (cals.conflict) {
+      const block = await createBlockSlot({
+        calendarId: cals.conflict.calendarId,
+        locationId: cals.conflict.locationId,
+        startTime,
+        endTime: endTimeIso,
+        title: VA_CONFLICT_BLOCK_TITLE,
+      });
+      createdBlockEventId = block.id;
+    }
+
+    const [booking] = await txDb
+      .insert(sessionPackBookingsTable)
+      .values({
+        memberId: userId,
+        coachId,
+        ghlCalendarId: cals.booking.calendarId,
+        ghlLocationId: cals.booking.locationId,
+        ghlAppointmentId: appointment.id,
+        ghlContactId: contactId,
+        conflictBlockEventId: createdBlockEventId,
+        conflictGhlLocationId: cals.conflict?.locationId ?? null,
+        scheduledAt,
+        endAt,
+        durationMinutes: VA_CALL_DURATION_MINUTES,
+        meetLink: appointment.meetLink,
+        status: "booked",
+        title,
+        discussionTopic,
+      })
+      .returning(MEMBER_BOOKING_COLUMNS);
+
+    // NO coachingCreditLedger insert: VA calls are free.
+
+    await client.query("COMMIT");
+
+    if (discussionTopic) {
+      const whenStr = scheduledAt.toLocaleString("en-US", {
+        timeZone: COACHING_TIMEZONE,
+        weekday: "short",
+        month: "short",
+        day: "numeric",
+        hour: "numeric",
+        minute: "2-digit",
+        timeZoneName: "short",
+      });
+      void createAppointmentNote(
+        appointment.id,
+        `1-on-1 VA Call with ${va.name} — ${whenStr}\nWhat the member wants to discuss:\n${discussionTopic}`,
+      ).catch((err) => {
+        console.error("[coaching-sessions] VA discussion-topic appointment-note failed:", err);
+      });
+    }
+
+    res.status(201).json({ booking });
+  } catch (err) {
+    await client.query("ROLLBACK");
+    if (createdAppointmentId) {
+      try {
+        await cancelAppointment(createdAppointmentId, cals.booking.locationId);
+      } catch (cancelErr) {
+        console.error("[coaching-sessions] failed to roll back VA GHL appointment:", cancelErr);
+      }
+    }
+    if (createdBlockEventId && cals.conflict) {
+      try {
+        await deleteBlockSlot(createdBlockEventId, cals.conflict.locationId);
+      } catch (blockErr) {
+        console.error("[coaching-sessions] failed to roll back VA conflict block:", blockErr);
+      }
+    }
+    console.error("[coaching-sessions] VA booking failed:", err);
+    res.status(500).json({ error: "Could not complete booking. Please try again." });
+  } finally {
+    client.release();
+  }
+});
+
+// ---------------------------------------------------------------------------
+// My VA calls
+// ---------------------------------------------------------------------------
+
+router.get("/coaching/va-calls/mine", async (req, res): Promise<void> => {
+  const userId = req.userId!;
+  if (!(await isVaCallEligible(userId))) {
+    res.status(403).json({ error: "Your membership doesn't include 1-on-1 VA calls." });
+    return;
+  }
+  const status = typeof req.query.status === "string" ? req.query.status : undefined;
+
+  const conditions = [
+    eq(sessionPackBookingsTable.memberId, userId),
+    // VA calls only. The coach's type is the single discriminator between VA
+    // bookings and private-coaching bookings in the shared bookings table.
+    eq(sessionPackCoachesTable.type, "va"),
+  ];
+  if (status) {
+    conditions.push(eq(sessionPackBookingsTable.status, status));
+  }
+
+  // Lean projection: VA calls are never recorded, so no recording fields. The
+  // member's own discussionTopic is safe to echo; coachNotes/actionItems are
+  // never selected here.
+  const rows = await db
+    .select({
+      id: sessionPackBookingsTable.id,
+      coachId: sessionPackBookingsTable.coachId,
+      coachName: sessionPackCoachesTable.name,
+      coachPhotoUrl: sessionPackCoachesTable.photoUrl,
+      scheduledAt: sessionPackBookingsTable.scheduledAt,
+      endAt: sessionPackBookingsTable.endAt,
+      durationMinutes: sessionPackBookingsTable.durationMinutes,
+      meetLink: sessionPackBookingsTable.meetLink,
+      status: sessionPackBookingsTable.status,
+      title: sessionPackBookingsTable.title,
+      discussionTopic: sessionPackBookingsTable.discussionTopic,
+      cancelledAt: sessionPackBookingsTable.cancelledAt,
+      createdAt: sessionPackBookingsTable.createdAt,
+    })
+    .from(sessionPackBookingsTable)
+    .innerJoin(
+      sessionPackCoachesTable,
+      eq(sessionPackBookingsTable.coachId, sessionPackCoachesTable.id),
+    )
+    .where(and(...conditions))
+    .orderBy(desc(sessionPackBookingsTable.scheduledAt));
+
+  res.json(rows);
+});
+
+// ---------------------------------------------------------------------------
+// VA cancel (FREE — no refund ledger)
+// ---------------------------------------------------------------------------
+
+router.patch("/coaching/va-calls/:id/cancel", async (req, res): Promise<void> => {
+  const userId = req.userId!;
+  if (!(await isVaCallEligible(userId))) {
+    res.status(403).json({ error: "Your membership doesn't include 1-on-1 VA calls." });
+    return;
+  }
+  const bookingId = parseInt(req.params.id, 10);
+  if (!Number.isInteger(bookingId) || bookingId <= 0) {
+    res.status(400).json({ error: "Invalid booking id" });
+    return;
+  }
+
+  // Only operate on this member's VA bookings; a private-coaching id must 404
+  // here so it can only be cancelled by the private endpoint. Coach type is
+  // immutable per booking, so this pre-check is race-free.
+  const [guard] = await db
+    .select({ type: sessionPackCoachesTable.type })
+    .from(sessionPackBookingsTable)
+    .innerJoin(
+      sessionPackCoachesTable,
+      eq(sessionPackBookingsTable.coachId, sessionPackCoachesTable.id),
+    )
+    .where(
+      and(
+        eq(sessionPackBookingsTable.id, bookingId),
+        eq(sessionPackBookingsTable.memberId, userId),
+      ),
+    );
+  if (!guard || guard.type !== "va") {
+    res.status(404).json({ error: "Call not found" });
+    return;
+  }
+
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    const txDb = drizzle(client);
+
+    // Atomically claim the cancellation: only the request that flips
+    // 'booked' -> 'cancelled' owns the GHL cancel. No credit lock needed.
+    const cancelled = await txDb
+      .update(sessionPackBookingsTable)
+      .set({ status: "cancelled", cancelledAt: new Date() })
+      .where(
+        and(
+          eq(sessionPackBookingsTable.id, bookingId),
+          eq(sessionPackBookingsTable.memberId, userId),
+          eq(sessionPackBookingsTable.status, "booked"),
+        ),
+      )
+      .returning();
+
+    if (cancelled.length === 0) {
+      await client.query("ROLLBACK");
+      res.status(409).json({ error: "This call can no longer be cancelled" });
+      return;
+    }
+
+    const booking = cancelled[0];
+
+    const [coach] = await txDb
+      .select({
+        ghlLocationId: sessionPackCoachesTable.ghlLocationId,
+        conflictGhlLocationId: sessionPackCoachesTable.conflictGhlLocationId,
+      })
+      .from(sessionPackCoachesTable)
+      .where(eq(sessionPackCoachesTable.id, booking.coachId));
+    const bookingLocationId =
+      booking.ghlLocationId ?? coach?.ghlLocationId ?? COACHING_LOCATION_ID;
+    const conflictLocationId =
+      booking.conflictGhlLocationId ?? coach?.conflictGhlLocationId ?? COACHING_LOCATION_ID;
+
+    if (booking.ghlAppointmentId) {
+      try {
+        await cancelAppointment(booking.ghlAppointmentId, bookingLocationId);
+      } catch (err) {
+        await client.query("ROLLBACK");
+        console.error("[coaching-sessions] VA GHL cancel failed:", err);
+        res.status(502).json({ error: "Could not cancel the call. Please try again." });
+        return;
+      }
+    }
+
+    if (booking.conflictBlockEventId) {
+      try {
+        await deleteBlockSlot(booking.conflictBlockEventId, conflictLocationId);
+      } catch (err) {
+        console.error("[coaching-sessions] VA conflict-block delete failed (left stale):", err);
+      }
+    }
+
+    // NO refund ledger insert: VA calls are free.
+
+    await client.query("COMMIT");
+    res.json({ ok: true });
+  } catch (err) {
+    await client.query("ROLLBACK");
+    console.error("[coaching-sessions] VA cancel failed:", err);
+    res.status(500).json({ error: "Could not cancel the call. Please try again." });
+  } finally {
+    client.release();
+  }
+});
+
+// ---------------------------------------------------------------------------
+// VA reschedule (FREE — same booking, new time; no 24h credit gate)
+// ---------------------------------------------------------------------------
+
+router.patch("/coaching/va-calls/:id/reschedule", async (req, res): Promise<void> => {
+  const userId = req.userId!;
+  if (!(await isVaCallEligible(userId))) {
+    res.status(403).json({ error: "Your membership doesn't include 1-on-1 VA calls." });
+    return;
+  }
+  const bookingId = parseInt(req.params.id, 10);
+  if (!Number.isInteger(bookingId) || bookingId <= 0) {
+    res.status(400).json({ error: "Invalid booking id" });
+    return;
+  }
+
+  const { startTime } = req.body || {};
+  if (typeof startTime !== "string" || Number.isNaN(Date.parse(startTime))) {
+    res.status(400).json({ error: "Invalid start time" });
+    return;
+  }
+
+  const scheduledAt = new Date(startTime);
+  if (scheduledAt.getTime() < Date.now() + MIN_LEAD_TIME_MS) {
+    res.status(400).json({ error: "Calls must be booked at least 1 hour in advance" });
+    return;
+  }
+
+  const [existing] = await db
+    .select({
+      id: sessionPackBookingsTable.id,
+      status: sessionPackBookingsTable.status,
+      scheduledAt: sessionPackBookingsTable.scheduledAt,
+      ghlAppointmentId: sessionPackBookingsTable.ghlAppointmentId,
+      ghlCalendarId: sessionPackBookingsTable.ghlCalendarId,
+      bookingGhlLocationId: sessionPackBookingsTable.ghlLocationId,
+      conflictBlockEventId: sessionPackBookingsTable.conflictBlockEventId,
+      bookingConflictGhlLocationId: sessionPackBookingsTable.conflictGhlLocationId,
+      coachId: sessionPackBookingsTable.coachId,
+      title: sessionPackBookingsTable.title,
+      coachType: sessionPackCoachesTable.type,
+    })
+    .from(sessionPackBookingsTable)
+    .innerJoin(
+      sessionPackCoachesTable,
+      eq(sessionPackBookingsTable.coachId, sessionPackCoachesTable.id),
+    )
+    .where(
+      and(
+        eq(sessionPackBookingsTable.id, bookingId),
+        eq(sessionPackBookingsTable.memberId, userId),
+      ),
+    );
+  // VA reschedule only — private bookings use the private reschedule endpoint.
+  if (!existing || existing.coachType !== "va") {
+    res.status(404).json({ error: "Call not found" });
+    return;
+  }
+  if (existing.status !== "booked") {
+    res.status(409).json({ error: "This call can no longer be rescheduled" });
+    return;
+  }
+  if (!existing.ghlAppointmentId) {
+    res.status(409).json({ error: "This call cannot be rescheduled" });
+    return;
+  }
+  // No 24-hour reschedule gate for VA calls: they are free, so there is no
+  // credit at stake; a member may move a free call right up to the lead-time cutoff.
+
+  const cals = await loadCoachCalendars(existing.coachId, VA_CALL_TYPE);
+  const bookingCalendarId = existing.ghlCalendarId ?? cals?.booking.calendarId;
+  const bookingLocationId =
+    existing.bookingGhlLocationId ?? cals?.booking.locationId ?? COACHING_LOCATION_ID;
+  const oldConflictLocationId =
+    existing.bookingConflictGhlLocationId ?? cals?.conflict?.locationId ?? COACHING_LOCATION_ID;
+
+  const dayMs = scheduledAt.getTime();
+  const freeSlots = cals
+    ? await freeSlotsAcrossCalendars(cals, dayMs - 60_000, dayMs + 24 * 60 * 60 * 1000)
+    : await getFreeSlots(bookingCalendarId, dayMs - 60_000, dayMs + 24 * 60 * 60 * 1000, bookingLocationId);
+  const slotOpen = freeSlots.some((s) => new Date(s.startTime).getTime() === scheduledAt.getTime());
+  if (!slotOpen) {
+    res.status(409).json({ error: "That time slot is no longer available" });
+    return;
+  }
+
+  const endAt = new Date(scheduledAt.getTime() + VA_CALL_DURATION_MINUTES * 60000);
+  const blockEndAt = new Date(scheduledAt.getTime() + VA_BLOCK_DURATION_MINUTES * 60000);
+  const endTimeIso = isoWithMatchingOffset(blockEndAt, startTime);
+
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    const txDb = drizzle(client);
+
+    await txDb.execute(sql`SELECT pg_advisory_xact_lock(${coachBookingLockKey(existing.coachId)})`);
+
+    const [locked] = await txDb
+      .select({ status: sessionPackBookingsTable.status })
+      .from(sessionPackBookingsTable)
+      .where(eq(sessionPackBookingsTable.id, bookingId));
+    if (!locked || locked.status !== "booked") {
+      await client.query("ROLLBACK");
+      res.status(409).json({ error: "This call can no longer be rescheduled" });
+      return;
+    }
+
+    if (cals) {
+      const recheck = await freeSlotsAcrossCalendars(cals, dayMs - 60_000, dayMs + 60_000);
+      if (!recheck.some((s) => new Date(s.startTime).getTime() === scheduledAt.getTime())) {
+        await client.query("ROLLBACK");
+        res.status(409).json({ error: "That time slot is no longer available" });
+        return;
+      }
+    }
+
+    let meetLink: string | null = null;
+    try {
+      const updated = await updateAppointment({
+        eventId: existing.ghlAppointmentId,
+        calendarId: bookingCalendarId,
+        startTime,
+        endTime: endTimeIso,
+        title: existing.title ?? undefined,
+        locationId: bookingLocationId,
+      });
+      meetLink = updated.meetLink;
+    } catch (err) {
+      await client.query("ROLLBACK");
+      console.error("[coaching-sessions] VA GHL reschedule failed:", err);
+      res.status(502).json({ error: "Could not reschedule the call. Please try again." });
+      return;
+    }
+
+    let newBlockEventId: string | null = existing.conflictBlockEventId;
+    let newConflictLocationId: string | null = existing.bookingConflictGhlLocationId;
+    if (cals?.conflict) {
+      try {
+        const block = await createBlockSlot({
+          calendarId: cals.conflict.calendarId,
+          locationId: cals.conflict.locationId,
+          startTime,
+          endTime: endTimeIso,
+          title: VA_CONFLICT_BLOCK_TITLE,
+        });
+        newBlockEventId = block.id;
+        newConflictLocationId = cals.conflict.locationId;
+        if (existing.conflictBlockEventId) {
+          try {
+            await deleteBlockSlot(existing.conflictBlockEventId, oldConflictLocationId);
+          } catch (err) {
+            console.error("[coaching-sessions] failed to delete stale VA conflict block:", err);
+          }
+        }
+      } catch (err) {
+        console.error("[coaching-sessions] VA conflict-block move failed (kept old hold):", err);
+      }
+    }
+
+    const [booking] = await txDb
+      .update(sessionPackBookingsTable)
+      .set({
+        scheduledAt,
+        endAt,
+        conflictBlockEventId: newBlockEventId,
+        conflictGhlLocationId: newConflictLocationId,
+        ...(meetLink ? { meetLink } : {}),
+      })
+      .where(eq(sessionPackBookingsTable.id, bookingId))
+      .returning(MEMBER_BOOKING_COLUMNS);
+
+    await client.query("COMMIT");
+    res.json({ ok: true, booking });
+  } catch (err) {
+    await client.query("ROLLBACK");
+    console.error("[coaching-sessions] VA reschedule failed:", err);
+    res.status(500).json({ error: "Could not reschedule the call. Please try again." });
   } finally {
     client.release();
   }
