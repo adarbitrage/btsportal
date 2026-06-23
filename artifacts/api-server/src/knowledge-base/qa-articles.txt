@@ -660,7 +660,31 @@ For urgent questions regarding your request status, please contact support@build
 
 * * *
 
-## BTS Mentorship Agreement & Terms (5 articles)
+## BTS Mentorship Agreement & Terms (6 articles)
+
+### What is the BTS Mentee Master Agreement?
+
+Description: Overview of the BTS Mentee Master Agreement (also called the BTS Mentorship Program Agreement, the mentorship agreement, or the BTS Agreement) — the contract every member agrees to when enrolling
+
+Content:
+
+Overview
+
+The Mentee Master Agreement is the contract every member agrees to when enrolling in the BTS Mentorship Program. It is also called the BTS Mentorship Program Agreement, the mentorship agreement, the BTS Agreement, or simply "the Agreement." It sets out the terms between you (the Customer or Mentee) and Build Test Scale (the Company).
+
+What the Mentee Master Agreement Covers
+
+- Membership terms and payment: the available program lengths (3-Month, 6-Month, 12-Month, and Lifetime), how fees are paid (in full or in installments), and what happens if an installment is missed.
+- 90-Day Action-Based Refund Guarantee: the refund policy and the four qualifying criteria you must meet within your 90-day window.
+- No profit or results guarantee: BTS provides education and training but does not guarantee profits or specific financial outcomes.
+- Intellectual property and confidentiality: the Company owns the Program materials, and enrollment is personal and non-transferable.
+- Governing law and termination: the Agreement is governed by Texas law, includes a class-action waiver, and explains how either party may terminate.
+
+Where to Find the Details
+
+Each of these topics has its own article — see "What membership terms does the BTS Mentorship Program offer?", "What are the Mentorship refund requirements?", "Does BTS guarantee profits or specific results?", "What are the intellectual property and confidentiality terms of the BTS Agreement?", and "What are the governing law and termination terms of the BTS Agreement?".
+
+For a copy of your Mentee Master Agreement or any questions about its terms, contact support@buildtestscale.com.
 
 ### What membership terms does the BTS Mentorship Program offer?
 

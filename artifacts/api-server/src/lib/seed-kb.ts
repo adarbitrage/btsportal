@@ -374,10 +374,11 @@ a real customer's email.
  * force-refreshed from `qa-articles.txt` (NOT just inserted-if-missing). The
  * two refund articles already exist in seeded databases with stale content, so
  * the normal `ON CONFLICT (title) DO NOTHING` seeder can never update them; the
- * five Agreement articles are new. Both cases are handled by the upsert in
+ * Agreement articles are new. Both cases are handled by the upsert in
  * `ensureBtsAgreementKbContent()`.
  */
 const BTS_AGREEMENT_KB_TITLES = new Set<string>([
+  "What is the BTS Mentee Master Agreement?",
   "What are the Mentorship refund requirements?",
   "How do I request a Mentorship refund?",
   "What membership terms does the BTS Mentorship Program offer?",
@@ -393,7 +394,7 @@ const BTS_AGREEMENT_KB_TITLES = new Set<string>([
  *
  * Why this exists alongside `seedKnowledgebaseFromFiles()`:
  *   that seeder inserts with `ON CONFLICT (title) DO NOTHING`, so it can add the
- *   five brand-new BTS Agreement articles but can NEVER refresh the two refund
+ *   brand-new BTS Agreement articles but can NEVER refresh the two refund
  *   articles or the glossary rows that already exist in a database with stale
  *   content (e.g. the old refund criteria / missing glossary terms). Production
  *   is a SEPARATE database the agent cannot write directly; the only way the
