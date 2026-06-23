@@ -1052,3 +1052,147 @@ describe("interpretRetellSetupHealth", () => {
     expect(v.needsAttention).toBe(true);
   });
 });
+
+// ---------------------------------------------------------------------------
+// Live read-only re-check probe — must NEVER mutate the agent/LLM and must
+// produce a RetellSetupResult that interpretRetellSetupHealth reads correctly.
+// ---------------------------------------------------------------------------
+
+describe("probeRetellAgentHealth — read-only live re-check", () => {
+  it("reports not_configured (skip) without any Retell calls when creds are absent", async () => {
+    process.env.RETELL_API_KEY = "";
+    process.env.RETELL_AGENT_ID = "";
+    const { probeRetellAgentHealth, interpretRetellSetupHealth } = await import(
+      "../lib/retell-agent-setup"
+    );
+    const result = await probeRetellAgentHealth();
+    expect(result.skipped).toBe(true);
+    expect(result.reason).toMatch(/RETELL_API_KEY or RETELL_AGENT_ID not configured/);
+    expect(interpretRetellSetupHealth(result).status).toBe("not_configured");
+  });
+
+  it("flags misconfigured when the agent id lacks the agent_ prefix", async () => {
+    process.env.RETELL_API_KEY = "key_test";
+    process.env.RETELL_AGENT_ID = "noprefix_abc";
+    const { probeRetellAgentHealth, interpretRetellSetupHealth } = await import(
+      "../lib/retell-agent-setup"
+    );
+    const result = await probeRetellAgentHealth();
+    expect(result.skipped).toBe(true);
+    expect(interpretRetellSetupHealth(result).needsAttention).toBe(true);
+  });
+
+  it("reports healthy (no mutations) when agent is on retell-llm with matching prompt+tool", async () => {
+    process.env.NODE_ENV = "development";
+    process.env.RETELL_API_KEY = "key_test";
+    process.env.RETELL_AGENT_ID = "agent_abc";
+    process.env.RETELL_FUNCTION_SECRET = "my-secret";
+    process.env.RETELL_API_BASE_URL = "https://api.example.com";
+
+    // Run setup once against an empty LLM so we can capture the exact desired
+    // prompt + tool the module writes, then feed those back as the live state.
+    const setupClient = makeRetellClient({ currentPrompt: "old", currentTools: [] });
+    vi.doMock("retell-sdk", () => ({ default: vi.fn(() => setupClient) }));
+    const mod = await import("../lib/retell-agent-setup");
+    await mod.setupRetellAgentKb();
+    const written = setupClient.llm.update.mock.calls[0][1];
+
+    // Now the live agent reflects the desired config exactly.
+    setupClient.llm.retrieve.mockResolvedValue({
+      general_prompt: written.general_prompt,
+      general_tools: written.general_tools,
+    });
+    setupClient.llm.update.mockClear();
+    setupClient.agent.update.mockClear();
+    setupClient.llm.create.mockClear();
+    setupClient.agent.create.mockClear();
+
+    const result = await mod.probeRetellAgentHealth();
+
+    expect(result.skipped).toBe(false);
+    expect(mod.interpretRetellSetupHealth(result).status).toBe("healthy");
+    expect(result.reason).toMatch(/Live re-check/);
+    // The probe must be strictly read-only.
+    expect(setupClient.llm.update).not.toHaveBeenCalled();
+    expect(setupClient.llm.create).not.toHaveBeenCalled();
+    expect(setupClient.agent.update).not.toHaveBeenCalled();
+    expect(setupClient.agent.create).not.toHaveBeenCalled();
+  });
+
+  it("flags misconfigured (no mutations) when the agent is NOT on retell-llm", async () => {
+    process.env.NODE_ENV = "development";
+    process.env.RETELL_API_KEY = "key_test";
+    process.env.RETELL_AGENT_ID = "agent_abc";
+    process.env.RETELL_FUNCTION_SECRET = "my-secret";
+    process.env.RETELL_API_BASE_URL = "https://api.example.com";
+
+    const mockClient = makeRetellClient({
+      agentType: "conversation_flow",
+      llmId: undefined as any,
+      conversationFlowId: "cf_x",
+    });
+    vi.doMock("retell-sdk", () => ({ default: vi.fn(() => mockClient) }));
+
+    const { probeRetellAgentHealth, interpretRetellSetupHealth } = await import(
+      "../lib/retell-agent-setup"
+    );
+    const result = await probeRetellAgentHealth();
+
+    expect(result.skipped).toBe(true);
+    expect(result.agentResponseEngineType).toBe("conversation_flow");
+    expect(interpretRetellSetupHealth(result).needsAttention).toBe(true);
+    expect(mockClient.agent.update).not.toHaveBeenCalled();
+    expect(mockClient.agent.create).not.toHaveBeenCalled();
+    expect(mockClient.llm.update).not.toHaveBeenCalled();
+    expect(mockClient.llm.create).not.toHaveBeenCalled();
+  });
+
+  it("flags misconfigured (no mutations) when on retell-llm but the KB tool/prompt has drifted", async () => {
+    process.env.NODE_ENV = "development";
+    process.env.RETELL_API_KEY = "key_test";
+    process.env.RETELL_AGENT_ID = "agent_abc";
+    process.env.RETELL_FUNCTION_SECRET = "my-secret";
+    process.env.RETELL_API_BASE_URL = "https://api.example.com";
+
+    // retell-llm agent whose LLM has the wrong prompt and no KB tool.
+    const mockClient = makeRetellClient({
+      agentType: "retell-llm",
+      llmId: "llm_drift",
+      currentPrompt: "stale prompt",
+      currentTools: [],
+    });
+    vi.doMock("retell-sdk", () => ({ default: vi.fn(() => mockClient) }));
+
+    const { probeRetellAgentHealth, interpretRetellSetupHealth } = await import(
+      "../lib/retell-agent-setup"
+    );
+    const result = await probeRetellAgentHealth();
+
+    expect(result.skipped).toBe(true);
+    expect(result.reason).toMatch(/out of sync/);
+    expect(interpretRetellSetupHealth(result).needsAttention).toBe(true);
+    expect(mockClient.llm.update).not.toHaveBeenCalled();
+    expect(mockClient.llm.create).not.toHaveBeenCalled();
+  });
+
+  it("flags misconfigured when a Retell call throws during the probe", async () => {
+    process.env.NODE_ENV = "development";
+    process.env.RETELL_API_KEY = "key_test";
+    process.env.RETELL_AGENT_ID = "agent_abc";
+    process.env.RETELL_FUNCTION_SECRET = "my-secret";
+    process.env.RETELL_API_BASE_URL = "https://api.example.com";
+
+    const mockClient = makeRetellClient();
+    mockClient.agent.retrieve.mockRejectedValue(new Error("404 agent not found"));
+    vi.doMock("retell-sdk", () => ({ default: vi.fn(() => mockClient) }));
+
+    const { probeRetellAgentHealth, interpretRetellSetupHealth } = await import(
+      "../lib/retell-agent-setup"
+    );
+    const result = await probeRetellAgentHealth();
+
+    expect(result.skipped).toBe(true);
+    expect(result.reason).toMatch(/Live re-check threw an error: 404 agent not found/);
+    expect(interpretRetellSetupHealth(result).needsAttention).toBe(true);
+  });
+});

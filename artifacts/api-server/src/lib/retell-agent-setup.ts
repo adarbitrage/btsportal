@@ -319,6 +319,156 @@ export function interpretRetellSetupHealth(
   };
 }
 
+/**
+ * Read-only live health probe for the Retell voice agent.
+ *
+ * Unlike `setupRetellAgentKb`, this NEVER mutates the agent or any LLM — it only
+ * retrieves the agent and its LLM and compares them against the desired KB
+ * contract. It produces a `RetellSetupResult` shaped so that
+ * `interpretRetellSetupHealth` yields the right verdict:
+ *
+ *   - healthy        — agent is on retell-llm with the KB tool + correct prompt
+ *                      (returned as `skipped: false` so the interpreter reads it
+ *                      as a fresh successful verdict).
+ *   - not_configured — credentials absent (same skip reason as setup).
+ *   - misconfigured  — bad agent_ prefix, missing prod secret, no base URL,
+ *                      wrong engine, drifted KB tool/prompt, or a thrown error.
+ *
+ * This lets the System Health card (and an on-demand "re-check" action) refresh
+ * the cached verdict without a server restart and without touching the agent.
+ */
+export async function probeRetellAgentHealth(): Promise<RetellSetupResult> {
+  const apiKey = (process.env.RETELL_API_KEY ?? "").trim();
+  const agentId = (process.env.RETELL_AGENT_ID ?? "").trim();
+  const functionSecret = (process.env.RETELL_FUNCTION_SECRET ?? "").trim();
+  const isProduction = process.env.NODE_ENV === "production";
+
+  const stamp = () => new Date().toISOString();
+
+  // --- prerequisite validation (mirror setupRetellAgentKb so the verdict for a
+  // misconfigured environment matches whether it was caught at startup or here). ---
+
+  if (!apiKey || !agentId) {
+    return { skipped: true, reason: "RETELL_API_KEY or RETELL_AGENT_ID not configured", ranAt: stamp() };
+  }
+
+  if (!agentId.startsWith("agent_")) {
+    return {
+      skipped: true,
+      reason: `RETELL_AGENT_ID must start with "agent_" (got "${agentId.slice(0, 12)}…")`,
+      ranAt: stamp(),
+    };
+  }
+
+  if (isProduction && !functionSecret) {
+    return {
+      skipped: true,
+      reason:
+        "RETELL_FUNCTION_SECRET is required in production — set it to the shared bearer token for /voice/kb-search",
+      ranAt: stamp(),
+    };
+  }
+
+  const apiBaseUrl = getApiBaseUrl();
+  if (!apiBaseUrl) {
+    const envHint = isProduction
+      ? "set RETELL_API_BASE_URL or PORTAL_URL (REPLIT_DOMAINS was also empty)"
+      : "set RETELL_API_BASE_URL or PORTAL_URL (auto-resolution is disabled in dev)";
+    return {
+      skipped: true,
+      reason: `No API base URL configured — ${envHint}`,
+      ranAt: stamp(),
+    };
+  }
+
+  const kbSearchUrl = `${apiBaseUrl}/voice/kb-search`;
+  const desiredPrompt = buildVoiceSystemPrompt();
+  const authHeader = functionSecret ? `Bearer ${functionSecret}` : "";
+  const desiredFp = toolFingerprint(kbSearchUrl, authHeader);
+
+  try {
+    const client = new Retell({ apiKey });
+
+    // Read-only retrieve — no update/create calls anywhere in this path.
+    const agent = await client.agent.retrieve(agentId);
+
+    const responseEngine = agent.response_engine as {
+      type?: string;
+      llm_id?: string;
+      conversation_flow_id?: string;
+    } | null;
+
+    const agentResponseEngineType = responseEngine?.type ?? "unknown";
+
+    if (!responseEngine || responseEngine.type !== "retell-llm") {
+      return {
+        skipped: true,
+        reason:
+          `Live re-check: agent is on the "${agentResponseEngineType}" engine, not the ` +
+          `KB-connected retell-llm — voice answers won't use the knowledge base. ` +
+          `Restart the server to auto-repoint, or review the agent in Retell.`,
+        agentResponseEngineType,
+        ranAt: stamp(),
+      };
+    }
+
+    const llmId = responseEngine.llm_id;
+    if (!llmId) {
+      return {
+        skipped: true,
+        reason: "Live re-check: agent response_engine has no llm_id",
+        agentResponseEngineType,
+        ranAt: stamp(),
+      };
+    }
+
+    const currentLlm = await client.llm.retrieve(llmId);
+    const existingTools = (
+      (currentLlm.general_tools ?? []) as unknown as Array<Record<string, unknown>>
+    );
+    const existingKbTool = existingTools.find((t) => t.name === KB_SEARCH_TOOL_NAME);
+
+    const promptMatches = currentLlm.general_prompt === desiredPrompt;
+    const toolMatches =
+      existingKbTool != null && existingToolFingerprint(existingKbTool) === desiredFp;
+
+    if (promptMatches && toolMatches) {
+      return {
+        skipped: false,
+        reason: "Live re-check: agent is on retell-llm with the KB search tool and correct prompt",
+        llmId,
+        kbSearchUrl,
+        agentResponseEngineType,
+        ranAt: stamp(),
+      };
+    }
+
+    const issues: string[] = [];
+    if (!toolMatches) {
+      issues.push(existingKbTool == null ? "KB search tool missing" : "KB search tool config drifted");
+    }
+    if (!promptMatches) issues.push("voice prompt drifted");
+
+    return {
+      skipped: true,
+      reason:
+        `Live re-check: agent LLM ${llmId} is out of sync — ${issues.join(", ")}. ` +
+        `Restart the server to re-apply the KB config, or review the agent in Retell.`,
+      llmId,
+      kbSearchUrl,
+      agentResponseEngineType,
+      ranAt: stamp(),
+    };
+  } catch (err) {
+    const msg = (err as Error)?.message ?? String(err);
+    return {
+      skipped: true,
+      reason: `Live re-check threw an error: ${msg}`,
+      ranAt: stamp(),
+    };
+  }
+}
+
 export async function setupRetellAgentKb(options: SetupOptions = {}): Promise<RetellSetupResult> {
   const { forceRepoint = false } = options;
   const apiKey = (process.env.RETELL_API_KEY ?? "").trim();

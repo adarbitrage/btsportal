@@ -47,7 +47,9 @@ import {
 } from "../lib/production-env-guard";
 import {
   getCachedRetellSetupResult,
+  setCachedRetellSetupResult,
   interpretRetellSetupHealth,
+  probeRetellAgentHealth,
 } from "../lib/retell-agent-setup";
 import { getRetellAgentAlertingState } from "../lib/retell-agent-alerter";
 import { AUTH_RATE_LIMIT_AUDIT_ACTION } from "./auth";
@@ -3589,6 +3591,44 @@ router.get("/admin/system/health", requirePermission("system:view"), async (_req
     res.status(500).json({ status: "error", error: "Failed to check system health" });
   }
 });
+
+/**
+ * On-demand live re-check of the Retell voice-agent health.
+ *
+ * The voiceAgent block in `/admin/system/health` reads the RetellSetup result
+ * cached at server boot. If the agent breaks (or is fixed) after startup, that
+ * verdict goes stale until the next restart. This endpoint runs a READ-ONLY
+ * probe (`probeRetellAgentHealth` — retrieve only, no agent/LLM mutation),
+ * refreshes the shared cache, and returns the freshly-interpreted verdict in
+ * the SAME shape as the health endpoint's `voiceAgent` field so the System
+ * Health card can update in place. Gated on `system:view` to match the health
+ * endpoint (the probe makes no changes).
+ */
+router.post(
+  "/admin/system/voice-agent/recheck",
+  requirePermission("system:view"),
+  async (_req: Request, res: Response) => {
+    try {
+      const result = await probeRetellAgentHealth();
+      setCachedRetellSetupResult(result);
+      const verdict = interpretRetellSetupHealth(result);
+      res.json({
+        voiceAgent: {
+          status: verdict.status,
+          needsAttention: verdict.needsAttention,
+          detail: verdict.detail,
+          agentResponseEngineType: result.agentResponseEngineType ?? null,
+          requiresAgentIdUpdate: result.requiresAgentIdUpdate ?? false,
+          newAgentId: result.newAgentId ?? null,
+          ranAt: result.ranAt,
+        },
+      });
+    } catch (error) {
+      console.error("[Admin] Voice-agent re-check error:", error);
+      res.status(500).json({ error: "Failed to re-check voice agent health" });
+    }
+  },
+);
 
 /**
  * Resolved live-chat (TicketDesk) support destination.

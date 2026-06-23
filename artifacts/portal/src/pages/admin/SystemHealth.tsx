@@ -280,6 +280,7 @@ export default function SystemHealth() {
   const [lastRefreshedAt, setLastRefreshedAt] = useState<number | null>(null);
   const [secondsSinceRefresh, setSecondsSinceRefresh] = useState(0);
   const [refreshInFlight, setRefreshInFlight] = useState(0);
+  const [voiceAgentRechecking, setVoiceAgentRechecking] = useState(false);
   const [ticketDeliveryHealth, setTicketDeliveryHealth] = useState<{ delivered: number; pending: number; skipped: number; failed: number; undelivered: number } | null>(null);
   const [silentRefreshError, setSilentRefreshError] = useState<string | null>(null);
   const [highlightedEventIds, setHighlightedEventIds] = useState<Set<number>>(() => new Set());
@@ -577,6 +578,34 @@ export default function SystemHealth() {
       return false;
     } finally {
       if (!silent) setLoading(false);
+    }
+  }, [toast]);
+
+  // On-demand live re-check of the voice-agent health. The badge on this card
+  // otherwise reflects the verdict cached at server boot, so a break (or fix)
+  // after startup stays stale until the next restart. This triggers a
+  // read-only Retell probe, refreshes the shared cache, and patches the
+  // displayed voiceAgent block in place so the verdict updates without a
+  // full-page reload.
+  const recheckVoiceAgent = useCallback(async () => {
+    setVoiceAgentRechecking(true);
+    try {
+      const { voiceAgent } = await adminPanelApi.recheckVoiceAgentHealth();
+      setHealth((prev: any) =>
+        prev ? { ...prev, services: { ...prev.services, voiceAgent } } : prev,
+      );
+      toast({
+        title: "Voice Assistant re-checked",
+        description:
+          voiceAgent.status === "healthy"
+            ? "Live check passed — agent is correctly wired to the knowledge base."
+            : voiceAgent.detail,
+        variant: voiceAgent.needsAttention ? "destructive" : "default",
+      });
+    } catch (err: any) {
+      toast({ title: "Error", description: err.message, variant: "destructive" });
+    } finally {
+      setVoiceAgentRechecking(false);
     }
   }, [toast]);
 
@@ -2696,6 +2725,20 @@ export default function SystemHealth() {
                         >
                           {statusLabel[va.status]}
                         </Badge>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="ml-auto h-7 gap-1.5"
+                          onClick={recheckVoiceAgent}
+                          disabled={voiceAgentRechecking}
+                          data-testid="button-recheck-voice-agent"
+                          title="Run a live, read-only re-check of the voice agent now (no server restart needed)"
+                        >
+                          <RefreshCw
+                            className={`w-3.5 h-3.5 ${voiceAgentRechecking ? "animate-spin" : ""}`}
+                          />
+                          {voiceAgentRechecking ? "Re-checking…" : "Re-check now"}
+                        </Button>
                       </CardTitle>
                     </CardHeader>
                     <CardContent>

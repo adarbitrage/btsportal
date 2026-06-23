@@ -1342,6 +1342,24 @@ export const adminPanelApi = {
     return res.json();
   },
 
+  async recheckVoiceAgentHealth() {
+    const res = await authFetch("/admin/system/voice-agent/recheck", {
+      method: "POST",
+    });
+    if (!res.ok) throw new Error("Failed to re-check voice agent health");
+    return res.json() as Promise<{
+      voiceAgent: {
+        status: "healthy" | "misconfigured" | "not_configured" | "unknown";
+        needsAttention: boolean;
+        detail: string;
+        agentResponseEngineType: string | null;
+        requiresAgentIdUpdate: boolean;
+        newAgentId: string | null;
+        ranAt: string | null;
+      };
+    }>;
+  },
+
   async getLiveChatSupportConfig() {
     const res = await authFetch("/admin/system/live-chat-support");
     if (!res.ok) throw new Error("Failed to fetch live-chat support config");
