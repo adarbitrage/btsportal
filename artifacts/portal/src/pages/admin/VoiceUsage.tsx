@@ -27,6 +27,7 @@ import {
   type VoiceCallsResponse,
   type VoiceCallDetail,
   type StreamDownloadProgress,
+  type RetellKbSetupStatus,
 } from "@/lib/admin-panel-api";
 import { formatDownloadProgress } from "@/lib/download-progress";
 import {
@@ -42,6 +43,10 @@ import {
   Search,
   X,
   Download,
+  CheckCircle2,
+  AlertTriangle,
+  Link2,
+  RotateCcw,
 } from "lucide-react";
 
 type Period = "today" | "week" | "month";
@@ -106,6 +111,47 @@ export default function VoiceUsage() {
 
   const [usageExport, setUsageExport] = useState<StreamDownloadProgress | null>(null);
   const [callsExport, setCallsExport] = useState<StreamDownloadProgress | null>(null);
+
+  const [kbStatus, setKbStatus] = useState<RetellKbSetupStatus | null>(null);
+  const [kbStatusLoading, setKbStatusLoading] = useState(true);
+  const [kbRunning, setKbRunning] = useState(false);
+
+  const loadKbStatus = useCallback(async () => {
+    setKbStatusLoading(true);
+    try {
+      const data = await adminPanelApi.getVoiceKbStatus();
+      setKbStatus(data);
+    } catch (err) {
+      toast({
+        title: "Failed to load KB wiring status",
+        description: err instanceof Error ? err.message : "Unknown error",
+        variant: "destructive",
+      });
+    } finally {
+      setKbStatusLoading(false);
+    }
+  }, [toast]);
+
+  const runKbSetup = useCallback(async () => {
+    if (kbRunning) return;
+    setKbRunning(true);
+    try {
+      const data = await adminPanelApi.runVoiceKbSetup();
+      setKbStatus(data);
+      toast({
+        title: data.skipped ? "KB setup skipped" : "KB wiring applied",
+        description: data.reason,
+      });
+    } catch (err) {
+      toast({
+        title: "KB setup failed",
+        description: err instanceof Error ? err.message : "Unknown error",
+        variant: "destructive",
+      });
+    } finally {
+      setKbRunning(false);
+    }
+  }, [kbRunning, toast]);
 
   const exportUsage = useCallback(async () => {
     if (usageExport) return;
@@ -196,6 +242,10 @@ export default function VoiceUsage() {
   );
 
   useEffect(() => {
+    loadKbStatus();
+  }, [loadKbStatus]);
+
+  useEffect(() => {
     loadUsage(period);
   }, [period, loadUsage]);
 
@@ -276,6 +326,83 @@ export default function VoiceUsage() {
             Refresh
           </Button>
         </div>
+
+        {/* Knowledge Base wiring status */}
+        <Card>
+          <CardHeader className="pb-3">
+            <div className="flex items-center justify-between gap-4">
+              <div className="flex items-center gap-2">
+                <Link2 className="w-4 h-4 text-muted-foreground" />
+                <CardTitle className="text-base">Knowledge Base Wiring</CardTitle>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={runKbSetup}
+                disabled={kbRunning || kbStatusLoading}
+                data-testid="button-run-kb-setup"
+              >
+                {kbRunning ? (
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                ) : (
+                  <RotateCcw className="w-4 h-4 mr-2" />
+                )}
+                {kbRunning ? "Running…" : "Re-run setup"}
+              </Button>
+            </div>
+          </CardHeader>
+          <CardContent>
+            {kbStatusLoading ? (
+              <div className="space-y-2">
+                <Skeleton className="h-5 w-40" />
+                <Skeleton className="h-4 w-full" />
+              </div>
+            ) : kbStatus ? (
+              <div className="space-y-3">
+                <div className="flex items-center gap-2">
+                  {!kbStatus.skipped ? (
+                    <CheckCircle2 className="w-4 h-4 text-green-500 shrink-0" />
+                  ) : (
+                    <AlertTriangle className="w-4 h-4 text-amber-500 shrink-0" />
+                  )}
+                  <Badge variant={!kbStatus.skipped ? "default" : "secondary"}>
+                    {!kbStatus.skipped ? "Patched" : "Skipped"}
+                  </Badge>
+                  {kbStatus.agent_response_engine_type && (
+                    <span className="text-xs text-muted-foreground">
+                      Agent type: <span className="font-mono">{kbStatus.agent_response_engine_type}</span>
+                    </span>
+                  )}
+                  {kbStatus.ran_at && (
+                    <span className="text-xs text-muted-foreground ml-auto">
+                      {new Date(kbStatus.ran_at).toLocaleString(undefined, {
+                        month: "short",
+                        day: "numeric",
+                        hour: "numeric",
+                        minute: "2-digit",
+                      })}
+                    </span>
+                  )}
+                </div>
+                <p className="text-sm text-muted-foreground">{kbStatus.reason}</p>
+                {kbStatus.kb_search_url && (
+                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                    <span className="font-medium">KB search URL:</span>
+                    <code className="font-mono bg-muted rounded px-1.5 py-0.5 text-xs">{kbStatus.kb_search_url}</code>
+                  </div>
+                )}
+                {kbStatus.llm_id && (
+                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                    <span className="font-medium">LLM ID:</span>
+                    <code className="font-mono bg-muted rounded px-1.5 py-0.5 text-xs">{kbStatus.llm_id}</code>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground">Status unavailable.</p>
+            )}
+          </CardContent>
+        </Card>
 
         {/* Totals */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">

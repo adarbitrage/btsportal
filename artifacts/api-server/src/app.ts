@@ -27,7 +27,7 @@ import { startAuthRateLimitAuditCleanupJob } from "./lib/auth-rate-limit-audit-c
 import { startUpgradePromptEventsCleanupJob } from "./lib/upgrade-prompt-events-cleanup";
 import { startAuditLogRetentionJob } from "./lib/audit-log-retention";
 import { startYseGrantRetryJob } from "./lib/yse-grant-retry";
-import { setupRetellAgentKb } from "./lib/retell-agent-setup";
+import { setupRetellAgentKb, setCachedRetellSetupResult } from "./lib/retell-agent-setup";
 import { seedCannedResponses } from "./lib/seed-canned-responses";
 import { ensureRequiredEmailTemplates, ensureRequiredSmsTemplates } from "./lib/seed-templates";
 import { seedAffiliateNetworks } from "./lib/seed-affiliate-networks";
@@ -180,13 +180,22 @@ startAuditLogRetentionJob();
 startYseGrantRetryJob();
 setupRetellAgentKb()
   .then((result) => {
+    setCachedRetellSetupResult(result);
     if (result.skipped) {
-      console.log(`[RetellSetup] Skipped: ${result.reason}`);
+      console.warn(`[RetellSetup] ⚠️  Skipped: ${result.reason}`);
     } else {
-      console.log(`[RetellSetup] Done: ${result.reason}`);
+      console.log(`[RetellSetup] ✅ Done: ${result.reason}`);
     }
   })
-  .catch((err) => console.error("[RetellSetup] Failed:", err?.message ?? err));
+  .catch((err) => {
+    const msg = err?.message ?? String(err);
+    console.error(`[RetellSetup] ❌ Failed: ${msg}`);
+    setCachedRetellSetupResult({
+      skipped: true,
+      reason: `Setup threw an error at startup: ${msg}`,
+      ranAt: new Date().toISOString(),
+    });
+  });
 if (process.env.REDIS_URL) {
   startOutgoingWebhookWorker();
 }

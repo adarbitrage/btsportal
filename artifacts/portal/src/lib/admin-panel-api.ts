@@ -2105,6 +2105,27 @@ export const adminPanelApi = {
     if (!res.ok) throw new Error(extractApiError(await res.json().catch(() => null)) ?? "Failed to export voice calls");
     return streamDownload(res, format, onProgress);
   },
+
+  async getVoiceKbStatus(): Promise<RetellKbSetupStatus> {
+    const res = await authFetch("/admin/voice/setup-kb-status");
+    if (!res.ok) throw new Error(extractApiError(await res.json().catch(() => null)) ?? "Failed to fetch KB wiring status");
+    return res.json();
+  },
+
+  async runVoiceKbSetup(): Promise<RetellKbSetupStatus> {
+    const res = await authFetch("/admin/voice/setup-kb", { method: "POST" });
+    if (!res.ok) throw new Error(extractApiError(await res.json().catch(() => null)) ?? "KB setup failed");
+    return res.json();
+  },
+};
+
+export type RetellKbSetupStatus = {
+  skipped: boolean;
+  reason: string;
+  llm_id: string | null;
+  kb_search_url: string | null;
+  agent_response_engine_type: string | null;
+  ran_at: string | null;
 };
 
 export type VoiceUsageTotalsWindow = { seconds: number; calls: number };

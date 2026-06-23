@@ -20,6 +20,7 @@
  * Optional env vars (one must be set for URL resolution):
  *   RETELL_API_BASE_URL     — explicit API base URL (highest priority)
  *   PORTAL_URL              — portal base URL; API base = PORTAL_URL + "/api"
+ *   REPLIT_DOMAINS          — auto-resolved in production when neither above is set
  */
 
 import Retell from "retell-sdk";
@@ -32,6 +33,20 @@ function getApiBaseUrl(): string | null {
 
   const portal = (process.env.PORTAL_URL ?? "").trim();
   if (portal) return portal.replace(/\/+$/, "") + "/api";
+
+  // In production, auto-resolve from REPLIT_DOMAINS (comma-separated list of
+  // domains assigned to this deployment). Use the first domain.
+  // Do NOT auto-derive in dev — the Retell agent is a single shared resource
+  // and a dev-derived URL would clobber the production tool configuration.
+  if (process.env.NODE_ENV === "production") {
+    const replitDomains = (process.env.REPLIT_DOMAINS ?? "").trim();
+    if (replitDomains) {
+      const firstDomain = replitDomains.split(",")[0].trim();
+      if (firstDomain) {
+        return `https://${firstDomain}/api`;
+      }
+    }
+  }
 
   return null;
 }
@@ -104,6 +119,23 @@ export interface RetellSetupResult {
   reason: string;
   llmId?: string;
   kbSearchUrl?: string;
+  agentResponseEngineType?: string;
+  ranAt: string;
+}
+
+// ---------------------------------------------------------------------------
+// Module-level cache — holds the most recent result so the admin status
+// endpoint can serve it instantly without forcing a re-run.
+// ---------------------------------------------------------------------------
+
+let _cachedResult: RetellSetupResult | null = null;
+
+export function getCachedRetellSetupResult(): RetellSetupResult | null {
+  return _cachedResult;
+}
+
+export function setCachedRetellSetupResult(result: RetellSetupResult): void {
+  _cachedResult = result;
 }
 
 export async function setupRetellAgentKb(): Promise<RetellSetupResult> {
@@ -112,16 +144,19 @@ export async function setupRetellAgentKb(): Promise<RetellSetupResult> {
   const functionSecret = (process.env.RETELL_FUNCTION_SECRET ?? "").trim();
   const isProduction = process.env.NODE_ENV === "production";
 
+  const stamp = () => new Date().toISOString();
+
   // --- prerequisite validation ---
 
   if (!apiKey || !agentId) {
-    return { skipped: true, reason: "RETELL_API_KEY or RETELL_AGENT_ID not configured" };
+    return { skipped: true, reason: "RETELL_API_KEY or RETELL_AGENT_ID not configured", ranAt: stamp() };
   }
 
   if (!agentId.startsWith("agent_")) {
     return {
       skipped: true,
       reason: `RETELL_AGENT_ID must start with "agent_" (got "${agentId.slice(0, 12)}…")`,
+      ranAt: stamp(),
     };
   }
 
@@ -130,6 +165,7 @@ export async function setupRetellAgentKb(): Promise<RetellSetupResult> {
       skipped: true,
       reason:
         "RETELL_FUNCTION_SECRET is required in production — set it to the shared bearer token for /voice/kb-search",
+      ranAt: stamp(),
     };
   }
 
@@ -141,9 +177,13 @@ export async function setupRetellAgentKb(): Promise<RetellSetupResult> {
 
   const apiBaseUrl = getApiBaseUrl();
   if (!apiBaseUrl) {
+    const envHint = isProduction
+      ? "set RETELL_API_BASE_URL or PORTAL_URL (REPLIT_DOMAINS was also empty)"
+      : "set RETELL_API_BASE_URL or PORTAL_URL (auto-resolution is disabled in dev)";
     return {
       skipped: true,
-      reason: "No API base URL configured — set RETELL_API_BASE_URL or PORTAL_URL",
+      reason: `No API base URL configured — ${envHint}`,
+      ranAt: stamp(),
     };
   }
 
@@ -160,16 +200,20 @@ export async function setupRetellAgentKb(): Promise<RetellSetupResult> {
     llm_id?: string;
   } | null;
 
+  const agentResponseEngineType = responseEngine?.type ?? "unknown";
+
   if (!responseEngine || responseEngine.type !== "retell-llm") {
     return {
       skipped: true,
-      reason: `Agent response_engine type is "${responseEngine?.type ?? "unknown"}", not retell-llm`,
+      reason: `Agent response_engine type is "${agentResponseEngineType}" — the agent must use a Retell LLM (retell-llm), not a conversation-flow or other engine type. Change the agent type in the Retell dashboard to enable KB wiring.`,
+      agentResponseEngineType,
+      ranAt: stamp(),
     };
   }
 
   const llmId = responseEngine.llm_id;
   if (!llmId) {
-    return { skipped: true, reason: "Could not find llm_id on agent response_engine" };
+    return { skipped: true, reason: "Could not find llm_id on agent response_engine", agentResponseEngineType, ranAt: stamp() };
   }
 
   const currentLlm = await client.llm.retrieve(llmId);
@@ -230,6 +274,8 @@ export async function setupRetellAgentKb(): Promise<RetellSetupResult> {
       reason: "LLM already has the KB search tool and correct prompt — no update needed",
       llmId,
       kbSearchUrl,
+      agentResponseEngineType,
+      ranAt: stamp(),
     };
   }
 
@@ -246,5 +292,7 @@ export async function setupRetellAgentKb(): Promise<RetellSetupResult> {
     reason: `Updated LLM ${llmId} — prompt_changed=${!promptMatches} tool_changed=${!toolMatches}`,
     llmId,
     kbSearchUrl,
+    agentResponseEngineType,
+    ranAt: stamp(),
   };
 }

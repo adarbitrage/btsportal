@@ -5,7 +5,7 @@ import { isAdminRole } from "@workspace/auth";
 import Retell from "retell-sdk";
 import { hasEntitlement, hasMemberAccessBypass } from "../lib/entitlements";
 import { buildMemberVoiceContext } from "../lib/voice-context";
-import { setupRetellAgentKb } from "../lib/retell-agent-setup";
+import { setupRetellAgentKb, getCachedRetellSetupResult, setCachedRetellSetupResult } from "../lib/retell-agent-setup";
 import { requirePermission } from "../middleware/rbac";
 import { csvEscape } from "../lib/csv";
 import { logAdminAction } from "../lib/audit-log";
@@ -307,21 +307,57 @@ router.post("/voice/kb-search", async (req: Request, res: Response): Promise<voi
 // rotating RETELL_FUNCTION_SECRET or changing RETELL_API_BASE_URL.
 // ---------------------------------------------------------------------------
 
+router.get(
+  "/admin/voice/setup-kb-status",
+  requirePermission("system:view"),
+  (req: Request, res: Response): void => {
+    const cached = getCachedRetellSetupResult();
+    if (!cached) {
+      res.json({
+        skipped: true,
+        reason: "Setup has not run yet since the server started (still initializing or not configured)",
+        llm_id: null,
+        kb_search_url: null,
+        agent_response_engine_type: null,
+        ran_at: null,
+      });
+      return;
+    }
+    res.json({
+      skipped: cached.skipped,
+      reason: cached.reason,
+      llm_id: cached.llmId ?? null,
+      kb_search_url: cached.kbSearchUrl ?? null,
+      agent_response_engine_type: cached.agentResponseEngineType ?? null,
+      ran_at: cached.ranAt,
+    });
+  },
+);
+
 router.post(
   "/admin/voice/setup-kb",
-  requirePermission("settings:manage"),
+  requirePermission("system:view"),
   async (req: Request, res: Response): Promise<void> => {
     try {
       const result = await setupRetellAgentKb();
+      setCachedRetellSetupResult(result);
       res.json({
         skipped: result.skipped,
         reason: result.reason,
         llm_id: result.llmId ?? null,
         kb_search_url: result.kbSearchUrl ?? null,
+        agent_response_engine_type: result.agentResponseEngineType ?? null,
+        ran_at: result.ranAt,
       });
     } catch (err: any) {
+      const msg = err?.message ?? "Setup failed";
       console.error("[Voice] /admin/voice/setup-kb error:", err);
-      res.status(500).json({ error: err?.message ?? "Setup failed" });
+      setCachedRetellSetupResult({
+        skipped: true,
+        reason: `Manual re-run threw an error: ${msg}`,
+        ranAt: new Date().toISOString(),
+      });
+      res.status(500).json({ error: msg });
     }
   },
 );
