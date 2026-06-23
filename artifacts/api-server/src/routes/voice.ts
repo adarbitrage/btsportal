@@ -329,6 +329,8 @@ router.get(
       llm_id: cached.llmId ?? null,
       kb_search_url: cached.kbSearchUrl ?? null,
       agent_response_engine_type: cached.agentResponseEngineType ?? null,
+      repointed: cached.repointed ?? false,
+      conversation_flow_assessment: cached.conversationFlowAssessment ?? null,
       ran_at: cached.ranAt,
     });
   },
@@ -347,6 +349,8 @@ router.post(
         llm_id: result.llmId ?? null,
         kb_search_url: result.kbSearchUrl ?? null,
         agent_response_engine_type: result.agentResponseEngineType ?? null,
+        repointed: result.repointed ?? false,
+        conversation_flow_assessment: result.conversationFlowAssessment ?? null,
         ran_at: result.ranAt,
       });
     } catch (err: any) {
