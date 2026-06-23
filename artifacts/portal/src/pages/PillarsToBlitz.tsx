@@ -234,8 +234,11 @@ export default function PillarsToBlitz() {
           <Card className="mt-4 border-border/60 shadow-sm">
             <CardContent className="px-8 md:px-10 py-4 md:py-5 space-y-5">
               <p className="text-muted-foreground leading-relaxed">
-                You've just finished the <strong className="text-foreground">7 Pillars™</strong> — the
-                foundation of everything in this business. Now you're about to open{" "}
+                You've just finished the{" "}
+                <Link href="/core-training/7-pillars" className="font-semibold text-primary hover:underline">
+                  7 Pillars™
+                </Link>{" "}
+                — the foundation of everything in this business. Now you're about to open{" "}
                 <strong className="text-foreground">The Blitz™</strong>, the step-by-step system for actually
                 building and launching your first campaign.
               </p>
