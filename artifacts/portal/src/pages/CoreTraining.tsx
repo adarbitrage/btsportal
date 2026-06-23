@@ -41,8 +41,8 @@ const courses: CourseItem[] = [
   {
     number: 3,
     courseId: "21-day-blitz",
-    title: "The 21-Day Blitz\u2122: 21 Days To Scale",
-    description: "An exclusive, behind-the-scenes video series that pulls back the curtain and shows you exactly how to build, test, and scale a high-converting affiliate campaign from scratch. Over 21 days, you'll watch the Build, Test, Scale framework applied in real time \u2014 selecting an offer, crafting winning ad creatives, launching with proven traffic sources, optimizing for performance, and ultimately scaling to profitability. No theory, no fluff \u2014 just real campaigns, real data, and real results.",
+    title: "The Blitz\u2122",
+    description: "An exclusive, behind-the-scenes video series that pulls back the curtain and shows you exactly how to build, test, and scale a high-converting affiliate campaign from scratch. Watch the Build, Test, Scale framework applied in real time \u2014 selecting an offer, crafting winning ad creatives, launching with proven traffic sources, optimizing for performance, and ultimately scaling to profitability. No theory, no fluff \u2014 just real campaigns, real data, and real results.",
     icon: CalendarDays,
     ctaLabel: "WATCH THE VIDEO TRAINING",
     href: "/training",

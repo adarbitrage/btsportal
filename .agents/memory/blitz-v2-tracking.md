@@ -20,3 +20,6 @@ The live `/blitz` guide has **no Lesson Library section by design** — the user
 
 ## Single source of truth (user directive)
 All Blitz content updates go into the live `/blitz` only. Do **not** reference, edit, or mention `/blitz-archive` in normal workflow unless the user specifically asks you to look into the archive. The archive is a frozen admin-only backup slated for deletion before launch.
+
+## Voice assistant "The Blitz" naming
+The Retell voice agent answers from `search_knowledge_base` (KB seeded from `artifacts/api-server/src/knowledge-base/*.txt`). `coaching-transcripts.txt` has 50+ authentic verbatim "21-day blitz" lines from real calls — do NOT scrub those. Enforce naming via the `NAMING — MANDATORY` rule in `buildVoiceSystemPrompt()` (`retell-agent-setup.ts`): always "The Blitz", never a day-count. Changing the prompt re-fingerprints it so the agent auto-re-patches on next server start.
