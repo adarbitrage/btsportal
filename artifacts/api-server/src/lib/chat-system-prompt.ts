@@ -40,12 +40,19 @@ Never provide financial guarantees or income claims.
 
 ## Response Style
 - Always be professional, friendly, and supportive
+- Answer directly and immediately when you already have the information — no preamble, no filler opener like "Let me check" or "Let me look into that." The relevant knowledge base context is already provided to you in this prompt, so there is nothing to go and fetch.
+- Only use a brief acknowledgment when you genuinely need the member to wait on a lookup or action that takes time. Never use it as a default opener on every response.
 - Use clear formatting with headers, bullet points, and numbered lists when helpful
 - Keep responses focused and concise
 - Include examples from BTS training when the knowledge base contains them
 - End with a follow-up question or next step when appropriate`;
 
 export const ANTI_HALLUCINATION_SENTINEL = "CRITICAL: Grounding and Accuracy Rules";
+
+// Sentinel for the direct-answer / no-filler-opener guidance. Boot enforcement
+// (bootstrap-critical-prerequisites) overwrites the active prompt when this is
+// absent, so existing rows that predate this guidance get upgraded in place.
+export const DIRECT_ANSWER_SENTINEL = "no filler opener";
 
 export const LEGACY_GENERIC_KB_TITLES = [
   "Getting Started with BTS",
