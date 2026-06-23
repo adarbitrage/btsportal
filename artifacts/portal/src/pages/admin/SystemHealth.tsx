@@ -1249,6 +1249,35 @@ export default function SystemHealth() {
               </Card>
             )}
 
+            {(health.services?.voiceAgent as { needsAttention?: boolean } | undefined)?.needsAttention && (() => {
+              const va = health.services.voiceAgent as {
+                detail: string;
+                requiresAgentIdUpdate?: boolean;
+                newAgentId?: string | null;
+              };
+              return (
+                <Card className="border-red-500/40 bg-red-50 dark:bg-red-950/30" data-testid="voice-agent-banner">
+                  <CardContent className="py-4 flex items-start gap-3">
+                    <AlertTriangle className="w-5 h-5 text-red-600 mt-0.5 shrink-0" />
+                    <div className="space-y-1">
+                      <p className="font-medium text-red-900 dark:text-red-200">
+                        Voice Assistant is pointing at a broken agent
+                      </p>
+                      <p className="text-sm text-red-800/80 dark:text-red-200/80">
+                        The Retell voice agent is configured but not correctly wired to the
+                        knowledge-base engine, so the assistant may give wrong or empty answers.
+                        {" "}{va.detail}
+                        {va.requiresAgentIdUpdate && va.newAgentId ? (
+                          <> Update <code>RETELL_AGENT_ID</code> to <code>{va.newAgentId}</code> and republish.</>
+                        ) : null}
+                        {" "}See the "Voice Assistant" card below.
+                      </p>
+                    </div>
+                  </CardContent>
+                </Card>
+              );
+            })()}
+
             {health.services?.signupChallenge && health.services.signupChallenge.enforced === false && (
               <Card className="border-yellow-500/40 bg-yellow-50 dark:bg-yellow-950/30">
                 <CardContent className="py-4 flex items-start gap-3">
@@ -2625,6 +2654,89 @@ export default function SystemHealth() {
                           <p className="text-xs text-muted-foreground">
                             No delivery errors recorded.
                           </p>
+                        )}
+                      </div>
+                    </CardContent>
+                  </Card>
+                );
+              })()}
+
+              {health.services?.voiceAgent && (() => {
+                const va = health.services.voiceAgent as {
+                  status: "healthy" | "misconfigured" | "not_configured" | "unknown";
+                  needsAttention?: boolean;
+                  detail: string;
+                  agentResponseEngineType?: string | null;
+                  requiresAgentIdUpdate?: boolean;
+                  newAgentId?: string | null;
+                  ranAt?: string | null;
+                };
+                const statusLabel: Record<typeof va.status, string> = {
+                  healthy: "healthy",
+                  misconfigured: "needs attention",
+                  not_configured: "not configured",
+                  unknown: "initializing",
+                };
+                const badgeVariant =
+                  va.status === "misconfigured"
+                    ? "destructive"
+                    : va.status === "healthy"
+                      ? "default"
+                      : "outline";
+                return (
+                  <Card data-testid="card-voice-agent">
+                    <CardHeader>
+                      <CardTitle className="text-base flex items-center gap-2">
+                        <Volume2 className="w-4 h-4" />
+                        Voice Assistant
+                        <Badge
+                          variant={badgeVariant}
+                          className="ml-2 font-normal"
+                          data-testid="voice-agent-status"
+                        >
+                          {statusLabel[va.status]}
+                        </Badge>
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-3">
+                        {va.status === "misconfigured" && (
+                          <div
+                            className="rounded-md px-3 py-2 text-sm font-medium bg-red-100 text-red-800 dark:bg-red-950/50 dark:text-red-200"
+                            data-testid="voice-agent-warning"
+                          >
+                            The voice agent is configured but not correctly wired to the
+                            KB-connected engine. The assistant may give wrong or empty answers.
+                          </div>
+                        )}
+                        <div>
+                          <p className="text-[11px] uppercase text-muted-foreground mb-1">Detail</p>
+                          <p className="text-sm" data-testid="voice-agent-detail">{va.detail}</p>
+                        </div>
+                        {va.agentResponseEngineType && (
+                          <div className="flex justify-between">
+                            <span className="text-sm text-muted-foreground">Agent engine type</span>
+                            <span className="text-sm font-mono">{va.agentResponseEngineType}</span>
+                          </div>
+                        )}
+                        {va.requiresAgentIdUpdate && va.newAgentId && (
+                          <div className="pt-2 border-t">
+                            <p className="text-[11px] uppercase text-muted-foreground mb-1">
+                              Action required
+                            </p>
+                            <p className="text-xs">
+                              Update <code className="font-mono">RETELL_AGENT_ID</code> to{" "}
+                              <code className="font-mono">{va.newAgentId}</code> and republish.
+                            </p>
+                          </div>
+                        )}
+                        {va.ranAt && (
+                          <div className="flex justify-between">
+                            <span className="text-sm text-muted-foreground">Last checked</span>
+                            <span className="text-sm font-medium">
+                              {new Date(va.ranAt).toLocaleString()}
+                            </span>
+                          </div>
                         )}
                       </div>
                     </CardContent>

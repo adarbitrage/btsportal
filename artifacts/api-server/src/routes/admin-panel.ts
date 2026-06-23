@@ -45,6 +45,10 @@ import {
   getMisconfiguredCriticalSecrets,
   getSecretMisconfigurationState,
 } from "../lib/production-env-guard";
+import {
+  getCachedRetellSetupResult,
+  interpretRetellSetupHealth,
+} from "../lib/retell-agent-setup";
 import { AUTH_RATE_LIMIT_AUDIT_ACTION } from "./auth";
 import {
   getOnCallDestinations,
@@ -3495,7 +3499,27 @@ router.get("/admin/system/health", requirePermission("system:view"), async (_req
     // the moment delivery is blocked — distinct from the widget-embed probe.
     const ticketDeskDeliveryGate = getTicketDeskDeliveryProbeState();
 
-    const overallStatus = !dbOk || queueFallbacks.alerting || !redisConnected || rateLimitAuditFailures.totalCount > 0 || portalUrl.productionFallbackMissing || moderationFailures.window.totalCount > 0 || commsDedupFailures.window.totalCount > 0 || liveChatEmbed.status === "blocked" || liveChatEmbed.alerting || ticketDeskDelivery.alerter.alerting || ticketDeskDeliveryGate.status === "blocked" || ticketDeskDeliveryGate.alerting
+    // Interpret the cached Retell voice-agent setup result. A silent regression
+    // (RETELL_AGENT_ID repointed to an agent that is NOT on the KB-connected
+    // retell-llm engine) lands the cached setup in a skipped/error state; the
+    // interpreter flags that as "misconfigured" so on-call sees a warning
+    // instead of the voice assistant quietly answering wrong/empty. We only
+    // flip the banner to degraded when it's configured-but-broken
+    // (needsAttention) — "not_configured" (voice intentionally off, normal in
+    // dev) and "unknown" (still initializing) must not nag.
+    const retellSetup = getCachedRetellSetupResult();
+    const voiceAgentHealth = interpretRetellSetupHealth(retellSetup);
+    const voiceAgent = {
+      status: voiceAgentHealth.status,
+      needsAttention: voiceAgentHealth.needsAttention,
+      detail: voiceAgentHealth.detail,
+      agentResponseEngineType: retellSetup?.agentResponseEngineType ?? null,
+      requiresAgentIdUpdate: retellSetup?.requiresAgentIdUpdate ?? false,
+      newAgentId: retellSetup?.newAgentId ?? null,
+      ranAt: retellSetup?.ranAt ?? null,
+    };
+
+    const overallStatus = !dbOk || queueFallbacks.alerting || !redisConnected || rateLimitAuditFailures.totalCount > 0 || portalUrl.productionFallbackMissing || moderationFailures.window.totalCount > 0 || commsDedupFailures.window.totalCount > 0 || liveChatEmbed.status === "blocked" || liveChatEmbed.alerting || ticketDeskDelivery.alerter.alerting || ticketDeskDeliveryGate.status === "blocked" || ticketDeskDeliveryGate.alerting || voiceAgent.needsAttention
       ? "degraded"
       : "healthy";
 
@@ -3544,6 +3568,7 @@ router.get("/admin/system/health", requirePermission("system:view"), async (_req
         ticketDeskDelivery,
         liveChatEmbed,
         ticketDeskDeliveryGate,
+        voiceAgent,
         missingCriticalSecrets,
         portalUrl,
       },

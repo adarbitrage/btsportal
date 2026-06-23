@@ -945,3 +945,110 @@ describe("setupRetellAgentKb — idempotency (no update when already patched)", 
     expect(mockClient.llm.update).not.toHaveBeenCalled();
   });
 });
+
+// ---------------------------------------------------------------------------
+// Health interpretation — guards the admin-visible signal on System Health.
+// Covers the unhealthy-vs-healthy reading of every RetellSetupResult shape so
+// a silent regression to a broken agent can't slip through unflagged.
+// ---------------------------------------------------------------------------
+
+describe("interpretRetellSetupHealth", () => {
+  const ranAt = "2026-06-23T00:00:00.000Z";
+
+  it("returns unknown (no nag) when no result is cached yet", async () => {
+    const { interpretRetellSetupHealth } = await import("../lib/retell-agent-setup");
+    const v = interpretRetellSetupHealth(null);
+    expect(v.status).toBe("unknown");
+    expect(v.healthy).toBe(false);
+    expect(v.needsAttention).toBe(false);
+    expect(v.detail).toMatch(/not reported a result yet/i);
+  });
+
+  it("returns healthy when setup ran successfully (not skipped, no agent-id update)", async () => {
+    const { interpretRetellSetupHealth } = await import("../lib/retell-agent-setup");
+    const v = interpretRetellSetupHealth({
+      skipped: false,
+      reason: "Updated existing LLM with latest KB tool + prompt",
+      ranAt,
+    });
+    expect(v.status).toBe("healthy");
+    expect(v.healthy).toBe(true);
+    expect(v.needsAttention).toBe(false);
+  });
+
+  it("returns not_configured (no nag) when credentials are absent", async () => {
+    const { interpretRetellSetupHealth } = await import("../lib/retell-agent-setup");
+    const v = interpretRetellSetupHealth({
+      skipped: true,
+      reason: "RETELL_API_KEY or RETELL_AGENT_ID not configured",
+      ranAt,
+    });
+    expect(v.status).toBe("not_configured");
+    expect(v.healthy).toBe(false);
+    expect(v.needsAttention).toBe(false);
+  });
+
+  it("flags misconfigured when the agent id lacks the agent_ prefix", async () => {
+    const { interpretRetellSetupHealth } = await import("../lib/retell-agent-setup");
+    const v = interpretRetellSetupHealth({
+      skipped: true,
+      reason: 'RETELL_AGENT_ID must start with "agent_" (got "noprefix_abc…")',
+      ranAt,
+    });
+    expect(v.status).toBe("misconfigured");
+    expect(v.healthy).toBe(false);
+    expect(v.needsAttention).toBe(true);
+  });
+
+  it("flags misconfigured when RETELL_FUNCTION_SECRET is missing in production", async () => {
+    const { interpretRetellSetupHealth } = await import("../lib/retell-agent-setup");
+    const v = interpretRetellSetupHealth({
+      skipped: true,
+      reason: "RETELL_FUNCTION_SECRET is required in production",
+      ranAt,
+    });
+    expect(v.status).toBe("misconfigured");
+    expect(v.needsAttention).toBe(true);
+  });
+
+  it("flags misconfigured when a substantial conversation flow blocked the repoint", async () => {
+    const { interpretRetellSetupHealth } = await import("../lib/retell-agent-setup");
+    const v = interpretRetellSetupHealth({
+      skipped: true,
+      reason:
+        'Agent is on "conversation_flow" engine with substantial Conversation Flow logic — manual review required before auto-repoint.',
+      agentResponseEngineType: "conversation_flow",
+      conversationFlowAssessment: "Substantial flow: 2 node(s) including transfer_call nodes",
+      ranAt,
+    });
+    expect(v.status).toBe("misconfigured");
+    expect(v.needsAttention).toBe(true);
+  });
+
+  it("flags misconfigured when a manual re-run threw an error", async () => {
+    const { interpretRetellSetupHealth } = await import("../lib/retell-agent-setup");
+    const v = interpretRetellSetupHealth({
+      skipped: true,
+      reason: "Manual re-run threw an error: 404 agent not found",
+      ranAt,
+    });
+    expect(v.status).toBe("misconfigured");
+    expect(v.needsAttention).toBe(true);
+  });
+
+  it("flags misconfigured when a new agent was created and RETELL_AGENT_ID must be updated", async () => {
+    const { interpretRetellSetupHealth } = await import("../lib/retell-agent-setup");
+    const v = interpretRetellSetupHealth({
+      skipped: false,
+      reason:
+        "Retell API blocked in-place engine-type change — created new agent agent_new999. Update RETELL_AGENT_ID.",
+      requiresAgentIdUpdate: true,
+      newAgentId: "agent_new999",
+      ranAt,
+    });
+    // Setup "succeeded" but the live secret still points at the old agent.
+    expect(v.status).toBe("misconfigured");
+    expect(v.healthy).toBe(false);
+    expect(v.needsAttention).toBe(true);
+  });
+});

@@ -226,6 +226,99 @@ export function setCachedRetellSetupResult(result: RetellSetupResult): void {
   _cachedResult = result;
 }
 
+// ---------------------------------------------------------------------------
+// Health interpretation — turns a RetellSetupResult into a single verdict the
+// admin System Health page can surface. This is the guard against a silent
+// regression: if RETELL_AGENT_ID is repointed to a broken agent (wrong engine,
+// missing KB tool, bad prefix, etc.) the setup result lands in a skipped/error
+// state and `interpretRetellSetupHealth` flags it as "misconfigured" so an
+// on-call admin sees a warning instead of the voice assistant quietly giving
+// wrong/empty answers.
+// ---------------------------------------------------------------------------
+
+export type RetellHealthStatus = "healthy" | "misconfigured" | "not_configured" | "unknown";
+
+export interface RetellHealthVerdict {
+  /**
+   *  - healthy        — agent is correctly wired to the KB-connected retell-llm.
+   *  - misconfigured  — agent is configured but broken; needs admin attention.
+   *  - not_configured — Retell credentials are absent; voice is intentionally off.
+   *  - unknown        — setup has not reported a result yet (server starting).
+   */
+  status: RetellHealthStatus;
+  /** True only when status === "healthy". */
+  healthy: boolean;
+  /**
+   * True when the voice agent is configured but broken — the alarming state
+   * that should flip the System Health banner to degraded and page the admin.
+   * Deliberately false for "not_configured" (voice off, normal in dev) and
+   * "unknown" (still initializing) so those don't nag.
+   */
+  needsAttention: boolean;
+  /** Human-readable explanation drawn from the setup result's reason. */
+  detail: string;
+}
+
+/**
+ * The one skip reason that means "voice is intentionally off" rather than
+ * "configured but broken": no API key and/or no agent id. Everything else
+ * (wrong agent_ prefix, missing function secret in prod, no base URL, a
+ * substantial conversation-flow that blocked the repoint, a manual re-run that
+ * threw) means someone tried to wire voice up and it is NOT correctly
+ * configured — that should warn.
+ */
+const NOT_CONFIGURED_SKIP_REASON = /RETELL_API_KEY or RETELL_AGENT_ID not configured/i;
+
+export function interpretRetellSetupHealth(
+  result: RetellSetupResult | null,
+): RetellHealthVerdict {
+  if (!result) {
+    return {
+      status: "unknown",
+      healthy: false,
+      needsAttention: false,
+      detail: "Retell voice setup has not reported a result yet since the server started.",
+    };
+  }
+
+  if (!result.skipped) {
+    // Setup ran successfully. But if the Retell API forced creation of a NEW
+    // agent, the live RETELL_AGENT_ID secret still points at the old (broken)
+    // agent until someone updates it and republishes — treat that as broken.
+    if (result.requiresAgentIdUpdate) {
+      return {
+        status: "misconfigured",
+        healthy: false,
+        needsAttention: true,
+        detail: result.reason,
+      };
+    }
+    return {
+      status: "healthy",
+      healthy: true,
+      needsAttention: false,
+      detail: result.reason,
+    };
+  }
+
+  // skipped === true — distinguish "voice off" from "configured but broken".
+  if (NOT_CONFIGURED_SKIP_REASON.test(result.reason)) {
+    return {
+      status: "not_configured",
+      healthy: false,
+      needsAttention: false,
+      detail: result.reason,
+    };
+  }
+
+  return {
+    status: "misconfigured",
+    healthy: false,
+    needsAttention: true,
+    detail: result.reason,
+  };
+}
+
 export async function setupRetellAgentKb(options: SetupOptions = {}): Promise<RetellSetupResult> {
   const { forceRepoint = false } = options;
   const apiKey = (process.env.RETELL_API_KEY ?? "").trim();
