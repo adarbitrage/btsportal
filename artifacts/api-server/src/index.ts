@@ -42,6 +42,10 @@ import {
   stopTicketDeskDeliveryAlerter,
 } from "./lib/ticketdesk-delivery-alerter";
 import {
+  startRetellAgentAlerter,
+  stopRetellAgentAlerter,
+} from "./lib/retell-agent-alerter";
+import {
   startMachineMismatchDigestJob,
   stopMachineMismatchDigestJob,
 } from "./lib/machine-mismatch-daily-digest";
@@ -123,6 +127,7 @@ startMachineMismatchDigestAlerter();
 startModerationFailureAlerter();
 startCommsDedupFailureAlerter();
 startTicketDeskDeliveryAlerter();
+startRetellAgentAlerter();
 startLiveChatEmbedProbe();
 startTicketDeskDeliveryProbe();
 
@@ -176,6 +181,7 @@ async function gracefulShutdown(signal: string) {
   stopModerationFailureAlerter();
   stopCommsDedupFailureAlerter();
   stopTicketDeskDeliveryAlerter();
+  stopRetellAgentAlerter();
   stopLiveChatEmbedProbe();
   stopTicketDeskDeliveryProbe();
   process.exit(0);

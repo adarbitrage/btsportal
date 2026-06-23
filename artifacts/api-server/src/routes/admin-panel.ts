@@ -49,6 +49,7 @@ import {
   getCachedRetellSetupResult,
   interpretRetellSetupHealth,
 } from "../lib/retell-agent-setup";
+import { getRetellAgentAlertingState } from "../lib/retell-agent-alerter";
 import { AUTH_RATE_LIMIT_AUDIT_ACTION } from "./auth";
 import {
   getOnCallDestinations,
@@ -3509,10 +3510,15 @@ router.get("/admin/system/health", requirePermission("system:view"), async (_req
     // dev) and "unknown" (still initializing) must not nag.
     const retellSetup = getCachedRetellSetupResult();
     const voiceAgentHealth = interpretRetellSetupHealth(retellSetup);
+    const voiceAgentAlerting = getRetellAgentAlertingState();
     const voiceAgent = {
       status: voiceAgentHealth.status,
       needsAttention: voiceAgentHealth.needsAttention,
       detail: voiceAgentHealth.detail,
+      // True when the on-call alerter is currently paging for this broken
+      // agent — lets the System Health card render "currently paging on-call"
+      // without re-deriving the transition logic.
+      alerting: voiceAgentAlerting.alerting,
       agentResponseEngineType: retellSetup?.agentResponseEngineType ?? null,
       requiresAgentIdUpdate: retellSetup?.requiresAgentIdUpdate ?? false,
       newAgentId: retellSetup?.newAgentId ?? null,
