@@ -357,106 +357,111 @@ For questions about Post-Mentorship Access or assistance choosing the right plan
 
 ### How do I submit my Profit & Loss Tracker?
 
-Description: Submit your Profit & Loss statement for refund qualification
+Description: P&L Tracker submission and its role in the 90-Day Action-Based Refund Guarantee
 
 Content:
 
 Overview
 
-Submitting your Profit & Loss (P&L) Tracker is one of the required components for qualifying for the Action-Based Refund program. This article confirms your submission and outlines the complete refund qualification requirements.
+Submitting and diligently maintaining your Profit & Loss (P&L) Tracker is one of the four required criteria for qualifying under the 90-Day Action-Based Refund Guarantee. This article explains what is required for the P&L criterion and how it fits into the full refund eligibility requirements.
 
-Submission Confirmation
+P&L Tracker Requirement (Criterion 3)
 
-Thank you for submitting your P&L Tracker. Your submission has been recorded and saved, and it counts toward fulfilling the Action-Based Refund requirements for your program.
+To satisfy the P&L criterion of the 90-Day Action-Based Refund Guarantee, you must:
 
-Complete Refund Qualification Requirements
+- Update the P&L Spreadsheet daily
+- Notify the support team at each ad-spend milestone by emailing support@buildtestscale.com
+- Implement coach-recommended changes
+- Obtain written email verification from the coaching team confirming those changes have been made before advancing to the next phase
 
-To qualify for a refund within 90 days of your program start date, you must complete ALL of the following requirements:
+Simply submitting a P&L statement once is not sufficient — daily updates and the milestone notification/verification chain are all required.
 
-1. Attend at least 10 out of 30 Zoom calls or classes
-2. Utilize the “The BTS Concierge” by scheduling and attending a session
-3. Submit an updated profit and loss statement(completed)
-4. Spend the minimum required amount on advertising:
+All Four Refund Criteria (Must All Be Met Within 90 Days)
 
-- $5,000 or $10,000, depending on your specific program tier
+The P&L Tracker is one of four criteria you must meet to be eligible for the 90-Day Action-Based Refund Guarantee:
 
-Important Deadlines and Policies
+1. Active and engaged participation in at least 10 live Zoom calls (attendance alone is not sufficient — you must actively ask questions, implement coaching suggestions, maintain clear audio/video, and remain visible on camera)
+2. Effective utilization of the BTS Concierge with demonstrable correspondence showing collaborative development of marketing materials
+3. Diligent daily P&L Spreadsheet updates with milestone alerts to support and written coaching-team email verification before advancing phases (this criterion)
+4. Achieving the minimum ad-spend on Program-taught traffic sources only ($5,000 for Three-Month; $10,000 for Six-Month/One-Year/Lifetime) with milestone alerts and coaching-team approval at each milestone
 
-90-Day Deadline
+Revenue Threshold
 
-Refunds are NOT available after 90 days from your program start date. It is critical to note that the program start date is calculated from when you were granted access to the program, not from when you first logged into the portal.
+You must also not have generated the applicable revenue threshold within 90 days:
 
-All Requirements Must Be Met
+- Three-Month Mentorship: $5,000 in revenue
+- Six-Month, One-Year, and Lifetime Mentorships: $10,000 in revenue
 
-Qualification for a refund requires completion of all listed requirements. Partial completion does not qualify for refund consideration.
+90-Day Window
+
+The 90-day period begins on the date you are granted access to the Program, NOT the date you first log in. No refunds are issued after 90 days.
 
 Submitting a Refund Request
 
-If you have completed all requirements and wish to request a refund, please:
-
-1. Compile all supporting evidence and documentation into a single Google Drive folder
-2. Ensure the folder includes proof of:
-
-- Call attendance records
-- Concierge session confirmation
-- P&L statement (already submitted)
-- Advertising spend receipts
-
-3. Share the Google Drive folder link with support@BTSmedia.com
-
-Our team will review your case and respond accordingly.
+If you have met all four criteria and wish to request a refund, compile documentation for each criterion into a single Google Drive folder and email the link to support@buildtestscale.com with the subject line "Mentorship Refund Request". See "What are the Mentorship refund requirements?" for the full submission checklist.
 
 Questions
 
-For questions about refund requirements or your submission status, please contact support@BTSmedia.com.
-
+For questions about the P&L requirement or refund eligibility, please contact support@buildtestscale.com.
 * * *
 
 ## Refunds & Policies (3 articles)
 
 ### What are the Mentorship refund requirements?
 
-Description: Action-based refund criteria and eligibility requirements
+Description: 90-Day Action-Based Refund Guarantee criteria and eligibility requirements
 
 Content:
 
 Overview
 
-Build Test Scale Mentorship program offers an action-based refund policy. This article outlines the specific criteria and requirements for qualifying for a refund.
+Build Test Scale offers a 90-Day Action-Based Refund Guarantee. If you do not generate at least the applicable revenue threshold within your 90-day window, you are eligible for a full refund of your purchase price AND continued access to all coaches and resources until that threshold is reached — provided you have met all four qualifying criteria within the 90-day period.
 
-Refund Eligibility Criteria
+Revenue Thresholds (What Must Be Missed to Trigger the Guarantee)
 
-To qualify for a mentorship refund, you must complete ALL of the following requirements within 90 days of your program start date:
+The minimum revenue you must fail to reach in order to be eligible depends on your mentorship tier:
 
-1\. Attendance Requirement
+- Three-Month Mentorship: $5,000 in revenue within 90 days of being granted access to the Program
+- Six-Month, One-Year, and Lifetime Mentorships: $10,000 in revenue within the first 90 days of being granted access to the Program
 
-- Attend at least 10 out of 30 Zoom calls or classes
+What You Receive If Eligible
 
-2\. Concierge Utilization
+A full refund of your purchase price AND continued access to all coaches and resources until the applicable revenue threshold is reached.
 
-- Schedule and attend at least one session with The BTS Concierge Team
+Four Qualifying Criteria (All Must Be Met)
 
-3\. Financial Documentation
+To be eligible, all four of the following must be completed within the 90-day period:
 
-- Submit an updated profit and loss statement
+1\. Active and Engaged Participation in At Least 10 Live Zoom Calls
 
-4\. Advertising Spend Requirement
+Attendance alone is not sufficient. You must actively ask questions, implement coaching suggestions, maintain clear audio and video, and remain visible on camera to qualify.
 
-- Spend at least $5,000 or $10,000 on advertising (specific amount depends on your program tier)
+2\. Effective Utilization of the BTS Concierge
+
+You must engage the BTS Concierge in developing marketing materials and provide demonstrable correspondence (emails or messages) showing collaborative use of the service.
+
+3\. Diligent Sharing and Daily Updating of a Profit & Loss (P&L) Spreadsheet
+
+You must update the P&L Spreadsheet daily, notify the support team at each ad-spend milestone (support@buildtestscale.com), implement coach-recommended changes, and obtain written email verification from the coaching team that those changes have been made before advancing to the next phase.
+
+4\. Achieving the Minimum Ad-Spend Threshold on Program-Taught Traffic Sources Only
+
+You must spend the following minimum amount on advertisements within the 90-day period, using only the traffic sources taught within the Program:
+
+- Three-Month Mentorship: $5,000 USD in ad spend
+- Six-Month, One-Year, and Lifetime Mentorships: $10,000 USD in ad spend within the first 90 days
+
+You must alert the support team at each milestone, receive coaching-team approval before proceeding past each milestone, and incorporate any recommended improvements before continuing.
 
 Important Deadlines and Policies
 
-90-Day Refund Window
+90-Day Window Definition
 
-Refunds are NOT available after 90 days from your program start date. This deadline is strictly enforced.
+The 90-day period begins on the date you are granted access to the Program, NOT the date you first log in. No refunds will be issued after 90 days from the start of the Program.
 
-Program Start Date Definition
+All Four Criteria Must Be Met
 
-The program start date is calculated from the date you were granted access to the program, NOT from the date you first logged into the portal. Please track your eligibility window accordingly.
-
-All Requirements Must Be Met
-
-All four requirements listed above must be completed to qualify for refund consideration. Partial completion of requirements does not meet the eligibility criteria.
+All four requirements listed above must be completed to qualify. Partial completion does not meet the eligibility criteria.
 
 Submitting a Refund Request
 
@@ -465,79 +470,79 @@ If you meet all requirements and wish to proceed with a refund request:
 1. Compile all supporting evidence into a single Google Drive folder
 2. Include documentation for each requirement:
 
-- Call attendance records
-- Concierge booking confirmation
-- Profit and loss statement
-- Advertising spend receipts or proof
+- Call attendance records showing active participation (questions asked, visible on camera)
+- Concierge correspondence showing collaborative development of marketing materials
+- Daily P&L spreadsheet updates and written email verification from the coaching team
+- Advertising spend receipts or platform reports showing spend on Program-taught traffic sources, milestone alerts sent, and coaching-team approvals received
 
 3. Ensure the Google Drive folder sharing settings allow access
-4. Email the folder link to support@BTSmedia.com with the subject line "Mentorship Refund Request".
+4. Email the folder link to support@buildtestscale.com with the subject line "Mentorship Refund Request"
 
 Our team will review your submission and respond with the next steps.
 
 Questions
 
-For clarification on any refund requirements or policies, please contact [support@BTSmedia.com](mailto:support@BTSmedia.com).
+For clarification on any refund requirements or policies, please contact support@buildtestscale.com.
 
 ### How do I request a Mentorship refund?
 
-Description: Step-by-step process for submitting a refund request
+Description: Step-by-step process for submitting a refund request under the 90-Day Action-Based Refund Guarantee
 
 Content:
 
 Overview
 
-This article provides a comprehensive guide for submitting a Mentorship refund request. Please ensure you meet all eligibility requirements before proceeding with your request.
+This article provides a guide for submitting a Mentorship refund request under the 90-Day Action-Based Refund Guarantee. You must have met all four qualifying criteria within your 90-day window before submitting. See "What are the Mentorship refund requirements?" for the full criteria and revenue thresholds.
 
-Step 1: Verify Eligibility Requirements
+Step 1: Verify Eligibility
 
-Before submitting a refund request, confirm that you have completed ALL of the following within 90 days of your program start date:
+Before submitting, confirm ALL of the following within 90 days of your access grant date:
 
-- Attended at least 10 out of 30 Zoom calls or classes
-- Utilized “The BTS Concierge” by scheduling and attending a session
-- Submitted an updated profit and loss statement
-- Spent at least $5,000 or $10,000 on advertising (depending on your program tier)
+- Actively participated in at least 10 live Zoom calls (asked questions, implemented coaching suggestions, maintained clear audio/video, remained visible on camera)
+- Engaged the BTS Concierge in developing marketing materials with demonstrable correspondence
+- Updated the P&L Spreadsheet daily, notified support at each ad-spend milestone, implemented coach-recommended changes, and received written email verification before advancing phases
+- Spent the minimum ad-spend on Program-taught traffic sources only ($5,000 for Three-Month; $10,000 for Six-Month/One-Year/Lifetime), sent milestone alerts, and received coaching-team approval at each milestone
+- Did NOT generate the applicable revenue threshold ($5,000 for Three-Month; $10,000 for Six-Month/One-Year/Lifetime) within the 90 days
 
 Step 2: Gather Supporting Documentation
 
-Compile documentation to verify each requirement:
+Compile documentation for each of the four criteria:
 
-Call Attendance Records
+Active Zoom Call Participation (Criterion 1)
 
-- Screenshots or records showing attendance at 10 or more sessions
-- Include dates and session names if available
+- Records showing attendance at 10 or more live sessions
+- Evidence of active participation: questions asked, coaching implemented, visible on camera
 
-Concierge Session Confirmation
+BTS Concierge Correspondence (Criterion 2)
 
-- Booking confirmation email
-- Session completion record
+- Emails or messages showing collaborative development of marketing materials with the Concierge team
 
-Profit and Loss Statement
+P&L Spreadsheet and Coaching Verification (Criterion 3)
 
-- Updated P&L document submitted to BTS
+- Daily P&L updates
+- Emails sent to support@buildtestscale.com at each ad-spend milestone
+- Written email verification from the coaching team confirming changes made before advancing each phase
 
-Advertising Spend Proof
+Ad-Spend on Program-Taught Traffic Sources (Criterion 4)
 
-- Receipts from advertising platforms
-- Payment confirmations
-- Campaign spend reports showing total expenditure
+- Receipts or platform reports showing ad spend on Program-taught traffic sources only
+- Milestone alert emails sent to support and coaching-team approval responses received
 
 Step 3: Create a Google Drive Folder
 
 Organize all documentation:
 
 1. Create a new Google Drive folder
-2. Upload all supporting documents
-3. Organize files with clear naming conventions
-4. Ensure folder sharing settings are configured to allow access
+2. Upload all supporting documents organized by criterion
+3. Ensure folder sharing settings are configured to allow access
 
 Step 4: Submit Your Request
 
-Email your refund request to support@BTSmedia.com with:
+Email your refund request to support@buildtestscale.com with:
 
-- Subject Line: "Mentorship Refund Request"
-- Email Body: Brief explanation and your Google Drive folder link
-- Folder Link: Ensure the link is accessible
+- Subject Line: "Mentorship Refund Request"
+- Email Body: Brief explanation of your situation and your Google Drive folder link
+- Folder Link: Ensure the link is accessible to the review team
 
 Processing Timeline
 
@@ -545,15 +550,14 @@ Our team will review your submission and respond as soon as possible. Processing
 
 Important Reminders
 
-- Refunds are NOT available after 90 days from your program start date
-- The start date is when you were granted access, not when you first logged in
-- All requirements must be met for eligibility
+- Refunds are NOT available after 90 days from the date access was granted (not the date you first logged in)
+- All four criteria must be met -- partial completion does not qualify
 - Incomplete documentation may delay processing
+- If eligible, you receive a full refund AND continued access to all coaches and resources until the applicable revenue threshold is reached
 
 Questions
 
-For assistance with your refund request or questions about required documentation, please contact support@BTSmedia.com.
-
+For assistance with your refund request, please contact support@buildtestscale.com.
 ### Can I get a refund for the DIY program?
 
 Description: DIY program refund policy
@@ -593,7 +597,7 @@ Available Support:
 
 Contact Information
 
-For assistance with the DIY program or to discuss any concerns, please contact support@BTSmedia.com. Our team is here to help you succeed with the program.
+For assistance with the DIY program or to discuss any concerns, please contact support@buildtestscale.com. Our team is here to help you succeed with the program.
 
 ### How do I request a BTS Deposit refund?
 
@@ -637,7 +641,7 @@ Providing Additional Information
 If you have additional documentation or information that supports your refund request, you may submit it at any time by:
 
 - Replying to your original support ticket
-- Emailing support@BTSmedia.com with the subject line "BTS Deposit Refund - Additional Information"
+- Emailing support@buildtestscale.com with the subject line "BTS Deposit Refund - Additional Information"
 
 What to Include
 
@@ -652,9 +656,152 @@ Conclusion
 
 Thank you for your refund request. Our team will work to review your case and provide you with a response as promptly as possible.
 
-For urgent questions regarding your request status, please contact support@BTSmedia.com.
+For urgent questions regarding your request status, please contact support@buildtestscale.com.
 
 * * *
+
+## BTS Mentorship Agreement & Terms (5 articles)
+
+### What membership terms does the BTS Mentorship Program offer?
+
+Description: Overview of BTS Mentorship Program membership terms, payment, and program extension policies
+
+Content:
+
+Overview
+
+The BTS Mentorship Program (Build Test Scale) offers different membership terms to access the Program.
+
+Available Membership Terms
+
+- Three-Month (3-Month) Mentorship
+- Six-Month (6-Month) Mentorship
+- Twelve-Month (12-Month) Mentorship
+- Lifetime Mentorship
+
+The Customer selects the Term and corresponding fee as specified in the invoice provided by the Company.
+
+Payment
+
+The fee may be paid in full upfront or in installments, as specified in the invoice. Failure to pay any installment may result in suspension or termination of access to the Program. The Company reserves the right to change Program rates at any time, but such changes will not apply to existing enrollments.
+
+Program Extension and Downgrades
+
+If you wish to extend your selected Program, you must notify the Company in writing and pay the corresponding extension fee. Once granted access to the Program, there is no option to downgrade to a shorter term.
+
+Program Delivery
+
+The Program is delivered through a learning management system or similar online platform and may include video tutorials, interactive exercises, live coaching sessions, and other materials. Live sessions, coaching, and support may be conducted via Zoom or other video conferencing platforms. You are responsible for maintaining a reliable internet connection and a compatible device.
+
+The Company makes every effort to deliver Program content as scheduled but does not guarantee the frequency of classes or the availability of any specific instructor, coach, or support staff.
+
+For questions, contact support@buildtestscale.com.
+
+### Does BTS guarantee profits or specific results?
+
+Description: BTS policy on profit guarantees and results from the Mentorship Program
+
+Content:
+
+Overview
+
+The BTS Mentorship Program provides education and training on online affiliate marketing, but does not guarantee profits or specific financial outcomes.
+
+No Profit Guarantee
+
+The Company does not guarantee that you will make a profit or achieve any specific financial outcome as a result of the Services. The success of your business is dependent on many factors, including:
+
+- Market conditions
+- Competition
+- Your own personal effort and abilities
+- Financial resources
+- Time investment
+
+Individual results may vary significantly based on personal skills, financial resources, marketing knowledge, and time investment.
+
+No Results Guarantee
+
+The Company does not guarantee any specific results or outcomes from the Services. Any marketing material related to the Program is for informational and educational purposes only. Historical performances or experiences shared by the Company are individual examples and not indicative of future results. BTS does not offer any "get rich quick" promise.
+
+The 90-Day Action-Based Refund Guarantee is separate from a results guarantee — it is a refund policy contingent on your actual participation meeting four specific criteria, not a promise of income.
+
+For questions, contact support@buildtestscale.com.
+
+### What are the intellectual property and confidentiality terms of the BTS Agreement?
+
+Description: BTS intellectual property ownership, confidentiality obligations, and non-transferability of enrollment
+
+Content:
+
+Intellectual Property
+
+The Company retains all ownership and intellectual property rights in the Program and all materials provided as part of the Services. You may not reproduce, distribute, resell, or create derivative works based on the Program or any of the Company's materials without the prior written consent of the Company.
+
+Confidentiality
+
+You agree to keep confidential all materials and information provided by the Company as part of the Services. You shall not disclose or share any such materials or information with any third party without prior written consent.
+
+Non-Transferability
+
+Enrollment in the Program is personal and non-transferable. You may not assign or transfer any rights or obligations under this Agreement to any third party without the prior written consent of the Company.
+
+Program Amendments
+
+Due to the dynamic nature of online affiliate marketing, the Company reserves the right to amend, modify, or change the substance of the Program — including course content, materials, instructors, and schedule — at any time and without notice. The Company will use reasonable efforts to provide notice of material changes through its website or communication channels.
+
+For questions, contact support@buildtestscale.com.
+
+### What are the governing law and termination terms of the BTS Agreement?
+
+Description: BTS Agreement governing law, jurisdiction, class-action waiver, and termination policy
+
+Content:
+
+Governing Law
+
+The BTS Mentorship Program Agreement is governed by and construed in accordance with the laws of the State of Texas. Any legal action or proceeding arising out of or relating to the Agreement shall be brought exclusively in the federal or state courts located in Dallas County, State of Texas.
+
+Waiver of Class Action
+
+Both the Customer and the Company waive any right to bring claims as a plaintiff or class member in any purported class or representative action. Any dispute must be resolved on an individual basis, and neither party may join or consolidate claims with claims brought by or against any other party.
+
+Termination
+
+Either party may terminate the Agreement at any time upon written notice to the other party. Upon termination, you must immediately cease using the Program and all materials provided. Termination does not entitle you to a refund, except as expressly provided under the 90-Day Action-Based Refund Guarantee.
+
+Breach
+
+If the Company brings any legal action against the Customer arising out of the Agreement, the Company is entitled to recover its reasonable attorneys' fees and costs.
+
+Contact
+
+For all questions about the BTS Mentorship Program Agreement, contact support@buildtestscale.com.
+
+### What happens if I miss installment payments or need to cancel my BTS Mentorship?
+
+Description: Consequences of missed installment payments and cancellation/termination policy
+
+Content:
+
+Missed Installment Payments
+
+If you are paying for the BTS Mentorship Program in installments and miss a payment, your access to the Program may be suspended or terminated. The Company reserves the right to take this action for non-payment.
+
+Cancellation and Termination
+
+Either party (you or BTS) may terminate the Agreement at any time upon written notice to the other party. Upon termination:
+
+- You must immediately cease using the Program and all materials provided
+- Termination does not entitle you to a refund, except as expressly provided under the 90-Day Action-Based Refund Guarantee
+
+The 90-Day Action-Based Refund Guarantee only applies if you have not generated the applicable revenue threshold AND have met all four qualifying criteria within your 90-day window. See "What are the Mentorship refund requirements?" for full details.
+
+No Downgrades
+
+Once you have been granted access to the Program, there is no option to downgrade to a shorter term.
+
+For questions about your billing or account status, contact support@buildtestscale.com.
+
 
 ## Additional Programs & Tools (3 articles)
 
