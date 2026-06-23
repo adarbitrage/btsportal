@@ -369,6 +369,99 @@ a real customer's email.
   },
 ];
 
+/**
+ * Titles of the refund + BTS Mentorship Agreement articles that must be
+ * force-refreshed from `qa-articles.txt` (NOT just inserted-if-missing). The
+ * two refund articles already exist in seeded databases with stale content, so
+ * the normal `ON CONFLICT (title) DO NOTHING` seeder can never update them; the
+ * five Agreement articles are new. Both cases are handled by the upsert in
+ * `ensureBtsAgreementKbContent()`.
+ */
+const BTS_AGREEMENT_KB_TITLES = new Set<string>([
+  "What are the Mentorship refund requirements?",
+  "How do I request a Mentorship refund?",
+  "What membership terms does the BTS Mentorship Program offer?",
+  "Does BTS guarantee profits or specific results?",
+  "What are the intellectual property and confidentiality terms of the BTS Agreement?",
+  "What are the governing law and termination terms of the BTS Agreement?",
+  "What happens if I miss installment payments or need to cancel my BTS Mentorship?",
+]);
+
+/**
+ * Force the BTS Mentorship Agreement / refund KB articles and the affiliate
+ * marketing glossary to match the source files, OVERWRITING existing rows.
+ *
+ * Why this exists alongside `seedKnowledgebaseFromFiles()`:
+ *   that seeder inserts with `ON CONFLICT (title) DO NOTHING`, so it can add the
+ *   five brand-new BTS Agreement articles but can NEVER refresh the two refund
+ *   articles or the glossary rows that already exist in a database with stale
+ *   content (e.g. the old refund criteria / missing glossary terms). Production
+ *   is a SEPARATE database the agent cannot write directly; the only way the
+ *   corrected content reaches it is for a freshly-deployed instance to apply
+ *   this overwrite on boot.
+ *
+ * Idempotent: `ON CONFLICT (title) DO UPDATE ... WHERE` the stored content/
+ * category actually differs from the source, so a row already in sync is never
+ * rewritten and the whole function is a fast no-op once everything matches.
+ * Content is scrubbed through the privacy filter exactly like the main seeder.
+ */
+export async function ensureBtsAgreementKbContent(): Promise<void> {
+  const docs: KBDoc[] = [];
+
+  const qaRaw = readFile("qa-articles.txt");
+  if (qaRaw) {
+    docs.push(
+      ...parseQAArticles(qaRaw).filter((d) => BTS_AGREEMENT_KB_TITLES.has(d.title)),
+    );
+  }
+
+  const glossaryRaw = readFile("glossary.txt");
+  if (glossaryRaw) {
+    docs.push(...parseGlossary(glossaryRaw));
+  }
+
+  if (docs.length === 0) {
+    console.log(
+      "[seed-kb] ensureBtsAgreementKbContent: no source docs parsed, skipping.",
+    );
+    return;
+  }
+
+  let written = 0;
+  let unchanged = 0;
+
+  for (const doc of docs) {
+    try {
+      const result = await db.execute(
+        sql`INSERT INTO knowledgebase_docs (title, category, content)
+            VALUES (${scrubPrivateContent(doc.title)}, ${doc.category}, ${scrubPrivateContent(doc.content)})
+            ON CONFLICT (title) DO UPDATE
+              SET content = EXCLUDED.content,
+                  category = EXCLUDED.category,
+                  updated_at = NOW()
+              WHERE knowledgebase_docs.content IS DISTINCT FROM EXCLUDED.content
+                 OR knowledgebase_docs.category IS DISTINCT FROM EXCLUDED.category
+            RETURNING id`,
+      );
+      if ((result.rows as any[]).length > 0) {
+        written++;
+      } else {
+        unchanged++;
+      }
+    } catch (err) {
+      console.error(
+        `[seed-kb] ensureBtsAgreementKbContent error on "${doc.title}":`,
+        err instanceof Error ? err.message : err,
+      );
+    }
+  }
+
+  console.log(
+    `[seed-kb] ensureBtsAgreementKbContent done. Written: ${written}, ` +
+      `Unchanged: ${unchanged}, Targeted: ${docs.length}.`,
+  );
+}
+
 export async function seedInternalSops(): Promise<void> {
   let inserted = 0;
   let skipped = 0;

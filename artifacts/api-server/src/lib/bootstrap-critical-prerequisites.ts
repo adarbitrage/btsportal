@@ -5,7 +5,11 @@ import { seedYseProducts } from "./seed-yse-products";
 import { seedMachineBrandProducts } from "./seed-machine-brand-products";
 import { reconcileEntitlementKeys } from "./reconcile-entitlement-keys";
 import { seedMachineProductKeyMappings } from "./machine-product-key-mappings";
-import { seedKnowledgebaseFromFiles, seedInternalSops } from "./seed-kb";
+import {
+  seedKnowledgebaseFromFiles,
+  seedInternalSops,
+  ensureBtsAgreementKbContent,
+} from "./seed-kb";
 import { seedMemberBroadContent } from "./seed-kb-member-content";
 import {
   rescrubKnowledgebaseDocs,
@@ -237,6 +241,22 @@ export async function bootstrapCriticalPrerequisites(): Promise<PrerequisiteResu
   } catch (err) {
     console.error("[Bootstrap] ensureFourteenDayBlitzPronunciation() threw:", err);
     missing.push("ensureFourteenDayBlitzPronunciation");
+  }
+
+  // 8. Force-refresh the refund + BTS Mentorship Agreement KB articles and the
+  //    affiliate-marketing glossary from the source files (overwriting stale
+  //    rows). The normal KB seeder uses ON CONFLICT DO NOTHING, so it can add
+  //    the five new Agreement articles but can never update the two pre-existing
+  //    refund articles or the glossary rows that already carry stale content.
+  //    Production is a separate database the agent cannot write directly, so
+  //    this overwrite only reaches it when a freshly-deployed instance applies
+  //    it on boot. Idempotent: only rows whose content/category actually differ
+  //    from the source are rewritten.
+  try {
+    await ensureBtsAgreementKbContent();
+  } catch (err) {
+    console.error("[Bootstrap] ensureBtsAgreementKbContent() threw:", err);
+    missing.push("ensureBtsAgreementKbContent");
   }
 
   if (missing.length === 0) {
