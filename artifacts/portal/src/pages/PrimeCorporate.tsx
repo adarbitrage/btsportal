@@ -104,7 +104,7 @@ export default function PrimeCorporate() {
             <div className="pt-2">
               <Button asChild size="lg" className="text-base">
                 <a
-                  href="https://www.primecorporateservices.com/buildtestscale/"
+                  href="https://primepartner.info/BuildTestScale"
                   target="_blank"
                   rel="noopener noreferrer"
                 >
