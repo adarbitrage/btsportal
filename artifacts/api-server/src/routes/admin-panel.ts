@@ -114,6 +114,7 @@ import {
   getTicketDeskDeliveryAlertingState,
 } from "../lib/ticketdesk-delivery-alerter";
 import { MACHINE_MISMATCH_ALERT_ACTION_TYPE } from "../lib/machine-mismatch-alerter";
+import { RETELL_AGENT_ALERT_ACTION_TYPE } from "../lib/retell-agent-alerter";
 import {
   getLiveChatEmbedProbeState,
   getLiveChatEmbedProbeUrl,
@@ -3798,6 +3799,7 @@ router.get("/admin/system/queue-fallback-alert-events", requirePermission("syste
       QUEUE_FALLBACK_ALERT_ACTION_TYPE,
       MACHINE_MISMATCH_ALERT_ACTION_TYPE,
       MACHINE_MISMATCH_DIGEST_ALERT_ACTION_TYPE,
+      RETELL_AGENT_ALERT_ACTION_TYPE,
     ];
 
     const baseFilter = and(
@@ -3827,6 +3829,7 @@ router.get("/admin/system/queue-fallback-alert-events", requirePermission("syste
         .select({
           id: auditLogTable.id,
           createdAt: auditLogTable.createdAt,
+          actionType: auditLogTable.actionType,
           entityId: auditLogTable.entityId,
           description: auditLogTable.description,
           metadata: auditLogTable.metadata,
@@ -3864,6 +3867,11 @@ router.get("/admin/system/queue-fallback-alert-events", requirePermission("syste
       return {
         id: row.id,
         createdAt: row.createdAt,
+        // Which alerter wrote this row, so the timeline can label the source
+        // (queue-fallback / Machine mismatch / voice assistant / …) and deep
+        // link each entry to the right detail (the voice-assistant rows link
+        // to the Voice Assistant panel; the rest to their audit-log filter).
+        actionType: row.actionType,
         queueChannel,
         deliveryChannel,
         kind,

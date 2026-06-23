@@ -34,6 +34,10 @@ interface QueueFallbackEvent {
 interface QueueFallbackAlertEvent {
   id: number;
   createdAt: string;
+  // Which alerter wrote this timeline row. Used to label the source and deep
+  // link each entry to the right place. Server may omit on older deployments,
+  // in which case it falls back to the queue-fallback behavior.
+  actionType?: string | null;
   queueChannel: "email" | "sms" | null;
   deliveryChannel: "pagerduty" | "email" | "slack" | null;
   kind: "fire" | "clear" | null;
@@ -75,6 +79,47 @@ const ALERT_CHANNEL_DISPLAY_LABELS: Record<AlertStatsChannelKey, string> = {
   slack: "Slack",
   unknown: "Unknown",
 };
+
+// Human-readable label for each alerter that writes to the System Health alert
+// timeline, keyed by the audit-log action type. Lets a single chronological
+// table tell admins *which* subsystem paged on-call without one column per
+// alerter. Unknown action types fall through to a humanized default.
+const ALERT_SOURCE_LABELS: Record<string, string> = {
+  queue_fallback_alert: "Queue fallback",
+  machine_mismatch_alert: "Machine mismatch",
+  machine_mismatch_digest_alert: "Machine digest",
+  retell_agent_alert: "Voice assistant",
+};
+
+function alertSourceLabel(actionType: string | null | undefined): string {
+  if (!actionType) return "Queue fallback";
+  return (
+    ALERT_SOURCE_LABELS[actionType] ??
+    actionType.replace(/_/g, " ").replace(/\balert\b/i, "").trim()
+  );
+}
+
+// Build the per-row "detail" deep link for a timeline entry. Voice-assistant
+// rows link to the Voice Assistant panel on this page (the operator's natural
+// next step is to re-check / fix the agent), while every other alerter links to
+// its filtered audit-log view. Falls back to the queue-fallback audit filter
+// when the server hasn't sent an actionType yet (older deployments).
+function alertEventDetailHref(
+  actionType: string | null | undefined,
+  eventId: number,
+): { href: string; label: string } {
+  if (actionType === "retell_agent_alert") {
+    // Pure in-page hash so the browser scrolls to the Voice Assistant card on
+    // this same System Health page (rendered as a native <a> below — a wouter
+    // <Link> to the current route wouldn't trigger the hash scroll).
+    return { href: "#voice-agent", label: "Voice panel" };
+  }
+  const filterActionType = actionType ?? "queue_fallback_alert";
+  return {
+    href: `/admin/audit-log?actionType=${filterActionType}&entityType=alert&expand=${eventId}`,
+    label: `#${eventId}`,
+  };
+}
 
 // Render the per-channel breakdown of failures next to the "N failed" line:
 //   • single channel  → "PagerDuty"           (count is implied by parent)
@@ -2713,7 +2758,7 @@ export default function SystemHealth() {
                       ? "default"
                       : "outline";
                 return (
-                  <Card data-testid="card-voice-agent">
+                  <Card id="voice-agent" className="scroll-mt-20" data-testid="card-voice-agent">
                     <CardHeader>
                       <CardTitle className="text-base flex items-center gap-2">
                         <Volume2 className="w-4 h-4" />
@@ -4218,7 +4263,9 @@ export default function SystemHealth() {
                                   )}
                                 </td>
                                 <td className="px-4 py-2 text-xs">
-                                  <span>{event.queueChannel ?? "—"}</span>
+                                  <span data-testid={`alert-event-source-${event.id}`}>
+                                    {event.queueChannel ?? alertSourceLabel(event.actionType)}
+                                  </span>
                                   {event.kind && (
                                     <Badge variant="secondary" className="ml-2 text-[10px]">
                                       {event.kind}
@@ -4238,15 +4285,39 @@ export default function SystemHealth() {
                                   {event.reason ?? <span className="text-muted-foreground">—</span>}
                                 </td>
                                 <td className="px-4 py-2 text-right">
-                                  <Link
-                                    href={`/admin/audit-log?actionType=queue_fallback_alert&entityType=alert&expand=${event.id}`}
-                                    className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
-                                    data-testid={`link-alert-audit-${event.id}`}
-                                    onClick={(e) => e.stopPropagation()}
-                                  >
-                                    #{event.id}
-                                    <ExternalLink className="w-3 h-3" />
-                                  </Link>
+                                  {(() => {
+                                    const detail = alertEventDetailHref(event.actionType, event.id);
+                                    const linkClass =
+                                      "inline-flex items-center gap-1 text-xs text-primary hover:underline";
+                                    // In-page hash links (voice-assistant rows)
+                                    // must be a native anchor so the browser
+                                    // scrolls to the panel; a wouter <Link> to
+                                    // the current route wouldn't.
+                                    if (detail.href.startsWith("#")) {
+                                      return (
+                                        <a
+                                          href={detail.href}
+                                          className={linkClass}
+                                          data-testid={`link-alert-audit-${event.id}`}
+                                          onClick={(e) => e.stopPropagation()}
+                                        >
+                                          {detail.label}
+                                          <ExternalLink className="w-3 h-3" />
+                                        </a>
+                                      );
+                                    }
+                                    return (
+                                      <Link
+                                        href={detail.href}
+                                        className={linkClass}
+                                        data-testid={`link-alert-audit-${event.id}`}
+                                        onClick={(e) => e.stopPropagation()}
+                                      >
+                                        {detail.label}
+                                        <ExternalLink className="w-3 h-3" />
+                                      </Link>
+                                    );
+                                  })()}
                                 </td>
                               </tr>
                               {isExpanded && (

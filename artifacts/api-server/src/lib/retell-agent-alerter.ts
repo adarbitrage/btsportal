@@ -57,8 +57,23 @@ import {
   interpretRetellSetupHealth,
   type RetellHealthStatus,
 } from "./retell-agent-setup";
+import { logAuditEvent } from "./audit-log";
 
 export type { DeliveryResult };
+
+/**
+ * Audit-log identifiers for the voice-assistant alerter's delivery rows.
+ * `entityType` is the shared "alert" bucket every on-call alerter writes to,
+ * so the System Health alert timeline can union them by `entityType="alert"`
+ * + action type. `RETELL_AGENT_ALERT_ACTION_TYPE` is added to the timeline's
+ * action-type allow-list in admin-panel.ts so these rows show up alongside the
+ * queue-fallback / machine-mismatch deliveries.
+ */
+export const RETELL_AGENT_ALERT_ACTION_TYPE = "retell_agent_alert";
+export const RETELL_AGENT_ALERT_ENTITY_TYPE = "alert";
+export const RETELL_AGENT_ALERT_ENTITY_ID = "retell-voice-agent";
+
+export type AlertDeliveryOutcome = "sent" | "failed" | "throttled" | "skipped";
 
 function getNotificationThrottleMs(): number {
   return parseEnvInt("RETELL_AGENT_NOTIFICATION_THROTTLE_MS", 60 * 60 * 1000);
@@ -133,6 +148,61 @@ function buildMessages(p: RetellAgentAlertPayload): AlertMessages {
   };
 }
 
+function classifyOutcome(result: DeliveryResult): AlertDeliveryOutcome {
+  if (!result.ok) return "failed";
+  if (result.skipped) {
+    return result.reason === "throttled" ? "throttled" : "skipped";
+  }
+  return "sent";
+}
+
+function describeAttempt(
+  payload: RetellAgentAlertPayload,
+  result: DeliveryResult,
+  outcome: AlertDeliveryOutcome,
+): string {
+  const verb = payload.kind === "fire" ? "fire" : "clear";
+  const reasonSuffix = result.reason ? ` (${result.reason})` : "";
+  switch (outcome) {
+    case "sent":
+      return `Sent ${verb} alert via ${result.channel} for voice assistant agent`;
+    case "failed":
+      return `Failed to send ${verb} alert via ${result.channel} for voice assistant agent${reasonSuffix}`;
+    case "throttled":
+      return `Throttled ${verb} alert via ${result.channel} for voice assistant agent${reasonSuffix}`;
+    case "skipped":
+      return `Skipped ${verb} alert via ${result.channel} for voice assistant agent${reasonSuffix}`;
+  }
+}
+
+/**
+ * Persist a single delivery attempt as an audit-log row so the System Health
+ * alert timeline (which unions every `entityType="alert"` action type) can show
+ * when the voice agent went bad and recovered alongside the other alerters.
+ * Fire-and-forget — `logAuditEvent` swallows DB errors so a flaky audit table
+ * can never break alert dispatch.
+ */
+async function recordDeliveryAttempt(
+  payload: RetellAgentAlertPayload,
+  result: DeliveryResult,
+): Promise<void> {
+  const outcome = classifyOutcome(result);
+  await logAuditEvent({
+    actionType: RETELL_AGENT_ALERT_ACTION_TYPE,
+    entityType: RETELL_AGENT_ALERT_ENTITY_TYPE,
+    entityId: RETELL_AGENT_ALERT_ENTITY_ID,
+    description: describeAttempt(payload, result, outcome),
+    metadata: {
+      deliveryChannel: result.channel,
+      kind: payload.kind,
+      outcome,
+      reason: result.reason ?? null,
+      status: payload.status,
+      detail: payload.detail,
+    },
+  });
+}
+
 const throttleStore = createInMemoryThrottleStore();
 
 const dispatcher = createOnCallDispatcher<RetellAgentAlertPayload, string>({
@@ -143,6 +213,7 @@ const dispatcher = createOnCallDispatcher<RetellAgentAlertPayload, string>({
   throttleKey: (p, dc) => `${p.kind}:${dc}`,
   buildMessages,
   kindOf: (p) => p.kind,
+  onDelivery: recordDeliveryAttempt,
 });
 
 /** Test-only: replace one or more delivery functions with stubs. */
