@@ -515,7 +515,7 @@ export default function BlitzHub() {
             decisions based on data, and the results will follow.
           </p>
 
-          <div className="rounded-xl border border-border/60 bg-muted/40 p-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="rounded-xl border border-border/60 bg-card p-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <p className="text-sm text-muted-foreground">
               <strong className="text-foreground">Just finished the 7 Pillars?</strong> You've learned the
               framework — now you build. New here?{" "}

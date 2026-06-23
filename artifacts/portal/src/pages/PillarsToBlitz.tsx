@@ -232,7 +232,7 @@ export default function PillarsToBlitz() {
           </p>
 
           <Card className="mt-4 border-border/60 shadow-sm">
-            <CardContent className="p-8 md:p-10 space-y-5">
+            <CardContent className="px-8 md:px-10 py-4 md:py-5 space-y-5">
               <p className="text-muted-foreground leading-relaxed">
                 You've just finished the <strong className="text-foreground">7 Pillars™</strong> — the
                 foundation of everything in this business. Now you're about to open{" "}
