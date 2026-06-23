@@ -411,17 +411,53 @@ router.get("/admin/chat/knowledgebase", requirePermission("chat:view"), async (r
     conditions.push(eq(knowledgebaseDocsTable.category, category));
   }
 
-  if (search) {
+  // Blended relevance search: exact full-text matching (OR-style tsquery so any
+  // word can match, not the implicit-AND of plainto_tsquery) combined with a
+  // pg_trgm fuzzy fallback so close-but-not-exact / misspelled queries still
+  // return results. Mirrors the member-facing kb-search route.
+  const orTsquery = search
+    ? sql`(
+        SELECT COALESCE(
+          NULLIF(
+            (SELECT to_tsquery('english', string_agg(lexeme, ' | '))
+             FROM unnest(to_tsvector('english', ${search}))),
+            NULL
+          ),
+          plainto_tsquery('english', ${search})
+        )
+      )`
+    : null;
+
+  if (search && orTsquery) {
     conditions.push(
-      sql`to_tsvector('english', ${knowledgebaseDocsTable.title} || ' ' || ${knowledgebaseDocsTable.content}) @@ plainto_tsquery('english', ${search})`
+      sql`(
+        to_tsvector('english', ${knowledgebaseDocsTable.title} || ' ' || ${knowledgebaseDocsTable.content}) @@ ${orTsquery}
+        OR similarity(${knowledgebaseDocsTable.title}, ${search}) > 0.15
+        OR word_similarity(${search}, ${knowledgebaseDocsTable.title}) > 0.2
+        OR word_similarity(${search}, ${knowledgebaseDocsTable.content}) > 0.15
+      )`
     );
   }
+
+  const orderBy =
+    search && orTsquery
+      ? sql`GREATEST(
+          ts_rank(
+            setweight(to_tsvector('english', ${knowledgebaseDocsTable.title}), 'A') ||
+              setweight(to_tsvector('english', ${knowledgebaseDocsTable.content}), 'B'),
+            ${orTsquery}
+          ),
+          similarity(${knowledgebaseDocsTable.title}, ${search}),
+          word_similarity(${search}, ${knowledgebaseDocsTable.title}),
+          word_similarity(${search}, ${knowledgebaseDocsTable.content})
+        ) DESC`
+      : desc(knowledgebaseDocsTable.updatedAt);
 
   const docs = await db
     .select()
     .from(knowledgebaseDocsTable)
     .where(conditions.length > 0 ? and(...conditions) : undefined)
-    .orderBy(desc(knowledgebaseDocsTable.updatedAt));
+    .orderBy(orderBy);
 
   const docsWithChunks = docs.map(d => ({
     ...d,

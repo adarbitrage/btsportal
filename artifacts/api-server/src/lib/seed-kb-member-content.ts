@@ -3,7 +3,12 @@ import path from "path";
 import { fileURLToPath } from "url";
 import { db, toolsTable, vaultResourcesTable } from "@workspace/db";
 import { sql, eq } from "drizzle-orm";
-import { BLITZ_SECTIONS, BLITZ_PHASE_MAP } from "@workspace/blitz-curriculum";
+import {
+  BLITZ_SECTIONS,
+  BLITZ_PHASE_MAP,
+  BLITZ_PHASE_ORDER,
+  BLITZ_SECTION_COUNT,
+} from "@workspace/blitz-curriculum";
 import { scrubPrivateContent } from "./content-privacy-filter";
 
 interface MemberDoc {
@@ -39,6 +44,70 @@ function buildBlitzDocs(): MemberDoc[] {
       sourceLabel: "Blitz Guide",
     };
   });
+}
+
+/**
+ * Training/curriculum docs, single-sourced from the canonical Blitz curriculum
+ * skeleton (`@workspace/blitz-curriculum`). These populate the member-facing
+ * "Training" KB category (category key `curriculum`) so the AI assistant and
+ * the Knowledge Base browse/search surface can answer "what does the training
+ * cover / what order do I learn things" questions.
+ *
+ * These are deliberately structural (a program overview + one doc per phase)
+ * rather than per-lesson — the per-lesson "Blitz Guide" entries already live in
+ * the `blitz` category, so duplicating all 23 lessons here would just be noise.
+ */
+function buildCurriculumDocs(): MemberDoc[] {
+  const docs: MemberDoc[] = [];
+
+  // Program-level overview: the phases, their step counts, and the full journey.
+  const overviewLines: string[] = [
+    "BTS Training Curriculum Overview",
+    "",
+    `The BTS Blitz™ affiliate marketing training is a sequential, step-by-step program made up of ${BLITZ_SECTION_COUNT} lessons across ${BLITZ_PHASE_ORDER.length} phases. Each phase builds on the one before it, and phase gates keep you from moving on until you are ready.`,
+    "",
+  ];
+  for (const phaseKey of BLITZ_PHASE_ORDER) {
+    const phase = BLITZ_PHASE_MAP[phaseKey];
+    const sections = BLITZ_SECTIONS.filter((s) => s.phase === phaseKey);
+    overviewLines.push(
+      `${phase.label} (${sections.length} ${sections.length === 1 ? "lesson" : "lessons"}): ${sections.map((s) => s.title).join("; ")}.`,
+    );
+  }
+  docs.push({
+    title: "BTS Training Curriculum Overview",
+    category: "curriculum",
+    content: overviewLines.join("\n"),
+    sourcePath: "/blitz",
+    sourceLabel: "Training",
+  });
+
+  // One doc per phase: the ordered list of lessons in that phase.
+  for (const phaseKey of BLITZ_PHASE_ORDER) {
+    const phase = BLITZ_PHASE_MAP[phaseKey];
+    const sections = BLITZ_SECTIONS.filter((s) => s.phase === phaseKey);
+    if (sections.length === 0) continue;
+
+    const lines: string[] = [
+      `${phase.label} — Training Curriculum`,
+      "",
+      `This phase of the BTS Blitz™ training contains ${sections.length} ${sections.length === 1 ? "lesson" : "lessons"}, completed in order:`,
+      "",
+    ];
+    for (const section of sections) {
+      lines.push(`${section.step}: ${section.title}`);
+    }
+
+    docs.push({
+      title: `Training Curriculum: ${phase.label}`,
+      category: "curriculum",
+      content: lines.join("\n"),
+      sourcePath: `/blitz/guide/${sections[0].id}`,
+      sourceLabel: "Training",
+    });
+  }
+
+  return docs;
 }
 
 function buildResourceLibraryDocs(): MemberDoc[] {
@@ -253,6 +322,7 @@ export async function seedMemberBroadContent(): Promise<void> {
 
   const allDocs: MemberDoc[] = [
     ...buildBlitzDocs(),
+    ...buildCurriculumDocs(),
     ...buildResourceLibraryDocs(),
     ...buildGlossaryDocs(),
     ...buildCoachingDocs(),
