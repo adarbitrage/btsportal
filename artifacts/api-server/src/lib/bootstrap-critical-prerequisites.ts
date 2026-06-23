@@ -266,7 +266,7 @@ export async function bootstrapCriticalPrerequisites(): Promise<PrerequisiteResu
   return { ok: missing.length === 0, missing };
 }
 
-async function ensureKBGrounding(): Promise<void> {
+export async function ensureKBGrounding(): Promise<void> {
   // 1. Remove legacy generic KB docs that can bias retrieval toward non-BTS facts.
   //    These were the original 10 placeholder rows seeded before real BTS content
   //    was ingested. The real BTS corpus (curriculum, faq, glossary, coaching, etc.)
