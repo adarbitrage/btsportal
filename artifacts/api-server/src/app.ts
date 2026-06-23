@@ -28,6 +28,7 @@ import { startUpgradePromptEventsCleanupJob } from "./lib/upgrade-prompt-events-
 import { startAuditLogRetentionJob } from "./lib/audit-log-retention";
 import { startYseGrantRetryJob } from "./lib/yse-grant-retry";
 import { setupRetellAgentKb, setCachedRetellSetupResult } from "./lib/retell-agent-setup";
+import { startRetellHealthReprobeJob } from "./lib/retell-health-reprobe";
 import { seedCannedResponses } from "./lib/seed-canned-responses";
 import { ensureRequiredEmailTemplates, ensureRequiredSmsTemplates } from "./lib/seed-templates";
 import { seedAffiliateNetworks } from "./lib/seed-affiliate-networks";
@@ -196,6 +197,7 @@ setupRetellAgentKb({ forceRepoint: true })
       ranAt: new Date().toISOString(),
     });
   });
+startRetellHealthReprobeJob();
 if (process.env.REDIS_URL) {
   startOutgoingWebhookWorker();
 }
