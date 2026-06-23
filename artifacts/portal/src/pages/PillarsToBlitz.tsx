@@ -163,7 +163,7 @@ function PillarQuickNav() {
               Up Next
             </span>
             <span className="text-[11px] font-semibold leading-tight text-foreground">
-              Next Steps
+              Start The Blitz™
             </span>
           </button>
         </div>
@@ -268,7 +268,7 @@ export default function PillarsToBlitz() {
           <CardContent className="p-8 md:p-10 space-y-5">
             <h2 className="flex items-center gap-2 text-2xl font-bold text-foreground">
               <Sparkles className="w-6 h-6 text-primary" />
-              Before You Start
+              Before You Start The Blitz™
             </h2>
             <p className="text-foreground/90 leading-relaxed">
               The <strong className="text-foreground">7 Pillars™</strong> shows you the destination — a
