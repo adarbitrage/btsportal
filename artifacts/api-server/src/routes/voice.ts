@@ -5,6 +5,7 @@ import { isAdminRole } from "@workspace/auth";
 import Retell from "retell-sdk";
 import { hasEntitlement, hasMemberAccessBypass } from "../lib/entitlements";
 import { buildMemberVoiceContext } from "../lib/voice-context";
+import { setupRetellAgentKb } from "../lib/retell-agent-setup";
 import { requirePermission } from "../middleware/rbac";
 import { csvEscape } from "../lib/csv";
 import { logAdminAction } from "../lib/audit-log";
@@ -297,6 +298,33 @@ router.post("/voice/kb-search", async (req: Request, res: Response): Promise<voi
     res.status(500).json({ error: "Search failed" });
   }
 });
+
+// ---------------------------------------------------------------------------
+// Admin: manually re-run the Retell agent KB setup
+//
+// Lets an admin trigger the same idempotent Retell LLM configuration that
+// runs at server startup, without requiring a redeploy. Useful after
+// rotating RETELL_FUNCTION_SECRET or changing RETELL_API_BASE_URL.
+// ---------------------------------------------------------------------------
+
+router.post(
+  "/admin/voice/setup-kb",
+  requirePermission("settings:manage"),
+  async (req: Request, res: Response): Promise<void> => {
+    try {
+      const result = await setupRetellAgentKb();
+      res.json({
+        skipped: result.skipped,
+        reason: result.reason,
+        llm_id: result.llmId ?? null,
+        kb_search_url: result.kbSearchUrl ?? null,
+      });
+    } catch (err: any) {
+      console.error("[Voice] /admin/voice/setup-kb error:", err);
+      res.status(500).json({ error: err?.message ?? "Setup failed" });
+    }
+  },
+);
 
 // ---------------------------------------------------------------------------
 // Admin voice usage dashboard
