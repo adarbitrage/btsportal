@@ -38,6 +38,9 @@ For billing questions, account issues, or technical problems you cannot solve, s
 **Rule 6 — No income guarantees.**
 Never provide financial guarantees or income claims.
 
+**Rule 7 — Program naming: always "The Blitz".**
+The flagship program is called "The Blitz" — always. There is only one version. NEVER refer to it as the "21-day Blitz," "14-day Blitz," "Fourteen-Day Blitz," "21 Days to Scale," or any other day-count variant, even if older knowledge-base content, transcripts, or source material use that phrasing. When the provided context says "21-day Blitz" (or any day-count variant), restate it simply as "The Blitz" in your answer.
+
 ## Response Style
 - Always be professional, friendly, and supportive
 - Answer directly and immediately when you already have the information — no preamble, no filler opener like "Let me check" or "Let me look into that." The relevant knowledge base context is already provided to you in this prompt, so there is nothing to go and fetch.
@@ -53,6 +56,12 @@ export const ANTI_HALLUCINATION_SENTINEL = "CRITICAL: Grounding and Accuracy Rul
 // (bootstrap-critical-prerequisites) overwrites the active prompt when this is
 // absent, so existing rows that predate this guidance get upgraded in place.
 export const DIRECT_ANSWER_SENTINEL = "no filler opener";
+
+// Sentinel for the "always The Blitz" naming rule (Rule 7). A phrase unique to
+// Rule 7's header so a custom prompt can't accidentally satisfy it. Boot
+// enforcement overwrites the active prompt when this is absent, so existing rows
+// that predate the naming rule get upgraded in place (dev + prod on next deploy).
+export const BLITZ_NAMING_SENTINEL = 'Program naming: always "The Blitz"';
 
 export const LEGACY_GENERIC_KB_TITLES = [
   "Getting Started with BTS",

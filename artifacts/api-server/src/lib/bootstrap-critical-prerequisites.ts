@@ -15,6 +15,7 @@ import {
   ANTI_HALLUCINATION_SYSTEM_PROMPT,
   ANTI_HALLUCINATION_SENTINEL,
   DIRECT_ANSWER_SENTINEL,
+  BLITZ_NAMING_SENTINEL,
   LEGACY_GENERIC_KB_TITLES,
 } from "./chat-system-prompt";
 import { ensureFoundingSuperAdmins } from "./ensure-founding-superadmins";
@@ -272,13 +273,14 @@ async function ensureKBGrounding(): Promise<void> {
   if (
     activePrompt &&
     (!activePrompt.content.includes(ANTI_HALLUCINATION_SENTINEL) ||
-      !activePrompt.content.includes(DIRECT_ANSWER_SENTINEL))
+      !activePrompt.content.includes(DIRECT_ANSWER_SENTINEL) ||
+      !activePrompt.content.includes(BLITZ_NAMING_SENTINEL))
   ) {
     await db
       .update(chatSystemPromptsTable)
       .set({ content: ANTI_HALLUCINATION_SYSTEM_PROMPT })
       .where(eq(chatSystemPromptsTable.id, activePrompt.id));
-    console.log("[Bootstrap] Updated active system prompt with grounding + direct-answer rules.");
+    console.log("[Bootstrap] Updated active system prompt with grounding + direct-answer + Blitz-naming rules.");
   }
 
   // 3. Re-scrub every existing knowledgebase_docs row through the privacy filter
