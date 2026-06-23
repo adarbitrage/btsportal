@@ -39,6 +39,25 @@ export interface CoachGoogleConnection {
   needsCalendarReconnect: boolean;
 }
 
+// Coach kind. "strategic_coach" runs the credit-pack private-coaching flow;
+// "va" is a virtual assistant who can offer free 1-on-1 VA calls.
+export type CoachType = "strategic_coach" | "va";
+
+// The call types with real behaviour today. Each maps to one booking + optional
+// conflict calendar pair in coach_call_calendars.
+export type CoachCallType = "private_coaching" | "one_on_one_va";
+
+// A per-call-type calendar pair (coach_call_calendars). The booking calendar is
+// where the appointment is created; the conflict calendar is the optional
+// cross-company "other company" calendar that blocks double-booking.
+export interface CoachCallCalendar {
+  callType: CoachCallType;
+  bookingCalendarId: string | null;
+  bookingLocationId: string | null;
+  conflictCalendarId: string | null;
+  conflictLocationId: string | null;
+}
+
 export interface AdminCoach {
   id: number;
   name: string;
@@ -47,16 +66,21 @@ export interface AdminCoach {
   photoUrl: string | null;
   sortOrder: number;
   isActive: boolean;
+  // Coach kind; drives the editor's type-adaptive capability toggles.
+  type: CoachType;
   doesGroupCalls: boolean;
   doesPrivateCoaching: boolean;
-  // Private-coaching booking config (GoHighLevel). Null for group-only coaches.
+  // Whether a VA offers free 1-on-1 VA calls (callType "one_on_one_va").
+  doesOneOnOneVaCalls: boolean;
+  // Deprecated coach-row booking config (GoHighLevel). Kept as the seed
+  // identity key + migration source; the editor now reads/writes calendars via
+  // `callCalendars` instead. Null for group-only coaches.
   ghlCalendarId: string | null;
   ghlLocationId: string | null;
-  // Cross-company arbiter: the coach's "other company" (Conflict) calendar,
-  // read alongside the booking calendar to block double-booking. Null = the
-  // arbiter is dormant for this coach (behaves exactly as before).
   conflictGhlCalendarId: string | null;
   conflictGhlLocationId: string | null;
+  // Per-call-type calendar pairs (the single source of truth for booking).
+  callCalendars: CoachCallCalendar[];
   // Optional link to the coach's portal login; null when unlinked.
   userId: number | null;
   // Per-coach Google status; null when the coach has no linked portal login.
@@ -69,14 +93,12 @@ export interface CoachProfileInput {
   bio: string;
   photoUrl: string | null;
   isActive: boolean;
+  type: CoachType;
   doesGroupCalls: boolean;
   doesPrivateCoaching: boolean;
-  // Private-coaching booking config (GoHighLevel). Empty string clears.
-  ghlCalendarId: string | null;
-  ghlLocationId: string | null;
-  // Cross-company arbiter Conflict calendar (other company). Empty string clears.
-  conflictGhlCalendarId: string | null;
-  conflictGhlLocationId: string | null;
+  doesOneOnOneVaCalls: boolean;
+  // Per-call-type calendar pairs to upsert. Empty ids clear that field.
+  callCalendars: CoachCallCalendar[];
 }
 
 export function useAdminCoaches() {

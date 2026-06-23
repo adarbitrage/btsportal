@@ -1087,4 +1087,114 @@ describe("admin coach delete", () => {
       .send({ toCoachId: coachId });
     expect(res.status).toBe(403);
   });
+
+  // --- VA coach type + per-call-type calendars -----------------------------
+
+  it("defaults a coach's type to strategic_coach and exposes calendar fields", async () => {
+    const res = await request(app)
+      .get("/api/admin/coaching/coaches")
+      .set("Cookie", adminCookie);
+    expect(res.status).toBe(200);
+    const found = res.body.coaches.find((c: { id: number }) => c.id === coachId);
+    expect(found).toMatchObject({
+      type: "strategic_coach",
+      doesOneOnOneVaCalls: false,
+    });
+    expect(Array.isArray(found.callCalendars)).toBe(true);
+  });
+
+  it("creates a VA with a one_on_one_va booking calendar", async () => {
+    const calId = `va-cal-${randomUUID().slice(0, 8)}`;
+    const res = await request(app)
+      .post("/api/admin/coaching/coaches")
+      .set("Cookie", adminCookie)
+      .send({
+        name: `${TAG} VA`,
+        specialties: "Virtual Assistance",
+        bio: "A VA.",
+        type: "va",
+        doesGroupCalls: false,
+        doesPrivateCoaching: false,
+        doesOneOnOneVaCalls: true,
+        callCalendars: [
+          {
+            callType: "one_on_one_va",
+            bookingCalendarId: calId,
+            bookingLocationId: "va-loc-1",
+            conflictCalendarId: null,
+            conflictLocationId: null,
+          },
+        ],
+      });
+    expect(res.status).toBe(201);
+    expect(res.body).toMatchObject({
+      type: "va",
+      doesOneOnOneVaCalls: true,
+      doesGroupCalls: false,
+      doesPrivateCoaching: false,
+    });
+    extraCoachIds.push(res.body.id);
+
+    const pair = res.body.callCalendars.find(
+      (c: { callType: string }) => c.callType === "one_on_one_va",
+    );
+    expect(pair).toMatchObject({
+      bookingCalendarId: calId,
+      bookingLocationId: "va-loc-1",
+    });
+  });
+
+  it("upserts a coach's private_coaching calendar via update", async () => {
+    const calId = `priv-cal-${randomUUID().slice(0, 8)}`;
+    const res = await request(app)
+      .patch(`/api/admin/coaching/coaches/${coachId}`)
+      .set("Cookie", adminCookie)
+      .send({
+        doesPrivateCoaching: true,
+        callCalendars: [
+          {
+            callType: "private_coaching",
+            bookingCalendarId: calId,
+            bookingLocationId: "priv-loc-1",
+            conflictCalendarId: null,
+            conflictLocationId: null,
+          },
+        ],
+      });
+    expect(res.status).toBe(200);
+    const pair = res.body.callCalendars.find(
+      (c: { callType: string }) => c.callType === "private_coaching",
+    );
+    expect(pair).toMatchObject({
+      bookingCalendarId: calId,
+      bookingLocationId: "priv-loc-1",
+    });
+
+    // Read back through the list to confirm it persisted.
+    const list = await request(app)
+      .get("/api/admin/coaching/coaches")
+      .set("Cookie", adminCookie);
+    const found = list.body.coaches.find(
+      (c: { id: number }) => c.id === coachId,
+    );
+    const persisted = found.callCalendars.find(
+      (c: { callType: string }) => c.callType === "private_coaching",
+    );
+    expect(persisted.bookingCalendarId).toBe(calId);
+
+    // Restore default so later assumptions about this coach hold.
+    await request(app)
+      .patch(`/api/admin/coaching/coaches/${coachId}`)
+      .set("Cookie", adminCookie)
+      .send({ doesPrivateCoaching: false });
+  });
+
+  it("rejects an unknown coach type", async () => {
+    const res = await request(app)
+      .patch(`/api/admin/coaching/coaches/${coachId}`)
+      .set("Cookie", adminCookie)
+      .send({ type: "wizard" });
+    expect(res.status).toBe(400);
+    expect(res.body.error).toMatch(/type/i);
+  });
 });

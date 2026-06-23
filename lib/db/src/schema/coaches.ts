@@ -27,9 +27,20 @@ export const coachesTable = pgTable("coaches", {
   bio: text("bio"),
   photoUrl: text("photo_url"),
   specialties: text("specialties"),
-  // Capability switches — what this coach actually does.
+  // What KIND of coach this is. Drives which capability switches + per-call-type
+  // calendars the admin editor offers, and which member-facing surfaces list
+  // them. "strategic_coach" = the existing group/private coaching staff;
+  // "va" = a virtual assistant who runs their own bookable call types (e.g.
+  // 1-on-1 VA calls) and is NOT listed in the private-coaching picker.
+  type: text("type").notNull().default("strategic_coach"),
+  // Capability switches — what this coach actually does. The group / private
+  // pair is meaningful for strategic_coach; the VA pair for type === "va".
   doesGroupCalls: boolean("does_group_calls").notNull().default(false),
   doesPrivateCoaching: boolean("does_private_coaching").notNull().default(false),
+  // VA capability: this VA offers free 1-on-1 VA calls. Only meaningful when
+  // type === "va"; the bookable calendar lives in coach_call_calendars keyed by
+  // callType "one_on_one_va".
+  doesOneOnOneVaCalls: boolean("does_one_on_one_va_calls").notNull().default(false),
   // Private-coaching booking config (GoHighLevel). Only meaningful when
   // doesPrivateCoaching is true; null for group-only coaches.
   ghlCalendarId: text("ghl_calendar_id").unique(),

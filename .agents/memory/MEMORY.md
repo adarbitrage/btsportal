@@ -85,3 +85,5 @@
 - [E2E shared-redis 429](e2e-shared-redis-rate-limit.md) — portal e2e reuses the running api-server (8080) + its Upstash redis; repeated local reruns trip per-IP login limiter (HTTP 429); clear `abuse-rate:login:*`. CI unaffected.
 - [support-config stale dist](support-config-stale-dist.md) — portal/api typecheck "no exported member"/TS6305 from @workspace/support-config = stale composite dist; fix with `npx tsc -b lib/support-config --force`, not tsc --build.
 - [user_products active-grant unique index](user-products-active-unique-index.md) — partial unique index = 1 active grant per (user,product); prod publish FAILS on existing dup actives (dedupe non-destructively first, never delete-to-satisfy); grant paths should catch 23505.
+- [Coach callCalendars defensive read](coach-callcalendars-optional.md) — admin editor must read `(coach.callCalendars ?? [])`; server sends it but test mocks/legacy payloads omit it -> .find crash.
+- [coach_call_calendars call-type scope](coach-call-types-scope.md) — KNOWN_CALL_TYPES intentionally just private_coaching + one_on_one_va; onboarding is a planned FUTURE type, not a dropped requirement. Don't add unless asked.

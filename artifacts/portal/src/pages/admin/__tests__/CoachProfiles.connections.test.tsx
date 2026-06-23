@@ -22,17 +22,28 @@ import CoachProfiles from "@/pages/admin/CoachProfiles";
 // removed (GHL's native Google Calendar sync already reflects those events in
 // its free-slot reads).
 // ---------------------------------------------------------------------------
+interface ServerCallCalendar {
+  callType: "private_coaching" | "one_on_one_va";
+  bookingCalendarId: string | null;
+  bookingLocationId: string | null;
+  conflictCalendarId: string | null;
+  conflictLocationId: string | null;
+}
+
 interface ServerCoach {
   id: number;
   name: string;
   specialties: string;
   bio: string;
   photoUrl: string | null;
+  type: "strategic_coach" | "va";
   doesGroupCalls: boolean;
   doesPrivateCoaching: boolean;
+  doesOneOnOneVaCalls: boolean;
   ghlCalendarId: string | null;
   ghlLocationId: string | null;
   conflictGhlCalendarId: string | null;
+  callCalendars: ServerCallCalendar[];
   userId: number | null;
   googleConnection: {
     connected: boolean;
@@ -68,11 +79,14 @@ function baseCoach(overrides: Partial<ServerCoach>): ServerCoach {
     specialties: "Paid Traffic",
     bio: "Bio.",
     photoUrl: null,
+    type: "strategic_coach",
     doesGroupCalls: false,
     doesPrivateCoaching: true,
+    doesOneOnOneVaCalls: false,
     ghlCalendarId: null,
     ghlLocationId: null,
     conflictGhlCalendarId: null,
+    callCalendars: [],
     userId: null,
     googleConnection: null,
     ...overrides,
@@ -103,8 +117,15 @@ describe("CoachProfiles — per-coach Connections panel", () => {
     coaches = [
       baseCoach({
         id: 7,
-        ghlCalendarId: "cal_123",
-        conflictGhlCalendarId: "cal_conflict_456",
+        callCalendars: [
+          {
+            callType: "private_coaching",
+            bookingCalendarId: "cal_123",
+            bookingLocationId: "loc_123",
+            conflictCalendarId: "cal_conflict_456",
+            conflictLocationId: "loc_conflict_456",
+          },
+        ],
         userId: 99,
         googleConnection: {
           connected: true,

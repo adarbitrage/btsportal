@@ -4,10 +4,11 @@ import {
   pool,
   sessionPackCoachesTable,
   sessionPackBookingsTable,
+  coachCallCalendarsTable,
   coachingCreditLedgerTable,
   usersTable,
 } from "@workspace/db";
-import { eq, and, desc, asc, sql } from "drizzle-orm";
+import { eq, and, ne, desc, asc, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/node-postgres";
 import {
   getCreditBalance,
@@ -113,25 +114,41 @@ interface CoachCalendars {
   conflict: CalendarBinding | null;
 }
 
-// Resolve a coach row into its Booking + (optional) Conflict calendar bindings.
-// Location falls back to the legacy single coaching location so a coach with no
-// explicit ghlLocationId keeps booking against Cherrington exactly as before.
-function resolveCoachCalendars(coach: {
-  ghlCalendarId: string | null;
-  ghlLocationId: string | null;
-  conflictGhlCalendarId: string | null;
-  conflictGhlLocationId: string | null;
-}): CoachCalendars | null {
-  if (!coach.ghlCalendarId) return null;
+// Resolve a coach's Booking + (optional) Conflict calendar bindings for a given
+// call type from coach_call_calendars — the single source of truth for per-call
+// -type calendars (the deprecated coaches.ghl* columns are no longer read here).
+// Returns null when the coach has no active, calendar-configured row for that
+// call type. Location falls back to the legacy single coaching location so a row
+// with no explicit bookingLocationId keeps booking against Cherrington as before.
+async function loadCoachCalendars(
+  coachId: number,
+  callType: string,
+): Promise<CoachCalendars | null> {
+  const [row] = await db
+    .select({
+      bookingCalendarId: coachCallCalendarsTable.bookingCalendarId,
+      bookingLocationId: coachCallCalendarsTable.bookingLocationId,
+      conflictCalendarId: coachCallCalendarsTable.conflictCalendarId,
+      conflictLocationId: coachCallCalendarsTable.conflictLocationId,
+    })
+    .from(coachCallCalendarsTable)
+    .where(
+      and(
+        eq(coachCallCalendarsTable.coachId, coachId),
+        eq(coachCallCalendarsTable.callType, callType),
+        eq(coachCallCalendarsTable.isActive, true),
+      ),
+    );
+  if (!row || !row.bookingCalendarId) return null;
   return {
     booking: {
-      calendarId: coach.ghlCalendarId,
-      locationId: coach.ghlLocationId ?? COACHING_LOCATION_ID,
+      calendarId: row.bookingCalendarId,
+      locationId: row.bookingLocationId ?? COACHING_LOCATION_ID,
     },
-    conflict: coach.conflictGhlCalendarId
+    conflict: row.conflictCalendarId
       ? {
-          calendarId: coach.conflictGhlCalendarId,
-          locationId: coach.conflictGhlLocationId ?? COACHING_LOCATION_ID,
+          calendarId: row.conflictCalendarId,
+          locationId: row.conflictLocationId ?? COACHING_LOCATION_ID,
         }
       : null,
   };
@@ -192,10 +209,41 @@ router.get("/coaching/sessions/coaches", async (_req, res): Promise<void> => {
       and(
         eq(sessionPackCoachesTable.isActive, true),
         eq(sessionPackCoachesTable.doesPrivateCoaching, true),
+        // VAs never appear in the private-coaching picker even if a future row
+        // were mis-flagged: the picker is strategic-coach territory only.
+        ne(sessionPackCoachesTable.type, "va"),
       ),
     )
     .orderBy(asc(sessionPackCoachesTable.sortOrder), asc(sessionPackCoachesTable.name));
   res.json(coaches);
+});
+
+// ---------------------------------------------------------------------------
+// VAs offering 1-on-1 calls (first name only)
+// ---------------------------------------------------------------------------
+
+// The roster of virtual assistants who offer free 1-on-1 VA calls. Separate from
+// the private-coaching picker above. The member-facing VA booking pages (a
+// dependent task) consume this; here we only expose the list.
+router.get("/coaching/sessions/vas", async (_req, res): Promise<void> => {
+  const vas = await db
+    .select({
+      id: sessionPackCoachesTable.id,
+      name: sessionPackCoachesTable.name,
+      bio: sessionPackCoachesTable.bio,
+      photoUrl: sessionPackCoachesTable.photoUrl,
+      sortOrder: sessionPackCoachesTable.sortOrder,
+    })
+    .from(sessionPackCoachesTable)
+    .where(
+      and(
+        eq(sessionPackCoachesTable.isActive, true),
+        eq(sessionPackCoachesTable.type, "va"),
+        eq(sessionPackCoachesTable.doesOneOnOneVaCalls, true),
+      ),
+    )
+    .orderBy(asc(sessionPackCoachesTable.sortOrder), asc(sessionPackCoachesTable.name));
+  res.json(vas);
 });
 
 // ---------------------------------------------------------------------------
@@ -219,7 +267,7 @@ router.get("/coaching/sessions/coaches/:coachId/slots", async (req, res): Promis
         eq(sessionPackCoachesTable.doesPrivateCoaching, true),
       ),
     );
-  if (!coach || !coach.ghlCalendarId) {
+  if (!coach) {
     res.status(404).json({ error: "Coach not found" });
     return;
   }
@@ -244,7 +292,7 @@ router.get("/coaching/sessions/coaches/:coachId/slots", async (req, res): Promis
     return;
   }
 
-  const cals = resolveCoachCalendars(coach);
+  const cals = await loadCoachCalendars(coachId, "private_coaching");
   if (!cals) {
     res.status(404).json({ error: "Coach not found" });
     return;
@@ -393,8 +441,8 @@ router.post("/coaching/sessions/book", async (req, res): Promise<void> => {
         eq(sessionPackCoachesTable.doesPrivateCoaching, true),
       ),
     );
-  const cals = resolveCoachCalendars(coach);
-  if (!cals) {
+  const cals = await loadCoachCalendars(coachId, "private_coaching");
+  if (!cals || !coach) {
     res.status(404).json({ error: "Coach not found" });
     return;
   }
@@ -783,10 +831,6 @@ router.patch("/coaching/sessions/:id/reschedule", async (req, res): Promise<void
       bookingConflictGhlLocationId: sessionPackBookingsTable.conflictGhlLocationId,
       coachId: sessionPackBookingsTable.coachId,
       title: sessionPackBookingsTable.title,
-      coachGhlCalendarId: sessionPackCoachesTable.ghlCalendarId,
-      coachGhlLocationId: sessionPackCoachesTable.ghlLocationId,
-      coachConflictGhlCalendarId: sessionPackCoachesTable.conflictGhlCalendarId,
-      coachConflictGhlLocationId: sessionPackCoachesTable.conflictGhlLocationId,
     })
     .from(sessionPackBookingsTable)
     .innerJoin(
@@ -825,12 +869,7 @@ router.patch("/coaching/sessions/:id/reschedule", async (req, res): Promise<void
   // Resolve the coach's Booking + Conflict calendar bindings (location-aware,
   // legacy-location fallback). The appointment moves on the Booking calendar;
   // the mirrored busy block moves on the Conflict calendar.
-  const cals = resolveCoachCalendars({
-    ghlCalendarId: existing.coachGhlCalendarId,
-    ghlLocationId: existing.coachGhlLocationId,
-    conflictGhlCalendarId: existing.coachConflictGhlCalendarId,
-    conflictGhlLocationId: existing.coachConflictGhlLocationId,
-  });
+  const cals = await loadCoachCalendars(existing.coachId, "private_coaching");
   // The appointment already lives on a specific Booking calendar + location;
   // moving it must target THOSE, captured at booking time, so an admin remapping
   // the coach later can't make updateAppointment hit the wrong location-scoped

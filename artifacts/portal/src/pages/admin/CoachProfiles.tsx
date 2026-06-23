@@ -74,6 +74,9 @@ import {
   useReassignCoachCalls,
   useCancelCoachCalls,
   type AdminCoach,
+  type CoachType,
+  type CoachCallType,
+  type CoachCallCalendar,
 } from "@/lib/coaches-admin-api";
 
 interface CoachForm {
@@ -83,12 +86,20 @@ interface CoachForm {
   bio: string;
   photoUrl: string;
   isActive: boolean;
+  type: CoachType;
   doesGroupCalls: boolean;
   doesPrivateCoaching: boolean;
-  ghlCalendarId: string;
-  ghlLocationId: string;
-  conflictGhlCalendarId: string;
-  conflictGhlLocationId: string;
+  doesOneOnOneVaCalls: boolean;
+  // private_coaching calendar pair
+  privateBookingCalendarId: string;
+  privateBookingLocationId: string;
+  privateConflictCalendarId: string;
+  privateConflictLocationId: string;
+  // one_on_one_va calendar pair
+  vaBookingCalendarId: string;
+  vaBookingLocationId: string;
+  vaConflictCalendarId: string;
+  vaConflictLocationId: string;
 }
 
 const EMPTY_FORM: CoachForm = {
@@ -97,13 +108,142 @@ const EMPTY_FORM: CoachForm = {
   bio: "",
   photoUrl: "",
   isActive: true,
+  type: "strategic_coach",
   doesGroupCalls: true,
   doesPrivateCoaching: false,
-  ghlCalendarId: "",
-  ghlLocationId: "",
-  conflictGhlCalendarId: "",
-  conflictGhlLocationId: "",
+  doesOneOnOneVaCalls: false,
+  privateBookingCalendarId: "",
+  privateBookingLocationId: "",
+  privateConflictCalendarId: "",
+  privateConflictLocationId: "",
+  vaBookingCalendarId: "",
+  vaBookingLocationId: "",
+  vaConflictCalendarId: "",
+  vaConflictLocationId: "",
 };
+
+// Pull a coach's stored calendar pair for a given call type into the flat form
+// string fields (empty string when absent).
+function calendarPair(
+  coach: AdminCoach,
+  callType: CoachCallType,
+): {
+  bookingCalendarId: string;
+  bookingLocationId: string;
+  conflictCalendarId: string;
+  conflictLocationId: string;
+} {
+  const found = (coach.callCalendars ?? []).find((c) => c.callType === callType);
+  return {
+    bookingCalendarId: found?.bookingCalendarId ?? "",
+    bookingLocationId: found?.bookingLocationId ?? "",
+    conflictCalendarId: found?.conflictCalendarId ?? "",
+    conflictLocationId: found?.conflictLocationId ?? "",
+  };
+}
+
+// The flat CoachForm keys backing the calendar text inputs.
+type CalendarFieldKey =
+  | "privateBookingCalendarId"
+  | "privateBookingLocationId"
+  | "privateConflictCalendarId"
+  | "privateConflictLocationId"
+  | "vaBookingCalendarId"
+  | "vaBookingLocationId"
+  | "vaConflictCalendarId"
+  | "vaConflictLocationId";
+
+// The booking + conflict calendar id/location inputs for a single call type.
+// Reused for the strategic private_coaching pair and the VA one_on_one_va pair.
+// `fieldKeys` maps each input to the flat CoachForm key it edits so the parent
+// holds a single form object.
+function CalendarPairFields({
+  testIdPrefix,
+  bookingTitle,
+  bookingHint,
+  bookingCalendarId,
+  bookingLocationId,
+  conflictCalendarId,
+  conflictLocationId,
+  onChange,
+  fieldKeys,
+}: {
+  testIdPrefix: string;
+  bookingTitle: string;
+  bookingHint: string;
+  bookingCalendarId: string;
+  bookingLocationId: string;
+  conflictCalendarId: string;
+  conflictLocationId: string;
+  onChange: (patch: Partial<Record<CalendarFieldKey, string>>) => void;
+  fieldKeys: {
+    bookingCalendarId: CalendarFieldKey;
+    bookingLocationId: CalendarFieldKey;
+    conflictCalendarId: CalendarFieldKey;
+    conflictLocationId: CalendarFieldKey;
+  };
+}) {
+  return (
+    <div
+      className="space-y-3 rounded-lg border border-border/60 p-3"
+      data-testid={`${testIdPrefix}-calendar-fields`}
+    >
+      <p className="text-sm font-medium text-foreground">{bookingTitle}</p>
+      <p className="text-xs text-muted-foreground -mt-2">{bookingHint}</p>
+      <div>
+        <Label className="text-xs">Calendar ID</Label>
+        <Input
+          value={bookingCalendarId}
+          onChange={(e) => onChange({ [fieldKeys.bookingCalendarId]: e.target.value })}
+          placeholder="GHL calendar id"
+          maxLength={128}
+          data-testid={`${testIdPrefix}-booking-calendar-id`}
+        />
+      </div>
+      <div>
+        <Label className="text-xs">Location ID</Label>
+        <Input
+          value={bookingLocationId}
+          onChange={(e) => onChange({ [fieldKeys.bookingLocationId]: e.target.value })}
+          placeholder="GHL location id (optional)"
+          maxLength={128}
+          data-testid={`${testIdPrefix}-booking-location-id`}
+        />
+      </div>
+      <div className="border-t border-border/60 pt-3">
+        <p className="text-sm font-medium text-foreground">
+          Conflict calendar (other company)
+        </p>
+        <p className="text-xs text-muted-foreground mt-1">
+          Optional. The coach's calendar in the other company (e.g. Cherrington).
+          When set, that calendar is checked at booking time and a busy block is
+          mirrored onto it, so the two companies never double-book this coach.
+          Leave blank to keep booking exactly as today.
+        </p>
+      </div>
+      <div>
+        <Label className="text-xs">Conflict Calendar ID</Label>
+        <Input
+          value={conflictCalendarId}
+          onChange={(e) => onChange({ [fieldKeys.conflictCalendarId]: e.target.value })}
+          placeholder="Other-company GHL calendar id (optional)"
+          maxLength={128}
+          data-testid={`${testIdPrefix}-conflict-calendar-id`}
+        />
+      </div>
+      <div>
+        <Label className="text-xs">Conflict Location ID</Label>
+        <Input
+          value={conflictLocationId}
+          onChange={(e) => onChange({ [fieldKeys.conflictLocationId]: e.target.value })}
+          placeholder="Other-company GHL location id (optional)"
+          maxLength={128}
+          data-testid={`${testIdPrefix}-conflict-location-id`}
+        />
+      </div>
+    </div>
+  );
+}
 
 function coachInitials(name: string): string {
   const parts = name.trim().split(/\s+/).filter(Boolean);
@@ -182,13 +322,26 @@ function ConnectionRow({
 
 // Per-coach Connections panel. Surfaces the distinct capabilities that power a
 // coach's 1-on-1 flow, each as its own purpose-labeled row:
-//   1. Booking calendar    — GoHighLevel (presence of a ghlCalendarId)
+//   1. Booking calendar    — GoHighLevel (the call type's bookingCalendarId)
 //   1b. Conflict calendar  — other company (cross-company arbiter), when set
 //   2. Recording uploads   — Google Drive
-// Only shown for coaches that offer private coaching, since none of these
-// connections matter for group-only coaches.
+// Shown for strategic coaches that offer private coaching and for VAs that
+// offer 1-on-1 calls; the relevant call type's calendar pair drives the rows.
+// Group-only coaches have no 1-on-1 connections, so the panel is hidden.
 function CoachConnections({ coach }: { coach: AdminCoach }) {
-  if (!coach.doesPrivateCoaching) return null;
+  const callType: CoachCallType | null =
+    coach.type === "va"
+      ? coach.doesOneOnOneVaCalls
+        ? "one_on_one_va"
+        : null
+      : coach.doesPrivateCoaching
+        ? "private_coaching"
+        : null;
+  if (callType == null) return null;
+
+  const pair = (coach.callCalendars ?? []).find((c) => c.callType === callType);
+  const bookingCalendarId = pair?.bookingCalendarId ?? null;
+  const conflictCalendarId = pair?.conflictCalendarId ?? null;
 
   const google = coach.googleConnection;
   const googleEmail = google?.email ?? null;
@@ -196,14 +349,14 @@ function CoachConnections({ coach }: { coach: AdminCoach }) {
   return (
     <div className="mt-2 space-y-1" data-testid={`coach-connections-${coach.id}`}>
       {/* 1. Booking calendar — GoHighLevel */}
-      {coach.ghlCalendarId ? (
+      {bookingCalendarId ? (
         <ConnectionRow
           purpose="Booking calendar"
           source="GoHighLevel"
           tone="ok"
           icon={CalendarCheck}
           status="Connected"
-          title={`GHL calendar: ${coach.ghlCalendarId}`}
+          title={`GHL calendar: ${bookingCalendarId}`}
           testId={`coach-conn-ghl-${coach.id}`}
         />
       ) : (
@@ -221,14 +374,14 @@ function CoachConnections({ coach }: { coach: AdminCoach }) {
       {/* 1b. Conflict calendar — other company (cross-company arbiter). Always
           shown so admins can see at a glance whether cross-company arbitration
           is set up; absence is the expected default, not a warning (neutral tone). */}
-      {coach.conflictGhlCalendarId ? (
+      {conflictCalendarId ? (
         <ConnectionRow
           purpose="Conflict calendar"
           source="Other company"
           tone="ok"
           icon={CalendarCheck}
           status="Connected"
-          title={`Conflict GHL calendar: ${coach.conflictGhlCalendarId}`}
+          title={`Conflict GHL calendar: ${conflictCalendarId}`}
           testId={`coach-conn-conflict-ghl-${coach.id}`}
         />
       ) : (
@@ -521,6 +674,8 @@ export default function CoachProfiles() {
   }
 
   function openEdit(coach: AdminCoach) {
+    const priv = calendarPair(coach, "private_coaching");
+    const va = calendarPair(coach, "one_on_one_va");
     setForm({
       id: coach.id,
       name: coach.name,
@@ -528,12 +683,18 @@ export default function CoachProfiles() {
       bio: coach.bio,
       photoUrl: coach.photoUrl ?? "",
       isActive: coach.isActive,
+      type: coach.type,
       doesGroupCalls: coach.doesGroupCalls,
       doesPrivateCoaching: coach.doesPrivateCoaching,
-      ghlCalendarId: coach.ghlCalendarId ?? "",
-      ghlLocationId: coach.ghlLocationId ?? "",
-      conflictGhlCalendarId: coach.conflictGhlCalendarId ?? "",
-      conflictGhlLocationId: coach.conflictGhlLocationId ?? "",
+      doesOneOnOneVaCalls: coach.doesOneOnOneVaCalls,
+      privateBookingCalendarId: priv.bookingCalendarId,
+      privateBookingLocationId: priv.bookingLocationId,
+      privateConflictCalendarId: priv.conflictCalendarId,
+      privateConflictLocationId: priv.conflictLocationId,
+      vaBookingCalendarId: va.bookingCalendarId,
+      vaBookingLocationId: va.bookingLocationId,
+      vaConflictCalendarId: va.conflictCalendarId,
+      vaConflictLocationId: va.conflictLocationId,
     });
     setOpen(true);
   }
@@ -557,29 +718,42 @@ export default function CoachProfiles() {
       return;
     }
 
+    // Build the per-call-type calendar pairs. A coach is a VA or a strategic
+    // coach; each contributes the calendar for the call type it's enabled for.
+    // When a capability is off we still send the pair with cleared ids so a
+    // toggled-off call type drops its stale calendar binding.
+    const isVa = form.type === "va";
+    const callCalendars: CoachCallCalendar[] = [];
+    const privateOn = !isVa && form.doesPrivateCoaching;
+    callCalendars.push({
+      callType: "private_coaching",
+      bookingCalendarId: privateOn ? form.privateBookingCalendarId.trim() || null : null,
+      bookingLocationId: privateOn ? form.privateBookingLocationId.trim() || null : null,
+      conflictCalendarId: privateOn ? form.privateConflictCalendarId.trim() || null : null,
+      conflictLocationId: privateOn ? form.privateConflictLocationId.trim() || null : null,
+    });
+    const vaOn = isVa && form.doesOneOnOneVaCalls;
+    callCalendars.push({
+      callType: "one_on_one_va",
+      bookingCalendarId: vaOn ? form.vaBookingCalendarId.trim() || null : null,
+      bookingLocationId: vaOn ? form.vaBookingLocationId.trim() || null : null,
+      conflictCalendarId: vaOn ? form.vaConflictCalendarId.trim() || null : null,
+      conflictLocationId: vaOn ? form.vaConflictLocationId.trim() || null : null,
+    });
+
     const payload = {
       name: form.name.trim(),
       specialties: form.specialties.trim(),
       bio: form.bio.trim(),
       photoUrl: photoUrl || null,
       isActive: form.isActive,
-      doesGroupCalls: form.doesGroupCalls,
-      doesPrivateCoaching: form.doesPrivateCoaching,
-      // GHL booking config only applies to private coaching; clear it otherwise
-      // so a coach toggled off private doesn't keep a stale calendar binding.
-      ghlCalendarId: form.doesPrivateCoaching
-        ? form.ghlCalendarId.trim() || null
-        : null,
-      ghlLocationId: form.doesPrivateCoaching
-        ? form.ghlLocationId.trim() || null
-        : null,
-      // Cross-company arbiter Conflict calendar — same private-coaching gating.
-      conflictGhlCalendarId: form.doesPrivateCoaching
-        ? form.conflictGhlCalendarId.trim() || null
-        : null,
-      conflictGhlLocationId: form.doesPrivateCoaching
-        ? form.conflictGhlLocationId.trim() || null
-        : null,
+      type: form.type,
+      // A VA never does group/private coaching; a strategic coach never does VA
+      // calls. Force the off-type capabilities off so the data stays coherent.
+      doesGroupCalls: isVa ? false : form.doesGroupCalls,
+      doesPrivateCoaching: isVa ? false : form.doesPrivateCoaching,
+      doesOneOnOneVaCalls: isVa ? form.doesOneOnOneVaCalls : false,
+      callCalendars,
     };
 
     try {
@@ -911,117 +1085,135 @@ export default function CoachProfiles() {
               </div>
               <div className="flex items-start justify-between gap-4">
                 <div>
-                  <Label htmlFor="coach-group-calls" className="text-sm font-medium">
-                    Runs group calls
+                  <Label htmlFor="coach-type" className="text-sm font-medium">
+                    Coach type
                   </Label>
                   <p className="text-xs text-muted-foreground mt-0.5">
-                    Group-call coaches appear in the member "Your Coaches" grid.
+                    Strategic coaches run group + private coaching. VAs offer free
+                    1-on-1 VA calls.
                   </p>
                 </div>
-                <Switch
-                  id="coach-group-calls"
-                  checked={form.doesGroupCalls}
-                  onCheckedChange={(checked) =>
-                    setForm({ ...form, doesGroupCalls: checked })
+                <Select
+                  value={form.type}
+                  onValueChange={(value) =>
+                    setForm({ ...form, type: value as CoachType })
                   }
-                  data-testid="coach-group-calls"
-                />
+                >
+                  <SelectTrigger className="w-44" data-testid="coach-type">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="strategic_coach">Strategic coach</SelectItem>
+                    <SelectItem value="va">Virtual assistant</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
-              <div className="flex items-start justify-between gap-4">
-                <div>
-                  <Label
-                    htmlFor="coach-private-coaching"
-                    className="text-sm font-medium"
-                  >
-                    Offers private coaching
-                  </Label>
-                  <p className="text-xs text-muted-foreground mt-0.5">
-                    Private-coaching coaches are bookable through credit packs.
-                  </p>
+
+              {form.type === "strategic_coach" && (
+                <>
+                  <div className="flex items-start justify-between gap-4">
+                    <div>
+                      <Label htmlFor="coach-group-calls" className="text-sm font-medium">
+                        Runs group calls
+                      </Label>
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        Group-call coaches appear in the member "Your Coaches" grid.
+                      </p>
+                    </div>
+                    <Switch
+                      id="coach-group-calls"
+                      checked={form.doesGroupCalls}
+                      onCheckedChange={(checked) =>
+                        setForm({ ...form, doesGroupCalls: checked })
+                      }
+                      data-testid="coach-group-calls"
+                    />
+                  </div>
+                  <div className="flex items-start justify-between gap-4">
+                    <div>
+                      <Label
+                        htmlFor="coach-private-coaching"
+                        className="text-sm font-medium"
+                      >
+                        Offers private coaching
+                      </Label>
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        Private-coaching coaches are bookable through credit packs.
+                      </p>
+                    </div>
+                    <Switch
+                      id="coach-private-coaching"
+                      checked={form.doesPrivateCoaching}
+                      onCheckedChange={(checked) =>
+                        setForm({ ...form, doesPrivateCoaching: checked })
+                      }
+                      data-testid="coach-private-coaching"
+                    />
+                  </div>
+                </>
+              )}
+
+              {form.type === "va" && (
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <Label
+                      htmlFor="coach-va-calls"
+                      className="text-sm font-medium"
+                    >
+                      Offers 1-on-1 VA calls
+                    </Label>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      VAs with this on are listed to members for free 1-on-1 calls.
+                    </p>
+                  </div>
+                  <Switch
+                    id="coach-va-calls"
+                    checked={form.doesOneOnOneVaCalls}
+                    onCheckedChange={(checked) =>
+                      setForm({ ...form, doesOneOnOneVaCalls: checked })
+                    }
+                    data-testid="coach-va-calls"
+                  />
                 </div>
-                <Switch
-                  id="coach-private-coaching"
-                  checked={form.doesPrivateCoaching}
-                  onCheckedChange={(checked) =>
-                    setForm({ ...form, doesPrivateCoaching: checked })
-                  }
-                  data-testid="coach-private-coaching"
-                />
-              </div>
+              )}
             </div>
-            {form.doesPrivateCoaching && (
-              <div
-                className="space-y-3 rounded-lg border border-border/60 p-3"
-                data-testid="coach-ghl-fields"
-              >
-                <p className="text-sm font-medium text-foreground">
-                  Booking calendar (GoHighLevel)
-                </p>
-                <p className="text-xs text-muted-foreground -mt-2">
-                  Used to book this coach's 1-on-1 sessions. Each calendar id can
-                  belong to only one coach.
-                </p>
-                <div>
-                  <Label className="text-xs">Calendar ID</Label>
-                  <Input
-                    value={form.ghlCalendarId}
-                    onChange={(e) =>
-                      setForm({ ...form, ghlCalendarId: e.target.value })
-                    }
-                    placeholder="GHL calendar id"
-                    maxLength={128}
-                    data-testid="coach-ghl-calendar-id"
-                  />
-                </div>
-                <div>
-                  <Label className="text-xs">Location ID</Label>
-                  <Input
-                    value={form.ghlLocationId}
-                    onChange={(e) =>
-                      setForm({ ...form, ghlLocationId: e.target.value })
-                    }
-                    placeholder="GHL location id (optional)"
-                    maxLength={128}
-                    data-testid="coach-ghl-location-id"
-                  />
-                </div>
-                <div className="border-t border-border/60 pt-3">
-                  <p className="text-sm font-medium text-foreground">
-                    Conflict calendar (other company)
-                  </p>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Optional. The coach's calendar in the other company (e.g.
-                    Cherrington). When set, that calendar is checked at booking
-                    time and a busy block is mirrored onto it, so the two
-                    companies never double-book this coach. Leave blank to keep
-                    booking exactly as today.
-                  </p>
-                </div>
-                <div>
-                  <Label className="text-xs">Conflict Calendar ID</Label>
-                  <Input
-                    value={form.conflictGhlCalendarId}
-                    onChange={(e) =>
-                      setForm({ ...form, conflictGhlCalendarId: e.target.value })
-                    }
-                    placeholder="Other-company GHL calendar id (optional)"
-                    maxLength={128}
-                    data-testid="coach-conflict-ghl-calendar-id"
-                  />
-                </div>
-                <div>
-                  <Label className="text-xs">Conflict Location ID</Label>
-                  <Input
-                    value={form.conflictGhlLocationId}
-                    onChange={(e) =>
-                      setForm({ ...form, conflictGhlLocationId: e.target.value })
-                    }
-                    placeholder="Other-company GHL location id (optional)"
-                    maxLength={128}
-                    data-testid="coach-conflict-ghl-location-id"
-                  />
-                </div>
-              </div>
+
+            {form.type === "strategic_coach" && form.doesPrivateCoaching && (
+              <CalendarPairFields
+                testIdPrefix="coach-private"
+                bookingTitle="Booking calendar (GoHighLevel)"
+                bookingHint="Used to book this coach's private 1-on-1 sessions. Each calendar id can belong to only one coach."
+                bookingCalendarId={form.privateBookingCalendarId}
+                bookingLocationId={form.privateBookingLocationId}
+                conflictCalendarId={form.privateConflictCalendarId}
+                conflictLocationId={form.privateConflictLocationId}
+                onChange={(patch) => setForm({ ...form, ...patch })}
+                fieldKeys={{
+                  bookingCalendarId: "privateBookingCalendarId",
+                  bookingLocationId: "privateBookingLocationId",
+                  conflictCalendarId: "privateConflictCalendarId",
+                  conflictLocationId: "privateConflictLocationId",
+                }}
+              />
+            )}
+
+            {form.type === "va" && form.doesOneOnOneVaCalls && (
+              <CalendarPairFields
+                testIdPrefix="coach-va"
+                bookingTitle="VA call booking calendar (GoHighLevel)"
+                bookingHint="Used to book this VA's free 1-on-1 calls. Each calendar id can belong to only one coach."
+                bookingCalendarId={form.vaBookingCalendarId}
+                bookingLocationId={form.vaBookingLocationId}
+                conflictCalendarId={form.vaConflictCalendarId}
+                conflictLocationId={form.vaConflictLocationId}
+                onChange={(patch) => setForm({ ...form, ...patch })}
+                fieldKeys={{
+                  bookingCalendarId: "vaBookingCalendarId",
+                  bookingLocationId: "vaBookingLocationId",
+                  conflictCalendarId: "vaConflictCalendarId",
+                  conflictLocationId: "vaConflictLocationId",
+                }}
+              />
             )}
           </div>
           <DialogFooter>

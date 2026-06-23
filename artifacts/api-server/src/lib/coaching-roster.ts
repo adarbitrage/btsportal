@@ -1,5 +1,12 @@
-import { db, coachesTable, coachingCallsTable, sessionPackBookingsTable, usersTable } from "@workspace/db";
-import { and, eq, gte, inArray } from "drizzle-orm";
+import {
+  db,
+  coachesTable,
+  coachCallCalendarsTable,
+  coachingCallsTable,
+  sessionPackBookingsTable,
+  usersTable,
+} from "@workspace/db";
+import { and, eq, gte, inArray, isNotNull } from "drizzle-orm";
 import { COACHING_LOCATION_ID, COACHING_TIMEZONE } from "./ghl-coaching-calendar";
 
 // Single source of truth for the live coaching roster. Every coach here does
@@ -24,6 +31,40 @@ export const COACHING_ROSTER: RosterCoach[] = [
   { name: "Bruce", ghlCalendarId: "0feHbG6YfH2apzvdmR3U", sortOrder: 2, photoUrl: "/coaching-photos/bruce.jpg" },
   { name: "Michael", ghlCalendarId: "JF7LYxF5KRQImZpvSrHo", sortOrder: 3, photoUrl: "/coaching-photos/michael.png" },
   { name: "Todd", ghlCalendarId: "JiTLouUKzGeYrsPtEmK5", sortOrder: 4, photoUrl: "/coaching-photos/todd.jpeg" },
+];
+
+// Virtual-assistant roster. VAs live in the SAME `coaches` table (type === "va")
+// but do NOT do group or private coaching — they run their own bookable call
+// types (today: 1-on-1 VA calls). Keyed by name (VAs have no private-coaching
+// ghl_calendar_id to key on; their booking calendars live in
+// coach_call_calendars). Only Neil is wired for 1-on-1 VA calls for now.
+interface RosterVa {
+  name: string;
+  sortOrder: number;
+  // Whether this VA offers free 1-on-1 VA calls. When true, oneOnOneVaCalendar
+  // must be set so there's something to book against.
+  doesOneOnOneVaCalls: boolean;
+  // GoHighLevel booking calendar for the VA's 1-on-1 call (callType
+  // "one_on_one_va"), seeded into coach_call_calendars. Omit when the VA offers
+  // no 1-on-1 calls.
+  oneOnOneVaCalendar?: { bookingCalendarId: string; bookingLocationId: string };
+  // Email of this VA's portal login, resolved to coaches.userId like the
+  // strategic roster. Omit for VAs with no portal account.
+  userEmail?: string;
+}
+
+export const VA_ROSTER: RosterVa[] = [
+  { name: "John", sortOrder: 5, doesOneOnOneVaCalls: false },
+  {
+    name: "Neil",
+    sortOrder: 6,
+    doesOneOnOneVaCalls: true,
+    oneOnOneVaCalendar: {
+      bookingCalendarId: "x7BqsXymYCRmojmiORPq",
+      bookingLocationId: "r9hM0kL1vtRvIf3mtjgF",
+    },
+  },
+  { name: "Mikha", sortOrder: 7, doesOneOnOneVaCalls: false },
 ];
 
 // Legacy demo profiles seeded before the real roster existed. Removed by exact
@@ -172,6 +213,129 @@ export async function seedCoachRoster(): Promise<void> {
     await db.delete(coachingCallsTable).where(eq(coachingCallsTable.coachId, ph.id));
     await db.delete(coachesTable).where(eq(coachesTable.id, ph.id));
     console.log(`[Seed] Removed legacy demo coach "${ph.name}" and its demo calls`);
+  }
+
+  // Move the deprecated coach-row private-coaching calendars into the new
+  // per-call-type table, then reconcile the VA roster. Order matters: the
+  // strategic upserts above set coaches.ghl* first so the migration copies the
+  // current values.
+  await migratePrivateCoachingCalendars();
+  await seedVaRoster();
+}
+
+// Backfill a `private_coaching` row in coach_call_calendars for every coach that
+// still carries a private-coaching booking calendar on the deprecated
+// coaches.ghl* columns. The new table is the source of truth the booking flow
+// reads from; the coach-row columns are kept only as the seed identity key and
+// as the migration source. Idempotent: ON CONFLICT DO NOTHING means a row an
+// admin has since edited is never clobbered.
+async function migratePrivateCoachingCalendars(): Promise<void> {
+  const coaches = await db
+    .select({
+      id: coachesTable.id,
+      ghlCalendarId: coachesTable.ghlCalendarId,
+      ghlLocationId: coachesTable.ghlLocationId,
+      conflictGhlCalendarId: coachesTable.conflictGhlCalendarId,
+      conflictGhlLocationId: coachesTable.conflictGhlLocationId,
+      isActive: coachesTable.isActive,
+    })
+    .from(coachesTable)
+    .where(isNotNull(coachesTable.ghlCalendarId));
+
+  for (const c of coaches) {
+    await db
+      .insert(coachCallCalendarsTable)
+      .values({
+        coachId: c.id,
+        callType: "private_coaching",
+        bookingCalendarId: c.ghlCalendarId,
+        bookingLocationId: c.ghlLocationId,
+        conflictCalendarId: c.conflictGhlCalendarId,
+        conflictLocationId: c.conflictGhlLocationId,
+        isActive: c.isActive,
+      })
+      // Any conflict (the (coachId, callType) pair OR the unique booking
+      // calendar) means it's already migrated — leave the existing row alone.
+      .onConflictDoNothing();
+  }
+}
+
+// Idempotently reconcile the VA roster into the unified `coaches` table. VAs are
+// keyed by (name, type === "va") since they have no private-coaching calendar to
+// key on. Their bookable 1-on-1 calendars are upserted into coach_call_calendars.
+async function seedVaRoster(): Promise<void> {
+  for (const va of VA_ROSTER) {
+    let userId: number | null = null;
+    if (va.userEmail) {
+      const [u] = await db
+        .select({ id: usersTable.id })
+        .from(usersTable)
+        .where(eq(usersTable.email, va.userEmail))
+        .limit(1);
+      userId = u?.id ?? null;
+    }
+
+    const [existing] = await db
+      .select({ id: coachesTable.id })
+      .from(coachesTable)
+      .where(and(eq(coachesTable.name, va.name), eq(coachesTable.type, "va")))
+      .limit(1);
+
+    let coachId: number;
+    if (existing) {
+      await db
+        .update(coachesTable)
+        .set({
+          type: "va",
+          sortOrder: va.sortOrder,
+          isActive: true,
+          doesGroupCalls: false,
+          doesPrivateCoaching: false,
+          doesOneOnOneVaCalls: va.doesOneOnOneVaCalls,
+          // Never clobber an existing link with null because the user row hasn't
+          // been created yet on this boot.
+          ...(userId !== null ? { userId } : {}),
+        })
+        .where(eq(coachesTable.id, existing.id));
+      coachId = existing.id;
+    } else {
+      const [ins] = await db
+        .insert(coachesTable)
+        .values({
+          name: va.name,
+          type: "va",
+          sortOrder: va.sortOrder,
+          userId,
+          isActive: true,
+          doesGroupCalls: false,
+          doesPrivateCoaching: false,
+          doesOneOnOneVaCalls: va.doesOneOnOneVaCalls,
+        })
+        .returning({ id: coachesTable.id });
+      coachId = ins.id;
+      console.log(`[Seed] Added VA "${va.name}"`);
+    }
+
+    if (va.oneOnOneVaCalendar) {
+      await db
+        .insert(coachCallCalendarsTable)
+        .values({
+          coachId,
+          callType: "one_on_one_va",
+          bookingCalendarId: va.oneOnOneVaCalendar.bookingCalendarId,
+          bookingLocationId: va.oneOnOneVaCalendar.bookingLocationId,
+          isActive: true,
+        })
+        .onConflictDoUpdate({
+          target: [coachCallCalendarsTable.coachId, coachCallCalendarsTable.callType],
+          set: {
+            bookingCalendarId: va.oneOnOneVaCalendar.bookingCalendarId,
+            bookingLocationId: va.oneOnOneVaCalendar.bookingLocationId,
+            isActive: true,
+            updatedAt: new Date(),
+          },
+        });
+    }
   }
 }
 

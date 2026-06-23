@@ -4,6 +4,7 @@ import {
   coachesTable,
   coachingCallsTable,
   coachingCallTemplatesTable,
+  coachCallCalendarsTable,
 } from "@workspace/db";
 import { eq, asc, and, count, gte, inArray, sql } from "drizzle-orm";
 import { requirePermission } from "../middleware/rbac";
@@ -22,6 +23,30 @@ const SPECIALTIES_MAX = 200;
 const BIO_MAX = 2000;
 const PHOTO_URL_MAX = 2048;
 const GHL_ID_MAX = 128;
+
+// Coach kind. "strategic_coach" runs the credit-pack private-coaching flow;
+// "va" is a virtual assistant who can offer free 1-on-1 VA calls. Free text in
+// the DB (default strategic_coach) but the admin editor only offers these two.
+const COACH_TYPES = ["strategic_coach", "va"] as const;
+
+// Call types with real behaviour today. The coach_call_calendars table keys on
+// free-text callType so more can be added later without a migration, but the
+// admin editor + validation only accept these. Each maps to one booking +
+// optional conflict calendar pair per coach.
+const KNOWN_CALL_TYPES = ["private_coaching", "one_on_one_va"] as const;
+type KnownCallType = (typeof KNOWN_CALL_TYPES)[number];
+
+// A per-call-type calendar pair as accepted from the admin editor. All four ids
+// are optional/nullable: an empty booking calendar leaves the call type
+// configured-but-not-bookable (the booking flow treats a null bookingCalendarId
+// as "not bookable").
+interface CalendarPairInput {
+  callType: KnownCallType;
+  bookingCalendarId: string | null;
+  bookingLocationId: string | null;
+  conflictCalendarId: string | null;
+  conflictLocationId: string | null;
+}
 
 function parseId(value: unknown): number | null {
   const str = Array.isArray(value) ? value[0] : value;
@@ -68,7 +93,9 @@ function parsePhotoUrl(value: unknown): { url: string | null } | { error: string
 function parseCoachBody(
   body: Record<string, unknown>,
   { partial }: { partial: boolean },
-): { values: Record<string, unknown> } | { error: string } {
+):
+  | { values: Record<string, unknown>; calendars: CalendarPairInput[] | undefined }
+  | { error: string } {
   const values: Record<string, unknown> = {};
 
   if (body.name !== undefined) {
@@ -112,13 +139,30 @@ function parseCoachBody(
   // group-call coaches); doesGroupCalls / doesPrivateCoaching express what the
   // coach actually does. Each is optional on a PATCH; any present value must be
   // a real boolean (not a truthy string) so we never silently coerce bad input.
-  for (const field of ["isActive", "doesGroupCalls", "doesPrivateCoaching"] as const) {
+  for (const field of [
+    "isActive",
+    "doesGroupCalls",
+    "doesPrivateCoaching",
+    "doesOneOnOneVaCalls",
+  ] as const) {
     if (body[field] !== undefined) {
       if (typeof body[field] !== "boolean") {
         return { error: `${field} must be a boolean` };
       }
       values[field] = body[field];
     }
+  }
+
+  // Coach kind. Optional on PATCH; any present value must be one of the known
+  // types so we never persist an unrecognised type that the editor can't render.
+  if (body.type !== undefined) {
+    if (
+      typeof body.type !== "string" ||
+      !(COACH_TYPES as readonly string[]).includes(body.type)
+    ) {
+      return { error: `type must be one of: ${COACH_TYPES.join(", ")}` };
+    }
+    values.type = body.type;
   }
 
   // Private-coaching booking config (GoHighLevel). Only meaningful when the
@@ -148,7 +192,144 @@ function parseCoachBody(
     }
   }
 
-  return { values };
+  // Per-call-type calendar pairs (coach_call_calendars). Optional: when absent
+  // the calendars are left untouched. When present it must be an array of
+  // {callType, booking/conflict ids}; each entry is upserted by the handler.
+  let calendars: CalendarPairInput[] | undefined;
+  if (body.callCalendars !== undefined) {
+    if (!Array.isArray(body.callCalendars)) {
+      return { error: "callCalendars must be an array" };
+    }
+    const parsed: CalendarPairInput[] = [];
+    const seen = new Set<string>();
+    for (const raw of body.callCalendars) {
+      if (!raw || typeof raw !== "object") {
+        return { error: "Each callCalendars entry must be an object" };
+      }
+      const entry = raw as Record<string, unknown>;
+      const callType = entry.callType;
+      if (
+        typeof callType !== "string" ||
+        !(KNOWN_CALL_TYPES as readonly string[]).includes(callType)
+      ) {
+        return { error: `callType must be one of: ${KNOWN_CALL_TYPES.join(", ")}` };
+      }
+      if (seen.has(callType)) {
+        return { error: `Duplicate callCalendars entry for ${callType}` };
+      }
+      seen.add(callType);
+
+      const ids: Record<string, string | null> = {};
+      for (const field of [
+        "bookingCalendarId",
+        "bookingLocationId",
+        "conflictCalendarId",
+        "conflictLocationId",
+      ] as const) {
+        const value = entry[field];
+        if (value === undefined || value === null) {
+          ids[field] = null;
+          continue;
+        }
+        const trimmed = typeof value === "string" ? value.trim() : "";
+        if (!trimmed) {
+          ids[field] = null;
+          continue;
+        }
+        if (trimmed.length > GHL_ID_MAX) {
+          return { error: `${field} must be ${GHL_ID_MAX} characters or fewer` };
+        }
+        ids[field] = trimmed;
+      }
+
+      parsed.push({
+        callType: callType as KnownCallType,
+        bookingCalendarId: ids.bookingCalendarId,
+        bookingLocationId: ids.bookingLocationId,
+        conflictCalendarId: ids.conflictCalendarId,
+        conflictLocationId: ids.conflictLocationId,
+      });
+    }
+    calendars = parsed;
+  }
+
+  return { values, calendars };
+}
+
+// Upsert the per-call-type calendar pairs for a coach into coach_call_calendars.
+// A pair with no bookingCalendarId is stored isActive=false (configured but not
+// bookable), matching how the booking read path treats a null booking calendar.
+// Run inside the create/update transaction so a calendar conflict rolls back the
+// whole change.
+async function upsertCoachCalendars(
+  tx: Parameters<Parameters<typeof db.transaction>[0]>[0],
+  coachId: number,
+  calendars: CalendarPairInput[],
+): Promise<void> {
+  for (const cal of calendars) {
+    await tx
+      .insert(coachCallCalendarsTable)
+      .values({
+        coachId,
+        callType: cal.callType,
+        bookingCalendarId: cal.bookingCalendarId,
+        bookingLocationId: cal.bookingLocationId,
+        conflictCalendarId: cal.conflictCalendarId,
+        conflictLocationId: cal.conflictLocationId,
+        isActive: !!cal.bookingCalendarId,
+      })
+      .onConflictDoUpdate({
+        target: [coachCallCalendarsTable.coachId, coachCallCalendarsTable.callType],
+        set: {
+          bookingCalendarId: cal.bookingCalendarId,
+          bookingLocationId: cal.bookingLocationId,
+          conflictCalendarId: cal.conflictCalendarId,
+          conflictLocationId: cal.conflictLocationId,
+          isActive: !!cal.bookingCalendarId,
+          updatedAt: new Date(),
+        },
+      });
+  }
+}
+
+// Load the per-call-type calendar pairs for a set of coaches, grouped by coach
+// id, so the list endpoint can attach each coach's calendars. Returns only the
+// known call types in a stable order.
+async function loadCalendarsByCoach(
+  coachIds: number[],
+): Promise<Map<number, CalendarPairInput[]>> {
+  const byCoach = new Map<number, CalendarPairInput[]>();
+  if (coachIds.length === 0) return byCoach;
+  const rows = await db
+    .select({
+      coachId: coachCallCalendarsTable.coachId,
+      callType: coachCallCalendarsTable.callType,
+      bookingCalendarId: coachCallCalendarsTable.bookingCalendarId,
+      bookingLocationId: coachCallCalendarsTable.bookingLocationId,
+      conflictCalendarId: coachCallCalendarsTable.conflictCalendarId,
+      conflictLocationId: coachCallCalendarsTable.conflictLocationId,
+    })
+    .from(coachCallCalendarsTable)
+    .where(inArray(coachCallCalendarsTable.coachId, coachIds));
+  for (const row of rows) {
+    if (!(KNOWN_CALL_TYPES as readonly string[]).includes(row.callType)) continue;
+    const list = byCoach.get(row.coachId) ?? [];
+    list.push({
+      callType: row.callType as KnownCallType,
+      bookingCalendarId: row.bookingCalendarId,
+      bookingLocationId: row.bookingLocationId,
+      conflictCalendarId: row.conflictCalendarId,
+      conflictLocationId: row.conflictLocationId,
+    });
+    byCoach.set(row.coachId, list);
+  }
+  for (const list of byCoach.values()) {
+    list.sort(
+      (a, b) =>
+        KNOWN_CALL_TYPES.indexOf(a.callType) - KNOWN_CALL_TYPES.indexOf(b.callType),
+    );
+  }
+  return byCoach;
 }
 
 // Map a Postgres unique-violation on ghl_calendar_id to a friendly 409. Any
@@ -181,8 +362,13 @@ const COACH_COLUMNS = {
   photoUrl: coachesTable.photoUrl,
   sortOrder: coachesTable.sortOrder,
   isActive: coachesTable.isActive,
+  // Coach kind: "strategic_coach" (default) or "va". Drives the editor's
+  // type-adaptive capability toggles + which call-type calendars apply.
+  type: coachesTable.type,
   doesGroupCalls: coachesTable.doesGroupCalls,
   doesPrivateCoaching: coachesTable.doesPrivateCoaching,
+  // Whether a VA offers free 1-on-1 VA calls (callType "one_on_one_va").
+  doesOneOnOneVaCalls: coachesTable.doesOneOnOneVaCalls,
   // Private-coaching booking config (GoHighLevel). Surfaced so the merged
   // Coaches editor + Connections panel can show/edit the booking calendar.
   ghlCalendarId: coachesTable.ghlCalendarId,
@@ -219,9 +405,15 @@ router.get(
         }),
     );
 
+    // Per-coach call-type calendar pairs (coach_call_calendars). The editor's
+    // per-call-type calendar config reads/writes these; coach-row ghl* columns
+    // are kept only as deprecated/seed-identity values.
+    const calendarsByCoach = await loadCalendarsByCoach(coaches.map((c) => c.id));
+
     const withConnections = coaches.map((c) => ({
       ...c,
       googleConnection: googleByCoach.get(c.id) ?? null,
+      callCalendars: calendarsByCoach.get(c.id) ?? [],
     }));
 
     res.json({ coaches: withConnections });
@@ -304,18 +496,35 @@ router.patch(
       res.status(400).json({ error: parsed.error });
       return;
     }
-    if (Object.keys(parsed.values).length === 0) {
+    if (Object.keys(parsed.values).length === 0 && parsed.calendars === undefined) {
       res.status(400).json({ error: "No fields to update" });
       return;
     }
 
     let updated: Record<string, unknown> | undefined;
     try {
-      [updated] = await db
-        .update(coachesTable)
-        .set(parsed.values)
-        .where(eq(coachesTable.id, coachId))
-        .returning(COACH_COLUMNS);
+      updated = await db.transaction(async (tx) => {
+        // When only calendars are being changed, read the row back instead of a
+        // no-op update (an empty .set() is invalid) so the response stays whole.
+        let row: Record<string, unknown> | undefined;
+        if (Object.keys(parsed.values).length > 0) {
+          [row] = await tx
+            .update(coachesTable)
+            .set(parsed.values)
+            .where(eq(coachesTable.id, coachId))
+            .returning(COACH_COLUMNS);
+        } else {
+          [row] = await tx
+            .select(COACH_COLUMNS)
+            .from(coachesTable)
+            .where(eq(coachesTable.id, coachId));
+        }
+        if (!row) return undefined;
+        if (parsed.calendars !== undefined) {
+          await upsertCoachCalendars(tx, coachId, parsed.calendars);
+        }
+        return row;
+      });
     } catch (err) {
       if (isGhlCalendarConflict(err)) {
         res.status(409).json({ error: "Another coach already uses that GHL calendar id" });
@@ -329,7 +538,8 @@ router.patch(
       return;
     }
 
-    res.json(updated);
+    const calendarsByCoach = await loadCalendarsByCoach([coachId]);
+    res.json({ ...updated, callCalendars: calendarsByCoach.get(coachId) ?? [] });
   },
 );
 
@@ -348,24 +558,30 @@ router.post(
 
     let created: Record<string, unknown> | undefined;
     try {
-      [created] = await db
-        .insert(coachesTable)
-        .values({
-          ...(parsed.values as { name: string }),
-          // Default to a visible group-call coach so new coaches show up on the
-          // member grid immediately, but let an explicit switch override.
-          doesGroupCalls:
-            parsed.values.doesGroupCalls !== undefined
-              ? (parsed.values.doesGroupCalls as boolean)
-              : true,
-          ...(parsed.values.isActive !== undefined
-            ? { isActive: parsed.values.isActive as boolean }
-            : { isActive: true }),
-          ...(parsed.values.doesPrivateCoaching !== undefined
-            ? { doesPrivateCoaching: parsed.values.doesPrivateCoaching as boolean }
-            : {}),
-        })
-        .returning(COACH_COLUMNS);
+      created = await db.transaction(async (tx) => {
+        const [row] = await tx
+          .insert(coachesTable)
+          .values({
+            ...(parsed.values as { name: string }),
+            // Default to a visible group-call coach so new coaches show up on the
+            // member grid immediately, but let an explicit switch override.
+            doesGroupCalls:
+              parsed.values.doesGroupCalls !== undefined
+                ? (parsed.values.doesGroupCalls as boolean)
+                : true,
+            ...(parsed.values.isActive !== undefined
+              ? { isActive: parsed.values.isActive as boolean }
+              : { isActive: true }),
+            ...(parsed.values.doesPrivateCoaching !== undefined
+              ? { doesPrivateCoaching: parsed.values.doesPrivateCoaching as boolean }
+              : {}),
+          })
+          .returning(COACH_COLUMNS);
+        if (parsed.calendars !== undefined && parsed.calendars.length > 0) {
+          await upsertCoachCalendars(tx, row.id as number, parsed.calendars);
+        }
+        return row;
+      });
     } catch (err) {
       if (isGhlCalendarConflict(err)) {
         res.status(409).json({ error: "Another coach already uses that GHL calendar id" });
@@ -374,7 +590,11 @@ router.post(
       throw err;
     }
 
-    res.status(201).json(created);
+    const calendarsByCoach = await loadCalendarsByCoach([created.id as number]);
+    res.status(201).json({
+      ...created,
+      callCalendars: calendarsByCoach.get(created.id as number) ?? [],
+    });
   },
 );
 
