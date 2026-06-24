@@ -374,25 +374,6 @@ export default function Concierge() {
           </p>
         </div>
 
-        <Card className="border-border/60 shadow-sm overflow-hidden">
-          <CardContent className="p-0">
-            <div className="aspect-video bg-black overflow-hidden">
-              <iframe
-                src="https://fast.vidalytics.com/embeds/trR5xdVa/W2EWjAXnSz8UjQvB/"
-                className="w-full h-full border-0"
-                allow="autoplay; fullscreen"
-                allowFullScreen
-              />
-            </div>
-          </CardContent>
-        </Card>
-
-        <div className="flex flex-wrap gap-3">
-          <Button asChild>
-            <a href="#task">Submit a Task for the Concierge™</a>
-          </Button>
-        </div>
-
         <Card className="border-border/60 shadow-sm">
           <CardContent className="p-5 sm:p-8 md:p-10 space-y-5">
             <h2 className="text-xl font-bold text-foreground">Welcome To The BTS Concierge™</h2>
