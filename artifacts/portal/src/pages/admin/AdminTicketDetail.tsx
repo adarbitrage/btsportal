@@ -40,6 +40,7 @@ import {
   X,
   Loader2,
   RotateCw,
+  Phone,
 } from "lucide-react";
 import { adminPanelApi } from "@/lib/admin-panel-api";
 import { cn } from "@/lib/utils";
@@ -932,6 +933,29 @@ export default function AdminTicketDetail() {
                     )}
                     <ExternalLink className="w-3 h-3" />
                   </Link>
+                </div>
+              )}
+              {ticket.source === "voice_call" && (
+                // The voice agent opens this ticket when it can't answer a
+                // caller and escalates to a human. The caller's phone number
+                // and their question are already captured in the ticket body;
+                // this badge just makes phone-origin tickets obvious at a
+                // glance so agents know they arrived by voice.
+                <div
+                  className="mt-3 inline-flex items-center gap-2 text-sm"
+                  data-testid="ticket-source-banner-voice"
+                >
+                  <Badge
+                    variant="outline"
+                    className="gap-1 border-violet-300 bg-violet-50 text-violet-900"
+                    data-testid="ticket-source-badge-voice"
+                  >
+                    <Phone className="w-3 h-3" />
+                    Voice call
+                  </Badge>
+                  <span className="text-muted-foreground">
+                    Escalated by the voice agent — caller details are in the ticket message below.
+                  </span>
                 </div>
               )}
             </div>

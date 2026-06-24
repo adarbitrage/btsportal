@@ -51,6 +51,8 @@ function makeTicket(overrides: Partial<Ticket> = {}): Ticket {
     priority: "normal",
     status: "open",
     subject: "Default subject",
+    source: null,
+    sourceReferenceId: null,
     assignedTo: null,
     createdAt: new Date("2026-05-01T12:00:00Z").toISOString(),
     updatedAt: new Date("2026-05-01T12:00:00Z").toISOString(),

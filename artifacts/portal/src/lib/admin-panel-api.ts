@@ -818,6 +818,13 @@ export const adminPanelApi = {
       priority: "urgent" | "high" | "normal" | "low";
       status: "open" | "in_progress" | "awaiting_response" | "resolved" | "closed";
       subject: string;
+      // How the ticket was opened. "voice_call" means the voice agent
+      // escalated to support, so the queue/detail surface a "Voice call"
+      // badge and the body carries the caller's phone + question. Other
+      // known sources include "email_admin_cancelled_banner". Null for
+      // tickets opened through the generic support form.
+      source: string | null;
+      sourceReferenceId: number | null;
       assignedTo: number | null;
       createdAt: string;
       updatedAt: string;

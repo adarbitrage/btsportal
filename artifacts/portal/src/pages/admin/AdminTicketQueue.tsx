@@ -7,7 +7,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Link } from "wouter";
 import { format } from "date-fns";
-import { Search, X, MailX, AlertTriangle, RefreshCw } from "lucide-react";
+import { Search, X, MailX, AlertTriangle, RefreshCw, Phone } from "lucide-react";
 import { adminPanelApi } from "@/lib/admin-panel-api";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
@@ -725,6 +725,20 @@ export default function AdminTicketQueue() {
                           <span className="text-xs font-mono text-muted-foreground">{ticket.ticketNumber}</span>
                           {ticket.member?.name && (
                             <span className="text-xs text-muted-foreground">· {ticket.member.name}</span>
+                          )}
+                          {ticket.source === "voice_call" && (
+                            // Voice-agent escalations arrive by phone, so the
+                            // caller's number + question live in the body. The
+                            // badge lets agents spot phone-origin tickets at a
+                            // glance without opening each one.
+                            <Badge
+                              variant="outline"
+                              className="gap-1 border-violet-300 bg-violet-50 text-violet-900 text-[10px]"
+                              data-testid={`queue-voice-source-badge-${ticket.id}`}
+                            >
+                              <Phone className="w-3 h-3" />
+                              Voice call
+                            </Badge>
                           )}
                           <DeliveryBadge status={ticket.deliveryStatus} />
                           {(ticket.deliveryStatus === "failed" || ticket.deliveryStatus === "skipped") && (

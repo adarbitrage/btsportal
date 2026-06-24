@@ -95,6 +95,21 @@ describe("AdminTicketDetail — cancelled-email source badge", () => {
     expect(link.textContent).toMatch(/attempt #4242/);
   });
 
+  it("renders a Voice call badge for tickets escalated by the voice agent", async () => {
+    getAdminTicket.mockResolvedValue(makeTicket({ source: "voice_call" }));
+
+    render(<AdminTicketDetail />);
+
+    // The voice badge tells agents the ticket arrived by phone; the caller's
+    // number + question already live in the ticket body, so the badge is the
+    // at-a-glance marker that this is a voice escalation.
+    const badge = await screen.findByTestId("ticket-source-badge-voice");
+    expect(badge.textContent).toMatch(/voice call/i);
+
+    // The cancelled-email banner must NOT show up for voice tickets.
+    expect(screen.queryByTestId("ticket-source-badge")).toBeNull();
+  });
+
   it("does NOT render the source banner for tickets opened through the generic support form", async () => {
     getAdminTicket.mockResolvedValue(makeTicket({ source: null, sourceReferenceId: null }));
 
