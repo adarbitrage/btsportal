@@ -23,8 +23,14 @@ export function VoiceCall() {
 
   const clientRef = useRef<RetellWebClient | null>(null);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const retryTimersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
   const queryClient = useQueryClient();
   const { mutateAsync: startWebCall, isPending: isStarting } = useStartWebCall();
+
+  const clearRetryTimers = useCallback(() => {
+    retryTimersRef.current.forEach((t) => clearTimeout(t));
+    retryTimersRef.current = [];
+  }, []);
 
   const cleanup = useCallback(() => {
     if (timerRef.current) clearInterval(timerRef.current);
@@ -37,11 +43,26 @@ export function VoiceCall() {
     setIsMuted(false);
   }, []);
 
+  const scheduleCallsRefresh = useCallback(() => {
+    clearRetryTimers();
+    queryClient.invalidateQueries({ queryKey: ["voice", "calls"] });
+    const delays = [3_000, 8_000, 18_000];
+    retryTimersRef.current = delays.map((ms) =>
+      setTimeout(() => {
+        queryClient.invalidateQueries({ queryKey: ["voice", "calls"] });
+      }, ms),
+    );
+  }, [queryClient, clearRetryTimers]);
+
   useEffect(() => {
-    return () => cleanup();
-  }, [cleanup]);
+    return () => {
+      cleanup();
+      clearRetryTimers();
+    };
+  }, [cleanup, clearRetryTimers]);
 
   const startCall = useCallback(async () => {
+    clearRetryTimers();
     setErrorMsg(null);
     setTranscript([]);
     setElapsed(0);
@@ -84,6 +105,7 @@ export function VoiceCall() {
       cleanup();
       setCallState("idle");
       queryClient.invalidateQueries({ queryKey: ["voice", "status"] });
+      scheduleCallsRefresh();
     });
 
     retellClient.on("agent_start_talking", () => setIsAgentTalking(true));
@@ -113,14 +135,15 @@ export function VoiceCall() {
       setErrorMsg(err.message || "Failed to connect call.");
       setCallState("idle");
     }
-  }, [startWebCall, cleanup, queryClient]);
+  }, [startWebCall, cleanup, queryClient, scheduleCallsRefresh, clearRetryTimers]);
 
   const endCall = useCallback(() => {
     setCallState("ending");
     cleanup();
     setCallState("idle");
     queryClient.invalidateQueries({ queryKey: ["voice", "status"] });
-  }, [cleanup, queryClient]);
+    scheduleCallsRefresh();
+  }, [cleanup, queryClient, scheduleCallsRefresh]);
 
   const toggleMute = useCallback(() => {
     if (!clientRef.current) return;
