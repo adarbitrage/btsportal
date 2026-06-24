@@ -381,6 +381,8 @@ const BTS_AGREEMENT_KB_TITLES = new Set<string>([
   "What is the BTS Mentee Master Agreement?",
   "What are the Mentorship refund requirements?",
   "How do I request a Mentorship refund?",
+  "How do I submit my Profit & Loss Tracker?",
+  "How do I request a BTS Deposit refund?",
   "What membership terms does the BTS Mentorship Program offer?",
   "Does BTS guarantee profits or specific results?",
   "What are the intellectual property and confidentiality terms of the BTS Agreement?",
