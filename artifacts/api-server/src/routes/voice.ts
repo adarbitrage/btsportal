@@ -9,6 +9,7 @@ import { setupRetellAgentKb, getCachedRetellSetupResult, setCachedRetellSetupRes
 import { requirePermission } from "../middleware/rbac";
 import { csvEscape } from "../lib/csv";
 import { logAdminAction } from "../lib/audit-log";
+import { buildVoiceSynonymTsquery, expandVoiceQuerySynonyms } from "../lib/voice-synonyms";
 import crypto from "crypto";
 
 const router = Router();
@@ -48,11 +49,20 @@ async function getIsAdmin(userId: number): Promise<boolean> {
 async function searchKnowledgebaseForVoice(query: string): Promise<string> {
   const categoriesArray = `{${ALL_KB_CATEGORIES.join(",")}}`;
 
+  // Map natural member phrasings ("money back guarantee", "do I get my money
+  // back") onto the canonical content terms ("refund") and OR-fold them into the
+  // base tsquery. When nothing matches, `synonymOr` is empty and the query is
+  // left exactly as before.
+  const synonymOr = buildVoiceSynonymTsquery(query);
+  const primaryTsquery = synonymOr
+    ? sql`(websearch_to_tsquery('english', ${query}) || to_tsquery('english', ${synonymOr}))`
+    : sql`websearch_to_tsquery('english', ${query})`;
+
   const primaryResults = await db.execute(
     sql`SELECT title, content, category,
-        ts_rank(to_tsvector('english', title || ' ' || content), websearch_to_tsquery('english', ${query})) as rank
+        ts_rank(to_tsvector('english', title || ' ' || content), ${primaryTsquery}) as rank
       FROM knowledgebase_docs
-      WHERE to_tsvector('english', title || ' ' || content) @@ websearch_to_tsquery('english', ${query})
+      WHERE to_tsvector('english', title || ' ' || content) @@ ${primaryTsquery}
         AND category = ANY(${categoriesArray}::text[])
         AND audience <> 'admin'
       ORDER BY rank DESC
@@ -62,7 +72,10 @@ async function searchKnowledgebaseForVoice(query: string): Promise<string> {
   let rows = primaryResults.rows as any[];
 
   if (rows.length < 2) {
-    const orQuery = query.trim().split(/\s+/).filter(Boolean).join(" | ");
+    // OR the raw query words with any matched synonym terms so the looser
+    // fallback also benefits from the alias layer.
+    const orQuery = [...query.trim().split(/\s+/).filter(Boolean), ...expandVoiceQuerySynonyms(query)]
+      .join(" | ");
     const fallbackResults = await db.execute(
       sql`SELECT title, content, category,
           ts_rank(to_tsvector('english', title || ' ' || content), to_tsquery('english', ${orQuery})) as rank
