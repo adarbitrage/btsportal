@@ -377,7 +377,7 @@ a real customer's email.
  * Agreement articles are new. Both cases are handled by the upsert in
  * `ensureBtsAgreementKbContent()`.
  */
-const BTS_AGREEMENT_KB_TITLES = new Set<string>([
+export const BTS_AGREEMENT_KB_TITLES = new Set<string>([
   "What is the BTS Mentee Master Agreement?",
   "What are the Mentorship refund requirements?",
   "How do I request a Mentorship refund?",
