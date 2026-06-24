@@ -111,16 +111,23 @@ function complianceTicket(overrides: Partial<FakeTicket>): FakeTicket {
 }
 
 describe("ComplianceReview — submission status sections", () => {
-  it("hides both sections when the member has no compliance submissions", async () => {
+  it("always shows both sections with empty states and a Submit CTA when the member has no compliance submissions", async () => {
     tickets = [
       complianceTicket({ id: 9, category: "technical", status: "open", subject: "Help" }),
     ];
 
     renderPage();
 
-    // Give the query time to settle, then confirm the wrapper never appears.
-    await waitFor(() => expect(screen.getByTestId("app-layout-stub")).toBeInTheDocument());
-    expect(screen.queryByTestId("compliance-submissions")).not.toBeInTheDocument();
+    // The landing mirrors the Private Coaching page: sections are always
+    // present. With no compliance tickets, both render their empty states and
+    // the "Submit for Review" call to action is available.
+    await screen.findByTestId("compliance-submissions");
+    expect(await screen.findByTestId("compliance-active-empty")).toBeInTheDocument();
+    expect(screen.getByTestId("compliance-past-empty")).toBeInTheDocument();
+    expect(screen.getAllByTestId("compliance-submit-cta").length).toBeGreaterThan(0);
+    // A non-compliance ticket is never surfaced here.
+    expect(screen.queryByTestId("compliance-active-9")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("compliance-past-9")).not.toBeInTheDocument();
   });
 
   it("splits active submissions into Under Review and resolved into Past Submissions", async () => {

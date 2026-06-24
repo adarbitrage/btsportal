@@ -3,13 +3,14 @@ import { render, screen, fireEvent, waitFor, within } from "@testing-library/rea
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { ReactNode } from "react";
 
-// The Compliance Review form uploads each selected file to object storage via a
-// presigned URL before creating the ticket. When an upload fails it now renders
-// a per-file, screen-reader-accessible reason (data-testid
-// "compliance-file-error-<i>", role="alert", with an sr-only "Upload failed: "
-// prefix) AND distinguishes a network error from a storage rejection — the two
-// wordings produced by uploadFileToStorage. This test pins that behaviour so a
-// future refactor of the upload flow can't silently regress it.
+// The Compliance Review intake form (now its own page at /compliance/submit)
+// uploads each selected file to object storage via a presigned URL before
+// creating the ticket. When an upload fails it renders a per-file,
+// screen-reader-accessible reason (data-testid "compliance-file-error-<i>",
+// role="alert", with an sr-only "Upload failed: " prefix) AND distinguishes a
+// network error from a storage rejection — the two wordings produced by
+// uploadFileToStorage. This test pins that behaviour so a future refactor of the
+// upload flow can't silently regress it.
 //
 // Mocking follows the portal page-test pattern (see
 // TicketDetail.uploadStatus.test.tsx): stub AppLayout and drive the two-step
@@ -22,20 +23,20 @@ vi.mock("@/components/layout/AppLayout", () => ({
   ),
 }));
 
-import ComplianceReview from "@/pages/ComplianceReview";
+import ComplianceSubmit from "@/pages/ComplianceSubmit";
 
-// The page now reads the member's compliance submissions via react-query
-// (useListTickets / useGetTicket), so every render needs a QueryClient. The
-// upload flow under test runs through the stubbed global fetch below; the
-// submissions query just resolves to an empty list, so the two status sections
-// render nothing and stay out of the way of these upload-focused assertions.
+// The form page uses react-query (useQueryClient, to refresh the landing's
+// submissions list after a successful submit), so every render needs a
+// QueryClient. The upload flow under test runs through the stubbed global fetch
+// below and never reaches a successful submit, so the client is only needed for
+// the hook to resolve.
 function renderPage() {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
   });
   return render(
     <QueryClientProvider client={queryClient}>
-      <ComplianceReview />
+      <ComplianceSubmit />
     </QueryClientProvider>,
   );
 }
@@ -77,11 +78,6 @@ beforeEach(() => {
 
   global.fetch = vi.fn(async (input: unknown, init?: { body?: unknown }) => {
     const url = String(input);
-    if (url.includes("/api/tickets")) {
-      // The compliance status sections query the member's tickets; an empty
-      // list keeps them hidden so these upload tests stay focused.
-      return { ok: true, json: async () => [] } as unknown as Response;
-    }
     if (url.includes("/storage/uploads/request-url")) {
       const body = JSON.parse(String(init?.body ?? "{}")) as { name: string };
       if (requestUrlNetworkError.has(body.name)) {
@@ -112,7 +108,7 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-describe("ComplianceReview — per-file upload error display", () => {
+describe("ComplianceSubmit — per-file upload error display", () => {
   it("renders an accessible, network-vs-storage-distinct inline error for each failed file", async () => {
     // File 0 fails before reaching storage (network), file 1 is rejected by
     // storage with a 500 — two distinct wordings from uploadFileToStorage.
@@ -146,9 +142,6 @@ describe("ComplianceReview — per-file upload error display", () => {
     // from a non-OK PUT response (storage rejected the file).
     global.fetch = vi.fn(async (input: unknown, init?: { body?: unknown }) => {
       const url = String(input);
-      if (url.includes("/api/tickets")) {
-        return { ok: true, json: async () => [] } as unknown as Response;
-      }
       if (url.includes("/storage/uploads/request-url")) {
         const body = JSON.parse(String(init?.body ?? "{}")) as { name: string };
         return {

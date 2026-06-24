@@ -20,6 +20,7 @@ import BookVaCall from "@/pages/concierge/BookVaCall";
 import CoachingSession from "@/pages/CoachingSession";
 import Advantage from "@/pages/Advantage";
 import ComplianceReview from "@/pages/ComplianceReview";
+import ComplianceSubmit from "@/pages/ComplianceSubmit";
 import PrimeCorporate from "@/pages/PrimeCorporate";
 import AdCredit from "@/pages/AdCredit";
 import CoachingRecruitment from "@/pages/CoachingRecruitment";
@@ -398,6 +399,7 @@ function Router() {
       <Route path="/concierge">{() => <ProtectedRoute component={Concierge} />}</Route>
       <Route path="/coaching/sessions">{() => <ProtectedRoute component={CoachingSession} />}</Route>
       <Route path="/advantage">{() => <ProtectedRoute component={Advantage} />}</Route>
+      <Route path="/compliance/submit">{() => <ProtectedRoute component={ComplianceSubmit} />}</Route>
       <Route path="/compliance">{() => <ProtectedRoute component={ComplianceReview} />}</Route>
       <Route path="/prime-corporate">{() => <ProtectedRoute component={PrimeCorporate} />}</Route>
       <Route path="/ad-credit">{() => <ProtectedRoute component={AdCredit} />}</Route>
