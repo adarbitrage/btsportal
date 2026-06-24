@@ -3,8 +3,10 @@ import { usersTable } from "./users";
 
 export const voiceCallsTable = pgTable("voice_calls", {
   id: serial("id").primaryKey(),
-  userId: integer("user_id").notNull().references(() => usersTable.id),
+  userId: integer("user_id").references(() => usersTable.id),
   retellCallId: text("retell_call_id").notNull().unique(),
+  callType: text("call_type").notNull().default("web"),
+  callerPhone: text("caller_phone"),
   status: text("status").notNull().default("registered"),
   startedAt: timestamp("started_at", { withTimezone: true }).notNull().defaultNow(),
   endedAt: timestamp("ended_at", { withTimezone: true }),

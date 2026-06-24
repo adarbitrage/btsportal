@@ -145,7 +145,7 @@ async function updateDeliveryStatus(
  *   - Not running in a test environment (IS_TEST_ENV)
  *   - SENDGRID_API_KEY being present (otherwise logs a warning and returns)
  */
-async function sendSupportFallbackEmail(
+export async function sendSupportFallbackEmail(
   data: TicketDeskDeliveryJobData,
   reason: string,
 ): Promise<void> {
@@ -320,11 +320,15 @@ export async function retryTicketDeskDelivery(
     return { ok: false, reason: "not_retryable" };
   }
 
-  const [member] = await db
-    .select({ email: usersTable.email, name: usersTable.name })
-    .from(usersTable)
-    .where(eq(usersTable.id, ticket.userId))
-    .limit(1);
+  let member: { email: string; name: string } | undefined;
+  if (ticket.userId != null) {
+    const [found] = await db
+      .select({ email: usersTable.email, name: usersTable.name })
+      .from(usersTable)
+      .where(eq(usersTable.id, ticket.userId))
+      .limit(1);
+    member = found;
+  }
 
   const [firstMsg] = await db
     .select({ body: ticketMessagesTable.body })
@@ -474,11 +478,15 @@ export async function backfillUndeliveredTickets(): Promise<void> {
     );
 
     for (const ticket of stuck) {
-      const [member] = await db
-        .select({ email: usersTable.email, name: usersTable.name })
-        .from(usersTable)
-        .where(eq(usersTable.id, ticket.userId))
-        .limit(1);
+      let member: { email: string; name: string } | undefined;
+      if (ticket.userId != null) {
+        const [found] = await db
+          .select({ email: usersTable.email, name: usersTable.name })
+          .from(usersTable)
+          .where(eq(usersTable.id, ticket.userId))
+          .limit(1);
+        member = found;
+      }
 
       const [firstMsg] = await db
         .select({ body: ticketMessagesTable.body })

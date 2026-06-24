@@ -1,6 +1,6 @@
 import { Router, type Request, type Response } from "express";
 import crypto from "crypto";
-import { db, voiceCallsTable, voiceDailyUsageTable } from "@workspace/db";
+import { db, voiceCallsTable, voiceDailyUsageTable, usersTable } from "@workspace/db";
 import { and, eq, isNull, sql } from "drizzle-orm";
 
 const router = Router();
@@ -51,7 +51,10 @@ router.post("/webhooks/retell", async (req: Request, res: Response): Promise<voi
     event: string;
     call?: {
       call_id?: string;
+      call_type?: string;
       call_status?: string;
+      from_number?: string;
+      to_number?: string;
       start_timestamp?: number;
       end_timestamp?: number;
       duration_ms?: number;
@@ -78,14 +81,47 @@ router.post("/webhooks/retell", async (req: Request, res: Response): Promise<voi
     return;
   }
 
-  console.log(`[Retell Webhook] event=${event} call_id=${callId}`);
+  const isPhoneCall = call?.call_type === "phone_call";
+  const fromNumber = call?.from_number ?? null;
+
+  console.log(`[Retell Webhook] event=${event} call_id=${callId} call_type=${call?.call_type ?? "unknown"}`);
 
   try {
     if (event === "call_started") {
-      await db
-        .update(voiceCallsTable)
-        .set({ status: "ongoing" })
-        .where(eq(voiceCallsTable.retellCallId, callId));
+      // For web calls the row was pre-inserted by /voice/web-call. For phone
+      // calls no pre-registration happens, so we upsert the row here.
+      if (isPhoneCall) {
+        // Try to match the caller to an existing member by phone number.
+        let matchedUserId: number | null = null;
+        if (fromNumber) {
+          const [matched] = await db
+            .select({ id: usersTable.id })
+            .from(usersTable)
+            .where(eq(usersTable.phone, fromNumber))
+            .limit(1);
+          matchedUserId = matched?.id ?? null;
+        }
+
+        await db
+          .insert(voiceCallsTable)
+          .values({
+            userId: matchedUserId,
+            retellCallId: callId,
+            callType: "phone_call",
+            callerPhone: fromNumber,
+            status: "ongoing",
+            startedAt: call?.start_timestamp ? new Date(call.start_timestamp) : new Date(),
+          })
+          .onConflictDoUpdate({
+            target: voiceCallsTable.retellCallId,
+            set: { status: "ongoing" },
+          });
+      } else {
+        await db
+          .update(voiceCallsTable)
+          .set({ status: "ongoing" })
+          .where(eq(voiceCallsTable.retellCallId, callId));
+      }
     } else if (event === "call_ended") {
       const endedAt = call?.end_timestamp ? new Date(call.end_timestamp) : new Date();
       const durationSeconds = call?.duration_ms != null
@@ -118,7 +154,9 @@ router.post("/webhooks/retell", async (req: Request, res: Response): Promise<voi
 
       const winner = claimed[0];
 
-      if (winner && durationSeconds && durationSeconds > 0) {
+      // Only accrue daily usage when the call is linked to a member (phone calls
+      // from unknown callers have no userId and therefore no usage bucket).
+      if (winner && winner.userId != null && durationSeconds && durationSeconds > 0) {
         const today = new Date().toISOString().split("T")[0];
         await db.execute(
           sql`INSERT INTO voice_daily_usage (user_id, usage_date, seconds_used)

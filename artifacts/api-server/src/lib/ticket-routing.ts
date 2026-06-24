@@ -2,8 +2,9 @@ import { db, ticketRoutingRulesTable, ticketsTable, usersTable } from "@workspac
 import { eq, and, sql, asc } from "drizzle-orm";
 import { getUserEntitlements, getHighestProductLabel } from "./entitlements";
 
-export async function autoRouteTicket(ticketId: number, userId: number, category: string, priority: string): Promise<number | null> {
-  const entitlements = await getUserEntitlements(userId);
+export async function autoRouteTicket(ticketId: number, userId: number | null, category: string, priority: string): Promise<number | null> {
+  // Anonymous/guest callers (userId=null) have no entitlements → base tier routing.
+  const entitlements = userId != null ? await getUserEntitlements(userId) : new Set<string>();
   const highest = getHighestProductLabel(entitlements);
   const tierSlug = highest.slug;
 

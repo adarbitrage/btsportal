@@ -52,6 +52,7 @@ const PUBLIC_PATHS = [
   // user via the HMAC-signed `state` it issued at connect time instead.
   "/coach/google/callback",
   "/voice/kb-search",
+  "/voice/escalate",
 ];
 
 export function authenticate(req: Request, res: Response, next: NextFunction): void {

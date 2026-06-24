@@ -33,6 +33,7 @@
 import Retell from "retell-sdk";
 
 const KB_SEARCH_TOOL_NAME = "search_knowledge_base";
+const ESCALATE_TO_SUPPORT_TOOL_NAME = "escalate_to_support";
 
 /**
  * Node types in a Conversation Flow that indicate substantial routing logic.
@@ -92,6 +93,9 @@ RESPONSE STYLE — MANDATORY:
 INFORMATION RULE — MANDATORY:
 For ANY question about BTS programs, commissions, billing, tools, strategy, coaching, curriculum, troubleshooting, refunds, cancellations, the BTS Agreement, policies, terms, or the 90-day guarantee you MUST call the search_knowledge_base tool BEFORE answering. Answer strictly from what that lookup returns. Do NOT invent, guess, or extrapolate answers for BTS-specific topics.
 
+ESCALATION RULE — MANDATORY:
+If you have called search_knowledge_base and still cannot answer a BTS question, you MUST immediately call the escalate_to_support tool. Pass: the caller's exact question as "question"; the full conversation transcript as "transcript_so_far" (use {{transcript}}); and for phone calls, {{from_number}} as "caller_phone" so the support team can reach back. Do NOT read out an email address or tell the caller to email anyone. After the tool call completes, say exactly: "I've flagged your question for our support team and they'll follow up with you by email. Is there anything else I can help you with?"
+
 NAMING — MANDATORY:
 The flagship program is called "The Blitz" — always. There is only one version. NEVER refer to it as the "21-day Blitz," "14-day Blitz," "21 Days to Scale," or any other day-count variant, even if older knowledge-base content, transcripts, or source material use that phrasing. When source material says "21-day Blitz" (or similar), restate it simply as "The Blitz" in your answer.
 The refund policy is the "ninety-day action-based refund guarantee." When you speak about it, always say the full phrase "ninety-day refund guarantee" (or "ninety-day action-based refund guarantee"), spelling the number as the word "ninety" and always including the word "day." NEVER shorten it to "90 refund," "ninety refund," or any form that drops the word "day."
@@ -105,7 +109,7 @@ COACHING TEAM: Sasha, Bruce, Michael, Todd (group calls), Robin (1-on-1 sessions
 SUPPORT EMAIL: support@buildtestscale.com
 
 FALLBACK:
-If asked something unrelated to BTS, briefly acknowledge and redirect to BTS support topics. If you can't resolve a BTS question, offer to connect the member with the team at support@buildtestscale.com.`;
+If asked something unrelated to BTS, briefly acknowledge and redirect to BTS support topics. If you cannot resolve a BTS question after searching the knowledge base, call escalate_to_support immediately — do NOT read out or suggest the support email address.`;
 }
 
 /**
@@ -150,6 +154,43 @@ function existingToolFingerprint(tool: Record<string, unknown>): string {
     },
   });
 }
+
+/**
+ * Build a canonical fingerprint of the desired escalation tool contract.
+ * Tracked separately from the KB tool so a URL or auth change triggers a
+ * fresh update independently for each tool.
+ */
+function escalateToolFingerprint(url: string, authHeader: string): string {
+  return JSON.stringify({
+    name: ESCALATE_TO_SUPPORT_TOOL_NAME,
+    url,
+    method: "POST",
+    auth: authHeader,
+    args_at_root: true,
+    speak_during_execution: false,
+    params_v: 2, // bump when required/optional params change
+  });
+}
+
+/** Extract escalation-tool fingerprint fields from a live Retell tool object. */
+function existingEscalateToolFingerprint(tool: Record<string, unknown>): string {
+  const headers = (tool.headers ?? {}) as Record<string, string>;
+  // Detect whether the live tool has the transcript_so_far parameter (params_v=2).
+  const params = (tool.parameters ?? {}) as { properties?: Record<string, unknown> };
+  const hasTranscriptParam = "transcript_so_far" in (params.properties ?? {});
+  return JSON.stringify({
+    name: tool.name ?? "",
+    url: tool.url ?? "",
+    method: (tool.method ?? "POST") as string,
+    auth: headers.Authorization ?? "",
+    args_at_root: tool.args_at_root ?? false,
+    speak_during_execution: tool.speak_during_execution ?? false,
+    params_v: hasTranscriptParam ? 2 : 1,
+  });
+}
+
+/** Names of all tools this setup routine manages — used when filtering "other" tools. */
+const MANAGED_TOOL_NAMES = new Set([KB_SEARCH_TOOL_NAME, ESCALATE_TO_SUPPORT_TOOL_NAME]);
 
 /**
  * Assess a Conversation Flow for substantial routing logic.
@@ -439,15 +480,21 @@ export async function probeRetellAgentHealth(): Promise<RetellSetupResult> {
       (currentLlm.general_tools ?? []) as unknown as Array<Record<string, unknown>>
     );
     const existingKbTool = existingTools.find((t) => t.name === KB_SEARCH_TOOL_NAME);
+    const existingEscalateTool = existingTools.find((t) => t.name === ESCALATE_TO_SUPPORT_TOOL_NAME);
 
     const promptMatches = currentLlm.general_prompt === desiredPrompt;
-    const toolMatches =
+    const kbToolMatches =
       existingKbTool != null && existingToolFingerprint(existingKbTool) === desiredFp;
+    const escalateToolMatches =
+      existingEscalateTool != null &&
+      existingEscalateToolFingerprint(existingEscalateTool) ===
+        escalateToolFingerprint(`${apiBaseUrl}/voice/escalate`, authHeader);
+    const toolMatches = kbToolMatches && escalateToolMatches;
 
     if (promptMatches && toolMatches) {
       return {
         skipped: false,
-        reason: "Live re-check: agent is on retell-llm with the KB search tool and correct prompt",
+        reason: "Live re-check: agent is on retell-llm with KB search tool, escalation tool, and correct prompt",
         llmId,
         kbSearchUrl,
         agentResponseEngineType,
@@ -456,8 +503,11 @@ export async function probeRetellAgentHealth(): Promise<RetellSetupResult> {
     }
 
     const issues: string[] = [];
-    if (!toolMatches) {
+    if (!kbToolMatches) {
       issues.push(existingKbTool == null ? "KB search tool missing" : "KB search tool config drifted");
+    }
+    if (!escalateToolMatches) {
+      issues.push(existingEscalateTool == null ? "escalation tool missing" : "escalation tool config drifted");
     }
     if (!promptMatches) issues.push("voice prompt drifted");
 
@@ -532,6 +582,7 @@ export async function setupRetellAgentKb(options: SetupOptions = {}): Promise<Re
   }
 
   const kbSearchUrl = `${apiBaseUrl}/voice/kb-search`;
+  const escalateUrl = `${apiBaseUrl}/voice/escalate`;
 
   // --- build desired state (shared by both the repoint path and the LLM patch path) ---
 
@@ -563,6 +614,39 @@ export async function setupRetellAgentKb(options: SetupOptions = {}): Promise<Re
         },
       },
       required: ["query"],
+    },
+  };
+
+  const desiredEscalateTool = {
+    type: "custom" as const,
+    name: ESCALATE_TO_SUPPORT_TOOL_NAME,
+    description:
+      "Escalate an unanswered BTS question to the support team. Call this ONLY after search_knowledge_base has failed to answer the caller's question. The support team will follow up with the caller by email.",
+    url: escalateUrl,
+    method: "POST" as const,
+    args_at_root: true,
+    speak_during_execution: false,
+    speak_after_execution: true,
+    headers,
+    parameters: {
+      type: "object",
+      properties: {
+        question: {
+          type: "string",
+          description: "The caller's unanswered question, in their own words.",
+        },
+        transcript_so_far: {
+          type: "string",
+          description:
+            "The full conversation transcript up to this point. Pass {{transcript}} so the support team has context.",
+        },
+        caller_phone: {
+          type: "string",
+          description:
+            "The caller's phone number. For inbound phone calls this is available as {{from_number}}. Pass it so the support team can reach back. Omit for web calls.",
+        },
+      },
+      required: ["question"],
     },
   };
 
@@ -654,6 +738,7 @@ export async function setupRetellAgentKb(options: SetupOptions = {}): Promise<Re
     // tool URL — avoids creating orphan duplicates on interrupted reruns.
 
     const desiredFp = toolFingerprint(kbSearchUrl, authHeader);
+    const desiredEscalateFp = escalateToolFingerprint(escalateUrl, authHeader);
     let targetLlmId: string | null = null;
     let existingLlmNeedsUpdate = false;
 
@@ -676,7 +761,11 @@ export async function setupRetellAgentKb(options: SetupOptions = {}): Promise<Re
         if (kbTool) {
           targetLlmId = llm.llm_id;
           const promptMatches = llm.general_prompt === desiredPrompt;
-          const toolMatches = existingToolFingerprint(kbTool) === desiredFp;
+          const escalateTool = tools.find((t) => t.name === ESCALATE_TO_SUPPORT_TOOL_NAME);
+          const toolMatches =
+            existingToolFingerprint(kbTool) === desiredFp &&
+            escalateTool != null &&
+            existingEscalateToolFingerprint(escalateTool) === desiredEscalateFp;
           existingLlmNeedsUpdate = !promptMatches || !toolMatches;
           break;
         }
@@ -689,17 +778,17 @@ export async function setupRetellAgentKb(options: SetupOptions = {}): Promise<Re
       // Reuse the existing LLM but update it to match desired state.
       const existingLlm = await client.llm.retrieve(targetLlmId);
       const existingTools = ((existingLlm.general_tools ?? []) as unknown as Array<Record<string, unknown>>);
-      const otherTools = existingTools.filter((t) => t.name !== KB_SEARCH_TOOL_NAME);
+      const otherTools = existingTools.filter((t) => !MANAGED_TOOL_NAMES.has(t.name as string));
       await client.llm.update(targetLlmId, {
         general_prompt: desiredPrompt,
-        general_tools: [desiredTool, ...otherTools] as Parameters<typeof client.llm.update>[1]["general_tools"],
+        general_tools: [desiredTool, desiredEscalateTool, ...otherTools] as Parameters<typeof client.llm.update>[1]["general_tools"],
       });
-      console.log(`[RetellSetup] Updated existing LLM ${targetLlmId} with latest KB tool + prompt.`);
+      console.log(`[RetellSetup] Updated existing LLM ${targetLlmId} with latest KB + escalation tools + prompt.`);
     } else if (!targetLlmId) {
       // No matching LLM found — create a new one.
       const newLlm = await client.llm.create({
         general_prompt: desiredPrompt,
-        general_tools: [desiredTool] as Parameters<typeof client.llm.create>[0]["general_tools"],
+        general_tools: [desiredTool, desiredEscalateTool] as Parameters<typeof client.llm.create>[0]["general_tools"],
       });
       targetLlmId = (newLlm as unknown as { llm_id: string }).llm_id;
       console.log(`[RetellSetup] Created new Retell LLM ${targetLlmId}.`);
@@ -824,16 +913,22 @@ export async function setupRetellAgentKb(options: SetupOptions = {}): Promise<Re
     (currentLlm.general_tools ?? []) as unknown as Array<Record<string, unknown>>
   );
   const existingKbTool = existingTools.find((t) => t.name === KB_SEARCH_TOOL_NAME);
+  const existingEscalateTool = existingTools.find((t) => t.name === ESCALATE_TO_SUPPORT_TOOL_NAME);
 
   const promptMatches = currentLlm.general_prompt === desiredPrompt;
   const desiredFp = toolFingerprint(kbSearchUrl, authHeader);
-  const toolMatches =
+  const desiredEscalateFp = escalateToolFingerprint(escalateUrl, authHeader);
+  const kbToolMatches =
     existingKbTool != null && existingToolFingerprint(existingKbTool) === desiredFp;
+  const escalateToolMatches =
+    existingEscalateTool != null &&
+    existingEscalateToolFingerprint(existingEscalateTool) === desiredEscalateFp;
+  const toolMatches = kbToolMatches && escalateToolMatches;
 
   if (promptMatches && toolMatches) {
     return {
       skipped: true,
-      reason: "LLM already has the KB search tool and correct prompt — no update needed",
+      reason: "LLM already has the KB search tool, escalation tool, and correct prompt — no update needed",
       llmId,
       kbSearchUrl,
       agentResponseEngineType,
@@ -841,8 +936,8 @@ export async function setupRetellAgentKb(options: SetupOptions = {}): Promise<Re
     };
   }
 
-  const otherTools = existingTools.filter((t) => t.name !== KB_SEARCH_TOOL_NAME);
-  const updatedTools = [desiredTool, ...otherTools];
+  const otherTools = existingTools.filter((t) => !MANAGED_TOOL_NAMES.has(t.name as string));
+  const updatedTools = [desiredTool, desiredEscalateTool, ...otherTools];
 
   await client.llm.update(llmId, {
     general_prompt: desiredPrompt,
@@ -851,7 +946,7 @@ export async function setupRetellAgentKb(options: SetupOptions = {}): Promise<Re
 
   return {
     skipped: false,
-    reason: `Updated LLM ${llmId} — prompt_changed=${!promptMatches} tool_changed=${!toolMatches}`,
+    reason: `Updated LLM ${llmId} — prompt_changed=${!promptMatches} kb_tool_changed=${!kbToolMatches} escalate_tool_changed=${!escalateToolMatches}`,
     llmId,
     kbSearchUrl,
     agentResponseEngineType,

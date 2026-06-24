@@ -1,5 +1,5 @@
 import { Router, type Request, type Response } from "express";
-import { db, usersTable, voiceCallsTable, voiceDailyUsageTable, knowledgebaseDocsTable } from "@workspace/db";
+import { db, usersTable, voiceCallsTable, voiceDailyUsageTable, knowledgebaseDocsTable, ticketsTable, ticketMessagesTable } from "@workspace/db";
 import { eq, sql, and, desc } from "drizzle-orm";
 import { isAdminRole } from "@workspace/auth";
 import Retell from "retell-sdk";
@@ -10,7 +10,15 @@ import { requirePermission } from "../middleware/rbac";
 import { csvEscape } from "../lib/csv";
 import { logAdminAction } from "../lib/audit-log";
 import { buildVoiceSynonymTsquery, expandVoiceQuerySynonyms } from "../lib/voice-synonyms";
+import { queueTicketDeskDelivery, sendSupportFallbackEmail } from "../lib/ticketdesk-queue";
+import { autoRouteTicket } from "../lib/ticket-routing";
+import { createSlaForTicket } from "../lib/sla";
 import crypto from "crypto";
+
+function generateVoiceTicketNumber(): string {
+  const num = Math.floor(100000 + Math.random() * 900000);
+  return `BTS-${num}`;
+}
 
 const router = Router();
 
@@ -313,6 +321,256 @@ router.post("/voice/kb-search", async (req: Request, res: Response): Promise<voi
 });
 
 // ---------------------------------------------------------------------------
+// Retell agent function: escalate_to_support
+//
+// Called by the voice agent when it cannot answer a BTS question after
+// searching the knowledge base. Captures the question + caller info and
+// opens a support ticket (member-linked when the caller's phone matches a
+// member account) or falls back to a direct support-inbox email when no
+// member is found. Secured with the same RETELL_FUNCTION_SECRET Bearer
+// pattern used by /voice/kb-search.
+// ---------------------------------------------------------------------------
+
+router.post("/voice/escalate", async (req: Request, res: Response): Promise<void> => {
+  const authHeader = req.headers.authorization ?? "";
+  const provided = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : "";
+
+  if (process.env.NODE_ENV === "production") {
+    if (!RETELL_FUNCTION_SECRET) {
+      console.error("[Voice Escalate] RETELL_FUNCTION_SECRET not configured — rejecting");
+      res.status(503).json({ error: "Escalation not configured" });
+      return;
+    }
+    const secretBuf = Buffer.from(RETELL_FUNCTION_SECRET);
+    const providedBuf = Buffer.from(provided);
+    let valid = false;
+    if (secretBuf.length === providedBuf.length) {
+      valid = crypto.timingSafeEqual(secretBuf, providedBuf);
+    }
+    if (!valid) {
+      res.status(401).json({ error: "Unauthorized" });
+      return;
+    }
+  } else {
+    if (RETELL_FUNCTION_SECRET && provided !== RETELL_FUNCTION_SECRET) {
+      res.status(401).json({ error: "Unauthorized" });
+      return;
+    }
+  }
+
+  const { question, caller_phone, transcript_so_far } = req.body as {
+    question?: string;
+    caller_phone?: string;
+    transcript_so_far?: string;
+  };
+  if (!question || typeof question !== "string" || !question.trim()) {
+    res.status(400).json({ error: "question is required" });
+    return;
+  }
+
+  const callerPhone = typeof caller_phone === "string" ? caller_phone.trim() : null;
+  const questionText = question.trim();
+  const transcriptText = typeof transcript_so_far === "string" ? transcript_so_far.trim() : null;
+
+  // Try to identify the caller by matching their phone number to a member.
+  let matchedUser: { id: number; email: string; name: string } | null = null;
+  if (callerPhone) {
+    const [found] = await db
+      .select({ id: usersTable.id, email: usersTable.email, name: usersTable.name })
+      .from(usersTable)
+      .where(eq(usersTable.phone, callerPhone))
+      .limit(1);
+    matchedUser = found ?? null;
+  }
+
+  const ticketSubject = `Voice Call Escalation: ${questionText.slice(0, 100)}${questionText.length > 100 ? "…" : ""}`;
+  const ticketBodyParts = [
+    `Question from voice call: ${questionText}`,
+    "",
+    callerPhone ? `Caller's phone number: ${callerPhone}` : "Caller's phone number: not available",
+    "",
+  ];
+  if (transcriptText) {
+    ticketBodyParts.push("Call transcript:", transcriptText, "");
+  }
+  ticketBodyParts.push(
+    "This support ticket was automatically created by the BTS Voice Assistant when it could not answer the caller's question.",
+  );
+  const ticketBody = ticketBodyParts.join("\n");
+
+  // Track whether we have confirmed a support artifact will reach the team.
+  let escalated = false;
+
+  if (matchedUser) {
+    // Matched member — create a DB ticket and route through the full pipeline.
+    try {
+      const ticketNumber = generateVoiceTicketNumber();
+
+      const [ticket] = await db
+        .insert(ticketsTable)
+        .values({
+          ticketNumber,
+          userId: matchedUser.id,
+          category: "other",
+          priority: "normal",
+          status: "open",
+          subject: ticketSubject,
+          source: "voice_call",
+        })
+        .returning();
+
+      await db.insert(ticketMessagesTable).values({
+        ticketId: ticket.id,
+        senderType: "member",
+        body: ticketBody,
+      });
+
+      try {
+        await createSlaForTicket(ticket.id, matchedUser.id);
+      } catch (err) {
+        console.error("[Voice Escalate] Failed to create SLA:", err);
+      }
+
+      try {
+        await autoRouteTicket(ticket.id, matchedUser.id, "other", "normal");
+      } catch (err) {
+        console.error("[Voice Escalate] Failed to auto-route ticket:", err);
+      }
+
+      const jobId = await queueTicketDeskDelivery({
+        contactEmail: matchedUser.email,
+        contactName: matchedUser.name,
+        subject: ticketSubject,
+        body: ticketBody,
+        btsTicketNumber: ticketNumber,
+        ticketId: ticket.id,
+      }).catch((err: unknown) => {
+        console.error("[Voice Escalate] Failed to queue TicketDesk delivery:", err);
+        return null;
+      });
+
+      if (jobId == null) {
+        // Queue unavailable — fire backstop immediately so the team is notified.
+        console.warn("[Voice Escalate] queueTicketDeskDelivery returned null for member ticket; firing backstop email");
+        await sendSupportFallbackEmail(
+          {
+            contactEmail: matchedUser.email,
+            contactName: matchedUser.name,
+            subject: ticketSubject,
+            body: ticketBody,
+            btsTicketNumber: ticketNumber,
+            ticketId: ticket.id,
+          },
+          "Voice escalation: queue unavailable at delivery time",
+        ).catch((err: unknown) => console.error("[Voice Escalate] Backstop email also failed:", err));
+      }
+
+      console.log(`[Voice Escalate] Ticket ${ticketNumber} created for member ${matchedUser.id} (${callerPhone ?? "web"})`);
+      escalated = true;
+    } catch (err) {
+      console.error("[Voice Escalate] Failed to create ticket for matched member:", err);
+      // Fall through to guaranteed backstop below.
+    }
+  } else {
+    // Unknown caller — create an anonymous ticket (userId=null) that records
+    // the caller's phone number, then route through the full support pipeline.
+    try {
+      const ticketNumber = generateVoiceTicketNumber();
+      const callerDesc = callerPhone ?? "unknown number";
+
+      const [ticket] = await db
+        .insert(ticketsTable)
+        .values({
+          ticketNumber,
+          userId: null,
+          category: "other",
+          priority: "normal",
+          status: "open",
+          subject: ticketSubject,
+          source: "voice_call",
+        })
+        .returning();
+
+      await db.insert(ticketMessagesTable).values({
+        ticketId: ticket.id,
+        senderType: "member",
+        body: ticketBody,
+      });
+
+      try {
+        await autoRouteTicket(ticket.id, null, "other", "normal");
+      } catch (err) {
+        console.error("[Voice Escalate] Failed to auto-route anonymous ticket:", err);
+      }
+
+      const anonJobId = await queueTicketDeskDelivery({
+        contactEmail: callerDesc,
+        contactName: `Phone Caller (${callerDesc})`,
+        subject: ticketSubject,
+        body: ticketBody,
+        btsTicketNumber: ticketNumber,
+        ticketId: ticket.id,
+      }).catch((err: unknown) => {
+        console.error("[Voice Escalate] Failed to queue TicketDesk delivery for anonymous caller:", err);
+        return null;
+      });
+
+      if (anonJobId == null) {
+        console.warn("[Voice Escalate] queueTicketDeskDelivery returned null for anonymous ticket; firing backstop email");
+        await sendSupportFallbackEmail(
+          {
+            contactEmail: callerDesc,
+            contactName: `Phone Caller (${callerDesc})`,
+            subject: ticketSubject,
+            body: ticketBody,
+            btsTicketNumber: ticketNumber,
+            ticketId: ticket.id,
+          },
+          "Voice escalation: queue unavailable at delivery time",
+        ).catch((err: unknown) => console.error("[Voice Escalate] Anonymous backstop email also failed:", err));
+      }
+
+      console.log(`[Voice Escalate] Anonymous ticket ${ticketNumber} created (${callerPhone ?? "no number"})`);
+      escalated = true;
+    } catch (err) {
+      console.error("[Voice Escalate] Failed to create anonymous ticket:", err);
+    }
+  }
+
+  // Guaranteed backstop: if the primary paths above both failed, send a direct
+  // support-inbox email so the escalation is never silently lost.
+  if (!escalated) {
+    try {
+      await sendSupportFallbackEmail(
+        {
+          contactEmail: callerPhone ?? "unknown",
+          contactName: matchedUser
+            ? matchedUser.name
+            : `Phone Caller (${callerPhone ?? "unknown"})`,
+          subject: ticketSubject,
+          body: ticketBody,
+          btsTicketNumber: generateVoiceTicketNumber(),
+          ticketId: undefined,
+        },
+        "Voice escalation backstop — all primary paths failed",
+      );
+      escalated = true;
+      console.log("[Voice Escalate] Backstop email sent after primary path failure");
+    } catch (err) {
+      console.error("[Voice Escalate] Backstop email also failed:", err);
+    }
+  }
+
+  if (!escalated) {
+    res.status(500).json({ error: "Escalation failed — please ask the caller to contact support@buildtestscale.com" });
+    return;
+  }
+
+  // Return a success response the agent uses to tell the caller support will follow up.
+  res.json({ escalated: true, message: "Support ticket created. The team will follow up by email." });
+});
+
+// ---------------------------------------------------------------------------
 // Admin: manually re-run the Retell agent KB setup
 //
 // Lets an admin trigger the same idempotent Retell LLM configuration that
@@ -533,6 +791,8 @@ router.get(
       sql`SELECT
           c.id AS id,
           c.user_id AS user_id,
+          c.call_type AS call_type,
+          c.caller_phone AS caller_phone,
           u.name AS name,
           u.email AS email,
           c.status AS status,
@@ -543,23 +803,25 @@ router.get(
           (c.transcript IS NOT NULL AND c.transcript <> '') AS has_transcript,
           (c.summary IS NOT NULL AND c.summary <> '') AS has_summary
         FROM voice_calls c
-        JOIN users u ON u.id = c.user_id
+        LEFT JOIN users u ON u.id = c.user_id
         ${whereClause}
         ORDER BY c.started_at DESC
         LIMIT ${limit} OFFSET ${offset}`
     );
 
     const countResult = await db.execute(
-      sql`SELECT COUNT(*)::int AS total FROM voice_calls c JOIN users u ON u.id = c.user_id ${whereClause}`
+      sql`SELECT COUNT(*)::int AS total FROM voice_calls c LEFT JOIN users u ON u.id = c.user_id ${whereClause}`
     );
     const total = Number((countResult.rows[0] as Record<string, unknown>)?.total ?? 0) || 0;
 
     res.json({
       calls: (rowsResult.rows as Record<string, unknown>[]).map((r) => ({
         id: Number(r.id),
-        userId: Number(r.user_id),
-        name: (r.name as string) ?? "",
-        email: (r.email as string) ?? "",
+        userId: r.user_id == null ? null : Number(r.user_id),
+        callType: (r.call_type as string) ?? "web",
+        callerPhone: (r.caller_phone as string | null) ?? null,
+        name: (r.name as string | null) ?? null,
+        email: (r.email as string | null) ?? null,
         status: (r.status as string) ?? "",
         startedAt: r.started_at,
         endedAt: r.ended_at,
@@ -611,6 +873,8 @@ router.get(
         sql`SELECT
             c.id AS id,
             c.user_id AS user_id,
+            c.call_type AS call_type,
+            c.caller_phone AS caller_phone,
             u.name AS name,
             u.email AS email,
             c.status AS status,
@@ -621,7 +885,7 @@ router.get(
             (c.transcript IS NOT NULL AND c.transcript <> '') AS has_transcript,
             (c.summary IS NOT NULL AND c.summary <> '') AS has_summary
           FROM voice_calls c
-          JOIN users u ON u.id = c.user_id
+          LEFT JOIN users u ON u.id = c.user_id
           ${whereClause}
           ORDER BY c.started_at DESC
           LIMIT ${VOICE_EXPORT_HARD_CAP}`
@@ -629,9 +893,11 @@ router.get(
 
       const rows = (result.rows as Record<string, unknown>[]).map((r) => ({
         id: Number(r.id ?? 0) || 0,
-        user_id: Number(r.user_id ?? 0) || 0,
-        name: (r.name as string) ?? "",
-        email: (r.email as string) ?? "",
+        user_id: r.user_id == null ? null : Number(r.user_id),
+        call_type: (r.call_type as string) ?? "web",
+        caller_phone: (r.caller_phone as string | null) ?? null,
+        name: (r.name as string | null) ?? null,
+        email: (r.email as string | null) ?? null,
         status: (r.status as string) ?? "",
         started_at: toIso(r.started_at),
         ended_at: toIso(r.ended_at),
@@ -668,16 +934,18 @@ router.get(
       res.setHeader("Content-Type", "text/csv");
       res.setHeader("Content-Disposition", `attachment; filename=${filename}.csv`);
       res.write(
-        "id,user_id,member,email,status,started_at,ended_at,duration_seconds,disconnect_reason,has_transcript,has_summary\n",
+        "id,user_id,call_type,caller_phone,member,email,status,started_at,ended_at,duration_seconds,disconnect_reason,has_transcript,has_summary\n",
       );
 
       for (const r of rows) {
         res.write(
           [
             r.id,
-            r.user_id,
-            r.name,
-            r.email,
+            r.user_id ?? "",
+            r.call_type,
+            r.caller_phone ?? "",
+            r.name ?? "",
+            r.email ?? "",
             r.status,
             r.started_at,
             r.ended_at,
@@ -717,6 +985,8 @@ router.get(
       .select({
         id: voiceCallsTable.id,
         userId: voiceCallsTable.userId,
+        callType: voiceCallsTable.callType,
+        callerPhone: voiceCallsTable.callerPhone,
         name: usersTable.name,
         email: usersTable.email,
         retellCallId: voiceCallsTable.retellCallId,
@@ -729,7 +999,7 @@ router.get(
         disconnectReason: voiceCallsTable.disconnectReason,
       })
       .from(voiceCallsTable)
-      .innerJoin(usersTable, eq(usersTable.id, voiceCallsTable.userId))
+      .leftJoin(usersTable, eq(usersTable.id, voiceCallsTable.userId))
       .where(eq(voiceCallsTable.id, id))
       .limit(1);
 

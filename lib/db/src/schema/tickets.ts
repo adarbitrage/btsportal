@@ -6,7 +6,7 @@ import { usersTable } from "./users";
 export const ticketsTable = pgTable("tickets", {
   id: serial("id").primaryKey(),
   ticketNumber: text("ticket_number").notNull().unique(),
-  userId: integer("user_id").notNull().references(() => usersTable.id),
+  userId: integer("user_id").references(() => usersTable.id),
   category: text("category").notNull().default("other"),
   priority: text("priority").notNull().default("normal"),
   status: text("status").notNull().default("open"),
