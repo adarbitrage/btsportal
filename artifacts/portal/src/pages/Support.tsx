@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { format } from "date-fns";
 import { Link, useLocation, useSearch } from "wouter";
-import { Search, MessageCircle, HelpCircle, AlertTriangle, LifeBuoy, Info, CheckCircle2, Sparkles, ShieldCheck } from "lucide-react";
+import { Search, MessageCircle, HelpCircle, AlertTriangle, LifeBuoy, Info, CheckCircle2, Sparkles, ShieldCheck, Phone } from "lucide-react";
 import {
   getTopicPresetForSubject,
   formatTicketCategory,
@@ -15,6 +15,7 @@ import {
   TICKET_FILTERS,
   type TicketFilter,
 } from "@/lib/support-topics";
+import { SUPPORT_PHONE_NUMBER, formatPhoneNumber } from "@/config/support";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -377,6 +378,30 @@ export default function Support() {
             )}
           </div>
         </Card>
+
+        {SUPPORT_PHONE_NUMBER && (
+          <Card className="border-border/60 shadow-sm">
+            <CardContent className="p-6 flex flex-col sm:flex-row items-center gap-4">
+              <div className="w-12 h-12 rounded-lg border border-border/60 bg-muted flex items-center justify-center shrink-0">
+                <Phone className="w-6 h-6 text-foreground" />
+              </div>
+              <div className="flex-1 text-center sm:text-left">
+                <h3 className="font-semibold text-foreground">Call our AI support line</h3>
+                <p className="text-sm text-muted-foreground">
+                  Our AI assistant can answer the same questions as web chat. If it can't help, our team will follow up.
+                </p>
+              </div>
+              <a
+                href={`tel:${SUPPORT_PHONE_NUMBER.startsWith("+") ? "+" : ""}${SUPPORT_PHONE_NUMBER.replace(/\D/g, "")}`}
+                className="whitespace-nowrap inline-flex items-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground shadow-sm hover:bg-primary/90 transition-colors"
+                data-testid="support-phone-link"
+              >
+                <Phone className="w-4 h-4" />
+                {formatPhoneNumber(SUPPORT_PHONE_NUMBER)}
+              </a>
+            </CardContent>
+          </Card>
+        )}
 
         <Card className="border-border/60 shadow-sm">
           <CardContent className="p-6 flex flex-col sm:flex-row items-center gap-4">

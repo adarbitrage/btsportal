@@ -24,6 +24,16 @@
 
 export * from "./upload-limits";
 
+/**
+ * Customer-facing toll-free phone number for AI voice support.
+ *
+ * Defaults to empty string so nothing is displayed until the real number is
+ * provisioned in Retell and configured via the `VITE_SUPPORT_PHONE_NUMBER`
+ * env override in the portal.  The portal hides the call option entirely when
+ * this resolves to an empty string.
+ */
+export const DEFAULT_SUPPORT_PHONE_NUMBER = "";
+
 /** Root URL of the TicketDesk installation. */
 export const DEFAULT_TICKETDESK_URL = "https://tickets.buildtestscale.com/";
 
