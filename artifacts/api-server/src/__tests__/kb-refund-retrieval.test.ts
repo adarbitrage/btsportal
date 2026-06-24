@@ -46,6 +46,9 @@ const REFUND_QUERIES = [
   "what is the refund guarantee and how do I qualify",
   "can I get a refund from the mentorship program",
   "what revenue threshold do I need for the refund guarantee",
+  // Pure casual phrasing that never uses the canonical word "refund" — only
+  // surfaces the refund context via the synonym/alias layer.
+  "how do I get my money back",
 ];
 
 describe("AI assistant refund retrieval (searchKnowledgebase)", () => {
