@@ -116,7 +116,7 @@ async function tryIncrementDailyUsage(userId: number, chatTier: string, dailyLim
   return { allowed: true, count: (result.rows[0] as any).message_count };
 }
 
-async function searchKnowledgebase(query: string, categories: string[]): Promise<Array<{ title: string; content: string; category: string }>> {
+export async function searchKnowledgebase(query: string, categories: string[]): Promise<Array<{ title: string; content: string; category: string }>> {
   if (categories.length === 0) return [];
 
   const categoriesArray = `{${categories.join(",")}}`;
