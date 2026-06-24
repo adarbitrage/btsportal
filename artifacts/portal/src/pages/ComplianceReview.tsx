@@ -1,8 +1,20 @@
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { ShieldCheck, Send, CheckCircle2, Upload, AlertCircle, AlertTriangle, X, RotateCw, Loader2 } from "lucide-react";
 import { useState, useRef } from "react";
+import { Link } from "wouter";
+import { format } from "date-fns";
+import { useListTickets, useGetTicket } from "@workspace/api-client-react";
+import type { Ticket } from "@workspace/api-client-react";
 import {
   validateTicketAttachment,
   TICKET_ATTACHMENT_MAX_LABEL,
@@ -10,6 +22,237 @@ import {
 } from "@workspace/support-config";
 
 const API_BASE = `${import.meta.env.BASE_URL}api`;
+
+// A compliance submission is just a support ticket of category
+// `compliance_review`; reuse the generated schema type so the section
+// components stay in lockstep with the API.
+type ComplianceTicket = Ticket;
+
+const ACTIVE_COMPLIANCE_STATUSES = new Set(["open", "in_progress", "awaiting_response"]);
+
+// Submissions are filed with subject `Compliance Review — <offer>` (see the
+// POST /tickets/compliance route). Strip the prefix so each row leads with the
+// offer name the member actually cares about, falling back to the raw subject.
+function complianceOfferLabel(subject: string): string {
+  const prefix = "Compliance Review — ";
+  return subject.startsWith(prefix) ? subject.slice(prefix.length) : subject;
+}
+
+const byNewestFirst = (a: ComplianceTicket, b: ComplianceTicket) =>
+  new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+
+// One row in the "Currently Under Review" list. The action is state-aware: a
+// quiet "View Submission" by default, escalating to a prominent
+// "Action needed — reply requested" banner + "View & Reply" CTA when the
+// compliance team is waiting on the member (status `awaiting_response`). Either
+// way the button opens the existing ticket thread page — we never rebuild the
+// conversation UI here.
+function UnderReviewRow({ ticket }: { ticket: ComplianceTicket }) {
+  const offer = complianceOfferLabel(ticket.subject);
+  const actionNeeded = ticket.status === "awaiting_response";
+  return (
+    <Card className="border-border/60" data-testid={`compliance-active-${ticket.id}`} data-status={ticket.status}>
+      <CardContent className="p-4 sm:p-5">
+        {actionNeeded && (
+          <div
+            className="mb-3 flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm font-medium text-amber-900"
+            data-testid={`compliance-action-needed-${ticket.id}`}
+          >
+            <AlertTriangle className="w-4 h-4 shrink-0 text-amber-600" />
+            Action needed — reply requested
+          </div>
+        )}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="min-w-0">
+            <div className="flex items-center gap-2 mb-1">
+              <Badge variant="warning">Under review</Badge>
+              <span className="text-xs font-mono text-muted-foreground">{ticket.ticketNumber}</span>
+            </div>
+            <h3 className="font-semibold text-foreground truncate">{offer}</h3>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              Submitted {format(new Date(ticket.createdAt), "MMM d, yyyy")}
+            </p>
+          </div>
+          <Link href={`/support/tickets/${ticket.id}`} className="shrink-0">
+            <Button
+              variant={actionNeeded ? "default" : "outline"}
+              size="sm"
+              data-testid={`compliance-view-submission-${ticket.id}`}
+            >
+              {actionNeeded ? "View & Reply" : "View Submission"}
+            </Button>
+          </Link>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+// One row in the "Past Submissions" list. "Complete" covers resolved/closed;
+// the reviewer's verdict is revealed in a focused popup via onViewResults
+// rather than sending the member to the full thread.
+function PastSubmissionRow({
+  ticket,
+  onViewResults,
+}: {
+  ticket: ComplianceTicket;
+  onViewResults: () => void;
+}) {
+  const offer = complianceOfferLabel(ticket.subject);
+  return (
+    <Card className="border-border/60" data-testid={`compliance-past-${ticket.id}`} data-status={ticket.status}>
+      <CardContent className="p-4 sm:p-5">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="min-w-0">
+            <div className="flex items-center gap-2 mb-1">
+              <Badge variant="success" className="gap-1">
+                <CheckCircle2 className="w-3 h-3" />
+                Complete
+              </Badge>
+              <span className="text-xs font-mono text-muted-foreground">{ticket.ticketNumber}</span>
+            </div>
+            <h3 className="font-semibold text-foreground truncate">{offer}</h3>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              Submitted {format(new Date(ticket.createdAt), "MMM d, yyyy")}
+            </p>
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            className="shrink-0"
+            onClick={onViewResults}
+            data-testid={`compliance-view-results-${ticket.id}`}
+          >
+            View Results
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+// Body of the "View Results" popup. Fetches the submission's thread on demand
+// (mounted only while the dialog is open) and shows every reviewer reply,
+// newest first and highlighted. Reviewer replies are admin, non-internal
+// messages; a submission completed with no written reply gets a graceful
+// fallback instead of an empty box.
+function ComplianceResultsBody({ ticketId }: { ticketId: number }) {
+  const { data: ticket, isLoading } = useGetTicket(ticketId);
+
+  if (isLoading) {
+    return (
+      <div className="py-8 text-center text-sm text-muted-foreground">
+        <Loader2 className="w-5 h-5 animate-spin mx-auto mb-2" />
+        Loading the review…
+      </div>
+    );
+  }
+
+  const replies = (ticket?.messages ?? [])
+    .filter((m) => m.senderType === "admin" && !(m as { isInternal?: boolean }).isInternal)
+    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+
+  if (replies.length === 0) {
+    return (
+      <div
+        className="rounded-lg border border-border bg-muted/30 p-4 text-sm text-muted-foreground"
+        data-testid="compliance-results-empty"
+      >
+        No written response was provided for this submission.
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-3 max-h-[60vh] overflow-y-auto">
+      {replies.map((m, i) => (
+        <div
+          key={m.id}
+          className={`rounded-lg border p-4 ${i === 0 ? "border-primary/30 bg-primary/[0.03]" : "border-border bg-muted/20"}`}
+          data-testid={`compliance-result-${m.id}`}
+        >
+          <div className="flex items-center gap-2 mb-2 text-xs">
+            <ShieldCheck className="w-3.5 h-3.5 text-primary" />
+            <span className="font-medium text-foreground">Compliance Team</span>
+            {i === 0 && replies.length > 1 && (
+              <Badge variant="secondary" className="text-[10px] px-1.5 py-0">Latest</Badge>
+            )}
+            <span className="ml-auto text-muted-foreground">
+              {format(new Date(m.createdAt), "MMM d, yyyy")}
+            </span>
+          </div>
+          <p className="text-sm text-foreground whitespace-pre-wrap">{m.body}</p>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// The two status sections shown above the submission form. Renders nothing
+// until the member actually has a compliance submission, so a first-time
+// member just sees the form.
+function ComplianceSubmissions() {
+  const { data: tickets, isLoading } = useListTickets();
+  const [resultsTicket, setResultsTicket] = useState<ComplianceTicket | null>(null);
+
+  if (isLoading) return null;
+
+  const compliance = (tickets ?? []).filter((t) => t.category === "compliance_review");
+  const active = compliance.filter((t) => ACTIVE_COMPLIANCE_STATUSES.has(t.status)).sort(byNewestFirst);
+  const past = compliance
+    .filter((t) => t.status === "resolved" || t.status === "closed")
+    .sort(byNewestFirst);
+
+  if (active.length === 0 && past.length === 0) return null;
+
+  return (
+    <div className="space-y-8" data-testid="compliance-submissions">
+      {active.length > 0 && (
+        <section>
+          <h2 className="text-xl font-bold text-foreground border-b border-border pb-3 mb-4">
+            Currently Under Review
+          </h2>
+          <div className="space-y-3">
+            {active.map((ticket) => (
+              <UnderReviewRow key={ticket.id} ticket={ticket} />
+            ))}
+          </div>
+        </section>
+      )}
+
+      {past.length > 0 && (
+        <section>
+          <h2 className="text-xl font-bold text-foreground border-b border-border pb-3 mb-4">
+            Past Submissions
+          </h2>
+          <div className="space-y-3">
+            {past.map((ticket) => (
+              <PastSubmissionRow
+                key={ticket.id}
+                ticket={ticket}
+                onViewResults={() => setResultsTicket(ticket)}
+              />
+            ))}
+          </div>
+        </section>
+      )}
+
+      <Dialog open={!!resultsTicket} onOpenChange={(open) => { if (!open) setResultsTicket(null); }}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>
+              {resultsTicket ? `Review Results — ${complianceOfferLabel(resultsTicket.subject)}` : "Review Results"}
+            </DialogTitle>
+            <DialogDescription>
+              The compliance team's response to your submission.
+            </DialogDescription>
+          </DialogHeader>
+          {resultsTicket && <ComplianceResultsBody ticketId={resultsTicket.id} />}
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
 
 const creativeTypes = ["Banner", "Landing Page"];
 const trafficSources = ["Grasshopper", "Crane", "Caterpillar", "Meta", "Other"];
@@ -349,6 +592,8 @@ export default function ComplianceReview() {
             source you plan to run it on.
           </p>
         </div>
+
+        <ComplianceSubmissions />
 
         <Card className="border-border/60">
           <CardContent className="p-6 md:p-8">

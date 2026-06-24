@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, fireEvent, waitFor, within } from "@testing-library/react";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { ReactNode } from "react";
 
 // The Compliance Review form uploads each selected file to object storage via a
@@ -22,6 +23,22 @@ vi.mock("@/components/layout/AppLayout", () => ({
 }));
 
 import ComplianceReview from "@/pages/ComplianceReview";
+
+// The page now reads the member's compliance submissions via react-query
+// (useListTickets / useGetTicket), so every render needs a QueryClient. The
+// upload flow under test runs through the stubbed global fetch below; the
+// submissions query just resolves to an empty list, so the two status sections
+// render nothing and stay out of the way of these upload-focused assertions.
+function renderPage() {
+  const queryClient = new QueryClient({
+    defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+  });
+  return render(
+    <QueryClientProvider client={queryClient}>
+      <ComplianceReview />
+    </QueryClientProvider>,
+  );
+}
 
 // File names whose request-url POST should throw (simulating "couldn't reach the
 // server" — a network error before storage is even contacted).
@@ -60,6 +77,11 @@ beforeEach(() => {
 
   global.fetch = vi.fn(async (input: unknown, init?: { body?: unknown }) => {
     const url = String(input);
+    if (url.includes("/api/tickets")) {
+      // The compliance status sections query the member's tickets; an empty
+      // list keeps them hidden so these upload tests stay focused.
+      return { ok: true, json: async () => [] } as unknown as Response;
+    }
     if (url.includes("/storage/uploads/request-url")) {
       const body = JSON.parse(String(init?.body ?? "{}")) as { name: string };
       if (requestUrlNetworkError.has(body.name)) {
@@ -97,7 +119,7 @@ describe("ComplianceReview — per-file upload error display", () => {
     requestUrlNetworkError.add("network.zip");
     putRejected.set("storage.zip", 500);
 
-    render(<ComplianceReview />);
+    renderPage();
     selectFiles([zipFile("network.zip"), zipFile("storage.zip")]);
 
     submitForm();
@@ -124,6 +146,9 @@ describe("ComplianceReview — per-file upload error display", () => {
     // from a non-OK PUT response (storage rejected the file).
     global.fetch = vi.fn(async (input: unknown, init?: { body?: unknown }) => {
       const url = String(input);
+      if (url.includes("/api/tickets")) {
+        return { ok: true, json: async () => [] } as unknown as Response;
+      }
       if (url.includes("/storage/uploads/request-url")) {
         const body = JSON.parse(String(init?.body ?? "{}")) as { name: string };
         return {
@@ -142,7 +167,7 @@ describe("ComplianceReview — per-file upload error display", () => {
       throw new Error(`unexpected fetch: ${url}`);
     }) as unknown as typeof fetch;
 
-    render(<ComplianceReview />);
+    renderPage();
     selectFiles([zipFile("drop.zip"), zipFile("reject.zip")]);
 
     submitForm();
@@ -157,7 +182,7 @@ describe("ComplianceReview — per-file upload error display", () => {
   it("clears the per-file errors when files are removed", async () => {
     requestUrlNetworkError.add("network.zip");
 
-    render(<ComplianceReview />);
+    renderPage();
     selectFiles([zipFile("network.zip")]);
 
     submitForm();
@@ -173,7 +198,7 @@ describe("ComplianceReview — per-file upload error display", () => {
   it("clears the per-file errors when files are reselected", async () => {
     requestUrlNetworkError.add("network.zip");
 
-    render(<ComplianceReview />);
+    renderPage();
     selectFiles([zipFile("network.zip")]);
 
     submitForm();
