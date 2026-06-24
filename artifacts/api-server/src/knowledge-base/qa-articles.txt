@@ -191,6 +191,24 @@ Please email support@BTSmedia.com with the information listed above. Our team wi
 
 * * *
 
+### How do I reach a coach / Can I contact a coach directly?
+
+Description: The two official ways to engage with a BTS coach — live group coaching calls and private 1-on-1 coaching sessions
+
+Content:
+
+Overview
+
+There are exactly two ways to engage with a BTS coach:
+
+1. Attend a live group coaching call — these run 6 days per week and are the main venue for asking questions, getting real-time feedback, and learning from other members'experience. Find the schedule and join at the Live Coaching Calls section of your portal.
+
+2. Book a private one-on-one coaching session — eligible members can book a private session with a BTS coach directly through the portal under Private Coaching.
+
+There is no direct line to coaches outside these two channels. There is no Discord, no email-a-coach option, no DM channel, and no community messaging that reaches a coach directly. There is no separate way to contact a coach. If you have a question between calls that cannot wait, submit a support ticket or contact the BTS support team at support@buildtestscale.com and they will route your question appropriately.
+
+* * *
+
 ### When are the live Q&A coaching calls?
 
 Description: Schedule and access information for daily coaching sessions
