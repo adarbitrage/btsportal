@@ -1221,6 +1221,10 @@ router.post("/coaching/va-calls/book", async (req, res): Promise<void> => {
     return;
   }
 
+  // Step-3 intake (typeOfRequest, concernArea, alreadyContacted, etc.) is sent
+  // under `intake` for forward-compatibility but is intentionally NOT consumed
+  // here yet — GHL wiring for it is deferred. Only discussionTopic flows to the
+  // appointment note today.
   const { coachId: rawCoachId, startTime, discussionTopic: rawDiscussionTopic } = req.body || {};
   const coachId = typeof rawCoachId === "number" ? rawCoachId : parseInt(rawCoachId, 10);
   const discussionTopic =
@@ -1407,9 +1411,10 @@ router.get("/coaching/va-calls/mine", async (req, res): Promise<void> => {
     conditions.push(eq(sessionPackBookingsTable.status, status));
   }
 
-  // Lean projection: VA calls are never recorded, so no recording fields. The
-  // member's own discussionTopic is safe to echo; coachNotes/actionItems are
-  // never selected here.
+  // The member's own discussionTopic is safe to echo; coachNotes/actionItems +
+  // ingest bookkeeping are deliberately NOT selected, so they can never leak
+  // (see memory pack-booking-member-leak). Recording-ingest outputs ARE
+  // selected, but surfaced only on completed calls (gated below).
   const rows = await db
     .select({
       id: sessionPackBookingsTable.id,
@@ -1425,6 +1430,11 @@ router.get("/coaching/va-calls/mine", async (req, res): Promise<void> => {
       discussionTopic: sessionPackBookingsTable.discussionTopic,
       cancelledAt: sessionPackBookingsTable.cancelledAt,
       createdAt: sessionPackBookingsTable.createdAt,
+      // Meet recording + Gemini notes/transcript, auto-linked by the shared
+      // recording-ingest. Stripped below for every status but "completed".
+      recordingUrl: sessionPackBookingsTable.recordingUrl,
+      summaryUrl: sessionPackBookingsTable.summaryUrl,
+      transcriptUrl: sessionPackBookingsTable.transcriptUrl,
     })
     .from(sessionPackBookingsTable)
     .innerJoin(
@@ -1434,7 +1444,17 @@ router.get("/coaching/va-calls/mine", async (req, res): Promise<void> => {
     .where(and(...conditions))
     .orderBy(desc(sessionPackBookingsTable.scheduledAt));
 
-  res.json(rows);
+  // The recording + notes/transcript links only make sense after a call has
+  // actually happened, so they are exposed exclusively on completed calls. For
+  // every other status the keys are stripped entirely.
+  const calls = rows.map(
+    ({ recordingUrl, summaryUrl, transcriptUrl, ...rest }) =>
+      rest.status === "completed"
+        ? { ...rest, recordingUrl, summaryUrl, transcriptUrl }
+        : rest,
+  );
+
+  res.json(calls);
 });
 
 // ---------------------------------------------------------------------------

@@ -16,7 +16,8 @@ import PillarsToBlitz from "@/pages/PillarsToBlitz";
 import DirectEdge from "@/pages/DirectEdge";
 import TipsAndTricks from "@/pages/TipsAndTricks";
 import Concierge from "@/pages/Concierge";
-import BookVaCall from "@/pages/concierge/BookVaCall";
+import BookVaCall from "@/pages/coaching/BookVaCall";
+import VaCalls from "@/pages/coaching/VaCalls";
 import CoachingSession from "@/pages/CoachingSession";
 import Advantage from "@/pages/Advantage";
 import ComplianceReview from "@/pages/ComplianceReview";
@@ -395,7 +396,13 @@ function Router() {
       <Route path="/core-training/pillars-to-blitz">{() => <ProtectedRoute component={PillarsToBlitz} />}</Route>
       <Route path="/core-training/direct-edge">{() => <ProtectedRoute component={DirectEdge} />}</Route>
       <Route path="/tips-and-tricks">{() => <ProtectedRoute component={TipsAndTricks} />}</Route>
-      <Route path="/concierge/book-va-call">{() => <EntitlementRoute component={BookVaCall} entitlement="coaching:group" />}</Route>
+      <Route path="/va-calls/book">{() => <EntitlementRoute component={BookVaCall} entitlement="coaching:group" />}</Route>
+      <Route path="/va-calls">{() => <ProtectedRoute component={VaCalls} />}</Route>
+      {/* Legacy concierge VA-call paths now live under /va-calls. Preserve the
+          query string so old ?reschedule=<id> deep links keep working. */}
+      <Route path="/concierge/book-va-call">
+        {() => <Redirect to={`/va-calls/book${window.location.search}`} />}
+      </Route>
       <Route path="/concierge">{() => <ProtectedRoute component={Concierge} />}</Route>
       <Route path="/coaching/sessions">{() => <ProtectedRoute component={CoachingSession} />}</Route>
       <Route path="/advantage">{() => <ProtectedRoute component={Advantage} />}</Route>

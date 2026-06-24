@@ -58,6 +58,7 @@ import {
   UserCircle,
   Package,
   Sparkles,
+  Phone,
   BookOpen,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -152,7 +153,8 @@ export const MEMBER_NAV: NavNode[] = [
     children: [
       { kind: "leaf", href: "/coaching", label: "Coaching Calls", icon: Video, requiredEntitlement: "coaching:group" },
       { kind: "leaf", href: "/coaching/book-session", label: "Private Coaching", icon: UserCheck },
-      { kind: "leaf", href: "/concierge", label: "BTS Concierge™", icon: Headphones },
+      { kind: "leaf", href: "/concierge", label: "BTS Concierge™", icon: Sparkles },
+      { kind: "leaf", href: "/va-calls", label: "1-on-1 VA Calls", icon: Phone, requiredEntitlement: "coaching:group" },
     ],
   },
   {

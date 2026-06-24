@@ -40,8 +40,9 @@ export interface VaBusyResponse {
   busy: VaBusyBlock[];
 }
 
-// VA calls are free and never recorded, so this booking shape carries no credit
-// balance or recording fields.
+// VA calls are free (no credit balance), but completed calls DO surface their
+// Meet recording + Gemini notes/transcript (auto-linked by the shared
+// recording-ingest). The recording fields are present only on completed calls.
 export interface VaCall {
   id: number;
   coachId: number;
@@ -56,6 +57,21 @@ export interface VaCall {
   discussionTopic: string | null;
   cancelledAt: string | null;
   createdAt: string;
+  recordingUrl?: string | null;
+  summaryUrl?: string | null;
+  transcriptUrl?: string | null;
+}
+
+// Step-3 intake captured at booking time. Currently captured + validated only;
+// it is sent in the book payload for forward-compatibility but is NOT yet wired
+// to GHL on the server (the appointment note still carries discussionTopic).
+export interface VaCallIntake {
+  typeOfRequest: string;
+  concernArea: string;
+  alreadyContacted: "yes" | "no";
+  relatedTicket?: string;
+  callDurationAck: boolean;
+  scopeAck: boolean;
 }
 
 const ROOT_KEY = "/api/coaching/va-calls";
@@ -118,7 +134,12 @@ export function useBookVaCall() {
   return useMutation<
     { booking: VaCall },
     Error,
-    { coachId: number; startTime: string; discussionTopic?: string }
+    {
+      coachId: number;
+      startTime: string;
+      discussionTopic?: string;
+      intake?: VaCallIntake;
+    }
   >({
     mutationFn: (data) =>
       vaFetch("/coaching/va-calls/book", {

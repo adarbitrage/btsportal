@@ -45,6 +45,28 @@ import { resolveCoachPhotoUrl } from "@/lib/coaches-admin-api";
 
 const VA_CALL_DURATION_MINUTES = 30;
 
+const REQUEST_TYPES = [
+  "General Question",
+  "Clarification Needed",
+  "Assistance Required",
+  "Follow-up on Existing Issue",
+  "Technical Guidance",
+];
+
+const CONCERN_AREAS = [
+  "DIYTrax Campaign Setup",
+  "Traffic Source",
+  "Metricmover Variations",
+  "Flexy Configuration",
+  "Flexy Related Concerns",
+  "Pixel Press Issue",
+  "Campaign Setup Checking",
+  "Other",
+];
+
+const fieldClass =
+  "w-full px-3 py-2 border border-border rounded-lg text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring/40";
+
 type WizardStep = 1 | 2 | 3;
 
 function vaInitials(name: string): string {
@@ -70,7 +92,23 @@ export default function BookVaCall() {
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [selectedSlot, setSelectedSlot] = useState<VaSlot | null>(null);
-  const [discussionTopic, setDiscussionTopic] = useState("");
+  const [typeOfRequest, setTypeOfRequest] = useState("");
+  const [concernArea, setConcernArea] = useState("");
+  const [issueDescription, setIssueDescription] = useState("");
+  const [alreadyContacted, setAlreadyContacted] = useState<"" | "yes" | "no">("");
+  const [relatedTicket, setRelatedTicket] = useState("");
+  const [callDurationAck, setCallDurationAck] = useState(false);
+  const [scopeAck, setScopeAck] = useState(false);
+
+  // Step-3 intake is required for a fresh booking (skipped when rescheduling,
+  // which only changes the time of an existing booking).
+  const intakeValid =
+    typeOfRequest.trim() !== "" &&
+    concernArea.trim() !== "" &&
+    issueDescription.trim() !== "" &&
+    (alreadyContacted === "yes" || alreadyContacted === "no") &&
+    callDurationAck &&
+    scopeAck;
 
   const memberTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
 
@@ -171,11 +209,19 @@ export default function BookVaCall() {
         await bookCall.mutateAsync({
           coachId: selectedVa.id,
           startTime: selectedSlot.startTime,
-          discussionTopic: discussionTopic.trim() || undefined,
+          discussionTopic: issueDescription.trim() || undefined,
+          intake: {
+            typeOfRequest,
+            concernArea,
+            alreadyContacted: alreadyContacted as "yes" | "no",
+            relatedTicket: relatedTicket.trim() || undefined,
+            callDurationAck,
+            scopeAck,
+          },
         });
         toast({ title: "Call booked!" });
       }
-      navigate("/concierge");
+      navigate("/va-calls");
     } catch (err) {
       toast({
         title: isReschedule ? "Could not reschedule" : "Could not book call",
@@ -196,7 +242,7 @@ export default function BookVaCall() {
     <AppLayout>
       <div className="space-y-8">
         <div className="flex items-center gap-4">
-          <Link href="/concierge">
+          <Link href="/va-calls">
             <Button variant="ghost" size="sm">
               <ArrowLeft className="w-4 h-4 mr-2" />
               Back
@@ -564,25 +610,161 @@ export default function BookVaCall() {
 
             {!isReschedule && (
               <Card className="mb-6">
-                <CardContent className="p-6">
-                  <label
-                    htmlFor="discussion-topic"
-                    className="block font-bold text-foreground mb-3"
-                  >
-                    What would you like to discuss on this call?
-                    <span className="text-muted-foreground font-normal ml-2 text-sm">
-                      (optional)
+                <CardContent className="p-6 space-y-5">
+                  <h3 className="font-bold text-foreground">Tell us about your request</h3>
+
+                  <div>
+                    <label
+                      htmlFor="type-of-request"
+                      className="block text-sm font-medium text-foreground mb-1.5"
+                    >
+                      Type of Request <span className="text-red-600">*</span>
+                    </label>
+                    <select
+                      id="type-of-request"
+                      value={typeOfRequest}
+                      onChange={(e) => setTypeOfRequest(e.target.value)}
+                      className={fieldClass}
+                      data-testid="select-type-of-request"
+                    >
+                      <option value="" disabled>
+                        Select a request type
+                      </option>
+                      {REQUEST_TYPES.map((t) => (
+                        <option key={t} value={t}>
+                          {t}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label
+                      htmlFor="concern-area"
+                      className="block text-sm font-medium text-foreground mb-1.5"
+                    >
+                      What is your concern related to?{" "}
+                      <span className="text-red-600">*</span>
+                    </label>
+                    <select
+                      id="concern-area"
+                      value={concernArea}
+                      onChange={(e) => setConcernArea(e.target.value)}
+                      className={fieldClass}
+                      data-testid="select-concern-area"
+                    >
+                      <option value="" disabled>
+                        Select a concern
+                      </option>
+                      {CONCERN_AREAS.map((c) => (
+                        <option key={c} value={c}>
+                          {c}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label
+                      htmlFor="issue-description"
+                      className="block text-sm font-medium text-foreground mb-1.5"
+                    >
+                      Please describe your issue or question{" "}
+                      <span className="text-red-600">*</span>
+                    </label>
+                    <Textarea
+                      id="issue-description"
+                      value={issueDescription}
+                      onChange={(e) => setIssueDescription(e.target.value)}
+                      rows={4}
+                      maxLength={2000}
+                      placeholder="e.g. I'd like help setting up my tracking links and organizing my campaigns."
+                      data-testid="discussion-topic"
+                    />
+                  </div>
+
+                  <div>
+                    <span className="block text-sm font-medium text-foreground mb-1.5">
+                      Have you already contacted us about this issue?{" "}
+                      <span className="text-red-600">*</span>
+                    </span>
+                    <div className="flex gap-6">
+                      <label className="flex items-center gap-2 cursor-pointer text-sm text-foreground">
+                        <input
+                          type="radio"
+                          name="already-contacted"
+                          checked={alreadyContacted === "yes"}
+                          onChange={() => setAlreadyContacted("yes")}
+                          className="accent-primary"
+                          data-testid="already-contacted-yes"
+                        />
+                        Yes
+                      </label>
+                      <label className="flex items-center gap-2 cursor-pointer text-sm text-foreground">
+                        <input
+                          type="radio"
+                          name="already-contacted"
+                          checked={alreadyContacted === "no"}
+                          onChange={() => setAlreadyContacted("no")}
+                          className="accent-primary"
+                          data-testid="already-contacted-no"
+                        />
+                        No
+                      </label>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label
+                      htmlFor="related-ticket"
+                      className="block text-sm font-medium text-foreground mb-1.5"
+                    >
+                      Related Ticket or Reference Number{" "}
+                      <span className="text-muted-foreground font-normal text-sm">
+                        (if any)
+                      </span>
+                    </label>
+                    <input
+                      id="related-ticket"
+                      type="text"
+                      value={relatedTicket}
+                      onChange={(e) => setRelatedTicket(e.target.value)}
+                      maxLength={200}
+                      className={fieldClass}
+                      data-testid="input-related-ticket"
+                    />
+                  </div>
+
+                  <label className="flex items-start gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={callDurationAck}
+                      onChange={(e) => setCallDurationAck(e.target.checked)}
+                      className="mt-1 accent-primary"
+                      data-testid="ack-duration"
+                    />
+                    <span className="text-sm text-muted-foreground">
+                      I understand this is a 15–30 minutes Support &amp; Service
+                      Assistance Call focused on resolving my concern.{" "}
+                      <span className="text-red-600">*</span>
                     </span>
                   </label>
-                  <Textarea
-                    id="discussion-topic"
-                    value={discussionTopic}
-                    onChange={(e) => setDiscussionTopic(e.target.value)}
-                    rows={4}
-                    maxLength={2000}
-                    placeholder="e.g. I'd like help setting up my tracking links and organizing my campaigns."
-                    data-testid="discussion-topic"
-                  />
+
+                  <label className="flex items-start gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={scopeAck}
+                      onChange={(e) => setScopeAck(e.target.checked)}
+                      className="mt-1 accent-primary"
+                      data-testid="ack-scope"
+                    />
+                    <span className="text-sm text-muted-foreground">
+                      I understand this call is for Mentee Support &amp; Service
+                      Assistance Call only and does not include strategy,
+                      consulting, or sales discussions.{" "}
+                      <span className="text-red-600">*</span>
+                    </span>
+                  </label>
                 </CardContent>
               </Card>
             )}
@@ -607,7 +789,7 @@ export default function BookVaCall() {
               <Button
                 className="flex-1"
                 onClick={handleConfirm}
-                disabled={isMutating}
+                disabled={isMutating || (!isReschedule && !intakeValid)}
                 data-testid="confirm-booking"
               >
                 {isMutating

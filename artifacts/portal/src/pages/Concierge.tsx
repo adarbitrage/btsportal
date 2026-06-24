@@ -2,34 +2,10 @@ import { AppLayout } from "@/components/layout/AppLayout";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
-import {
-  Headphones, CheckCircle2, Send,
-  ClipboardList, Phone, AlertCircle,
-  Calendar, Clock, Video, Lock, CalendarClock, X,
+  Sparkles, CheckCircle2, Send,
+  ClipboardList, AlertCircle,
 } from "lucide-react";
 import { useState } from "react";
-import { Link } from "wouter";
-import { format } from "date-fns";
-import { useAuth } from "@/lib/auth";
-import { isAdminRole, isCoachRole } from "@workspace/auth";
-import { useGetCurrentMember } from "@workspace/api-client-react";
-import { useToast } from "@/hooks/use-toast";
-import { resolveCoachPhotoUrl } from "@/lib/coaches-admin-api";
-import {
-  useMyVaCalls,
-  useCancelVaCall,
-  type VaCall,
-} from "@/lib/va-calls-api";
 
 const API_BASE = `${import.meta.env.BASE_URL}api`;
 
@@ -390,7 +366,7 @@ export default function Concierge() {
       <div className="space-y-6 max-w-6xl">
         <div>
           <div className="flex items-center gap-2 mb-2">
-            <Headphones className="w-6 h-6 text-primary" />
+            <Sparkles className="w-6 h-6 text-primary" />
             <h1 className="text-3xl font-bold">The BTS Concierge™</h1>
           </div>
           <p className="text-muted-foreground">
@@ -414,9 +390,6 @@ export default function Concierge() {
         <div className="flex flex-wrap gap-3">
           <Button asChild>
             <a href="#task">Submit a Task for the Concierge™</a>
-          </Button>
-          <Button asChild>
-            <a href="#call">1-on-1 Call with a VA</a>
           </Button>
         </div>
 
@@ -463,223 +436,7 @@ export default function Concierge() {
             </CardContent>
           </Card>
         </section>
-
-        <ConciergeCallSection />
       </div>
     </AppLayout>
-  );
-}
-
-function VaCallRow({ call }: { call: VaCall }) {
-  const { toast } = useToast();
-  const cancelCall = useCancelVaCall();
-  const photo = resolveCoachPhotoUrl(call.coachPhotoUrl);
-  const scheduled = new Date(call.scheduledAt);
-  const isUpcoming = call.status === "booked" && scheduled.getTime() > Date.now();
-
-  const handleCancel = async () => {
-    try {
-      await cancelCall.mutateAsync({ bookingId: call.id });
-      toast({ title: "Call cancelled", description: "Your 1-on-1 VA call has been cancelled." });
-    } catch (err) {
-      toast({
-        variant: "destructive",
-        title: "Could not cancel",
-        description: err instanceof Error ? err.message : "Please try again.",
-      });
-    }
-  };
-
-  return (
-    <div className="flex flex-col sm:flex-row sm:items-center gap-4 rounded-lg border border-border/60 bg-card p-4">
-      <div className="flex items-center gap-3 min-w-0 flex-1">
-        {photo ? (
-          <img
-            src={photo}
-            alt={call.coachName}
-            className="w-12 h-12 rounded-full object-cover border border-border/60 shrink-0"
-          />
-        ) : (
-          <div className="w-12 h-12 rounded-full bg-muted text-foreground border border-border/60 shrink-0 flex items-center justify-center text-sm font-bold">
-            {call.coachName.split(" ").map((n) => n[0]).join("")}
-          </div>
-        )}
-        <div className="min-w-0">
-          <p className="text-sm font-bold text-foreground truncate">{call.coachName}</p>
-          <div className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-muted-foreground">
-            <span className="inline-flex items-center gap-1">
-              <Calendar className="w-3.5 h-3.5" />
-              {format(scheduled, "EEE, MMM d, yyyy")}
-            </span>
-            <span className="inline-flex items-center gap-1">
-              <Clock className="w-3.5 h-3.5" />
-              {format(scheduled, "h:mm a")} · {call.durationMinutes} min
-            </span>
-          </div>
-          {call.discussionTopic && (
-            <p className="mt-1 text-xs text-muted-foreground line-clamp-2">
-              <span className="font-medium text-foreground">Topic:</span> {call.discussionTopic}
-            </p>
-          )}
-        </div>
-      </div>
-
-      <div className="flex items-center gap-2 shrink-0">
-        {isUpcoming ? (
-          <>
-            {call.meetLink && (
-              <Button asChild size="sm" variant="default">
-                <a href={call.meetLink} target="_blank" rel="noopener noreferrer">
-                  <Video className="w-4 h-4 mr-1.5" />
-                  Join
-                </a>
-              </Button>
-            )}
-            <Button asChild size="sm" variant="outline">
-              <Link href={`/concierge/book-va-call?reschedule=${call.id}`}>
-                <CalendarClock className="w-4 h-4 mr-1.5" />
-                Reschedule
-              </Link>
-            </Button>
-            <AlertDialog>
-              <AlertDialogTrigger asChild>
-                <Button size="sm" variant="ghost" className="text-destructive hover:text-destructive">
-                  <X className="w-4 h-4 mr-1.5" />
-                  Cancel
-                </Button>
-              </AlertDialogTrigger>
-              <AlertDialogContent>
-                <AlertDialogHeader>
-                  <AlertDialogTitle>Cancel this call?</AlertDialogTitle>
-                  <AlertDialogDescription>
-                    Your 1-on-1 VA call with {call.coachName} on{" "}
-                    {format(scheduled, "EEE, MMM d 'at' h:mm a")} will be cancelled. You can book
-                    another one any time.
-                  </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                  <AlertDialogCancel>Keep call</AlertDialogCancel>
-                  <AlertDialogAction
-                    onClick={handleCancel}
-                    disabled={cancelCall.isPending}
-                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                  >
-                    {cancelCall.isPending ? "Cancelling..." : "Cancel call"}
-                  </AlertDialogAction>
-                </AlertDialogFooter>
-              </AlertDialogContent>
-            </AlertDialog>
-          </>
-        ) : (
-          <span className="text-xs font-medium text-muted-foreground capitalize">
-            {call.status === "booked" ? "completed" : call.status}
-          </span>
-        )}
-      </div>
-    </div>
-  );
-}
-
-function ConciergeCallSection() {
-  const { user } = useAuth();
-  const { data: member } = useGetCurrentMember();
-  const isAdmin = isAdminRole(user?.role) || isAdminRole(member?.role);
-  const isCoach = isCoachRole(user?.role) || isCoachRole(member?.role);
-  const entitlements = new Set(member?.entitlements ?? []);
-  const eligible = isAdmin || isCoach || entitlements.has("coaching:group");
-
-  const { data: calls, isLoading } = useMyVaCalls({ enabled: eligible });
-  const now = Date.now();
-  const upcoming = (calls ?? [])
-    .filter((c) => c.status === "booked" && new Date(c.scheduledAt).getTime() > now)
-    .sort((a, b) => new Date(a.scheduledAt).getTime() - new Date(b.scheduledAt).getTime());
-  const past = (calls ?? [])
-    .filter((c) => !(c.status === "booked" && new Date(c.scheduledAt).getTime() > now))
-    .sort((a, b) => new Date(b.scheduledAt).getTime() - new Date(a.scheduledAt).getTime());
-
-  return (
-    <section id="call">
-      <Card className="border-border/60 shadow-sm">
-        <CardContent className="p-5 sm:p-8 md:p-10 space-y-6">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg border border-border/60 bg-muted flex items-center justify-center">
-              <Phone className="w-5 h-5 text-foreground" />
-            </div>
-            <div>
-              <h2 className="text-xl font-bold text-foreground">1-on-1 VA Calls</h2>
-              <p className="text-sm text-muted-foreground">
-                Book a free 30-minute private call with a member of the BTS Concierge™.
-              </p>
-            </div>
-          </div>
-          <p className="text-muted-foreground leading-relaxed">
-            Elevate your productivity with personalized 1-on-1 consultations focused on practical, hands-on assistance. Our team can support you with banner creation, landing page setup, Flexy configuration, MetricMover variations, DIYTrax campaign setup, and much more. Available <strong className="text-foreground">Monday through Saturday</strong>.
-          </p>
-
-          {!eligible ? (
-            <div className="rounded-lg border border-border/60 bg-muted/40 p-6 text-center space-y-3">
-              <div className="w-12 h-12 rounded-full bg-muted border border-border/60 mx-auto flex items-center justify-center">
-                <Lock className="w-5 h-5 text-muted-foreground" />
-              </div>
-              <h3 className="text-base font-bold text-foreground">Full membership required</h3>
-              <p className="text-sm text-muted-foreground max-w-md mx-auto">
-                Free 1-on-1 VA calls are included with full BTS memberships. Upgrade your membership to book a call with the Concierge™ team.
-              </p>
-            </div>
-          ) : (
-            <div className="space-y-6">
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 rounded-lg border border-border/60 bg-muted/40 p-5">
-                <div>
-                  <h3 className="text-base font-bold text-foreground">Ready to book?</h3>
-                  <p className="text-sm text-muted-foreground">
-                    Choose a VA, pick a time, and you're set — completely free.
-                  </p>
-                </div>
-                <Button asChild size="lg" className="shrink-0">
-                  <Link href="/concierge/book-va-call">
-                    <Phone className="w-4 h-4 mr-2" />
-                    Book a 1-on-1 VA Call
-                  </Link>
-                </Button>
-              </div>
-
-              {isLoading ? (
-                <p className="text-sm text-muted-foreground">Loading your calls…</p>
-              ) : (
-                <>
-                  {upcoming.length > 0 && (
-                    <div className="space-y-3">
-                      <h3 className="text-sm font-bold text-foreground">Upcoming calls</h3>
-                      <div className="space-y-3">
-                        {upcoming.map((call) => (
-                          <VaCallRow key={call.id} call={call} />
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {past.length > 0 && (
-                    <div className="space-y-3">
-                      <h3 className="text-sm font-bold text-foreground">Past calls</h3>
-                      <div className="space-y-3">
-                        {past.map((call) => (
-                          <VaCallRow key={call.id} call={call} />
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {upcoming.length === 0 && past.length === 0 && (
-                    <p className="text-sm text-muted-foreground">
-                      You have no VA calls yet. Book your first one above.
-                    </p>
-                  )}
-                </>
-              )}
-            </div>
-          )}
-        </CardContent>
-      </Card>
-    </section>
   );
 }

@@ -125,13 +125,20 @@ export async function ingestBookingRecording(
 }
 
 // Extract the portion of the title most likely to appear in Drive file names.
-// "Private Coaching with Sasha" -> "Coaching with Sasha". Falls back to the full
-// title. Returns null for empty titles (never match — avoids group calls).
+// "Private Coaching with Sasha" -> "Coaching with Sasha";
+// "1-on-1 VA Call with Sasha" -> "VA Call with Sasha". Anchoring on a stable
+// keyword keeps the Drive name search tight while still surviving Meet's
+// "<title> (date)" file naming. Falls back to the full title. Returns null for
+// empty titles (never match — avoids group/internal calls).
 export function deriveSearchNeedle(title: string | null): string | null {
   if (!title || !title.trim()) return null;
   const t = title.trim();
-  const idx = t.toLowerCase().indexOf("coaching");
-  return idx >= 0 ? t.slice(idx) : t;
+  const lower = t.toLowerCase();
+  const coachingIdx = lower.indexOf("coaching");
+  if (coachingIdx >= 0) return t.slice(coachingIdx);
+  const vaCallIdx = lower.indexOf("va call");
+  if (vaCallIdx >= 0) return t.slice(vaCallIdx);
+  return t;
 }
 
 // Select bookings due for an ingest attempt and process them. Skips entirely
