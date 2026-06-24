@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { render, screen, within } from "@testing-library/react";
+import { render, screen, within, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import type { ReactNode } from "react";
 
 vi.mock("@/components/layout/AdminLayout", () => ({
@@ -22,6 +23,7 @@ const getQueueFallbackEvents = vi.fn();
 const getQueueFallbackAlertEvents = vi.fn();
 const getQueueFallbackAlerterHealth = vi.fn();
 const getOnCallDestinationsHistory = vi.fn();
+const recheckVoiceAgentHealth = vi.fn();
 
 vi.mock("@/lib/admin-panel-api", () => ({
   adminPanelApi: {
@@ -35,11 +37,14 @@ vi.mock("@/lib/admin-panel-api", () => ({
       getQueueFallbackAlerterHealth(...args),
     getOnCallDestinationsHistory: (...args: unknown[]) =>
       getOnCallDestinationsHistory(...args),
+    recheckVoiceAgentHealth: (...args: unknown[]) =>
+      recheckVoiceAgentHealth(...args),
   },
 }));
 
+const toastSpy = vi.fn();
 vi.mock("@/hooks/use-toast", () => ({
-  useToast: () => ({ toast: vi.fn() }),
+  useToast: () => ({ toast: toastSpy }),
 }));
 
 import SystemHealth from "@/pages/admin/SystemHealth";
@@ -89,6 +94,8 @@ beforeEach(() => {
   getQueueFallbackAlertEvents.mockReset();
   getQueueFallbackAlerterHealth.mockReset();
   getOnCallDestinationsHistory.mockReset();
+  recheckVoiceAgentHealth.mockReset();
+  toastSpy.mockReset();
 
   getYsePendingGrants.mockResolvedValue({ items: [] });
   getQueueFallbackEvents.mockResolvedValue({ events: [] });
@@ -185,5 +192,137 @@ describe("SystemHealth — Voice Assistant agent health banner + card", () => {
       /not configured/i,
     );
     expect(screen.queryByTestId("voice-agent-banner")).not.toBeInTheDocument();
+  });
+});
+
+describe("SystemHealth — Voice Assistant re-check button", () => {
+  it("calls the recheck endpoint and patches the badge + detail in place", async () => {
+    getSystemHealth.mockResolvedValue(
+      buildHealth({
+        status: "misconfigured",
+        needsAttention: true,
+        detail:
+          'Agent is on "conversation_flow" engine — manual review required.',
+        agentResponseEngineType: "conversation_flow",
+      }),
+    );
+    recheckVoiceAgentHealth.mockResolvedValue({
+      voiceAgent: {
+        status: "healthy",
+        needsAttention: false,
+        detail: "Live check passed — agent is correctly wired.",
+        agentResponseEngineType: "retell-llm",
+        requiresAgentIdUpdate: false,
+        newAgentId: null,
+        ranAt: new Date().toISOString(),
+      },
+    });
+
+    render(<SystemHealth />);
+
+    const card = await screen.findByTestId("card-voice-agent");
+    expect(within(card).getByTestId("voice-agent-status")).toHaveTextContent(
+      /needs attention/i,
+    );
+
+    await userEvent.click(
+      within(card).getByTestId("button-recheck-voice-agent"),
+    );
+
+    expect(recheckVoiceAgentHealth).toHaveBeenCalledTimes(1);
+
+    await waitFor(() => {
+      expect(within(card).getByTestId("voice-agent-status")).toHaveTextContent(
+        /healthy/i,
+      );
+    });
+    expect(within(card).getByTestId("voice-agent-detail")).toHaveTextContent(
+      /Live check passed/i,
+    );
+    expect(
+      within(card).queryByTestId("voice-agent-warning"),
+    ).not.toBeInTheDocument();
+    expect(toastSpy).toHaveBeenCalledWith(
+      expect.objectContaining({ title: "Voice Assistant re-checked" }),
+    );
+  });
+
+  it("disables the button and shows an in-flight label while the re-check is pending", async () => {
+    getSystemHealth.mockResolvedValue(
+      buildHealth({ status: "healthy", needsAttention: false }),
+    );
+    let resolveRecheck: (value: unknown) => void = () => {};
+    recheckVoiceAgentHealth.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          resolveRecheck = resolve;
+        }),
+    );
+
+    render(<SystemHealth />);
+
+    const card = await screen.findByTestId("card-voice-agent");
+    const button = within(card).getByTestId("button-recheck-voice-agent");
+    expect(button).not.toBeDisabled();
+    expect(button).toHaveTextContent(/Re-check now/i);
+
+    await userEvent.click(button);
+
+    await waitFor(() => {
+      expect(button).toBeDisabled();
+    });
+    expect(button).toHaveTextContent(/Re-checking/i);
+
+    resolveRecheck({
+      voiceAgent: {
+        status: "healthy",
+        needsAttention: false,
+        detail: "Live check passed.",
+        agentResponseEngineType: "retell-llm",
+        requiresAgentIdUpdate: false,
+        newAgentId: null,
+        ranAt: new Date().toISOString(),
+      },
+    });
+
+    await waitFor(() => {
+      expect(button).not.toBeDisabled();
+    });
+    expect(button).toHaveTextContent(/Re-check now/i);
+  });
+
+  it("shows an error toast and leaves the verdict unchanged when the re-check fails", async () => {
+    getSystemHealth.mockResolvedValue(
+      buildHealth({
+        status: "healthy",
+        needsAttention: false,
+        detail: "Agent is correctly wired to the KB engine.",
+      }),
+    );
+    recheckVoiceAgentHealth.mockRejectedValue(new Error("Retell API timed out"));
+
+    render(<SystemHealth />);
+
+    const card = await screen.findByTestId("card-voice-agent");
+    const button = within(card).getByTestId("button-recheck-voice-agent");
+
+    await userEvent.click(button);
+
+    await waitFor(() => {
+      expect(toastSpy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          title: "Error",
+          description: "Retell API timed out",
+          variant: "destructive",
+        }),
+      );
+    });
+
+    expect(within(card).getByTestId("voice-agent-status")).toHaveTextContent(
+      /healthy/i,
+    );
+    await waitFor(() => {
+      expect(button).not.toBeDisabled();
+    });
   });
 });
