@@ -429,8 +429,8 @@ function Router() {
       <Route path="/admin/affiliate-networks">{() => <AdminRoute component={AdminAffiliateNetworks} permission="content:manage" />}</Route>
       <Route path="/admin/media-mavens">{() => <AdminRoute component={AdminMediaMavens} permission="content:manage" />}</Route>
       <Route path="/community">{() => <ProtectedRoute component={CommunityFeed} />}</Route>
-      <Route path="/dm">{() => <ProtectedRoute component={DMInbox} />}</Route>
-      <Route path="/dm/:threadId">{() => <ProtectedRoute component={DMThread} />}</Route>
+      <Route path="/dm">{() => <AdminRoute component={DMInbox} />}</Route>
+      <Route path="/dm/:threadId">{() => <AdminRoute component={DMThread} />}</Route>
       <Route path="/community/members">{() => <EntitlementRoute component={MemberDirectory} entitlement="community:access" />}</Route>
       <Route path="/community/members/:userId">{() => <EntitlementRoute component={MemberProfile} entitlement="community:access" />}</Route>
       <Route path="/community/:postId">{() => <ProtectedRoute component={PostDetail} />}</Route>

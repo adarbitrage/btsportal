@@ -5,6 +5,7 @@ import { MEMBER_NAV } from "./Sidebar";
 import {
   filterNavByEntitlements,
   filterNavByHiddenRoles,
+  filterNavByRole,
   type NavLeaf,
   type NavNode,
 } from "./sidebar-nav";
@@ -40,8 +41,11 @@ function visibleHrefsForUser(
   entitlements: Set<string>,
   role: string | undefined,
 ): string[] {
-  const filtered = filterNavByHiddenRoles(
-    filterNavByEntitlements(MEMBER_NAV, entitlements),
+  const filtered = filterNavByRole(
+    filterNavByHiddenRoles(
+      filterNavByEntitlements(MEMBER_NAV, entitlements),
+      role,
+    ),
     role,
   );
   return collectLeaves(filtered).map((l) => l.href);
@@ -58,29 +62,31 @@ describe("MEMBER_NAV community and messages wiring", () => {
     expect(community!.hiddenForRoles ?? []).toEqual([]);
   });
 
-  it("declares the Messages leaf hidden for coaches with no entitlement gate", () => {
+  it("declares the Messages leaf as admin-only (dashboard:view) and hidden for coaches", () => {
     const messages = collectLeaves(MEMBER_NAV).find((l) => l.href === "/dm");
     expect(messages).toBeDefined();
     expect(messages!.label).toBe("Messages");
     expect(messages!.requiredEntitlement).toBeUndefined();
     expect(messages!.hiddenForRoles).toEqual(["coach"]);
+    // Temporarily admin-only: a permission every admin role holds.
+    expect(messages!.requiredPermission).toBe("dashboard:view");
   });
 });
 
 describe("Sidebar nav filtering for community/DM by role and entitlement", () => {
-  it("a user with community:access sees both Community and Messages", () => {
+  it("a member with community:access sees Community but not the admin-only Messages", () => {
     const hrefs = visibleHrefsForUser(
       new Set(["community:access"]),
       "free_member",
     );
     expect(hrefs).toContain("/community");
-    expect(hrefs).toContain("/dm");
+    expect(hrefs).not.toContain("/dm");
   });
 
-  it("a user without community:access sees Messages but not Community", () => {
+  it("a member without community:access sees neither Community nor Messages", () => {
     const hrefs = visibleHrefsForUser(new Set(), "free_member");
     expect(hrefs).not.toContain("/community");
-    expect(hrefs).toContain("/dm");
+    expect(hrefs).not.toContain("/dm");
   });
 
   it("a coach sees neither Community nor Messages", () => {

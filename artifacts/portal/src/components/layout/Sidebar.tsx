@@ -171,6 +171,10 @@ export const MEMBER_NAV: NavNode[] = [
     label: "Messages",
     icon: MessageSquare,
     hiddenForRoles: ["coach"],
+    // Temporarily admin-only: Messages is hidden from regular members but kept
+    // in the build. `dashboard:view` is held by every admin role, so all admins
+    // still see it. (Member nav is now run through filterNavByRole too.)
+    requiredPermission: "dashboard:view",
     showUnreadBadge: true,
   },
   {
@@ -590,8 +594,11 @@ export function SidebarContent({ onNavClick }: { onNavClick?: () => void }) {
   const highestSlug: string = member?.highestProductSlug ?? "free";
   const hasLifetime = isLifetimeSlug(highestSlug);
 
-  const filteredMemberNav = filterNavByHiddenRoles(
-    filterNavByEntitlements(MEMBER_NAV, entitlements, isAdminUser || isCoach),
+  const filteredMemberNav = filterNavByRole(
+    filterNavByHiddenRoles(
+      filterNavByEntitlements(MEMBER_NAV, entitlements, isAdminUser || isCoach),
+      userRole,
+    ),
     userRole,
   );
 
