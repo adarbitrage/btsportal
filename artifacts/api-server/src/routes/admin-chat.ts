@@ -14,6 +14,7 @@ import {
 import { eq, and, desc, sql, asc, like, gte, lte, ilike } from "drizzle-orm";
 import { requirePermission } from "../middleware/rbac";
 import { scrubPrivateContent } from "../lib/content-privacy-filter";
+import { reloadKnowledgeBase } from "./openai/knowledge-base.js";
 
 const router: IRouter = Router();
 
@@ -549,6 +550,11 @@ router.delete("/admin/chat/knowledgebase/:id", requirePermission("chat:manage"),
   await db.delete(knowledgebaseDocsTable).where(eq(knowledgebaseDocsTable.id, id));
 
   res.json({ success: true });
+});
+
+router.post("/admin/chat/knowledgebase/reload", requirePermission("chat:manage"), (_req, res): void => {
+  reloadKnowledgeBase();
+  res.json({ success: true, message: "Knowledge base cache cleared. Content will refresh on the next assistant query." });
 });
 
 router.get("/admin/chat/rate-limits", requirePermission("chat:view"), async (_req, res): Promise<void> => {

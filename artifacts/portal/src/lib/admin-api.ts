@@ -733,6 +733,10 @@ export function deleteKnowledgebaseDoc(id: number) {
   return adminFetch(`/admin/chat/knowledgebase/${id}`, { method: "DELETE" });
 }
 
+export function reloadKnowledgeBaseCache() {
+  return adminFetch<{ success: boolean; message: string }>("/admin/chat/knowledgebase/reload", { method: "POST" });
+}
+
 export function requestKbUploadUrl(params: { name: string; size: number; contentType: string }) {
   return adminFetch<{ uploadURL: string; objectPath: string }>("/storage/uploads/request-url", {
     method: "POST",

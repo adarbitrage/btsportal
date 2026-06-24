@@ -32,6 +32,7 @@ import {
   Film,
   Mic,
   File,
+  RefreshCw,
 } from "lucide-react";
 import {
   fetchKnowledgebaseDocs,
@@ -41,6 +42,7 @@ import {
   requestKbUploadUrl,
   createKbStagingFromUpload,
   getKbStagingDoc,
+  reloadKnowledgeBaseCache,
   type KbManualReviewResult,
 } from "@/lib/admin-api";
 import { format } from "date-fns";
@@ -525,6 +527,19 @@ export default function Knowledgebase() {
     },
   });
 
+  const reloadMutation = useMutation({
+    mutationFn: reloadKnowledgeBaseCache,
+    onSuccess: (result) => {
+      toast({
+        title: "Knowledge base reloaded",
+        description: result.message,
+      });
+    },
+    onError: (err: Error) => {
+      toast({ title: "Reload failed", description: err.message, variant: "destructive" });
+    },
+  });
+
   const resetForm = () => {
     setShowForm(false);
     setEditingDoc(null);
@@ -576,6 +591,17 @@ export default function Knowledgebase() {
               onClick={() => window.open(`${import.meta.env.BASE_URL}docs/kb-weekly-maintenance-sop.pdf`, "_blank", "noopener,noreferrer")}
             >
               <FileText className="w-4 h-4 mr-1" /> Maintenance SOP
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => reloadMutation.mutate()}
+              disabled={reloadMutation.isPending}
+            >
+              {reloadMutation.isPending ? (
+                <><Loader2 className="w-4 h-4 mr-1 animate-spin" />Reloading…</>
+              ) : (
+                <><RefreshCw className="w-4 h-4 mr-1" />Reload Knowledge Base</>
+              )}
             </Button>
             <Button variant="outline" onClick={() => setShowUploadDialog(true)}>
               <Upload className="w-4 h-4 mr-1" /> Upload
