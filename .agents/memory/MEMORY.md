@@ -1,3 +1,4 @@
+- [KB answer-time privacy scrub](kb-answer-time-privacy-scrub.md) — email+phone+coach-name scrubbing runs at ingestion AND at retrieval time in chat/voice/rag-retriever; Robin pattern is Sheph?[ae]rd (4 variants); scrubKbDoc preserves null (not "").
 - [Blitz canonical /blitz](blitz-v2-tracking.md) — v2 promoted to canonical /blitz (single source of truth for all content). Lesson Library removed on purpose. Don't touch/mention /blitz-archive unless explicitly asked.
 - [Blitz branded design (archived)](blitz-branded-design.md) — original navy hero + display fonts + phase colors removed during restyle; how to restore.
 - [Blitz guide — live hand-maintained, archive frozen](blitz-guide-generated.md) — canonical /blitz (was v2) is edited directly; regenerator disabled (ALLOW_BLITZ_REGEN); old guide archived at admin-only /blitz-archive with JSON-snapshot library.

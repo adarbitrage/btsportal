@@ -15,6 +15,7 @@ import {
 import { eq, and, desc, sql, asc } from "drizzle-orm";
 import { getAnthropicClient } from "@workspace/integrations-anthropic-ai";
 import { getUserEntitlements, hasMemberAccessBypass } from "../lib/entitlements";
+import { scrubPrivateContent } from "../lib/content-privacy-filter";
 
 const router: IRouter = Router();
 
@@ -133,9 +134,11 @@ export async function searchKnowledgebase(query: string, categories: string[]): 
   );
 
   if ((primaryResults.rows as any[]).length >= 3) {
+    // Answer-time scrub: strip PII from every result before it reaches the
+    // model, as a defense-in-depth layer against content that predates a rule.
     return (primaryResults.rows as any[]).map((r) => ({
-      title: r.title,
-      content: r.content,
+      title: scrubPrivateContent(r.title),
+      content: scrubPrivateContent(r.content),
       category: r.category,
     }));
   }
@@ -161,9 +164,10 @@ export async function searchKnowledgebase(query: string, categories: string[]): 
     }
   }
 
+  // Answer-time scrub applied uniformly on all merged results.
   return merged.slice(0, 6).map((r) => ({
-    title: r.title,
-    content: r.content,
+    title: scrubPrivateContent(r.title),
+    content: scrubPrivateContent(r.content),
     category: r.category,
   }));
 }

@@ -1,5 +1,6 @@
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
+import { scrubPrivateContent } from "./content-privacy-filter";
 
 export interface KBSearchResult {
   id: number;
@@ -64,10 +65,13 @@ export async function retrieveFromKB(
     );
   }
 
+  // Answer-time scrub: strip PII from every result before it reaches the model,
+  // as a defense-in-depth layer that catches content predating a rule or that
+  // entered through a path that bypassed ingestion scrubbing.
   return (results.rows as any[]).map((r) => ({
     id: r.id as number,
-    title: r.title as string,
-    content: r.content as string,
+    title: scrubPrivateContent(r.title as string),
+    content: scrubPrivateContent(r.content as string),
     category: r.category as string,
     rank: parseFloat(r.rank),
   }));

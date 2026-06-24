@@ -10,6 +10,7 @@ import { requirePermission } from "../middleware/rbac";
 import { csvEscape } from "../lib/csv";
 import { logAdminAction } from "../lib/audit-log";
 import { buildVoiceSynonymTsquery, expandVoiceQuerySynonyms } from "../lib/voice-synonyms";
+import { scrubPrivateContent } from "../lib/content-privacy-filter";
 import { queueTicketDeskDelivery, sendSupportFallbackEmail } from "../lib/ticketdesk-queue";
 import { autoRouteTicket } from "../lib/ticket-routing";
 import { createSlaForTicket } from "../lib/sla";
@@ -102,9 +103,15 @@ async function searchKnowledgebaseForVoice(query: string): Promise<string> {
 
   if (rows.length === 0) return "No relevant information found.";
 
+  // Answer-time scrub: strip PII from every result before it is handed to the
+  // voice model or the 800-number agent, as a defense-in-depth layer against
+  // content that predates a rule or entered through a bypassed ingestion path.
   return rows
     .slice(0, 4)
-    .map((r: any) => `${r.title}: ${(r.content as string).slice(0, 400)}`)
+    .map(
+      (r: any) =>
+        `${scrubPrivateContent(r.title as string)}: ${scrubPrivateContent((r.content as string).slice(0, 400))}`,
+    )
     .join("\n\n");
 }
 
