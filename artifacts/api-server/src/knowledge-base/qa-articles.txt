@@ -660,7 +660,7 @@ For urgent questions regarding your request status, please contact support@build
 
 * * *
 
-## BTS Mentorship Agreement & Terms (6 articles)
+## BTS Mentorship Agreement & Terms (7 articles)
 
 ### What is the BTS Mentee Master Agreement?
 
@@ -679,10 +679,11 @@ What the Mentee Master Agreement Covers
 - No profit or results guarantee: BTS provides education and training but does not guarantee profits or specific financial outcomes.
 - Intellectual property and confidentiality: the Company owns the Program materials, and enrollment is personal and non-transferable.
 - Governing law and termination: the Agreement is governed by Texas law, includes a class-action waiver, and explains how either party may terminate.
+- Liability, warranty, and other legal terms: disclaimer of warranty, limitation of liability, indemnification, marketing disclaimers, amendments, survival, and entire-agreement terms.
 
 Where to Find the Details
 
-Each of these topics has its own article — see "What membership terms does the BTS Mentorship Program offer?", "What are the Mentorship refund requirements?", "Does BTS guarantee profits or specific results?", "What are the intellectual property and confidentiality terms of the BTS Agreement?", and "What are the governing law and termination terms of the BTS Agreement?".
+Each of these topics has its own article — see "What membership terms does the BTS Mentorship Program offer?", "What are the Mentorship refund requirements?", "Does BTS guarantee profits or specific results?", "What are the intellectual property and confidentiality terms of the BTS Agreement?", "What are the governing law and termination terms of the BTS Agreement?", and "What are the BTS Agreement's liability, warranty, and other legal terms?".
 
 For a copy of your Mentee Master Agreement or any questions about its terms, contact support@buildtestscale.com.
 
@@ -825,6 +826,42 @@ No Downgrades
 Once you have been granted access to the Program, there is no option to downgrade to a shorter term.
 
 For questions about your billing or account status, contact support@buildtestscale.com.
+
+### What are the BTS Agreement's liability, warranty, and other legal terms?
+
+Description: BTS Agreement terms on disclaimer of warranty, limitation of liability, indemnification, marketing disclaimers, amendments, survival, and entire agreement
+
+Content:
+
+Disclaimer of Warranty
+
+The Company makes no warranty, express or implied, regarding the accuracy, reliability, or completeness of the Program or any other materials provided. The Company is not liable for any errors, omissions, or damages arising from or in connection with the Program or its materials.
+
+Limitation of Liability
+
+The Company is not liable for any indirect, incidental, consequential, or punitive damages arising from the Program or materials. The Company's maximum liability under the Agreement is limited to the amount you paid for the Services.
+
+Indemnification
+
+You agree to indemnify and hold harmless the Company, its affiliates, and their officers, directors, employees, and agents from any claims, damages, liabilities, costs, and expenses (including reasonable attorneys' fees) arising from your use of the Program or any materials provided.
+
+Marketing Material Disclaimer
+
+Any marketing material related to the Program is for informational and educational purposes only and does not create guarantees, warranties, or representations about the Services. Using the techniques, ideas, or strategies described by BTS does not guarantee similar results — individual results vary based on personal skills, financial resources, marketing knowledge, and time investment. Historical performances shared by the Company are individual examples and not indicative of future results. BTS does not offer any "get rich quick" promise.
+
+Amendments to the Agreement
+
+The Company may amend this Agreement at any time by posting the amended terms on its website or through the Platform. Your continued use of the Program after posting constitutes acceptance of the amended terms. No modification or waiver of any provision is effective unless in writing and signed by both parties, and a failure to enforce any provision is not a waiver of the right to enforce it later.
+
+Survival
+
+Provisions that by their nature are intended to survive termination — including intellectual property, confidentiality, limitation of liability, and governing law — survive termination of the Agreement.
+
+Entire Agreement
+
+This Agreement is the entire agreement between you and the Company regarding its subject matter and supersedes all prior or contemporaneous communications and proposals, whether oral or written.
+
+For questions about any of these terms, contact support@buildtestscale.com.
 
 
 ## Additional Programs & Tools (3 articles)

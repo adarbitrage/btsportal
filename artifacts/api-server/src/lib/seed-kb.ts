@@ -386,6 +386,7 @@ const BTS_AGREEMENT_KB_TITLES = new Set<string>([
   "What are the intellectual property and confidentiality terms of the BTS Agreement?",
   "What are the governing law and termination terms of the BTS Agreement?",
   "What happens if I miss installment payments or need to cancel my BTS Mentorship?",
+  "What are the BTS Agreement's liability, warranty, and other legal terms?",
 ]);
 
 /**
