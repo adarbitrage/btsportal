@@ -5,7 +5,7 @@ import { isAdminRole } from "@workspace/auth";
 import Retell from "retell-sdk";
 import { hasEntitlement, hasMemberAccessBypass } from "../lib/entitlements";
 import { buildMemberVoiceContext } from "../lib/voice-context";
-import { setupRetellAgentKb, getCachedRetellSetupResult, setCachedRetellSetupResult } from "../lib/retell-agent-setup";
+import { setupRetellAgentKb, getCachedRetellSetupResult, setCachedRetellSetupResult, getApiBaseUrl } from "../lib/retell-agent-setup";
 import { requirePermission } from "../middleware/rbac";
 import { csvEscape } from "../lib/csv";
 import { logAdminAction } from "../lib/audit-log";
@@ -262,11 +262,40 @@ router.post("/voice/web-call", async (req: Request, res: Response): Promise<void
     const client = new Retell({ apiKey: RETELL_API_KEY });
     const dynamicVariables = await buildMemberVoiceContext(userId);
 
-    const webCall = await client.call.createWebCall({
+    // Resolve the webhook URL so Retell can deliver call_ended/call_analyzed
+    // events back to this server. Without a webhook URL configured on either
+    // the agent or each individual web call, Retell has nowhere to send events
+    // and call rows are never finalized.
+    //
+    // We pass it per-call (rather than only at agent-setup time) so the URL
+    // stays current without requiring a Retell dashboard change when the
+    // deployment domain changes.
+    //
+    // In development, getApiBaseUrl() returns null (auto-resolution is disabled
+    // to avoid overwriting the production agent config), so the webhook_url is
+    // omitted and the backfill path covers finalization instead.
+    const apiBaseUrl = getApiBaseUrl();
+    const webhookUrl = apiBaseUrl ? `${apiBaseUrl}/webhooks/retell` : undefined;
+    if (!webhookUrl) {
+      console.warn(
+        "[Voice] No webhook URL resolved — Retell will not deliver call events. " +
+        "Set RETELL_API_BASE_URL or PORTAL_URL (or ensure REPLIT_DOMAINS is set in production). " +
+        "The client-side backfill will finalize the call as a fallback.",
+      );
+    } else {
+      console.log(`[Voice] Creating web call with webhook_url=${webhookUrl}`);
+    }
+
+    const createParams: Parameters<typeof client.call.createWebCall>[0] = {
       agent_id: RETELL_AGENT_ID,
       retell_llm_dynamic_variables: dynamicVariables,
       metadata: { bts_user_id: userId },
-    });
+    };
+    if (webhookUrl) {
+      (createParams as any).webhook_url = webhookUrl;
+    }
+
+    const webCall = await client.call.createWebCall(createParams);
 
     await db.insert(voiceCallsTable).values({
       userId,

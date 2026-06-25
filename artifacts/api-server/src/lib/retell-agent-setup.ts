@@ -53,7 +53,7 @@ const SUBSTANTIAL_NODE_TYPES = new Set([
 /** Simple flows with ≥ this many nodes are treated as substantial regardless of type. */
 const MAX_SIMPLE_NODE_COUNT = 4;
 
-function getApiBaseUrl(): string | null {
+export function getApiBaseUrl(): string | null {
   const explicit = (process.env.RETELL_API_BASE_URL ?? "").trim();
   if (explicit) return explicit.replace(/\/+$/, "");
 

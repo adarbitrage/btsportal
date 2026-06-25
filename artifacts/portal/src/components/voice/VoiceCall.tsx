@@ -7,6 +7,13 @@ import { useQueryClient } from "@tanstack/react-query";
 
 type CallState = "idle" | "connecting" | "active" | "ending" | "error";
 
+// Backfill retry schedule in milliseconds. Retell typically finalizes a call
+// within a few seconds of ending, but can take up to ~60s in some cases.
+// Firing at 0s, 5s, 12s, 25s, 45s, 90s gives the webhook ample time to land
+// first (the backfill endpoint is idempotent and no-ops if the webhook already
+// finalized the call). The final retry at 90s covers worst-case Retell latency.
+const BACKFILL_RETRY_DELAYS_MS = [5_000, 12_000, 25_000, 45_000, 90_000];
+
 function formatSeconds(sec: number): string {
   const m = Math.floor(sec / 60);
   const s = sec % 60;
@@ -19,12 +26,15 @@ export function VoiceCall() {
   const [isAgentTalking, setIsAgentTalking] = useState(false);
   const [transcript, setTranscript] = useState<string[]>([]);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [recordingWarning, setRecordingWarning] = useState<string | null>(null);
   const [elapsed, setElapsed] = useState(0);
 
   const clientRef = useRef<RetellWebClient | null>(null);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const retryTimersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
   const activeCallIdRef = useRef<string | null>(null);
+  // Track whether the backfill has already succeeded so we stop retrying.
+  const backfillSucceededRef = useRef(false);
   const queryClient = useQueryClient();
   const { mutateAsync: startWebCall, isPending: isStarting } = useStartWebCall();
   const { mutateAsync: backfillCall } = useBackfillCall();
@@ -45,29 +55,75 @@ export function VoiceCall() {
     setIsMuted(false);
   }, []);
 
-  // Invalidates voice query caches at t=0, 3s, 8s, 18s and, when a callId is
-  // provided, also fires the backfill endpoint at each interval so usage is
-  // accrued even when the Retell call_ended webhook is absent or delayed.
-  // The backfill endpoint is idempotent (already_finalized guard) so retrying
-  // multiple times is safe.
+  // Attempt to backfill a single call and update state on the result.
+  // Returns true when the call is confirmed finalized (status "ok" or
+  // "already_finalized"), false otherwise so the retry loop can decide
+  // whether to keep trying.
+  const tryBackfill = useCallback(async (callId: string): Promise<boolean> => {
+    try {
+      const result = await backfillCall(callId);
+      // "ok" = finalized now; "already_finalized" = webhook beat us to it.
+      if (result.status === "ok" || result.status === "already_finalized") {
+        backfillSucceededRef.current = true;
+        setRecordingWarning(null);
+        return true;
+      }
+      // "pending_webhook" = Retell hasn't finalized yet — keep retrying.
+      return false;
+    } catch (err) {
+      console.error("[VoiceCall] Backfill request failed:", err);
+      return false;
+    }
+  }, [backfillCall]);
+
+  // Invalidates voice query caches immediately and at each retry interval, and
+  // fires the backfill endpoint so usage is accrued even when the Retell
+  // call_ended webhook is absent or delayed.
+  //
+  // The backfill endpoint is idempotent — retrying is always safe. We stop
+  // retrying once the call is confirmed finalized to avoid pointless requests.
+  // If all retries exhaust without success, a non-intrusive warning is shown
+  // so the member knows the call may not appear in history yet.
   const scheduleCallsRefresh = useCallback((callId?: string | null) => {
     clearRetryTimers();
+    backfillSucceededRef.current = false;
     queryClient.invalidateQueries({ queryKey: ["voice", "calls"] });
     queryClient.invalidateQueries({ queryKey: ["voice", "status"] });
-    if (callId) {
-      backfillCall(callId).catch(() => {});
-    }
-    const delays = [3_000, 8_000, 18_000];
-    retryTimersRef.current = delays.map((ms) =>
-      setTimeout(() => {
+
+    if (!callId) return;
+
+    // Kick off the first backfill attempt immediately.
+    tryBackfill(callId);
+
+    let retryCount = 0;
+    retryTimersRef.current = BACKFILL_RETRY_DELAYS_MS.map((ms) =>
+      setTimeout(async () => {
+        // Always invalidate queries so the UI stays fresh even if backfill
+        // returns "pending_webhook" (the call will at least show in history
+        // once endedAt is written, even without a duration yet).
         queryClient.invalidateQueries({ queryKey: ["voice", "calls"] });
         queryClient.invalidateQueries({ queryKey: ["voice", "status"] });
-        if (callId) {
-          backfillCall(callId).catch(() => {});
+
+        if (backfillSucceededRef.current) return;
+
+        retryCount++;
+        const finalized = await tryBackfill(callId);
+
+        // After all retries have fired without success, show a soft warning
+        // so the member knows to check back. The webhook may still arrive
+        // and finalize the call after this point.
+        if (!finalized && retryCount >= BACKFILL_RETRY_DELAYS_MS.length) {
+          console.warn(
+            `[VoiceCall] Backfill did not confirm call ${callId} finalized after all retries — ` +
+            "the Retell webhook may be delayed. The call will appear in history once finalized.",
+          );
+          setRecordingWarning(
+            "This call may take a moment to appear in your history. Refresh the page in a minute if it doesn't show up.",
+          );
         }
       }, ms),
     );
-  }, [queryClient, clearRetryTimers, backfillCall]);
+  }, [queryClient, clearRetryTimers, tryBackfill]);
 
   useEffect(() => {
     return () => {
@@ -79,9 +135,11 @@ export function VoiceCall() {
   const startCall = useCallback(async () => {
     clearRetryTimers();
     setErrorMsg(null);
+    setRecordingWarning(null);
     setTranscript([]);
     setElapsed(0);
     activeCallIdRef.current = null;
+    backfillSucceededRef.current = false;
     setCallState("connecting");
 
     let permGranted = false;
@@ -180,6 +238,13 @@ export function VoiceCall() {
           <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" />
           <span className="flex-1">{errorMsg}</span>
           <button onClick={() => setErrorMsg(null)} className="text-xs underline shrink-0">Dismiss</button>
+        </div>
+      )}
+      {recordingWarning && (
+        <div className="flex items-start gap-2 rounded-lg border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/30 px-4 py-3 text-sm text-amber-800 dark:text-amber-300">
+          <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" />
+          <span className="flex-1">{recordingWarning}</span>
+          <button onClick={() => setRecordingWarning(null)} className="text-xs underline shrink-0">Dismiss</button>
         </div>
       )}
 

@@ -178,16 +178,16 @@ describe("VoiceCall — call-history invalidation on call end", () => {
       (c) => JSON.stringify((c[0] as any)?.queryKey) === JSON.stringify(["voice", "calls"]),
     ).length;
 
-    // Advance past the retry delays (3 s, 8 s, 18 s).
+    // Advance past the first three retry delays (5 s, 12 s, 25 s).
     await act(async () => {
-      vi.advanceTimersByTime(20_000);
+      vi.advanceTimersByTime(30_000);
     });
 
     const callsKeyCallsAfter = invalidateSpy.mock.calls.filter(
       (c) => JSON.stringify((c[0] as any)?.queryKey) === JSON.stringify(["voice", "calls"]),
     ).length;
 
-    // Expect the 1 immediate + 3 delayed = at least 4 total.
+    // Expect at least 3 delayed retry invalidations on top of whatever fired before.
     expect(callsKeyCallsAfter).toBeGreaterThanOrEqual(callsKeyCallsBefore + 3);
   });
 
