@@ -106,3 +106,12 @@ export function useStartWebCall() {
     },
   });
 }
+
+export function useBackfillCall() {
+  return useMutation<{ status: string; duration_seconds: number | null }, Error, string>({
+    mutationFn: (callId) =>
+      voiceFetch(`/voice/calls/${encodeURIComponent(callId)}/backfill`, {
+        method: "POST",
+      }),
+  });
+}

@@ -38,6 +38,9 @@ vi.mock("@/lib/voice-api", () => ({
     mutateAsync: mockMutateAsync,
     isPending: false,
   }),
+  useBackfillCall: () => ({
+    mutateAsync: vi.fn().mockResolvedValue({ status: "ok", duration_seconds: null }),
+  }),
 }));
 
 import { VoiceCall } from "@/components/voice/VoiceCall";

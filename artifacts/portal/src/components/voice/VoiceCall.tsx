@@ -2,7 +2,7 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import { RetellWebClient } from "retell-client-js-sdk";
 import { Button } from "@/components/ui/button";
 import { Mic, MicOff, PhoneOff, Phone, Loader2, AlertCircle, Volume2 } from "lucide-react";
-import { useStartWebCall, useVoiceStatus } from "@/lib/voice-api";
+import { useStartWebCall, useBackfillCall } from "@/lib/voice-api";
 import { useQueryClient } from "@tanstack/react-query";
 
 type CallState = "idle" | "connecting" | "active" | "ending" | "error";
@@ -24,8 +24,10 @@ export function VoiceCall() {
   const clientRef = useRef<RetellWebClient | null>(null);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const retryTimersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
+  const activeCallIdRef = useRef<string | null>(null);
   const queryClient = useQueryClient();
   const { mutateAsync: startWebCall, isPending: isStarting } = useStartWebCall();
+  const { mutateAsync: backfillCall } = useBackfillCall();
 
   const clearRetryTimers = useCallback(() => {
     retryTimersRef.current.forEach((t) => clearTimeout(t));
@@ -43,16 +45,29 @@ export function VoiceCall() {
     setIsMuted(false);
   }, []);
 
-  const scheduleCallsRefresh = useCallback(() => {
+  // Invalidates voice query caches at t=0, 3s, 8s, 18s and, when a callId is
+  // provided, also fires the backfill endpoint at each interval so usage is
+  // accrued even when the Retell call_ended webhook is absent or delayed.
+  // The backfill endpoint is idempotent (already_finalized guard) so retrying
+  // multiple times is safe.
+  const scheduleCallsRefresh = useCallback((callId?: string | null) => {
     clearRetryTimers();
     queryClient.invalidateQueries({ queryKey: ["voice", "calls"] });
+    queryClient.invalidateQueries({ queryKey: ["voice", "status"] });
+    if (callId) {
+      backfillCall(callId).catch(() => {});
+    }
     const delays = [3_000, 8_000, 18_000];
     retryTimersRef.current = delays.map((ms) =>
       setTimeout(() => {
         queryClient.invalidateQueries({ queryKey: ["voice", "calls"] });
+        queryClient.invalidateQueries({ queryKey: ["voice", "status"] });
+        if (callId) {
+          backfillCall(callId).catch(() => {});
+        }
       }, ms),
     );
-  }, [queryClient, clearRetryTimers]);
+  }, [queryClient, clearRetryTimers, backfillCall]);
 
   useEffect(() => {
     return () => {
@@ -66,6 +81,7 @@ export function VoiceCall() {
     setErrorMsg(null);
     setTranscript([]);
     setElapsed(0);
+    activeCallIdRef.current = null;
     setCallState("connecting");
 
     let permGranted = false;
@@ -93,6 +109,8 @@ export function VoiceCall() {
       return;
     }
 
+    activeCallIdRef.current = callData.call_id;
+
     const retellClient = new RetellWebClient();
     clientRef.current = retellClient;
 
@@ -102,10 +120,10 @@ export function VoiceCall() {
     });
 
     retellClient.on("call_ended", () => {
+      const callId = activeCallIdRef.current;
       cleanup();
       setCallState("idle");
-      queryClient.invalidateQueries({ queryKey: ["voice", "status"] });
-      scheduleCallsRefresh();
+      scheduleCallsRefresh(callId);
     });
 
     retellClient.on("agent_start_talking", () => setIsAgentTalking(true));
@@ -135,15 +153,15 @@ export function VoiceCall() {
       setErrorMsg(err.message || "Failed to connect call.");
       setCallState("idle");
     }
-  }, [startWebCall, cleanup, queryClient, scheduleCallsRefresh, clearRetryTimers]);
+  }, [startWebCall, cleanup, scheduleCallsRefresh, clearRetryTimers]);
 
   const endCall = useCallback(() => {
+    const callId = activeCallIdRef.current;
     setCallState("ending");
     cleanup();
     setCallState("idle");
-    queryClient.invalidateQueries({ queryKey: ["voice", "status"] });
-    scheduleCallsRefresh();
-  }, [cleanup, queryClient, scheduleCallsRefresh]);
+    scheduleCallsRefresh(callId);
+  }, [cleanup, scheduleCallsRefresh]);
 
   const toggleMute = useCallback(() => {
     if (!clientRef.current) return;

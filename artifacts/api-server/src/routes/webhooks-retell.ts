@@ -7,6 +7,40 @@ const router = Router();
 
 const RETELL_API_KEY = process.env.RETELL_API_KEY ?? "";
 
+// ---------------------------------------------------------------------------
+// Webhook configuration diagnosis (logged once at module load time so ops
+// teams can see exactly why webhooks are or aren't being accepted).
+//
+// Root-cause checklist for missing call_ended/call_analyzed webhooks:
+//   1. RETELL_API_KEY env var must be set in production. When absent, this
+//      handler returns 503 for every webhook request (production guard).
+//   2. The webhook URL configured in the Retell dashboard must point to this
+//      server's public endpoint: https://<your-domain>/api/webhooks/retell
+//      In development, Retell cannot reach localhost — use the backfill path
+//      or a tunnelling tool (e.g. ngrok) for local end-to-end testing.
+//   3. Retell signs webhooks using the API key as the HMAC-SHA256 secret
+//      (x-retell-signature header). If the key here differs from the one in
+//      the Retell dashboard, every webhook fails with 401.
+//   4. express.raw() must pre-process the /webhooks path BEFORE express.json()
+//      so req.rawBody is populated for signature verification. If rawBody is
+//      empty (""), every signature check will fail regardless of the key.
+// ---------------------------------------------------------------------------
+if (process.env.NODE_ENV === "production") {
+  if (!RETELL_API_KEY) {
+    console.error(
+      "[Retell Webhook] RETELL_API_KEY is NOT configured. " +
+      "All incoming webhook requests will be rejected with 503. " +
+      "Set RETELL_API_KEY in your production environment and redeploy."
+    );
+  } else {
+    console.log(
+      "[Retell Webhook] RETELL_API_KEY is configured. " +
+      "Webhook signature verification is ACTIVE. " +
+      "Ensure the Retell dashboard webhook URL points to: /api/webhooks/retell"
+    );
+  }
+}
+
 function verifyRetellSignature(rawBody: string, signature: string): boolean {
   if (!RETELL_API_KEY) return true;
   if (!signature) return false;

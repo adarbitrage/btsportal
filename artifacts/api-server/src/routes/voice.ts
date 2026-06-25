@@ -1,6 +1,6 @@
 import { Router, type Request, type Response } from "express";
 import { db, usersTable, voiceCallsTable, voiceDailyUsageTable, knowledgebaseDocsTable, ticketsTable, ticketMessagesTable } from "@workspace/db";
-import { eq, sql, and, desc } from "drizzle-orm";
+import { eq, sql, and, desc, isNull } from "drizzle-orm";
 import { isAdminRole } from "@workspace/auth";
 import Retell from "retell-sdk";
 import { hasEntitlement, hasMemberAccessBypass } from "../lib/entitlements";
@@ -282,6 +282,160 @@ router.post("/voice/web-call", async (req: Request, res: Response): Promise<void
   } catch (err: any) {
     console.error("[Voice] Failed to create web call:", err);
     res.status(500).json({ error: "Failed to start voice call. Please try again." });
+  }
+});
+
+// ---------------------------------------------------------------------------
+// POST /voice/calls/:callId/backfill
+//
+// Client-initiated fallback for when the Retell call_ended webhook is delayed
+// or never delivered. The member who owns the call signals that it has ended;
+// the server then queries Retell's API for the authoritative final state.
+//
+// Safety contract — two-tier write strategy:
+//   1. endedAt is always written (idempotently) so the call appears in "Past
+//      calls" immediately, even before the webhook arrives.
+//   2. durationSeconds (the idempotency marker shared with the webhook handler)
+//      is ONLY written when Retell confirms the call is terminal via
+//      end_timestamp. Client-supplied values are NEVER used for this field,
+//      preventing a caller from locking out the authoritative webhook by
+//      submitting an artificially small duration while the call is still live.
+//
+// If Retell is unreachable or the call has not yet been finalized on their
+// side, only endedAt is set and durationSeconds stays null — the webhook
+// remains free to claim the accrual when it arrives.
+// ---------------------------------------------------------------------------
+router.post("/voice/calls/:callId/backfill", async (req: Request, res: Response): Promise<void> => {
+  const userId = req.userId!;
+  const { callId } = req.params;
+
+  if (!callId || typeof callId !== "string") {
+    res.status(400).json({ error: "callId is required" });
+    return;
+  }
+
+  try {
+    // Verify the call belongs to this user (prevents call-id enumeration).
+    const [existing] = await db
+      .select({
+        id: voiceCallsTable.id,
+        durationSeconds: voiceCallsTable.durationSeconds,
+        endedAt: voiceCallsTable.endedAt,
+      })
+      .from(voiceCallsTable)
+      .where(and(eq(voiceCallsTable.retellCallId, callId), eq(voiceCallsTable.userId, userId)))
+      .limit(1);
+
+    if (!existing) {
+      res.status(404).json({ error: "Call not found" });
+      return;
+    }
+
+    // Already fully finalized (both endedAt and durationSeconds written, meaning
+    // either a prior backfill or the webhook already landed). Nothing to do.
+    if (existing.endedAt !== null && existing.durationSeconds !== null) {
+      res.json({ status: "already_finalized" });
+      return;
+    }
+
+    // Query Retell for the authoritative terminal state. This is the only source
+    // of truth for durationSeconds — client-provided values are intentionally
+    // ignored for this field to prevent usage-cap bypass.
+    let retellConfirmedEnded = false;
+    let retellDurationSeconds: number | null = null;
+    let retellEndedAt: Date | null = null;
+    let retellSummary: string | null = null;
+    let retellTranscript: string | null = null;
+
+    if (RETELL_API_KEY) {
+      try {
+        const retellClient = new Retell({ apiKey: RETELL_API_KEY });
+        const retellCall = await retellClient.call.retrieve(callId);
+        // A non-null end_timestamp is Retell's signal that the call is terminal.
+        if (retellCall.end_timestamp) {
+          retellConfirmedEnded = true;
+          retellEndedAt = new Date(retellCall.end_timestamp);
+          if (retellCall.duration_ms != null) {
+            retellDurationSeconds = Math.round(retellCall.duration_ms / 1000);
+          }
+          // Opportunistically backfill summary + transcript from the retrieve
+          // response when available, so call history doesn't depend solely on
+          // the call_analyzed webhook delivery.
+          const analysis = (retellCall as any).call_analysis;
+          if (analysis?.call_summary) retellSummary = analysis.call_summary;
+          if ((retellCall as any).transcript) retellTranscript = (retellCall as any).transcript;
+        }
+      } catch (fetchErr) {
+        console.warn("[Voice Backfill] Could not fetch call from Retell API:", fetchErr);
+      }
+    }
+
+    const endedAt = retellEndedAt ?? new Date();
+
+    if (!retellConfirmedEnded) {
+      // Retell hasn't finalized the call yet (or API was unavailable). Record
+      // endedAt so the call appears in the history list, but leave durationSeconds
+      // null so the webhook can still claim the idempotency marker and accrue
+      // usage when it arrives.
+      // Guard with durationSeconds IS NULL so a concurrent webhook that already
+      // finalized the call (and wrote the authoritative endedAt from Retell) is
+      // not overwritten with a less-precise timestamp from this backfill path.
+      await db
+        .update(voiceCallsTable)
+        .set({ status: "ended", endedAt })
+        .where(
+          and(
+            eq(voiceCallsTable.retellCallId, callId),
+            eq(voiceCallsTable.userId, userId),
+            isNull(voiceCallsTable.durationSeconds),
+          ),
+        );
+      res.json({ status: "pending_webhook", duration_seconds: null });
+      return;
+    }
+
+    // Retell confirmed the call is terminal. Claim the idempotency marker with
+    // the same conditional UPDATE used by the webhook handler: the WHERE guard
+    // `durationSeconds IS NULL` ensures that if the webhook lands concurrently,
+    // exactly one writer wins — the loser's UPDATE matches zero rows.
+    const claimed = await db
+      .update(voiceCallsTable)
+      .set({
+        status: "ended",
+        endedAt,
+        durationSeconds: retellDurationSeconds,
+        // Backfill summary and transcript when Retell has them so call history
+        // doesn't depend solely on the call_analyzed webhook delivery.
+        ...(retellSummary != null ? { summary: retellSummary } : {}),
+        ...(retellTranscript != null ? { transcript: retellTranscript } : {}),
+      })
+      .where(
+        and(
+          eq(voiceCallsTable.retellCallId, callId),
+          eq(voiceCallsTable.userId, userId),
+          isNull(voiceCallsTable.durationSeconds),
+        ),
+      )
+      .returning({ id: voiceCallsTable.id });
+
+    const winner = claimed[0];
+
+    // Accrue daily usage only when this call claimed the marker (winner != null).
+    // The null check on retellDurationSeconds excludes calls with no measured duration.
+    if (winner && retellDurationSeconds && retellDurationSeconds > 0) {
+      const today = new Date().toISOString().split("T")[0];
+      await db.execute(
+        sql`INSERT INTO voice_daily_usage (user_id, usage_date, seconds_used)
+            VALUES (${userId}, ${today}, ${retellDurationSeconds})
+            ON CONFLICT (user_id, usage_date)
+            DO UPDATE SET seconds_used = voice_daily_usage.seconds_used + ${retellDurationSeconds}`
+      );
+    }
+
+    res.json({ status: "ok", duration_seconds: retellDurationSeconds });
+  } catch (err) {
+    console.error("[Voice Backfill] Error:", err);
+    res.status(500).json({ error: "Failed to backfill call" });
   }
 });
 
