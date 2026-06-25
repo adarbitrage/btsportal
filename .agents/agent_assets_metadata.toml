@@ -144,3 +144,9 @@ id = "00g0rYe6bY4ABvJjCaf3i"
 uri = "file://exports/BTS_Lifetime_Mentorship_Agreement_Preview.pdf"
 type = "pdf"
 title = "BTS Lifetime Mentorship Mentee Agreement (PDF)"
+
+[[outputs]]
+id = "3x-Cu8YldTdOhrBvCjR1e"
+uri = "file://docs/ai-assistant-remediation-plan.md"
+type = "text"
+title = "BTS AI Assistant — Remediation Plan"
