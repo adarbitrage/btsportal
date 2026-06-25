@@ -62,11 +62,22 @@ function selectFiles(files: File[]) {
   fireEvent.change(fileInput(), { target: { files } });
 }
 
+// Fill the guided required selections (affiliate network, traffic source, and a
+// creative category) so the form's submit guard passes and the per-file upload
+// path under test runs. The creative checkboxes only render once network +
+// traffic are chosen.
+function fillGuidedFields() {
+  fireEvent.click(screen.getByTestId("chip-network-ClickBank"));
+  fireEvent.click(screen.getByTestId("chip-traffic-Grasshopper"));
+  fireEvent.click(screen.getByTestId("checkbox-creative-Banner Images"));
+}
+
 // Submit the form directly. Clicking the submit button is blocked by jsdom's
-// HTML5 constraint validation (the form has required fields we don't fill), but
-// the per-file upload path runs before those fields matter, so dispatching the
-// submit event exercises exactly the flow under test.
+// HTML5 constraint validation (unfilled required text fields); the guided
+// selections are filled first so the submit guard passes and the per-file upload
+// path under test runs.
 function submitForm() {
+  fillGuidedFields();
   const form = document.querySelector("form");
   if (!form) throw new Error("form not found");
   fireEvent.submit(form);

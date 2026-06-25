@@ -1273,7 +1273,7 @@ router.post("/tickets/compliance", async (req, res): Promise<void> => {
   const userId = req.userId!;
   const {
     firstName, lastName, email,
-    offerName, selectedCreatives, selectedTraffic,
+    offerName, affiliateNetwork, trafficSource, selectedCreatives,
     driveLink, shareStatus,
     attachments,
     notes,
@@ -1288,6 +1288,22 @@ router.post("/tickets/compliance", async (req, res): Promise<void> => {
 
   if (!firstName || !lastName || !email || !offerName) {
     res.status(400).json({ error: "Missing required fields: firstName, lastName, email, offerName" });
+    return;
+  }
+
+  // The guided intake requires an affiliate network, a single traffic source,
+  // and at least one creative category. Enforce server-side so these can't be
+  // bypassed via a direct API call (the UI also blocks an incomplete submit).
+  if (!affiliateNetwork || !String(affiliateNetwork).trim()) {
+    res.status(400).json({ error: "Please select an affiliate network." });
+    return;
+  }
+  if (!trafficSource || !String(trafficSource).trim()) {
+    res.status(400).json({ error: "Please select a traffic source." });
+    return;
+  }
+  if (!Array.isArray(selectedCreatives) || selectedCreatives.length === 0) {
+    res.status(400).json({ error: "Please select at least one creative category." });
     return;
   }
 
@@ -1346,8 +1362,9 @@ router.post("/tickets/compliance", async (req, res): Promise<void> => {
     `From: ${String(firstName)} ${String(lastName)} <${String(email)}>`,
     ``,
     `Offer Name: ${String(offerName)}`,
-    `Creative Type(s): ${Array.isArray(selectedCreatives) && selectedCreatives.length ? selectedCreatives.join(", ") : "Not specified"}`,
-    `Traffic Source(s): ${Array.isArray(selectedTraffic) && selectedTraffic.length ? selectedTraffic.join(", ") : "Not specified"}`,
+    `Affiliate Network: ${affiliateNetwork && String(affiliateNetwork).trim() ? String(affiliateNetwork).trim() : "Not specified"}`,
+    `Traffic Source: ${trafficSource && String(trafficSource).trim() ? String(trafficSource).trim() : "Not specified"}`,
+    `Creative Categories: ${Array.isArray(selectedCreatives) && selectedCreatives.length ? selectedCreatives.join(", ") : "Not specified"}`,
   ];
 
   if (driveLink && String(driveLink).trim()) {

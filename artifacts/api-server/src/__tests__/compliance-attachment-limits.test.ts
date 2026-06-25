@@ -76,8 +76,9 @@ const baseBody = {
   lastName: "Member",
   email: "member@example.test",
   offerName: "Acme Offer",
-  selectedCreatives: ["Banner"],
-  selectedTraffic: ["Meta"],
+  affiliateNetwork: "ClickBank",
+  trafficSource: "Grasshopper",
+  selectedCreatives: ["Banner Images"],
 };
 
 beforeAll(async () => {

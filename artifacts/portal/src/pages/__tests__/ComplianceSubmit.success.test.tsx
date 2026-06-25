@@ -71,9 +71,20 @@ function renderPage() {
   );
 }
 
+// Fill the guided required selections (affiliate network, traffic source, and a
+// creative category) so the form's submit guard passes. The creative checkboxes
+// only render once network + traffic are chosen.
+function fillGuidedFields() {
+  fireEvent.click(screen.getByTestId("chip-network-ClickBank"));
+  fireEvent.click(screen.getByTestId("chip-traffic-Grasshopper"));
+  fireEvent.click(screen.getByTestId("checkbox-creative-Banner Images"));
+}
+
 // Dispatch the submit event directly (jsdom blocks the button click on unfilled
-// required fields); the success handler doesn't gate on those fields itself.
+// HTML5 required text fields); the guided selections are filled first so the
+// submit guard passes and the post-submit flow under test runs.
 function submitForm() {
+  fillGuidedFields();
   const form = document.querySelector("form");
   if (!form) throw new Error("form not found");
   fireEvent.submit(form);

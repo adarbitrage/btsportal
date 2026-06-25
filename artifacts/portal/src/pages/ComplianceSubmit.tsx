@@ -26,9 +26,28 @@ import {
 
 const API_BASE = `${import.meta.env.BASE_URL}api`;
 
-const creativeTypes = ["Banner", "Landing Page"];
-const trafficSources = ["Grasshopper", "Crane", "Caterpillar", "Meta", "Other"];
+const networkOptions = ["ClickBank", "Media Mavens"];
+const trafficSources = ["Grasshopper", "Crane", "Caterpillar"];
 const shareOptions = ["Yes, I have shared access", "No, I have not shared access"];
+
+// Page-creative wording follows the Affiliate Network; ad/banner wording
+// follows the Traffic Source — the same mapping the Concierge form uses.
+const pageLabel = (network: string) => (network === "Media Mavens" ? "Advertorial" : "Jump Page");
+const creativeLabel = (traffic: string) => (traffic === "Caterpillar" ? "Ad" : "Banner");
+
+// The exact four creative categories compliance reviews, relabeled per the
+// chosen network + traffic. Submitted by their relabeled wording so the admin
+// ticket records exactly what the member saw.
+function buildCreativeOptions(network: string, traffic: string): string[] {
+  const creative = creativeLabel(traffic);
+  const page = pageLabel(network);
+  return [
+    `${creative} Images`,
+    `${creative} Headlines/Descriptions`,
+    `${page} Hero Shot Images`,
+    `${page} Headlines`,
+  ];
+}
 
 // Per-file size and content-type are enforced by the SHARED
 // `validateTicketAttachment` (the exact rules the ticket reply composer uses),
@@ -146,8 +165,11 @@ export default function ComplianceSubmit() {
   const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
   const [offerName, setOfferName] = useState("");
+  const [network, setNetwork] = useState("");
+  const [traffic, setTraffic] = useState("");
   const [selectedCreatives, setSelectedCreatives] = useState<string[]>([]);
-  const [selectedTraffic, setSelectedTraffic] = useState<string[]>([]);
+  // Inline prerequisite warnings (selection order: Network → Traffic → creatives).
+  const [networkWarning, setNetworkWarning] = useState(false);
   const [driveLink, setDriveLink] = useState("");
   const [shareStatus, setShareStatus] = useState("");
   // Each selected file is staged with its own upload status + reason so a single
@@ -165,6 +187,30 @@ export default function ComplianceSubmit() {
 
   const toggleItem = (list: string[], setList: (v: string[]) => void, item: string) => {
     setList(list.includes(item) ? list.filter((i) => i !== item) : [...list, item]);
+  };
+
+  // The four creative categories appear only once both prerequisites are chosen,
+  // relabeled per the network/traffic mapping.
+  const creativeOptions = network && traffic ? buildCreativeOptions(network, traffic) : [];
+
+  // Radio-style single-select that never deselects back to empty, and clears the
+  // now-stale creative selections so a member can't submit options that don't
+  // match their setup — mirroring the Concierge form's clear-on-change behavior.
+  const selectNetwork = (n: string) => {
+    if (network === n) return;
+    setNetwork(n);
+    setNetworkWarning(false);
+    setSelectedCreatives([]);
+  };
+
+  const selectTraffic = (t: string) => {
+    if (!network) {
+      setNetworkWarning(true);
+      return;
+    }
+    if (traffic === t) return;
+    setTraffic(t);
+    setSelectedCreatives([]);
   };
 
   const removeFile = (fileId: string) => {
@@ -216,6 +262,23 @@ export default function ComplianceSubmit() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
+    // Enforce the guided required selections (network → traffic → at least one
+    // creative category) before doing any work. The server enforces these too,
+    // but this gives instant inline feedback and avoids a wasted upload.
+    if (!network) {
+      setNetworkWarning(true);
+      setErrorMessage("Please select an affiliate network.");
+      return;
+    }
+    if (!traffic) {
+      setErrorMessage("Please select a traffic source.");
+      return;
+    }
+    if (selectedCreatives.length === 0) {
+      setErrorMessage("Please select at least one creative category.");
+      return;
+    }
+
     // Guard again at submit time in case the selection was assembled some other
     // way; the server enforces this regardless, but this avoids a wasted upload.
     const fileError = validateFiles(files.map((sf) => sf.file));
@@ -256,7 +319,7 @@ export default function ComplianceSubmit() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           firstName, lastName, email, offerName,
-          selectedCreatives, selectedTraffic,
+          affiliateNetwork: network, trafficSource: traffic, selectedCreatives,
           driveLink, shareStatus,
           attachments,
           notes,
@@ -307,7 +370,7 @@ export default function ComplianceSubmit() {
   const chipClass = (active: boolean) =>
     `px-3 py-1.5 rounded-lg text-sm border transition-colors ${
       active
-        ? "bg-foreground text-background border-foreground"
+        ? "bg-primary text-primary-foreground border-primary"
         : "bg-background border-border text-muted-foreground hover:border-foreground/40"
     }`;
 
@@ -385,6 +448,45 @@ export default function ComplianceSubmit() {
               </div>
 
               <div>
+                <label className="block text-sm font-medium text-foreground mb-1.5">Affiliate Network *</label>
+                <div className="flex flex-wrap items-center gap-2">
+                  {networkOptions.map((n) => (
+                    <button
+                      key={n}
+                      type="button"
+                      onClick={() => selectNetwork(n)}
+                      className={chipClass(network === n)}
+                      data-testid={`chip-network-${n}`}
+                    >
+                      {n}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-foreground mb-1.5">Traffic Source *</label>
+                <div className="flex flex-wrap items-center gap-2">
+                  {trafficSources.map((t) => (
+                    <button
+                      key={t}
+                      type="button"
+                      onClick={() => selectTraffic(t)}
+                      className={chipClass(traffic === t)}
+                      data-testid={`chip-traffic-${t}`}
+                    >
+                      {t}
+                    </button>
+                  ))}
+                  {networkWarning && !network && (
+                    <span className="text-xs text-red-600" data-testid="warning-network">
+                      Please select an affiliate network first
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              <div>
                 <label className="block text-sm font-medium text-foreground mb-1.5">Name Of The Offer You Are Promoting *</label>
                 <input
                   type="text"
@@ -397,37 +499,39 @@ export default function ComplianceSubmit() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-foreground mb-1.5">Which creative is this for? *</label>
-                <div className="flex flex-wrap gap-2">
-                  {creativeTypes.map((t) => (
-                    <button
-                      key={t}
-                      type="button"
-                      onClick={() => toggleItem(selectedCreatives, setSelectedCreatives, t)}
-                      className={chipClass(selectedCreatives.includes(t))}
-                      data-testid={`chip-creative-${t}`}
-                    >
-                      {t}
-                    </button>
-                  ))}
-                </div>
+                <label className="block text-sm font-medium text-foreground mb-1.5">Which creatives are this for? *</label>
+                {network && traffic ? (
+                  <div className="space-y-2" data-testid="compliance-creatives-group">
+                    {creativeOptions.map((opt) => (
+                      <label key={opt} className="flex items-start gap-2 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={selectedCreatives.includes(opt)}
+                          onChange={() => toggleItem(selectedCreatives, setSelectedCreatives, opt)}
+                          className="mt-1 accent-primary"
+                          data-testid={`checkbox-creative-${opt}`}
+                        />
+                        <span className="text-sm text-muted-foreground">{opt}</span>
+                      </label>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-xs text-red-600" data-testid="warning-creative-prereq">
+                    Please select an affiliate network and traffic source first
+                  </p>
+                )}
               </div>
 
-              <div>
-                <label className="block text-sm font-medium text-foreground mb-1.5">Which traffic source will you be using these creatives for? *</label>
-                <div className="flex flex-wrap gap-2">
-                  {trafficSources.map((t) => (
-                    <button
-                      key={t}
-                      type="button"
-                      onClick={() => toggleItem(selectedTraffic, setSelectedTraffic, t)}
-                      className={chipClass(selectedTraffic.includes(t))}
-                      data-testid={`chip-traffic-${t}`}
-                    >
-                      {t}
-                    </button>
-                  ))}
-                </div>
+              <div
+                className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900"
+                data-testid="dual-creative-guidance"
+              >
+                <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5 text-amber-600" />
+                <p>
+                  If you're submitting both your ad/banner creatives and your landing-page
+                  (jump page / advertorial) creatives together, please clearly label the
+                  folders or documents so we can tell which is which.
+                </p>
               </div>
 
               <div>
