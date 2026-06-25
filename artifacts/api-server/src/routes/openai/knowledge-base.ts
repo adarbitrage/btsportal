@@ -1,107 +1,70 @@
-import fs from "fs";
-import path from "path";
-import { db } from "@workspace/db";
-import { sql } from "drizzle-orm";
 import { scrubPrivateContent } from "../../lib/content-privacy-filter";
+import { searchKnowledgebase } from "../chat.js";
 
-const KB_DIR = path.join(process.cwd(), "src/knowledge-base");
+const ALL_KB_CATEGORIES = [
+  "faq", "platform_guide", "marketing", "compliance", "advanced_strategy",
+  "troubleshooting", "strategy", "curriculum", "sop", "glossary", "coaching",
+];
 
-let qaContent = "";
-let glossaryContent = "";
-
-function loadStaticPromptContent() {
-  if (qaContent || glossaryContent) return;
-
-  try {
-    qaContent = scrubPrivateContent(
-      fs.readFileSync(path.join(KB_DIR, "qa-articles.txt"), "utf-8"),
-    );
-  } catch {
-    qaContent = "";
-  }
-
-  try {
-    glossaryContent = scrubPrivateContent(
-      fs.readFileSync(path.join(KB_DIR, "glossary.txt"), "utf-8"),
-    );
-  } catch {
-    glossaryContent = "";
-  }
-}
-
-export function reloadKnowledgeBase(): void {
-  qaContent = "";
-  glossaryContent = "";
-  loadStaticPromptContent();
-}
+/**
+ * No-op — kept for backward compatibility with admin-chat.ts which calls this
+ * after KB edits. Static file loading was removed; the live knowledgebase_docs
+ * table is now the sole knowledge source.
+ */
+export function reloadKnowledgeBase(): void {}
 
 export function getSystemPrompt(): string {
-  loadStaticPromptContent();
-  return `You are the BTS Assistant — the AI support chatbot for Build Test Scale (BTS), an affiliate marketing mentorship platform. You help mentees with questions about their mentorship program, tools, campaigns, and strategies.
+  return `You are the BTS Assistant — the AI support chatbot for Build Test Scale (BTS), an affiliate marketing mentorship platform. You help members with questions about their mentorship program, tools, campaigns, and strategies.
 
 IMPORTANT RULES:
 - Always refer to the program as "Build Test Scale" or "BTS"
 - Never use any legacy or former branding names for this program
 - Be friendly, supportive, and encouraging — like a knowledgeable team member
-- Give specific, actionable answers when possible
-- If you don't know something, say so and recommend contacting the BTS support team
-- Reference specific tools, processes, and resources from the knowledge base
+- Give specific, actionable answers based on the knowledge base context provided with each message
+- If the knowledge base context does not contain the answer, say so and recommend contacting the BTS support team
+- Reference specific tools, processes, and resources from the context when available
 - Keep answers concise but thorough
+- Never invent or guess BTS-specific information (commissions, policies, tools, curriculum) — answer only from what the context contains
+
+NAMING:
+- The flagship training program is called "The Blitz" — always refer to it this way; never say "21-day Blitz" or any day-count variant
+- The refund guarantee is the "90-day action-based refund guarantee"
+
+COACH CONTACT:
+- The only ways to reach a BTS coach are: (1) attending a live group coaching call, or (2) booking a private one-on-one coaching session. Never suggest Discord, email, or any other direct channel.
 
 SUPPORT CONTACT: support@buildtestscale.com
-PORTAL URL: The member portal they are currently using
 
-KEY TOOLS:
-- Flexy™: Drag & drop landing page builder
-- DIYTrax™: Campaign tracking and analytics
-- MetricMover™: Landing page split testing
-- ScrapeBot™: Image scraping tool
-- CropBot™: Image cropping browser extension
-- Gifster™: GIF creation from static images
-- PixelPress™: Banner creation with headline/image combos
-- Anstrex: Spy tool for ad research
-- Media Mavens: BTS proprietary affiliate network (100% commission)
+KEY TOOLS: Flexy™ (landing page builder), DIYTrax™ (tracking/analytics), MetricMover™ (split testing), ScrapeBot™ (image scraping), CropBot™ (image cropping), Gifster™ (GIF creation), PixelPress™ (banner creation), Anstrex (spy tool), Media Mavens (BTS affiliate network — 100% commission).
 
-COACHING TEAM:
-- Sasha, Bruce, Michael, Todd (live coaching calls)
-- Robin (1:1 sessions)
+COACHING TEAM: Sasha, Bruce, Michael, Todd (live group calls), Robin (1-on-1 sessions).
 
-CONCIERGE TEAM:
-- John Dela Cruz, Neil Warren, Mikha Bechayda
+LIVE COACHING CALLS: 6 days/week via Google Meet.
+CONCIERGE BOOKING: Available through the portal Concierge page.
 
-LIVE COACHING CALLS: 6 days/week via Google Meet
-CONCIERGE BOOKING: Available through the portal Concierge page
-
-Below is the BTS Knowledge Base. Use this to answer questions:
-
-=== Q&A ARTICLES ===
-${qaContent}
-
-=== GLOSSARY & DEFINITIONS ===
-${glossaryContent}`;
+If the knowledge base context below does not contain an answer to the member's question, acknowledge it and recommend contacting the BTS support team at support@buildtestscale.com.`;
 }
 
-export async function searchTranscripts(query: string, maxResults = 3): Promise<string> {
+/**
+ * Search the live knowledgebase_docs table for content relevant to the query.
+ *
+ * Delegates to the shared searchKnowledgebase() implementation from chat.ts so
+ * both text-chat paths use identical retrieval: websearch_to_tsquery + synonym
+ * expansion + OR-fallback + answer-time PII scrubbing. Returning a formatted
+ * string keeps the existing call sites and the DB privacy-scrub test unchanged.
+ */
+export async function searchTranscripts(query: string, maxResults = 6): Promise<string> {
   const trimmed = query.trim();
   if (!trimmed) return "";
 
-  const results = await db.execute(
-    sql`SELECT title, content, category,
-        ts_rank(to_tsvector('english', title || ' ' || content), plainto_tsquery('english', ${trimmed})) AS rank
-      FROM knowledgebase_docs
-      WHERE to_tsvector('english', title || ' ' || content) @@ plainto_tsquery('english', ${trimmed})
-        AND audience <> 'admin'
-      ORDER BY rank DESC
-      LIMIT ${maxResults}`
-  );
-
-  const rows = results.rows as Array<{ title: string; content: string; category: string }>;
+  const rows = await searchKnowledgebase(trimmed, ALL_KB_CATEGORIES);
   if (rows.length === 0) return "";
 
   return (
-    "\n\n=== RELEVANT TRAINING CONTENT ===\n" +
+    "\n\n=== RELEVANT KNOWLEDGE BASE CONTENT ===\n" +
     rows
-      .map((r) => `\n--- ${r.title} (${r.category}) ---\n${r.content.slice(0, 6000)}`)
+      .slice(0, maxResults)
+      .map((r) => `\n--- ${scrubPrivateContent(r.title)} (${r.category}) ---\n${scrubPrivateContent(r.content).slice(0, 6000)}`)
       .join("\n")
   );
 }

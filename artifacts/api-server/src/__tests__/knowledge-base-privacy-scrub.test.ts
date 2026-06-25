@@ -1,123 +1,51 @@
-import { describe, it, expect, afterAll } from "vitest";
-import fs from "fs";
-import path from "path";
+import { describe, it, expect } from "vitest";
 
 import {
   getSystemPrompt,
   reloadKnowledgeBase,
 } from "../routes/openai/knowledge-base";
 
-// The static prompt files the assistant folds into its system prompt. These are
-// the exact files getSystemPrompt() reads from src/knowledge-base. Planting a
-// forbidden full name into them and asserting the rendered prompt only keeps the
-// first name pins the privacy scrub that runs at load/reload time — if a future
-// refactor drops scrubPrivateContent() from the load path, this test fails.
-const KB_DIR = path.join(process.cwd(), "src/knowledge-base");
-const QA_FILE = path.join(KB_DIR, "qa-articles.txt");
-const GLOSSARY_FILE = path.join(KB_DIR, "glossary.txt");
+/**
+ * The static .txt file path (qa-articles.txt / glossary.txt) has been removed
+ * from the text assistant's knowledge source. The system prompt now contains
+ * only the assistant's persona, rules, and grounding instructions. Live
+ * knowledge-base content is retrieved at query time from knowledgebase_docs
+ * (the same path as the voice assistant) — covered by
+ * knowledge-base-db-privacy-scrub.test.ts.
+ *
+ * These tests verify that:
+ *   1. getSystemPrompt() returns the persona/rules text (not empty).
+ *   2. getSystemPrompt() does NOT inject static file content — a surname planted
+ *      only in qa-articles.txt / glossary.txt can never surface in the prompt.
+ *   3. reloadKnowledgeBase() is a safe no-op (backward-compat shim for
+ *      admin-chat.ts; calling it must not throw).
+ */
 
-// A coach whose surname must never reach the prompt. Bruce Clark -> "Bruce".
-const FORBIDDEN_FULL_NAME = "Bruce Clark";
-const ALLOWED_FIRST_NAME = "Bruce";
-const FORBIDDEN_SURNAME = "Clark";
-
-// Unique marker so we can locate the planted line and prove our content was the
-// content actually rendered (not some pre-existing coincidental "Bruce").
-const MARKER = "PRIVACY_SCRUB_PROBE_4F2A";
-
-const qaOriginal = fs.readFileSync(QA_FILE, "utf-8");
-const glossaryOriginal = fs.readFileSync(GLOSSARY_FILE, "utf-8");
-
-function restoreSources() {
-  fs.writeFileSync(QA_FILE, qaOriginal, "utf-8");
-  fs.writeFileSync(GLOSSARY_FILE, glossaryOriginal, "utf-8");
-  // Re-load from the pristine on-disk content so other tests / later runs see a
-  // clean cache.
-  reloadKnowledgeBase();
-}
-
-afterAll(() => {
-  restoreSources();
-});
-
-describe("assistant system prompt — static knowledge-base privacy scrub", () => {
-  it("strips a coach surname planted in qa-articles.txt, keeping only the first name", () => {
-    try {
-      fs.writeFileSync(
-        QA_FILE,
-        `${qaOriginal}\n\n${MARKER}: Ask ${FORBIDDEN_FULL_NAME} about campaign reviews.\n`,
-        "utf-8",
-      );
-      reloadKnowledgeBase();
-
-      const prompt = getSystemPrompt();
-
-      // Our planted marker must be present so we know we're inspecting the
-      // content we wrote, not a coincidental match elsewhere in the prompt.
-      expect(prompt).toContain(MARKER);
-
-      const probeLine = prompt
-        .split("\n")
-        .find((line) => line.includes(MARKER));
-      expect(probeLine).toBeDefined();
-      expect(probeLine).toContain(ALLOWED_FIRST_NAME);
-      expect(probeLine).not.toContain(FORBIDDEN_FULL_NAME);
-      // The bare surname must not survive on the planted line either.
-      expect(probeLine).not.toContain(FORBIDDEN_SURNAME);
-    } finally {
-      restoreSources();
-    }
+describe("assistant system prompt — static knowledge-base path removed", () => {
+  it("getSystemPrompt() returns a non-empty persona/rules string", () => {
+    const prompt = getSystemPrompt();
+    expect(typeof prompt).toBe("string");
+    expect(prompt.length).toBeGreaterThan(100);
+    expect(prompt).toContain("BTS Assistant");
+    expect(prompt).toContain("Build Test Scale");
+    expect(prompt).toContain("support@buildtestscale.com");
   });
 
-  it("strips a coach surname planted in glossary.txt, keeping only the first name", () => {
-    try {
-      fs.writeFileSync(
-        GLOSSARY_FILE,
-        `${glossaryOriginal}\n\n${MARKER}: ${FORBIDDEN_FULL_NAME} leads the live calls.\n`,
-        "utf-8",
-      );
-      reloadKnowledgeBase();
-
-      const prompt = getSystemPrompt();
-
-      expect(prompt).toContain(MARKER);
-
-      const probeLine = prompt
-        .split("\n")
-        .find((line) => line.includes(MARKER));
-      expect(probeLine).toBeDefined();
-      expect(probeLine).toContain(ALLOWED_FIRST_NAME);
-      expect(probeLine).not.toContain(FORBIDDEN_FULL_NAME);
-      expect(probeLine).not.toContain(FORBIDDEN_SURNAME);
-    } finally {
-      restoreSources();
-    }
+  it("getSystemPrompt() does not embed raw static knowledge-base file content", () => {
+    const prompt = getSystemPrompt();
+    // The prompt must not include the old static-dump section headers.
+    expect(prompt).not.toContain("=== Q&A ARTICLES ===");
+    expect(prompt).not.toContain("=== GLOSSARY & DEFINITIONS ===");
   });
 
-  it("re-scrubs on reloadKnowledgeBase() after the source file changes", () => {
-    try {
-      // First load: pristine sources, no probe marker present.
-      reloadKnowledgeBase();
-      expect(getSystemPrompt()).not.toContain(MARKER);
-
-      // Mutate the source on disk *after* the initial load, then reload. A
-      // reload that forgot to re-run the scrub would surface the raw surname.
-      fs.writeFileSync(
-        QA_FILE,
-        `${qaOriginal}\n\n${MARKER}: Coach ${FORBIDDEN_FULL_NAME} hosts office hours.\n`,
-        "utf-8",
-      );
-      reloadKnowledgeBase();
-
-      const prompt = getSystemPrompt();
-      const probeLine = prompt
-        .split("\n")
-        .find((line) => line.includes(MARKER));
-      expect(probeLine).toBeDefined();
-      expect(probeLine).toContain(ALLOWED_FIRST_NAME);
-      expect(probeLine).not.toContain(FORBIDDEN_SURNAME);
-    } finally {
-      restoreSources();
-    }
+  it("reloadKnowledgeBase() is a no-op and does not throw", () => {
+    expect(() => reloadKnowledgeBase()).not.toThrow();
+    // Calling it twice is safe.
+    expect(() => reloadKnowledgeBase()).not.toThrow();
+    // System prompt is unchanged before/after reload (no static content to reload).
+    const before = getSystemPrompt();
+    reloadKnowledgeBase();
+    const after = getSystemPrompt();
+    expect(after).toBe(before);
   });
 });

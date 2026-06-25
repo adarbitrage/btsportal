@@ -4,7 +4,13 @@ import { db } from "@workspace/db";
 import { conversations, messages } from "@workspace/db";
 import { eq, desc, asc, and } from "drizzle-orm";
 import { openai } from "@workspace/integrations-openai-ai-server";
-import { getSystemPrompt, searchTranscripts } from "./knowledge-base.js";
+import { getSystemPrompt } from "./knowledge-base.js";
+import { searchKnowledgebase } from "../chat.js";
+
+const ALL_KB_CATEGORIES = [
+  "faq", "platform_guide", "marketing", "compliance", "advanced_strategy",
+  "troubleshooting", "strategy", "curriculum", "sop", "glossary", "coaching",
+];
 
 const router = Router();
 
@@ -122,8 +128,14 @@ router.post("/conversations/:id/messages", async (req: Request, res: Response) =
       .where(eq(messages.conversationId, conversationId))
       .orderBy(asc(messages.createdAt));
 
-    const transcriptContext = await searchTranscripts(trimmedContent);
-    const systemPrompt = getSystemPrompt() + transcriptContext;
+    const kbRows = await searchKnowledgebase(trimmedContent, ALL_KB_CATEGORIES);
+    const kbContext = kbRows.length > 0
+      ? "\n\n=== RELEVANT KNOWLEDGE BASE CONTENT ===\n" +
+        kbRows
+          .map((r) => `\n--- ${r.title} (${r.category}) ---\n${r.content.slice(0, 6000)}`)
+          .join("\n")
+      : "";
+    const systemPrompt = getSystemPrompt() + kbContext;
 
     const recentHistory = history.slice(-20);
 
