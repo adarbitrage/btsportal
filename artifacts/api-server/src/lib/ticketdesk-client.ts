@@ -205,12 +205,39 @@ export async function createConversation(
     );
   }
 
+  // Idempotency guard for retried deliveries.
+  //
+  // The chat session API is get-or-create keyed by (email, externalId =
+  // btsTicketNumber), so a re-run of this job (e.g. the first attempt posted the
+  // opening message successfully but the follow-up delivery_status write was
+  // lost to a restart) targets the SAME underlying thread. Before posting, look
+  // for this ticket's opening message — identified by its `BTS Ticket: <num>`
+  // marker line — and skip the post if it is already there. Without this guard a
+  // retry would create a duplicate opening message in the agent's inbox.
+  //
+  // Best-effort: if the existence check itself fails we fall through and post.
+  // A rare duplicate message is preferable to dropping the delivery entirely.
+  const btsMarker = `BTS Ticket: ${input.btsTicketNumber}`;
+  try {
+    const existing = await fetchThreadMessages(sessionToken);
+    if (existing.some((m) => m.body.includes(btsMarker))) {
+      console.log(
+        `[TicketDesk] Opening message for ${input.btsTicketNumber} already present in thread; skipping duplicate post (idempotent re-delivery).`,
+      );
+      return { id: sessionToken, conversationNumber: "" };
+    }
+  } catch (err) {
+    console.warn(
+      `[TicketDesk] Could not verify existing messages for ${input.btsTicketNumber} before posting (${err instanceof Error ? err.message : String(err)}); proceeding to post.`,
+    );
+  }
+
   // Build the message body: include the subject and BTS reference so agents
   // see the context immediately, and so the inbound webhook parser can match
   // replies back to the correct portal ticket.
   const messageBody = [
     `Subject: ${input.subject}`,
-    `BTS Ticket: ${input.btsTicketNumber}`,
+    btsMarker,
     `Portal URL: ${portalTicketUrl}`,
     ``,
     input.body,

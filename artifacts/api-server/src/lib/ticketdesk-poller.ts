@@ -65,6 +65,7 @@ import {
   and,
   inArray,
   gte,
+  lt,
   isNotNull,
 } from "drizzle-orm";
 import {
@@ -85,6 +86,22 @@ const MAX_CONCURRENT = 5;
 const INTER_TICKET_DELAY_MS = 300;
 
 const ACTIVE_STATUSES = ["open", "in_progress", "awaiting_response"];
+
+/**
+ * Age (minutes) past which a still-'pending' ticket is treated as stuck and
+ * eligible for self-healing recovery. 30 min is comfortably past the delivery
+ * worker's exponential back-off retry window (~15 min for 5 attempts), so a
+ * ticket older than this with no in-flight job is genuinely orphaned rather
+ * than mid-retry. Override via TICKETDESK_RECONCILE_STUCK_MINUTES.
+ */
+const RECONCILE_STUCK_MINUTES = parseInt(
+  process.env.TICKETDESK_RECONCILE_STUCK_MINUTES ?? "30",
+  10,
+);
+
+/** Cap on how many stuck tickets a single cycle checks against TicketDesk, so a
+ * large backlog can never flood the chat API in one pass. */
+const RECONCILE_MAX_PER_CYCLE = 50;
 
 let pollerInterval: ReturnType<typeof setInterval> | null = null;
 
@@ -260,7 +277,135 @@ async function pollSingleTicket(
   return { appended, skipped };
 }
 
+/**
+ * Self-healing recovery pass for orphaned deliveries.
+ *
+ * A ticket can be live in TicketDesk (its conversation + opening message were
+ * created) yet stuck at deliveryStatus='pending' in the portal — e.g. the
+ * delivery worker's 'delivered' write was lost to a restart. The main poll only
+ * looks at 'delivered' tickets, so such an orphan never syncs its agent replies.
+ *
+ * This pass finds stuck 'pending' tickets (older than RECONCILE_STUCK_MINUTES,
+ * within the poll cutoff window, owned by a known member) and asks TicketDesk
+ * whether the conversation actually exists — i.e. the thread already carries
+ * this ticket's opening message (its `BTS Ticket: <num>` marker) or any agent
+ * reply. When it does, the ticket is flipped to 'delivered' so the main poll
+ * below (and every future cycle) picks up its replies.
+ *
+ * Tickets whose conversation does NOT exist are left untouched: the startup
+ * backfill / failed-delivery fallback email already covers genuinely
+ * undelivered tickets, and a transient TicketDesk error simply retries next
+ * cycle. Fully best-effort — never throws.
+ */
+async function reconcilePendingDeliveries(): Promise<void> {
+  const stuckCutoff = new Date(
+    Date.now() - RECONCILE_STUCK_MINUTES * 60 * 1000,
+  );
+  const ageCutoff = new Date(
+    Date.now() - POLL_CUTOFF_DAYS * 24 * 60 * 60 * 1000,
+  );
+
+  let stuck: (typeof ticketsTable.$inferSelect)[];
+  try {
+    stuck = await db
+      .select()
+      .from(ticketsTable)
+      .where(
+        and(
+          eq(ticketsTable.deliveryStatus, "pending"),
+          lt(ticketsTable.createdAt, stuckCutoff),
+          gte(ticketsTable.createdAt, ageCutoff),
+          isNotNull(ticketsTable.userId),
+        ),
+      )
+      .limit(RECONCILE_MAX_PER_CYCLE);
+  } catch (err) {
+    console.error("[TicketDesk Reconcile] Failed to query stuck tickets:", err);
+    return;
+  }
+
+  if (stuck.length === 0) return;
+
+  const userIds = [
+    ...new Set(stuck.map((t) => t.userId).filter(Boolean) as number[]),
+  ];
+  let emailMap: Map<number, string>;
+  try {
+    const members = await db
+      .select({ id: usersTable.id, email: usersTable.email })
+      .from(usersTable)
+      .where(inArray(usersTable.id, userIds));
+    emailMap = new Map(members.map((m) => [m.id, m.email]));
+  } catch (err) {
+    console.error("[TicketDesk Reconcile] Failed to query member emails:", err);
+    return;
+  }
+
+  let recovered = 0;
+
+  for (const ticket of stuck) {
+    const email = ticket.userId ? emailMap.get(ticket.userId) : undefined;
+    if (!email) continue;
+
+    let conversationExists = false;
+    try {
+      const sessionToken = await createSessionForPolling({
+        email,
+        btsTicketNumber: ticket.ticketNumber,
+      });
+      const { messages } = await fetchThreadMessagesWithMeta(sessionToken);
+      const marker = `BTS Ticket: ${ticket.ticketNumber}`;
+      conversationExists = messages.some(
+        (m) => isAgentMessage(m) || m.body.includes(marker),
+      );
+    } catch (err) {
+      console.warn(
+        `[TicketDesk Reconcile] Could not check TicketDesk thread for ${ticket.ticketNumber}: ${err instanceof Error ? err.message : String(err)}`,
+      );
+      if (INTER_TICKET_DELAY_MS > 0) await sleep(INTER_TICKET_DELAY_MS);
+      continue;
+    }
+
+    if (conversationExists) {
+      try {
+        await db
+          .update(ticketsTable)
+          .set({
+            deliveryStatus: "delivered",
+            deliveryLastAttemptAt: new Date(),
+            deliveryLastError: null,
+          })
+          .where(eq(ticketsTable.id, ticket.id));
+        recovered++;
+        console.log(
+          `[TicketDesk Reconcile] Recovered ticket ${ticket.ticketNumber}: conversation exists in TicketDesk but was stuck at 'pending'; marked 'delivered' so agent replies sync.`,
+        );
+      } catch (err) {
+        console.error(
+          `[TicketDesk Reconcile] Failed to mark ${ticket.ticketNumber} delivered:`,
+          err,
+        );
+      }
+    }
+
+    if (INTER_TICKET_DELAY_MS > 0) await sleep(INTER_TICKET_DELAY_MS);
+  }
+
+  if (recovered > 0) {
+    console.log(
+      `[TicketDesk Reconcile] Recovered ${recovered} stuck ticket(s) to 'delivered'.`,
+    );
+  }
+}
+
 async function runPollCycle(): Promise<void> {
+  // Self-healing recovery first: flip any orphaned 'pending' tickets whose
+  // conversation already exists in TicketDesk to 'delivered' so they are picked
+  // up by the main poll in THIS same cycle (and every cycle thereafter).
+  await reconcilePendingDeliveries().catch((err) =>
+    console.error("[TicketDesk Reconcile] Cycle error:", err),
+  );
+
   const cutoff = new Date(Date.now() - POLL_CUTOFF_DAYS * 24 * 60 * 60 * 1000);
 
   let tickets: (typeof ticketsTable.$inferSelect)[];

@@ -100,15 +100,20 @@ export type TicketDeskDeliveryJobData = TicketDeskConversationInput;
 /**
  * Update the delivery_status column on the ticket row.  Accepts either the
  * internal DB id (fast path) or falls back to a lookup by ticket number.
- * All errors are swallowed — a failed status write must never cascade into
- * a job failure or prevent the fallback email from going out.
+ *
+ * Returns `true` when the write succeeds and `false` when it throws. Errors are
+ * still swallowed (logged, never re-thrown) so a failed status write can never
+ * cascade into an unrelated failure or block a fallback email — but the boolean
+ * lets the delivery worker detect a lost 'delivered' write and retry the job
+ * (re-delivery is idempotent), which is what keeps a successfully-delivered
+ * ticket from being orphaned at 'pending' and invisible to the reply poller.
  */
 async function updateDeliveryStatus(
   ticketId: number | undefined,
   btsTicketNumber: string,
   status: "delivered" | "skipped" | "failed",
   errorMsg?: string,
-): Promise<void> {
+): Promise<boolean> {
   try {
     const patch = {
       deliveryStatus: status,
@@ -129,11 +134,13 @@ async function updateDeliveryStatus(
         .set(patch)
         .where(eq(ticketsTable.ticketNumber, btsTicketNumber));
     }
+    return true;
   } catch (err) {
     console.error(
       `[TicketDesk Queue] Failed to update delivery_status for ${btsTicketNumber}:`,
       err,
     );
+    return false;
   }
 }
 
@@ -229,7 +236,22 @@ async function processJob(
     console.log(
       `[TicketDesk Queue] Delivered ticket ${btsTicketNumber} for ${contactEmail} → conversation ${result.id}`,
     );
-    void updateDeliveryStatus(ticketId, btsTicketNumber, "delivered");
+    // Await the 'delivered' stamp instead of firing it and forgetting. If the
+    // write is lost, throw so BullMQ retries the whole job — createConversation
+    // is idempotent (it skips re-posting an already-present opening message), so
+    // a retry re-attempts only the status write and never duplicates the
+    // TicketDesk conversation. This closes the orphan window where delivery
+    // succeeded but the ticket stayed 'pending' and invisible to the poller.
+    const stamped = await updateDeliveryStatus(
+      ticketId,
+      btsTicketNumber,
+      "delivered",
+    );
+    if (!stamped) {
+      throw new Error(
+        `Ticket ${btsTicketNumber} was delivered to TicketDesk (conversation ${result.id}) but persisting delivery_status='delivered' failed; throwing to retry (idempotent re-delivery).`,
+      );
+    }
   } catch (error: unknown) {
     const msg = error instanceof Error ? error.message : String(error);
     console.error(
