@@ -279,6 +279,92 @@ export async function seedKnowledgebaseFromFiles(): Promise<void> {
  */
 const INTERNAL_SOP_DOCS: KBDoc[] = [
   {
+    title: "SOP: How to Add Content to the Knowledge Base",
+    category: "sop",
+    content: `# SOP: How to Add Content to the Knowledge Base
+
+**Audience:** Internal / Admins only
+**Purpose:** A plain-language guide so any team member can add content to the BTS Member Portal Knowledge Base (KB) without needing to touch code.
+
+---
+
+## Overview
+
+The Knowledge Base is the library that powers the AI Assistant chat, the voice assistant, and member-facing search. Content only reaches members after it has been reviewed and approved. There are two main ways to add content, and a third category (private recordings) that is handled separately.
+
+---
+
+## Path 1 — The AI Pipeline (recommended for videos and audio)
+
+**Best for:** Training videos, coaching call recordings, audio content, or any source where you have a recording but not a written document yet.
+
+**Where:** Admin panel → Knowledge Base → AI Pipeline (\`/admin/knowledgebase/pipeline\`)
+
+**How it works:**
+
+1. Go to the AI Pipeline page in the admin panel.
+2. Point the pipeline at the video or audio source (upload the file or provide the source details on the page).
+3. The system automatically transcribes the audio, removes filler words, and extracts the key teaching content into a structured document.
+4. The draft document lands in the **review queue** with a status of "Pending Review."
+5. An admin opens the draft, reads it, makes any edits needed, and clicks **Approve** to push it live.
+6. Once approved, the document is immediately available in the member Knowledge Base and to the AI Assistant.
+
+**Tips:**
+- The pipeline works best on focused, single-topic recordings. Very long or wide-ranging recordings may produce a dense document — that is fine.
+- You can re-run the pipeline on the same source if the first result needs a complete redo. Approving a draft is always the final human gate before anything goes live.
+
+---
+
+## Path 2 — Adding a Written Document or Q&A Directly
+
+**Best for:** Written documents, transcripts you already have in text form, FAQ entries, glossary terms, or any content where the text is ready.
+
+**Where:** Admin panel → Knowledge Base → Documents (the main KB management page)
+
+**How it works:**
+
+1. Go to the Knowledge Base management page in the admin panel.
+2. Click **Add Document** (or the equivalent button on the page).
+3. Fill in:
+   - **Title** — clear and descriptive; this is what members and the AI use to identify the article.
+   - **Category** — choose the closest match (e.g. FAQ, curriculum, strategy, glossary).
+   - **Content** — paste or type the document body. Use plain text or simple headings.
+4. Save. The document is immediately live in the Knowledge Base.
+
+**Tips for Q&A and glossary terms:** Frame the title as the question a member would actually ask (e.g. "How do I request a refund?"). This makes it far easier for the AI to find and surface the right answer.
+
+---
+
+## Path 3 — Private Coaching Recordings
+
+Raw 1-on-1 coaching session recordings are handled separately from the paths above. They go through an additional review step to protect member privacy before any content from them enters the Knowledge Base. Do not add private session recordings through the standard AI Pipeline or the direct-document form without first confirming the review has been completed. If you are unsure, check with the admin team.
+
+---
+
+## Key Principles
+
+**Content is reviewed before it goes live.**
+Anything from the AI Pipeline stays in a "Pending Review" queue until an admin approves it. Direct documents go live immediately, so review your text before saving.
+
+**Personal information is automatically removed.**
+The system automatically strips email addresses, phone numbers, and coach last names from all content before it reaches members or the AI. You do not need to manually redact these — but it is still good practice to avoid including sensitive personal details in the first place.
+
+**Use the words members actually search for.**
+The AI Assistant and the voice assistant find content by matching keywords. If a document only uses formal or internal terminology that members would not know, it may not surface when members search. Where possible, include the plain-language phrases members actually use (e.g. "mentee agreement" alongside "Mentee Master Agreement").
+
+---
+
+## What "Done" Looks Like
+
+A piece of content is fully added to the Knowledge Base when:
+
+1. The article is approved and its status shows as **live** (not "pending" or "draft").
+2. The title appears in the member-facing Knowledge Base search results.
+3. The AI Assistant can find and reference it when asked a relevant question.
+
+If you added content through the AI Pipeline, check the review queue to make sure the draft was approved. If you added a document directly, search for it by title on the member Knowledge Base page to confirm it is visible.`,
+  },
+  {
     title: "SOP: Machine → Portal Product Granting Integration",
     category: "sop",
     content: `# SOP: Machine → Portal Product Granting Integration
