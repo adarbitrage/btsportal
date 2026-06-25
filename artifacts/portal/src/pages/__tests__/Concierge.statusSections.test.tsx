@@ -7,8 +7,11 @@ import type { ReactNode } from "react";
 // tickets of category `concierge_task`) as two status sections above the intake
 // form: "Current Submissions" (active tickets) and "Past Submissions"
 // (resolved/closed). This mirrors the Compliance Review landing page. This test
-// pins that split, the action-needed escalation on `awaiting_response`, the
-// thread deep-link, and the View Details dialog that reveals the team's reply.
+// pins that split, the per-item status badges ("In Progress" / "Action Needed" /
+// "Completed"), the action-needed escalation on `awaiting_response` (solid "View
+// & Respond" linking to the full ticket page), and the read-only "View
+// Conversation" modal that shows the full thread (member + team, internal notes
+// excluded).
 //
 // Mocking follows the portal page-test pattern: stub AppLayout, wrap in a
 // QueryClient, and drive the ticket list + ticket detail through a stubbed
@@ -140,7 +143,7 @@ describe("Concierge — submission status sections", () => {
     expect(screen.queryByTestId("concierge-past-9")).not.toBeInTheDocument();
   });
 
-  it("splits active submissions into Current and resolved into Past Submissions", async () => {
+  it("splits active submissions into Current and resolved into Past Submissions with the right badges", async () => {
     tickets = [
       conciergeTicket({ id: 1, ticketNumber: "CNC-001", status: "in_progress", subject: "Concierge Task — Alpha Offer" }),
       conciergeTicket({ id: 2, ticketNumber: "CNC-002", status: "resolved", subject: "Concierge Task — Beta Offer" }),
@@ -150,30 +153,37 @@ describe("Concierge — submission status sections", () => {
 
     const active = await screen.findByTestId("concierge-active-1");
     expect(within(active).getByText("Alpha Offer")).toBeInTheDocument();
-    // Default active CTA is the quiet "View Request" linking to the thread.
-    const viewSubmission = within(active).getByTestId("concierge-view-submission-1");
-    expect(viewSubmission).toHaveTextContent("View Request");
-    expect(viewSubmission.closest("a")).toHaveAttribute("href", "/support/tickets/1");
-    // No action-needed banner for a plain in_progress ticket.
+    // A plain active submission shows the calm "In Progress" badge...
+    expect(within(active).getByText("In Progress")).toBeInTheDocument();
+    // ...and the quiet "View Conversation" button (opens the modal, not a link).
+    const viewConversation = within(active).getByTestId("concierge-view-conversation-1");
+    expect(viewConversation).toHaveTextContent("View Conversation");
+    expect(viewConversation.closest("a")).toBeNull();
+    // No action-needed escalation for a plain in_progress ticket.
     expect(screen.queryByTestId("concierge-action-needed-1")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("concierge-respond-1")).not.toBeInTheDocument();
 
     const past = screen.getByTestId("concierge-past-2");
     expect(within(past).getByText("Beta Offer")).toBeInTheDocument();
-    expect(within(past).getByText("Complete")).toBeInTheDocument();
+    expect(within(past).getByText("Completed")).toBeInTheDocument();
+    expect(within(past).getByTestId("concierge-view-conversation-2")).toHaveTextContent("View Conversation");
   });
 
-  it("escalates an awaiting_response submission with a banner and View & Reply CTA", async () => {
+  it("escalates an awaiting_response submission with an Action Needed badge and a View & Respond link", async () => {
     tickets = [
       conciergeTicket({ id: 3, ticketNumber: "CNC-003", status: "awaiting_response", subject: "Concierge Task — Gamma Offer" }),
     ];
 
     renderPage();
 
-    const banner = await screen.findByTestId("concierge-action-needed-3");
-    expect(banner).toHaveTextContent(/action needed/i);
-    const cta = screen.getByTestId("concierge-view-submission-3");
-    expect(cta).toHaveTextContent("View & Reply");
+    const active = await screen.findByTestId("concierge-active-3");
+    expect(within(active).getByTestId("concierge-action-needed-3")).toHaveTextContent(/action needed/i);
+    // Action needed → solid "View & Respond" linking to the full ticket page.
+    const cta = within(active).getByTestId("concierge-respond-3");
+    expect(cta).toHaveTextContent("View & Respond");
     expect(cta.closest("a")).toHaveAttribute("href", "/support/tickets/3");
+    // The calm conversation modal button is not offered for action-needed rows.
+    expect(within(active).queryByTestId("concierge-view-conversation-3")).not.toBeInTheDocument();
   });
 
   it("shows each live row's at-a-glance summary: task(s) and file count", async () => {
@@ -257,7 +267,7 @@ describe("Concierge — submission status sections", () => {
     expect(screen.queryByTestId("concierge-summary-8")).not.toBeInTheDocument();
   });
 
-  it("shows the team's reply newest-first in the View Details dialog", async () => {
+  it("shows the full conversation (member + team, internal excluded) in the read-only View Conversation modal", async () => {
     tickets = [
       conciergeTicket({ id: 4, ticketNumber: "CNC-004", status: "closed", subject: "Concierge Task — Delta Offer" }),
     ];
@@ -272,33 +282,28 @@ describe("Concierge — submission status sections", () => {
     renderPage();
 
     const past = await screen.findByTestId("concierge-past-4");
-    fireEvent.click(within(past).getByTestId("concierge-view-details-4"));
+    fireEvent.click(within(past).getByTestId("concierge-view-conversation-4"));
 
-    // The newest admin reply renders first and is labelled "Latest".
-    const latest = await screen.findByTestId("concierge-detail-102");
-    expect(latest).toHaveTextContent("All done");
-    expect(within(latest).getByText("Latest")).toBeInTheDocument();
-
-    expect(screen.getByTestId("concierge-detail-101")).toHaveTextContent("First update note");
-    // The member's own message and the internal note are excluded.
-    expect(screen.queryByTestId("concierge-detail-100")).not.toBeInTheDocument();
-    expect(screen.queryByTestId("concierge-detail-103")).not.toBeInTheDocument();
+    // The member's own message and every non-internal team reply are shown.
+    expect(await screen.findByTestId("conversation-message-100")).toHaveTextContent("My request");
+    expect(screen.getByTestId("conversation-message-101")).toHaveTextContent("First update note");
+    expect(screen.getByTestId("conversation-message-102")).toHaveTextContent("All done");
+    // The internal note is excluded.
+    expect(screen.queryByTestId("conversation-message-103")).not.toBeInTheDocument();
   });
 
-  it("shows a graceful fallback when a completed submission has no written reply", async () => {
+  it("shows a graceful empty state when a submission has no messages", async () => {
     tickets = [
       conciergeTicket({ id: 5, ticketNumber: "CNC-005", status: "resolved", subject: "Concierge Task — Epsilon Offer" }),
     ];
-    messagesByTicketId[5] = [
-      { id: 200, senderType: "member", body: "My request", createdAt: "2026-06-01T00:00:00.000Z" },
-    ];
+    messagesByTicketId[5] = [];
 
     renderPage();
 
     const past = await screen.findByTestId("concierge-past-5");
-    fireEvent.click(within(past).getByTestId("concierge-view-details-5"));
+    fireEvent.click(within(past).getByTestId("concierge-view-conversation-5"));
 
-    const empty = await screen.findByTestId("concierge-details-empty");
-    expect(empty).toHaveTextContent(/no written response/i);
+    const empty = await screen.findByTestId("conversation-empty");
+    expect(empty).toHaveTextContent(/no messages/i);
   });
 });

@@ -3,24 +3,17 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import {
-  Sparkles, CheckCircle2, Send, Upload, Loader2,
+  Sparkles, CheckCircle2, Send, Upload, AlertCircle,
 } from "lucide-react";
 import { useState } from "react";
 import { Link } from "wouter";
 import { format } from "date-fns";
 import { useListTickets, useGetTicket } from "@workspace/api-client-react";
 import type { Ticket } from "@workspace/api-client-react";
+import { ConversationModal } from "@/components/support/ConversationModal";
 import {
   isActiveTicketStatus,
   isAwaitingMember,
-  formatMemberSubmissionStatus,
 } from "@workspace/support-config";
 
 // ── Submissions view (mirrors the Compliance Review landing page) ──
@@ -118,29 +111,35 @@ function SubmissionSummary({ ticketId }: { ticketId: number }) {
 const conciergeByNewestFirst = (a: ConciergeTicket, b: ConciergeTicket) =>
   new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
 
-// One row in the "Current Submissions" list. The action is state-aware: a quiet
-// "View Request" by default, escalating to a prominent "Action needed" banner +
-// "View & Reply" CTA when the Concierge team is waiting on the member (status
-// `awaiting_response`). Either way the button opens the existing ticket thread
-// page — we never rebuild the conversation UI here.
-function CurrentSubmissionRow({ ticket }: { ticket: ConciergeTicket }) {
+// One row in the "Current Submissions" list. Badge + button escalate with
+// urgency: when the Concierge team is waiting on the member (`awaiting_response`)
+// the row shows a loud amber "Action Needed" badge and a solid "View & Respond"
+// button linking to the full ticket page (read + reply + upload). Otherwise it
+// shows a calm "In Progress" badge and an outlined "View Conversation" button
+// that opens the read-only conversation modal in place.
+function CurrentSubmissionRow({
+  ticket,
+  onViewConversation,
+}: {
+  ticket: ConciergeTicket;
+  onViewConversation: () => void;
+}) {
   const offer = conciergeOfferLabel(ticket.subject);
   const actionNeeded = isAwaitingMember(ticket.status);
   return (
     <Card className="border-border/60" data-testid={`concierge-active-${ticket.id}`} data-status={ticket.status}>
       <CardContent className="p-4 sm:p-5">
-        {actionNeeded && (
-          <div
-            className="mb-3 flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm font-medium text-amber-900"
-            data-testid={`concierge-action-needed-${ticket.id}`}
-          >
-            Action needed — the team needs your input
-          </div>
-        )}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div className="min-w-0">
             <div className="flex items-center gap-2 mb-1">
-              <Badge variant="warning">{formatMemberSubmissionStatus(ticket.status)}</Badge>
+              {actionNeeded ? (
+                <Badge variant="warning" className="gap-1" data-testid={`concierge-action-needed-${ticket.id}`}>
+                  <AlertCircle className="w-3 h-3" />
+                  Action Needed
+                </Badge>
+              ) : (
+                <Badge variant="secondary">In Progress</Badge>
+              )}
               <span className="text-xs font-mono text-muted-foreground">{ticket.ticketNumber}</span>
             </div>
             <h3 className="font-semibold text-foreground truncate">{offer}</h3>
@@ -149,30 +148,38 @@ function CurrentSubmissionRow({ ticket }: { ticket: ConciergeTicket }) {
             </p>
             <SubmissionSummary ticketId={ticket.id} />
           </div>
-          <Link href={`/support/tickets/${ticket.id}`} className="shrink-0">
+          {actionNeeded ? (
+            <Link href={`/support/tickets/${ticket.id}`} className="shrink-0">
+              <Button variant="default" size="sm" data-testid={`concierge-respond-${ticket.id}`}>
+                View &amp; Respond
+              </Button>
+            </Link>
+          ) : (
             <Button
-              variant={actionNeeded ? "default" : "outline"}
+              variant="outline"
               size="sm"
-              data-testid={`concierge-view-submission-${ticket.id}`}
+              className="shrink-0"
+              onClick={onViewConversation}
+              data-testid={`concierge-view-conversation-${ticket.id}`}
             >
-              {actionNeeded ? "View & Reply" : "View Request"}
+              View Conversation
             </Button>
-          </Link>
+          )}
         </div>
       </CardContent>
     </Card>
   );
 }
 
-// One row in the "Past Submissions" list. "Complete" covers resolved/closed;
-// the team's final reply is revealed in a focused popup via onViewDetails
-// rather than sending the member to the full thread.
+// One row in the "Past Submissions" list — always "Completed" (resolved or
+// closed). The quiet ghost "View Conversation" button opens the same read-only
+// conversation modal in place.
 function PastSubmissionRow({
   ticket,
-  onViewDetails,
+  onViewConversation,
 }: {
   ticket: ConciergeTicket;
-  onViewDetails: () => void;
+  onViewConversation: () => void;
 }) {
   const offer = conciergeOfferLabel(ticket.subject);
   return (
@@ -183,7 +190,7 @@ function PastSubmissionRow({
             <div className="flex items-center gap-2 mb-1">
               <Badge variant="success" className="gap-1">
                 <CheckCircle2 className="w-3 h-3" />
-                Complete
+                Completed
               </Badge>
               <span className="text-xs font-mono text-muted-foreground">{ticket.ticketNumber}</span>
             </div>
@@ -194,74 +201,17 @@ function PastSubmissionRow({
             <SubmissionSummary ticketId={ticket.id} />
           </div>
           <Button
-            variant="outline"
+            variant="ghost"
             size="sm"
-            className="shrink-0"
-            onClick={onViewDetails}
-            data-testid={`concierge-view-details-${ticket.id}`}
+            className="shrink-0 text-muted-foreground hover:text-foreground"
+            onClick={onViewConversation}
+            data-testid={`concierge-view-conversation-${ticket.id}`}
           >
-            View Details
+            View Conversation
           </Button>
         </div>
       </CardContent>
     </Card>
-  );
-}
-
-// Body of the "View Details" popup. Fetches the submission's thread on demand
-// (mounted only while the dialog is open) and shows every Concierge reply,
-// newest first and highlighted. Replies are admin, non-internal messages; a
-// submission completed with no written reply gets a graceful fallback instead
-// of an empty box.
-function ConciergeDetailsBody({ ticketId }: { ticketId: number }) {
-  const { data: ticket, isLoading } = useGetTicket(ticketId);
-
-  if (isLoading) {
-    return (
-      <div className="py-8 text-center text-sm text-muted-foreground">
-        <Loader2 className="w-5 h-5 animate-spin mx-auto mb-2" />
-        Loading the details…
-      </div>
-    );
-  }
-
-  const replies = (ticket?.messages ?? [])
-    .filter((m) => m.senderType === "admin" && !(m as { isInternal?: boolean }).isInternal)
-    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-
-  if (replies.length === 0) {
-    return (
-      <div
-        className="rounded-lg border border-border bg-muted/30 p-4 text-sm text-muted-foreground"
-        data-testid="concierge-details-empty"
-      >
-        No written response was provided for this request.
-      </div>
-    );
-  }
-
-  return (
-    <div className="space-y-3 max-h-[60vh] overflow-y-auto">
-      {replies.map((m, i) => (
-        <div
-          key={m.id}
-          className={`rounded-lg border p-4 ${i === 0 ? "border-primary/30 bg-primary/[0.03]" : "border-border bg-muted/20"}`}
-          data-testid={`concierge-detail-${m.id}`}
-        >
-          <div className="flex items-center gap-2 mb-2 text-xs">
-            <Sparkles className="w-3.5 h-3.5 text-primary" />
-            <span className="font-medium text-foreground">BTS Concierge™ Team</span>
-            {i === 0 && replies.length > 1 && (
-              <Badge variant="secondary" className="text-[10px] px-1.5 py-0">Latest</Badge>
-            )}
-            <span className="ml-auto text-muted-foreground">
-              {format(new Date(m.createdAt), "MMM d, yyyy")}
-            </span>
-          </div>
-          <p className="text-sm text-foreground whitespace-pre-wrap">{m.body}</p>
-        </div>
-      ))}
-    </div>
   );
 }
 
@@ -287,7 +237,7 @@ function SubmitTaskButton({ size = "default" }: { size?: "default" | "sm" }) {
 // call to action.
 function ConciergeSubmissions() {
   const { data: tickets, isLoading } = useListTickets();
-  const [detailsTicket, setDetailsTicket] = useState<ConciergeTicket | null>(null);
+  const [conversationTicket, setConversationTicket] = useState<ConciergeTicket | null>(null);
 
   const concierge = (tickets ?? []).filter((t) => t.category === "concierge_task");
   const active = concierge.filter((t) => isActiveTicketStatus(t.status)).sort(conciergeByNewestFirst);
@@ -307,7 +257,11 @@ function ConciergeSubmissions() {
         ) : active.length > 0 ? (
           <div className="space-y-3">
             {active.map((ticket) => (
-              <CurrentSubmissionRow key={ticket.id} ticket={ticket} />
+              <CurrentSubmissionRow
+                key={ticket.id}
+                ticket={ticket}
+                onViewConversation={() => setConversationTicket(ticket)}
+              />
             ))}
           </div>
         ) : (
@@ -342,7 +296,7 @@ function ConciergeSubmissions() {
               <PastSubmissionRow
                 key={ticket.id}
                 ticket={ticket}
-                onViewDetails={() => setDetailsTicket(ticket)}
+                onViewConversation={() => setConversationTicket(ticket)}
               />
             ))}
           </div>
@@ -356,19 +310,17 @@ function ConciergeSubmissions() {
         )}
       </section>
 
-      <Dialog open={!!detailsTicket} onOpenChange={(open) => { if (!open) setDetailsTicket(null); }}>
-        <DialogContent className="max-w-lg">
-          <DialogHeader>
-            <DialogTitle>
-              {detailsTicket ? `Request Details — ${conciergeOfferLabel(detailsTicket.subject)}` : "Request Details"}
-            </DialogTitle>
-            <DialogDescription>
-              The BTS Concierge™ team's response to your request.
-            </DialogDescription>
-          </DialogHeader>
-          {detailsTicket && <ConciergeDetailsBody ticketId={detailsTicket.id} />}
-        </DialogContent>
-      </Dialog>
+      <ConversationModal
+        ticketId={conversationTicket?.id ?? null}
+        title={
+          conversationTicket
+            ? `Conversation — ${conciergeOfferLabel(conversationTicket.subject)}`
+            : "Conversation"
+        }
+        teamLabel="BTS Concierge™ Team"
+        teamIcon={<Sparkles className="w-3.5 h-3.5 text-primary" />}
+        onClose={() => setConversationTicket(null)}
+      />
     </div>
   );
 }

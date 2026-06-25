@@ -1,14 +1,16 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { render, screen, fireEvent, waitFor, within } from "@testing-library/react";
+import { render, screen, fireEvent, within } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { ReactNode } from "react";
 
 // The Compliance Review page surfaces the member's prior submissions (which are
 // support tickets of category `compliance_review`) as two status sections above
-// the intake form: "Currently Under Review" (active tickets) and "Past
-// Submissions" (resolved/closed). This test pins that split, the action-needed
-// escalation on `awaiting_response`, the thread deep-link, and the View Results
-// dialog that reveals the reviewer's reply.
+// the intake form: "Current Submissions" (active tickets) and "Past
+// Submissions" (resolved/closed). This test pins that split, the per-item status
+// badges ("Under Review" / "Action Needed" / "Completed"), the action-needed
+// escalation on `awaiting_response` (solid "View & Respond" linking to the full
+// ticket page), and the read-only "View Conversation" modal that shows the full
+// thread (member + team, internal notes excluded).
 //
 // Mocking follows the portal page-test pattern: stub AppLayout, wrap in a
 // QueryClient, and drive the ticket list + ticket detail through a stubbed
@@ -130,7 +132,7 @@ describe("ComplianceReview — submission status sections", () => {
     expect(screen.queryByTestId("compliance-past-9")).not.toBeInTheDocument();
   });
 
-  it("splits active submissions into Under Review and resolved into Past Submissions", async () => {
+  it("splits active submissions into Current and resolved into Past Submissions with the right badges", async () => {
     tickets = [
       complianceTicket({ id: 1, ticketNumber: "CMP-001", status: "in_progress", subject: "Compliance Review — Alpha Offer" }),
       complianceTicket({ id: 2, ticketNumber: "CMP-002", status: "resolved", subject: "Compliance Review — Beta Offer" }),
@@ -140,33 +142,40 @@ describe("ComplianceReview — submission status sections", () => {
 
     const active = await screen.findByTestId("compliance-active-1");
     expect(within(active).getByText("Alpha Offer")).toBeInTheDocument();
-    // Default active CTA is the quiet "View Submission" linking to the thread.
-    const viewSubmission = within(active).getByTestId("compliance-view-submission-1");
-    expect(viewSubmission).toHaveTextContent("View Submission");
-    expect(viewSubmission.closest("a")).toHaveAttribute("href", "/support/tickets/1");
-    // No action-needed banner for a plain in_progress ticket.
+    // A plain active submission shows the calm "Under Review" badge...
+    expect(within(active).getByText("Under Review")).toBeInTheDocument();
+    // ...and the quiet "View Conversation" button (opens the modal, not a link).
+    const viewConversation = within(active).getByTestId("compliance-view-conversation-1");
+    expect(viewConversation).toHaveTextContent("View Conversation");
+    expect(viewConversation.closest("a")).toBeNull();
+    // No action-needed escalation for a plain in_progress ticket.
     expect(screen.queryByTestId("compliance-action-needed-1")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("compliance-respond-1")).not.toBeInTheDocument();
 
     const past = screen.getByTestId("compliance-past-2");
     expect(within(past).getByText("Beta Offer")).toBeInTheDocument();
-    expect(within(past).getByText("Complete")).toBeInTheDocument();
+    expect(within(past).getByText("Completed")).toBeInTheDocument();
+    expect(within(past).getByTestId("compliance-view-conversation-2")).toHaveTextContent("View Conversation");
   });
 
-  it("escalates an awaiting_response submission with a banner and View & Reply CTA", async () => {
+  it("escalates an awaiting_response submission with an Action Needed badge and a View & Respond link", async () => {
     tickets = [
       complianceTicket({ id: 3, ticketNumber: "CMP-003", status: "awaiting_response", subject: "Compliance Review — Gamma Offer" }),
     ];
 
     renderPage();
 
-    const banner = await screen.findByTestId("compliance-action-needed-3");
-    expect(banner).toHaveTextContent(/action needed/i);
-    const cta = screen.getByTestId("compliance-view-submission-3");
-    expect(cta).toHaveTextContent("View & Reply");
+    const active = await screen.findByTestId("compliance-active-3");
+    expect(within(active).getByTestId("compliance-action-needed-3")).toHaveTextContent(/action needed/i);
+    // Action needed → solid "View & Respond" linking to the full ticket page.
+    const cta = within(active).getByTestId("compliance-respond-3");
+    expect(cta).toHaveTextContent("View & Respond");
     expect(cta.closest("a")).toHaveAttribute("href", "/support/tickets/3");
+    // The calm conversation modal button is not offered for action-needed rows.
+    expect(within(active).queryByTestId("compliance-view-conversation-3")).not.toBeInTheDocument();
   });
 
-  it("shows the reviewer's reply newest-first in the View Results dialog", async () => {
+  it("shows the full conversation (member + team, internal excluded) in the read-only View Conversation modal", async () => {
     tickets = [
       complianceTicket({ id: 4, ticketNumber: "CMP-004", status: "closed", subject: "Compliance Review — Delta Offer" }),
     ];
@@ -181,33 +190,28 @@ describe("ComplianceReview — submission status sections", () => {
     renderPage();
 
     const past = await screen.findByTestId("compliance-past-4");
-    fireEvent.click(within(past).getByTestId("compliance-view-results-4"));
+    fireEvent.click(within(past).getByTestId("compliance-view-conversation-4"));
 
-    // The newest admin reply renders first and is labelled "Latest".
-    const latest = await screen.findByTestId("compliance-result-102");
-    expect(latest).toHaveTextContent("Final approval");
-    expect(within(latest).getByText("Latest")).toBeInTheDocument();
-
-    expect(screen.getByTestId("compliance-result-101")).toHaveTextContent("First review note");
-    // The member's own message and the internal note are excluded.
-    expect(screen.queryByTestId("compliance-result-100")).not.toBeInTheDocument();
-    expect(screen.queryByTestId("compliance-result-103")).not.toBeInTheDocument();
+    // The member's own message and every non-internal team reply are shown.
+    expect(await screen.findByTestId("conversation-message-100")).toHaveTextContent("My submission");
+    expect(screen.getByTestId("conversation-message-101")).toHaveTextContent("First review note");
+    expect(screen.getByTestId("conversation-message-102")).toHaveTextContent("Final approval");
+    // The internal note is excluded.
+    expect(screen.queryByTestId("conversation-message-103")).not.toBeInTheDocument();
   });
 
-  it("shows a graceful fallback when a completed submission has no written reply", async () => {
+  it("shows a graceful empty state when a submission has no messages", async () => {
     tickets = [
       complianceTicket({ id: 5, ticketNumber: "CMP-005", status: "resolved", subject: "Compliance Review — Epsilon Offer" }),
     ];
-    messagesByTicketId[5] = [
-      { id: 200, senderType: "member", body: "My submission", createdAt: "2026-06-01T00:00:00.000Z" },
-    ];
+    messagesByTicketId[5] = [];
 
     renderPage();
 
     const past = await screen.findByTestId("compliance-past-5");
-    fireEvent.click(within(past).getByTestId("compliance-view-results-5"));
+    fireEvent.click(within(past).getByTestId("compliance-view-conversation-5"));
 
-    const empty = await screen.findByTestId("compliance-results-empty");
-    expect(empty).toHaveTextContent(/no written response/i);
+    const empty = await screen.findByTestId("conversation-empty");
+    expect(empty).toHaveTextContent(/no messages/i);
   });
 });
