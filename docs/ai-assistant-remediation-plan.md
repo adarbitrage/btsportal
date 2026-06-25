@@ -179,7 +179,77 @@ Do not invert this. ~80% of the observed problem is Phases 0–1.
 - Follow-up replies ("clickbank") → retrieve correctly using conversation context.
 - Eval scorecard materially up vs. the Phase-0 baseline.
 
-## 6. Risks / watch-items
+## 6. Human editing vs. AI-derivable: who does what
+
+The corpus today is ~98% raw transcript, ~1% curated:
+
+| File | Lines | Type |
+|------|-------|------|
+| coaching-transcripts.txt | 204,884 | raw transcript |
+| video-transcripts (+backup) | ~1,400 | raw transcript |
+| qa-articles.txt | 1,825 | curated |
+| training-documents.txt | 290 | curated |
+| glossary.txt | 69 | curated |
+
+That ratio is the story: a huge amount of latent knowledge an AI can mine, but
+almost none of it vetted into answer-grade form.
+
+### Three buckets of work
+
+**Bucket A — AI can glean/draft well from the files (high automation).**
+Extraction and restructuring, which LLMs do well and you have 200k+ lines to
+mine: draft overview/index docs by clustering covered topics; split transcripts
+into task-scoped articles; expand the glossary and generate an FAQ from recurring
+questions; propose synonym candidates; **flag contradictions** across calls.
+
+**Bucket B — AI drafts, human must verify (the gating step).**
+Anything member-facing and factual. AI produces it cheaply; a human approves
+before it becomes citable. The draft is cheap; the approval is what makes it safe.
+
+**Bucket C — Human-only, because the files cannot tell you (irreducible).**
+Maps directly to the observed failures:
+1. **Currency** — transcripts are time-stamped snapshots. The text says "Robin
+   manages Discord" and "cutting edge 4.1, the latest version," but nothing tells
+   you whether that's still true *today*.
+2. **Conflict adjudication** — across 204k lines there will be contradictions;
+   AI can surface them, a human picks the canonical one.
+3. **Facts not in the text** — the real 1-on-1 roster lives in the DB
+   (`session_pack_coaches`), not the KB; current support routing/staffing/pricing
+   were never written down. AI can't glean what isn't there.
+4. **Policy/voice** — what members should be told, naming ("The Blitz"), privacy
+   exclusions, tone.
+
+### Per-phase estimate
+
+| Phase | AI can do | Human must do |
+|-------|-----------|---------------|
+| 0 — Eval set | Mine + cluster real questions | Label the *correct* answers/citations (ground truth can't be auto-bootstrapped) |
+| 1 — Content | ~70–80% of drafting volume | Verify currency, adjudicate conflicts, author the missing facts (help routing, real roster) |
+| 2 — Retrieval | Nearly all (engineering/config); AI proposes synonyms | Approve synonym shortlist; pick policy thresholds |
+| 3 — Rules | Draft wording, wiring | Own the policy decisions (small) |
+
+### The meta-point (don't miss this)
+
+By **labor**, AI carries ~70–80% — drafting/extracting/clustering/conflict-flagging
+across the transcript pile. By **what actually fixes the bugs**, the human
+~20–30% is the whole ballgame, and it's a trap: **the two observed failures are
+exactly the cases pure AI extraction would NOT fix and could re-create.**
+- *DIYTrax:* summarizing the corpus still only finds ClickBank-IPN content for
+  "DIYTrax setup" — the general setup info **isn't in the files**. A human (or a
+  new SME recording) must supply it.
+- *Robin:* mining transcripts would extract "Robin manages Discord" as a
+  confident fact — no way to know it's stale or shouldn't be surfaced.
+
+Mental model: **AI does the volume; humans do verification + gap-filling, and the
+gap-filling determines whether you fixed the problem or automated the bug at
+scale.** A human review gate on every member-facing doc is non-negotiable, but AI
+reduces each review from "write from scratch" to "verify and correct a draft."
+
+Highest-value human time is NOT editing transcripts — it's (a) labeling the eval
+set and (b) authoring the few authoritative docs whose facts live outside the KB
+(help routing, roster). Both are small, human-only, and unblock everything else.
+
+## 7. Risks / watch-items
 
 - **Don't delete transcript knowledge** — it's valuable training material;
   reclassify, don't discard.
