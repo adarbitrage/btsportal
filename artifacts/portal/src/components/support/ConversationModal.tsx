@@ -289,7 +289,7 @@ export function ConversationModal({
           <DialogDescription>
             {allowReply
               ? `Your conversation with the ${teamLabel}. Reply below to keep things moving.`
-              : `Your conversation with the ${teamLabel}. This is a read-only view — open the full ticket to reply.`}
+              : `Your conversation with the ${teamLabel}. We'll message you here if we need any more info.`}
           </DialogDescription>
         </DialogHeader>
         {ticketId != null && (
