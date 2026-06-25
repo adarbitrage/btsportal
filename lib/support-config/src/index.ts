@@ -203,3 +203,81 @@ export function formatTicketCategory(category: string | null | undefined): strin
     .map((word) => (word ? word[0].toUpperCase() + word.slice(1) : word))
     .join(" ");
 }
+
+/**
+ * Single source of truth for the support-ticket lifecycle statuses the backend
+ * can emit on a ticket's `status` field.
+ *
+ * The ticket `status` column is free-form text in the database, so the
+ * authoritative set lives here — the same pattern the category constants above
+ * use. Member-facing submission views (Concierge, Compliance) and the admin
+ * ticket queue all reason about these values, so centralizing the set and the
+ * member-facing labels keeps those views from drifting apart.
+ */
+export const TICKET_STATUSES = [
+  "open",
+  "in_progress",
+  "awaiting_response",
+  "resolved",
+  "closed",
+] as const;
+
+export type TicketStatusSlug = (typeof TICKET_STATUSES)[number];
+
+/**
+ * Statuses where the ticket is still being worked — the member's submission is
+ * "current"/active rather than finished. Used to split a member's submissions
+ * into Current vs Past sections so that grouping can never disagree between the
+ * Concierge and Compliance views.
+ */
+export const ACTIVE_TICKET_STATUSES = [
+  "open",
+  "in_progress",
+  "awaiting_response",
+] as const;
+
+/** Statuses where the ticket is finished (the submission is complete). */
+export const TERMINAL_TICKET_STATUSES = ["resolved", "closed"] as const;
+
+/** True when a ticket is still being worked (open / in progress / awaiting reply). */
+export function isActiveTicketStatus(status: string | null | undefined): boolean {
+  return !!status && (ACTIVE_TICKET_STATUSES as readonly string[]).includes(status);
+}
+
+/**
+ * The status the member's submission is waiting on the member — the team has
+ * replied and needs the member's input before it can proceed. The submission
+ * views surface this as a prominent "action needed" escalation.
+ */
+export const AWAITING_MEMBER_STATUS = "awaiting_response";
+
+/** True when the team is waiting on the member to reply. */
+export function isAwaitingMember(status: string | null | undefined): boolean {
+  return status === AWAITING_MEMBER_STATUS;
+}
+
+/**
+ * Member-facing status label for a submission badge. Members don't need the
+ * admin's precise lifecycle vocabulary — they see whether the team is still
+ * working ("In progress") or finished ("Complete"). The "action needed"
+ * escalation (status `awaiting_response`) is conveyed by a separate banner, so
+ * the badge stays "In progress" while work is active.
+ */
+export const MEMBER_SUBMISSION_STATUS_LABELS: Record<TicketStatusSlug, string> = {
+  open: "In progress",
+  in_progress: "In progress",
+  awaiting_response: "In progress",
+  resolved: "Complete",
+  closed: "Complete",
+};
+
+/**
+ * Render a ticket status as a member-facing submission label. Unknown/future
+ * statuses fall back to "In progress" so a member never sees a raw enum slug.
+ */
+export function formatMemberSubmissionStatus(status: string | null | undefined): string {
+  if (!status) return "In progress";
+  return (
+    (MEMBER_SUBMISSION_STATUS_LABELS as Record<string, string>)[status] ?? "In progress"
+  );
+}

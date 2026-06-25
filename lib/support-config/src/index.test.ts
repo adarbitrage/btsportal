@@ -8,6 +8,13 @@ import {
   validateTicketAttachment,
   TICKET_ATTACHMENT_MAX_BYTES,
   TICKET_ATTACHMENT_MAX_LABEL,
+  TICKET_STATUSES,
+  ACTIVE_TICKET_STATUSES,
+  TERMINAL_TICKET_STATUSES,
+  isActiveTicketStatus,
+  isAwaitingMember,
+  MEMBER_SUBMISSION_STATUS_LABELS,
+  formatMemberSubmissionStatus,
 } from "./index";
 
 describe("DEFAULT_TICKETDESK_URL", () => {
@@ -101,5 +108,52 @@ describe("validateTicketAttachment", () => {
     expect(
       validateTicketAttachment({ fileName: "x", fileSize: 1, contentType: null }),
     ).toBeTruthy();
+  });
+});
+
+describe("ticket status constants", () => {
+  it("partitions every status into exactly one of active/terminal", () => {
+    const partitioned = [...ACTIVE_TICKET_STATUSES, ...TERMINAL_TICKET_STATUSES];
+    expect([...partitioned].sort()).toEqual([...TICKET_STATUSES].sort());
+    // No status appears in both buckets.
+    for (const s of ACTIVE_TICKET_STATUSES) {
+      expect(TERMINAL_TICKET_STATUSES).not.toContain(s);
+    }
+  });
+
+  it("has a member label for every status", () => {
+    for (const s of TICKET_STATUSES) {
+      expect(MEMBER_SUBMISSION_STATUS_LABELS[s]).toBeTruthy();
+    }
+  });
+
+  it("isActiveTicketStatus is true only for active statuses", () => {
+    expect(isActiveTicketStatus("open")).toBe(true);
+    expect(isActiveTicketStatus("in_progress")).toBe(true);
+    expect(isActiveTicketStatus("awaiting_response")).toBe(true);
+    expect(isActiveTicketStatus("resolved")).toBe(false);
+    expect(isActiveTicketStatus("closed")).toBe(false);
+    expect(isActiveTicketStatus(null)).toBe(false);
+    expect(isActiveTicketStatus(undefined)).toBe(false);
+  });
+
+  it("isAwaitingMember is true only for awaiting_response", () => {
+    expect(isAwaitingMember("awaiting_response")).toBe(true);
+    expect(isAwaitingMember("open")).toBe(false);
+    expect(isAwaitingMember(null)).toBe(false);
+  });
+
+  it("labels active statuses 'In progress' and terminal 'Complete'", () => {
+    expect(formatMemberSubmissionStatus("open")).toBe("In progress");
+    expect(formatMemberSubmissionStatus("in_progress")).toBe("In progress");
+    expect(formatMemberSubmissionStatus("awaiting_response")).toBe("In progress");
+    expect(formatMemberSubmissionStatus("resolved")).toBe("Complete");
+    expect(formatMemberSubmissionStatus("closed")).toBe("Complete");
+  });
+
+  it("falls back to 'In progress' for unknown/empty status", () => {
+    expect(formatMemberSubmissionStatus("some_future_status")).toBe("In progress");
+    expect(formatMemberSubmissionStatus(null)).toBe("In progress");
+    expect(formatMemberSubmissionStatus(undefined)).toBe("In progress");
   });
 });
