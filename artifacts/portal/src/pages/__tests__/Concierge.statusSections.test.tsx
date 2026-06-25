@@ -128,7 +128,13 @@ describe("Concierge — submission status sections", () => {
     await screen.findByTestId("concierge-submissions");
     expect(await screen.findByTestId("concierge-active-empty")).toBeInTheDocument();
     expect(screen.getByTestId("concierge-past-empty")).toBeInTheDocument();
-    expect(screen.getAllByTestId("concierge-submit-cta").length).toBeGreaterThan(0);
+    const ctas = screen.getAllByTestId("concierge-submit-cta");
+    expect(ctas.length).toBeGreaterThan(0);
+    // The CTA routes to the dedicated intake page (mirroring Compliance), not an
+    // in-page #task anchor.
+    for (const cta of ctas) {
+      expect(cta.closest("a")).toHaveAttribute("href", "/concierge/submit");
+    }
     // A non-concierge ticket is never surfaced here.
     expect(screen.queryByTestId("concierge-active-9")).not.toBeInTheDocument();
     expect(screen.queryByTestId("concierge-past-9")).not.toBeInTheDocument();

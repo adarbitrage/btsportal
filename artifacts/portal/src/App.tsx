@@ -16,6 +16,7 @@ import PillarsToBlitz from "@/pages/PillarsToBlitz";
 import DirectEdge from "@/pages/DirectEdge";
 import TipsAndTricks from "@/pages/TipsAndTricks";
 import Concierge from "@/pages/Concierge";
+import ConciergeSubmit from "@/pages/ConciergeSubmit";
 import BookVaCall from "@/pages/coaching/BookVaCall";
 import VaCalls from "@/pages/coaching/VaCalls";
 import CoachingSession from "@/pages/CoachingSession";
@@ -403,6 +404,7 @@ function Router() {
       <Route path="/concierge/book-va-call">
         {() => <Redirect to={`/va-calls/book${window.location.search}`} />}
       </Route>
+      <Route path="/concierge/submit">{() => <ProtectedRoute component={ConciergeSubmit} />}</Route>
       <Route path="/concierge">{() => <ProtectedRoute component={Concierge} />}</Route>
       <Route path="/coaching/sessions">{() => <ProtectedRoute component={CoachingSession} />}</Route>
       <Route path="/advantage">{() => <ProtectedRoute component={Advantage} />}</Route>
