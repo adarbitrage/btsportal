@@ -950,6 +950,34 @@ export async function signalResolutionToTicketDesk(opts: {
 }
 
 /**
+ * Mirrors a member's portal reply into the existing TicketDesk thread so the
+ * support agent sees it in their inbox.  Re-obtains (or creates) the chat
+ * session for the member + ticket — the session API is get-or-create keyed by
+ * (email, externalId), so this always targets the same underlying thread the
+ * original submission created — then posts the reply text.
+ *
+ * Best-effort: throws on any failure so the caller can log it, but callers must
+ * swallow the error so a TicketDesk outage never blocks the member's reply from
+ * being saved in the portal.  The posted message comes back from TicketDesk as
+ * a contact/inbound message, so the reply poller's isAgentMessage filter skips
+ * it and it is never echoed back into the portal thread.
+ */
+export async function sendMemberReplyToTicketDesk(opts: {
+  email: string;
+  btsTicketNumber: string;
+  messageText: string;
+}): Promise<void> {
+  const sessionToken = await createSessionForPolling({
+    email: opts.email,
+    btsTicketNumber: opts.btsTicketNumber,
+  });
+  await postMessageToThread({
+    sessionToken,
+    messageText: opts.messageText,
+  });
+}
+
+/**
  * Extended version of fetchThreadMessages that also returns the raw response
  * body so callers can inspect top-level status fields for closure detection.
  */

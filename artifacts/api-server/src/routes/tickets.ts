@@ -12,6 +12,7 @@ import {
   parseInboundClosure as parseTicketDeskClosure,
   isMemberAuthor as isTicketDeskMemberAuthor,
   signalResolutionToTicketDesk,
+  sendMemberReplyToTicketDesk,
 } from "../lib/ticketdesk-client";
 import { emitWebhookEvent } from "../lib/webhook-events";
 import {
@@ -1010,6 +1011,41 @@ router.post("/tickets/:id/messages", async (req, res): Promise<void> => {
     } catch (err) {
       console.error("[SLA] Failed to resume SLA on member reply:", err);
     }
+  }
+
+  // Mirror the member's reply into the TicketDesk thread (best-effort) so the
+  // support agent sees it in their inbox — without this the member→agent half
+  // of the two-way sync is silent. Only attempt when the ticket actually
+  // reached TicketDesk (deliveryStatus 'delivered'); never block or fail the
+  // response. The posted message returns from TicketDesk as a contact/inbound
+  // message, so the reply poller's isAgentMessage filter skips it and it is
+  // never echoed back into this same portal thread.
+  if (ticket.deliveryStatus === "delivered") {
+    void (async () => {
+      try {
+        const [member] = await db
+          .select({ email: usersTable.email, name: usersTable.name })
+          .from(usersTable)
+          .where(eq(usersTable.id, userId))
+          .limit(1);
+
+        if (member) {
+          await sendMemberReplyToTicketDesk({
+            email: member.email,
+            btsTicketNumber: ticket.ticketNumber,
+            messageText: body.data.body,
+          });
+          console.log(
+            `[Tickets] Mirrored member reply to TicketDesk for ticket ${ticket.ticketNumber}`,
+          );
+        }
+      } catch (err) {
+        console.error(
+          `[Tickets] Failed to mirror member reply to TicketDesk for ticket ${ticket.ticketNumber}:`,
+          err instanceof Error ? err.message : String(err),
+        );
+      }
+    })();
   }
 
   res.status(201).json(message);
