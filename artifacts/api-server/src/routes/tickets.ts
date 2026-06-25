@@ -1075,8 +1075,10 @@ router.post("/tickets/concierge", async (req, res): Promise<void> => {
   const userId = req.userId!;
   const {
     firstName, lastName, email,
-    networks, offerName, offerUrl,
-    traffic, phase, selectedTasks, selectedSizes, otherInfo,
+    network, offerName, offerUrl,
+    traffic, phase, selectedTasks, selectedSizes,
+    driveLink, shareStatus, attachments,
+    otherInfo,
   } = req.body as Record<string, unknown>;
 
   if (!firstName || !lastName || !email || !offerName || !offerUrl) {
@@ -1084,21 +1086,87 @@ router.post("/tickets/concierge", async (req, res): Promise<void> => {
     return;
   }
 
+  // Optional split-test asset attachments, uploaded via the presigned-URL flow
+  // and verified against the *actual* stored objects (the same path the
+  // compliance intake uses) so client-declared sizes/types can't be spoofed.
+  type AttachmentInput = { objectPath: string; fileName?: string; fileSize?: number; contentType?: string };
+  const parsedAttachments: AttachmentInput[] = Array.isArray(attachments)
+    ? (attachments as AttachmentInput[]).filter(
+        (a) => a && typeof a === "object" && typeof a.objectPath === "string",
+      )
+    : [];
+
+  if (parsedAttachments.length > COMPLIANCE_MAX_FILES) {
+    res.status(400).json({
+      error: `Too many files. You can upload at most ${COMPLIANCE_MAX_FILES} files per submission (you attached ${parsedAttachments.length}).`,
+    });
+    return;
+  }
+
+  type VerifiedAttachment = {
+    objectPath: string;
+    fileName: string | null;
+    fileSize: number;
+    contentType: string | null;
+  };
+  let verifiedAttachments: VerifiedAttachment[] = [];
+  if (parsedAttachments.length > 0) {
+    try {
+      verifiedAttachments = await Promise.all(
+        parsedAttachments.map(async (a) => {
+          const meta = await objectStorageService.getObjectEntityMetadata(a.objectPath);
+          return {
+            objectPath: a.objectPath,
+            fileName: a.fileName ?? null,
+            fileSize: meta.size,
+            contentType: meta.contentType || a.contentType || null,
+          };
+        }),
+      );
+    } catch (err) {
+      console.error("[Tickets] Failed to verify concierge attachment metadata:", err);
+      res.status(400).json({
+        error: "We couldn't verify one or more of your uploaded files. Please re-upload them and try again.",
+      });
+      return;
+    }
+
+    const validationError = validateComplianceAttachments(verifiedAttachments);
+    if (validationError) {
+      res.status(400).json({ error: validationError });
+      return;
+    }
+  }
+
   const subject = `Concierge Task — ${String(offerName)}`;
 
   const lines: string[] = [
     `From: ${String(firstName)} ${String(lastName)} <${String(email)}>`,
     ``,
-    `Affiliate Network(s): ${Array.isArray(networks) && networks.length ? networks.join(", ") : "Not specified"}`,
+    `Affiliate Network: ${network ? String(network) : "Not specified"}`,
     `Offer Name: ${String(offerName)}`,
     `Offer URL: ${String(offerUrl)}`,
-    `Traffic Source(s): ${Array.isArray(traffic) && traffic.length ? traffic.join(", ") : "Not specified"}`,
+    `Traffic Source: ${traffic ? String(traffic) : "Not specified"}`,
     `Phase: ${phase ? String(phase) : "Not specified"}`,
     `Selected Task(s): ${Array.isArray(selectedTasks) && selectedTasks.length ? selectedTasks.join("; ") : "None selected"}`,
   ];
 
   if (Array.isArray(selectedSizes) && selectedSizes.length > 0) {
     lines.push(`Banner Sizes: ${selectedSizes.join(", ")}`);
+  }
+
+  if (driveLink && String(driveLink).trim()) {
+    lines.push(`Google Drive Link: ${String(driveLink).trim()}`);
+    if (shareStatus && String(shareStatus).trim()) {
+      lines.push(`Drive Access Status: ${String(shareStatus).trim()}`);
+    }
+  }
+
+  if (parsedAttachments.length > 0) {
+    lines.push(``, `Uploaded Files (${parsedAttachments.length}):`);
+    parsedAttachments.forEach((a, i) => {
+      lines.push(`  ${i + 1}. ${a.fileName ?? a.objectPath}`);
+    });
   }
 
   if (otherInfo && String(otherInfo).trim()) {
@@ -1128,6 +1196,21 @@ router.post("/tickets/concierge", async (req, res): Promise<void> => {
         senderType: "member",
         body: description,
       });
+
+      // Persist each verified split-test upload as a structured attachment row
+      // so admins can open files directly from the ticket detail — matching the
+      // compliance intake.
+      if (verifiedAttachments.length > 0) {
+        await tx.insert(ticketAttachmentsTable).values(
+          verifiedAttachments.map((a) => ({
+            ticketId: created.id,
+            objectPath: a.objectPath,
+            fileName: a.fileName,
+            fileSize: a.fileSize,
+            contentType: a.contentType,
+          })),
+        );
+      }
 
       return created;
     });

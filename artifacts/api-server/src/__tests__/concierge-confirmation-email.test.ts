@@ -51,10 +51,10 @@ const conciergeBody = {
   email: "member@example.test",
   offerName: "Acme Offer",
   offerUrl: "https://example.test/vsl",
-  networks: ["Clickbank"],
-  traffic: ["Meta"],
+  network: "Clickbank",
+  traffic: "Grasshopper",
   phase: '"Build" Phase',
-  selectedTasks: ["Create Full Banner"],
+  selectedTasks: ["Create Full Banner (10 Max)"],
 };
 
 const complianceBody = {
