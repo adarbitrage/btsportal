@@ -10,6 +10,10 @@ import { useListTickets } from "@workspace/api-client-react";
 import type { Ticket } from "@workspace/api-client-react";
 import { ConversationModal } from "@/components/support/ConversationModal";
 import { isActiveTicketStatus, isAwaitingMember } from "@workspace/support-config";
+import {
+  usePreviewEnabled,
+  getPreviewComplianceTickets,
+} from "@/lib/supportPreview";
 
 // A compliance submission is just a support ticket of category
 // `compliance_review`; reuse the generated schema type so the section
@@ -149,9 +153,15 @@ function SubmitForReviewButton({ size = "default" }: { size?: "default" | "sm" }
 // the "Submit for Review" call to action.
 function ComplianceSubmissions() {
   const { data: tickets, isLoading } = useListTickets();
+  const previewEnabled = usePreviewEnabled();
   const [conversationTicket, setConversationTicket] = useState<ComplianceTicket | null>(null);
 
-  const compliance = (tickets ?? []).filter((t) => t.category === "compliance_review");
+  // TEMPORARY: the designated preview account sees fake submission cards so the
+  // card UI can be designed before the live API is wired (see lib/supportPreview).
+  const allTickets = previewEnabled
+    ? [...getPreviewComplianceTickets(), ...(tickets ?? [])]
+    : tickets ?? [];
+  const compliance = allTickets.filter((t) => t.category === "compliance_review");
   const active = compliance.filter((t) => isActiveTicketStatus(t.status)).sort(byNewestFirst);
   const past = compliance
     .filter((t) => t.status === "resolved" || t.status === "closed")

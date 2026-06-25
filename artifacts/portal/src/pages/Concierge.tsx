@@ -8,13 +8,18 @@ import {
 import { useState } from "react";
 import { Link } from "wouter";
 import { format } from "date-fns";
-import { useListTickets, useGetTicket } from "@workspace/api-client-react";
+import { useListTickets, useGetTicket, getGetTicketQueryKey } from "@workspace/api-client-react";
 import type { Ticket } from "@workspace/api-client-react";
 import { ConversationModal } from "@/components/support/ConversationModal";
 import {
   isActiveTicketStatus,
   isAwaitingMember,
 } from "@workspace/support-config";
+import {
+  usePreviewEnabled,
+  getPreviewConciergeTickets,
+  getPreviewTicketDetail,
+} from "@/lib/supportPreview";
 
 // ── Submissions view (mirrors the Compliance Review landing page) ──
 //
@@ -75,7 +80,11 @@ function parseConciergeSummary(ticket: {
 // it loads or if it's empty the row still shows its offer + date, so this only
 // ever adds information.
 function SubmissionSummary({ ticketId }: { ticketId: number }) {
-  const { data: ticket } = useGetTicket(ticketId);
+  const preview = getPreviewTicketDetail(ticketId);
+  const { data } = useGetTicket(ticketId, {
+    query: { enabled: preview == null, queryKey: getGetTicketQueryKey(ticketId) },
+  });
+  const ticket = preview ?? data;
   if (!ticket) return null;
 
   const { tasks, fileCount } = parseConciergeSummary(ticket);
@@ -237,9 +246,15 @@ function SubmitTaskButton({ size = "default" }: { size?: "default" | "sm" }) {
 // call to action.
 function ConciergeSubmissions() {
   const { data: tickets, isLoading } = useListTickets();
+  const previewEnabled = usePreviewEnabled();
   const [conversationTicket, setConversationTicket] = useState<ConciergeTicket | null>(null);
 
-  const concierge = (tickets ?? []).filter((t) => t.category === "concierge_task");
+  // TEMPORARY: the designated preview account sees fake submission cards so the
+  // card UI can be designed before the live API is wired (see lib/supportPreview).
+  const allTickets = previewEnabled
+    ? [...getPreviewConciergeTickets(), ...(tickets ?? [])]
+    : tickets ?? [];
+  const concierge = allTickets.filter((t) => t.category === "concierge_task");
   const active = concierge.filter((t) => isActiveTicketStatus(t.status)).sort(conciergeByNewestFirst);
   const past = concierge
     .filter((t) => t.status === "resolved" || t.status === "closed")

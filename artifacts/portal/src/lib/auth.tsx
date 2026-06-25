@@ -51,7 +51,7 @@ interface AuthContextType {
   refreshAuth: () => Promise<void>;
 }
 
-const AuthContext = createContext<AuthContextType | null>(null);
+export const AuthContext = createContext<AuthContextType | null>(null);
 
 const API_BASE = `${import.meta.env.BASE_URL}api`;
 

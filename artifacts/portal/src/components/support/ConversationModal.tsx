@@ -8,7 +8,8 @@ import {
 import { User, Loader2, Download, FileText } from "lucide-react";
 import type { ReactNode } from "react";
 import { format } from "date-fns";
-import { useGetTicket } from "@workspace/api-client-react";
+import { useGetTicket, getGetTicketQueryKey } from "@workspace/api-client-react";
+import { getPreviewTicketDetail } from "@/lib/supportPreview";
 
 // A calm, read-only view of a submission's conversation thread. Both the
 // Compliance Review and Concierge submission views open this in place for items
@@ -77,7 +78,12 @@ function ConversationBody({
   teamLabel: string;
   teamIcon: ReactNode;
 }) {
-  const { data: ticket, isLoading } = useGetTicket(ticketId);
+  const preview = getPreviewTicketDetail(ticketId);
+  const { data, isLoading: isFetching } = useGetTicket(ticketId, {
+    query: { enabled: preview == null, queryKey: getGetTicketQueryKey(ticketId) },
+  });
+  const ticket = preview ?? data;
+  const isLoading = preview == null && isFetching;
 
   if (isLoading) {
     return (
