@@ -175,7 +175,7 @@ function CallDetail({ call, query }: { call: VoiceCallRecord; query: string }) {
                     {turn.role}:{" "}
                   </span>
                 )}
-                <span className="text-stone-700 dark:text-stone-300">{highlight(turn.content, query)}</span>
+                <span className="text-stone-900 dark:text-stone-100">{highlight(turn.content, query)}</span>
               </div>
             ))}
           </div>
