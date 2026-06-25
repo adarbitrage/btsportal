@@ -34,9 +34,10 @@ const byNewestFirst = (a: ComplianceTicket, b: ComplianceTicket) =>
 // One row in the "Current Submissions" list. Badge + button escalate with
 // urgency: when the compliance team is waiting on the member
 // (`awaiting_response`) the row shows a loud amber "Action Needed" badge and a
-// solid "View & Respond" button linking to the full ticket page (read + reply +
-// upload). Otherwise it shows a calm "Under Review" badge and an outlined "View
-// Conversation" button that opens the read-only conversation modal in place.
+// solid "View & Respond" button that opens the conversation modal in respond
+// mode (read + text-only reply) in place. Otherwise it shows a calm "Under
+// Review" badge and an outlined "View Conversation" button that opens the same
+// modal read-only.
 function CurrentSubmissionRow({
   ticket,
   onViewConversation,
@@ -68,11 +69,15 @@ function CurrentSubmissionRow({
             </p>
           </div>
           {actionNeeded ? (
-            <Link href={`/support/tickets/${ticket.id}`} className="shrink-0">
-              <Button variant="default" size="sm" data-testid={`compliance-respond-${ticket.id}`}>
-                View &amp; Respond
-              </Button>
-            </Link>
+            <Button
+              variant="default"
+              size="sm"
+              className="shrink-0"
+              onClick={onViewConversation}
+              data-testid={`compliance-respond-${ticket.id}`}
+            >
+              View &amp; Respond
+            </Button>
           ) : (
             <Button
               variant="outline"
@@ -241,6 +246,7 @@ function ComplianceSubmissions() {
         }
         teamLabel="Compliance Team"
         teamIcon={<ShieldCheck className="w-3.5 h-3.5 text-primary" />}
+        allowReply={conversationTicket ? isAwaitingMember(conversationTicket.status) : false}
         onClose={() => setConversationTicket(null)}
       />
     </div>

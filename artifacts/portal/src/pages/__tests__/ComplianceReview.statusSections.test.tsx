@@ -8,9 +8,9 @@ import type { ReactNode } from "react";
 // the intake form: "Current Submissions" (active tickets) and "Past
 // Submissions" (resolved/closed). This test pins that split, the per-item status
 // badges ("Under Review" / "Action Needed" / "Completed"), the action-needed
-// escalation on `awaiting_response` (solid "View & Respond" linking to the full
-// ticket page), and the read-only "View Conversation" modal that shows the full
-// thread (member + team, internal notes excluded).
+// escalation on `awaiting_response` (solid "View & Respond" opening the
+// conversation modal in respond mode), and the read-only "View Conversation"
+// modal that shows the full thread (member + team, internal notes excluded).
 //
 // Mocking follows the portal page-test pattern: stub AppLayout, wrap in a
 // QueryClient, and drive the ticket list + ticket detail through a stubbed
@@ -22,8 +22,8 @@ vi.mock("@/components/layout/AppLayout", () => ({
   ),
 }));
 
-// wouter's <Link> renders an anchor; capture its href so we can assert the row
-// deep-links to the existing ticket thread page without a real router.
+// wouter's <Link> renders an anchor; the page still uses it for other links
+// (e.g. the submit-for-review link), so stub it as a plain anchor without a real router.
 vi.mock("wouter", () => ({
   Link: ({ href, children, ...rest }: { href: string; children: ReactNode }) => (
     <a href={href} {...rest}>
@@ -158,7 +158,7 @@ describe("ComplianceReview — submission status sections", () => {
     expect(within(past).getByTestId("compliance-view-conversation-2")).toHaveTextContent("View Conversation");
   });
 
-  it("escalates an awaiting_response submission with an Action Needed badge and a View & Respond link", async () => {
+  it("escalates an awaiting_response submission with an Action Needed badge and a View & Respond button that opens a text reply box", async () => {
     tickets = [
       complianceTicket({ id: 3, ticketNumber: "CMP-003", status: "awaiting_response", subject: "Compliance Review — Gamma Offer" }),
     ];
@@ -167,12 +167,18 @@ describe("ComplianceReview — submission status sections", () => {
 
     const active = await screen.findByTestId("compliance-active-3");
     expect(within(active).getByTestId("compliance-action-needed-3")).toHaveTextContent(/action needed/i);
-    // Action needed → solid "View & Respond" linking to the full ticket page.
+    // Action needed → solid "View & Respond" button that opens the in-place
+    // respond modal (a text-only reply popup), NOT a deep link to the full page.
     const cta = within(active).getByTestId("compliance-respond-3");
     expect(cta).toHaveTextContent("View & Respond");
-    expect(cta.closest("a")).toHaveAttribute("href", "/support/tickets/3");
+    expect(cta.closest("a")).toBeNull();
     // The calm conversation modal button is not offered for action-needed rows.
     expect(within(active).queryByTestId("compliance-view-conversation-3")).not.toBeInTheDocument();
+
+    // Clicking opens the conversation modal with a text-only reply box.
+    fireEvent.click(cta);
+    expect(await screen.findByTestId("conversation-reply-input")).toBeInTheDocument();
+    expect(screen.getByTestId("conversation-reply-send")).toBeInTheDocument();
   });
 
   it("shows the full conversation (member + team, internal excluded) in the read-only View Conversation modal", async () => {

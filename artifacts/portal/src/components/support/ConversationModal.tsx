@@ -5,18 +5,29 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { User, Loader2, Download, FileText } from "lucide-react";
-import type { ReactNode } from "react";
+import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
+import { User, Loader2, Download, FileText, Send } from "lucide-react";
+import { useState, type ReactNode } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
-import { useGetTicket, getGetTicketQueryKey } from "@workspace/api-client-react";
-import { getPreviewTicketDetail } from "@/lib/supportPreview";
+import {
+  useGetTicket,
+  useAddTicketMessage,
+  getGetTicketQueryKey,
+  getListTicketsQueryKey,
+} from "@workspace/api-client-react";
+import {
+  getPreviewTicketDetail,
+  isPreviewTicketId,
+  appendPreviewReply,
+} from "@/lib/supportPreview";
 
-// A calm, read-only view of a submission's conversation thread. Both the
-// Compliance Review and Concierge submission views open this in place for items
-// that don't need the member to act (Under Review / In Progress and Completed):
-// it shows the full back-and-forth (the member's own messages plus the team's
-// replies) without the reply box or upload controls of the full ticket page.
-// Items that DO need the member to act link to the full ticket page instead.
+// A calm view of a submission's conversation thread. Both the Compliance Review
+// and Concierge submission views open this in place. For items that don't need
+// the member to act (Under Review / In Progress and Completed) it's a read-only
+// thread. For "Action Needed" items it additionally shows a TEXT-ONLY reply box
+// (no uploads) so the member can respond without leaving the submissions view.
 
 type ConversationMessage = {
   id: number;
@@ -168,11 +179,92 @@ function ConversationBody({
   );
 }
 
+// The TEXT-ONLY reply box shown for "Action Needed" submissions (Option A): a
+// textarea + Send, no upload controls. For a real ticket it posts via the API
+// and refreshes the thread; for a preview ticket (negative id) it appends to the
+// in-memory preview store so the respond flow demos end-to-end before the API is
+// wired. `onPreviewAppended` lets the modal re-render the thread after a preview
+// reply (there's no query to invalidate in that case).
+function ReplyBox({
+  ticketId,
+  teamLabel,
+  onPreviewAppended,
+}: {
+  ticketId: number;
+  teamLabel: string;
+  onPreviewAppended: () => void;
+}) {
+  const [text, setText] = useState("");
+  const queryClient = useQueryClient();
+  const addMessage = useAddTicketMessage();
+  const isPreview = isPreviewTicketId(ticketId);
+  const sending = addMessage.isPending;
+
+  const handleSend = () => {
+    const body = text.trim();
+    if (!body || sending) return;
+
+    if (isPreview) {
+      appendPreviewReply(ticketId, body);
+      setText("");
+      onPreviewAppended();
+      return;
+    }
+
+    addMessage.mutate(
+      { id: ticketId, data: { body } },
+      {
+        onSuccess: () => {
+          setText("");
+          queryClient.invalidateQueries({ queryKey: getGetTicketQueryKey(ticketId) });
+          queryClient.invalidateQueries({ queryKey: getListTicketsQueryKey() });
+        },
+      },
+    );
+  };
+
+  return (
+    <div className="mt-3 border-t border-border pt-3 space-y-2" data-testid="conversation-reply">
+      <label
+        htmlFor="conversation-reply-input"
+        className="text-xs font-medium text-muted-foreground"
+      >
+        Reply to the {teamLabel}
+      </label>
+      <Textarea
+        id="conversation-reply-input"
+        value={text}
+        onChange={(e) => setText(e.target.value)}
+        placeholder="Type your reply…"
+        rows={3}
+        disabled={sending}
+        data-testid="conversation-reply-input"
+      />
+      <div className="flex justify-end">
+        <Button
+          size="sm"
+          onClick={handleSend}
+          disabled={!text.trim() || sending}
+          data-testid="conversation-reply-send"
+        >
+          {sending ? (
+            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+          ) : (
+            <Send className="w-4 h-4 mr-2" />
+          )}
+          Send Reply
+        </Button>
+      </div>
+    </div>
+  );
+}
+
 export function ConversationModal({
   ticketId,
   title,
   teamLabel,
   teamIcon,
+  allowReply = false,
   onClose,
 }: {
   // The ticket whose conversation to show; null closes the dialog.
@@ -180,20 +272,42 @@ export function ConversationModal({
   title: string;
   teamLabel: string;
   teamIcon: ReactNode;
+  // When true (Action Needed rows), show the text-only reply box below the thread.
+  allowReply?: boolean;
   onClose: () => void;
 }) {
+  // Bumped after a preview reply so the thread re-renders with the new message
+  // (preview tickets have no query to invalidate). Keyed with ticketId so the
+  // thread remounts cleanly when a different submission is opened.
+  const [replyBump, setReplyBump] = useState(0);
+
   return (
     <Dialog open={ticketId != null} onOpenChange={(open) => { if (!open) onClose(); }}>
       <DialogContent className="max-w-lg" data-testid="conversation-modal">
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>
           <DialogDescription>
-            Your conversation with the {teamLabel}. This is a read-only view — open the
-            full ticket to reply.
+            {allowReply
+              ? `Your conversation with the ${teamLabel}. Reply below to keep things moving.`
+              : `Your conversation with the ${teamLabel}. This is a read-only view — open the full ticket to reply.`}
           </DialogDescription>
         </DialogHeader>
         {ticketId != null && (
-          <ConversationBody ticketId={ticketId} teamLabel={teamLabel} teamIcon={teamIcon} />
+          <>
+            <ConversationBody
+              key={`${ticketId}-${replyBump}`}
+              ticketId={ticketId}
+              teamLabel={teamLabel}
+              teamIcon={teamIcon}
+            />
+            {allowReply && (
+              <ReplyBox
+                ticketId={ticketId}
+                teamLabel={teamLabel}
+                onPreviewAppended={() => setReplyBump((b) => b + 1)}
+              />
+            )}
+          </>
         )}
       </DialogContent>
     </Dialog>
