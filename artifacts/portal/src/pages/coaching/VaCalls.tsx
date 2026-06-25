@@ -306,11 +306,28 @@ export default function VaCalls() {
             <h1 className="text-3xl font-bold text-foreground">1-on-1 VA Calls</h1>
           </div>
           <p className="text-muted-foreground">
-            Book a free 30-minute private call with a member of the BTS
-            Concierge™ team for personalized, hands-on assistance — banner
-            creation, landing page setup, Flexy configuration, MetricMover
-            variations, DIYTrax campaign setup, and more. Available Monday
-            through Saturday.
+            Stuck on something? Book a free 30-minute 1-on-1 with the
+            Concierge™ team for live, personalized guidance through the portal's
+            tools and your setup.
+          </p>
+        </div>
+
+        <div className="rounded-xl border border-border/60 bg-card p-4 space-y-1.5">
+          <p className="text-sm font-semibold text-foreground">Get unstuck, live</p>
+          <p className="text-sm text-muted-foreground">
+            Bring a specific roadblock or just questions you've been sitting on.
+            The team will screen-share, walk through your account live, and show
+            you exactly how to use Flexy, MetricMover, DIYTrax, and the rest of
+            the portal — at your pace.
+          </p>
+          <p className="text-sm text-muted-foreground">
+            <em>
+              Need something built instead of explained?{" "}
+              <Link href="/concierge" className="text-primary font-medium hover:underline">
+                Submit a task to the BTS Concierge™
+              </Link>
+              .
+            </em>
           </p>
         </div>
 

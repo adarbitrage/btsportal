@@ -6,6 +6,7 @@ import {
   ClipboardList, AlertCircle,
 } from "lucide-react";
 import { useState } from "react";
+import { Link } from "wouter";
 
 const API_BASE = `${import.meta.env.BASE_URL}api`;
 
@@ -370,34 +371,25 @@ export default function Concierge() {
             <h1 className="text-3xl font-bold">The BTS Concierge™</h1>
           </div>
           <p className="text-muted-foreground">
-            Your personal digital marketing assistants — a team of skilled specialists ready to take work off your plate.
+            Skilled specialists ready to take the technical setup off your plate — connecting your tools, configuring your software, and building the ad creatives to get your campaigns live.
           </p>
         </div>
 
-        <Card className="border-border/60 shadow-sm">
-          <CardContent className="p-5 sm:p-8 md:p-10 space-y-5">
-            <h2 className="text-xl font-bold text-foreground">Welcome To The BTS Concierge™</h2>
-            <p className="text-muted-foreground leading-relaxed">
-              The BTS Concierge™ is one of the most valuable resources available to you as a Build Test Scale member. This service was designed to eliminate bottlenecks, save you time, and give you the professional edge you need to thrive in affiliate marketing.
-            </p>
-            <p className="text-muted-foreground leading-relaxed">
-              This isn't your typical virtual assistant team. These are industry professionals — skilled specialists who are paid premium rates to support our members. Whether you're looking to:
-            </p>
-            <div className="bg-muted/40 border border-border/60 rounded-xl p-6">
-              <ul className="space-y-2 text-sm text-muted-foreground">
-                <li className="flex items-start gap-2"><CheckCircle2 className="w-4 h-4 text-emerald-700 mt-0.5 shrink-0" /> Build complete landing pages from scratch</li>
-                <li className="flex items-start gap-2"><CheckCircle2 className="w-4 h-4 text-emerald-700 mt-0.5 shrink-0" /> Create animated GIFs for banner ads and landing page hero shots</li>
-                <li className="flex items-start gap-2"><CheckCircle2 className="w-4 h-4 text-emerald-700 mt-0.5 shrink-0" /> Design and deliver high-quality banners</li>
-                <li className="flex items-start gap-2"><CheckCircle2 className="w-4 h-4 text-emerald-700 mt-0.5 shrink-0" /> Connect landing pages to proprietary tools within the portal</li>
-                <li className="flex items-start gap-2"><CheckCircle2 className="w-4 h-4 text-emerald-700 mt-0.5 shrink-0" /> Optimize your campaigns after they've launched</li>
-                <li className="flex items-start gap-2"><CheckCircle2 className="w-4 h-4 text-emerald-700 mt-0.5 shrink-0" /> Get overviews of each proprietary software application in the portal</li>
-              </ul>
-            </div>
-            <p className="text-muted-foreground leading-relaxed">
-              Our Concierge team is here to make it happen. These experts are committed to ensuring nothing stands in the way of your success. <strong className="text-foreground">Most tasks are turned around within 24-72 hours</strong>, depending on complexity.
-            </p>
-          </CardContent>
-        </Card>
+        <div className="rounded-xl border border-border/60 bg-card p-4 space-y-1.5">
+          <p className="text-sm font-semibold text-foreground">How it works</p>
+          <p className="text-sm text-muted-foreground">
+            Submit a task below and a specialist picks it up — no back-and-forth, no learning curve. You'll get finished, ready-to-use work delivered straight to you, usually within 24–72 hours. Keep moving while we handle the heavy lifting.
+          </p>
+          <p className="text-sm text-muted-foreground">
+            <em>
+              Prefer to be walked through something live instead?{" "}
+              <Link href="/va-calls" className="text-primary font-medium hover:underline">
+                Book a 1-on-1 VA Call
+              </Link>
+              .
+            </em>
+          </p>
+        </div>
 
         <section id="task">
           <Card className="border-border/60 shadow-sm">
