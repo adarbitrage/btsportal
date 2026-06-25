@@ -27,7 +27,7 @@ vi.mock("../lib/sla", () => ({
 vi.mock("../lib/ticket-routing", () => ({ autoRouteTicket: vi.fn(async () => undefined) }));
 
 import { db, usersTable, ticketsTable, ticketMessagesTable } from "@workspace/db";
-import { inArray } from "drizzle-orm";
+import { inArray, eq } from "drizzle-orm";
 
 import { buildTestAppWithRouters } from "./test-app";
 import ticketsRouter from "../routes/tickets";
@@ -46,9 +46,6 @@ function signCookie(userId: number, email: string): string {
 }
 
 const conciergeBody = {
-  firstName: "Test",
-  lastName: "Member",
-  email: "member@example.test",
   offerName: "Acme Offer",
   offerUrl: "https://example.test/vsl",
   network: "Clickbank",
@@ -58,9 +55,6 @@ const conciergeBody = {
 };
 
 const complianceBody = {
-  firstName: "Test",
-  lastName: "Member",
-  email: "member@example.test",
   offerName: "Acme Offer",
   affiliateNetwork: "ClickBank",
   trafficSource: "Grasshopper",
@@ -113,6 +107,14 @@ describe("confirmation-email visibility on concierge/compliance submit", () => {
     expect(res.body.confirmationEmailSent).toBe(true);
     seededTicketIds.push(res.body.ticketId as number);
     expect(queueEmailMock).toHaveBeenCalledOnce();
+
+    // The `From:` line is built from the authenticated account record, not from
+    // typed input (the form no longer collects name/email).
+    const [message] = await db
+      .select({ body: ticketMessagesTable.body })
+      .from(ticketMessagesTable)
+      .where(eq(ticketMessagesTable.ticketId, res.body.ticketId as number));
+    expect(message.body).toContain(`From: Concierge Member <${TEST_TAG}@example.test>`);
   });
 
   it("reports confirmationEmailSent: true when the email is sent directly", async () => {
@@ -181,5 +183,13 @@ describe("confirmation-email visibility on concierge/compliance submit", () => {
     expect(res.status).toBe(201);
     expect(res.body.confirmationEmailSent).toBe(false);
     seededTicketIds.push(res.body.ticketId as number);
+
+    // Compliance, like concierge, builds the `From:` line from the
+    // authenticated account record rather than typed input.
+    const [message] = await db
+      .select({ body: ticketMessagesTable.body })
+      .from(ticketMessagesTable)
+      .where(eq(ticketMessagesTable.ticketId, res.body.ticketId as number));
+    expect(message.body).toContain(`From: Concierge Member <${TEST_TAG}@example.test>`);
   });
 });

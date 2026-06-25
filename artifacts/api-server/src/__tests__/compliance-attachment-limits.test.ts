@@ -72,9 +72,6 @@ function seedObject(size: number, contentType: string): string {
 }
 
 const baseBody = {
-  firstName: "Test",
-  lastName: "Member",
-  email: "member@example.test",
   offerName: "Acme Offer",
   affiliateNetwork: "ClickBank",
   trafficSource: "Grasshopper",

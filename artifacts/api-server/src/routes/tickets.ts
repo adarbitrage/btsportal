@@ -42,11 +42,13 @@ import {
 const TICKET_CREATE_LOCK_NAMESPACE = 0x71_43_5e_71;
 
 /**
- * Looks up the owning member's email + name for post-submit notifications
- * (TicketDesk delivery + confirmation email). The ticket is already safely
- * persisted by the time this runs, so a transient failure here must never
- * fail the member's request — we log and return undefined, and the callers
- * degrade gracefully (skip delivery, report confirmationEmailSent: false).
+ * Looks up the owning member's email + name from their authenticated account.
+ * This is the single source of submitter identity for both the ticket body's
+ * `From:` line (built before the ticket is persisted) and the post-submit
+ * notifications (TicketDesk delivery + confirmation email, which run after the
+ * ticket is persisted). A transient failure here must never fail the member's
+ * request — we log and return undefined, and every caller degrades gracefully
+ * (fallback `From:` line, skip delivery, report confirmationEmailSent: false).
  */
 async function lookupTicketMember(
   userId: number,
@@ -1110,15 +1112,14 @@ router.post("/tickets/:id/satisfaction", async (req, res): Promise<void> => {
 router.post("/tickets/concierge", async (req, res): Promise<void> => {
   const userId = req.userId!;
   const {
-    firstName, lastName, email,
     network, offerName, offerUrl,
     traffic, phase, selectedTasks, selectedSizes,
     driveLink, shareStatus, attachments,
     otherInfo,
   } = req.body as Record<string, unknown>;
 
-  if (!firstName || !lastName || !email || !offerName || !offerUrl) {
-    res.status(400).json({ error: "Missing required fields: firstName, lastName, email, offerName, offerUrl" });
+  if (!offerName || !offerUrl) {
+    res.status(400).json({ error: "Missing required fields: offerName, offerUrl" });
     return;
   }
 
@@ -1176,8 +1177,17 @@ router.post("/tickets/concierge", async (req, res): Promise<void> => {
 
   const subject = `Concierge Task — ${String(offerName)}`;
 
+  // The submitter identity is sourced from the authenticated account (the same
+  // record used for TicketDesk delivery and the confirmation email) rather than
+  // typed input, so the `From:` line can never mismatch the account the ticket
+  // is actually delivered under.
+  const member = await lookupTicketMember(userId);
+  const fromLine = member
+    ? `From: ${member.name} <${member.email}>`
+    : `From: (account lookup unavailable)`;
+
   const lines: string[] = [
-    `From: ${String(firstName)} ${String(lastName)} <${String(email)}>`,
+    fromLine,
     ``,
     `Affiliate Network: ${network ? String(network) : "Not specified"}`,
     `Offer Name: ${String(offerName)}`,
@@ -1261,8 +1271,6 @@ router.post("/tickets/concierge", async (req, res): Promise<void> => {
   try { await createSlaForTicket(ticket.id, userId); } catch {}
   try { await autoRouteTicket(ticket.id, userId, "concierge_task", "normal"); } catch {}
 
-  const member = await lookupTicketMember(userId);
-
   // TicketDesk delivery — fire-and-forget. Its terminal outcome is already
   // tracked on the ticket's delivery_status column (with a support-inbox
   // fallback email + admin "Retry delivery"), so a failure here is observable
@@ -1308,7 +1316,6 @@ router.post("/tickets/concierge", async (req, res): Promise<void> => {
 router.post("/tickets/compliance", async (req, res): Promise<void> => {
   const userId = req.userId!;
   const {
-    firstName, lastName, email,
     offerName, affiliateNetwork, trafficSource, selectedCreatives,
     driveLink, shareStatus,
     attachments,
@@ -1322,8 +1329,8 @@ router.post("/tickets/compliance", async (req, res): Promise<void> => {
       )
     : [];
 
-  if (!firstName || !lastName || !email || !offerName) {
-    res.status(400).json({ error: "Missing required fields: firstName, lastName, email, offerName" });
+  if (!offerName) {
+    res.status(400).json({ error: "Missing required fields: offerName" });
     return;
   }
 
@@ -1394,8 +1401,17 @@ router.post("/tickets/compliance", async (req, res): Promise<void> => {
 
   const subject = `Compliance Review — ${String(offerName)}`;
 
+  // The submitter identity is sourced from the authenticated account (the same
+  // record used for TicketDesk delivery and the confirmation email) rather than
+  // typed input, so the `From:` line can never mismatch the account the ticket
+  // is actually delivered under.
+  const member = await lookupTicketMember(userId);
+  const fromLine = member
+    ? `From: ${member.name} <${member.email}>`
+    : `From: (account lookup unavailable)`;
+
   const lines: string[] = [
-    `From: ${String(firstName)} ${String(lastName)} <${String(email)}>`,
+    fromLine,
     ``,
     `Offer Name: ${String(offerName)}`,
     `Affiliate Network: ${affiliateNetwork && String(affiliateNetwork).trim() ? String(affiliateNetwork).trim() : "Not specified"}`,
@@ -1473,8 +1489,6 @@ router.post("/tickets/compliance", async (req, res): Promise<void> => {
   // SLA + routing — best-effort
   try { await createSlaForTicket(ticket.id, userId); } catch {}
   try { await autoRouteTicket(ticket.id, userId, "compliance_review", "normal"); } catch {}
-
-  const member = await lookupTicketMember(userId);
 
   // TicketDesk delivery — fire-and-forget. Its terminal outcome is already
   // tracked on the ticket's delivery_status column (with a support-inbox

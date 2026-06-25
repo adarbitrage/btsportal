@@ -200,9 +200,6 @@ type SubmitResult =
   | { kind: "error"; message: string };
 
 function ConciergeForm() {
-  const [firstName, setFirstName] = useState("");
-  const [lastName, setLastName] = useState("");
-  const [email, setEmail] = useState("");
   const [network, setNetwork] = useState("");
   const [offerName, setOfferName] = useState("");
   const [offerUrl, setOfferUrl] = useState("");
@@ -361,7 +358,6 @@ function ConciergeForm() {
 
   const resetForm = () => {
     setResult(null);
-    setFirstName(""); setLastName(""); setEmail("");
     setNetwork(""); setOfferName(""); setOfferUrl("");
     setTraffic(""); setPhase("");
     setSelectedTasks([]); setSelectedSizes([]);
@@ -425,7 +421,6 @@ function ConciergeForm() {
         credentials: "include",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          firstName, lastName, email,
           network, offerName, offerUrl,
           traffic, phase,
           selectedTasks: selectedTaskLabels,
@@ -505,43 +500,6 @@ function ConciergeForm() {
           <p>{result.message}</p>
         </div>
       )}
-
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <div>
-          <label className="block text-sm font-medium text-foreground mb-1.5">First Name *</label>
-          <input
-            type="text"
-            required
-            value={firstName}
-            onChange={(e) => setFirstName(e.target.value)}
-            className={inputClass}
-            data-testid="input-first-name"
-          />
-        </div>
-        <div>
-          <label className="block text-sm font-medium text-foreground mb-1.5">Last Name *</label>
-          <input
-            type="text"
-            required
-            value={lastName}
-            onChange={(e) => setLastName(e.target.value)}
-            className={inputClass}
-            data-testid="input-last-name"
-          />
-        </div>
-      </div>
-
-      <div>
-        <label className="block text-sm font-medium text-foreground mb-1.5">Email *</label>
-        <input
-          type="email"
-          required
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          className={inputClass}
-          data-testid="input-email"
-        />
-      </div>
 
       <div>
         <label className="block text-sm font-medium text-foreground mb-1.5">Affiliate Network *</label>
