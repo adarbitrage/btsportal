@@ -17,11 +17,6 @@ import {
   getGetTicketQueryKey,
   getListTicketsQueryKey,
 } from "@workspace/api-client-react";
-import {
-  getPreviewTicketDetail,
-  isPreviewTicketId,
-  appendPreviewReply,
-} from "@/lib/supportPreview";
 
 // A calm view of a submission's conversation thread. Both the Compliance Review
 // and Concierge submission views open this in place. For items that don't need
@@ -89,12 +84,9 @@ function ConversationBody({
   teamLabel: string;
   teamIcon: ReactNode;
 }) {
-  const preview = getPreviewTicketDetail(ticketId);
-  const { data, isLoading: isFetching } = useGetTicket(ticketId, {
-    query: { enabled: preview == null, queryKey: getGetTicketQueryKey(ticketId) },
+  const { data: ticket, isLoading } = useGetTicket(ticketId, {
+    query: { queryKey: getGetTicketQueryKey(ticketId) },
   });
-  const ticket = preview ?? data;
-  const isLoading = preview == null && isFetching;
 
   if (isLoading) {
     return (
@@ -180,36 +172,23 @@ function ConversationBody({
 }
 
 // The TEXT-ONLY reply box shown for "Action Needed" submissions (Option A): a
-// textarea + Send, no upload controls. For a real ticket it posts via the API
-// and refreshes the thread; for a preview ticket (negative id) it appends to the
-// in-memory preview store so the respond flow demos end-to-end before the API is
-// wired. `onPreviewAppended` lets the modal re-render the thread after a preview
-// reply (there's no query to invalidate in that case).
+// textarea + Send, no upload controls. Posts via the API and refreshes the
+// thread.
 function ReplyBox({
   ticketId,
   teamLabel,
-  onPreviewAppended,
 }: {
   ticketId: number;
   teamLabel: string;
-  onPreviewAppended: () => void;
 }) {
   const [text, setText] = useState("");
   const queryClient = useQueryClient();
   const addMessage = useAddTicketMessage();
-  const isPreview = isPreviewTicketId(ticketId);
   const sending = addMessage.isPending;
 
   const handleSend = () => {
     const body = text.trim();
     if (!body || sending) return;
-
-    if (isPreview) {
-      appendPreviewReply(ticketId, body);
-      setText("");
-      onPreviewAppended();
-      return;
-    }
 
     addMessage.mutate(
       { id: ticketId, data: { body } },
@@ -276,11 +255,6 @@ export function ConversationModal({
   allowReply?: boolean;
   onClose: () => void;
 }) {
-  // Bumped after a preview reply so the thread re-renders with the new message
-  // (preview tickets have no query to invalidate). Keyed with ticketId so the
-  // thread remounts cleanly when a different submission is opened.
-  const [replyBump, setReplyBump] = useState(0);
-
   return (
     <Dialog open={ticketId != null} onOpenChange={(open) => { if (!open) onClose(); }}>
       <DialogContent className="max-w-lg" data-testid="conversation-modal">
@@ -295,7 +269,7 @@ export function ConversationModal({
         {ticketId != null && (
           <>
             <ConversationBody
-              key={`${ticketId}-${replyBump}`}
+              key={ticketId}
               ticketId={ticketId}
               teamLabel={teamLabel}
               teamIcon={teamIcon}
@@ -304,7 +278,6 @@ export function ConversationModal({
               <ReplyBox
                 ticketId={ticketId}
                 teamLabel={teamLabel}
-                onPreviewAppended={() => setReplyBump((b) => b + 1)}
               />
             )}
           </>
