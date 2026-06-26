@@ -4,6 +4,7 @@ import { db } from "@workspace/db";
 import { knowledgebaseDocsTable } from "@workspace/db";
 import { sql } from "drizzle-orm";
 import { scrubPrivateContent } from "./content-privacy-filter";
+import { docClassForCategory, TRANSCRIPT_CATEGORIES } from "./kb-taxonomy";
 
 const KB_DIR = path.join(process.cwd(), "src/knowledge-base");
 
@@ -247,9 +248,12 @@ export async function seedKnowledgebaseFromFiles(): Promise<void> {
 
   for (const doc of allDocs) {
     try {
+      // doc_class is derived from the category so transcript-derived rows
+      // (coaching / curriculum) can NEVER enter as citable. last_verified is
+      // left NULL so even curated rows are held until a human verifies them.
       const result = await db.execute(
-        sql`INSERT INTO knowledgebase_docs (title, category, content)
-            VALUES (${scrubPrivateContent(doc.title)}, ${doc.category}, ${scrubPrivateContent(doc.content)})
+        sql`INSERT INTO knowledgebase_docs (title, category, content, doc_class)
+            VALUES (${scrubPrivateContent(doc.title)}, ${doc.category}, ${scrubPrivateContent(doc.content)}, ${docClassForCategory(doc.category)})
             ON CONFLICT (title) DO NOTHING
             RETURNING id`
       );
@@ -522,15 +526,20 @@ export async function ensureBtsAgreementKbContent(): Promise<void> {
 
   for (const doc of docs) {
     try {
+      // These refund / Agreement / glossary docs are curated (non-transcript),
+      // but last_verified stays NULL so they are held as re-verification drafts
+      // and are NOT citable until a human verifies them (Task #2 review pass).
       const result = await db.execute(
-        sql`INSERT INTO knowledgebase_docs (title, category, content)
-            VALUES (${scrubPrivateContent(doc.title)}, ${doc.category}, ${scrubPrivateContent(doc.content)})
+        sql`INSERT INTO knowledgebase_docs (title, category, content, doc_class)
+            VALUES (${scrubPrivateContent(doc.title)}, ${doc.category}, ${scrubPrivateContent(doc.content)}, ${docClassForCategory(doc.category)})
             ON CONFLICT (title) DO UPDATE
               SET content = EXCLUDED.content,
                   category = EXCLUDED.category,
+                  doc_class = EXCLUDED.doc_class,
                   updated_at = NOW()
               WHERE knowledgebase_docs.content IS DISTINCT FROM EXCLUDED.content
                  OR knowledgebase_docs.category IS DISTINCT FROM EXCLUDED.category
+                 OR knowledgebase_docs.doc_class IS DISTINCT FROM EXCLUDED.doc_class
             RETURNING id`,
       );
       if ((result.rows as any[]).length > 0) {
@@ -558,9 +567,11 @@ export async function seedInternalSops(): Promise<void> {
 
   for (const doc of INTERNAL_SOP_DOCS) {
     try {
+      // Admin-only SOPs are curated (non-transcript). They are excluded from
+      // every member-facing path by audience='admin' regardless of doc_class.
       const result = await db.execute(
-        sql`INSERT INTO knowledgebase_docs (title, category, content, audience)
-            VALUES (${doc.title}, ${doc.category}, ${doc.content}, 'admin')
+        sql`INSERT INTO knowledgebase_docs (title, category, content, audience, doc_class)
+            VALUES (${doc.title}, ${doc.category}, ${doc.content}, 'admin', ${docClassForCategory(doc.category)})
             ON CONFLICT (title) DO NOTHING
             RETURNING id`
       );
@@ -575,4 +586,40 @@ export async function seedInternalSops(): Promise<void> {
   }
 
   console.log(`[seed-kb] Internal SOPs done. Inserted: ${inserted}, Skipped (already exist): ${skipped}.`);
+}
+
+/**
+ * Backfill `doc_class` for every legacy row that predates the column. Transcript
+ * categories (coaching / curriculum) become `doc_class='transcript'` (excluded
+ * from every member-facing retrieval path); everything else becomes `curated`.
+ *
+ * Only touches rows where `doc_class IS NULL`, so it is idempotent and never
+ * clobbers a value a later step or a human set (e.g. a curriculum transcript
+ * promoted to a curated truth-doc keeps its curated class). `last_verified` is
+ * intentionally left NULL so reclassified curated rows are held as
+ * re-verification drafts and are NOT citable yet.
+ *
+ * Runs on boot (awaited before the server serves) because post-merge only
+ * touches the DEV database; production is a separate database the agent cannot
+ * write directly, so a freshly-deployed instance applying this on startup is
+ * the only way the reclassification reaches prod.
+ */
+export async function reclassifyKnowledgebaseDocClasses(): Promise<void> {
+  const transcriptList = sql.join(
+    TRANSCRIPT_CATEGORIES.map((c) => sql`${c}`),
+    sql`, `,
+  );
+  const result = await db.execute(
+    sql`UPDATE knowledgebase_docs
+        SET doc_class = CASE
+              WHEN category IN (${transcriptList}) THEN 'transcript'
+              ELSE 'curated'
+            END
+        WHERE doc_class IS NULL
+        RETURNING id`,
+  );
+  const updated = (result.rows as any[]).length;
+  if (updated > 0) {
+    console.log(`[seed-kb] reclassifyKnowledgebaseDocClasses: backfilled doc_class on ${updated} row(s).`);
+  }
 }

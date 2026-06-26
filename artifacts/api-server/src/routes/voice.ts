@@ -11,6 +11,7 @@ import { csvEscape } from "../lib/csv";
 import { logAdminAction } from "../lib/audit-log";
 import { buildVoiceSynonymTsquery, expandVoiceQuerySynonyms } from "../lib/voice-synonyms";
 import { scrubPrivateContent } from "../lib/content-privacy-filter";
+import { citableDocFilter } from "../lib/kb-citable-filter";
 import { queueTicketDeskDelivery, sendSupportFallbackEmail } from "../lib/ticketdesk-queue";
 import { autoRouteTicket } from "../lib/ticket-routing";
 import { createSlaForTicket } from "../lib/sla";
@@ -55,7 +56,7 @@ async function getIsAdmin(userId: number): Promise<boolean> {
   return !!(user && isAdminRole(user.role));
 }
 
-async function searchKnowledgebaseForVoice(query: string): Promise<string> {
+export async function searchKnowledgebaseForVoice(query: string): Promise<string> {
   const categoriesArray = `{${ALL_KB_CATEGORIES.join(",")}}`;
 
   // Map natural member phrasings ("money back guarantee", "do I get my money
@@ -74,6 +75,7 @@ async function searchKnowledgebaseForVoice(query: string): Promise<string> {
       WHERE to_tsvector('english', title || ' ' || content) @@ ${primaryTsquery}
         AND category = ANY(${categoriesArray}::text[])
         AND audience <> 'admin'
+        AND ${citableDocFilter()}
       ORDER BY rank DESC
       LIMIT 4`
   );
@@ -92,6 +94,7 @@ async function searchKnowledgebaseForVoice(query: string): Promise<string> {
         WHERE to_tsvector('english', title || ' ' || content) @@ to_tsquery('english', ${orQuery})
           AND category = ANY(${categoriesArray}::text[])
           AND audience <> 'admin'
+          AND ${citableDocFilter()}
         ORDER BY rank DESC
         LIMIT 4`
     );

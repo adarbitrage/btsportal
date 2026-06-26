@@ -9,6 +9,7 @@ import {
   seedKnowledgebaseFromFiles,
   seedInternalSops,
   ensureBtsAgreementKbContent,
+  reclassifyKnowledgebaseDocClasses,
 } from "./seed-kb";
 import { seedMemberBroadContent } from "./seed-kb-member-content";
 import {
@@ -257,6 +258,18 @@ export async function bootstrapCriticalPrerequisites(): Promise<PrerequisiteResu
   } catch (err) {
     console.error("[Bootstrap] ensureBtsAgreementKbContent() threw:", err);
     missing.push("ensureBtsAgreementKbContent");
+  }
+
+  // 9. Backfill doc_class on every legacy knowledgebase_docs row so transcript-
+  //    derived rows (coaching / curriculum) are reclassified as non-citable
+  //    training data BEFORE the assistant serves a single answer. Idempotent
+  //    (only touches NULL doc_class). Awaited so the reclassification is in
+  //    place before retrieval runs; reaches prod via boot (post-merge is dev-only).
+  try {
+    await reclassifyKnowledgebaseDocClasses();
+  } catch (err) {
+    console.error("[Bootstrap] reclassifyKnowledgebaseDocClasses() threw:", err);
+    missing.push("reclassifyKnowledgebaseDocClasses");
   }
 
   if (missing.length === 0) {

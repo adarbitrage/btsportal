@@ -17,6 +17,7 @@ import { getAnthropicClient } from "@workspace/integrations-anthropic-ai";
 import { getUserEntitlements, hasMemberAccessBypass } from "../lib/entitlements";
 import { scrubPrivateContent } from "../lib/content-privacy-filter";
 import { buildVoiceSynonymTsquery, expandVoiceQuerySynonyms } from "../lib/voice-synonyms";
+import { citableDocFilter } from "../lib/kb-citable-filter";
 
 const router: IRouter = Router();
 
@@ -149,6 +150,7 @@ export async function searchKnowledgebase(query: string, categories: string[]): 
       WHERE to_tsvector('english', title || ' ' || content) @@ ${primaryTsquery}
         AND category = ANY(${categoriesArray}::text[])
         AND audience <> 'admin'
+        AND ${citableDocFilter()}
       ORDER BY ${primaryOrderBy}
       LIMIT 6`
   );
@@ -174,6 +176,7 @@ export async function searchKnowledgebase(query: string, categories: string[]): 
       WHERE to_tsvector('english', title || ' ' || content) @@ to_tsquery('english', ${orQuery})
         AND category = ANY(${categoriesArray}::text[])
         AND audience <> 'admin'
+        AND ${citableDocFilter()}
       ORDER BY ${primaryOrderBy}
       LIMIT 6`
   );

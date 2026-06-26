@@ -1,0 +1,68 @@
+import { describe, it, expect, beforeAll, afterAll } from "vitest";
+import { db } from "@workspace/db";
+import { sql } from "drizzle-orm";
+import { searchKnowledgebaseForVoice } from "../routes/voice";
+
+// Privacy guard for the voice assistant's PRIMARY retrieval path.
+//
+// The 800-number / web voice agent answers members from
+// `searchKnowledgebaseForVoice()` in routes/voice.ts. Coaching/curriculum call
+// recordings are stored as `doc_class='transcript'` and hand-written docs sit at
+// `last_verified IS NULL` until a human verifies them — neither must ever reach a
+// member-facing answer. The citable gate (`citableDocFilter()`) enforces this,
+// but a prior regression left it ONLY on the fallback query, so the common
+// primary-result case silently leaked transcript content. This test seeds a
+// transcript doc, an unverified curated doc, and a verified curated doc that all
+// share one distinctive token, then asserts the voice search returns ONLY the
+// verified one.
+
+const TOKEN = "zzqxvoicecitabletoken";
+const TRANSCRIPT_TITLE = `Voice Exclusion Transcript ${TOKEN}`;
+const UNVERIFIED_TITLE = `Voice Exclusion Unverified ${TOKEN}`;
+const VERIFIED_TITLE = `Voice Exclusion Verified ${TOKEN}`;
+
+async function cleanup() {
+  await db.execute(
+    sql`DELETE FROM knowledgebase_docs WHERE title LIKE ${"%" + TOKEN + "%"}`,
+  );
+}
+
+describe("voice assistant retrieval honors the citable gate (primary path)", () => {
+  beforeAll(async () => {
+    await cleanup();
+    // Transcript: call-recording class — never citable regardless of verification.
+    await db.execute(sql`
+      INSERT INTO knowledgebase_docs (title, category, content, audience, doc_class, last_verified)
+      VALUES (${TRANSCRIPT_TITLE}, 'coaching', ${"This is a private call recording about " + TOKEN + " that members must never hear back."}, 'member', 'transcript', NOW())
+    `);
+    // Unverified curated: right class, but last_verified IS NULL → not yet citable.
+    await db.execute(sql`
+      INSERT INTO knowledgebase_docs (title, category, content, audience, doc_class, last_verified)
+      VALUES (${UNVERIFIED_TITLE}, 'faq', ${"An unverified draft answer about " + TOKEN + " awaiting human review."}, 'member', 'curated', NULL)
+    `);
+    // Verified curated: the only doc that should ever surface.
+    await db.execute(sql`
+      INSERT INTO knowledgebase_docs (title, category, content, audience, doc_class, last_verified)
+      VALUES (${VERIFIED_TITLE}, 'faq', ${"A human-verified answer about " + TOKEN + " that is safe to cite."}, 'member', 'curated', NOW())
+    `);
+  });
+
+  afterAll(async () => {
+    await cleanup();
+  });
+
+  it("returns the verified curated doc but excludes transcript and unverified docs", async () => {
+    const context = await searchKnowledgebaseForVoice(TOKEN);
+
+    // The verified curated doc must surface, proving retrieval isn't globally broken.
+    expect(context).toContain("Voice Exclusion Verified");
+
+    // The transcript (call recording) must never reach the voice answer.
+    expect(context).not.toContain("Voice Exclusion Transcript");
+    expect(context).not.toContain("private call recording");
+
+    // The unverified draft must be held back until a human verifies it.
+    expect(context).not.toContain("Voice Exclusion Unverified");
+    expect(context).not.toContain("unverified draft");
+  });
+});

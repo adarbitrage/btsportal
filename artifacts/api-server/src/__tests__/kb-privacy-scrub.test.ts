@@ -232,7 +232,10 @@ vi.mock("@workspace/db", () => {
 vi.mock("drizzle-orm", () => {
   const sql: unknown = Object.assign(
     (..._a: unknown[]) => ({}),
-    { raw: (..._a: unknown[]) => ({}) },
+    {
+      raw: (..._a: unknown[]) => ({}),
+      join: (..._a: unknown[]) => ({}),
+    },
   );
   return {
     sql,

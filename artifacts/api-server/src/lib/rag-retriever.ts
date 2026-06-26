@@ -1,6 +1,7 @@
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
 import { scrubPrivateContent } from "./content-privacy-filter";
+import { citableDocFilter } from "./kb-citable-filter";
 
 export interface KBSearchResult {
   id: number;
@@ -38,6 +39,7 @@ export async function retrieveFromKB(
         WHERE to_tsvector('english', title || ' ' || content) @@ plainto_tsquery('english', ${query})
           AND id = ANY(${idsArray}::int[])
           AND audience <> 'admin'
+          AND ${citableDocFilter()}
         ORDER BY rank DESC
         LIMIT ${limit}`,
     );
@@ -50,6 +52,7 @@ export async function retrieveFromKB(
         WHERE to_tsvector('english', title || ' ' || content) @@ plainto_tsquery('english', ${query})
           AND category = ANY(${categoriesArray}::text[])
           AND audience <> 'admin'
+          AND ${citableDocFilter()}
         ORDER BY rank DESC
         LIMIT ${limit}`,
     );
@@ -60,6 +63,7 @@ export async function retrieveFromKB(
         FROM knowledgebase_docs
         WHERE to_tsvector('english', title || ' ' || content) @@ plainto_tsquery('english', ${query})
           AND audience <> 'admin'
+          AND ${citableDocFilter()}
         ORDER BY rank DESC
         LIMIT ${limit}`,
     );

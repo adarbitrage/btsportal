@@ -1,11 +1,26 @@
 {
   "constraints": {
-    "onlyInPush": [],
+    "onlyInPush": [
+      "kb_doc_provenance | f | FOREIGN KEY (doc_id) REFERENCES knowledgebase_docs(id) ON DELETE CASCADE",
+      "kb_doc_provenance | f | FOREIGN KEY (source_id) REFERENCES kb_transcript_sources(id) ON DELETE SET NULL",
+      "kb_doc_provenance | p | PRIMARY KEY (id)",
+      "kb_transcript_sources | p | PRIMARY KEY (id)"
+    ],
     "onlyInMigrations": []
   },
   "indexes": {
     "onlyInPush": [
-      "kb_triage_audit_log | CREATE INDEX <name> ON public.kb_triage_audit_log USING btree (created_at)"
+      "kb_doc_provenance | CREATE INDEX <name> ON public.kb_doc_provenance USING btree (doc_id)",
+      "kb_doc_provenance | CREATE INDEX <name> ON public.kb_doc_provenance USING btree (source_id)",
+      "kb_doc_provenance | CREATE UNIQUE INDEX <name> ON public.kb_doc_provenance USING btree (id)",
+      "kb_transcript_sources | CREATE INDEX <name> ON public.kb_transcript_sources USING btree (authority_role)",
+      "kb_transcript_sources | CREATE INDEX <name> ON public.kb_transcript_sources USING btree (disposition)",
+      "kb_transcript_sources | CREATE UNIQUE INDEX <name> ON public.kb_transcript_sources USING btree (id)",
+      "kb_transcript_sources | CREATE UNIQUE INDEX <name> ON public.kb_transcript_sources USING btree (source_name)",
+      "kb_triage_audit_log | CREATE INDEX <name> ON public.kb_triage_audit_log USING btree (created_at)",
+      "knowledgebase_docs | CREATE INDEX <name> ON public.knowledgebase_docs USING btree (doc_class)",
+      "knowledgebase_docs | CREATE INDEX <name> ON public.knowledgebase_docs USING btree (home_root)",
+      "knowledgebase_docs | CREATE UNIQUE INDEX <name> ON public.knowledgebase_docs USING btree (slug)"
     ],
     "onlyInMigrations": [
       "kb_triage_audit_log | CREATE INDEX <name> ON public.kb_triage_audit_log USING btree (created_at DESC)"
