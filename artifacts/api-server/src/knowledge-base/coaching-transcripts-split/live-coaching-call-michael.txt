@@ -1,0 +1,582 @@
+TITLE: Live Coaching Call - Michael
+SOURCE: coaching-transcripts.txt
+TURNS: 578
+
+[00:00:24] Michael: Hello!
+[00:00:27] Build Test Scale Support: Hello, good evening.
+[00:00:30] Michael: How are ya?
+[00:00:32] Build Test Scale Support: I'm doing great, how are you?
+[00:00:34] Michael: Okay.
+[00:00:38] Michael: No mentee's here yet.
+[00:00:41] Build Test Scale Support: No one, yet.
+[00:00:54] Michael: Earlier tonight, I had the launch pad call, and I had a good crowd in there.
+[00:01:02] Michael: Nobody in here.
+[00:01:04] Build Test Scale Support: Hmm, I see.
+[00:01:07] Michael: Nobody was in here Tuesday night, either.
+[00:01:12] Michael: So… interesting.
+[00:01:19] Michael: Makes me wonder what's going on.
+[00:01:23] Build Test Scale Support: Yeah, I've also heard one of…
+[00:01:26] Build Test Scale Support: from one of our team, that during Sasha's call, they only have, like, two mentees also.
+[00:01:34] Michael: Yeah, it's been…
+[00:01:35] Michael: like I say, I had… Launchpad is only once a week, and they don't have Discord and that kind of stuff, so… they have lists…
+[00:01:45] Michael: support, okay?
+[00:01:47] Michael: So, being a different level program, So…
+[00:01:53] Michael: that one, I had a decent little number of… I don't think I had more than maybe 10, but I think I had something close to that.
+[00:02:06] Michael: I didn't count, you know, no time to worry about it.
+[00:02:09] Michael: But… But, but it was a decent little crowd, nothing big.
+[00:02:18] Michael: I mean, I've had much larger over the years, but…
+[00:02:22] Michael: It's kinda odd now not to be getting anybody in these…
+[00:02:26] Michael: Calls at this time of night.
+[00:02:30] Michael: Makes me worry about what's happening with the program.
+[00:02:37] Michael: So… Yeah. Oh, no.
+[00:02:42] Michael: Don't know what's going on, so…
+[00:02:46] Build Test Scale Support: A slow month, I guess.
+[00:02:49] Michael: Well, I think it started… it started tapering off.
+[00:02:53] Michael: Even before the end of the year.
+[00:02:56] Build Test Scale Support: Hmm.
+[00:02:58] Michael: But… Aha!
+[00:03:06] Michael: Hello, hello!
+[00:03:09] Fauuex Daniel: Hello, how's it going?
+[00:03:11] Michael: It's going good, so far.
+[00:03:14] Michael: Oh, that's good.
+[00:03:16] Michael: You got two of us here, and you're all by yourself.
+[00:03:20] Fauuex Daniel: Oh, really?
+[00:03:21] Michael: Yeah…
+[00:03:22] Fauuex Daniel: the support team is the other one?
+[00:03:26] Michael: This is the agency.
+[00:03:30] Fauuex Daniel: Boop!
+[00:03:31] Michael: Oh, cheering to media support, that's… that's… The other, yeah.
+[00:03:36] Michael: person on the call with us, okay? She's here in case, you know, we need to handle anything in the chat or whatever.
+[00:03:45] Michael: So what can I do for you, since you're…
+[00:03:47] Fauuex Daniel: Well, I was gonna come and do more listening today. I was hoping there'd be some people on with lots of questions, and I thought I could listen, but I can show you what I got going on here, and sort of what's happening in my world.
+[00:04:00] Michael: Okay.
+[00:04:01] Fauuex Daniel: Let me just share my screen.
+[00:04:08] Fauuex Daniel: Not much has happened since my last meeting, so I thought, well, should I or should I not? But I thought, well, I'll come and talk to you this time.
+[00:04:17] Michael: Yeah, why not?
+[00:04:18] Fauuex Daniel: Yeah, so this is, round 3 since it began, and it's been revised a few times, of course.
+[00:04:27] Michael: Of course.
+[00:04:28] Fauuex Daniel: And, and I'm right near the end of my 90-day guarantee thing, and so we're having to spend…
+[00:04:38] Fauuex Daniel: The last of the money in the next…
+[00:04:41] Fauuex Daniel: That money up there. That has to be all gone by the 25th, basically.
+[00:04:48] Michael: Okay…
+[00:04:49] Fauuex Daniel: So, it's kind of… A little bit of a waste, but gonna do the best I can do anyway.
+[00:04:57] Michael: Alright, so… yeah, I don't… Oh.
+[00:05:02] Fauuex Daniel: I thought, well, if you have any ideas of things that I might try, you've been doing this long enough, probably, you could… you might have a few hints or clues.
+[00:05:11] Michael: Well, it looks like you've been getting some sales.
+[00:05:16] Fauuex Daniel: Yeah, and there's, 7 other sales as well from round 1 and 2.
+[00:05:21] Michael: Yeah.
+[00:05:22] Fauuex Daniel: This is just round 3.
+[00:05:24] Michael: Robo Mouse, have you gotten sales since the turn of the year?
+[00:05:31] Fauuex Daniel: What do you mean?
+[00:05:32] Fauuex Daniel: Oh!
+[00:05:33] Michael: since January the 1st.
+[00:05:36] Fauuex Daniel: Since the 1st of January? Oh, yeah.
+[00:05:39] Fauuex Daniel: I've gotten, since then, I've gotten, I think, 19, 1, 2, 3, 4, 5, 6, 7…
+[00:05:49] Michael: Have all of those, almost all those, come in since the first?
+[00:05:54] Fauuex Daniel: Yeah, 13. The 31st, there was 2, other than that.
+[00:05:59] Fauuex Daniel: And then the rest of them were all,
+[00:06:02] Fauuex Daniel: The rest of them were all…
+[00:06:04] Fauuex Daniel: Round 1 and 2. The other 7…
+[00:06:09] Michael: Well, that's good!
+[00:06:11] Fauuex Daniel: I thought it's doing pretty good. I was feeling hopeful.
+[00:06:16] Michael: Yeah, so… But now…
+[00:06:18] Fauuex Daniel: Knowing I need to spend all the money, what is the best way to spend it? That's my next question.
+[00:06:25] Michael: Okay.
+[00:06:28] Michael: I'm gonna tell you that you should…
+[00:06:31] Michael: Instead of just doing this without talking to anybody.
+[00:06:36] Michael: Running down the road of trying to qualify for a refund.
+[00:06:41] Michael: I'm gonna tell you that you should contact support right away, and that you should start the process of talking about the refund.
+[00:06:51] Michael: and the qualifications of the refund, and make sure that you're… because I'm not a specialist on that, right?
+[00:06:59] Fauuex Daniel: Yeah, I've done that.
+[00:07:00] Michael: But I'm just telling you that you need to do that, because I don't want you to spend all the money and get in the trap of you didn't do something you should have, or whatever.
+[00:07:12] Fauuex Daniel: Yeah, I actually got all that information before I even started, because I thought, I need to know… because, number one, I wanted to know the criteria because I wanted to create the success that comes with the criteria.
+[00:07:25] Fauuex Daniel: That was my bigger hope.
+[00:07:27] Fauuex Daniel: Right. And of course, you know, my first, Campaign went south.
+[00:07:34] Fauuex Daniel: Relative… it was a horrible campaign.
+[00:07:37] Fauuex Daniel: And, and I couldn't find any pictures that I knew wouldn't get.
+[00:07:42] Fauuex Daniel: They're rejected, so I just started this one, and it…
+[00:07:47] Fauuex Daniel: I seriously couldn't, because they don't want any naked armpit shots and stuff, and I'm going, well, how do you sell a Lyra light without showing the armpits being clean and clear? So, I started this one, and it's been going really good, actually.
+[00:08:03] Michael: It is. I mean, I'm looking at it, and it's doing…
+[00:08:08] Michael: Good. Hold on, I'm gonna actually… do something here… I was feeling…
+[00:08:17] Fauuex Daniel: hopeful?
+[00:08:19] Michael: What does the, what is the payout?
+[00:08:23] Michael: On that product?
+[00:08:26] Fauuex Daniel: $50.
+[00:08:28] Michael: Okay.
+[00:08:31] Michael: Too bad it's not 200, right?
+[00:08:34] Fauuex Daniel: Yeah, no kidding, that would be nice.
+[00:08:39] Fauuex Daniel: But you know what? If it sells, then it's worth every $50.
+[00:08:44] Michael: Oh, oh, of course, I'm just being…
+[00:08:46] Fauuex Daniel: Yeah, but yeah, wouldn't it be nice if it was more like 2000?
+[00:08:49] Michael: You know, if you'd made 15 sales with $200 versus $50, you'd be in a different position.
+[00:08:57] Michael: Yeah.
+[00:08:57] Fauuex Daniel: Yeah.
+[00:09:00] Michael: Who knows, but I'm just…
+[00:09:02] Michael: No, it doesn't really matter. I mean, it's not… it's not what it sells for. I was just being kind of funny.
+[00:09:09] Fauuex Daniel: Yeah, hi.
+[00:09:10] Michael: Yeah.
+[00:09:11] Fauuex Daniel: For sure, for sure.
+[00:09:13] Michael: None.
+[00:09:14] Michael: But no, I mean, the… one of the things you might could consider is raising your… Budget.
+[00:09:24] Michael: But…
+[00:09:25] Fauuex Daniel: Yeah, well, that's gonna happen here pretty quick. It's gonna get…
+[00:09:30] Fauuex Daniel: raised mightily, because I have to use up all that, otherwise I can't… I won't get a refund for sure.
+[00:09:37] Fauuex Daniel: Because they said… I brought it up two times, and I said.
+[00:09:41] Fauuex Daniel: And they said, yeah, you have to have it all spent. So I thought, okay.
+[00:09:46] Fauuex Daniel: Well…
+[00:09:49] Fauuex Daniel: But we've been spending pretty good. It looks like I… I mean, some of them are a little bit higher, of course. Like, some of them are…
+[00:09:58] Michael: Okay, so let me just show you something.
+[00:10:02] Fauuex Daniel: I just wanted to see which ones we're selling.
+[00:10:05] Michael: Yeah, let me, let me, let me show you something I just ran on your data.
+[00:10:11] Fauuex Daniel: Okay. Just ran a program against your data.
+[00:10:14] Fauuex Daniel: Okay.
+[00:10:16] Michael: Okay.
+[00:10:19] Michael: Since there's nobody else in here, we'll take some time and do this.
+[00:10:23] Michael: Okay.
+[00:10:24] Michael: Let me know when you're seeing my screen.
+[00:10:36] Michael: Still not seeing it?
+[00:10:38] Fauuex Daniel: Not yet.
+[00:10:39] Michael: Hmm.
+[00:10:42] Michael: You should be seeing it by now.
+[00:10:51] Michael: Let me stop it and start over.
+[00:10:59] Michael: Okay… You should be able to see it.
+[00:11:05] Fauuex Daniel: Oh, now I can.
+[00:11:07] Michael: Okay, so… I don't know what was going on the first time, doesn't make any difference, okay?
+[00:11:12] Fauuex Daniel: Yeah.
+[00:11:13] Michael: So, here's your ad set. These are your numbers of your ads, okay? You know to ignore these things. Well, the bottom's a total. But, so what this is, is this is an export of…
+[00:11:29] Michael: this data. It's this export button.
+[00:11:33] Michael: Excellent. Okay.
+[00:11:35] Fauuex Daniel: Oh, okay.
+[00:11:36] Michael: And I expanded it out to have the ad ID, On the landing pages.
+[00:11:45] Michael: So, just cause you can then see For each landing page variation, by ad IDs.
+[00:11:56] Michael: What it did, versus…
+[00:11:59] Michael: Consolidated numbers, okay? Because it would roll up, and it would be consolidated if you didn't have this column in here.
+[00:12:09] Michael: You understand what I'm saying?
+[00:12:11] Michael: Like, if I take that back out right now, if I undo that…
+[00:12:15] Michael: Then you'll see a lot less rows.
+[00:12:19] Fauuex Daniel: Oh, okay.
+[00:12:20] Michael: And landing pages, and you'll see higher numbers in visitors.
+[00:12:26] Michael: But that's because All of these different ads have hit this landing page multiple times.
+[00:12:34] Michael: So, when you add this in… Then, you can see… Get some more ad ID.
+[00:12:44] Michael: you know… So, okay, let's see if it'll sort.
+[00:12:51] Michael: And it didn't sort. But anyway, you can see ad ID hit this one, 42, 42, 44, 42, and you can see…
+[00:13:01] Michael: Which variations it was hitting, and then how many times it hit it, and what its numbers were.
+[00:13:07] Michael: Okay, so you see, 42 by itself.
+[00:13:13] Michael: Hit it 60 times and had 9.
+[00:13:16] Michael: Cost 513, got a 15%. Now, 60's still pretty low when you're looking at it, single landing page to an ad, right?
+[00:13:27] Michael: So…
+[00:13:28] Michael: But you do also see, well, it was ad 42, it was ad 42, it was ad 31, and which landing page it was for your purchases.
+[00:13:39] Fauuex Daniel: Oh, okay.
+[00:13:40] Michael: Okay?
+[00:13:41] Fauuex Daniel: That's kind of nice when it's all like that.
+[00:13:43] Michael: Yeah, so you can kind of see, and the reason I say you export it is because it wouldn't… I tried to sort it, so these would be in order, it didn't work. So you can export it, and then you can open it in a spreadsheet and sort it.
+[00:13:55] Michael: Because it exports to a CSV.
+[00:14:00] Fauuex Daniel: Okay.
+[00:14:01] Michael: So anyway, then I have a program I wrote that runs against it and places out… works algorithms on it, and here are your ads.
+[00:14:12] Michael: Okay, the ones that matter, your real ads, not these two dummy things. Okay? And if you go to the right over here.
+[00:14:21] Michael: it's talking about… it ran, and all these rules that applied, okay? So, like, this one, it only applied one rule. This one, it applied to, this one it applied to. But those rules, here's the text that goes with those rules.
+[00:14:36] Michael: So, add E2, it says keep running, it's got good CTR.
+[00:14:43] Michael: See, this one, it says keep ringing, it's got good CTR and excellent congruency.
+[00:14:48] Fauuex Daniel: How do you tell which ad IDs and…
+[00:14:51] Michael: Well, it's over here, just off the screen. It's over here.
+[00:14:56] Fauuex Daniel: Oh, it is.
+[00:14:56] Michael: It's in the same row, it's just…
+[00:15:00] Fauuex Daniel: Can I get that on my screen? Can I get this on my…
+[00:15:03] Michael: No, but I'll give you this spreadsheet.
+[00:15:06] Fauuex Daniel: Because when you sent it last time, it didn't give me all of this information on the side over here.
+[00:15:12] Michael: Well, it might not have had all of this.
+[00:15:15] Michael: Yeah, it didn't have any of this stuff. I had this.
+[00:15:19] Fauuex Daniel: Actually, it didn't have any of it. I was surprised.
+[00:15:21] Michael: It should've… it should've had this.
+[00:15:24] Fauuex Daniel: Yeah, and I don't know why it didn't… I was sure this is what you were sending me, too.
+[00:15:29] Michael: It should have had this.
+[00:15:30] Fauuex Daniel: Accepted, though, just still…
+[00:15:32] Michael: Okay, but it doesn't matter. Anyway, that's in the past, so we'll… I'll get this one to you. So…
+[00:15:40] Michael: So, it's got all these things, and it's telling you to pause these and test new angles. If you're interested in spending money, you got options. You can throw away money on ones it's telling you to pause, or you can put money on these, you see what I mean?
+[00:15:55] Fauuex Daniel: Okay.
+[00:15:56] Fauuex Daniel: Which ones… which ones does it… is it suggesting to pause?
+[00:16:01] Fauuex Daniel: And I'm gonna write them down right now.
+[00:16:04] Michael: And I'll take a really good close look at them after.
+[00:16:07] Michael: Let's see, it's… 43, 45, and 46.
+[00:16:15] Fauuex Daniel: Breathe… And which, which landing shape?
+[00:16:19] Michael: There's two, and there's two more down here.
+[00:16:22] Michael: That it's saying to pause.
+[00:16:24] Michael: That is 32 and 34.
+[00:16:29] Michael: And if they are paused, then they're paused, right? Because you may have them paused already.
+[00:16:35] Fauuex Daniel: What about the landing pages on all of those?
+[00:16:39] Michael: Okay.
+[00:16:41] Michael: So…
+[00:16:43] Michael: So, it's a lot. It's a lot. Now, like these, it's saying there's insufficient data. That's because there's a threshold.
+[00:16:54] Michael: And these are below 35.
+[00:16:57] Michael: Okay? And I put a threshold that you can't make a decision with less than 35 visitors.
+[00:17:06] Michael: Okay, so it's telling you you didn't even get visited enough to make a decision.
+[00:17:12] Fauuex Daniel: Oh, okay.
+[00:17:14] Michael: Is what it's telling you. But these up here that it put some kind of action on.
+[00:17:19] Michael: They obviously are above 35.
+[00:17:23] Michael: And they are. You see there?
+[00:17:26] Michael: Okay.
+[00:17:27] Michael: So… And what it's telling you is, is…
+[00:17:32] Michael: It says on this top one, and let's see, that's at… that's.
+[00:17:36] Fauuex Daniel: 44.
+[00:17:37] Michael: That's landing… now, you can also look at it as a…
+[00:17:41] Michael: Let's do it both ways. Okay, I'm gonna say don't… let's see, I'm gonna come down here, and I'm gonna go back, and I'm going to take this off.
+[00:17:51] Michael: So that it's… Aggregated, meaning all ads Why didn't it… What?
+[00:18:01] Michael: Why didn't Ed remove that?
+[00:18:04] Michael: It's not selected.
+[00:18:07] Michael: Okay… Let's refresh and see what that does.
+[00:18:13] Michael: Oh.
+[00:18:15] Michael: What it did was unselect campaign… Let's do search…
+[00:18:24] Michael: I don't know why I… okay.
+[00:18:31] Michael: Okay, so see, now they're aggregated, so you've got hundreds Of visitors, right?
+[00:18:39] Michael: And what this'll tell you…
+[00:18:40] Fauuex Daniel: aim?
+[00:18:42] Michael: Huh?
+[00:18:43] Fauuex Daniel: I'm not sure I'm seeing yours, hang on a second. Where did you go?
+[00:18:48] Michael: This is your DIY tracks. Can you see it?
+[00:18:51] Fauuex Daniel: I… Allow Zumas to find devices on local networks.
+[00:18:57] Fauuex Daniel: Why did it say to ask that? Now I can't find you, for some reason.
+[00:19:01] Michael: I have no idea, okay?
+[00:19:03] Fauuex Daniel: Gosh, seriously?
+[00:19:04] Michael: Here, I'm gonna stop, and I'll try.
+[00:19:08] Fauuex Daniel: Oh, I bet you I know, I won't…
+[00:19:12] Michael: a reshare.
+[00:19:14] Fauuex Daniel: I don't think it's you, it's me. Ugh, I just had to upgrade, and I've got all these things that are in the way for seeing stuff, and so I'm trying to get them out of the way so I can see what you're doing, and then I lost you.
+[00:19:27] Michael: Yeah…
+[00:19:30] Michael: Well, okay, let me know.
+[00:19:31] Fauuex Daniel: dating stuff. Jeepers.
+[00:19:35] Michael: Yeah, it can be, it can be a negative.
+[00:19:40] Fauuex Daniel: No, I'm going, where did my buddy go here?
+[00:19:44] Fauuex Daniel: And then where do I look for my buddy? Because it's in the way here, this is in the way.
+[00:19:50] Fauuex Daniel: C.
+[00:19:51] Fauuex Daniel: Try all these tabs and see if you're on one of them.
+[00:19:56] Fauuex Daniel: There's Zoom.
+[00:19:59] Fauuex Daniel: Okay.
+[00:20:04] Fauuex Daniel: How do I get back to my call? There you are!
+[00:20:08] Fauuex Daniel: I found you again.
+[00:20:10] Michael: Good!
+[00:20:12] Fauuex Daniel: Okay.
+[00:20:13] Michael: Okay, so I just ran it with them aggregated, meaning not with the ad ID.
+[00:20:21] Michael: Okay?
+[00:20:22] Fauuex Daniel: Okay.
+[00:20:24] Michael: And I let it create, and are you seeing the spreadsheet now?
+[00:20:28] Fauuex Daniel: Yep.
+[00:20:29] Michael: Okay, so as you can see, now we only have this many landing pages showing up down here, versus all those that had ad IDs with them.
+[00:20:39] Michael: But it'll do the same style of analysis, only all of these will have something here, because
+[00:20:46] Michael: they're all got plenty of visitors. They got over 35 because it's an aggregate, meaning that, you know, all of these ads at one time or another visited each one of these multiple times.
+[00:20:59] Michael: Right. So… but what it's telling you is, is on these, is test new headlines and hero shots that is unprofitable.
+[00:21:10] Michael: Okay, average volume… Pinteresting of headlines.
+[00:21:14] Michael: Okay.
+[00:21:15] Fauuex Daniel: headlines and the… The ones above, with the headlines and the picture, or the video?
+[00:21:22] Fauuex Daniel: Those have been changed up.
+[00:21:24] Michael: Well, now, on the… on the… on the landing pages, or are you talking about ads?
+[00:21:32] Fauuex Daniel: That would be… well, the ones on the top…
+[00:21:36] Michael: These are…
+[00:21:37] Fauuex Daniel: How did you… The ones that lead you to the landing page.
+[00:21:41] Michael: These are ads. I'm talking about on the landing pages.
+[00:21:47] Fauuex Daniel: Oh, wait on.
+[00:21:47] Michael: Stuff you did in Metric Mover.
+[00:21:51] Fauuex Daniel: There's only… there's 2 of them that were selling really good.
+[00:21:55] Michael: Well, not according to this. They're not… they may be selling, but the really good part is crushed. Yeah, well, maybe that's pushing it in.
+[00:22:08] Fauuex Daniel: I'm picking it up.
+[00:22:09] Michael: Okay, it's actually saying that these are unprofitable.
+[00:22:14] Michael: Okay… .
+[00:22:17] Fauuex Daniel: I wonder which ones those are.
+[00:22:20] Michael: Well, I mean, do you.
+[00:22:21] Fauuex Daniel: W, what, what W was those?
+[00:22:24] Fauuex Daniel: Well, there…
+[00:22:25] Michael: None of them… I mean, they're all unprofitable, according to this. There's only 4, right?
+[00:22:33] Fauuex Daniel: So…
+[00:22:34] Michael: One, two, three months.
+[00:22:34] Fauuex Daniel: Bye.
+[00:22:35] Michael: 3 and 5. See, this one… this one, for whatever reason, It's, it's showing zeros, okay?
+[00:22:46] Michael: And, you got purchases here, so you got a 3-4…
+[00:22:51] Michael: So you got… here, you got purchases 3, 4, 5, and 3.
+[00:22:55] Fauuex Daniel: Oh, okay.
+[00:22:57] Michael: Okay?
+[00:22:58] Michael: Okay, and they go against these four, and there's…
+[00:23:04] Fauuex Daniel: You know why they're probably saying that? It's because I put… I put the spending higher, so then it's not going to look as profitable, right? Because you're spending more than you're making.
+[00:23:16] Michael: Well, anytime you're spending more than you're making, you're not profitable.
+[00:23:20] Fauuex Daniel: Yeah, cause I've had to… I've had to raise that so that I can get through my money, right?
+[00:23:25] Michael: Okay, so see, so they're all saying they're not profitable, so…
+[00:23:30] Fauuex Daniel: Yeah, because they aren't, because I'm spending too much.
+[00:23:34] Michael: Yeah, so…
+[00:23:35] Fauuex Daniel: Which I have to do… at this point, I have to do that.
+[00:23:39] Michael: Let's talk about how you can do it, okay?
+[00:23:42] Fauuex Daniel: Okay.
+[00:23:43] Michael: You look at these. These are your ads, and you look at this.
+[00:23:49] Michael: Okay…
+[00:23:49] Fauuex Daniel: Training.
+[00:23:50] Michael: And when it says, pause his new angles.
+[00:23:54] Michael: You might want to stop those, okay?
+[00:23:58] Michael: If it says, keep running good something?
+[00:24:02] Michael: Then those are the ones you might want to throw your money on.
+[00:24:06] Fauuex Daniel: I'm not sure which ones those…
+[00:24:09] Michael: What is in the…
+[00:24:09] Fauuex Daniel: I'm.
+[00:24:10] Michael: I'm gonna give you the spreadsheet, and it'll be over here.
+[00:24:13] Michael: the ad IDs.
+[00:24:16] Michael: You just can't see it on my screen.
+[00:24:18] Michael: Because it's too far away.
+[00:24:21] Michael: So, like, here, here's the ad IDs.
+[00:24:25] Michael: Okay.
+[00:24:26] Fauuex Daniel: Okay.
+[00:24:26] Michael: Here's the actions.
+[00:24:29] Fauuex Daniel: boat.
+[00:24:30] Michael: Okay, so from here to here.
+[00:24:32] Michael: Right? So… Let's take a step?
+[00:24:35] Fauuex Daniel: Shot of that to start with.
+[00:24:39] Michael: I'm just trying to tell you a way to maybe spend your money and actually get a few more sales, maybe.
+[00:24:45] Fauuex Daniel: Okay.
+[00:24:46] Michael: Michael?
+[00:24:47] Fauuex Daniel: So maybe…
+[00:24:47] Michael: Let's do another test, okay? So this one, even though it had a sale.
+[00:24:52] Michael: Or did it? Wait a minute. Where's less creative status? Where's the… In the ads.
+[00:25:04] Michael: Here, revenue.
+[00:25:06] Michael: Okay.
+[00:25:07] Michael: Let me sort this.
+[00:25:10] Michael: Make sure I do this correctly.
+[00:25:17] Michael: Yeah, I don't care about those bottom two anyway, so data…
+[00:25:22] Michael: sort, and I'm gonna sort it by revenue.
+[00:25:30] Michael: Revenue. And let's go largest to smallest.
+[00:25:34] Michael: Okay.
+[00:25:36] Michael: So now let's go over here and look.
+[00:25:40] Michael: So, it's in revenue, here's your revenue, and those are the ones that have revenue, right?
+[00:25:51] Michael: Okay. And those, and those are… these ads.
+[00:25:56] Fauuex Daniel: Kate.
+[00:25:57] Michael: So you can see that All of these just have one.
+[00:26:02] Fauuex Daniel: Yeah.
+[00:26:03] Michael: Right?
+[00:26:04] Fauuex Daniel: And those are just since I changed the headline and the video, or the.
+[00:26:09] Michael: The image, the picture, or whatever's on the ad.
+[00:26:14] Fauuex Daniel: Yeah, to get you to the landing page.
+[00:26:17] Michael: Right. So…
+[00:26:19] Fauuex Daniel: And so some of them were just changed, so I've been testing those out.
+[00:26:23] Michael: Okay, so here's what it's telling you about those.
+[00:26:28] Fauuex Daniel: Keep running.
+[00:26:29] Michael: Based on the numbers that it's seeing right now.
+[00:26:32] Michael: Okay?
+[00:26:34] Michael: So, if you look at all these… That are all ones.
+[00:26:40] Michael: I mean, this one is saying to keep running. These are… these two, it's saying, no, it's got a clickbait pattern, weak congruency with the landing pages.
+[00:26:51] Michael: Okay.
+[00:26:52] Michael: This one, it's saying yes, it's got strong… it's average CTR, but it's got strong, and it's average CTR, but it's got excellent congruency. These two, again, it's saying basically no. So you could focus on the ones that it's saying this stuff about.
+[00:27:10] Fauuex Daniel: Yeah, well, let's skip the numbers of which ones those are.
+[00:27:13] Fauuex Daniel: And find out. And… And I'll rate them down here.
+[00:27:20] Michael: So, let's see… 42, 31, and 41.
+[00:27:26] Fauuex Daniel: 42… let me…
+[00:27:27] Michael: 31 and 4… 31 and 41.
+[00:27:31] Fauuex Daniel: 31 and 41.
+[00:27:34] Michael: And then… what?
+[00:27:35] Fauuex Daniel: One other…
+[00:27:37] Michael: No, there's 2 more down here that say keep running.
+[00:27:40] Fauuex Daniel: Oh, yeah, okay.
+[00:27:41] Michael: And those are… Where'd the ad ID column go? 37 and 35.
+[00:27:49] Fauuex Daniel: 37 and 35.
+[00:27:52] Fauuex Daniel: And these are the ones that are good.
+[00:27:54] Michael: Well, it's the ones that this algorithm says you should keep running.
+[00:27:58] Fauuex Daniel: Okay.
+[00:28:02] Michael: This one says you can monitor it closely, that it has weak congruency and a weak CTR, but I would keep running it just because it's got 4 cells.
+[00:28:13] Michael: Regardless of what this says, okay?
+[00:28:16] Fauuex Daniel: And what number is that one?
+[00:28:18] Michael: Let's see, this is 33.
+[00:28:22] Fauuex Daniel: 33, so it would probably be good to keep it running. Yeah, because that one made the most money, didn't it?
+[00:28:27] Michael: That's what I'm saying, so I would keep it running anyway.
+[00:28:31] Michael: Okay.
+[00:28:31] Fauuex Daniel: Yeah.
+[00:28:33] Michael: Alright? Just regardless of what this algorithm said about it. But these other ones that have only made one sale.
+[00:28:40] Michael: There's… there's, like, 1, 2, 3, 4 of those that you could just turn off.
+[00:28:47] Fauuex Daniel: Underforming.
+[00:28:48] Michael: What's one reason?
+[00:28:49] Fauuex Daniel: Right underneath there, that… that one…
+[00:28:52] Michael: It's saying to keep running this, but… You know, again, now…
+[00:28:58] Fauuex Daniel: The way that is.
+[00:29:00] Michael: I don't know, but it's got a low ad spin, so it may not… the algorithm at the traffic source may be ignoring it.
+[00:29:08] Fauuex Daniel: Good CTR, it says.
+[00:29:10] Michael: Yeah, but the…
+[00:29:11] Fauuex Daniel: fluency chair.
+[00:29:11] Michael: But look, it's only got 69 bucks, which is, you know, 200.
+[00:29:18] Michael: So what I'm saying is, is the algorithm at the traffic source might be ignoring it.
+[00:29:24] Fauuex Daniel: Oh, okay. So even if you leave it on, it might not spend any more money and might not do anything.
+[00:29:30] Fauuex Daniel: Okay.
+[00:29:31] Michael: I mean, you could leave them on, because… I mean, well, I don't know if I'd leave this one on. It's got $174.
+[00:29:39] Fauuex Daniel: But inside, anyway.
+[00:29:40] Michael: at 44… And then this one here, let's see what this one has.
+[00:29:48] Michael: It has 127 bucks, I'd turn it off, that's 46.
+[00:29:53] Fauuex Daniel: 46 turn off…
+[00:29:55] Michael: I mean, here's one, 36 has got $216. It's saying keep running, but it hasn't done anything.
+[00:30:05] Fauuex Daniel: Yeah, it didn't do nothing.
+[00:30:06] Michael: I'd turn it off.
+[00:30:08] Fauuex Daniel: What number… No, because you're trying… because you're trying to…
+[00:30:12] Michael: I mean, I'm just trying to tell you how to maybe maximize out your money.
+[00:30:17] Fauuex Daniel: Ray.
+[00:30:17] Michael: For your remainder.
+[00:30:20] Michael: And maybe… focus.
+[00:30:22] Michael: Focus spend.
+[00:30:24] Fauuex Daniel: That one that says to keep
+[00:30:26] Fauuex Daniel: running that has zero? What number is that one?
+[00:30:31] Michael: 36.
+[00:30:33] Fauuex Daniel: 36.
+[00:30:36] Fauuex Daniel: 36…
+[00:30:36] Michael: And the one right above it that says it's got an average CTR, it's only spent $47. I mean, it can't be…
+[00:30:47] Michael: It can't be worth continuing to run.
+[00:30:52] Fauuex Daniel: It might have been one we just changed. I just…
+[00:30:55] Michael: But, I mean, the whole time it's been in this campaign, it's only spent $47.
+[00:31:01] Fauuex Daniel: Yeah, it's probably because it's the new…
+[00:31:04] Fauuex Daniel: Because I did adjustments on the 7th.
+[00:31:08] Michael: Okay, well, I'm gonna have to leave that part of you, because I don't have any of that information, but…
+[00:31:13] Fauuex Daniel: Okay.
+[00:31:14] Michael: But… you can see what I'm saying as far as figuring out
+[00:31:22] Michael: And I don't know if I'd worry about any of these things to do with landing page.
+[00:31:27] Michael: Because… You know, it takes a little work to… Change those.
+[00:31:34] Michael: But… because you're… if you're winding down and you know that you're going to be spending in order to do that, I'm just trying to get you to focus your spending.
+[00:31:44] Fauuex Daniel: Find the best focus.
+[00:31:46] Michael: Yeah, I'm just looking at focus to spend.
+[00:31:50] Michael: So…
+[00:31:53] Fauuex Daniel: Okay, well, I've got… focus for keep running 42, 31, 41, 37, 35, and then 33.
+[00:32:02] Fauuex Daniel: To keep going, but monitor it closely.
+[00:32:06] Fauuex Daniel: Because it did make some good sales.
+[00:32:09] Michael: Yeah.
+[00:32:10] Michael: Yeah, I wouldn't turn that one off, just because it's…
+[00:32:14] Michael: Been selling regardless of what the algorithm says.
+[00:32:18] Michael: The algorithm's just using math.
+[00:32:21] Michael: You know what I mean?
+[00:32:22] Fauuex Daniel: Yeah.
+[00:32:23] Michael: And… and math is… not always indicative of what actually might work. Yeah.
+[00:32:29] Fauuex Daniel: You kind of sort of have to feel your way through this, I noticed.
+[00:32:33] Michael: You know? So, I mean, I don't care about the math. It can tell me it doesn't have a good CTR, but if it's selling, it's selling.
+[00:32:44] Fauuex Daniel: Yeah. Yeah, you don't want to turn something off that's actually selling something.
+[00:32:50] Michael: Yeah.
+[00:32:51] Michael: So…
+[00:32:52] Fauuex Daniel: Okay.
+[00:32:53] Fauuex Daniel: Pickin' And then…
+[00:32:55] Michael: I put both of those spreadsheets in the chat.
+[00:33:01] Fauuex Daniel: Okay, let me just go…
+[00:33:09] Fauuex Daniel: Hang on a second.
+[00:33:11] Fauuex Daniel: No problem. I'm going to… I wonder if I should, oh, I can download them.
+[00:33:18] Michael: Yeah, yeah, you just download them.
+[00:33:20] Fauuex Daniel: What's the first one called? Well, I guess Save?
+[00:33:25] Michael: Well, they're both.
+[00:33:27] Michael: They're both named the same, other than the timestamp will be different on the front of it.
+[00:33:35] Fauuex Daniel: I need to, go and make sure they actually…
+[00:33:40] Fauuex Daniel: Downloaded it into my thing here.
+[00:33:46] Fauuex Daniel: I don't think it saved it in my downloads.
+[00:33:54] Fauuex Daniel: Why wouldn't it save it?
+[00:33:57] Michael: Well, if it said it downloaded it, it put it somewhere.
+[00:34:06] Fauuex Daniel: My.
+[00:34:07] Fauuex Daniel: I'm so not computer… Very literate, you could say.
+[00:34:15] Michael: Are you on a Mac?
+[00:34:18] Fauuex Daniel: Yeah.
+[00:34:20] Michael: Are you familiar with Finder?
+[00:34:24] Fauuex Daniel: I can… Binder is this.
+[00:34:29] Michael: Well, I'm not seeing your screen, but anyway…
+[00:34:33] Michael: Yeah, you can go in, find her, and you should be able to search
+[00:34:38] Michael: For that, and you can see the…
+[00:34:40] Michael: You can get the file name out of the chat, or I can just give you the file names.
+[00:34:46] Michael: You know.
+[00:34:47] Fauuex Daniel: what I should do… Maybe what I should do… it's probably in there somewhere.
+[00:34:51] Michael: I was just thinking I could…
+[00:34:53] Fauuex Daniel: I should actually go into the chat.
+[00:34:56] Fauuex Daniel: Oh.
+[00:34:57] Michael: I mean.
+[00:34:58] Fauuex Daniel: And then open.
+[00:34:59] Michael: I just put the file names in there that you can search for.
+[00:35:07] Fauuex Daniel: Oh, it's not letting me open them.
+[00:35:10] Michael: Probably not right in the chat window, you gotta download them.
+[00:35:13] Fauuex Daniel: Copy. You know what I'm gonna do? Just so that I for sure have them?
+[00:35:18] Fauuex Daniel: I'm gonna go and start a draft in my email.
+[00:35:24] Fauuex Daniel: Draft… Alright.
+[00:35:28] Fauuex Daniel: And I'm going to put them in here. Paste.
+[00:35:33] Fauuex Daniel: Okay, I pasted that one.
+[00:35:35] Fauuex Daniel: Let's grab the other one.
+[00:35:39] Fauuex Daniel: Copy, and…
+[00:35:45] Fauuex Daniel: And then I'll have them for sure, if I can't find them.
+[00:35:49] Fauuex Daniel: I can go look… If I… if I reviewed the recording.
+[00:35:56] Michael: Yeah, you won't be able to download them from that.
+[00:35:59] Fauuex Daniel: Wouldn't okay.
+[00:36:01] Michael: No.
+[00:36:02] Fauuex Daniel: So I've got scoring analysis, 20260115… okay, 1709 and 1720. Okay, I got them both in my…
+[00:36:14] Fauuex Daniel: In my draft now, so I should be safe. Whoop!
+[00:36:18] Michael: Yeah.
+[00:36:19] Fauuex Daniel: We'll just get rid of that out of the way. Where are you… find you again?
+[00:36:24] Fauuex Daniel: There we go.
+[00:36:26] Michael: Okay.
+[00:36:26] Fauuex Daniel: Well, hardly anybody showed up tonight,
+[00:36:29] Michael: It's… it's… yeah. I have two calls on tonight.
+[00:36:35] Michael: In my earlier call, I had a decent crowd.
+[00:36:39] Michael: But not now. Not this call. So…
+[00:36:42] Fauuex Daniel: Really?
+[00:36:43] Michael: Yeah.
+[00:36:44] Fauuex Daniel: Goodbye.
+[00:36:45] Fauuex Daniel: Usually.
+[00:36:45] Michael: I don't know why, because normally on Thursdays, I usually have a decent crowd.
+[00:36:51] Fauuex Daniel: But…
+[00:36:52] Michael: Not tonight.
+[00:36:53] Fauuex Daniel: Almost bizarre. I guess, depends on what people are doing.
+[00:36:58] Michael: Yeah, you never know, right? Turn of the year, who knows what they're all up to, so…
+[00:37:03] Fauuex Daniel: Yeah, for sure.
+[00:37:05] Michael: Yeah.
+[00:37:06] Michael: They're at the gym, because they said they were going to get in shape.
+[00:37:09] Fauuex Daniel: Yeah, that's what I should be doing. Take me to the gym!
+[00:37:18] Fauuex Daniel: Well, Michael, I really appreciate all your help. I will… I will go and take a really close look and go and,
+[00:37:27] Fauuex Daniel: figure out what to bump, and what not to, and what to… I'm trying to think of what ad spend would actually… or how to set the money so that I get… make sure I use up all the funds
+[00:37:39] Fauuex Daniel: In time, and use the funds as wisely as I can.
+[00:37:43] Michael: Well, if you turn off the ones, you know, that you should turn off, and just leave the other ones on…
+[00:37:50] Michael: And then, I don't think you can just go into your line item and change it from, say, $100 a day to $200 a day. I think the algorithm may just stop spending if you do that, okay?
+[00:38:05] Fauuex Daniel: Yeah, that's what I'm concerned about, like, I'm just…
+[00:38:07] Michael: So, you can go up about 20% a day.
+[00:38:13] Fauuex Daniel: 20% per day.
+[00:38:15] Michael: Yeah, I think that's about the best you can do.
+[00:38:20] Michael: That's all I would try. We don't have absolute rules for that from the traffic source.
+[00:38:26] Michael: But I'm just telling you that that's only… that's what I would do, just because you don't want it to stop.
+[00:38:34] Fauuex Daniel: Yeah, no kidding.
+[00:38:36] Michael: Because then you gotta rush and stand something up and try to get it spending again.
+[00:38:42] Michael: Or call support, and hope they can get it spending again.
+[00:38:47] Fauuex Daniel: Right.
+[00:38:48] Michael: You know, so…
+[00:38:50] Michael: But you can go up like that, and, like, and if you don't want to focus your money, if all you're concerned with is spending your money, you can… I don't… some of them are not going to spend anyway, because some of them are obviously being ignored by the algorithm.
+[00:39:09] Michael: They're not being served.
+[00:39:11] Michael: I mean, they're not being served.
+[00:39:13] Fauuex Daniel: Yeah, I know SATA does that. I'm kind of like, why did it do that?
+[00:39:16] Michael: Yeah, well, that's the algorithm saying, for whatever reason, I don't like this ad.
+[00:39:23] Michael: And it's spending money on your other ones. So that's why I said the ones with a higher spend, and the ones that are higher spend, and making sales, those are the ones that you want to spend your money for the rest of your time.
+[00:39:37] Fauuex Daniel: Okay.
+[00:39:41] Fauuex Daniel: Okay, well, I'll…
+[00:39:42] Michael: Because the chances of getting a sale are better.
+[00:39:45] Fauuex Daniel: Yeah, exactly. Especially if I gotta spend the money anyway, I might as well put it into good use.
+[00:39:51] Michael: Well, that's what I would do, yeah.
+[00:39:53] Michael: So…
+[00:39:54] Fauuex Daniel: Cool.
+[00:39:56] Fauuex Daniel: Okay, well, I do have another appointment coming up here, so maybe I'll let you go.
+[00:40:01] Michael: Well, you take care.
+[00:40:02] Fauuex Daniel: Thank you so much, you too.
+[00:40:04] Michael: Alright, talk to you later.
+[00:40:07] Fauuex Daniel: Okay.
+[00:40:08] Fauuex Daniel: No, I never know how to get out of here. I'm always…
+[00:40:12] Michael: There's an end button, I think.
+[00:40:15] Fauuex Daniel: Oh, probably I just have to close out the screen and it'll say…
+[00:40:20] Michael: You can do that, too.
+[00:40:22] Fauuex Daniel: Okay. Okay, well, you have a good night,
+[00:40:25] Michael: Alright, you too, don't…
+[00:40:26] Fauuex Daniel: Okay, thank you.
+[00:40:27] Michael: Bye-bye.
+[00:40:28] Fauuex Daniel: Bye-bye.
+[00:40:39] Michael: Well, I don't see a lot of point in hanging around.
+[00:40:46] Build Test Scale Support: That was a great call.
+[00:40:49] Michael: You like that?
+[00:40:50] Build Test Scale Support: Yeah, very informative.
+[00:40:57] Michael: Well, you know, I try, so…
+[00:41:00] Michael: Try to get them to understand, so…
+[00:41:04] Michael: It's interesting, but… Yeah, she was in my cob.
+[00:41:09] Michael: Sometime last week, and .
+[00:41:13] Build Test Scale Support: Yeah, I'm familiar with her, too, with regards with the Helpwise tasks.
+[00:41:17] Michael: Yeah, she's… but at the same time, I hate to hear people, I'm spending my money so I can get a refund.
+[00:41:25] Michael: I… that's… I just don't like hearing that, but…
+[00:41:30] Michael: You know, at the same time.
+[00:41:32] Michael: I'm trying to tell her how to spend it, and maybe…
+[00:41:36] Michael: Maybe get a little money back, and who knows, maybe you'll decide to come on monthly, or do something like that.
+[00:41:43] Michael: So… because she has options.
+[00:41:46] Michael: I don't know how much… She's looked into that, but she does have options.
+[00:41:53] Michael: Well, have a great one, and we'll do this another time.
+[00:41:57] Michael: Thank you.
+[00:41:58] Build Test Scale Support: Thank you, you have a great night.
+[00:42:00] Michael: Okay, bye-bye.
+[00:42:02] Build Test Scale Support: Bye-bye.

@@ -1,0 +1,89 @@
+TITLE: Zoom Meeting
+SOURCE: coaching-transcripts.txt
+META: Dec 2, 2025 09:29 AM Singapore ID: 879 7426 8191
+TURNS: 84
+
+[00:00:14] Mikha Ella Bechayda: Hello, Brenda, can you hear me?
+[00:00:17] Brenda: Hello, can you hear me?
+[00:00:19] Mikha Ella Bechayda: Yes, I can hear you. How are you doing today?
+[00:00:22] Brenda: I'm good.
+[00:00:23] Mikha Ella Bechayda: That's great to hear. I am Micah, one of the TCEQ and CHT members. Is there anything that I can help you with?
+[00:00:31] Brenda: Yeah, so, I'm trying to just get set up for my first, campaign.
+[00:00:37] Brenda: And I had been absent for a while due to family health issues. I came back, and I had previously had everything set up on,
+[00:00:49] Brenda: grasshopper. So when I came back, I asked, them to… Update my campaign to…
+[00:00:59] Brenda: the new, I think it was, DIY tracks.
+[00:01:06] Brenda: setup, and when they did that, they moved me to, Caterpillar Round 1,
+[00:01:13] Brenda: So it kind of confused me, because Caterpillar is just a little bit differently, and I already had my landing pages, with the 5 hero shots and 5 headlines.
+[00:01:26] Brenda: all created.
+[00:01:28] Brenda: So then I… I think I finally found, the training after I had scheduled this meeting, for setting up the Caterpillar native ads.
+[00:01:42] Brenda: So, I just want to make sure…
+[00:01:45] Brenda: that I have everything, set up correctly. And then I also had the question is, do I…
+[00:01:54] Brenda: for the Caterpillar… testing, that's a different image and headlines from my… Landing pages, right?
+[00:02:04] Mikha Ella Bechayda: Yes, that is correct. So, the native ads,
+[00:02:08] Mikha Ella Bechayda: creatives on your native ads are different from your creatives from your landing pages. I actually just opened up your Caterpillar campaign for Skin Spectra on your DIY tracks, and I can see that you already have all of your 25 landing pages uploaded here.
+[00:02:25] Mikha Ella Bechayda: Together with your native ads as well, it has also been…
+[00:02:30] Mikha Ella Bechayda: All 10 of them are already inside your DIY tracks, if I'm not mistaken.
+[00:02:37] Brenda: Yep, I uploaded those last night after I got compliance approval.
+[00:02:41] Mikha Ella Bechayda: Yes, currently they are rejected. I'll resubmit this, and then let's see after a while if these are being approved.
+[00:02:51] Mikha Ella Bechayda: If they still keep on rejecting your ads, I'll contact the support team, if ever they can take a look at your campaign.
+[00:03:00] Mikha Ella Bechayda: Because your creatives for your native ads are all compliant. Sometimes the traffic source are rejecting it for some reason, that's why we are resubmitting them after a while. And then if they keep on rejecting your
+[00:03:17] Mikha Ella Bechayda: ads, that's where we can contact support. I'll contact support if they keep on rejecting this one. And I will also let you know, Brenda, via email once your campaign is already approved, so that you can start running them.
+[00:03:34] Brenda: Okay, so I… I have everything turned off.
+[00:03:38] Brenda: I haven't submitted… I haven't submitted it yet, so I didn't…
+[00:03:42] Brenda: Where do you see that they're rejecting them?
+[00:03:45] Mikha Ella Bechayda: On DIY checks, if you go to Traffic Source and then ads.
+[00:03:50] Brenda: Yep.
+[00:03:51] Mikha Ella Bechayda: Yeah, you can see it.
+[00:03:55] Brenda: See, I have them all… I don't have this campaign on yet.
+[00:03:59] Mikha Ella Bechayda: Yeah, even if you turn it off, the traffic source automatically checks if they are,
+[00:04:06] Brenda: Oh.
+[00:04:06] Mikha Ella Bechayda: compliant or not, yeah. Or if you will be rejecting them or approving them. So, even if all of your native ads are currently turned off, the traffic source will still check it and see if they are rejected or approved. And as you can see, currently, they are being rejected. So, what I'm going to do is I will resubmit this.
+[00:04:26] Mikha Ella Bechayda: And then let's see if they approve it, and then if they still keep on rejecting it, I'll contact support, and then I will let you know once all of your creatives are approved.
+[00:04:36] Mikha Ella Bechayda: Okay, I do have another question.
+[00:04:40] Brenda: On the landing pages, it looks like my hero shot is wrong
+[00:04:50] Brenda: If you look at the hero shot on number…
+[00:04:54] Brenda: The hero shot number 5,
+[00:04:57] Brenda: it's a duplicate of what's already in the landing page, so, I need to replace it.
+[00:05:04] Brenda: So how do I… is there a way to easily just replace that one?
+[00:05:09] Mikha Ella Bechayda: Replacing it means redoing your landing page all over again. No worries on that, Brenda, I'll contact the one who created your landing pages, so that they.
+[00:05:19] Mikha Ella Bechayda: Change it, yeah.
+[00:05:21] Brenda: Okay.
+[00:05:22] Brenda: Okay, so at this point, there's really nothing to do until you resubmit it.
+[00:05:27] Mikha Ella Bechayda: Yes, that is correct.
+[00:05:29] Brenda: once you resubmit it and they approve it, then I can turn it on.
+[00:05:32] Mikha Ella Bechayda: Yes, and then make sure when you turn this on, or when you launch your campaign, you change the start or end date on your subcampaign. Currently, it's… the start date is 11.30, and then the end date is 12.1, so that's December 1st, which is today.
+[00:05:52] Mikha Ella Bechayda: Yep, so when you launch your campaign, make sure you change your end date.
+[00:05:57] Brenda: Okay, and… okay. And I'll… whenever I get it started, I'll change. I think I also have to,
+[00:06:06] Brenda: Oh, I think it was under the sub-campaign.
+[00:06:10] Brenda: I think I have to put… Frequency cap in there.
+[00:06:17] Mikha Ella Bechayda: Yeah, and then, make sure as well that you… you determine how…
+[00:06:24] Mikha Ella Bechayda: How much your budget is for this campaign, because currently you have 1500s.
+[00:06:30] Mikha Ella Bechayda: And, you don't need to spend all 1500s for Caterpillar, so you can, like, maybe spend $300, $300 for this campaign, or $200, so that's 50 a day. So you need to make sure that the end date is very specific on, how.
+[00:06:48] Brenda: Okay.
+[00:06:48] Mikha Ella Bechayda: How long you wanted it to run?
+[00:06:51] Mikha Ella Bechayda: Okay, yep, I will… I will change that as soon as this all gets active, but do I need to put a frequency cap in there?
+[00:07:00] Mikha Ella Bechayda: Based on the… tutorial, I think they leave this blank.
+[00:07:09] Brenda: Say that again? You think they're what?
+[00:07:11] Mikha Ella Bechayda: I think they didn't put anything on the tutorial, so,
+[00:07:19] Mikha Ella Bechayda: Yeah, I think you can leave this blank, but I'll let you know as well via email if you need to put something on the frequency cap.
+[00:07:28] Brenda: Okay.
+[00:07:29] Brenda: All right, I think that's really all the questions that I had. I was just a little confused, and then I kind of stumbled on that one last training.
+[00:07:40] Brenda: Every time I get ready to submit a campaign, they make changes, and I have to start all over again.
+[00:07:45] Brenda: So, I appreciate your help today.
+[00:07:50] Brenda: And I will just wait for, a response from you.
+[00:07:54] Mikha Ella Bechayda: Yeah, sure thing. I'll let you know, Brenda, via email with regards to your ads, if they are approved or not yet. And then with the frequency cup as well, together with the updated version of your hero shots.
+[00:08:10] Mikha Ella Bechayda: I will let the one who created them, to recheck For any duplicate images.
+[00:08:18] Brenda: Yeah, and… and it… I think when I submitted it, I may have accidentally put that one in there, but you can replace it with… I have, some hero shots in my media site, and you can put it… you can replace it with, number 1.
+[00:08:35] Mikha Ella Bechayda: Okay.
+[00:08:38] Mikha Ella Bechayda: Okay, sure, thank you.
+[00:08:45] Brenda: Okay.
+[00:08:52] Mikha Ella Bechayda: Okay, perfect. Is there any more questions on your end, Brenda, before we end our call?
+[00:08:57] Brenda: No, I think I'm good.
+[00:08:59] Mikha Ella Bechayda: Okay, perfect. Thank you so much for your time, Brenda. I will sure send you an email for
+[00:09:05] Mikha Ella Bechayda: All of the updates, and then… yeah.
+[00:09:12] Brenda: Thank you so much.
+[00:09:12] Mikha Ella Bechayda: Okay, thank you so much for your time, Brenda. Of course, you can always book a call with us, or send a request to the Constage team as well, if ever you need more assistance.
+[00:09:24] Brenda: Okay, thank you.
+[00:09:25] Mikha Ella Bechayda: Okay, thank you so much, Brenda, have a great one.
+[00:09:28] Brenda: You too, bye-bye.
+[00:09:29] Mikha Ella Bechayda: Bye-bye.

@@ -1,0 +1,567 @@
+TITLE: TCE Support Coaching Weekly(2)
+SOURCE: coaching-transcripts.txt
+META: BTS Support Coaching Weekly
+TURNS: 562
+
+[00:00:13] Build Test Scale: Hi, ladies! Hey, Sandy! Hey, Kay!
+[00:00:17] CM Support_Kei: Are you kidding me.
+[00:00:18] Sandy Kumar: Hey, hey, Jean. I was gonna say, hey, Sandy.
+[00:00:23] Sandy Kumar: That's… that's the kind of day it's been already.
+[00:00:27] Sandy Kumar: You know…
+[00:00:29] Build Test Scale: Tell you what, there's so many things ongoing, and, like, people are just…
+[00:00:34] Build Test Scale: I don't know if my Slack is… Gonna rest even harder.
+[00:00:40] Sandy Kumar: handle it.
+[00:00:43] Sandy Kumar: Yeah.
+[00:00:43] Build Test Scale: People were, like, tagging me. Some of them were, like, tagging me and you, Sandy, tagging me and Kay, it was like, ugh.
+[00:00:51] Sandy Kumar: Yeah, the sales channel.
+[00:00:52] Build Test Scale: Yeah, by the way, I just, saw your message early your… or last night, rather, so I see that, I'll get you a feedback, shortly after this back-to-back calls. I believe Mark will be joining today, but I'm not…
+[00:01:09] Build Test Scale: I don't see him yet. Let me send him a quick message while we're still waiting for Michael and for Veronica.
+[00:01:19] Sandy Kumar: Yeah, I feel like the formatting is just off on that page, like, it's just the way it's placed, because the EMB had, like, the title in blue, and so.
+[00:01:29] Build Test Scale: Yeah.
+[00:01:30] Sandy Kumar: above that, it just looks weird, but it doesn't make sense to place it anywhere other than that, so I don't know if we take off the title, or we kind of change the formatting or the way it is, it's just… I… yeah.
+[00:01:44] Build Test Scale: I feel like we don't really have to…
+[00:01:48] Build Test Scale: bolded, and probably I, I, we might need to remove this, your Mediavine team just got serious, okay.
+[00:01:58] Build Test Scale: I mean, I mean, we can have it up front.
+[00:02:02] Build Test Scale: let me just, you know, let me sit on this for a while, I'll also get Mark's insight. Mark is joining today.
+[00:02:11] Build Test Scale: Cause he wanted to talk to the support team.
+[00:02:15] Build Test Scale: But let me just… Yeah, I'm just sending him a message right now.
+[00:02:38] Build Test Scale: I think while we're waiting for Mark, we can go ahead and start. Loisa, what do we have for Sandy? Is there anything pressing? Anything urgent that she has to take care of? I know we've been in the dev meeting, but I just wanted to make sure that there's, you know, like, minimal tickets at hand that we're looking from dev team to resolve.
+[00:03:00] Build Test Scale: Lisa?
+[00:03:02] Loisa: Hi, Sandy. It's, regarding the issue with DIY tracks. We're… we're having an error message failed sync.
+[00:03:15] Sandy Kumar: They'll.
+[00:03:15] Loisa: for air.
+[00:03:16] Sandy Kumar: Same… Same as last time.
+[00:03:22] Loisa: Yeah, I think other mentees' account is, has no problem, but some of the mentees still experiencing that issue.
+[00:03:32] Loisa: So, that's what I'm saying last time, that…
+[00:03:38] Loisa: it's fixed for the other mentees who are affected, but in my, for my account, it's not working, so I think, maybe I'm not doing the correcting, but I figured out that it might be possible that some mentees' access has still an issue.
+[00:03:57] Sandy Kumar: Yeah, it should have been, like, an overall fix, but I don't know why. Let me send… because he was asking for…
+[00:04:03] Sandy Kumar: like, examples of other instances that were still having the issue, so I will send this to him. I see your ticket from…
+[00:04:12] Sandy Kumar: A couple of hours ago. So I'll send this to him and let him know.
+[00:04:17] Loisa: I also tried that, on my end, and we'll also know that it's the same hours group.
+[00:04:25] Sandy Kumar: This is from your account, like, the one under your name?
+[00:04:30] Loisa: No, that's Menti's account, but I tested it on my end.
+[00:04:35] Loisa: Using my account and using Menti's account.
+[00:04:39] Sandy Kumar: Oh, okay, so you tested from this mentee's account that you… Okay. Yeah.
+[00:04:45] Sandy Kumar: Okay, yeah, I will send this to Abdul, and we'll see if we can get that figured out.
+[00:04:53] Loisa: And then, there is a balance issue or discrepancy for Donald Hayes, which I will create, a ticket. I'm just checking if I missed something, but it seems that there's,
+[00:05:09] Loisa: changes with the balance. So, before I…
+[00:05:14] Loisa: figure out the issue, but right now, I think there's a missing fund.
+[00:05:19] Loisa: Which I really can't find, so I will create a ticket for it.
+[00:05:23] Sandy Kumar: Okay, sounds good. Let me… yeah, I should be able to see it on my end. Once that's created, then I'll…
+[00:05:29] Sandy Kumar: Assign that adjacent to.
+[00:05:32] Loisa: Thank you. And then the third one will be for chats.
+[00:05:36] Loisa: So, we figured out that once we close the chat, Menti has an access to the previous chat so that they can review, their recent, chat to the support team.
+[00:05:50] Loisa: However, I think the issue is, they can still…
+[00:05:55] Loisa: use that, previous conversation, like, they can still chat on it, which it should be closed. Like, they can review the conversation, but I think it's not appropriate for them to reply on that chat.
+[00:06:10] Loisa: Because it will reopen, and then the, for example, I'm already finished my shift, and then Menti replied on that thread.
+[00:06:22] Loisa: It will pop up under my name.
+[00:06:26] Sandy Kumar: Yeah, and that's how Helpwise, the chat widget itself works. Like, I was looking at my support tickets to Helpwise when we had issues, and you can see previous conversations, and the thread does not get closed.
+[00:06:43] Sandy Kumar: It… it just remains open, and whoever has handled the ticket previously is the one that'll… Continue the conversation.
+[00:06:52] Sandy Kumar: That's pretty much how it works with
+[00:06:55] Sandy Kumar: two other support lines that I've previously worked with, too. It's like, I have worked with Customeroly and other threads, so you can close it on your end, but if they respond back, that ticket is going to come back open.
+[00:07:10] Loisa: That is correct.
+[00:07:11] Build Test Scale: Yeah, and if that's the case… by the way, hi Mark, welcome to the call.
+[00:07:15] Sandy Kumar: Hey, Mark.
+[00:07:16] Build Test Scale: Yeah, so if that's the case, again, it's not…
+[00:07:21] Build Test Scale: necessarily that whoever takes on it first will be the only one who's going to be taking care of that ticket. For instance, if it falls down on Loisa, and then suddenly after her would, if I'm not missing, would be Michael. Michael can take on it, whatever pops in the inbox, regardless if you're the first touch of contact, on that specific live chat, then you just go ahead and let them know, just like what I
+[00:07:46] Build Test Scale: experience with Helpwise myself. I initially chatted with someone else, and then, one…
+[00:07:52] Build Test Scale: support team member from, from them, which is, Ash Roof, that's the guy that I last spoke with. So, he just, you know, he responded in that same thread, and he said, like, hygiene,
+[00:08:05] Build Test Scale: I will be taking over this conversation, this is Ashrup, how may you help me? You know, something like that. You can always, yeah, you can always, do that, and it's, it's very common. Even with Zoom, I had a
+[00:08:16] Build Test Scale: chat with Zoom, yesterday with regards to some licenses, billing, and notice that they keep on giving us. It's the same thing, someone jumps on in, because the other one, I believe, was already out, so we can, you know, we can simply do that.
+[00:08:32] Sandy Kumar: Yeah, because sometimes we close out the thread, but say the mentee has, like, a follow-up question about the same thing. It just makes sense for them to respond in the same thread. If it's, like, the same issue. We don't want them to be creating multiple tickets
+[00:08:49] Sandy Kumar: for the same issue. So it does make sense to keep it on the same thread.
+[00:08:52] Sandy Kumar: But yeah, that's how every single other chat works. Like, if you're not online at that time, then someone else in support just takes over that thread and responds back.
+[00:09:04] Build Test Scale: Yeah, so whether it's assigned to you, if you know that your shift
+[00:09:10] Build Test Scale: already ended, just let the other, you know, whoever comes next after you guys, let them know, like, hey Veronica, hey Kay, hey Michael, hey Loisa, here's what I have, in… for the past, hours that I've been working on the live chat.
+[00:09:25] Build Test Scale: You know, or just simply take over it once you know it's your time to do the live chat.
+[00:09:34] Sandy Kumar: And.
+[00:09:35] CM Support_Kei: I'd like to share a scenario of what that happened to support, previously. So, Monday, we started a chat on Monday.
+[00:09:44] CM Support_Kei: We, for example, Loisa had taken the chat, during the live chat operating hours, and then after their conversation, of course, Loisa ended the chat.
+[00:09:57] CM Support_Kei: And close the ticket.
+[00:09:59] CM Support_Kei: But a few hours later, the mentee responded back with different concern, and it's already outside the chat operating hours. So, for the long time, there's no… there's no, support team that will address the… the mentee's inquiry.
+[00:10:18] CM Support_Kei: Once we resume the operating hours, the mentee is no longer there, and they're no longer online, so it's already disconnected.
+[00:10:28] Sandy Kumar: So… the chat doesn't show, or…
+[00:10:33] CM Support_Kei: The chat shows, but the mentee's no longer there, because it's been a long time that no one addressed the second inquiry the mentee has.
+[00:10:42] Sandy Kumar: That's okay. I mean, as soon as whoever, like, when our operating hours resume, when you respond back to them, whatever response you send to the mentee will show in their thread, in their chat on their end.
+[00:10:56] Sandy Kumar: So, that shouldn't still be an issue, because when we work, it's not necessarily when they will be online. And so, like, say, the same issue, like, when I was having an issue with the Helpwise chat widget.
+[00:11:10] Sandy Kumar: when I send them a ticket, they weren't online, and when they responded, I wasn't online, but I can still see the response
+[00:11:18] Sandy Kumar: in that thread, if I just open up, if you see previous conversations, they should be able to see the response in that thread.
+[00:11:26] CM Support_Kei: And if we have any follow-up questions to identify the mentee's concern further, we just have to wait for them to respond back, even if it takes a couple of hours, that would be fine, okay.
+[00:11:38] Sandy Kumar: Yeah, as long as we do what is required on our end, we have responded back. If they are taking time, it's just we are gonna have to wait for them to respond back.
+[00:11:46] Build Test Scale: Right, and Sandy, remind me again, during off hours, they should be getting an automated email, or automated message in live chat, regardless if it's, like, a new or, old chat, or, like, say, like, old threads, right? They will be getting that. So, I think it doesn't, you know, it doesn't, gonna be a bother for you guys and for the mentee as well, because
+[00:12:08] Build Test Scale: they message us off hours, then definitely they will get that note, and they would know that, okay, I cannot speak to anyone live right now, I have to wait until somebody actually comes in from 8 to 8.
+[00:12:21] CM Support_Kei: In that case, Jean, can we set up an automatic response for students who message us outside the live chat hours?
+[00:12:29] Build Test Scale: I think we did. Sandy, right? We did.
+[00:12:32] Sandy Kumar: Yeah, I believe we did, let me just… I'll double-check that.
+[00:12:36] Build Test Scale: Yeah, can you please check? Because I know when we had this launch that was set up, that's why George asked.
+[00:12:41] Build Test Scale: Explicitly of, like, the hours, which we have decided from 8am to 8pm.
+[00:12:47] CM Support_Kei: Like, our live chat is open from 8pm to 8 p.m. CST. You can still send us a message outside, but, we'll apply.
+[00:12:58] Build Test Scale: Unless you're back online.
+[00:12:59] Build Test Scale: That's what George, I believe, set up, so it's from 8am to 8pm, there's gonna be no automated response, both for live chat and email.
+[00:13:09] Sandy Kumar: Yep, I can double-check that, too.
+[00:13:12] Build Test Scale: Sure. Thanks, Andy.
+[00:13:15] CM Support_MA: Also, clarification, this chat is available for Mentis, Launchpad, and IAS?
+[00:13:21] CM Support_MA: Students?
+[00:13:22] Build Test Scale: IAS.
+[00:13:23] CM Support_MA: Because I received yesterday, one student, which is an IAS student, and asking for the,
+[00:13:30] CM Support_MA: credentials. So, just wondering if that's… the chat options is only exclusive for mentees and Launchpad students?
+[00:13:39] Build Test Scale: It's actually… it's… it should be just for lunch, but can you give me the mentee name?
+[00:13:44] CM Support_Kei: And did you check the portal?
+[00:13:47] CM Support_MA: Yep.
+[00:13:47] CM Support_Kei: On the mentee, understood.
+[00:13:49] Loisa: I think… We're saving IAS because they are…
+[00:13:55] Loisa: chatting using the homepage, or the main page of Sharington Portal.
+[00:14:01] Sandy Kumar: Anyone that's using.
+[00:14:02] Loisa: Everyone has that.
+[00:14:03] Sandy Kumar: The audience page should have access to the widget, because it.
+[00:14:06] Loisa: That's good enough.
+[00:14:06] Sandy Kumar: Experience page, so…
+[00:14:13] CM Support_MA: I posted the email address of the IES student.
+[00:14:16] CM Support_Kei: So for, IES student, they shouldn't be getting the chat widget.
+[00:14:21] CM Support_Kei: But let us check.
+[00:14:47] Build Test Scale: Yeah, I think we also have to, check this, Sandy, if it's something that…
+[00:14:53] Build Test Scale: Because I… I think it's just… actually, we wanted it just for the mentorship, but then George, mentioned to us
+[00:15:00] Build Test Scale: that, unfortunately, we cannot really put it for mentorship only, and LaunchPod will have access to it, but…
+[00:15:08] Build Test Scale: he said IAS, or, like, front end…
+[00:15:11] Build Test Scale: Sales won't have access to this.
+[00:15:14] CM Support_Kei: Yeah, Gene, there is a chat we should…
+[00:15:17] CM Support_Kei: In their… on their end, or the student's end.
+[00:15:23] Build Test Scale: Sandy, do you need, the support to create a ticket for this, for you to look into?
+[00:15:28] Sandy Kumar: So, we want them to have access, or we don't want them to have access?
+[00:15:32] Build Test Scale: No.
+[00:15:32] Sandy Kumar: We don't want them to have access.
+[00:15:34] Build Test Scale: Nope, no, I didn't.
+[00:15:37] Sandy Kumar: Not for IS.
+[00:15:40] Sandy Kumar: Okay, give me some…
+[00:15:41] Mark Blyn: I think George said yesterday that anybody that lands or gets onto the login page, even though they're not logged in, can still use
+[00:15:50] Mark Blyn: chat widget.
+[00:15:51] Loisa: this week.
+[00:15:52] Mark Blyn: We just have to recognize that it's that… we have to recognize who they are. And if they're not a mentee, so to speak, then they don't… we just don't respond, I guess, or we need to think of something. There's no way to isolate that.
+[00:16:06] Mark Blyn: According to George.
+[00:16:10] CM Support_MA: Or perhaps if we check them, that they are IS students, and simply we can reply to them, that they can email support.
+[00:16:16] Mark Blyn: Yes.
+[00:16:16] CM Support_Kei: Right.
+[00:16:17] Mark Blyn: Perfect, thank you.
+[00:16:18] CM Support_Kei: Alright, we will just redirect them to email support, okay?
+[00:16:23] Sandy Kumar: Yeah, because how it works is it's on the login page. If we don't recognize who it is, then it asks for the credentials, so that way we can look into them on our end, and then if they log in, and they have a mentorship, then it pulls up all of their information on the support side.
+[00:16:40] Sandy Kumar: So, I guess we can do that, like, look into it and see if they are mentees, and if they're not, then just have them…
+[00:16:47] Sandy Kumar: Email support.
+[00:16:49] Sandy Kumar: Because there's no way to work around that, because it's going to be on the login page.
+[00:16:54] Mark Blyn: Right.
+[00:16:55] CM Support_Kei: Got it.
+[00:17:00] Sandy Kumar: Also Veronica, the ticket 1699, Jason just responded and said, George has been looking into it, and that he'd respond to the ticket probably today.
+[00:17:10] Veronica Martinez: Yeah, I just saw the ticket, it was assigned out of charge. Thank you. And also, Sani, I just wanted to follow up with the BTS Launchpad Checkout page. It was not yet edited, the portion for the private community.
+[00:17:23] Sandy Kumar: Yes, yes, yes, yes, I'm sorry, I will do that today.
+[00:17:26] Veronica Martinez: No worries, thank you.
+[00:17:34] Sandy Kumar: I'll keep you posted as soon as they're done. Okay.
+[00:17:38] Veronica Martinez: Thank you.
+[00:17:39] Sandy Kumar: And Kay, updates on the last meeting Zap. I wasn't able to look into that yet. It's been kind of a crazy week with the chat widget, so I'll try and prioritize.
+[00:17:50] CM Support_Kei: Fantastic.
+[00:17:51] CM Support_Kei: Is that for the PAVA payment notification?
+[00:17:55] CM Support_Kei: Okay.
+[00:17:56] Sandy Kumar: Yeah, and I think there was one more, like, post-mentorship, where you guys were having to do it manually.
+[00:18:02] CM Support_Kei: Yeah, that one.
+[00:18:04] Sandy Kumar: So I will look into that. I haven't had a time to sit down with George and look into this app. I'll keep you posted on those.
+[00:18:12] CM Support_Kei: No worries, Sandy, we are still monitoring every payment and manually add them to the wishlist, so they won't be,
+[00:18:22] Sandy Kumar: Okay.
+[00:18:23] CM Support_Kei: missed login.
+[00:18:26] CM Support_Kei: Or any missed access on the mentee's end?
+[00:18:29] Sandy Kumar: Okay.
+[00:18:30] Sandy Kumar: Thank you, I'll keep you posted on that.
+[00:18:43] Build Test Scale: Alright, is there anything else, that Sandy has to be aware of? Any questions?
+[00:19:03] Sandy Kumar: Okay guys, if there's nothing else, I will probably hop off.
+[00:19:09] CM Support_Kei: Sandy, one more thing. I was able to turn off the automated response for the email.
+[00:19:16] CM Support_Kei: during the live chat operating hours. But the one that I set up for the… The one that…
+[00:19:27] CM Support_Kei: Will resume after the… live chat operating hours. It didn't work.
+[00:19:34] CM Support_Kei: So, I might need your help to set that one up.
+[00:19:37] CM Support_Kei: That the mentee should receive an automated response after 8pm CST.
+[00:19:46] Sandy Kumar: Mmm… you mean once the live chat resumes?
+[00:19:50] CM Support_Kei: Once the live chat, discontinued, once it ends… Discontin.
+[00:19:55] Sandy Kumar: Okay.
+[00:19:55] CM Support_Kei: Yeah, I was… it ends. They should be getting an automated response via email.
+[00:20:03] CM Support_Kei: when they email support, so I was able to set one, but it didn't work when I tested it.
+[00:20:10] Sandy Kumar: Okay, yeah, yeah, I have that on my list to check. So, automated response outside of the… Okay.
+[00:20:17] CM Support_Kei: Yeah, the working hours.
+[00:20:20] Build Test Scale: Yep, and Sandy, let me know if you need a full schedule, but I'll say it here anyway, so it's 8 a.m. to 8am.
+[00:20:28] Sandy Kumar: 8pm to 8pm.
+[00:20:28] Build Test Scale: Monday to Saturdays, yep.
+[00:20:31] Sandy Kumar: Okay, sounds good.
+[00:20:40] Sandy Kumar: Okay, I will hop off, because there's quite a bit to get done, but you guys have a great day. If there's anything out… anything else, please reach out on Slack.
+[00:20:49] CM Support_MA: Sandy.
+[00:20:50] Veronica Martinez: Appreciate your help, Sandy. Thanks, Sandy.
+[00:20:52] Build Test Scale: I'll see you on the next call.
+[00:20:54] Sandy Kumar: I will, yeah, I'll see you in a bit.
+[00:21:00] CM Support_MA: Hi, Mark.
+[00:21:00] CM Support_Kei: Hello, Mark!
+[00:21:02] CM Support_Kei: Good to see you!
+[00:21:04] Mark Blyn: Well, everybody's hiding their faces. Why?
+[00:21:07] CM Support_MA: Oops.
+[00:21:07] CM Support_Kei: Kamirosh, hi.
+[00:21:10] Mark Blyn: I gotta remember what you all look like. Oh, there you are.
+[00:21:14] Mark Blyn: Oh!
+[00:21:15] Mark Blyn: Hi, everybody.
+[00:21:17] CM Support_Kei: Hi there!
+[00:21:18] Mark Blyn: Where is, let's see, let me see, let me, let me see everybody again. Oh, yeah, look at that, what a good-looking group. Good to be here.
+[00:21:30] Mark Blyn: So, overall, how is the chat widget working?
+[00:21:35] Mark Blyn: Do we like it? Is it hard to work with?
+[00:21:39] CM Support_Kei: It's easy, and… but everyone is getting hang of it.
+[00:21:45] CM Support_Kei: So…
+[00:21:46] CM Support_Kei: We're, grading… transcripts?
+[00:21:52] Build Test Scale: It's just.
+[00:21:53] Mark Blyn: Okay, good.
+[00:21:53] Build Test Scale: Yeah, but we do have… I asked them to create at least 20 for each one of them, so that they don't have to go, so that's a total of 80.
+[00:22:02] Build Test Scale: responses for the supporting that they can grab whenever it suits, or, like, it's… it feels, like, necessary. Those 20 doesn't just revolve around the initial acknowledgement, but also, like, recurring kind of concerns, which includes DIY tracks, you know, a refund request for IAS,
+[00:22:21] Build Test Scale: or any front-end sales, so that's where that, 20… Scripts they are working with.
+[00:22:31] Mark Blyn: So, what am I looking at here?
+[00:22:32] Build Test Scale: So, you're looking at the support team, support, stats, so these are, the live chat and emails that the team has dealt with over the past, two days. I don't think we have recorded any time… oh, we have a few from today, but majority of these, were from Mondays and Tuesdays.
+[00:22:52] Build Test Scale: So, as you can see, we can filter out if, you and Adam, if you want to go here, you can just, you know, simply go to live chat, and so far, these are the numbers of live chats that we have for the past, days that we started doing that.
+[00:23:06] Build Test Scale: You would see here, of course, the start date of the conversation, the assignee to that, mentee name, mentee email, just…
+[00:23:15] Build Test Scale: for everybody's reference, again, the Menti email is the email that was registered to our portal, to our system. Category, of course, if it's email or a live chat, which I filtered out live chat for now, and then these are the issues.
+[00:23:29] Build Test Scale: And, the resolutions. And we can also get this, to Mona.
+[00:23:33] Build Test Scale: because Mona started building our Help Center, this would be really helpful for her, though I believe Veronica, already set up a few things for Mona, but we'll just keep adding to that. And then this would be the link to their Helpwise thread, whether it's email or live chat, and then this would be their status, whether they're completed, in progress, or waiting for final review, which.
+[00:23:58] Mark Blyn: Usually, we will use this for more complex kind of refunds or issues that is being escalated to me or to you, Mark.
+[00:24:05] Build Test Scale: And then pending, if it's something that we're holding off, or, like, pending for anything else, like details, data that we need to complete, and of course, completion date.
+[00:24:16] Build Test Scale: This would be when it was completed. I also put some notes here where they can put the email, because some of our mentees are emailing support using a different email, not the one that was registered in the portal, so we just wanted to make sure we also have a reference of that.
+[00:24:37] Mark Blyn: So, question, go back to the right, where it says… Completed.
+[00:24:41] Build Test Scale: Yep. Alright, so, if I'm looking at the…
+[00:24:45] Mark Blyn: Issues received during live, unavailable hours.
+[00:24:50] Mark Blyn: Chat discontinued, disconnected, minty not aligned, but it's completed, so…
+[00:24:56] Mark Blyn: what happens… what happens in this scenario? Are we following up with an email? What happens?
+[00:25:02] Mark Blyn: Here.
+[00:25:03] Build Test Scale: In any case, I mean, if it's outside hours, of course, the next person who will be taking care of the first set of hours to do the live chat will carry on that. They will have to change
+[00:25:16] Build Test Scale: The assignee, for instance, they will change the assignee to whoever is, completing that.
+[00:25:23] Build Test Scale: And then,
+[00:25:25] Build Test Scale: Yeah, so that's… that's how they're gonna be, doing if it's received outside hours, but if it's not resolved during, this, live chat, they will be sending… like, if it's a more complex kind of issue that they're raising through live chat and needed more investigation, that's the time the support team will be, telling the mentees.
+[00:25:44] Build Test Scale: Hey, I believe this issue, falls on this, category, so kindly, email support so that we can, better check on your concern, and we can get back to you with, like, full answers and, you know, course of action to be taken.
+[00:26:03] Mark Blyn: Okay, I just want to make sure, and I think we all know this.
+[00:26:06] Build Test Scale: Yep. That we need to resolve their issues.
+[00:26:09] Mark Blyn: If it's after hours, we gotta follow up immediately.
+[00:26:13] Build Test Scale: We need to see it all the way through to the very end.
+[00:26:15] Mark Blyn: Which is really, really important, but great job so far.
+[00:26:22] Build Test Scale: Yep. Oh… Yeah, I think we need to,
+[00:26:30] Build Test Scale: You can put this received during, live, unavailable hours. You can put this into the notes, and we can have the issue
+[00:26:39] Build Test Scale: And in here, exactly, like, whatever they're asking, or, like, whatever inquiry, just like what you did here, access to resources.
+[00:26:45] Mark Blyn: Yeah, let's… let's do that.
+[00:26:48] Build Test Scale: Yeah.
+[00:26:53] Build Test Scale: Yeah. And then, so far.
+[00:26:56] Mark Blyn: And then…
+[00:26:58] Mark Blyn: So, during working hours on our inbox for email, there is no auto-replies, right? We're responding with the human response within 15 minutes.
+[00:27:09] Build Test Scale: Yes.
+[00:27:10] Mark Blyn: Okay, great. Fantastic.
+[00:27:14] Build Test Scale: So we have a couple of,
+[00:27:19] Build Test Scale: Yeah, we have a couple of, things that we have here.
+[00:27:24] Build Test Scale: Submit thesis.
+[00:27:28] Build Test Scale: Yeah.
+[00:27:33] Build Test Scale: These are the only ones that aren't completed, and those are all in email, mainly for…
+[00:27:41] Build Test Scale: As you can see, complex kind of issue.
+[00:27:46] Build Test Scale: kin.
+[00:27:53] Build Test Scale: Is this… I think this was completed. Is this completed, Kay?
+[00:27:58] CM Support_Kei: Hey, Laura.
+[00:27:59] CM Support_Kei: Not yet.
+[00:28:00] CM Support_Kei: I'm still waiting for the proof of transfers.
+[00:28:03] CM Support_Kei: Transaction.
+[00:28:05] Build Test Scale: Oh, okay.
+[00:28:06] Build Test Scale: So good, yeah.
+[00:28:08] Build Test Scale: Okay.
+[00:28:09] Build Test Scale: Yeah, it's… we… we opted to put it in, in one place, Mark, so that whenever you or Adam would have, you know, needs to access this, you would… it would be easy for you to just select
+[00:28:23] Build Test Scale: all the filters that we have here. You, I suggest if you're, looking for how many emails or live chats, you filter this out.
+[00:28:34] Build Test Scale: If you wanted to do a search for the metrics of each team, you can also filter to assignee, or if you wanted how many we have completed in the past weeks. And of course, date range, depending on your, you know.
+[00:28:51] Mark Blyn: Okay.
+[00:28:54] Build Test Scale: Same goes for, the concierge, we'll have, their tracker.
+[00:29:00] Build Test Scale: As well.
+[00:29:04] Mark Blyn: Okay.
+[00:29:05] Mark Blyn: I probably have access to it, but just resend it to me.
+[00:29:08] Mark Blyn: Yep. Please.
+[00:29:09] Build Test Scale: Definitely.
+[00:29:10] Build Test Scale: Sure, I…
+[00:29:13] Mark Blyn: I like it.
+[00:29:17] Build Test Scale: 15.
+[00:29:22] Build Test Scale: There you go.
+[00:29:28] Build Test Scale: Mark, I think, Kay has few pending items for final review, which is the one I sent yesterday. Do we have an update, to those refund requests.
+[00:29:38] Mark Blyn: 4 refunds?
+[00:29:39] Build Test Scale: Yep, for.
+[00:29:40] Mark Blyn: I have a meeting with Adam today. I'm gonna go through those.
+[00:29:43] Build Test Scale: Okay.
+[00:29:46] Build Test Scale: I'll look out for, for any updates from your end.
+[00:29:50] Mark Blyn: Okay.
+[00:29:53] Build Test Scale: we just wanted to commend everybody. I know there has been a lot of changes since January came in, and we're just glad everybody's quite, you know, enthusiastic and flexible in taking on this
+[00:30:04] Build Test Scale: you know, all of these changes. We'll have quite few more, because we're still testing out things, you know, a few changes here and there, but I believe the team would be, you know, will get a hang… a good hang of, you know, everything that we have in place, and…
+[00:30:19] Mark Blyn: Yeah.
+[00:30:20] Build Test Scale: Yeah. So, if you need any support from me, from Mark, you know, just let us know.
+[00:30:26] Mark Blyn: Yeah, I really appreciate it. I kind of dropped this on Gene's lap right after the holidays, so… and not expecting it to be perfect, but really, I mean, we made a lot of progress just this week alone.
+[00:30:39] Mark Blyn: And it's just gonna get better and better once we figure everything out. But yeah, great job, everybody. Really appreciate the turnaround time in this.
+[00:30:47] Build Test Scale: Yeah.
+[00:30:48] Mark Blyn: You know, I always knew we had a really good team, I just felt like the process or the system needed to be improved.
+[00:30:58] Mark Blyn: And that's what… that's what you all have done. So, again, great job.
+[00:31:02] Mark Blyn: Really, really proud of you all.
+[00:31:05] Build Test Scale: Yeah, and moving forward, it will be a lot easier, I believe, if you… once you… once you know the ins and outs, like, it became a routine for everybody, and apart from that, Mona and I are building our help center that would help you guys before they actually go into you. We will build articles, you know, FAQs, that's why we're also getting this tracker, because partly this will help me and Mona to determine
+[00:31:29] Build Test Scale: what exactly, you know, makes sense, and usually, like, frequently asked questions from the mentee, because that will help you to… if they see that, you know, those kind of things, then definitely they just have to click it, follow whatever is in
+[00:31:43] Build Test Scale: those articles or resources, and that would also free up a bit of your, you know, time, because usually people are, like, mentees, and I myself do that in some cases with other tools or websites that I use.
+[00:31:57] Build Test Scale: Is that you don't really want to go dig everywhere and, like, press all the buttons that you can just to find answers, but if we have those in one place, just, like, one click with a live chat, then, you know, it'll make
+[00:32:12] Build Test Scale: Everyone's life easier.
+[00:32:15] Mark Blyn: Yeah, and so what's gonna happen is, once the mentees catch on that there's a live chat widget available, you'll see emails slowing down the volume of emails.
+[00:32:25] Mark Blyn: Will drastically cut in half, and if not more than that, within probably 30 days.
+[00:32:31] Mark Blyn: Because everybody will go right to that live chat. So I wonder, following up on that, redundancy.
+[00:32:39] Mark Blyn: How are we gonna know if somebody is talking to us in live chat at the same time that they're emailing us?
+[00:32:47] Mark Blyn: Have we thought about that?
+[00:32:50] Mark Blyn: So, in other words, if I talk to Kay in live chat.
+[00:32:55] Mark Blyn: And then I'm also emailing Michael.
+[00:32:58] Mark Blyn: how does Kay and Michael know that they're both talking to me at the same time, so then I'm not getting two different answers from two different people?
+[00:33:04] Build Test Scale: Yeah, that's why we do have the universal inbox, so that everybody has a visibility of what was in there, and I believe Kay, as the team lead, she will, you know, she has… she will be managing those for the team as well, considering, like.
+[00:33:18] Build Test Scale: Everybody has access to that inbox anyway.
+[00:33:21] Mark Blyn: Okay.
+[00:33:22] Build Test Scale: Yeah.
+[00:33:23] Build Test Scale: We're counting on Kay to, you know, make sure that this has been distributed and, like, coordinated across the team.
+[00:33:33] CM Support_Kei: Yes, Mark, everyone is coordinating each, ticket's
+[00:33:37] CM Support_Kei: who handled it first, so the first one who take it will resume assisting the mentee.
+[00:33:47] Mark Blyn: Okay.
+[00:33:47] CM Support_Kei: So there won't be, or we can avoid redundancy.
+[00:33:51] Mark Blyn: Is your clock wreck behind you?
+[00:33:55] CM Support_Kei: Nope.
+[00:33:57] Mark Blyn: I hope not.
+[00:33:59] CM Support_Kei: That's real.
+[00:34:01] CM Support_Kei: It looks really real.
+[00:34:03] Mark Blyn: I know, I'm just kidding. Okay, thank you for the answer.
+[00:34:09] Mark Blyn: Yeah, I don't have anything else.
+[00:34:13] Mark Blyn: Everything looks to be really good.
+[00:34:16] Build Test Scale: Yeah.
+[00:34:16] CM Support_MA: Actually, yesterday.
+[00:34:18] Build Test Scale: Okay.
+[00:34:18] CM Support_MA: Mark, I received a chat from that IAS, and then I double-checked it with the support inbox, and I saw that I think Loy handled it regarding on the credentials, so I was kind of like.
+[00:34:30] CM Support_MA: Try… try to ask him…
+[00:34:33] CM Support_MA: what else needs to be done, stuff like that, but apparently he did not reply, so what we do is that we always double-check who handles
+[00:34:41] CM Support_MA: That mentee, so… We're cross-checking.
+[00:34:45] Mark Blyn: I would say. But I have one question, though.
+[00:34:48] CM Support_MA: What if the mentee somehow, kind of, like, irate and using a curse word? So what are we gonna do? Do we… do we need to…
+[00:34:56] CM Support_MA: Give them a warning? Stuff like that?
+[00:35:01] CM Support_MA: on the chat.
+[00:35:01] Mark Blyn: Yeah.
+[00:35:05] Build Test Scale: Just… just give them a reminder.
+[00:35:07] CM Support_MA: be a case?
+[00:35:10] CM Support_Kei: That we are not tolerating profanity.
+[00:35:13] Build Test Scale: Let them know that we are not, you know, we're here to help them, to support them, to set them up for success, but we don't, you know, we don't really appreciate them getting those kind of… using those kind of languages to us, like.
+[00:35:30] Build Test Scale: You know, just let them know that we wanted, to build a respectful community, so if they can refrain from using those kind of words, well, of course, let's always acknowledge their frustrations, because probably the reason they're on that level of, you know.
+[00:35:49] Build Test Scale: You know, words is all… because they're quite frustrated with something, so…
+[00:35:54] Build Test Scale: let's just acknowledge that we do understand your frustration, and we just wanted to remind you that Sherrington Media community is a community that values respect for one another, so if you could please refrain from using fraternity words, that would be really appreciated, and we can get down to business. But if they still insist, you know, if they still keep cursing, and I know this from
+[00:36:18] Build Test Scale: even Adam has received some of this before, like, cursing kind of emails,
+[00:36:24] Build Test Scale: Let me know, let us know who's the mentee, the email, and then, you know, we can reach out to them via email.
+[00:36:32] Mark Blyn: So, I think we'd give them a warning.
+[00:36:34] Mark Blyn: And we remind them that's not tolerated.
+[00:36:37] Build Test Scale: And if they do it again, we stop the chat.
+[00:36:40] CM Support_Kei: Yeah, we will disconnect it.
+[00:36:41] Build Test Scale: Huh.
+[00:36:42] Mark Blyn: Yep.
+[00:36:43] CM Support_Kei: But we'll give them a warning.
+[00:36:45] Mark Blyn: Yep.
+[00:36:46] CM Support_Kei: At least twice.
+[00:36:49] Mark Blyn: Yes.
+[00:36:50] CM Support_MA: But I think, let's say we close them.
+[00:36:53] CM Support_MA: We gave them warning, and then second time we closed them. But our chat options is that they can still message.
+[00:37:00] CM Support_MA: Same thread. So can we just close it right away? Would that be…
+[00:37:05] CM Support_MA: a good option for us, and then let… and then if they insisted, like, profanity words and stuff, and then we just emailed them, like.
+[00:37:12] CM Support_MA: I messaged them, like, messaged the support team.
+[00:37:16] CM Support_MA: Stuff like that.
+[00:37:16] Mark Blyn: I mean, if they reopen the chat and they're a little nicer on it, I don't think it's a problem. We can continue.
+[00:37:24] Mark Blyn: But if they respond or reopen the chat and they start blasting away again, then yeah, it's not even worth the response. We can email them and let them know.
+[00:37:32] CM Support_MA: Is there a way, like, we can block them for certain? And then…
+[00:37:36] CM Support_MA: Until they, you know, calm down, and then go back to chat. So, we can offer… I don't know.
+[00:37:42] Mark Blyn: Yeah, you guys have to figure that one out.
+[00:37:44] CM Support_Kei: It would be a bit better if we just have to, Close the chat again.
+[00:37:52] Mark Blyn: Okay, that's fine.
+[00:37:53] CM Support_Kei: Don't risk me.
+[00:37:56] CM Support_Kei: They won't respond.
+[00:37:58] CM Support_MA: Got it.
+[00:38:04] Mark Blyn: Alright.
+[00:38:05] Build Test Scale: Yeah.
+[00:38:07] Build Test Scale: Alright, if there's…
+[00:38:08] Build Test Scale: Nothing else. Loisa, Veronica, do you have anything else for Mark? Any questions? Any support that you need from us?
+[00:38:16] Veronica Martinez: Jean, for the Tipalti finds, please.
+[00:38:19] Build Test Scale: Yes, I sent a message to Adam about it. He didn't confirm yet. Mark, maybe you can also discuss that with Adam, though he said that…
+[00:38:29] Build Test Scale: Yeah, he said he will be transferring funds, but we haven't have received anything from Tipalti… on Tipalti, just yet.
+[00:38:39] Mark Blyn: I will bring that up at my meeting.
+[00:38:42] Build Test Scale: And that was from Monday, so…
+[00:38:45] Mark Blyn: That was from Monday? Okay.
+[00:38:46] Build Test Scale: Yeah, he responded to me last Monday.
+[00:38:51] Mark Blyn: Refunds and Tepulte.
+[00:38:54] Mark Blyn: Fun stuff. Okay.
+[00:38:57] CM Support_MA: I haven't… Just want to follow up for those, TC deposit refunds.
+[00:39:03] Build Test Scale: Yeah, Mark, I believe I sent those to you, but if you can find it, I'll just resend those to you. We have a couple of BTS deposits.
+[00:39:12] Build Test Scale: That, are pending for,
+[00:39:14] Build Test Scale: your final approval. We have reached out to them, offered them, like, a lower tier of membership, specifically, like, Launchpad and things like that, but they explicitly declined, and they don't want to be, you know, pushing through any of that. I also handed this over to the sales team, but haven't heard back from them, so…
+[00:39:35] Build Test Scale: If, if you will have…
+[00:39:37] Build Test Scale: you know, if you can also check with Bo or with Ash if they have reached out to them before we actually, you know, approve any BTS refunds.
+[00:39:46] Mark Blyn: Yeah, let me see that again. Okay.
+[00:39:48] Build Test Scale: Yep.
+[00:39:48] Build Test Scale: I can… I can resend that to you. Let me just… Double check.
+[00:39:56] Loisa: Jane, I need your assistance, please, for, news break. I sent a message to Katie, and she's still not responding on that trend.
+[00:40:07] Build Test Scale: Okay, can you mention me to that thread, Loy, so that I could, you know, follow up with Katie?
+[00:40:13] Loisa: Thank you.
+[00:40:14] Build Test Scale: Sure.
+[00:40:15] Mark Blyn: Katie is our rep with Newsbreak.
+[00:40:18] Build Test Scale: Yes.
+[00:40:20] Mark Blyn: And how does she work with us? Is she pretty responsive? Is she pretty good?
+[00:40:23] Loisa: Because…
+[00:40:24] Build Test Scale: Before, pretty good. I think this was the only time that she's quite not, super responsive, probably, I'm not sure, due to the volume of messages coming from.
+[00:40:35] Loisa: She mentioned that, she's traveling…
+[00:40:38] Build Test Scale: Mmm, that's why.
+[00:40:40] Mark Blyn: Oh, okay.
+[00:40:44] Mark Blyn: Alright.
+[00:40:45] Mark Blyn: Very good.
+[00:40:50] Mark Blyn: Okay, well, good to see everybody, good to hear from everybody.
+[00:40:55] CM Support_Kei: I see.
+[00:40:56] Mark Blyn: Gene threatened me to be here today, so I had to be here.
+[00:41:01] Mark Blyn: He said, if you don't show up, I am going to fly to America.
+[00:41:07] Mark Blyn: And, forced you to get on a Zoom call with us.
+[00:41:11] Build Test Scale: And you'll have to attend the next one, too, in about 20 minutes.
+[00:41:16] Mark Blyn: I'll be there.
+[00:41:17] Build Test Scale: Alright, I'll see you there, Mark.
+[00:41:20] Mark Blyn: Everybody have a great day. Thank you.
+[00:41:21] CM Support_MA: You too. Thank you, Ingar.
+[00:41:23] Veronica Martinez: Thanks, Mara.
+[00:41:24] Mark Blyn: bye.
+[00:41:27] Build Test Scale: Any questions for you, any concerns?
+[00:41:29] CM Support_Kei: Meron, ako CNO, Jeffrey and Emily Nets, nagko follow-up regarding EMB.
+[00:41:37] Build Test Scale: Hasi yung fina follow-up nilang EMB yung previous pa na EMB, walang.
+[00:41:41] Build Test Scale: Kaya… Nika!
+[00:41:43] Build Test Scale: Tiba, ano, in advice na natin silano.
+[00:41:48] Veronica Martinez: anong possible na pwedeng gawin ni Caleb?
+[00:41:53] Build Test Scale: Kasi hindi… kasi hindi natin shuri kung anong makikita doon ng live pwede, hinge ko, ibibigay nila yung koiling silang ibigikalib yung details.
+[00:42:06] Veronica Martinez: Check niya mo na. Kaso kasi magaasya ng EMB reconciliation, magbabayad tayo kasi.
+[00:42:12] Veronica Martinez: Mamabapan sin hindi siya kumigita from the last EMB.
+[00:42:16] Build Test Scale: Mmm…
+[00:42:17] Veronica Martinez: Pa na yun.
+[00:42:20] Build Test Scale: You know, if we forward, call it pay mark. Kasi… Tekalang ha.
+[00:42:25] Build Test Scale: Hanaping ko lang yo.
+[00:42:30] Build Test Scale: My shitta kong ginawa.
+[00:42:36] Build Test Scale: Nawalawi.
+[00:42:38] CM Support_Kei: Oh, I am.
+[00:42:39] Build Test Scale: sales, sales, sales. Naping ko nga sa sales tip, sa nubay Unifiers.
+[00:42:44] CM Support_MA: Man.
+[00:42:53] Build Test Scale: U.N.
+[00:43:01] Build Test Scale: San ko basin langium.
+[00:43:04] Build Test Scale: Tatami ng Google Shitko, hindi ko na ma-intendihan kungalini.
+[00:43:13] Veronica Martinez: Kumogi si, Mark.
+[00:43:15] CM Support_Kei: Kumayan siy ngayon, no?
+[00:43:17] Build Test Scale: Nagara sila.
+[00:43:19] Veronica Martinez: Ovation.
+[00:43:20] Build Test Scale: No, God?
+[00:43:21] CM Support_Kei: Tunaga jogging yun.
+[00:43:22] Build Test Scale: Tomatak-butak po siyo.
+[00:43:24] Veronica Martinez: Fit A.
+[00:43:25] CM Support_MA: Bye. -Oh.
+[00:43:28] Build Test Scale: bossy.
+[00:43:31] Build Test Scale: Awww.
+[00:43:33] Veronica Martinez: Jin kasamaba dun sa mat more rin.
+[00:43:36] Build Test Scale: Sales registries…
+[00:43:38] Veronica Martinez: is a refund. Kasama yun diba?
+[00:43:42] Build Test Scale: Ang Alain?
+[00:43:43] Veronica Martinez: Yun kay Matthew Morin, yung unspent balance.
+[00:43:49] Veronica Martinez: Yun 3000.
+[00:43:51] Veronica Martinez: Kasamaba kay mark yun na itid-discas kay Adam?
+[00:43:54] Veronica Martinez: Isa nad ko sa yo?
+[00:43:56] Veronica Martinez: That is amazing.
+[00:43:57] Build Test Scale: It's okay, yay!
+[00:43:58] Veronica Martinez: Oh, kasama bayon. Kaya.
+[00:44:00] Build Test Scale: naming ko na…
+[00:44:04] Veronica Martinez: Matt Morin.
+[00:44:06] Veronica Martinez: Yun 3,000.
+[00:44:08] Build Test Scale: So, brandami ko na kasing chat sa kanya talaga about dito.
+[00:44:17] Build Test Scale: View bullshit.
+[00:44:24] Build Test Scale: Matthew?
+[00:44:25] Veronica Martinez: -
+[00:44:26] Veronica Martinez: You made 3,000.
+[00:44:29] Build Test Scale: But forward na nalangulit sa hindi ko mahanop sa chat namin, sobrandami ko na talagang chat kay mark.
+[00:44:35] Veronica Martinez: Segue, segue.
+[00:44:36] Build Test Scale: Or, better yet, if… Alamo magawa na lang nga kayo ng ano.
+[00:44:43] Build Test Scale: Maginawa si kay… Nasheed?
+[00:44:46] Veronica Martinez: Hmm.
+[00:44:48] CM Support_Kei: Hello, halo nakamidan, Jin.
+[00:44:51] Build Test Scale: Si tekalanga.
+[00:44:53] Veronica Martinez: Therefore, we're gonna only.
+[00:44:54] Build Test Scale: Sige forward malang sakan. Si maiko din kasi meron requesting approval.
+[00:45:00] CM Support_Kei: Kasokalang yun nga ang anodongino, ang dami natin sheets.
+[00:45:05] CM Support_Kei: Mahirapaganap meansyan.
+[00:45:13] Build Test Scale: Peto, nakuha ko na yung TCA deposit. Lam ko shinier ko sa ano isa salesi.
+[00:45:22] Build Test Scale: Kasi so good brown dami ko namong.
+[00:45:28] Build Test Scale: Apply requested ACHDCA deposits.
+[00:45:35] Build Test Scale: Bleed.
+[00:45:45] CM Support_Kei: Bakat sailing distinction ng IES Launchpad and Mentorship. Hindi ba sa kanila yun.
+[00:45:55] Build Test Scale: Baka nalilito lang yang mga yun. Ibigay mo na langbay.
+[00:46:04] CM Support_Kei: Mapping ko yung baating shit ko ng IES.
+[00:46:07] Build Test Scale: Are you in advance…
+[00:46:13] Build Test Scale: Maiko, lahat namanong ni-request mo sakin patio naka most recent one na si… ano? Si… Naomi?
+[00:46:23] CM Support_Kei: and 50.
+[00:46:28] CM Support_Kei: It's mainly someone else?
+[00:46:34] Build Test Scale: Hindi pala si na yung sinabato is.
+[00:46:36] CM Support_MA: Harley.
+[00:46:37] Build Test Scale: See, hardly, seeking sleep.
+[00:46:40] CM Support_MA: Geniusly. Hold on.
+[00:46:42] CM Support_MA: Deposit…
+[00:46:53] CM Support_MA: Lad sila, in aero nung… You'll offer nothing.
+[00:46:56] Build Test Scale: Yung mula kay Thomas Bailey hanggang kay.
+[00:47:00] CM Support_MA: Louis Linda.
+[00:47:01] Build Test Scale: Hey, Harley.
+[00:47:02] CM Support_MA: Hardly, yep.
+[00:47:05] CM Support_MA: So, we got declined.
+[00:47:06] Build Test Scale: itong… Nag… nag-insist pa batong si Kingsley.
+[00:47:13] CM Support_MA: Amazing.
+[00:47:15] Build Test Scale: Excuse me.
+[00:47:17] Build Test Scale: kasi sinabi ko na yun sa kanibots.
+[00:47:58] Veronica Martinez: A great question pa la refunday si Taylor.
+[00:48:01] Veronica Martinez: She's already exists.
+[00:48:05] CM Support_Kei: Are you in other fields?
+[00:48:07] Veronica Martinez: Fini ko po masoktotasaan or JVZoo.
+[00:48:10] Veronica Martinez: Kasin yung makahita,
+[00:48:13] CM Support_Kei: Hindi ako siya ng… Proof of purchase, yeah.
+[00:48:18] Veronica Martinez: Kasi na triggers a wishlist, pero-feeling ko po masoko.
+[00:48:22] CM Support_Kei: Oh, wow.
+[00:48:23] Veronica Martinez: 3 visu.
+[00:48:25] CM Support_Kei: Ang JVsubai, third party… Untog doon sa third party.
+[00:48:35] Veronica Martinez: Oh, I don't you?
+[00:48:37] CM Support_MA: Shay.
+[00:48:38] Veronica Martinez: payment processing.
+[00:48:40] CM Support_MA: -Oh, so payment processing. Para ano siya, affiliate, website din siya. So, may mga handle sila na…
+[00:48:47] CM Support_MA: Affiliate company.
+[00:48:49] CM Support_MA: Pinopromote nila yung mga product na meron tayo, and then doon sila mag-prepurchase.
+[00:48:55] CM Support_MA: airport, right?
+[00:48:57] CM Support_MA: Kas gagwan nila na account.
+[00:49:00] CM Support_MA: So, busto pag nagita niya yung order number is mahabak.
+[00:49:04] CM Support_Kei: Hindi sa atin yun. Hindi sa atin na process.
+[00:49:07] CM Support_MA: Hangan nyo ng copy, so… para, just to make sure na akong sa ang platform nila… Binertes.
+[00:49:16] Veronica Martinez: Pero diba hindi marinipan yun pag-past 30 days na. Kasi nakatawin disclaimer, diba.
+[00:49:23] CM Support_Kei: I'm in.
+[00:49:24] CM Support_Kei: third-party platform.
+[00:49:27] Veronica Martinez: JVZoo.
+[00:49:29] CM Support_MA: Tapos yun sabih nyo, saun email na narir-receive nila, coming from JBZoo. Rando nyong kanilang username and password, so just log in, and then…
+[00:49:39] CM Support_MA: Go to the…
+[00:49:40] CM Support_Kei: A may sarili silang website, ito pwede silang mag-login.
+[00:49:44] CM Support_MA: Oh, nakakarasim sila ng panilang credentials, then, to open.
+[00:49:48] CM Support_MA: Yung account, and then…
+[00:49:49] Build Test Scale: Ibabaktuli… sorry, sorry. Sorry, sorry. Nagbambledilang kasi ako.
+[00:49:56] Build Test Scale: Nika, ilalive na ulit yung EMB site, pero pagcinek mo yun, makikita modun, or makikita nyo doon, in case anyone na makakarisip, pero majority naman sa affiliates to po mapasok. Makikita mudon nika na EMB program status may notice na tayo. So.
+[00:50:13] Veronica Martinez: Kitako na kahapon? Nag-update na kaapon.
+[00:50:17] Build Test Scale: Hindi pa.
+[00:50:18] Veronica Martinez: Ao nagbago olan.
+[00:50:19] Build Test Scale: Kayong, ano, pero, same pa din yun, so…
+[00:50:22] Veronica Martinez: -Oh.
+[00:50:23] Build Test Scale: Almost same pa then. So, pak-check mo na lang. Tapos do na lang mag-refer kapagano. Pero live na makikita na din olit yung PNL ng mga…
+[00:50:31] Build Test Scale: hindi ko pa lang ina-update, patin yung kailan bailah, hindi ko nag-update ng opt-in. Kasi hini hintai ko pa yung go-signal ni na mark. Kasi ito turn on olit sa yung mga campaign na nag-off. Nag-auto-off yung opt-in.
+[00:50:46] Build Test Scale: So, waiting pa ako ng advice Timal.
+[00:50:49] Veronica Martinez: Oh my god.
+[00:50:50] Build Test Scale: Fuck that in the…
+[00:50:51] Veronica Martinez: Okay.
+[00:50:54] CM Support_Kei: Ginnyo sa mid-metrics. Hindi sila ng ihhingi sa atin ng mga supporting evidences.
+[00:51:01] CM Support_Kei: Nalalaman na lang natin na chargeback na.
+[00:51:04] CM Support_Kei: Or na-finalize na yung, ano.
+[00:51:06] Build Test Scale: reach out natin sa lah. So, you know, contact na, don't.
+[00:51:12] CM Support_Kei: semi-abundancy, Devonne. Sa merchant mid-metric si kayati fridge.
+[00:51:22] CM Support_Kei: Margaret Patty?
+[00:51:25] Build Test Scale: You may message kosya doon same chat.
+[00:51:33] Build Test Scale: Nika ao kay na ba yung launchpad Agreement.
+[00:51:37] Veronica Martinez: Ayo opala na dimutang ko, tekagawing ko lang ngayon.
+[00:51:45] Veronica Martinez: Ayo ng ano Jin no sayyo.
+[00:51:49] Veronica Martinez: Nung link na sin end mo. Hinahanap ko yun dati kong ginawa, ginamiti.
+[00:51:54] Veronica Martinez: Hano do kailangan ni, George?
+[00:52:00] Veronica Martinez: Naka docs.
+[00:52:02] Build Test Scale: Oh, oh, knocked dogs.
+[00:52:36] Build Test Scale: Kung wala no kayong question, nilipat naman ako ng call.

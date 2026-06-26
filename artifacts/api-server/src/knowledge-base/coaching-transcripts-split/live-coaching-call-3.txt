@@ -1,0 +1,983 @@
+TITLE: Live Coaching Call(3)
+SOURCE: coaching-transcripts.txt
+META: Dec 11, 2025 04:58 PM Mountain Time (US and Canada) ID: 873 5341 8859
+TURNS: 978
+
+[00:00:53] Michael: Hello, hello?
+[00:00:55] Brent Wiggins: Hello?
+[00:00:56] Jenn Thiessen: How are you?
+[00:00:59] Michael: How are y'all doing this evening?
+[00:01:01] Scott Reid: Good.
+[00:01:02] Jenn Thiessen: Pretty good.
+[00:01:04] Michael: Good.
+[00:01:06] Brent Wiggins: I'm indoors, and it's snowing outside.
+[00:01:09] Michael: Is it snowing? Where are you at?
+[00:01:11] Brent Wiggins: Danville, Illinois.
+[00:01:14] Michael: Okay, see, I'm way down here in North Carolina.
+[00:01:17] Michael: We don't see a lot of snow.
+[00:01:24] Brent Wiggins: Yeah, it has its… it has its moments here sometimes, each year, but for some reason, this week, it's just like the snow.
+[00:01:34] Michael: Yep, my wife's in Virginia visiting her sister, and she showed me some…
+[00:01:43] Michael: pictures she took of the deck and everything, they probably had about, I don't know, an inch and a half, two inches, something like that.
+[00:01:50] Michael: Maybe a little more.
+[00:01:54] Brent Wiggins: Well, I think that's what we're heading for tonight.
+[00:01:57] Michael: And, I was like, I think she said it was.
+[00:02:05] Michael: 17 there, degrees?
+[00:02:08] Michael: And, at the time, she said that it was 26 here, which is cold for here.
+[00:02:16] Michael: Alright, well, I better get started. I see Jen has a hand up already, gonna make.
+[00:02:21] Scott Reid: I was wondering, how do you put the hand up?
+[00:02:24] Michael: If you go to the React button in the menu of Zoom, there's a… what looks like a heart. Click on the heart.
+[00:02:32] Scott Reid: Yep.
+[00:02:33] Michael: And then there's a React.
+[00:02:35] Michael: You just… I mean, a hands-up type thing in the… when the menu pops up.
+[00:02:40] Scott Reid: Okay, thank you.
+[00:02:45] Scott Reid: See a thumbs up, there we go. Okay, got it. All right, my hand's up.
+[00:02:48] Michael: Yep.
+[00:02:49] Michael: Alright… So, Jen…
+[00:02:54] Jenn Thiessen: Hi. Yeah, I just, wanted you to look at my data from my Round 1 testing to see if I can move to Round 2, and which headline would be…
+[00:03:06] Jenn Thiessen: Good for that. Let me share my screen real quick.
+[00:03:14] Jenn Thiessen: Okay, can you see it?
+[00:03:17] Michael: Yeah, it's kind of faint and small, but I can still see it, I believe.
+[00:03:22] Michael: Okay.
+[00:03:24] Michael: So hang on one minute. I have it sorted.
+[00:03:28] Michael: Yeah, we're not gonna worry about that one yet. Go over there and, sort it by impressions, the far left column, not target, but impressions.
+[00:03:42] Michael: Okay.
+[00:03:44] Michael: So, just to show you, you've got from a high of 9,080 impressions to a low of 747.
+[00:03:53] Michael: Okay.
+[00:03:53] Jenn Thiessen: Right.
+[00:03:54] Michael: And just to tell you that statistically, those ads can't be treated the same as far as ad clicks, click-through rates, stuff like that, because one that only has 747 impressions is not in the same statistically valid category of one that has 9,000.
+[00:04:14] Michael: Do you get that?
+[00:04:15] Michael: Okay? Yeah.
+[00:04:17] Michael: So, that's the first thing I do, just to look at what you have as far as a body of ads that we can treat basically the same. Now, hold on one minute, don't move anything.
+[00:04:31] Michael: Other than one or two, it looks like they spent… I mean, there's an $87 one, and there's a $55, and a 55, and a 68, and a 53…
+[00:04:43] Michael: Yeah, the 87 one, man, that one must have been…
+[00:04:48] Michael: I don't know why that spent so much. Well, it got 118 clicks and 4%.
+[00:04:54] Michael: And each click was 74 cents on average. Okay, so…
+[00:05:02] Michael: Just to show you… just to talk about some things. You didn't… You didn't get any conversions.
+[00:05:11] Jenn Thiessen: No, I didn't.
+[00:05:20] Michael: Go up under the… the ad performance drop-down.
+[00:05:28] Michael: Yeah, click on that, hang on one second.
+[00:05:32] Michael: Go down there and, click on ATC Event.
+[00:05:44] Michael: Just click somewhere out in a white area to make that drop… there you go. That menu went away. I was just trying to get that back out of the way.
+[00:05:51] Michael: Okay, so you can see… what that is, is add to… add to cart.
+[00:05:57] Michael: And you see that you got one there, and you got one a little further down.
+[00:06:02] Michael: Okay.
+[00:06:03] Michael: But let's just talk about the ad CTR, and the ad cost per click, and the ad clicks, and the impressions, okay?
+[00:06:13] Michael: So that top ad, as far as clicks, click-through rate, cost per click, It's doing pretty well.
+[00:06:24] Michael: It only resulted in 4… Landing page event clicks.
+[00:06:31] Michael: Which is… Not good out of 447 clicks, right?
+[00:06:39] Michael: So, that's just so… The kind of things you have to start asking yourself is.
+[00:06:48] Michael: Even though the ads seem to be doing good as far as getting clicks at a very cheap rate and a fairly decent click-through rate.
+[00:06:58] Michael: what was happening when they got to my landing page that made them go, nope, not what I wanted?
+[00:07:05] Michael: Like, instantly, okay?
+[00:07:07] Jenn Thiessen: Right.
+[00:07:08] Michael: So, is the ad just clickbait, or is it just leaving them there psychologically unprepared? Like, it's incongruent?
+[00:07:20] Michael: The ad headline and image doesn't…
+[00:07:24] Michael: lead into the landing page, headline, and hero shot well, or what. That's what you need to study there, okay? To see why. Because I would have thought with 447 clicks that
+[00:07:39] Michael: 13 cents, that you would have gotten
+[00:07:44] Michael: Better landing page event click-through rates.
+[00:07:47] Michael: The next one down…
+[00:07:52] Michael: It's also doing really good in the same way, but it's also abandoning your landing pages.
+[00:08:01] Michael: Okay.
+[00:08:03] Michael: I mean, in that landing page of LPEventCTR,
+[00:08:08] Michael: You want to see numbers like 20%.
+[00:08:12] Jenn Thiessen: Oh, okay.
+[00:08:15] Michael: And you don't… you don't… you don't even have anything over 10%. At 10%, we start throwing them away.
+[00:08:23] Michael: the landing pages. So, I don't know what's going on here as far as… you need to study your ads.
+[00:08:31] Michael: I tell people to take the ads and
+[00:08:35] Michael: put them in PowerPoint or something so that you can see all the ads in a row, and then put the landing page images just of the
+[00:08:43] Michael: hero shot in the headline of the landing page underneath it, so you can kind of see, well, if I saw this ad and I clicked on it, and it brought me to this landing page, does that make sense? Would I believe I'm where I needed to land? Would it make me want to read that headline and click?
+[00:09:03] Jenn Thiessen: Okay.
+[00:09:04] Michael: Okay, so…
+[00:09:08] Michael: I mean, you've got… I can't… you're gonna need to do that kind of exercise, because what I can't do from this is tell you that you have
+[00:09:18] Michael: Any winning headline as far as
+[00:09:22] Michael: The way it's leading to your landing pages.
+[00:09:27] Jenn Thiessen: Right, okay.
+[00:09:28] Michael: I mean, because they're all so low. Some of the ads got clicks and got numbers that are really pretty good, I mean, but… but the trouble is, is they're abandoning your landing page.
+[00:09:44] Jenn Thiessen: Okay.
+[00:09:45] Michael: And did you test 20, 25 variations of landing pages?
+[00:09:50] Jenn Thiessen: I did, yeah. And then the 10 headlines.
+[00:09:53] Jenn Thiessen: So do you think I should do this all again with the TED headlines, or should I just.
+[00:09:57] Michael: I think…
+[00:09:58] Jenn Thiessen: I've had lines.
+[00:09:59] Michael: Well… I think you should do the exercise I talked about.
+[00:10:05] Jenn Thiessen: Trying to figure out why.
+[00:10:07] Michael: That even something with 447 ad clicks only got 4 landing page clicks.
+[00:10:15] Michael: Why? Okay, now let me take… go down to the landing page section real quick, and let me show you something.
+[00:10:21] Michael: Stop right there.
+[00:10:22] Michael: If you go to that select extra token up there under the landing page performance black text.
+[00:10:29] Michael: And select the AD ID at the bottom.
+[00:10:33] Michael: And then you'll have to wait a minute.
+[00:10:43] Michael: You can click somewhere outside so that menu will go away.
+[00:10:49] Michael: You might have to wait till it reloads.
+[00:10:51] Jenn Thiessen: Oh, okay.
+[00:10:53] Michael: Okay. You see, way over on the right, there's blue active button with status above it. Right beside it is ADID. That's the ad number, so you can actually see from the top.
+[00:11:05] Michael: which ads hit what landing pages, okay? That's the same ad number as from above, okay? If you scroll back up…
+[00:11:14] Michael: So, like, 48 is your top one, okay, as far as impressions.
+[00:11:21] Michael: Pretty much as far as everything. Let me just look real quick.
+[00:11:28] Michael: Yep.
+[00:11:29] Michael: Yeah, pretty much as far as everything, that's your… best ad.
+[00:11:38] Michael: As far as ad performance metrics, But…
+[00:11:43] Michael: So if you go down at the bottom area in the landing pages, and you look at 48, which is all those right there.
+[00:11:50] Michael: Then you can see that it hit…
+[00:11:53] Michael: Okay, so you see about 4 from the top?
+[00:11:59] Michael: You see, that's got one landing page event clicked, so that's one they clicked on out of the four.
+[00:12:05] Brent Wiggins: Wow.
+[00:12:06] Jenn Thiessen: Okay.
+[00:12:08] Michael: And then if you go further down, you can see another one. That's the other… that's one of the other ones out of the four.
+[00:12:16] Jenn Thiessen: what you can do.
+[00:12:16] Michael: is you can look and see, well, at least they clicked on these very minimal times, but they didn't click on anything else.
+[00:12:25] Michael: Okay. Now, I can tell you, 15, 16, 17 visitors is kind of low.
+[00:12:32] Michael: To make a lot of decisions. But you need to study, because
+[00:12:36] Michael: You need to understand why are my… And… Headline, description, and images, not…
+[00:12:47] Michael: Enticing people to want to look at my…
+[00:12:51] Michael: landing pages, or conversely, is my landing page headline and hero shot just off with what's going on with the ad? You know, which one's off, right? So… Right.
+[00:13:05] Michael: So, you know, you have to study the product, you have to study the offer page, and then you have to work backwards and say, okay, now what am I gonna make ad-wise, and what am I gonna do with headlines and hero shots on the landing page to lead to the product and the product offer page that I just studied?
+[00:13:26] Jenn Thiessen: Okay.
+[00:13:28] Michael: So you gotta do that work, and then you're gonna have to…
+[00:13:33] Michael: You can determine whether you want to try to take
+[00:13:36] Michael: You know, maybe one of those top two, and move forward, because both of them have decent ad metrics.
+[00:13:46] Michael: Or whether you want to try to run a little smaller test again with some adjustments to whatever you figure out.
+[00:13:55] Jenn Thiessen: Yeah, okay.
+[00:13:59] Michael: But you got some homework, you got some work to do, okay? You need to…
+[00:14:02] Jenn Thiessen: Yeah?
+[00:14:03] Jenn Thiessen: Yeah, so that's what I'm telling people to do, is do those kinds of comparisons and thought process.
+[00:14:10] Michael: think of the psychology behind it as it's moving forward. You know, somebody sees the ad, said I should… their brain should somewhat say, I see me, and then when they get to that landing page, they should pretty much instantly say… say that, I see the solution.
+[00:14:29] Michael: Or, if it's not, you know, or whatever, that's just an example, but… Alright.
+[00:14:37] Jenn Thiessen: Okay, that helps me out, so thank you so much.
+[00:14:42] Michael: No problem.
+[00:14:45] Michael: Patrick!
+[00:14:47] Patrick: Hey, what's up? What's up, Mike? Hey, well, let me show ya.
+[00:14:53] Patrick: Here it comes! I'm gonna go ahead and share with you here.
+[00:14:58] Patrick: So anyway, I have, so, on my first…
+[00:15:05] Michael: It says Zoom. There it is. It's coming now. Okay.
+[00:15:10] Michael: Sorry.
+[00:15:11] Patrick: Sorry about that, yeah, I got a lot.
+[00:15:12] Michael: All I saw was Zoom.
+[00:15:14] Patrick: A lot of pages open here.
+[00:15:18] Patrick: Anyway, so this is my second run on my, My first…
+[00:15:26] Patrick: Test period on my campaign here.
+[00:15:31] Michael: They can't run for headlines.
+[00:15:32] Patrick: Well, what happened… okay, so there's constant changes going on lately, and what I've had to do… That's the way the world works. …change, you know? Yeah, especially in marketing, right? I mean…
+[00:15:43] Patrick: So… so I've noticed that, you know, there's a lot of new rules coming, and so what I've had to do is change my headlines a couple times, so I've had the concierge help me out a little bit.
+[00:15:54] Patrick: Cause I'm a little lacking on time, so…
+[00:15:57] Patrick: we've been in and out of this, so what happens is I… I think there's a problem with stopping in the middle of a campaign, right? And then, having to change, you know, like, your headlines or ads or, you know, make any modifications during a campaign, so…
+[00:16:14] Patrick: What I've run into is, like, I've looked at this today, and…
+[00:16:19] Patrick: what I'm seeing is that I'm not spending any money, and that's a problem.
+[00:16:24] Michael: No, there's something… this is totally off anyway. I mean, you got 193 ad clicks on that second row, and zero impressions, and that's not possible.
+[00:16:33] Patrick: There's something wrong here.
+[00:16:34] Michael: It's not possible, okay? So, but I noticed you clicked on the Today button, but I don't think it'll make any difference. I want you to go to the top, though, and let's find out. And I want you to click on each one of those dates.
+[00:16:48] Michael: Click on the date thing, the little date icon.
+[00:16:51] Patrick: Yeah.
+[00:16:52] Michael: And say, clear.
+[00:16:55] Patrick: Oh, clear, okay.
+[00:16:56] Michael: And then go to the other one and do the same thing.
+[00:16:58] Patrick: Alright.
+[00:17:00] Michael: And clear, and I want you to click on the search button.
+[00:17:04] Michael: No, not there. Not there.
+[00:17:06] Patrick: Wow.
+[00:17:07] Michael: Not a button.
+[00:17:08] Michael: That's a drop-down. The buttons over to the right are black.
+[00:17:11] Patrick: Sorry, yeah.
+[00:17:12] Patrick: There we go.
+[00:17:13] Michael: Everybody thinks that.
+[00:17:16] Patrick: Well, you got more than one.
+[00:17:18] Patrick: Search option here.
+[00:17:19] Michael: Well, search… I didn't say search option. I said search button. I should be more specific. The black search button is what I should say, right?
+[00:17:31] Michael: So, anyway… Okay, see, this still doesn't make any sense. You can't have 8 impressions and 216 clicks.
+[00:17:38] Patrick: Ugh.
+[00:17:39] Michael: I wish I could, okay?
+[00:17:42] Michael: But…
+[00:17:43] Patrick: Something is definitely wrong, and that's why I'm on the call, my buddy. Yeah.
+[00:17:47] Michael: Oh…
+[00:17:48] Patrick: need to figure it out, and I don't know how, but I'm on my third month here, and I have not made a penny. So, what is happening that you can see?
+[00:18:00] Patrick: Cause, yeah, it doesn't make any sense to me either.
+[00:18:05] Michael: How long has it been running?
+[00:18:07] Patrick: Well, this particular, I fired it up,
+[00:18:12] Patrick: Let's see, last night. So…
+[00:18:16] Michael: It's really early, and I don't know that the… okay, like, move… let me move my cursor. Okay, yeah, you see, like, that top one with 8 impressions and 216 clicks, that's got the best click-through rate you could ever ask for.
+[00:18:31] Patrick: Well, yeah. So, 2700% on the CTR, right?
+[00:18:40] Patrick: Oh, boy.
+[00:18:41] Michael: When the theoretical best ever is 100%, right?
+[00:18:47] Patrick: Right, exactly.
+[00:18:48] Michael: Okay, not… not anything above that. We need to go look and set up… we need to go out the campaigns, because I… I can't… from… this is the stats area.
+[00:18:58] Patrick: Right.
+[00:18:59] Michael: Yeah, yeah, there's just something… I don't know. I have no idea what's going on here.
+[00:19:04] Patrick: So this is on Relieve. I'm using Relieve, on this first one here, so… and, we got it's on, of course, but, add tokens, okay? Does that look normal?
+[00:19:15] Michael: Oh, that looks fine, so I'm not worried with that too much, because that's pretty standard stuff, and it usually works right. Yeah, go there, and then scroll down, and you… do you only have one sub-campaign?
+[00:19:30] Patrick: Hmm…
+[00:19:32] Michael: That sub-campaign where you're at, there's only one line there with the on-off button, right?
+[00:19:37] Patrick: I'm right.
+[00:19:38] Michael: Okay. Well, alright, so, end date is 12-15-2025.
+[00:19:45] Michael: That's a… that's a potential problem, okay?
+[00:19:49] Patrick: Oh, why is that?
+[00:19:51] Michael: Well, because if you needed to run it on 12-16, you won't be able to.
+[00:19:57] Patrick: Huh.
+[00:19:58] Patrick: Okay, so what should… what… how long should I run it for, then?
+[00:20:02] Michael: That's not how long you run it for. That's a theoretical end date if you were able to… if it took off and you were gonna be… that… you don't manage it by setting an end date. I always, like, if I was gonna start mine on 11, 18, 20, 25,
+[00:20:17] Michael: I would have just changed the end date to 12-18-2026, because I know I'm going to manage the campaign manually. I'm not relying on a start and end
+[00:20:30] Michael: Set beginning and stopping date to do it for me.
+[00:20:34] Patrick: Okay, yeah, makes sense, but…
+[00:20:36] Michael: And that way, if it takes off and it starts selling a whole bunch of stuff, I've got time to run it.
+[00:20:42] Patrick: Alright.
+[00:20:43] Michael: So, so do you have to have the campaign turned off to change that, or what? I don't know if you can. You might be able to change the end date, I don't think you can start the end date. I mean, the start date, I don't think you can change the.
+[00:20:55] Patrick: Storm.
+[00:20:56] Michael: Yeah, you can change the end date.
+[00:20:59] Patrick: Let's see here…
+[00:21:00] Michael: Just change the… just click outside of… the easiest way, yeah.
+[00:21:06] Michael: I don't even do it that way, okay?
+[00:21:08] Michael: As soon as you're done, I'm just gonna show ya.
+[00:21:12] Patrick: Yep.
+[00:21:13] Michael: If you just go over there, over 20, 26,
+[00:21:16] Michael: Just put your cursor over 2026 in the date column.
+[00:21:21] Michael: Oh well, I was gonna show you it's easier than using that thing. It's okay, don't worry about it.
+[00:21:26] Michael: Okay, let's… let's go to ads.
+[00:21:29] Patrick: Oh yeah, let's go to ads, okay. So, now I was… I was getting non-stop warnings on status, so I finally got it corrected, and it says active now, so that's a good thing.
+[00:21:42] Michael: And.
+[00:21:42] Patrick: They're all approved.
+[00:21:43] Michael: The support team had to get that fixed, right?
+[00:21:46] Patrick: Yeah, right, exactly.
+[00:21:48] Michael: Yep, so… Yeah.
+[00:21:49] Patrick: So that's all good. Now, and that happened early, I think, this morning, so, where they had corrected that. But other than that.
+[00:21:59] Patrick: I think we're good as far as, I'm on my landing page.
+[00:22:04] Michael: Show me…
+[00:22:05] Michael: Show me landing pages.
+[00:22:08] Patrick: Yeah, those were all changed, so… Let's see… So, excuse me.
+[00:22:21] Michael: Just looking, okay, so… Alright.
+[00:22:25] Patrick: And you tested those, right?
+[00:22:27] Patrick: Yeah.
+[00:22:29] Michael: Okay, and show me your offer.
+[00:22:33] Michael: Gotta go back to the top.
+[00:22:36] Michael: Offer pages, yeah, okay. Right. So that's good. I don't see anything… nothing's jumping out at me as being bad in there.
+[00:22:48] Michael: But now go back to stats.
+[00:22:56] Michael: And pull your campaign up, and click on the black search button.
+[00:23:00] Patrick: Gotcha. Alright.
+[00:23:03] Michael: That's just a way without set… that's just a way without setting dates or anything, it just finds all.
+[00:23:11] Patrick: Yeah, okay, gotcha. Okay, I didn't know that.
+[00:23:15] Michael: So, this is just… okay.
+[00:23:22] Michael: I really don't get… Add 8, the top one, I just don't understand.
+[00:23:28] Patrick: Well, at least it's actually using ad spend now, so it wasn't… I did not see that earlier.
+[00:23:36] Patrick: So that is positive.
+[00:23:41] Michael: And how long has it been running, you said?
+[00:23:44] Patrick: Oh, I would say since this morning sometime. I don't remember the exact hour, but, today.
+[00:23:48] Michael: 8 hours, 10 hours…
+[00:23:49] Patrick: Yeah, roughly.
+[00:23:51] Patrick: About 8 hours, I'd say, yeah.
+[00:23:54] Michael: Okay… $12 in 8 hours, that sounds low.
+[00:24:00] Michael: There's things on here I don't get, okay? I'd almost be willing to say you should…
+[00:24:06] Michael: Take a snapshot of this page.
+[00:24:09] Michael: Okay.
+[00:24:10] Michael: And if you don't see it
+[00:24:14] Michael: I mean, you should not be seeing, like, those bottom 3 rows?
+[00:24:19] Michael: that don't have a creative ID over in the column where you see the blue 9, and the blue 1 and the blue 6, you know, the little links. Those bottom 3 rows are nothing. You can just ignore them.
+[00:24:31] Patrick: Right.
+[00:24:32] Michael: Okay? But on… from 91634 going up, those are actual ads, okay?
+[00:24:41] Michael: Dude.
+[00:24:42] Patrick: Right, and it looks like all of them… all of them are running, too, so… Whereby?
+[00:24:48] Patrick: Before, or before, I was only getting half of them that were running, so…
+[00:24:52] Michael: Well, all of them have gotten clicks,
+[00:24:58] Michael: Some of the data doesn't make sense, at least on the first one up there, number 8, at the top.
+[00:25:04] Patrick: Cool, absolutely, yeah, that is…
+[00:25:05] Michael: doing that.
+[00:25:06] Patrick: Really?
+[00:25:06] Michael: But that doesn't make any sense to me.
+[00:25:10] Patrick: ROI, of course, and then net profit. Everything's zero across the board on that, so I would say that that one could probably go inactive, wouldn't you say?
+[00:25:23] Michael: Unless you just want to see… what I was going to tell you is take a snapshot of this page, and if you don't see that correct in, say, another hour or so, because maybe there are, you know, statistics might roll in.
+[00:25:36] Patrick: Yeah.
+[00:25:37] Michael: Okay, if you don't see a change, then I'd turn it off and send that snapshot to support and say, this ad looks like this, and I don't know why, and .
+[00:25:47] Patrick: It doesn't make any sense whatsoever.
+[00:25:51] Patrick: Right, okay.
+[00:25:52] Michael: But I will take a 2,700% click-through rate.
+[00:25:59] Patrick: Sure thing!
+[00:26:01] Patrick: As long as it's not the same person clicking that many times.
+[00:26:05] Michael: Okay? As long as each one of them's a different person, okay?
+[00:26:10] Michael: And it's too early to really tell anything about the other numbers.
+[00:26:14] Patrick: Yeah, right.
+[00:26:15] Michael: As far as, actually, analysis.
+[00:26:17] Michael: Manage the… manage the ad spend, watch out. One ad… one or two ads could run away with all your ad spend. You'll want to pause those to let the other ones get some ad spend.
+[00:26:30] Michael: Like, out of all these, you've got little 50 cents, 40 cents, 12 cents, and then you've got a $7.14.
+[00:26:38] Michael: You might could pause that.
+[00:26:40] Michael: You might could pause that for
+[00:26:43] Michael: Half a day, and see if the other ones will catch up, so…
+[00:26:48] Patrick: Okay, which one are you talking about there? Oh, there it is, yeah.
+[00:26:51] Patrick: So, the one with the most ad spend, you say, I should pause that, huh?
+[00:26:55] Michael: Well, look how much bigger it is! $7.14 versus $12.
+[00:27:00] Patrick: I know.
+[00:27:01] Michael: on one, three.
+[00:27:01] Patrick: You got 445, what, clicks, isn't that, or…
+[00:27:05] Michael: Oh, that's.
+[00:27:05] Patrick: That's impressive.
+[00:27:06] Michael: impressions.
+[00:27:07] Patrick: Right.
+[00:27:08] Michael: But… but that means it's being… served more…
+[00:27:13] Michael: It's costing you 89 cents a click.
+[00:27:18] Michael: I'd pause it for a little while, give it…
+[00:27:20] Michael: Give it a 4-hour breather and see if the other ones catch up. That's another reason to take a screenshot right now before you do this, so you can see what it was before you made it inactive.
+[00:27:32] Michael: And what all the other ones were when you made it inactive. And then you can come back later and look at your screenshot, and you can look at what's in there now, right? 2 or 3 hours from now.
+[00:27:44] Michael: And, you can compare and say, okay, either I can turn it back on, or nothing else is moving. You know, you'll be able to see the change in ad spend.
+[00:27:55] Michael: The change in clicks.
+[00:27:58] Michael: But you need a screenshot to do that with.
+[00:28:00] Michael: And you can either do it with a screenshot, I'll show you one more thing, and then I'll move on.
+[00:28:05] Patrick: If you go all the way to those black buttons again.
+[00:28:09] Michael: Upper right corner, black buttons. Can you see that export CSV?
+[00:28:14] Patrick: Yep.
+[00:28:15] Michael: If you do that, that's basically a screenshot. It gives you all the numbers in a CSV file.
+[00:28:21] Patrick: Oh.
+[00:28:22] Michael: Okay.
+[00:28:23] Michael: That then you can play with until your heart's content.
+[00:28:26] Patrick: Okay, so that goes to your download file, alright.
+[00:28:29] Michael: Yeah, it's right there, campaign.csv.
+[00:28:32] Patrick: That's bad.
+[00:28:33] Michael: But you should… but you should put a date and time on that, so you know what?
+[00:28:39] Michael: So you know about it, if you know what I mean. You just need to go and… I usually go rename them, putting date-time on front of them.
+[00:28:46] Michael: Okay. Because it's not recorded inside it.
+[00:28:51] Patrick: No, I should be, I would think.
+[00:28:52] Michael: it's not.
+[00:28:53] Patrick: Huh.
+[00:28:54] Michael: It should be, yes, but it's not. Okay.
+[00:28:59] Patrick: No problem.
+[00:29:01] Michael: So…
+[00:29:02] Patrick: Alright, well, thank you very…
+[00:29:06] Michael: much, Michael. No problem.
+[00:29:08] Patrick: I appreciate that, and I just… I'm anxious to move forward. I've already started setting up my second campaign, so I, you know, really wanna… really wanna keep it moving, and
+[00:29:21] Patrick: With all this input, you know, it's gonna help me out a lot, so thank you.
+[00:29:26] Patrick: My pleasure. On to the next call.
+[00:29:29] Scott Reid: Yeah, I'm gonna… What's an example of one that completely got away from me.
+[00:29:45] Scott Reid: Alright, so, first campaign… Can you see it?
+[00:29:50] Michael: Yes.
+[00:29:51] Scott Reid: Okay. So, while I was sleeping, I turned this thing on, and it grabbed a couple of my headlines. In the 8 hours I was sleeping, it went from $20 to $114.90.
+[00:30:01] Scott Reid: So those got blown out, and then these other ones were being served so fast that they went from 20 to 75 in, like, an hour.
+[00:30:12] Scott Reid: So that was… but anyway, I got lots of data.
+[00:30:17] Michael: this… This traffic source is different to me. These…
+[00:30:24] Patrick: I mean…
+[00:30:26] Michael: I've run in several different traffic sources in my time, and it just looks like a very…
+[00:30:32] Michael: low amount of impressions to cost so much, and let me show you what I'm talking about.
+[00:30:37] Michael: Even the row you're on right now has 1,645 impressions, but it costs you $100. Right.
+[00:30:47] Michael: The top one, however, has 30,575 impressions, and it only costs you 14 more, or… yeah, 14 more dollars.
+[00:30:56] Scott Reid: Yep.
+[00:30:57] Michael: So, the… the cost… Is…
+[00:31:07] Michael: There's gotta be placements that are causing the differences, the only thing I could think of.
+[00:31:13] Scott Reid: Yeah, because some of them seem to be very high for the number of placements.
+[00:31:17] Michael: It's gotta be placements, and so, so there…
+[00:31:22] Michael: And we don't have anything indicating that this is placement A, B, C, D, whatever, right?
+[00:31:27] Scott Reid: Right.
+[00:31:28] Michael: Or else we could study ads even differently, but so…
+[00:31:35] Michael: Yeah, looking at it like that…
+[00:31:40] Michael: So, I mean, they're not terribly out of balance. I mean, you got one in the middle there that's $22, and then you got one a couple down $27.
+[00:31:49] Scott Reid: Yeah, those, I think, both went to warning at some point. And what happened was, I put, and I don't know if you're seeing this, I put two sub-campaigns, five in each campaign, and a spend of $250. Well, it was spending so fast that it blew… it was basically $350 per sub-campaign.
+[00:32:08] Scott Reid: By the time I got it turned off, and I was actively managing it, I mean, as fast as I could… I could see it, but the problem was, there was such a data lag that it would be at, like, $20, and I was like, okay, I'll let it run a little longer, and then I'.
+[00:32:19] Michael: Then it would jump.
+[00:32:20] Scott Reid: Yeah, it's 60 or 70, alright? So, anyway.
+[00:32:23] Michael: Yeah, so what does that… so what does that tell you about running in the future?
+[00:32:28] Scott Reid: I'm gonna check it every hour.
+[00:32:30] Michael: No, that's not what I'd get from it.
+[00:32:33] Scott Reid: Okay.
+[00:32:36] Michael: I'd lower my daily budget so I could maintain it better.
+[00:32:40] Scott Reid: Okay.
+[00:32:41] Michael: You understand?
+[00:32:42] Scott Reid: Is that a daily budget that's on there?
+[00:32:44] Michael: in the…
+[00:32:45] Scott Reid: In the sub-campaigns?
+[00:32:47] Michael: Yeah.
+[00:32:48] Scott Reid: Oh, okay.
+[00:32:49] Scott Reid: So yeah, they kind of forgot to tell us that was a daily budget.
+[00:32:52] Scott Reid: That's part of… that's probably why, because it went away… it bridged 2 days. Okay, that makes sense.
+[00:32:57] Michael: Yeah. Yeah, well, that's why I'm… I mean, I thought you knew it was a daily budget, and maybe you were just trying to get numbers fast.
+[00:33:04] Scott Reid: Well, I did.
+[00:33:06] Michael: Because you've got numbers fast, and you can get numbers fast, but it's hard to manage it that way if you want to be… if you're trying to learn and manage it and keep.
+[00:33:15] Scott Reid: Yeah. Things kind of under control.
+[00:33:18] Michael: I mean…
+[00:33:19] Michael: I think… I think it's suggested to not be less than $50 a day, okay? But if you did $50 or $100 a day, it wouldn't have run away from you, and you would have been able to manage it a little better, a little differently.
+[00:33:34] Scott Reid: Yep, yep. So…
+[00:33:35] Michael: Just… just in the future, okay?
+[00:33:37] Scott Reid: No, I'll do 50 a day. I thought we were splitting the 500 between the two sub-campaigns, so I missed that.
+[00:33:42] Michael: And why did you do… is this the headline test?
+[00:33:45] Scott Reid: Yeah, this is test number one, yes.
+[00:33:47] Michael: Yeah, you don't need two sub-campaigns.
+[00:33:51] Scott Reid: They're saying now that you have to split, 5 head… no more than 5… 3 to 5 headlines in each sub-campaign on Caterpillar. That was the latest.
+[00:34:00] Michael: When did… I haven't seen that. When did that come out?
+[00:34:02] Scott Reid: Last week? Week before? It's actually in the 21-day blitz now.
+[00:34:08] Michael: Oh, well, it got up… nobody told me.
+[00:34:11] Scott Reid: I didn't see it.
+[00:34:12] Scott Reid: Right? Okay, so I find these things out.
+[00:34:17] Michael: Oh, well, that's okay.
+[00:34:19] Scott Reid: Yeah.
+[00:34:20] Michael: So that's interesting, no more than 5 ads, and…
+[00:34:24] Scott Reid: Per subcampaign.
+[00:34:26] Michael: But that's alright, it really has about the same effect, but…
+[00:34:29] Scott Reid: Yeah. Okay. So my… so yeah, so it's learning curve, right? So… so now I have all this data, what… what, does it tell me? I did sort by, ATC, like you had for the last person, so…
+[00:34:44] Michael: Although I sorted by impressions.
+[00:34:46] Scott Reid: Not sorted by impression… impressions are here.
+[00:34:49] Michael: Yeah, that's what I sorted by.
+[00:34:51] Scott Reid: Yeah.
+[00:34:52] Michael: And you got one ad that's got
+[00:34:57] Michael: You might could take those two top ads and call them basically equal, maybe. It's almost 20, and just barely over 30. You see what I'm saying? Impressions, 20,000, 30,000, 18,358, and…
+[00:35:13] Michael: 30,000. Statistically, we might could get by with considering those to be statistically in the same kind of bucket. And then from that $4,800 down to
+[00:35:28] Michael: maybe even the 3342, you might could call all those basically one bucket and look at. And why I'm saying that is because the 4,800 is not in the same number of impressions as the 30,000 or the 18.
+[00:35:44] Scott Reid: Right.
+[00:35:45] Michael: If we… if… so it's just…
+[00:35:47] Michael: What happens is, is it's just harder to have confidence in the clicks, and the click-through rate, the landing page event clicks, all that
+[00:35:57] Michael: the higher impressions you have, the more the ad's been served, the better… the more representative those numbers are of what the ad really is, okay? The lesser the impressions, it's a less representative indicator.
+[00:36:16] Michael: You know, it's less… the confidence level is just less.
+[00:36:20] Scott Reid: Makes sense.
+[00:36:20] Michael: Okay? So…
+[00:36:24] Michael: So, looking at those, I mean, that top one's 2.15 is good, 17 cents is good, 67 landing page event clicks is…
+[00:36:35] Michael: Goods, got 2 added to carts.
+[00:36:38] Michael: I mean… Both of them.
+[00:36:41] Scott Reid: Number of, landing page…
+[00:36:44] Michael: Event clicks.
+[00:36:45] Scott Reid: Event clicks, you would think they would put them in a sale in there somewhere, right?
+[00:36:49] Michael: Well, okay, if you go to LPEvents CTR,
+[00:36:55] Michael: No, you didn't need to sort it.
+[00:36:57] Scott Reid: Oh, sorry.
+[00:36:58] Michael: That's okay.
+[00:37:01] Michael: See, it doesn't do me any good, sort of this way. I want you to go back and sort impressions again.
+[00:37:05] Scott Reid: Okay, yep.
+[00:37:06] Michael: Because I want you to talk about the same order we had them in.
+[00:37:10] Michael: Okay?
+[00:37:11] Scott Reid: Right.
+[00:37:11] Michael: So, if you look at LP Events CTR on that top row.
+[00:37:16] Scott Reid: Yeah.
+[00:37:16] Michael: 10% is where we turn them off, and, you know, that's… Too low.
+[00:37:22] Scott Reid: Too low. Yep.
+[00:37:23] Michael: 10.21, you can call that 10% in my mind.
+[00:37:26] Scott Reid: Yep.
+[00:37:26] Michael: Okay, and way down there, like, middle of the pack, that 3,364 impressions, add 21, with 15.24%,
+[00:37:40] Michael: Here's the question for you. If it went from 3,364 impressions
+[00:37:47] Michael: to 30,000 impressions, would it still have 15%, or would it go, you know what I mean?
+[00:37:55] Scott Reid: down.
+[00:37:55] Michael: And probably not.
+[00:37:57] Scott Reid: Yeah.
+[00:37:57] Michael: Okay? Probably not. So, that's why I'm saying it's just hard, because you have to kind of look at those things that way. From a raw ad clicks, ad cost per click, ad click-through rate…
+[00:38:11] Michael: Your cost per clicks… The top one's still a winner on that.
+[00:38:19] Scott Reid: Right?
+[00:38:19] Michael: known CPC.
+[00:38:22] Michael: It's not the highest click-through rate, but it is the highest for anything more… with more than 10,000 impressions.
+[00:38:31] Scott Reid: Right.
+[00:38:32] Michael: Okay, so the best…
+[00:38:35] Michael: In my mind, that top two would be ones I would look at. You didn't get any conversions.
+[00:38:42] Scott Reid: Right.
+[00:38:43] Michael: And you're… you probably heard me earlier
+[00:38:47] Michael: Was that in this call, or was that an earlier call?
+[00:38:50] Michael: No, it was this call, talking about, well, you need to study your
+[00:38:55] Michael: Add headlines, your ad description, and your ad images, and understand… try… and then look at your landing pages.
+[00:39:02] Michael: Hero Shot, and… Headlines, and try to figure out why, when 67 people landed over there.
+[00:39:12] Michael: Almost none of them carried through.
+[00:39:14] Scott Reid: Right, 157 total, if you look at the bottom, so yeah.
+[00:39:18] Scott Reid: The one thing I noticed about the offer page, so my angle was, talking like the beginning of the advertorial starts is a middle-aged lady, and my pictures are… reflect that, and then it was mostly focused on…
+[00:39:35] Scott Reid: you know, circulation-type issues. But then when I go to the offer page, the offer page has a bunch of 30- and 30-year-olds on there, young people, right? But I can't control the offer page, right?
+[00:39:48] Michael: No, that's why I tell people you should go study the product and study the offer page and work backwards.
+[00:39:54] Scott Reid: Yeah, okay. But the advertorial focuses on somebody who's 58, so it's… yeah, that's a little puzzling. Okay, alright, I'm just gonna have to realignment.
+[00:40:01] Michael: Yeah…
+[00:40:04] Scott Reid: No, I got…
+[00:40:04] Michael: person.
+[00:40:05] Scott Reid: So the offer page is… clearly, the people got to the offer page, 157 got there, and… Said no.
+[00:40:13] Michael: Well, a few of them did click Add to Carts.
+[00:40:17] Scott Reid: Yeah, right, 12? Okay, right.
+[00:40:19] Michael: Okay.
+[00:40:20] Scott Reid: I'm pretty sad.
+[00:40:20] Michael: But… but… But they didn't carry through.
+[00:40:26] Scott Reid: And this is a $250 product, too, so…
+[00:40:31] Michael: Well, that's… yeah, so if they weren't really sold by the time they got there, they just backed out, right?
+[00:40:38] Scott Reid: Right.
+[00:40:40] Scott Reid: Alright, Rick.
+[00:40:42] Scott Reid: Okay.
+[00:40:45] Michael: Alright, I think that's what I'd do, is… Study the congruency in…
+[00:40:52] Michael: Headline and image that's on the ad, and headline and image that's on the landing page, and then between the two, between ad and landing page.
+[00:41:03] Michael: Look at the ones that did good, and look at the ones that did bad, and try to figure out
+[00:41:08] Michael: Why did this one do pretty good, but it didn't carry through on the landing page, and then for the ones that did really bad, like.
+[00:41:15] Michael: Can you try to figure out why, right?
+[00:41:19] Scott Reid: Right.
+[00:41:21] Michael: So this was…
+[00:41:21] Scott Reid: It's the same image with, 10 different headlines, right?
+[00:41:25] Michael: Alright, so it's just headline and description.
+[00:41:28] Scott Reid: Yeah. With the image.
+[00:41:30] Michael: So, yeah, so it's just headline and description with the image, so it's a little easier than having a mixed bag of everything, so…
+[00:41:39] Scott Reid: Right, so maybe I go with these head… the top headlines, and then redo the images to be younger people, and maybe go with a different angle that's more…
+[00:41:48] Scott Reid: Aligned with that group, because that's what the landing page looks like.
+[00:41:50] Michael: Well, I don't know… okay, like, again, what I'm saying is, is the ad, somebody has to say, I see me.
+[00:41:58] Scott Reid: Right. And then when they get to the landing page, they have to say.
+[00:42:02] Michael: I see the solution.
+[00:42:04] Michael: And then when they get the offer page, that all still has to be true.
+[00:42:09] Michael: Okay.
+[00:42:10] Michael: So, you need to figure out how to drive people there, So, psychologically, they're ready.
+[00:42:18] Scott Reid: Right. Right. Okay.
+[00:42:21] Scott Reid: We'll work on that.
+[00:42:22] Scott Reid: I appreciate your…
+[00:42:23] Michael: Do you use… do you use ER?
+[00:42:26] Scott Reid: Yes, I do, yeah. I used Affiliate CMO to generate the headlines, and I did a lot… I mean, I spent weeks just kind of fine-tuning all that, so… but, like I said, maybe my angle's off, so…
+[00:42:38] Michael: Do you use AI outside of… the agency AI stuff.
+[00:42:43] Scott Reid: No.
+[00:42:45] Michael: But I'm starting to.
+[00:42:47] Michael: Well, the reason I say that is because you could take this stuff and you could actually ask it to work on the psychological aspects of the images and the headlines and tell you if there's incongruency.
+[00:42:58] Scott Reid: Okay. Like an Owen? Or one of those? Okay.
+[00:43:02] Michael: Yeah, like, ChatGPT will do it, Anthropic Cloud will do it.
+[00:43:09] Michael: Jim and I will do it. All of those will work now for that kind of analysis.
+[00:43:15] Scott Reid: Okay.
+[00:43:16] Scott Reid: And the prompt is, align these with the offer page.
+[00:43:22] Michael: No, I would take the prompt and say, okay.
+[00:43:26] Michael: The first thing I want to know is.
+[00:43:29] Michael: This is an ad… you'd have to… you'd have to educate it some. You have to tell it its role is, is that it's an, an expert affiliate arbitrage marketer.
+[00:43:39] Michael: And, in e-commerce.
+[00:43:42] Michael: And then you have to tell it what your product is, and then you tell it, okay, I ran a campaign and I got back metrics, and then you can actually put your metrics in there and have it analyze them for you, and it will.
+[00:43:55] Michael: But you need to… but you need to educate it first, and then you… and then you tell it to, always tell it, okay, after I've educated it and given it a lot of information, then I say, now I want you to give me back,
+[00:44:08] Michael: A synopsis or a summary of
+[00:44:12] Michael: your understanding of what I just asked you about, but don't do any work yet, just give me that, because that's always enlightening, because sometimes it'll be off
+[00:44:22] Michael: Okay? And then I'll correct anything I need to, and then when I get ready to ask it to actually perform the task, I'll also tell it, okay, before you perform this task, I want you to stop and ask for any clarification if you need any before you do the task.
+[00:44:41] Michael: Because sometimes it'll stop and ask, but a lot of times it won't do that if you don't say that. And,
+[00:44:48] Michael: So… so I do all those things, but then you could take this, and you can also tell it not only… not only are you an expert affiliate arbitrage marketer.
+[00:44:58] Michael: But you understand the psychology of an ad banner, and the congruency between the headline and the imagery and the description on the ad banner. You understand the psychology of a long-form advertorial.
+[00:45:13] Michael: The headline and the hero shot and the body copy, and you understand the psychology of walking a customer avatar through the process of seeing my ad, clicking on it, landing on my landing page.
+[00:45:30] Michael: being… Excited and ready to read more, because it's what they expected to see.
+[00:45:38] Michael: Mentally, emotionally… intellectually, all the way around, right? And that,
+[00:45:47] Michael: And you want to have it study a few of yours.
+[00:45:53] Michael: And point out what it thinks about the psychology and the… congruency things.
+[00:46:03] Scott Reid: Okay.
+[00:46:06] Michael: And you'll be surprised, it can do some of that. Take it all with a…
+[00:46:10] Michael: Read all of it, and take it all with a grain of salt, and… but…
+[00:46:13] Scott Reid: Right?
+[00:46:14] Michael: But be… be prepared to be a little bit surprised, because it's…
+[00:46:19] Michael: It's getting really good at this kind of stuff.
+[00:46:21] Scott Reid: Okay.
+[00:46:24] Scott Reid: Good and scary, yeah, right.
+[00:46:26] Scott Reid: Okay, awesome.
+[00:46:28] Scott Reid: Thanks, Michael.
+[00:46:29] Michael: Alright, Scott.
+[00:46:30] Scott Reid: I'll get to work.
+[00:46:33] Michael: Okay, have fun.
+[00:46:35] Michael: Hannah.
+[00:46:39] Hanna: Hey, Michael, nice to meet you. I don't think we met, I don't think.
+[00:46:41] Michael: First time.
+[00:46:43] Hanna: First, yep, first time.
+[00:46:45] Hanna: Yes, currently… well, I took a long time break from July up until recently, so…
+[00:46:53] Michael: No good.
+[00:46:54] Hanna: I'm kind of not up to date, but the good news is I start… I selected… hand pumper…
+[00:47:03] Hanna: from, maven Media?
+[00:47:07] Michael: Yeah, Media Mavens, yeah.
+[00:47:08] Hanna: Yes, yes, thank you. Yeah.
+[00:47:11] Hanna: And, I'm on round one. I did, clickBank before, I didn't like it.
+[00:47:18] Hanna: I think that's why I just… I need to take time and just step back and see what I'm… I'm doing wrong.
+[00:47:24] Hanna: So I took a long time… timeout.
+[00:47:27] Hanna: So, I need you to take a look and help me understand exactly, what's going on with my, stats. Is that okay?
+[00:47:38] Michael: Sure.
+[00:47:39] Hanna: Thank you.
+[00:47:41] Hanna: Let me share my screen.
+[00:47:53] Michael: Okay…
+[00:47:55] Hanna: Alright.
+[00:47:58] Hanna: So… this… I turn off a couple of them. This is where I'm at.
+[00:48:05] Michael: Yeah, I'm just looking, so…
+[00:48:07] Hanna: Cue.
+[00:48:09] Michael: So, yeah, I see you have some of them inactive, and did you do all of those to inactive yourself?
+[00:48:14] Hanna: Yes.
+[00:48:16] Michael: And can you tell me why?
+[00:48:18] Hanna: Yeah, I remember Bruce said, if it is over…
+[00:48:23] Hanna: $25 ad spend, you should turn it off, so the… the money could be spread equally.
+[00:48:31] Michael: Right, okay. I just wanted to make sure you didn't do it for a different reason. So you're trying to let the other ones catch up.
+[00:48:37] Michael: Okay, and so let's just look here.
+[00:48:43] Hanna: They may not.
+[00:48:43] Michael: Go over to the impressions column and sort by impressions.
+[00:48:48] Michael: It's the next to the first column, yeah.
+[00:48:53] Michael: I just do it this way because it's easier to see. Okay. Okay.
+[00:48:57] Michael: So you've got 6,806 on the top one, and then, you know, it gets very low down there near the bottom, right? So, and that one that's 707, that's the last one I can see.
+[00:49:12] Michael: You got 10 ads, right? There must be a couple below there.
+[00:49:18] Michael: Scroll down…
+[00:49:20] Hanna: I'm sorry.
+[00:49:21] Michael: Nope.
+[00:49:24] Michael: Okay.
+[00:49:25] Michael: You know, that's… now, go back… stay over the ads. I was just trying to see all of them.
+[00:49:30] Hanna: Oh, sorry.
+[00:49:30] Michael: Bottom two, okay?
+[00:49:32] Michael: So, yeah, right there. Okay, that's good. So, you got from 6,806 impressions down to 125.
+[00:49:41] Michael: Yes. Okay, and you're just trying to let the one with 125 and those down there Kitch-up.
+[00:49:48] Michael: Okay? Do a little catch-up, right?
+[00:49:51] Michael: But… So let's just look… Okay, that top one, 6806, it's costing you too much money.
+[00:50:01] Hanna: Yes.
+[00:50:02] Michael: Got a bad click-through rate.
+[00:50:05] Michael: And it's got a low landing page event. That's not a good ad.
+[00:50:10] Hanna: Okay.
+[00:50:11] Michael: Okay. Do you understand why? Because it's…
+[00:50:14] Hanna: That was my next question, why… why it's not a good ad?
+[00:50:19] Michael: Okay.81% click-through rate at $1.71. Okay, it's a numbers game. Everything we're doing is a numbers game. We're doing affiliate arbitrage, so we're paying to have these ads
+[00:50:32] Michael: served in a traffic source, okay? And if you have to pay $1.71 per click.
+[00:50:41] Michael: You better have a really good landing page event click-through rate, and you better have a product that pays really good on commissions, because at $1.71 on click.
+[00:50:53] Michael: I mean, you've already spent $94, and you've made $0, and only 4 people have clicked on your landing page.
+[00:51:02] Hanna: Okay.
+[00:51:03] Michael: Not a very good ad.
+[00:51:05] Michael: Okay.
+[00:51:07] Hanna: Okay, thank you.
+[00:51:08] Michael: Okay? So… The next one down…
+[00:51:13] Michael: Is tremendously better as far as cost per click.
+[00:51:17] Michael: It's basically in the same ballpark as far as impressions. I would say they're close enough to call the same.
+[00:51:24] Michael: The click-through rate is still a little bit low. It'd be nice if it was 2 point something.
+[00:51:33] Hanna: Okay.
+[00:51:34] Michael: But that's okay, we'll take 1.34 right now. 6 people went to your landing page event clicks, okay.
+[00:51:43] Michael: Which is still too low, and if you look at the LP event CTR at 8.33, the very rock-bottom minimum is 10%.
+[00:51:55] Michael: Okay, so that's below… you don't have any that are…
+[00:52:01] Hanna: So, which one is 10% has to be the lowest.
+[00:52:04] Michael: L… LP Event CTR.
+[00:52:07] Hanna: That should be 10%.
+[00:52:09] Michael: No, it should be 20… it should be 20 to 25%. 10% is when you start turning them off.
+[00:52:18] Michael: Because they're just not performing.
+[00:52:22] Hanna: Okay, so it should be 20% or higher.
+[00:52:25] Michael: Well, it's… again, it's a numbers game, so it depends on
+[00:52:31] Michael: how much each cost per click is, what the product sells for, what the conversion rate is on the landing page, what the conversion rate is on the offer page. All these different things go into
+[00:52:43] Michael: A formula that you can use, and you can see
+[00:52:47] Michael: what would I need my LP event CTR to be if X, Y, and Z were these values, okay? But, but the basic way we talk about it is, is if it gets down to 10% or less, then it's just too low.
+[00:53:04] Hanna: Okay.
+[00:53:05] Michael: I mean, that's just a ballpark. It's not a hard and fast black and white rule. There is no hard and fast black and white rule in most of these things.
+[00:53:15] Michael: That you could say apply to every ad source, every product. You know, it just doesn't work that way, but, but it's close enough for what we're doing here to say if it's below… if it's 10% or lower, it's too low.
+[00:53:32] Hanna: Okay.
+[00:53:33] Michael: All yours are too low.
+[00:53:37] Hanna: What is that?
+[00:53:38] Michael: All of yours are too low.
+[00:53:40] Hanna: I was gonna say that. Now, you know, given this description.
+[00:53:44] Hanna: Now it seems like everything is well…
+[00:53:48] Hanna: I thought I have 20%. Yeah, yeah, everything.
+[00:53:53] Michael: But that 20% there is different. That's under the add CTR, not… we were talking about LP event CTR, yeah.
+[00:54:02] Hanna: So everything is… not good news.
+[00:54:06] Hanna: now listening to you, because everything is under 10%. LP event CTR. So should I.
+[00:54:12] Michael: Well, it's two different things.
+[00:54:17] Michael: We're talking about ads, and we're talking about landing pages. And then we're talking about the effect of ads leading to landing pages, okay? It's all gotta work together.
+[00:54:29] Michael: So, ads, we're gonna look at, like, the ad clicks, the ad cost per click, the ad CTR, but we're also going to judge how many people went to the landing page and clicked.
+[00:54:42] Michael: Okay, because that has some meaning. An ad… I don't know if you were listening earlier, but there was an ad in one campaign that was getting a lot of clicks.
+[00:54:53] Michael: But it got almost nothing as far as landing page event clicks. So, then you have to start looking at, like, why is this ad working okay? It's cheap, it's getting a great click-through rate, but nobody's clicking on my landing page. Why?
+[00:55:11] Michael: Right? So it's two different things. You can't take one column in here and say everything's based on that. That's not how it works.
+[00:55:19] Hanna: Okay.
+[00:55:20] Michael: Okay, you have to study the numbers.
+[00:55:22] Michael: So, for your landing page event click-through rate, they're all too low.
+[00:55:31] Hanna: Which one is the landing?
+[00:55:33] Michael: Up at the top, LP event clicked CTR.
+[00:55:37] Hanna: Okay.
+[00:55:38] Michael: Okay, they're all too low. That's the one that needs to be
+[00:55:42] Michael: really should be 20-25%, and our… thus what I keep saying has a floor of 10%.
+[00:55:51] Michael: And you're below that floor.
+[00:55:54] Hanna: Yeah.
+[00:55:54] Michael: Good day.
+[00:55:55] Hanna: Okay, go ahead, I'll ask when you're done.
+[00:55:59] Michael: So then, as far as ads,
+[00:56:04] Michael: Some of them, it's too early, like the one that says 10.77%, that's ad number 4…
+[00:56:11] Hanna: Yes, this one.
+[00:56:11] Michael: Yeah, that one.
+[00:56:13] Michael: It's too early. You've only got $9.77 spent. You can't tell anything yet.
+[00:56:19] Hanna: Okay.
+[00:56:21] Michael: Okay, but for the ones that you've got $25 spent on, like the one right below it.
+[00:56:28] Hanna: Yes.
+[00:56:29] Michael: It's got $25 spend, 4.8 at 47 cents, but again, it's…
+[00:56:38] Michael: Nothing's happening when they're getting to your landing page.
+[00:56:41] Hanna: Correct.
+[00:56:43] Michael: Okay, so you have to ask the question.
+[00:56:49] Michael: Why? The ad metrics look okay, but what the heck's going on? So, like I said earlier, I would put the…
+[00:56:57] Michael: I would get an image of the ad. I'd put the image, and the headline, and the description, all in, like, a PowerPoint presentation or something, and then I'd take the landing pages, and I'd put them in there, and I'd say, well, if I saw this ad somewhere, and I clicked on it, and I went to this landing page.
+[00:57:15] Michael: Would that make sense to me, or would I just abandon it?
+[00:57:20] Hanna: Mmm… Okay.
+[00:57:26] Michael: Because you're being abandoned.
+[00:57:29] Michael: I mean, the third one down has 269 ad clicks. It only has 8 landing page event clicks. That's the third one from the top.
+[00:57:39] Michael: Okay.
+[00:57:41] Michael: And that LP Events CTR of 2.97% just… and let me tell you what that number's made out. If you were to take 8 and divide it by 269, you would get 2.97%.
+[00:57:57] Hanna: No.
+[00:57:58] Michael: Okay, right? That's all that is. Math.
+[00:58:02] Michael: Okay.
+[00:58:04] Michael: So…
+[00:58:10] Hanna: It's just too low.
+[00:58:13] Michael: I mean… So you gotta do that same exercise. You've got to… let's see, let me say 269…
+[00:58:24] Michael: Okay, so really, in the LP Event Clicks column on that ad.
+[00:58:30] Michael: You would like to see something like 53.
+[00:58:33] Michael: Not 8.
+[00:58:36] Hanna: Okay. Cause that would be 20%.
+[00:58:43] Hanna: I see.
+[00:58:44] Michael: Okay…
+[00:58:48] Hanna: Okay. So you need to do that exercise where you…
+[00:58:52] Michael: Look at the… Put them where you can visually see it, Okay, on a screen.
+[00:58:59] Michael: Or print it on paper, or whatever you have to do, so you can visually see it.
+[00:59:03] Michael: and then study it. Now, go down… I'm gonna show you one more thing, and then I think that's gonna probably be enough for you. I want you to go down to the header of the landing pages, right there. You see that thing that says select extra token?
+[00:59:18] Michael: No damn.
+[00:59:19] Hanna: Yes.
+[00:59:21] Michael: Click on that… And click ADID at the bottom.
+[00:59:26] Michael: And then the grid below it's gonna reload.
+[00:59:33] Michael: Before you move anything, you see your… you know the numbers you hover over to see your image of your ad?
+[00:59:43] Michael: Do you know what I'm talking about?
+[00:59:44] Hanna: Nope.
+[00:59:45] Michael: Okay, you see that blue 9 up there on that bottom row, where it says… right where the active button's at above your cursor?
+[00:59:53] Hanna: Oh, this one?
+[00:59:55] Michael: Above your cursor, no, you had your cursor over there in the middle of the screen. Now, look up in the ad section.
+[01:00:03] Michael: I had sanctions at the top.
+[01:00:05] Hanna: Yes, what am I looking for?
+[01:00:07] Michael: You see that 9?
+[01:00:09] Michael: That's blue and has that little thing? Yes.
+[01:00:12] Michael: Go hover over it.
+[01:00:14] Hanna: This one?
+[01:00:15] Michael: Yeah. See, there's your ad.
+[01:00:18] Hanna: Okay.
+[01:00:19] Michael: So that ad ID, that 9, you see down here in the bottom?
+[01:00:24] Michael: Grid… If you look to the right, look to the right, far right, see that ADID?
+[01:00:32] Hanna: Yes.
+[01:00:33] Michael: That little number there's 8.
+[01:00:36] Hanna: Yes.
+[01:00:36] Michael: So that's telling you which ad and what landing page it went to, and how many times it visited that landing page.
+[01:00:46] Hanna: So, wait, can you help me out? Okay, this one says V5, but this.
+[01:00:51] Michael: No, I don't even pay any attention to that. That's the hero shot and images on your variations on your landing page. What I'm telling you is, is
+[01:01:02] Michael: Okay, you see that ADID that says 8 over to the right?
+[01:01:07] Hanna: Yes.
+[01:01:08] Michael: Okay, and it's visited this landing page 16 times if you look under the blue visitor on the left.
+[01:01:14] Hanna: Yes.
+[01:01:16] Michael: If you scroll up to number 8,
+[01:01:18] Michael: Scroll ups in the top. No other way.
+[01:01:23] Michael: Keep going.
+[01:01:25] Michael: Alright.
+[01:01:26] Michael: The third one from the top is ad number 8.
+[01:01:30] Michael: Okay, see, it's got 269 ad clicks.
+[01:01:34] Michael: and 8 landing page event clicks. Well, out of that 269 ad clicks, scroll back down…
+[01:01:41] Michael: Out of that 269 ad clicks, it went to that landing page 16 times.
+[01:01:51] Hanna: Okay…
+[01:01:53] Michael: But it got no clicks. So… so if you keep scrolling down, and looking at 8 on the right, okay.
+[01:02:01] Michael: So, we're looking for 8. That's got 15 visits with no clicks, keep going.
+[01:02:06] Michael: See this one right here? There it is, and it visited that landing page 15 times, and they clicked twice.
+[01:02:13] Hanna: Yes.
+[01:02:15] Michael: And the next one they clicked once, and the next one they clicked once. So, that'll give you a little bit of a clue of what
+[01:02:23] Michael: I'm not gonna say it worked, I'm gonna say what almost worked.
+[01:02:27] Michael: Okay, okay.
+[01:02:30] Hanna: Almost… so the LP click has to be… Well, here.
+[01:02:36] Hanna: For the hero shots.
+[01:02:38] Michael: Well, that just means… what that means is, is one of the visitors clicked on the landing page.
+[01:02:45] Michael: Together the offer.
+[01:02:49] Hanna: Okay.
+[01:02:50] Michael: And then you can tell what hero shot and what headline it was that was on that one.
+[01:02:57] Hanna: So how can I tell which hero shot?
+[01:02:59] Michael: Well, it's… it's… it's Headline V2 and Hero Shot V3.
+[01:03:04] Michael: IMG- would be the hero shot. You'd have to go down to the further down to the bottom, and they're aggregated.
+[01:03:13] Michael: You could actually click on it and open it, but I wouldn't do that. But if you go all the way down to the bottom.
+[01:03:22] Michael: Keep going.
+[01:03:25] Michael: Whoops, now you went a little too far. Okay, go up just a little bit, because there's another section right above there. See HV1, HV2, HV3, those are headlines, and image V1, V2, and then you can hover over it and see what they are.
+[01:03:43] Hanna: Okay.
+[01:03:45] Michael: But you need to do the homework of comparing
+[01:03:51] Michael: The ads, they got some decent metrics.
+[01:03:54] Michael: to find out…
+[01:03:57] Michael: To try to see why people just didn't do anything when they got to your landing page.
+[01:04:02] Hanna: I'm like…
+[01:04:03] Michael: landing page.
+[01:04:04] Hanna: I know, how do I identify that?
+[01:04:07] Michael: Well, that's what I told you a minute ago, you gotta put the ads…
+[01:04:10] Michael: in something like a PowerPoint document or something, and lay them out, and then you gotta put the top part of the landing page, like, take a snippet of it, of the headline and the hero shot.
+[01:04:23] Michael: and put that in the same place, and then you gotta look at the ad and say, I'm a… I'm a customer avatar, I read this ad, I decided I'd click on it, and I went to this landing page. This is the first thing I saw was this headline and this hero shot.
+[01:04:39] Michael: Does it make sense?
+[01:04:40] Michael: Is that what I was expecting to see?
+[01:04:44] Hanna: Okay.
+[01:04:45] Michael: Not only just from an intellectual standpoint, but from a psychological standpoint.
+[01:04:51] Michael: If… if I'm looking at the ad as, I see my problem, or me inside that ad, and I saw that landing page, would I say, oh, I see the solution mentally, psychologically?
+[01:05:08] Hanna: Okay.
+[01:05:14] Michael: Because there's some kind of break here happening. They're not… they're not…
+[01:05:20] Michael: You're not going from your ad to your landing page and seeing what they think they were supposed to see.
+[01:05:29] Hanna: Okay.
+[01:05:30] Hanna: So, looking at… the image, the hero… yeah, just the hero shots, right? I'm not sure.
+[01:05:38] Michael: Yeah, it is.
+[01:05:39] Hanna: That's the 5 hero shots you put in there, yes. Okay. Which one is… so if I can understand, which one is doing okay?
+[01:05:49] Michael: You can't judge those right here that way.
+[01:05:52] Hanna: Okay.
+[01:05:53] Michael: At least, I don't think… I don't think you've got enough…
+[01:05:57] Michael: If you go back to the top, the reason I'm saying you can't judge it, and you don't need to be worried about that, you need to be worried about why did my ads lead to the landing page, and then people did nothing when they got to my landing page. It's not…
+[01:06:14] Michael: None of them may have done what they need to do. You gotta do that. There's no numbers in here that can tell you that. That's a visual inspection, a psychological inspection.
+[01:06:24] Michael: Okay, I will do.
+[01:06:25] Michael: Yeah, so it's not a…
+[01:06:28] Michael: you use the numbers at the top to understand you need to do that. I mean, it's best to do that even before you start a campaign, but
+[01:06:38] Michael: But that's okay. So… That would be my guidance to you, is to go do those things.
+[01:06:47] Hanna: Sound to that.
+[01:06:52] Hanna: So, in terms of turning it off, do I need to turn off anything, or should I just keep the one?
+[01:07:00] Hanna: In the meantime…
+[01:07:02] Michael: Well, I mean, that's up to you. I'm not… odds…
+[01:07:07] Michael: I honestly don't think that these are just suddenly gonna start working.
+[01:07:14] Hanna: Okay.
+[01:07:15] Michael: I think I'd… like, the one down there, third from the bottom, it's got 257 clicks. It's got a 36% click-through rate.
+[01:07:25] Michael: Could you hover over that, number 5?
+[01:07:28] Hanna: Which one is number Y?
+[01:07:30] Michael: Third from the bottom.
+[01:07:34] Hanna: Right here.
+[01:07:35] Michael: Yeah.
+[01:07:41] Michael: So, I mean, it's… 36% click-through rate. Of course, this… now, here's the kicker.
+[01:07:48] Michael: It's got 257 clicks out of just 707 impressions. That's where you get 36.3%.
+[01:07:56] Hanna: Okay.
+[01:07:57] Michael: Okay,
+[01:08:01] Michael: Which is, if you could get 36% out of your ads, and they actually worked all the way through the funnel.
+[01:08:07] Michael: we would never be talking again. You would be rolling in money, and we'd be over with. But, but,
+[01:08:19] Michael: But that's such a crazy… Click-through rate.
+[01:08:25] Michael: It's almost like it's acting like clickbait.
+[01:08:30] Michael: When's the last time you refreshed this view?
+[01:08:34] Hanna: Right before I talk to you.
+[01:08:36] Michael: Okay, so it should be up to date. It just seems very… I mean, that's why low numbers of impressions like that are really hard to understand, because
+[01:08:47] Michael: That'd be the highest ad CTR I've seen Hell, it will.
+[01:08:53] Michael: We had one at 2,700% earlier, but that was because something was wrong with the numbers.
+[01:08:58] Hanna: 36 is a good number, or…
+[01:09:02] Michael: Well, now, what do you think it is?
+[01:09:04] Michael: I'm gonna ask you, we've been talking about this, we've been talking about.
+[01:09:07] Hanna: Yes, what is…
+[01:09:09] Michael: I want you to tell me.
+[01:09:10] Hanna: Okay, looking at it, What, it has 0.00%.
+[01:09:17] Hanna: Zero.
+[01:09:18] Michael: That's… well, that's in a different column. I was talking about the 36.3.
+[01:09:23] Hanna: So the 36.3 is for… To me, it looks a decent number, but in the game, Let me just…
+[01:09:34] Hanna: Why do I…
+[01:09:35] Michael: Okay, go back to the top. Okay, we're talking about two different kinds of metrics, okay?
+[01:09:42] Hanna: at CTR.
+[01:09:44] Michael: Right. That'd be a phenomenal ADCTR. You'll probably never see one that works, but I mean, that's… that's a phenomenal… the trouble with it is, is…
+[01:09:56] Michael: It's only got 707 impressions.
+[01:10:00] Michael: You know what impressions are?
+[01:10:02] Hanna: Yes, that's how many visitors stop.
+[01:10:05] Michael: No, that's how many people were able to see it.
+[01:10:09] Hanna: Okay.
+[01:10:12] Michael: That's not how many people did anything with it, that's how many people saw.
+[01:10:15] Hanna: See it, see it.
+[01:10:18] Michael: Okay? Able to see it. I mean, there are… there are traffic sources where you get two metrics. You get a total impressions, and you get a total viewed impressions, which is different. They can actually track
+[01:10:32] Michael: the difference. Like, an impression could be, I put it on a web page, a viewed impression could be that that person scrolled down on that web page long enough to where it was in their field of view.
+[01:10:45] Michael: So, see, it could be put on a web page, and it's way at the bottom. Nobody scrolls down that deep with it, so they don't see it. Or it could be put on that webpage, and people scroll down far enough, and they actually…
+[01:10:56] Michael: Get it on their screen where they have the ability to see it. That's a viewed impression.
+[01:11:01] Michael: So… but this is just, as far as I know, this is just impressions. So… so this means it was actually put on a web page, or put in an email, or whatever it is. So it was served.
+[01:11:15] Michael: And somebody had the ability 707 times to see it, which is just very low.
+[01:11:24] Michael: It's just a low number.
+[01:11:26] Hanna: Okay.
+[01:11:27] Michael: Two, three thousand…
+[01:11:30] Michael: That, you know, then you're getting to where you can actually trust the numbers to the right.
+[01:11:38] Hanna: So 700's too low.
+[01:11:41] Hanna: Okay.
+[01:11:41] Michael: Well, it just means… You… you have to build up a certain…
+[01:11:46] Michael: Population, statistically, in order to have some statistical confidence.
+[01:11:52] Michael: That the clicks, and the click-through rate, and the landing page event clicks, and everything else because of it are statistically valid.
+[01:12:03] Hanna: Got it.
+[01:12:07] Michael: So… that's why they tell you to also, not just because of ad spend, but also because of all the other metrics, to try to let them try to balance out a little bit.
+[01:12:19] Hanna: Mmm.
+[01:12:20] Hanna: Okay.
+[01:12:21] Michael: So that… We're looking at apples and apples instead of apples and oranges.
+[01:12:28] Hanna: Okay.
+[01:12:31] Hanna: Oh, boy.
+[01:12:34] Michael: Okay, so I'll never see you in my call again, right? No, no, no, no, I'm coming back again.
+[01:12:41] Hanna: I'm coming back again. No, you're helping… you're helping me, believe me when I say this.
+[01:12:47] Hanna: Thank you.
+[01:12:49] Hanna: So I need to sit down and really understand these numbers first.
+[01:12:55] Michael: And you need to capture.
+[01:12:57] Hanna: And I'm gonna put a PowerPoint and visualize from,
+[01:13:02] Hanna: From the head… from the headlines to the banner…
+[01:13:05] Michael: ad… from the ad to the landing page, you want to be able to take
+[01:13:11] Michael: the image, the headline, and the description from the ad, and put it up here on top. Then you want to put the landing pages down here on the bottom, and you want to say, if I saw this ad and clicked on it, and I went to landing page number 1 down here, would it make sense?
+[01:13:28] Michael: And if I saw this ad up here and I went to landing page number 2, would it make sense?
+[01:13:33] Michael: would I feel good about it? And you have to put yourself in the mindset of somebody that's
+[01:13:40] Michael: Interested in that product.
+[01:13:43] Hanna: Okay.
+[01:13:44] Michael: when they saw the ad, it piqued their interest in that. They didn't… they don't know the name of the product, they don't know what the product is.
+[01:13:53] Michael: But they see… you didn't put the name of the product in any of them, did you?
+[01:13:59] Michael: You're headlines.
+[01:14:01] Hanna: The hell… no.
+[01:14:03] Hanna: The headlines are…
+[01:14:05] Michael: No, not those headlines, this landing page. The ad headlines.
+[01:14:10] Hanna: Alright.
+[01:14:10] Michael: This is the top, I had headlines.
+[01:14:14] Hanna: You got 2 headlines, and you got 2 images.
+[01:14:17] Hanna: Jesus. Okay.
+[01:14:19] Michael: Yeah.
+[01:14:20] Michael: So, you'd have to hover over the far… that blue number over there.
+[01:14:25] Michael: So… They're coming up, what size heads did you do?
+[01:14:32] Hanna: Hmm… The concierge helped me.
+[01:14:38] Michael: Cause they look different, they just… Yeah.
+[01:14:43] Michael: Okay, I don't know, they look different. But anyway… I've been seeing them as…
+[01:14:50] Michael: More vertical, or… it could be just my screen and your screen.
+[01:14:55] Michael: But… Okay, so you got your homework.
+[01:15:00] Hanna: I do.
+[01:15:02] Hanna: Yes.
+[01:15:03] Hanna: So, do you think this is Caterpillar? And the… in terms of…
+[01:15:10] Michael: the hero shots, right? In terms of the…
+[01:15:13] Hanna: landing page.
+[01:15:15] Michael: Yeah. I did not change, I did not edit, I just used what I had.
+[01:15:19] Hanna: What it was given.
+[01:15:21] Michael: Right, and that's what you're supposed to do, except for you created 5 headlines and 5 hero shots, and that gave you 25 variations.
+[01:15:30] Hanna: Okay.
+[01:15:31] Michael: But as far as the body copy and all that, you don't need to worry about that yet. You need to understand, why did people click on my ads in some instances, but when they got to my landing page, they went.
+[01:15:45] Hanna: Yes, okay.
+[01:15:46] Michael: You need to figure that out, okay? And you need to go through that visual exercise, and you need to study congruency between
+[01:15:55] Michael: On the ad banner itself, you need to say, does this headline and description on this ad banner make sense with this image?
+[01:16:03] Michael: Even does this headline and this description make sense together?
+[01:16:07] Michael: Okay? You need to know those things, you need to look at them, okay? Cause you got some ads that got…
+[01:16:16] Michael: Some decent numbers, but they didn't do anything after the ad.
+[01:16:21] Hanna: Okay.
+[01:16:25] Hanna: I have work to do.
+[01:16:27] Michael: Yes, you do. We all do.
+[01:16:29] Hanna: One day, I'll be able to make a profit. Soon.
+[01:16:33] Michael: Well, it's just, okay, the lights will start coming on, and you'll see. It's…
+[01:16:39] Michael: Yeah. You have to do all this work, though, and think it through, and…
+[01:16:44] Michael: You know, it takes a… it takes a while. It's not as easy as a lot of people think it is.
+[01:16:50] Hanna: Yeah.
+[01:16:52] Hanna: And…
+[01:16:52] Michael: I'm lying.
+[01:16:54] Hanna: yearning at this point. I'm like, oof.
+[01:16:58] Michael: Yeah, it's not… it's not just point and click and put some money in a bucket and you'll get rich next week. It's just not that.
+[01:17:07] Michael: So… It just… yeah.
+[01:17:10] Michael: But once…
+[01:17:12] Michael: Once you learn the formula and turn the corner, then you'll get a better understanding, and as you continue to improve your
+[01:17:23] Michael: Understanding of the… marketing aspects of it. The rest of it's just mechanics, right?
+[01:17:33] Hanna: where I want to get there.
+[01:17:34] Michael: But you gotta understand the marketing aspects of it, and once you get the marketing aspects down, then…
+[01:17:42] Michael: You know, because… and you'll know when you get them down, because instead of a campaign
+[01:17:47] Michael: not even breaking even, or not making any sales at all, all of a sudden, you'll start breaking even on your campaign. The next thing you'll know, you'll start making a little bit of profit, and then you could hit a home run, right? And then that's when the lights are really gonna go off, because you're gonna see, okay.
+[01:18:07] Michael: What was so different about this one than all the other things I did before?
+[01:18:11] Michael: That I'll spend all this money and time on, right? And, yep.
+[01:18:17] Hanna: Believe me, I spent enough money.
+[01:18:20] Michael: I know, I understand.
+[01:18:22] Hanna: Yeah. I've done the same thing.
+[01:18:25] Michael: So… that's how it goes.
+[01:18:28] Hanna: Thank you for encouraging me. So I'm gonna just put a PowerPoint, the headline.
+[01:18:33] Hanna: Did you say analyze the image? You did not.
+[01:18:35] Michael: Yes, you need to emulate what the ad is. You put the headline, the description, and the image of the ad at the top.
+[01:18:44] Michael: And then you put the headline and hero shot that's on the landing page at the bottom, for each landing page at the bottom, and then you just ask. And you need to do it for every ad, too, right? So… so it's a lot of work.
+[01:18:59] Michael: It's worth it, it can help open your eyes as far as understanding. And like I said, it's not just comparing those together, it's also comparing within them.
+[01:19:10] Michael: Because the headline, the image, and the description that are all on the ad.
+[01:19:17] Michael: all have to make sense together. They don't… they don't need to be disjointed. Like, one of them… just a stupid example. The headline couldn't say something about a 16-year-old, and then the description talked about a 90-year-old. That wouldn't make any sense.
+[01:19:32] Michael: Okay? Right? Or… or let's say the headline and the description talk about a 16-year-old and the images of a 90-year-old. That wouldn't make any sense. Okay, so…
+[01:19:44] Michael: So, those are not the best examples on the planet, but just something I could think of at this time of night. So…
+[01:19:54] Hanna: Okay, how about, the hero shots.
+[01:19:58] Michael: Well, you gotta do the same thing on the landing page, because there's some kind of disconnect happening.
+[01:20:03] Michael: So you take the headline.
+[01:20:05] Michael: And the hero shots on the landing pages, and you do the same type of analysis.
+[01:20:10] Michael: you look and say, well, okay, if I read this headline on the ad, and this description on the ad, and I saw this image on the ad, and I clicked, and it went to this landing page, and I saw this headline on this landing page.
+[01:20:23] Michael: Would that… would I believe I arrived at the right place? Would I feel like, as a prospect, that I have found the solution to what I'm looking for, okay? Or would I just say, that's not what I thought, and close the page.
+[01:20:40] Hanna: So, let me ask Michael one more question. I know we're running out of time. Actually, we are.
+[01:20:44] Michael: We're out of the time. I said, that's okay.
+[01:20:47] Hanna: I'm sorry.
+[01:20:48] Michael: That's hard.
+[01:20:49] Hanna: How do I… here's the question that came to me.
+[01:20:54] Hanna: So how would I know which banner headline is connected to the Hero Shot headline?
+[01:21:05] Michael: Okay, I showed you down in the landing page section how you can see what ads have hit what landing pages, how many times, visitors.
+[01:21:15] Hanna: Yes. Okay, and whether or not they got clicks.
+[01:21:19] Michael: Okay.
+[01:21:21] Michael: So, that's how you can tie them together.
+[01:21:25] Michael: But to do the exercise, you don't even have to worry about that. To do the exercise is all just a mental…
+[01:21:32] Michael: exercise of your own. You don't have to put them in PowerPoint, you don't really need to know that.
+[01:21:39] Hanna: Okay.
+[01:21:40] Michael: Okay. But you can go look, it can help. I mean, you can go look out of curiosity, and see what you think.
+[01:21:47] Michael: It might even be a good exercise to do it just in a PowerPoint, visually, tie all that together, write notes about what you think, all that kind of stuff, and then go look at those numbers and see if your notes lead to what those numbers are telling you.
+[01:22:02] Hanna: That'll tell you whether you're learning it or not.
+[01:22:05] Hanna: Okay.
+[01:22:06] Michael: Or, you know, whether you're in sync with what the market told you.
+[01:22:12] Hanna: So, how would I… Do I need to go look up similar product to understand?
+[01:22:19] Hanna: What is selling, what's not selling?
+[01:22:22] Michael: Well, no, it's not a… you're not even at that position yet, okay?
+[01:22:27] Michael: As far as what's selling and not selling, you're… you're…
+[01:22:32] Hanna: Got it.
+[01:22:33] Michael: It's not… you're not getting through the landing page. You can't prove whether the product is viable or not if you're not getting to the offer page.
+[01:22:43] Hanna: Okay.
+[01:22:46] Hanna: I think… I think I… I know what to do, based on what you told me.
+[01:22:51] Michael: Alright, we'll have a lot of fun.
+[01:22:53] Hanna: Thank you, Mike. Yes, I will. I will. When I'm hosting Saturday, I'm having…
+[01:22:58] Hanna: Christmas gathering at my place, so…
+[01:23:01] Michael: Oh, okay.
+[01:23:03] Michael: Well, you know, after everybody's gone, and you've cleaned all the dishes and done all that other kind of hard work, then you do more work.
+[01:23:10] Hanna: Thank you, I will.
+[01:23:10] Michael: Sleep's overrated.
+[01:23:13] Hanna: Yes.
+[01:23:15] Hanna: Well…
+[01:23:16] Michael: Yeah, you've been… Brent, you've been hanging in here… you just listening?
+[01:23:22] Hanna: You know, he's… he's asleep!
+[01:23:25] Michael: I think so.
+[01:23:26] Hanna: Yep.
+[01:23:30] Hanna: Yeah, he's a…
+[01:23:31] Michael: moved, anyway.
+[01:23:33] Hanna: Yeah, he's in a deep sleep.
+[01:23:36] Michael: Yeah, I don't blame him. Alright, have a good night.
+[01:23:42] Hanna: You too, thank you, Michael.
+[01:23:44] Michael: Enjoyed it.
+[01:23:45] Hanna: Yes. Bye. Thank you for your help.
+[01:23:47] Michael: My pleasure.

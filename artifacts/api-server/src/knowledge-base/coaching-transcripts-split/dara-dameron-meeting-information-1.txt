@@ -1,0 +1,482 @@
+TITLE: Dara Dameron Meeting Information(1)
+SOURCE: coaching-transcripts.txt
+META: Dec 15, 2025 02:30 PM Central Time (US and Canada) ID: 828 7551 8120
+TURNS: 477
+
+[00:00:17] Sasha: Oh, hello.
+[00:00:19] Dara Dameron: Hi, how are you?
+[00:00:21] Sasha: Doing well, how about yourself?
+[00:00:22] Dara Dameron: I'm good, thank you.
+[00:00:28] Sasha: Alright, so…
+[00:00:31] Sasha: From what I remember in your message, you wanted to kind of go over how to read DIY track stats, is that right?
+[00:00:38] Dara Dameron: Yeah, that's right. I've,
+[00:00:41] Dara Dameron: I've done Round 1, and I'm currently in round two, of doing, Skin Spectra through Media Mavens, and…
+[00:00:52] Dara Dameron: Well, I mean, my background is nursing, so I can… I can read stats, just…
+[00:00:58] Dara Dameron: these steps, so I just want to make sure that, like, I write down a ton of notes from, from different calls and stuff, but I just want to make sure that I am on the right track as far as what I should be reading. I was doing actually pretty good, with SkinSpectra.
+[00:01:17] Dara Dameron: In my first round, I think I sold 2. In my second round, I sold 5.
+[00:01:24] Dara Dameron: And then… In tweaking some of my, based on what it said in the 21-day blitz.
+[00:01:32] Dara Dameron: I was… I tweaked what I needed to according to that, and then I just sold nothing, so I was like, I should probably double-check to make sure that I'm… I'm…
+[00:01:43] Dara Dameron: looking at what I need to be looking at to be able to tweak what I need to. So, let me pull up…
+[00:01:49] Dara Dameron: I just haven't.
+[00:01:53] Sasha: Okay, yeah. Do you want to just share your…
+[00:01:55] Dara Dameron: Yeah.
+[00:01:55] Sasha: Just startin'.
+[00:01:56] Dara Dameron: You bet.
+[00:02:12] Dara Dameron: Alright, so this was… let's see… let me pull up, I think, my…
+[00:02:28] Dara Dameron: And I'll also say that one thing that was confusing to me is that I had…
+[00:02:35] Dara Dameron: So, of course, I send everything to compliance as I need to. And then…
+[00:02:43] Dara Dameron: typically, I haven't really gotten a whole lot of feedback from compliance. Everything has been good. This last round.
+[00:02:50] Dara Dameron: So I had taken one of my previous native ad, ads to bring over, because it was the winning ad, essentially, for that round. I brought that over, and of course did
+[00:03:03] Dara Dameron: I think it was, like, I think I did 4 additional, ads, or whatever it recommended. I did additional ads based on that, and when I sent those to compliance.
+[00:03:17] Dara Dameron: Compliance…
+[00:03:20] Dara Dameron: Basically told me every single one of the ads was out of… was, was not compliant, and including the one that had previously been okayed.
+[00:03:29] Sasha: Huh.
+[00:03:30] Dara Dameron: And I even… I… Exchange.
+[00:03:31] Sasha: Did they tell you a reason?
+[00:03:33] Dara Dameron: Well, so I asked him, I said, I was like.
+[00:03:36] Dara Dameron: I was like, thanks for the feedback, but I'm confused now because I'm…
+[00:03:41] Dara Dameron: This one that has previously been okayed, you're now telling me is not compliant.
+[00:03:49] Dara Dameron: And they sent me back a whole list of basically what's compliant and what's not.
+[00:03:54] Dara Dameron: made sense, but I still… they actually just got back to me probably a couple days ago, so I haven't responded, but… because I knew I was going to be on this with you.
+[00:04:03] Dara Dameron: But I'm still confused about why it's compliant one moment and not, because one of the things I asked is, has there been a change in what's compliant or not? Because that would make sense. And they're like, no, but here's what's compliant and what's considered compliant and what's not, and why.
+[00:04:18] Dara Dameron: And so, anyway, so… but… and it could be a total coincidence, but… so I… I ended up using their recommendations
+[00:04:30] Dara Dameron: And didn't… I mean, didn't get as obviously good of results during this second attempt of Round 2, so…
+[00:04:39] Dara Dameron: So yeah.
+[00:04:41] Sasha: Okay, so it's been a little confusing. Yeah.
+[00:04:44] Sasha: Can you show me what… what headline is now… was compliant and now is not?
+[00:04:50] Sasha: What was the one that was in question?
+[00:04:53] Dara Dameron: Yeah, let me… you know what, let me pull it up, because I know I didn't end up using it because it wasn't compliant, so let me find… I have a…
+[00:05:00] Dara Dameron: document.
+[00:05:07] Sasha: I'm also just taking a look at your campaign settings on the back end.
+[00:05:11] Dara Dameron: Yeah.
+[00:05:12] Sasha: You have, you have 4 different sub-campaigns. What's the… what's the reason for that?
+[00:05:18] Dara Dameron: So, I had, let's see, I had the first… first one for round one.
+[00:05:27] Dara Dameron: And then… They had said for…
+[00:05:32] Dara Dameron: I was thinking… let me think about this, because this goes back to, like, October.
+[00:05:35] Dara Dameron: So I had the first one for Round 1.
+[00:05:39] Dara Dameron: Actually, you know, it's gonna be easier for me to take a look.
+[00:05:42] Dara Dameron: You're okay with that.
+[00:05:46] Dara Dameron: Boy, Chrome.
+[00:05:59] Dara Dameron: Okay, so yeah, so this one was for round one. Then when,
+[00:06:05] Dara Dameron: when I started to do my round two, my first part of round two, they had said, do… you need to have two different, sub-campaigns for vertical versus horizontal.
+[00:06:17] Sasha: Okay. That's when I created that one.
+[00:06:19] Dara Dameron: And then, honestly, because there were so many issues with the warning stuff.
+[00:06:25] Dara Dameron: I wasn't sure if I needed… if it was best for me to… because I kept… I've… and this… this has taken me so long to get this up and running because of all the warning stuff from Caterpillar. So, what I ended up doing is, for the second part of Round 2, which is that 2.1, 2.2,
+[00:06:44] Dara Dameron: is… I ended up just creating new sub-campaigns for each one, and then I didn't get warnings on those.
+[00:06:51] Dara Dameron: So…
+[00:06:53] Dara Dameron: I just kind of did that, hoping that I wouldn't have to wait 2 or 3 days to get things up and running.
+[00:07:02] Sasha: So, the… well, I guess we'll address two different things. The warning issue I'll talk about in a sec, but, like, just talking about sub-campaigns in general. So, the algorithm learning process happens on the sub-campaign level.
+[00:07:16] Dara Dameron: Of course.
+[00:07:17] Sasha: where you have feedback data, like conversions, for example, it starts to learn where… what pockets of traffic, what audiences it's converting in, and so when you create a new subcampaign, that kind of separates the process. So that could be part of…
+[00:07:31] Sasha: We haven't looked at your data yet, but, like, that could be part of the reason why, like, something is working in one, but then, like, stopped working.
+[00:07:37] Dara Dameron: Oh, gosh.
+[00:07:38] Sasha: further, because you basically started a new.
+[00:07:40] Dara Dameron: Sure.
+[00:07:41] Sasha: learning process by creating a sub-campaign.
+[00:07:44] Dara Dameron: I just kind of…
+[00:07:45] Dara Dameron: I kind of assumed that, I probably shouldn't have, because one of the things that I know was mentioned in a couple of the calls that I was on, and I think I've only been on one or two calls with you, but… so not many, but, one of the things that was mentioned is that when you change your budget.
+[00:08:01] Dara Dameron: that that can cause an issue within Caterpillar, so I was like, oh, well then maybe that's where I need to just go ahead and create new sub-campaigns with new budgets.
+[00:08:13] Sasha: Sort of. It's not really about changing the budget, it's about how much and how often you change it when you're in the learning mode phase. So, you know, kind of what we've been told by the traffic sources and general recommendation is to not change it by more than, like, 20% every day or two.
+[00:08:31] Dara Dameron: Oh, okay.
+[00:08:31] Sasha: learning process, so you can start to increase it just gradually. But the other thing I'm noticing is that you have a pretty high budget. Like, $1,200 as a daily budget is fairly high.
+[00:08:42] Dara Dameron: Right, and that was because the… the suggestion in…
+[00:08:47] Dara Dameron: 21-day blitz. Said to do 2 times the
+[00:08:53] Dara Dameron: what is it? 2 times the, .
+[00:08:59] Sasha: the, like, average order value, or… Yes, yeah. That kind of thing, AOV?
+[00:09:02] Dara Dameron: And because Skin Spectra is $200.
+[00:09:06] Sasha: Yeah, I think that's more of a… So, the very first round, I only did 500.
+[00:09:11] Dara Dameron: And then, of course, it says the second round, then it says, you know, recommended two times the… two times that, and so I was like, okay, well, it's gonna suck. But I was like, maybe I'm supposed to… that's what I'm supposed to do here.
+[00:09:25] Sasha: So that's more of, that's more of, like, how much you want to run a budget per ad creative, not necessarily the daily budget.
+[00:09:33] Sasha: Just because with a higher daily budget, it's like, it's harder to kind of, like, keep an eye on your campaign and shut off creatives that aren't working, that kind of stuff. So the AOV kind of threshold in general, as a multiplier of your average order value, or your CPA, is to do with just sort of, like.
+[00:09:51] Sasha: kind of individual creative validation to have some sort of, like, statistical significance, not… not as a specific setting to how much you need to spend per day, just that you need to get to a certain number per ad creative.
+[00:10:03] Dara Dameron: To, sort of.
+[00:10:04] Sasha: Get enough data to, to kind of…
+[00:10:07] Sasha: understand if it's converting well enough. Okay, I see.
+[00:10:11] Dara Dameron: It was… it was based… it was based on what…
+[00:10:14] Dara Dameron: Your overall, kind of, budget was for… for looking at those creatives?
+[00:10:20] Dara Dameron: Gotcha, okay.
+[00:10:21] Dara Dameron: Okay, so is there…
+[00:10:22] Sasha: So yeah.
+[00:10:22] Dara Dameron: I guess there's not really a recommended daily, because it just depends on how long you want that to run.
+[00:10:28] Sasha: Yeah, yeah, exactly. And how, like, you know, how much you're able to pay attention to it during the day to be able to kind of, like, filter things out, but…
+[00:10:37] Sasha: You know, I would say probably no more, no more than $500 a day to start, maybe even less, like $250, you know, just because it's… it's fine to get it, like, to spend slower, but, like, be a little bit, you know, able to pay attention to what's going on and react to it a bit more in real time.
+[00:10:55] Dara Dameron: That makes so much sense. You just made my life a lot easier.
+[00:10:59] Dara Dameron: Good, alright.
+[00:11:00] Sasha: Well, it's going well so far, then. So yeah, just from the campaign setting level, the daily budget, and then just keeping in mind that
+[00:11:07] Sasha: You really just want to, like, probably stick to two sub-campaigns, one for vertical, one for horizontal, and keep the learning process going, because it takes about, I think 20 to 30 conversions to exit, like, learning phase, so to speak.
+[00:11:23] Sasha: But even during that time, you know, the algorithm is learning what's working, and it'll kind of, like, keep kind of optimizing and trying to find conversions based on what's worked, so…
+[00:11:32] Sasha: you know, we can still… we'll still obviously take a look at your creatives and see, you know, what's going on there, but just off the top of my head, that could affect it, if you, like, round one worked, and then you.
+[00:11:42] Dara Dameron: So much.
+[00:11:43] Sasha: what's working and move to another sub-campaign. It kind of starts… I mean, it does more or less start from scratch. We've been told that there is some amount of learning across… on the campaign level that, you know, four different sub-campaigns, but most of the learning process happens within a single sub-campaign, based on the creatives that are in there.
+[00:12:02] Dara Dameron: Okay.
+[00:12:03] Dara Dameron: Okay, that makes sense. And then I also saw something in the Blitz about, like, each sub-campaign should only have, what, 5? It's like 3 to 5
+[00:12:13] Dara Dameron: Running live, is that right?
+[00:12:15] Sasha: Yeah, yeah, that's what we've been told. I mean, initially we were starting out with 10, and then it was kind of, like, ongoing feedback from the traffic source saying that that was, like, kind of too much for the algorithm at once, and so the new recommendation is the 3 to 5 as a…
+[00:12:30] Dara Dameron: Okay. That was a limit, but, you know, I think… So in that case, in that case, it would be okay to start a new sub-campaign.
+[00:12:36] Dara Dameron: If… for… if you're running, like, 10 or something.
+[00:12:39] Sasha: I would… I would still probably… I would still probably, if it's in horizontal, I would just run 5 at a time.
+[00:12:45] Dara Dameron: Okay.
+[00:12:45] Sasha: And then add 5 more and trigger them on, just because I think that that, like, learning process.
+[00:12:50] Dara Dameron: Yeah.
+[00:12:51] Sasha: is valuable, and if your ad angle is sort of similar, and you're obviously running it towards the same product, it just makes more sense to kind of keep that learning process all in one, even if it takes.
+[00:13:02] Dara Dameron: Gotcha.
+[00:13:03] Sasha: Running a little bit longer to test 10 different creatives by triggering them on and off at different times.
+[00:13:09] Dara Dameron: See, this is exactly why I needed you today.
+[00:13:12] Dara Dameron: Because my brain doesn't work this way yet, so…
+[00:13:15] Dara Dameron: Okay, that's awesome. Okay, that's super helpful. Let me see, I'm gonna pull up my… Add variations here.
+[00:13:52] Dara Dameron: So here's…
+[00:14:00] Dara Dameron: Okay, so they were fine with my descriptions. Here's what I had originally.
+[00:14:06] Dara Dameron: And this one was my winning one from the first part of round 2 that I had done.
+[00:14:13] Dara Dameron: And they said that Obsessed was… was what I couldn't do.
+[00:14:20] Sasha: Okay. Yeah, and so this is…
+[00:14:23] Dara Dameron: basically right here, like, is what they said would be a better one to do. And I even asked about doing
+[00:14:31] Dara Dameron: You know, putting these in, and there… they had said it's not necessary.
+[00:14:36] Dara Dameron: So I was like, alright, well, maybe there's something that's changed.
+[00:14:40] Sasha: Wait, compliance said it was unnecessary?
+[00:14:41] Dara Dameron: Yeah.
+[00:14:43] Dara Dameron: Yeah.
+[00:14:44] Sasha: I have not heard anything about that. I mean, as far as I… as far as I'm concerned, they're… they're worth testing. I don't know about…
+[00:14:51] Dara Dameron: Well, I mean, it's… it definitely threw me for a loop, just because I was so… I mean, what… what I've been doing has worked so far.
+[00:15:00] Dara Dameron: And so…
+[00:15:02] Dara Dameron: based on, basically, what the Blitz has said, and what all the coaches have said, and calls, so… but then I was like, well, maybe something has just really shifted, and so I was like, I'll try it, and obviously it didn't go well, so I'm… so… I mean, I'll go back to obviously putting those in, because I do think everything that's shown me and everything that's been said is that.
+[00:15:20] Sasha: Yeah.
+[00:15:21] Dara Dameron: I mean, those are…
+[00:15:22] Sasha: I'm just gonna make a note to, like, ask about that in our next meeting, but if they said it's unnecessary, and they didn't say it's non-compliant, then you're welcome to test it, because…
+[00:15:32] Dara Dameron: Sure.
+[00:15:33] Sasha: Yeah, I've… I don't know why it wouldn't be.
+[00:15:37] Dara Dameron: Yeah.
+[00:15:38] Sasha: And then, yeah, they said that…
+[00:15:40] Dara Dameron: This part about, I mean, About ditching the 8…
+[00:15:46] Dara Dameron: $8,000 treatments. They said I need to, I can't have anything about Stanford.
+[00:15:53] Dara Dameron: What's the other part?
+[00:15:56] Dara Dameron: Erases, I can't say anything about it, erases aging.
+[00:16:00] Dara Dameron: I can't say anything about reversing aging.
+[00:16:03] Dara Dameron: So basically, every… so, kind of the direction I was headed… All of a sudden, was…
+[00:16:09] Dara Dameron: Had been told me… they had told me that It's…
+[00:16:13] Sasha: Yeah, the erases and reverse, that makes sense. That just is a little bit too bold of a claim to prom… in terms of, like, promising results kind of thing.
+[00:16:22] Dara Dameron: Okay.
+[00:16:22] Sasha: So…
+[00:16:23] Dara Dameron: So I'm just… I guess I'm confused why that… I'm confused why that hasn't been… because I know, I know I've had a few of those…
+[00:16:30] Dara Dameron: Statements in previous ones.
+[00:16:34] Sasha: You know, it could just be… just be to, like, ongoing feedback from the traffic source.
+[00:16:38] Dara Dameron: Sure, okay.
+[00:16:39] Sasha: If they came back to them and said, hey, you can't do this, then we kind of just have to respond in real time.
+[00:16:44] Dara Dameron: Yeah, okay. That's fair, that's totally fair.
+[00:16:48] Dara Dameron: Okay.
+[00:16:50] Dara Dameron: So yeah, so then they… we went.
+[00:16:53] Sasha: But the other thing, too, just to kind of keep in mind, as we're… since we were talking about, dynamic content, is… so you have a 90-character limit.
+[00:17:04] Sasha: Right. You understand, right? Yes. But if you put in city in parentheses, and it fits within a 90-character limit, that's one thing, but imagine putting in San Francisco, part of your headline might get cut off, so just keep that in mind as a general, like, you need to leave some buffer, I think, towards the end of your headline, or whatever city's name will be put into place there.
+[00:17:22] Dara Dameron: Sure. Okay. Alright, that's a good call. Okay.
+[00:17:26] Dara Dameron: Alright.
+[00:17:27] Sasha: Okay, anyway, sorry, we're ready.
+[00:17:33] Dara Dameron: No, you're fine. So yeah, I think that helps what you just told me about… about these.
+[00:17:39] Dara Dameron: So I guess my question is… so I went from… and everything you're saying is kind of all adding up to…
+[00:17:48] Dara Dameron: Including that's probably why.
+[00:17:50] Dara Dameron: My last round didn't go as successfully as it was, because things were trending. Mind you, only over two rounds, but they were.
+[00:17:57] Sasha: I mean.
+[00:17:58] Dara Dameron: word.
+[00:17:59] Dara Dameron: But… I guess…
+[00:18:04] Dara Dameron: what suggestions would you have? I'll share my other screen again. What suggestions do you have about,
+[00:18:13] Dara Dameron: what my next steps should be. Do I go back to my successful round, which was my beginning of round 2, where I had my 5 sales, and.
+[00:18:26] Sasha: Yeah, are you able to pull up the data from that block of time, just so we can kind of look at it? Because you have a lot of rounds mixed in.
+[00:18:33] Dara Dameron: I know.
+[00:18:34] Sasha: For me to tell.
+[00:18:35] Dara Dameron: I know, it makes sense now what you're saying.
+[00:18:38] Dara Dameron: I did that.
+[00:19:16] Sasha: Oh, you need to select a campaign.
+[00:19:18] Dara Dameron: Oh, thank you.
+[00:19:30] Dara Dameron: And actually, I forgot, this actually ran into… Dang.
+[00:19:53] Dara Dameron: Sorry, I'm trying to remember.
+[00:19:56] Dara Dameron: Oh, because there was an issue. My… my ads went to warning midway through this.
+[00:20:03] Sasha: And so…
+[00:20:06] Dara Dameron: Anyway, so that ended up causing things to go much longer than… they had.
+[00:20:12] Sasha: Okay, let's…
+[00:20:18] Sasha: Do you want me to… No, I was just… I'm just… no, it's alright, I'll just… I'm just kind of, like, glancing around at it. Okay. I think maybe it's because it was the Black Friday, like, your ad CPCs are kind of high?
+[00:20:29] Sasha: Relative to what the ad CTR is, for what I would expect for that kind of ad CTR, but if it's, like, it looks like it was around Thanksgiving, yeah. That's like a kind of expensive time to run ads, basically, because all the Black Friday, Cyber Monday kind of stuff.
+[00:20:44] Dara Dameron: shit.
+[00:20:44] Sasha: really, Q4 in general is kind of an expensive time, more expensive time to run ads. Gotcha. Especially, like, leading up to Christmas, obviously, and starting in January, things will kind of, like, settle down, but, like, this is the time of year when just big ad agencies and media buying companies are, like, dumping the rest of their budget towards the end of the year.
+[00:21:02] Dara Dameron: I see.
+[00:21:03] Sasha: So just, just to keep in mind that.
+[00:21:05] Dara Dameron: That's good to know.
+[00:21:05] Sasha: The price of testing.
+[00:21:07] Dara Dameron: Sure, okay.
+[00:21:09] Sasha: But, let's see, so you had one with two conversions, one with one, one with another…
+[00:21:15] Dara Dameron: I think there's one on… This other page.
+[00:21:26] Dara Dameron: This does this to me a lot.
+[00:21:29] Dara Dameron: Mark gets mad at me.
+[00:21:30] Sasha: -Oh. Yeah, you can also instead just do the show… instead of showing 10 entries on the top left.
+[00:21:36] Sasha: 20, so maybe just wanna… I wanna refresh that.
+[00:21:39] Dara Dameron: Yeah.
+[00:21:40] Sasha: And then… and so, that was from…
+[00:21:45] Sasha: And so then your next round of testing, because I also have your DIY tracks pulled up on my screen here, is from the 8th to the 11th, is that right?
+[00:21:53] Dara Dameron: Yeah, so that was my next… that next round.
+[00:21:58] Sasha: And that was in a different sub-campaign.
+[00:22:00] Dara Dameron: Yeah.
+[00:22:02] Sasha: Okay, I'm just kind of pulling it up because I'm curious to see.
+[00:22:05] Dara Dameron: Sure, yeah.
+[00:22:06] Sasha: Your ad CPCs are wildly… oh, but this is also vertical.
+[00:22:09] Dara Dameron: Yeah, so this one was, I basically took the…
+[00:22:15] Dara Dameron: the, the image that won in that other campaign, in that, first part of Round 2,
+[00:22:24] Dara Dameron: I… because it didn't mention anything about what to do with the images, or… and maybe I missed it, but… so I just took that one and used that with the new headlines.
+[00:22:39] Sasha: Okay, so it's the same image, but in a vertical? Is that what you're saying? Yeah.
+[00:22:43] Dara Dameron: Yeah. Well, it was the… I think it was the, the video that hid…
+[00:22:49] Dara Dameron: seemed to do the best with my, with the round two, the first part of Round 2.
+[00:22:55] Dara Dameron: And so that's the one that I… I kept.
+[00:23:02] Sasha: Let's see… so in Round 2, you have both
+[00:23:06] Sasha: That's… round two is when you had both.
+[00:23:09] Dara Dameron: Vertical and horizontal.
+[00:23:11] Sasha: Vertical and horizontal, okay.
+[00:23:12] Dara Dameron: And you also had… you also have two GIFs, same thing, vertical, horizontal, and then two videos, horizontal, vertical, so…
+[00:23:20] Sasha: Yeah, I think part of it, too, is… I think probably part of what is,
+[00:23:25] Sasha: driving up the CPC is I think video placements are just generally more expensive.
+[00:23:30] Dara Dameron: Okay.
+[00:23:31] Sasha: That's just kind of from what I've seen. I see that kind of trend, because I'm just looking at your same, creative for the horizontal for a video versus a GIF that's right below it, and the GIF is, like, a third of the cost.
+[00:23:46] Dara Dameron: Okay.
+[00:23:47] Sasha: or so. It's not always that drastic, but it's just something to kind of keep in mind, because that definitely plays into your landing page event, you know, CPC.
+[00:23:55] Dara Dameron: So if you notice that you're… if you notice that you're…
+[00:23:59] Dara Dameron: Top ad, or your winning ad, is a video.
+[00:24:03] Dara Dameron: then has the video placement in it. I mean, do you still go with that, or do you…
+[00:24:09] Sasha: You can, I mean, it just… I think it kind of becomes, like, more important to pay attention to the numbers behind what does that more expensive mean.
+[00:24:20] Dara Dameron: Okay.
+[00:24:21] Sasha: In terms of what the… because the expense is only one part of the equation. How that factors into landing page click-through rate is also important, because I think with the more expensive placement, it usually has a more engaged audience, so as a result, your landing page event click-through rate will be higher. I've seen that too.
+[00:24:39] Sasha: And so, if you're… let me just actually just share my screen real quick, just so I can.
+[00:24:44] Dara Dameron: Yeah, you bet.
+[00:24:45] Sasha: Point, point things with my mouse.
+[00:24:46] Dara Dameron: Yeah.
+[00:24:58] Sasha: Alright, are you seeing this?
+[00:25:00] Dara Dameron: Yes.
+[00:25:02] Sasha: So, the… kind of what I was talking about in terms of the numbers, of, like, how…
+[00:25:09] Sasha: this is your ad CPC, right? This is video, this is GIF right here, and this is your landing page event CPC for both of them. And how that gets calculated has everything to do with what the engagement is, you know, the actual percentage, so…
+[00:25:26] Sasha: Generally, like, I mean, the ad CPC is an important kind of, excuse me, first step to take a look at, but this is the number that really starts mattering more, because this is… what is the cost of getting someone to your offer page?
+[00:25:40] Sasha: Okay. Right? Because that takes into consideration this and this together, like, the cost of the ad click, and then the landing page click-through rate. Because, you know, you're… I see, in general, vertical placements seem to have lower landing page click-through rates, but their ad CPCs are cheaper, so you're not really able to… if you're just looking at this across different placements.
+[00:26:03] Sasha: you're not really kind of, like, comparing apples to apples, because different placements will have… just people are quick through them faster, you know? For some reason, vertical…
+[00:26:12] Sasha: not as much engagement, but it's a lot cheaper, and so this becomes kind of the equalizer metric, because that takes into account both the landing page click-through rate and the ad CPC, if that makes sense. So this is the number that is more important to get lower than this, even though
+[00:26:28] Sasha: they both have something to do with this, ultimately, but this is, you know, the true cost of getting someone to your landing page. Eventually, the most important part is your CPA, because that takes into consideration, like, everything, the
+[00:26:41] Sasha: ad CPC, the landing page click-through rate, your landing page conversion, all of that. But initially, in terms of, like, gauging
+[00:26:49] Sasha: you know, the initial potential of various ad creatives, this is the number I start to look at a little bit more. Okay. And, you know, so…
+[00:26:59] Sasha: Based on that, we also kind of should probably take a look at what your…
+[00:27:05] Sasha: conversion data was. Okay, well, that's nice to see that you have, like, you know, more conversions on a single headline, more conversions on a single hero shot, so this is probably the control.
+[00:27:17] Dara Dameron: That's control, yeah.
+[00:27:18] Sasha: And then this was one of your headlines.
+[00:27:21] Dara Dameron: Yeah.
+[00:27:22] Sasha: But while you're in teaching.
+[00:27:25] Sasha: Okay.
+[00:27:26] Sasha: That's…
+[00:27:31] Sasha: The other thing I sometimes look at, too, for example, I don't know if you've filtered things this way.
+[00:27:37] Sasha: But if you take an ad creative number, so let's say 39.
+[00:27:40] Dara Dameron: Huh.
+[00:27:41] Sasha: And you plug it into here.
+[00:27:44] Sasha: And then you go to your landing page section.
+[00:27:48] Sasha: And you can select Add ID, and so this filters
+[00:27:53] Sasha: Filters your landing page just by that ad creative, and see what people clicking on that specific ad, what,
+[00:28:00] Sasha: landing pages, converted.
+[00:28:04] Sasha: This is, you know, it's a little bit trickier to do this with, you know, ads that haven't had,
+[00:28:11] Sasha: all that much traffic to it, because it…
+[00:28:16] Sasha: You know, the aggregate section takes…
+[00:28:19] Sasha: averages in a way that's helpful, just to see across all of your ad creatives what seems to be moving the needle, but I also like to look at this sometimes, just to see if even on an individual ad, you just have a certain variant that keeps popping up at the top, sort of like a manual aggregate
+[00:28:35] Sasha: glance, at your… at your individual landing pages.
+[00:28:40] Sasha: But… there isn't really anything that kind of pops up here, and as you can see, like, the individual, like, page visits aren't that huge, and to really kind of, like… the annoying thing is that, like, this doesn't change, so this is still just the aggregate for all of the ads.
+[00:28:54] Dara Dameron: Yeah. But this has been selected, so you can kind of, like, try and do the math.
+[00:28:59] Sasha: Manually, in a way. I was just trying to see if… sometimes it just happens that, like, you'll see V3 just kind of be right at the top, you know? That means that…
+[00:29:08] Sasha: that kind of works a little bit better, but, you know, without having something pop up like that, I'd still kind of go based on… on the aggregate, and like, this is, you know, the messaging that seems to be working the most. Even though, as you see, it doesn't actually have.
+[00:29:23] Dara Dameron: Yeah.
+[00:29:23] Sasha: click-through rate, but it has the most purchases, and that's ultimately what we want, because this is the number that kind of matters most, you know? Sure. And in theory, like, this is the most successful, because it has, you know, the least
+[00:29:39] Sasha: loss, highest conversion, the lowest CPA. So, you know, if you were to kind of, like, move forward from just what we're looking at in terms of these results.
+[00:29:49] Sasha: This would be the one that, you would start iterating off of, just because, you know, 3 conversions.
+[00:29:54] Dara Dameron: Right. Okay.
+[00:29:55] Sasha: Yep.
+[00:29:57] Dara Dameron: So, at this point, I mean, do you… do you start turning off some of your landing pages, or are you still keeping them on?
+[00:30:06] Sasha: Let's see…
+[00:30:09] Dara Dameron: No, I mean, this is a pretty good amount of data. I would probably use this as kind of, like, the new base to iterate off of, you know?
+[00:30:16] Sasha: You know, assuming kind of, like, you tested… it looks like you tested different angles and different headline styles and things like that.
+[00:30:23] Dara Dameron: Yeah.
+[00:30:24] Sasha: You know, if this is something that works, then this is something that you can continue to iterate off of, you know.
+[00:30:30] Dara Dameron: Okay.
+[00:30:31] Sasha: At this stage, you know, what I would do is I would kind of, like.
+[00:30:35] Sasha: analyze my initial, like, you know, concepts of what I was trying to test, and…
+[00:30:41] Sasha: isolate this as something that is working and something to iterate off of. And that means, I think, to me, both on the landing page side, but also trying to tie that back into your ad creatives, because…
+[00:30:53] Sasha: to…
+[00:30:55] Sasha: increase, like, you know, the amount of success you can have with this. Since this is the concept that is working, this is the one that you need to improve on in both in terms of your landing page headlines and tying it back into your ads. You know, it's a little tricky because
+[00:31:12] Sasha: you can't, you know, use Stanford as a headline in your ad, but I guess it's fine in your landing page.
+[00:31:24] Dara Dameron: But yeah, there's a way around that I'm… a way to…
+[00:31:27] Dara Dameron: To condense that and make it kind of tie in together, for sure.
+[00:31:31] Sasha: Yeah, let's see, is it V3?
+[00:31:36] Sasha: this one, I just want to see the full…
+[00:31:50] Sasha: Yeah, this is something that is probably room for improvement here. So I just switched it to mobile view. I was like, this isn't, like, exact, but this is just a general preview of, like, how this would look like on your phone.
+[00:32:01] Dara Dameron: Right. And it's just really busy.
+[00:32:03] Sasha: There's kind of a lot going on, but I think with this traffic source, mobile optimizing for how it looks in mobile is pretty important. If you… I don't know if you've looked at it in your traffic, but from what I've seen before, like, a lot of,
+[00:32:16] Sasha: a lot of traffic is in mobile. You'll see that it's in… Ios, you know?
+[00:32:23] Dara Dameron: Oh, yeah.
+[00:32:24] Sasha: Okay, no, I have a.
+[00:32:25] Dara Dameron: Welcome to that. Okay.
+[00:32:26] Sasha: And so just making… making sure… actually, I think we can remove this, and this should give you a bit better average.
+[00:32:35] Sasha: So yeah, it looks like all your conversions came from, iOS, and, you know, a huge majority of the traffic is either Android or iOS, just looking at impressions and ad clicks, right? So…
+[00:32:48] Dara Dameron: Yeah.
+[00:32:48] Sasha: Back to this, this is why I think optimizing how it looks when someone looks at it on your phone is important, and the two things that are happening here is, A, it's just a lot of stuff.
+[00:32:59] Sasha: And B, it isn't… it isn't…
+[00:33:02] Sasha: segmented by importance, in a way, like, your headline, sub-headline, and the quote are all kind of similar sizes, and so it makes it pretty difficult to skim.
+[00:33:12] Sasha: Sure. Both in terms of, like, there's just a lot of words, and you're not, sort of, prioritizing tier 1, 2, 3 kind of thing.
+[00:33:19] Dara Dameron: Sure.
+[00:33:21] Sasha: I would probably…
+[00:33:24] Sasha: get rid of one of the elements, honestly. Like, I think, to me, having a headline, a sub-headline, and a hero shot.
+[00:33:33] Sasha: those three things be mostly above the fold, so, like, the first thing you see when someone lands is kind of helpful. You could try, seeing how this looks
+[00:33:47] Sasha: below, potentially, and seeing if you can put in, like, a couple of lines just to make it, like, a quote before the, before the main content happens. Maybe just removing it, I'm not sure, but just.
+[00:34:00] Dara Dameron: Okay.
+[00:34:01] Sasha: something to make it less busy and just make your core messaging pop right away, rather than… you know, I think this amount of text can kind of be a little bit of a turn-off, especially people who aren't expecting to, like, land on an advertorial and be forced to read stuff. You kind of really want the core messaging to be…
+[00:34:19] Sasha: Right at the forefront.
+[00:34:20] Dara Dameron: Okay. Let's see, what else…
+[00:34:23] Sasha: What am I?
+[00:34:26] Sasha: Whatever there is.
+[00:34:29] Sasha: Oh, I clicked on the wrong one. I want it to be 4. Okay.
+[00:34:39] Sasha: I'm just trying to pull up a random V4,
+[00:34:42] Sasha: I think in general, too, I would…
+[00:34:45] Sasha: For the most part, like, not focus too much on having animation in your hero shot.
+[00:34:52] Dara Dameron: Okay.
+[00:34:52] Sasha: It's, like, I mean, you can kind of…
+[00:34:55] Sasha: test it in a refinement stage, once you find, like, an image that is working, but I think it can also just be…
+[00:35:02] Sasha: As much of a distraction, like, you know, you kind of want people to get the initial impression here, and then, like, start reading the thing, you know?
+[00:35:09] Dara Dameron: Okay.
+[00:35:11] Sasha: So, especially since none of the,
+[00:35:15] Sasha: your animations kind of popped out on top, and the… this element is what's working the most. Right. I would maybe test…
+[00:35:27] Sasha: test more still image concepts, you know? Okay.
+[00:35:31] Sasha: Potentially, like, see if you find another split thing kind of like this you want to test against. Maybe…
+[00:35:39] Sasha: similar ideas to this, but still, I mean, the whole, like, looking in the mirror concept, whether you're looking in the mirror and you're happy or sad or whatever, just…
+[00:35:47] Dara Dameron: Right.
+[00:35:48] Sasha: different kind of emotional angles you want to try to that.
+[00:35:53] Sasha: But, you know, another option, just to kind of, like, give you different perspectives, is, you know, this is working well enough, it's getting conversions. If you want,
+[00:36:03] Sasha: to kind of test faster in terms of your core messaging, just you could also keep this image and just focus on headlines. That kind of gets data to your headlines faster, so instead of having 25 variants, you have
+[00:36:17] Sasha: Including images and headlines, you have one image and then five headlines, and then that's, like, that, you know, so now you're, instead of driving traffic to 25 different ideas, you're doing straight to 5, and that just gets more impressions to your headlines, which I think, you know, is more…
+[00:36:33] Sasha: significant in terms of, like, purchase patterns and click-through rates and things like that. The image is kind of, like, backs it up and kind of sets the emotional tone, but the headline is, you know, I think kind of what really sells it, and I think just for frugality's sake, you could also split up the testing of, like, find a headline that works, then potentially down the road work on
+[00:36:52] Sasha: Refining what images might move the needle a little bit more, too.
+[00:36:57] Dara Dameron: Okay.
+[00:37:00] Sasha: But yeah, I mean, now that you have, you know, something that is working here, iterating off of this and creating more headlines to test is a good idea.
+[00:37:09] Dara Dameron: Whether that's.
+[00:37:13] Sasha: I mean, I think just kind of testing headlines for this angle, is a good idea. My other suggestion would have been, like, what I would call just kind of micro-iterations.
+[00:37:23] Sasha: But I think that's when you're a little bit closer to kind of, like, break even on a headline than you're testing, like, different word changes, you know? Instead of shocking… I mean, you know, just kind of, like, use your thesaurus, or sort of, you know, kind of.
+[00:37:36] Dara Dameron: Right, yeah.
+[00:37:37] Sasha: See what kind of, like, mild improvements you can make, but right now, I think just, you know, whatever, however you identified this angle in terms of your headline writing process, iterating on this concept, but, like, trying different headlines that, that,
+[00:37:52] Sasha: Are probably, like, significantly different, just to see how much you can improvement… improve it, and then, you know, tie your,
+[00:38:01] Sasha: The ads that you're testing sort of now into this, this, headline more specifically?
+[00:38:08] Dara Dameron: Okay.
+[00:38:09] Sasha: If that makes sense.
+[00:38:11] Dara Dameron: Yeah, no, that's super helpful.
+[00:38:16] Dara Dameron: And when… when we're doing these… these kind of spin-off tests, Is it…
+[00:38:24] Dara Dameron: I mean, what is… what is an appropriate…
+[00:38:28] Dara Dameron: ad spend budget to where you…
+[00:38:32] Dara Dameron: Can get enough… enough data, or is that kind of… it just depends on the product?
+[00:38:38] Sasha: I mean, that's kind of where the two times AOV thing kind of comes in, is you're testing it out towards a certain threshold to see if it, you know, not only gets a conversion, but…
+[00:38:49] Sasha: Okay, I don't know what's happening there, but, can continue getting conversions, right? So…
+[00:38:55] Sasha: What's the co- what's the, the commission on this one.
+[00:39:01] Dara Dameron: The 200.
+[00:39:02] Sasha: 200. So yeah, I mean, to, like, fully kind of prove out a creative, you'd probably be taking it to about there, but, like, initially, you're looking at
+[00:39:13] Sasha: more things like this, you know, and this, your landing page click-through rate and landing page event CPC. Those are, like, the early indicators of what is working. I mean, as you've seen here, you can't rely on it entirely because slightly lower than this, more conversions, slightly higher, so if you just decided to cut this out because it was 1% off.
+[00:39:33] Sasha: You would have been missing out on something.
+[00:39:35] Dara Dameron: Yeah.
+[00:39:35] Sasha: But, you know, at the same time.
+[00:39:38] Sasha: long-term, it still matters. The cost of how, you know, getting person to the offer page is still important, so you're more trying to look for significant outliers than the difference between 12.8% and 14%.
+[00:39:52] Dara Dameron: So, like, you know…
+[00:39:53] Sasha: with those kind of percentages, I wouldn't necessarily… like, if this was those numbers up here, I wouldn't eliminate the 12.8 versus the 4… that's just too small of a difference to, like.
+[00:40:04] Dara Dameron: Right.
+[00:40:04] Sasha: to eliminate one over the other. But for something like…
+[00:40:08] Sasha: like, these percentages, if their ad CPCs were the same. This would be, like, an early indication phase, a better performer.
+[00:40:16] Sasha: Even though, you know, you saw that this one got two conversions, this one got one, but, like, in general, because of the drastic difference in CPCs, this is actually pretty close, and that's why, you know, that.
+[00:40:28] Dara Dameron: Exactly, yeah.
+[00:40:29] Sasha: looking at this as well is important, because when you ignore the click-through rate and you look at the actual cost, these are in that same realm of the 12.8 versus 14%. Like, they're super close, and I wouldn't have eliminated one or the other just because
+[00:40:43] Sasha: you know, this is less… less relevant, when you're trying to compare in a more, like, an apples-to-apples way, and take into account that there are, like, different placements and a different, like, overall CPM cost.
+[00:40:54] Dara Dameron: Yeah, okay.
+[00:40:56] Dara Dameron: Okay, that's super helpful.
+[00:41:01] Sasha: And then, let's see… and so this was…
+[00:41:07] Sasha: This was the 12-8, so let's look at that.
+[00:41:11] Sasha: Whoa…
+[00:41:25] Sasha: Yeah, you can see how in the vertical, like, your click-through rates are immediately lower, your CPCs are crazy low, and some of them are at 8 cents, right? I know. But, you know, even…
+[00:41:37] Sasha: sometimes you can, like, have things that are potentially viable, even with a lower landing page CPC, just not quite this low, you know?
+[00:41:45] Sasha: Because these are still kind of a little bit on the high end, especially without having, like, kind of conversion. So,
+[00:41:54] Sasha: You know, I would honestly probably just, for now, stick to, your horizontal placement, because A, you've already gotten conversions there, you have some training to begin with, and you're…
+[00:42:08] Sasha: I feel like the… the landing page data is just easier to analyze. I would probably just, like…
+[00:42:14] Sasha: Find your… fine-tune your kind of core messaging before trying different placements at this point, because…
+[00:42:21] Sasha: I think there'll just be sort of a more frugal way to test initially, is just to prove out the basic angle, you know, your headlines, your image, and then expand to placements, because then you have something to really kind of compare it to, like.
+[00:42:34] Sasha: Have it sort of working, or have some serious traction with it in one placement, and then be like, alright, well, this is working here, can we get it working here, but cheaper, you know?
+[00:42:42] Sasha: In the vertical space. And I'm mainly saying that just because
+[00:42:47] Sasha: In part because, like, you already have conversions in the horizontal space, even if they're, like, a little bit expensive right now, but you have something to compare it against here, and this, you don't…
+[00:42:58] Sasha: You don't really have anything to go off of, and running simultaneous headline tests in vertical, and in horizontal, and writing new landing page headlines, you kind of just… it would just be…
+[00:43:10] Sasha: Too many… too many things to compare against each other, you know?
+[00:43:14] Dara Dameron: So kind of focus on, like you said, do the horizontal, focus on that, but then just fine-tune that messaging. With the fine-tuning of the messaging,
+[00:43:25] Dara Dameron: So do I turn off all my other landing pages and keep that one landing page on, or do I create a couple
+[00:43:34] Dara Dameron: A couple of spin-offs of that landing page, headline… Or, what do you… What do you think?
+[00:43:44] Sasha: Hmm.
+[00:43:47] Dara Dameron: And then, of course, I'll… I'll make,
+[00:43:51] Dara Dameron: The native ads headlines to… to match a little bit better.
+[00:44:13] Sasha: I mean, I would probably… Also, test, headlines in your landing page section.
+[00:44:19] Dara Dameron: Okay.
+[00:44:19] Sasha: You know, I don't… I don't think you really, like, reached a final headline, and when you're testing ads and not testing headlines, it's kind of a little bit of a wasted opportunity, in my opinion, of, like, you're already running traffic, this might as well sort of be your new control, and then you have other iterations.
+[00:44:36] Dara Dameron: Sure.
+[00:44:36] Sasha: in this angle, to see if you can improve on it. But, like, you know, it's a good start. Like, you're…
+[00:44:43] Sasha: I'm a little bit confused about this math, because your CPA is… 70… 2 on this one, but…
+[00:44:54] Sasha: That wouldn't… That doesn't make sense.
+[00:44:59] Sasha: Because if your CPA was below your commission here, this should be at a profit, so something doesn't make sense about this math to me, but maybe I'm just missing something. But anyway, you know, this is your current best performer, but, like, obviously can still be, improved overall, so…
+[00:45:16] Dara Dameron: Sure.
+[00:45:16] Sasha: So it's not like you're restarting a landing page test, you've just found a new control that is working, but now you just need to…
+[00:45:26] Sasha: figure out ways to improve it a little bit, you know, mostly through improving the landing page click-through rate, while trying to kind of keep your ad CPC costs down.
+[00:45:37] Sasha: Okay. And I think… I… I think that…
+[00:45:40] Sasha: hopefully just, stylistic optimization will… will kind of improve it.
+[00:45:47] Sasha: So…
+[00:45:49] Sasha: Probably, even if you just made this part of it a little bit better and didn't change anything else, it should improve overall.
+[00:45:56] Sasha: Just because this is kind of a bit… a bit overwhelming.
+[00:45:59] Dara Dameron: Yeah.
+[00:46:01] Dara Dameron: Okay.
+[00:46:03] Dara Dameron: That's super helpful. All of this has been very helpful.
+[00:46:06] Sasha: Okay, good. I mean, yeah, this is hard. Without kind of, like… I'm just kind of, like, re-approaching which of these I would kind of get rid of, because I do think something needs to get a little bit minimized here.
+[00:46:17] Dara Dameron: Yeah.
+[00:46:17] Sasha: So, I don't know, I'll kind of just leave it up to you to think about it, just kind of, like, analyzing what you see as working in your core messaging here, what you see as working in the actual main headline, and seeing which of these really kind of supplements it and helps it more, because…
+[00:46:35] Sasha: I'm not really sure. If you do keep the quote.
+[00:46:38] Sasha: I would probably not bold it. I would maybe make it italic, but definitely not bold, just kind of part of that visual breakdown that we talk about. Just, I don't want this competing with that. It's something that, like, they read that, this is, like, an add-on, because possibly they'll just…
+[00:46:54] Sasha: skim and see only certain words and then keep reading, but right now, they're kind of at odds with each other, so I try not to have my headline and my sub-headline both bold.
+[00:47:02] Sasha: It's just easier on the eyes and the brain to skim, which is what most people do anyway.
+[00:47:10] Dara Dameron: Great.
+[00:47:13] Dara Dameron: Alright, yeah, I'll work on… I'll work on all that stuff that's… Great next steps for me.
+[00:47:17] Sasha: Yeah, and then just, you know, it might be a little funky in the beginning, because your daily ad budget is high, and we talked about not changing your daily ad budget anymore.
+[00:47:26] Sasha: than 20%, but I think you just need to. Come what may, it might take a little… throw the algorithm for a loop.
+[00:47:32] Sasha: Sure. And it might be a bit of a rocky start in the beginning, but in the long term, I think it's a smart move, because you can't just keep doing initial tests at, like, that high of a cost, and missing, removing creatives that aren't necessarily working as well.
+[00:47:47] Dara Dameron: No, it makes so much sense. I'm so… now I'm so mad at myself for that.
+[00:47:50] Sasha: I mean, duh.
+[00:47:51] Dara Dameron: All those sub-campaigns, but it's a learning process, it's fine.
+[00:47:54] Sasha: Yeah, yeah, definitely.
+[00:47:55] Dara Dameron: Okay, cool. So, in looking at this stuff, just, I know we just have a few minutes left, but…
+[00:48:02] Dara Dameron: So, the important things to look at when I'm looking at this data is going to be, the add CPC. Obviously, we want that to be lower is better.
+[00:48:13] Dara Dameron: And then… the…
+[00:48:17] Sasha: Well, with the caveat of, like, lower is better as long as the click-through rate is still up, so…
+[00:48:22] Dara Dameron: Right. Yeah. Because I was gonna say, yeah, because then landing page, event, CTR, we want that to be higher, but then…
+[00:48:29] Dara Dameron: landing event, CPC.
+[00:48:31] Sasha: You have to take that into account, okay. Yeah, but ultimately, like, kind of what we were talking about before, about, like, you know, certain things are early indicators, and certain things are, like, what is actually working. Like, this one's a little bit surprising, right? Like, you had a pretty high click-through rate, I mean, it was kind of an expensive…
+[00:48:47] Dara Dameron: Yeah.
+[00:48:48] Sasha: That's interesting. Oh, it was a video. I was gonna say it's a vertical placement, but an expensive CPC that's a little strange, but this can happen. It's like, you have a high click-through rate, you know, this isn't the lowest, but it's on par with what you have up here that worked, but, like, after a bunch of ad spend, it didn't convert, you know, so…
+[00:49:04] Sasha: That can happen, and that's why these, you know, are still just early indicators of engagement, but, like, the ultimate, you know.
+[00:49:12] Sasha: the ultimate factor is, does it actually convert, and at what cost? So…
+[00:49:17] Dara Dameron: Okay.
+[00:49:19] Dara Dameron: Alright, bud.
+[00:49:22] Dara Dameron: Okay, well, yeah, I'll work on this next round, and we'll see.
+[00:49:25] Dara Dameron: see what happens. I was also gonna ask, the, what is… Hold,
+[00:49:33] Dara Dameron: Is it Anstrax? Is that what the…
+[00:49:38] Dara Dameron: like, the… the AI spy tool or whatever.
+[00:49:42] Sasha: Oh, yeah, the spy tool?
+[00:49:44] Dara Dameron: Have you heard anything about that? Because I know a bunch of people have had issues getting into… basically, it's saying that our subscript… the… the…
+[00:49:53] Dara Dameron: General subscription that they had for us, isn't working, so…
+[00:49:59] Sasha: Yeah, I was… I was gonna ask about that in our meeting this week, so I haven't… I haven't heard what the… what the deal is with that thing, yeah.
+[00:50:06] Dara Dameron: Okay, I was just curious about it. I haven't dove into that. I randomly came across it last week and thought I would take a look at that, but of course, haven't been able to get into it, so I was just curious.
+[00:50:20] Sasha: Yeah, I think it can be helpful sometimes. I think, you know, at most, I've really…
+[00:50:25] Sasha: used it as, like, a bit of a training tool for, like, getting ChatGPT to write headlines in more of, like, a native ad style. Yeah. But, honestly, like, ChatGPT isn't getting smart enough these days, you can probably say, like, these are for native ads, I need you to write it in this style, and…
+[00:50:42] Dara Dameron: Sure.
+[00:50:43] Sasha: It'll probably know just about as much as if you copied and pasted a bunch of headlines into it as a reference point, so…
+[00:50:49] Sasha: I wouldn't… I wouldn't let not being able to get into Anstrex.
+[00:50:52] Dara Dameron: No, no, not at all.
+[00:50:54] Sasha: thingy or something.
+[00:50:55] Dara Dameron: Yeah, yeah, yeah, yeah, you bet.
+[00:50:57] Dara Dameron: Okay, well, great. Well, I really, really, really appreciate all the input. I,
+[00:51:03] Dara Dameron: I've been, like I said, I've been on a couple calls. I'm a stay-at-home mom as of now, and I have a one-year-old, so I'm rarely able… and she doesn't nap, so, I'm rarely able to jump on calls, but.
+[00:51:13] Sasha: Yeah.
+[00:51:14] Dara Dameron: And I know I didn't want to take up an entire hour of a call just to go through all the nitty-gritty stuff that I was curious about, so I really appreciate this.
+[00:51:23] Sasha: Yeah, of course.
+[00:51:24] Dara Dameron: Hopefully, okay. Well, I hope you have a great rest of your day, and I'm sure we'll talk soon.
+[00:51:29] Sasha: Okay, sounds good.
+[00:51:30] Dara Dameron: Thanks, Sasha. Bye-bye.
+[00:51:32] Sasha: Bye-bye.

@@ -1,0 +1,421 @@
+TITLE: Live Coaching Call - Sasha
+SOURCE: coaching-transcripts.txt
+TURNS: 417
+
+[00:00:34] Sasha: Hmm.
+[00:00:35] Sasha: Hey guys.
+[00:00:38] Patrick: Hey, Sasha.
+[00:00:42] Sasha: Hello, hello.
+[00:00:45] Sasha: There's not too many people on today. All right, how's it going, Patrick? What's up?
+[00:00:50] Patrick: Hey, okay. Hey, so we had,
+[00:00:56] Patrick: I'm kind of stuck. Hold on, let me, let me share this with you.
+[00:01:05] Patrick: So…
+[00:01:07] Sasha: I did the.
+[00:01:10] Patrick: Finish running the campaign here on the…
+[00:01:13] Patrick: first round tests. You know how you had me run those 3 ads?
+[00:01:19] Sasha: For next year.
+[00:01:22] Patrick: You did. So, I've gone way over budget.
+[00:01:27] Patrick: So, I didn't get a whole lot of response with that, but here are my,
+[00:01:33] Patrick: I put these dates dating back to where I first started, so…
+[00:01:39] Patrick: I can actually change this to more recent.
+[00:01:43] Patrick: And we'll just go with, yeah, the 20th, I think.
+[00:01:51] Patrick: So, you can take a look at those.
+[00:01:54] Patrick: Those ads that I was having difficulty with.
+[00:01:58] Sasha: Yeah, or I remember you had an issue with…
+[00:02:01] Sasha: Your previous metric mover campaign showing, so we just needed to choose more recent dates.
+[00:02:07] Sasha: Wow, one of your ads has a really high CTR.
+[00:02:15] Patrick: Yeah.
+[00:02:18] Patrick: Let's see… Now, this is just…
+[00:02:23] Patrick: Yeah, this was just running it for an additional 3 days.
+[00:02:28] Patrick: Now, you know how I deactivated those other ads and just ran, I think, the 3 ads? I think it was, 9, 3, and 6.
+[00:02:36] Patrick: And this is what I got, so…
+[00:02:41] Sasha: Well, it doesn't really make sense to look at the campaign data within just, like.
+[00:02:46] Sasha: Let's look at it from when…
+[00:02:49] Sasha: You know, you started running for the first time, just so we can see the aggregate data for…
+[00:02:54] Sasha: Sure. All of the ads.
+[00:02:57] Patrick: Yeah.
+[00:03:17] Patrick: Yeah, well… Took a little while to load there. Yeah, so this should be, my progress.
+[00:03:26] Patrick: From start to finish.
+[00:03:34] Patrick: And, I mean, some of them did… seemed really well.
+[00:03:40] Patrick: Where others just totally slopped, so,
+[00:03:43] Patrick: I did change a few things on my ads.
+[00:03:48] Patrick: For the next round, but, now, I have not changed anything in my, landing pages, so,
+[00:03:57] Patrick: I don't know what you would recommend on that, be… Judging by, my progress results here.
+[00:04:06] Patrick: But, you know, some of them got a lot of hits, they just…
+[00:04:13] Patrick: Had absolutely zero sales, of course.
+[00:04:20] Sasha: You have some ads that are kind of decent, landing page click-through rate, but the problem is their… their ad CPC is really expensive.
+[00:04:29] Sasha: So you kind of have, like, both
+[00:04:31] Sasha: spectrum, where you have a really low ad CPC, but, like, a really, really low landing page click-through rate, and then you have
+[00:04:38] Sasha: Expensive clicks that are… have a higher click-through rate, and so…
+[00:04:42] Sasha: Finding that… that middle ground where you can get… lower your ad CPC while keeping your landing page click-through rate up is kind of…
+[00:04:51] Sasha: kind of the goal here. Yeah, I guess let's take a look at your landing page section, too.
+[00:04:56] Patrick: Yeah.
+[00:04:57] Sasha: Just down to the aggregate side to start, probably.
+[00:05:07] Sasha: I'll let you know when I see it, because with your internet, there's a bit of a delay for when I actually see.
+[00:05:12] Sasha: Alright, there you go.
+[00:05:16] Patrick: Oops, yeah, there is a delay, huh?
+[00:05:18] Sasha: Yeah.
+[00:05:19] Patrick: So yeah, you want to look at the aggregate landing page performance, correct? Yeah.
+[00:05:24] Sasha: Yeah, I mean, there isn't really anything jumping out there. I mean, they're all kind of…
+[00:05:29] Sasha: I think the trouble with, having ads that have a really low ad CPC and just getting a ton of clicks is that you kind of dilute the data for the rest of it, if that makes sense.
+[00:05:42] Sasha: It's just, like, all of the percentages look relatively low, so there isn't really…
+[00:05:46] Sasha: Nothing's jumping up to the top.
+[00:05:49] Patrick: Right.
+[00:05:53] Sasha: No choice.
+[00:05:54] Patrick: So, how does…
+[00:05:57] Sasha: Beautiful.
+[00:05:59] Sasha: Yeah, I mean, I think at this point, you probably still need to just work on your ads and your headlines to try and improve those metrics, because it's kind of hard to go off of anything on the landing page side right now.
+[00:06:11] Sasha: Just because all the numbers are so close. So, you know, kind of analyzing your headlines that are… have…
+[00:06:18] Sasha: a high click-through rate, and comparing them to the ones that have a really low ad CPC at a low click-through rate, and just kind of figure out how to
+[00:06:27] Sasha: do some… some more headline testing. I think at this point, I probably wouldn't…
+[00:06:31] Sasha: Wouldn't really move forward to image testing yet, because you don't really have a…
+[00:06:35] Sasha: A headline that's really gained traction.
+[00:06:39] Patrick: Yeah Okay, alright.
+[00:06:45] Patrick: Yeah, I'll go through,
+[00:06:47] Patrick: So, how do you, like, start over with Metric Mover, then, on that? Because with the 25 variations, you only use… or you only have to…
+[00:06:58] Sasha: Probably not. I wouldn't redo your metric mover campaign, I would just focus on your ad headlines at this point.
+[00:07:05] Patrick: Hmm, okay.
+[00:07:07] Sasha: Because there's an, like, at least with the ad data, you kind of have, like.
+[00:07:12] Sasha: You have something to work off of?
+[00:07:14] Sasha: Because you can kind of see what is, you know, engaging in terms of a click-through level on your landing page, and you can see what people really click really hard on your ad side, so that's something to work off of. But on the landing page side, you just kind of have relatively equal numbers.
+[00:07:31] Patrick: Yeah.
+[00:07:32] Sasha: So I wouldn't really know what to do with that until you, you know, start getting some… some purchases.
+[00:07:40] Patrick: Right, so, yeah, it's… we're just down to a matter of,
+[00:07:43] Patrick: going over the headlines. I do have quite a lot to… To go with, so…
+[00:07:50] Patrick: Yeah, I'll make some adjustments there, and then see what you think, or… Okay.
+[00:07:57] Sasha: And just to clarify, you're still only, like, you've done… you did a single image so far, and 10 different headlines?
+[00:08:06] Patrick: Yeah, on the ads, yeah.
+[00:08:10] Patrick: Whoa.
+[00:08:12] Patrick: Actually, no, my, yeah, my ad's here. Let's just go here real quick.
+[00:08:25] Patrick: I have,
+[00:08:28] Patrick: No, I have a combination of images now, where before, yes, I did have… you know, when I first started, I had just the one static image, and now I have, I think…
+[00:08:38] Patrick: 4 or 5 I'm using different on the, ads.
+[00:08:43] Patrick: And there are… there are certain images… see, I'm more or less testing those images as well that I got…
+[00:08:49] Patrick: There's, like, on two of the images, I got hit on that.
+[00:08:55] Patrick: Those two.
+[00:08:59] Sasha: Yeah, I mean, that style of testing makes it a little bit difficult to see what's doing what. When you're simultaneously testing images and headlines.
+[00:09:07] Sasha: It's kind of…
+[00:09:09] Patrick: Oh, yeah.
+[00:09:10] Sasha: That's why I was a little surprised when your ad CPCs were so different, and I kind of suspected that there might be another element there, because…
+[00:09:18] Sasha: an image can, you know, drastically affect CPC, but if you were just testing the same image.
+[00:09:23] Patrick: different.
+[00:09:23] Sasha: headlines than… Need to be a little bit,
+[00:09:27] Sasha: easier to compare it, but yeah, I mean, I guess if you want to, like, figure out, like, you know, what images are working and combine that with what headlines are working, that might…
+[00:09:35] Sasha: That mind, kind of, you know, Improve your status.
+[00:09:40] Patrick: You're right, it just is a lot going on at one time, though, to do it that way.
+[00:09:45] Patrick: So…
+[00:09:47] Patrick: Makes it a little more work. But, okay. Okay, yeah, I'll, I'll start with the headlines, though, you know, and go from there, I guess.
+[00:09:57] Sasha: Okay.
+[00:09:59] Sasha: Sounds good.
+[00:10:01] Patrick: I can't… let's see here… Oh.
+[00:10:05] Patrick: Hang on a second, I'll, stop sharing.
+[00:10:08] Sasha: Okay.
+[00:10:10] Patrick: Alright, thank you, Sasha.
+[00:10:11] Sasha: Yeah, yeah, you're welcome.
+[00:10:13] Sasha: Alright, hey Joel, I see your… I think your hand is up next.
+[00:10:17] Joel Brubaker: Hmm.
+[00:10:18] Joel Brubaker: Let me share my screen. I'd like you to take a look at my campaign as well.
+[00:10:23] Sasha: Okay.
+[00:10:38] Joel Brubaker: See it there?
+[00:10:39] Sasha: Yep.
+[00:10:42] Joel Brubaker: So I… I started this last Wednesday morning.
+[00:10:48] Joel Brubaker: Or, sorry, Thursday morning.
+[00:10:50] Sasha: Okay.
+[00:10:50] Joel Brubaker: But, like, halfway through the day, all the ads went into warning status, and it wasn't until Friday afternoon that it…
+[00:10:58] Sasha: Pick it back up.
+[00:10:59] Joel Brubaker: got activated again, so I'm…
+[00:11:02] Sasha: Okay.
+[00:11:03] Joel Brubaker: kind of into Day 4 at this point.
+[00:11:07] Joel Brubaker: So I still haven't hit the 500… Total ad spend.
+[00:11:14] Sasha: What's your, what's your daily budget set to right now?
+[00:11:19] Joel Brubaker: $100.
+[00:11:20] Sasha: Okay.
+[00:11:22] Joel Brubaker: 50 between the… 50 and 50 on the two sub-campaigns.
+[00:11:26] Sasha: Yeah.
+[00:11:27] Sasha: Yeah, I mean, I think overall, like, the 500…
+[00:11:30] Sasha: benchmark is, you know, is kind of, like, a general level. You don't necessarily have to absolutely hit it if things aren't working. I think it's more important to just, like, get
+[00:11:41] Sasha: decently even ad spend among the ads that, you know, are sort of working, and then eliminate the ads that aren't. So, yeah, we were chatting in Discord, so you were eliminating.
+[00:11:51] Joel Brubaker: Yeah.
+[00:11:51] Sasha: that have a low click-through rate, which is the right thing to do, and then just kind of keep the other ones going. I mean, right now, it's still low on ad spend, but number 17 is kind of the most promising right now, because it has a…
+[00:12:05] Sasha: decent CPC, and a decent landing page click-through rate, and you know, as a result, the landing page event CPC is pretty good.
+[00:12:14] Sasha: So, that one seems to be, like, it's on the right track.
+[00:12:20] Sasha: So yeah, I mean, I guess I would probably just keep doing that. I think we might have…
+[00:12:26] Sasha: Another ad or two that you can… Probably eliminate.
+[00:12:30] Sasha: Now…
+[00:12:32] Sasha: or soon, you know, number 22, number 16, like, 2… 2-2. 2.5% click-through rate with a $15 CPC is just not…
+[00:12:43] Sasha: Not tenable, you know?
+[00:12:47] Joel Brubaker: You said… 16 and 17.
+[00:12:50] Sasha: I was 16 and… no, not 17, 16 and 20.
+[00:12:54] Joel Brubaker: Or, sorry.
+[00:12:55] Joel Brubaker: Me too.
+[00:12:58] Sasha: Anytime you have, like, a, whatever, sub… I mean, maybe even…
+[00:13:03] Sasha: 23, like, sub-5%, click-through rate.
+[00:13:08] Sasha: When it… when you take into account that your landing page event CPC is really high, That's kind of…
+[00:13:15] Joel Brubaker: Are you, like, how do you prioritize, like, the CPC, the ad CTR, and the landing page CTR? Are you kind of, like.
+[00:13:26] Joel Brubaker: Weighing one heavier than the other, or is it they all kind of equal as you're looking at them?
+[00:13:31] Sasha: In the beginning, I generally don't care that much about ad CTR. That's more of, like, a…
+[00:13:37] Sasha: a later-down-the-road metric that becomes important when you want to, like, run your ads and scale. Like, an algorithm, you know, wants high ad CTR. That's how it kind of makes money, you know? It's just, like, for…
+[00:13:50] Sasha: if for every whatever number of impressions it's getting a lot of clicks, it just means it's engaging, and it'll want to kind of distribute it more, but in the beginning, for just, like, earlier messaging testing, I don't really worry about ad CTR, so let's just, I guess, ignore that for now. But the whole thing with ad CPC and landing page event CTR is that they're both
+[00:14:09] Sasha: Kind of important, and both work together.
+[00:14:13] Sasha: And so.
+[00:14:13] Joel Brubaker: the way.
+[00:14:14] Sasha: landing page event CPC is what sort of
+[00:14:17] Sasha: combines that into, kind of, the more important metric, because it takes both things into consideration, right? Like, when you saw… I don't know if you were watching, but, like, in Patrick's stats, he had some things with, like, a super low ad CPC and a relatively low, landing page event CTR, but even with, like.
+[00:14:36] Joel Brubaker: Sometimes.
+[00:14:36] Sasha: when your ads get clicked hard, like, you don't need as much of a landing page click-through rate to get a reasonable number for the landing page event CPC, you know? The landing page event CPC is kind of like.
+[00:14:47] Sasha: you know, how much does it cost to get someone to the offer page? That's… that's kind of.
+[00:14:52] Joel Brubaker: about that.
+[00:14:52] Sasha: that metric tells you. And so…
+[00:14:56] Sasha: That's why you kind of have to look both at your ad CPC and landing page event click-through rate, they're not, like.
+[00:15:01] Sasha: You're not looking at them, like, in isolation, because one directly affects, or…
+[00:15:07] Sasha: the combination of those two is what affects your landing page event, CPC. So, you know, in general, when I'm just, like, initially looking at data, I'll kind of, like, filter by landing page event CTR, and then filter by landing page event CPC, and kind of just see
+[00:15:24] Sasha: how… how things are… are working. Kind of how we were… I was talking about it with… with Patrick is that, like.
+[00:15:32] Sasha: even…
+[00:15:33] Sasha: Even if, you know, like, a certain ad creative is just, like, not necessarily working, and it's not something that you're going to scale, the numbers can still tell you something about
+[00:15:44] Sasha: what it's doing and what might be working about it. So, like…
+[00:15:48] Sasha: An ad with a high landing page event click-through rate, even if it's, like, mathematically not reasonable to scale it, it still tells you that there's something about that messaging that is working, that, like, if it has a high click-through rate, that means
+[00:16:02] Sasha: the person who was interested in clicking on your ad that landed on your landing page and still continued to be interested, right? So, it just becomes a matter of, like, understanding maybe what about that messaging
+[00:16:14] Sasha: is working, but then how can you rephrase it, or make it more interesting, or, I don't know, maybe change the image to lower your ad CPC, you know?
+[00:16:23] Sasha: So…
+[00:16:24] Joel Brubaker: Right.
+[00:16:25] Sasha: I don't know, does that… does that kind of make sense? Does that answer your question?
+[00:16:28] Joel Brubaker: Yeah, I mean, I… when I… the past couple days when I've been looking at it, I've been…
+[00:16:34] Joel Brubaker: I found myself kind of sorting by the landing page CTR.
+[00:16:40] Joel Brubaker: To kind of see what those percentages were.
+[00:16:43] Joel Brubaker: And obviously, yeah, trying to keep the… CPC down.
+[00:16:48] Joel Brubaker: But being my first campaign, I'm…
+[00:16:51] Joel Brubaker: Trying to just wrap my mind around all of it.
+[00:16:54] Sasha: Yep.
+[00:16:56] Joel Brubaker: So yeah, I think, yeah, 6… 16… 22 would be good to… Turn off…
+[00:17:06] Sasha: Yeah, and I mean, this way, too, like, you can…
+[00:17:09] Sasha: stop short of… stop your round one sort of test short of $500 if you've gotten all the data you need. By kind of eliminating these ones that aren't working, short of.
+[00:17:20] Joel Brubaker: Right.
+[00:17:20] Sasha: Increasing your overall threshold that you need to spend.
+[00:17:24] Sasha: Or of just, like… Like, a budget to have a reasonable enough budget per ad?
+[00:17:33] Sasha: Right.
+[00:17:35] Sasha: Give me one sec.
+[00:18:11] Sasha: Alright, my back? You guys hear me?
+[00:18:13] Joel Brubaker: Yes.
+[00:18:14] Sasha: Okay, sorry, I got new headphones, and this is the first time I'm using them today, and they just decided to…
+[00:18:19] Sasha: Disconnect during the call for no reason.
+[00:18:22] Sasha: Might have to return these.
+[00:18:28] Joel Brubaker: Yeah, I wasn't, I wasn't sure, like…
+[00:18:31] Joel Brubaker: I guess, how much data do I need before I should…
+[00:18:35] Joel Brubaker: You know, stop and kind of re…
+[00:18:38] Joel Brubaker: Reassess, like, doing some new headlines, or…
+[00:18:43] Joel Brubaker: Maybe adjusting the ones that have done the best.
+[00:18:46] Joel Brubaker: Kind of seeing the comparison of, like, what's the messaging in these top 5 that seem to be… Working…
+[00:18:53] Sasha: I think you're pretty much there, honestly. Like, most of your… the ones remaining are, like, past the $25, at or close to $50 or above it. You know, there's one that only has.
+[00:19:04] Joel Brubaker: Yeah.
+[00:19:05] Sasha: $12, and so… the risk there is that, like, if you decide that that's your sort of winning message, or the one that's doing the best.
+[00:19:13] Sasha: And then you kind of iterate everything off of that. It's just not all that much data to, like, justify it, necessarily making that decision, because it has.
+[00:19:23] Joel Brubaker: Right.
+[00:19:23] Sasha: A fifth of the ad spend of the next one, and so if it ran
+[00:19:27] Sasha: more, those stats could drop, or they could improve, you just… you just don't know. But…
+[00:19:34] Sasha: Yeah, I mean, I guess those would be, like, really the two main options is, like, let 17 run a little bit longer and see what happens to it, or just kind of, shut down and…
+[00:19:46] Sasha: And regroup, and come up with some new ads.
+[00:19:52] Joel Brubaker: Yeah, I was thinking about,
+[00:19:55] Joel Brubaker: At most, letting any of them run through tomorrow, and then… Deactivating it over Christmas.
+[00:20:03] Joel Brubaker: And maybe… I don't know if…
+[00:20:06] Joel Brubaker: Do you think it'd be worthwhile trying to relaunch something?
+[00:20:11] Joel Brubaker: Between Christmas and New Year's, or… like, I don't know how that.
+[00:20:14] Sasha: Boom.
+[00:20:15] Joel Brubaker: Holidays affects things, too.
+[00:20:18] Sasha: Yeah, I'm not sure. Might be better to wait until the beginning of the year. I'm not sure how much people are like…
+[00:20:23] Sasha: Doing shopping after… after Christmas, after…
+[00:20:26] Sasha: Having done a lot of shopping for Christmas, so yeah, I'm… You know…
+[00:20:34] Sasha: Probably makes sense to be a little patient and…
+[00:20:38] Sasha: Try, but then again, you know, people…
+[00:20:41] Sasha: People buy stuff all the time, you know, impulse purchases, and…
+[00:20:45] Joel Brubaker: Right. It's… it's hard to tell, I don't really… I don't really have a…
+[00:20:51] Sasha: Great idea of, like, how much it would impact your campaign specifically.
+[00:20:56] Sasha: I would think that at least, like, ad CPCs might go down a little bit, you know, because…
+[00:21:01] Sasha: you know, all the brands that have been pushing Christmas sales and whatnot are probably not going to be spending as much, but that's just kind of a guess.
+[00:21:09] Joel Brubaker: Sure.
+[00:21:11] Joel Brubaker: It's not an exact science, knowing what people are gonna do over the holidays, I guess.
+[00:21:15] Sasha: Yeah, yeah, for sure.
+[00:21:17] Joel Brubaker: Okay.
+[00:21:18] Joel Brubaker: Alright, well, I think that was… Main thing I wanted to… But if…
+[00:21:28] Joel Brubaker: Hypothetically, if I were to deactivate everything now, Would you say…
+[00:21:34] Joel Brubaker: Kind of just come up with 10 new headlines, or…
+[00:21:39] Joel Brubaker: And keep the same image.
+[00:21:42] Joel Brubaker: And then relaunch at that point, or…
+[00:21:44] Sasha: Let me take a look at your image.
+[00:21:50] Sasha: Or you can just go ahead… just go ahead and click on it, and it'll open it. Oh.
+[00:21:54] Sasha: I don't know, I might come up with a new image, that one's a bit generic.
+[00:22:01] Sasha: Like, it does… it does… Talk about, you know, the specific pain points.
+[00:22:06] Sasha: Isn't Soothe Steps… isn't that a foot thing?
+[00:22:11] Joel Brubaker: Well, so the…
+[00:22:13] Sasha: They're acupressure mat, they're needles, right?
+[00:22:16] Joel Brubaker: Yeah, it's an acupressure mat.
+[00:22:19] Joel Brubaker: the… advertorial… when I first started this, it was… the advertorial was focused on
+[00:22:28] Joel Brubaker: the feet, and I mean, it's even in the name, Soothe Steps, but the new advertorial that came out a month ago.
+[00:22:35] Joel Brubaker: Is much more, like, fully focused on back and neck.
+[00:22:40] Joel Brubaker: Tension.
+[00:22:40] Sasha: Yeah. Yeah.
+[00:22:42] Joel Brubaker: So… In some ways, like, the name…
+[00:22:45] Sasha: me.
+[00:22:45] Joel Brubaker: is a little… maybe misleading.
+[00:22:51] Joel Brubaker: Orioles pushing.
+[00:22:55] Joel Brubaker: But I did think about that, maybe trying something that…
+[00:23:00] Joel Brubaker: Yeah, I don't know. I chose this one because the advertorials is very heavily focused on back and neck pain.
+[00:23:08] Joel Brubaker: Versus the one that was previously more focused on… on foot pain.
+[00:23:15] Sasha: Yeah.
+[00:23:16] Sasha: Well, I mean, the image… Could pop a little bit more.
+[00:23:21] Sasha: You know, it's… you kind of have, like.
+[00:23:23] Sasha: A lot of white going on there, white on white, just like a white background.
+[00:23:28] Sasha: The image is kind of fairly, fairly generic. I don't really know what the target demographic of the…
+[00:23:34] Sasha: The landing page, is it more geared towards women or men, or is it kind of ambiguous?
+[00:23:41] Joel Brubaker: The landing page is geared towards women.
+[00:23:44] Sasha: Okay.
+[00:23:45] Joel Brubaker: At least the…
+[00:23:49] Joel Brubaker: That's the… That's the one that's on the advertorial.
+[00:23:56] Sasha: Yeah.
+[00:23:57] Joel Brubaker: the control, the control.
+[00:23:59] Sasha: I would try and find a… find a new image that just has a little bit more…
+[00:24:04] Sasha: striking composition. And, you know, like, the kind of the red dot over a pain point is, like.
+[00:24:10] Sasha: It's kind of a…
+[00:24:11] Sasha: I don't know, fairly generic way, I guess, to call out a pain point. I would try something maybe even, like, along the lines of what this is right here, which is, like, you know, someone grabbing their back or their neck, but, like, the facial expression.
+[00:24:26] Sasha: feel like shows pain more than a red glowy dot, you know? Like, it has emotional value there, rather than just kind of…
+[00:24:34] Sasha: Pointing a finger at a pain point, you know?
+[00:24:37] Joel Brubaker: Sure.
+[00:24:37] Sasha: But, you know, that's kind of your own stylistic decision. To me, though, what's a little bit more important would be to… the composition is just to make it kind of more eye-catching, like…
+[00:24:48] Sasha: I think that
+[00:24:49] Sasha: that has a significant effect on, like, ad CTRs, and then therefore your ad CPC, and that kind of translates into all the other metrics. And if you can get an image that just catches attention a little bit more, and has a little bit more of, like, an emotional resonance to it, you might just improve your numbers just based on getting more people to click on it, even if the
+[00:25:10] Sasha: you know, the engagement rate doesn't change that much. Just by lowering the ad CPC, you'll make your testing a little bit, cheaper, especially, like, on the landing page side.
+[00:25:22] Sasha: So yeah, I would say, you know, if you're redoing it, I would do a new image and some new headlines.
+[00:25:30] Sasha: And, you know, you probably don't need to do a full, full 10, like, if you already kind of have an idea of, like, here's…
+[00:25:37] Sasha: the direction that I'm going based on, you know, what was… what was working, and you're trying to improve on that. I think, you know, testing with 5 at a time is fine, and probably a little bit, like, easier on the algorithm, because it doesn't have to rotate through as many. I think we've been told that they kind of, like.
+[00:25:53] Sasha: Prefer a little bit of a, like, fewer, ads running simultaneously in a… in a sub-campaign.
+[00:26:00] Sasha: I've personally not had any trouble running 10, but we have been told that, you know, they recommend
+[00:26:07] Sasha: around 5 or something like that, so… we haven't, like, officially adjusted a kind of a policy around that, I don't think. It's just kind of what we've been told. Like I said, I've run 10 just fine, but… Sure. Just for the sake of, you know.
+[00:26:23] Sasha: smaller dollar testing, I think, you know.
+[00:26:26] Sasha: Running 5 and kind of getting… getting your take on those, and then…
+[00:26:30] Sasha: Iterating further is just fine, too.
+[00:26:33] Joel Brubaker: Okay.
+[00:26:34] Joel Brubaker: So do I need to…
+[00:26:37] Joel Brubaker: create a new sub-campaign for these new 5 ads, or do I just add it to…
+[00:26:41] Sasha: No, I would just keep it in this one. Granted, you haven't had any, like, conversions, but, the overall algorithm learning process happens mostly on the sub-campaign level.
+[00:26:53] Sasha: Which means anything it learns about how your ads are clicked and where, and eventually conversions, that is information that the algorithm uses to optimize how your ads get delivered.
+[00:27:05] Sasha: And so you don't want to, like, lose all of that data. So you don't have much so far, but in general, as a rule of thumb…
+[00:27:12] Sasha: I would stick to the same sub-campaign, as long as
+[00:27:17] Sasha: You're working with the same ad format, meaning either horizontal or vertical.
+[00:27:24] Sasha: Yours was horizontal, so, like, for you, the only time you'd create a new subcampaign is if what you were going to test, vertical ads, because you want to keep horizontal and vertical separate.
+[00:27:35] Joel Brubaker: Okay.
+[00:27:36] Sasha: Yeah, cause right now I have two…
+[00:27:37] Joel Brubaker: Two sub-campaigns with 5 ads each.
+[00:27:40] Joel Brubaker: So as long as the original 5 are deactivated, I can add 5 more.
+[00:27:46] Joel Brubaker: To a current sub-campaign.
+[00:27:48] Sasha: Yeah.
+[00:27:51] Joel Brubaker: Would you ever use the same image?
+[00:27:54] Joel Brubaker: And your ad is on the advertorial?
+[00:27:58] Sasha: Yeah, absolutely.
+[00:27:59] Joel Brubaker: Like, hypothetically, if I use this… this one here that's highlighted.
+[00:28:03] Joel Brubaker: From my… one of my landing pages.
+[00:28:09] Sasha: Yeah, I don't see a problem with doing that. Usually, that's something that's worth testing, and I don't know, usually something I would do a little bit of, like, at a later stage.
+[00:28:19] Sasha: Per se, it's just one way of, like…
+[00:28:22] Sasha: potentially testing something that can increase your landing page click-through rate, because there's just immediate continuity there, visually. Like, they click on that image, that image is still there, they're like, feels like you're in the right place, you know?
+[00:28:38] Sasha: So, I don't see anything particularly wrong with doing it, but I also don't see any reason not to, like, find a new image that might kind of almost, like, artificially inflate that page's stats a little bit, potentially, just because you're just matching that content directly.
+[00:28:55] Joel Brubaker: Right.
+[00:28:56] Sasha: And, you know, these… it is, you know, that image has decent composition, but these are… these images are pretty… pretty easy to find, and…
+[00:29:04] Joel Brubaker: Sure.
+[00:29:05] Sasha: in large numbers, so… I don't know. I guess up to you.
+[00:29:09] Joel Brubaker: Okay. No, I appreciate the… All the feedback on that.
+[00:29:17] Joel Brubaker: Alright…
+[00:29:21] Sasha: All right, Aaron, you're up next.
+[00:29:25] Erin Murray: Hi, I would just like to… you to take a look at my DIY tracks and just make sure, if you would,
+[00:29:33] Sasha: Interested.
+[00:29:34] Erin Murray: that everything looks okay. I was talking with Bruce earlier. I'm at the point in this campaign where I'm testing one headline with the same image in the two different… two different format settings, one in a still image, one in an MP4.
+[00:29:53] Erin Murray: And one in a, gift.
+[00:29:57] Sasha: GIF.
+[00:29:58] Sasha: Wait, so you're saying two headlines?
+[00:30:01] Erin Murray: one headline.
+[00:30:02] Sasha: One headline, okay, and then you're running… Image MP4 again.
+[00:30:07] Erin Murray: One 9x16, one 16x9.
+[00:30:09] Sasha: I gotcha, I gotcha. And the same headline for both of them.
+[00:30:12] Erin Murray: Yes, the same headline, the same image for both, looking for a good placement.
+[00:30:17] Sasha: Okay, and what was your… was your first placement vertical or horizontal?
+[00:30:23] Sasha: Meaning your, like, round one campaign, like, the very first round you ran.
+[00:30:27] Erin Murray: The very first round I ran was a hodgepodge of everything, because I wasn't, at that time.
+[00:30:33] Erin Murray: Guidelines weren't very clear.
+[00:30:35] Sasha: Okay.
+[00:30:36] Erin Murray: So, it was a mixture of both.
+[00:30:39] Sasha: Okay.
+[00:30:41] Erin Murray: And we just, over time, we've kind of narrowed it down, because I've been working kind of more with Bruce about what had the best stats. Some got conversions, some didn't, some made conversions that didn't make sense.
+[00:30:54] Erin Murray: but we ultimately went with the winning headline that got the most, you know, impressions, the best statistics overall, and, you know, the least amount of money. And I just…
+[00:31:07] Erin Murray: I feel like that there's something I'm missing.
+[00:31:11] Erin Murray: when I set this up today. I just turned it on today.
+[00:31:16] Erin Murray: And… but Brooke… Bruce said it looks okay to him.
+[00:31:20] Erin Murray: So I want to just get a second opinion.
+[00:31:23] Sasha: Okay. About…
+[00:31:24] Erin Murray: about it, because what I did…
+[00:31:26] Erin Murray: I had 10 headlines, or 10 ads in here. I just went in and addended them, or edited them.
+[00:31:34] Erin Murray: To make them, like, these are the 9x16, the first 3, and the last 3 are the 16x9s.
+[00:31:44] Erin Murray: And they all, you know, they have the same…
+[00:31:46] Sasha: We'll wait.
+[00:31:47] Erin Murray: So, for…
+[00:31:49] Sasha: 16x9 and 9x16 you want to keep in separate sub-campaigns.
+[00:31:54] Erin Murray: Okay, I have two. This is the 16x9.
+[00:31:59] Sasha: Okay, oh, I gotcha, so you were just showing me the ad, okay.
+[00:32:01] Erin Murray: Yeah.
+[00:32:02] Sasha: And so, go back to the ad section. So what you're saying was…
+[00:32:08] Sasha: You edited the ads rather than creating new ads?
+[00:32:11] Erin Murray: Yes.
+[00:32:14] Sasha: So this was… Different content before, a different image, different headlines?
+[00:32:19] Erin Murray: Yes.
+[00:32:20] Sasha: Oh, I probably wouldn't do that. I probably would create new ads.
+[00:32:24] Erin Murray: Okay.
+[00:32:25] Erin Murray: That's kind of what I…
+[00:32:26] Sasha: I, I don't… it is… Like, I guess…
+[00:32:31] Sasha: I'm not honestly, like, not sure how the algorithm would treat it, but, like, I would want it to run it as if it was a fresh ad, like, if it already kind of, like, made certain decisions on, like, where your ad works and doesn't work and doesn't deliver some places.
+[00:32:47] Sasha: just by editing the ad, I don't know if it would treat it as a new ad, or if it would use what it thought it learned from that ad, and how it delivers this.
+[00:32:56] Sasha: So…
+[00:32:57] Sasha: I think, just to be safe, if you are creating entirely new content, in terms of messaging, imaging, then you just create a new ad for it, rather than edit a previous one that didn't work, because that might just…
+[00:33:09] Sasha: not work out in your favor. Like, I don't know that for sure, but it's just, it would make sense to me that, like, the algorithm, which is always learning, you know, about
+[00:33:19] Sasha: what's working and what's not about your ad, it might just…
+[00:33:23] Sasha: Kind of throw it off by you just editing it rather than giving it new content.
+[00:33:28] Erin Murray: Okay, that's what I need.
+[00:33:29] Sasha: Does that make sense?
+[00:33:30] Erin Murray: Yes, it does. That's what I needed to hear. So… from here.
+[00:33:35] Erin Murray: Would you recommend just deleting all of these?
+[00:33:39] Sasha: I… hmm…
+[00:33:42] Sasha: You know, at this point, I probably wouldn't until you had to. The main reason being is it's nice to go back and, like, see
+[00:33:50] Sasha: what didn't work, or, like, what you've done before, but now that you've edited the content, I don't know if you'd actually be able to see it, other than as, like, old stats, but you wouldn't be able to, like, hover over the ad ID and see
+[00:34:04] Sasha: what the old message was. So I guess there's another reason to not edit the ads and to make new ones, is you can, like, look historically of, like, what headlines have you used, what didn't work about it, what worked about it, that kind of stuff.
+[00:34:17] Sasha: So that's a long-winded way of saying, is I guess at this point, you can… you can delete it,
+[00:34:22] Sasha: But there's technically not a reason to until you get to 50 per sub-campaign, because the sub-campaign is limited to 50 ads in general.
+[00:34:34] Erin Murray: Okay.
+[00:34:39] Erin Murray: Should I delete both sub-campaigns, and then just create two new sub-campaigns? One in a 16x9, one in a 9x16, and then create all new ads?
+[00:34:47] Sasha: No, definitely don't delete your subcampaigns, because, once again, that algorithm learning happens on the sub-campaign level, so it already has information about where you've gotten conversions, what pockets of traffic might be working, like, that's all…
+[00:35:00] Sasha: That's all data you've bought, essentially, so there's no reason to create a new sub-campaign unless you are starting, like, a completely drastically maybe different angle, but even then, I probably would still try and test new angles on an existing sub-campaign just to keep that data that's already been learned and retained on that level.
+[00:35:21] Erin Murray: Okay. So if I should delete these ads and then start again…
+[00:35:27] Erin Murray: How would I make sure that they're in the right sub-campaign?
+[00:35:31] Sasha: When you create an ad, there's a drop-down menu to select.
+[00:35:35] Erin Murray: The sub-campaign, yeah.
+[00:35:37] Sasha: Yeah.
+[00:35:37] Erin Murray: recall.
+[00:35:38] Erin Murray: Alright, so just delete all these, and then just redo them, essentially.
+[00:35:44] Erin Murray: You too, Rich.
+[00:35:45] Sasha: Yeah.
+[00:35:45] Erin Murray: Okay, alright, thank you for that advice, because I was like, I just don't know if this is…
+[00:35:51] Erin Murray: right thinking or not. Right thinking.
+[00:35:55] Sasha: So, keep your,
+[00:35:57] Sasha: Turn off your subcampaign, but keep your, your basic info campaign active. It's not gonna spend without when the sub-campaigns are off, and you need the ads… you need the basic info to be active in order for…
+[00:36:14] Sasha: the ads to be checked by the, like, the traffic source compliance, because the basic info active tab, or…
+[00:36:21] Sasha: Active switch is what turns on, makes your campaign URL work, and they check
+[00:36:27] Sasha: Things down funnel for compliance, like your landing page and your offer page for, you know, make sure it's… everything's consistent.
+[00:36:35] Sasha: So, that's just, like, the go-to thing, is keep your sub-campaign off when you're, like, still working on stuff, but keep the basic info campaign active. So it's not gonna spend money this way, but it will…
+[00:36:46] Sasha: Be able to, you know, get everything tested when you upload the new ads.
+[00:36:50] Erin Murray: Okay, that's very, that's very helpful, thank you, because I'd like to get this rolled out tonight to start tomorrow.
+[00:36:57] Erin Murray: Okay. Alright, I appreciate your insight, thank you so much.
+[00:37:00] Sasha: Yeah, yeah, no problem.
+[00:37:06] Sasha: Hmm… Alright guys, how we doing? Any last-minute questions? Joel?
+[00:37:12] Sasha: Oh, I'm just…
+[00:37:13] Joel Brubaker: I don't think so, I think I need to just…
+[00:37:16] Joel Brubaker: I already had some other new headlines, run through compliance, because…
+[00:37:22] Joel Brubaker: originally, we were supposed to be doing 20 before Caterpillar, so…
+[00:37:27] Joel Brubaker: I think I need to just find a new image and… Get some new ads going.
+[00:37:31] Sasha: Okay. So I appreciate it.
+[00:37:34] Sasha: Alright, well, good luck, and have a happy holiday season.
+[00:37:38] Erin Murray: Thank you, you too.
+[00:37:40] Sasha: Alright, bye guys.

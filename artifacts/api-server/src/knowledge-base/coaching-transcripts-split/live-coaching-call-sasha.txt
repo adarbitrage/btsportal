@@ -1,0 +1,444 @@
+TITLE: Live Coaching Call - Sasha
+SOURCE: coaching-transcripts.txt
+TURNS: 440
+
+[00:00:40] Sasha: Hello, hello!
+[00:00:51] Sasha: Hello, Karen.
+[00:00:52] Karen Jedele: How are you?
+[00:00:53] Sasha: 15105. That is the most unique name.
+[00:01:00] Karen Jedele: Awesome.
+[00:01:02] Sasha: I'm doing well, thank you.
+[00:01:04] Karen Jedele: Oh, good.
+[00:01:06] Karen Jedele: I have a question if you want me to jump right into it.
+[00:01:09] Sasha: Yeah, sounds good.
+[00:01:10] Karen Jedele: Alright, I, the, affiliate CMO, I got to the point of… I've been watching, like, a zillion videos today, so my eyes are bugging out of my head, but I cannot believe how powerful this…
+[00:01:26] Karen Jedele: Unbelievable. But, I've got to data analysis, and then it won't let me…
+[00:01:33] Karen Jedele: Click on the Proceed… what is it? Proceed and confirm? Or confirm and proceed? Like, it's grayed out, and I don't know what I'm doing wrong.
+[00:01:43] Sasha: I don't remember which stage data analysis is. What have you input so far?
+[00:01:47] Karen Jedele: I did… I think it's pretty much all the way till the end… turn you up a little bit…
+[00:01:55] Karen Jedele: I think it's almost the last thing. It's, you have the project setup, then you have the data, project data, and then the data analysis.
+[00:02:07] Sasha: Hmm… I am not really sure, maybe…
+[00:02:13] Sasha: Maybe the agency… support can help you with that. I haven't used Affiliate CMO in a while, so I'm not…
+[00:02:20] Karen Jedele: Okay.
+[00:02:20] Sasha: It's something that's blocked, but we do have the support team on this call, so… maybe…
+[00:02:28] Sasha: I don't know if they're actually listening or if you need to chat with them, but, maybe just throw something into the chat and see if they'd be…
+[00:02:35] Sasha: Willing to try and figure out what might be going on.
+[00:02:38] Karen Jedele: I appreciate it. Okay, thank you. That was all I had at this exact second.
+[00:02:46] Sasha: Sounds good. I'll check in on… with Patrick and see what he has, and then let me know if you have any more questions.
+[00:02:52] Karen Jedele: Thank you.
+[00:02:55] Sasha: Hey, Patrick.
+[00:02:56] Patrick: Hey, Sasha, how you doing?
+[00:02:59] Sasha: Doing well.
+[00:03:00] Patrick: Hey,
+[00:03:03] Patrick: So, I have a quick question for you, and… because I don't have a lot of time, but let me go ahead and share the screen.
+[00:03:11] Sasha: Okay.
+[00:03:17] Patrick: Oh, what the heck?
+[00:03:21] Patrick: Ugh.
+[00:03:22] Patrick: There we go.
+[00:03:24] Patrick: Alright, let me minimize this.
+[00:03:26] Patrick: Okay, so, with this campaign here, I've pretty much started over.
+[00:03:34] Patrick: I was looking in my,
+[00:03:36] Patrick: my ads here, and it looks like most of them were rejected, and this is gonna be my question here, is why? Now, I've used…
+[00:03:47] Patrick: I've changed my image, to relate to my, editorial on my jump page, so… Which is…
+[00:03:58] Patrick: Funny, because… I think it was rejected because of this.
+[00:04:02] Patrick: I use this one, and, you know, it's got breaking news on it, which I don't think is allowed anymore. Isn't that correct?
+[00:04:09] Sasha: Yeah, yep, that's correct.
+[00:04:13] Patrick: So, every, every one of the,
+[00:04:21] Patrick: So every one of the templates has this on there. So this… these were all updated after…
+[00:04:27] Patrick: We found out we couldn't use that, correct?
+[00:04:30] Sasha: You…
+[00:04:31] Patrick: So, I ain't.
+[00:04:32] Sasha: You might be in a incorrect… I thought it was just Go ahead.
+[00:04:39] Patrick: Okay, I thought it was just the headlines, but apparently, you know, your images and everything can't have that on it either, so…
+[00:04:47] Sasha: Yeah, that's gonna happen. I think it's a different,
+[00:04:52] Sasha: version of the cutting-edge website. I think you're just in the wrong one, but I mean, you can just bring the image over from the other one and use that. It's not, like, a major change.
+[00:05:06] Patrick: Yeah, oh, so there's an update, I think this is, 4.3 or something like that.
+[00:05:14] Patrick: So, this was, this was the updated versions, yeah, 4.4, right?
+[00:05:22] Patrick: Is there, is there another version that just came out?
+[00:05:25] Sasha: I mean, there was another version that came out end of last year, when we were addressing this issue, as it kind of came up.
+[00:05:33] Sasha: I just don't remember which, which ta- because there's, like, 4.4 and 4.4-1. There's, like, several of them. You're just gonna have to go inside and see which version doesn't have the breaking news on the image.
+[00:05:48] Patrick: Okay, well, I know it's no big deal to change that, you know, and I wanted to kind of put a GIF there anyway.
+[00:05:54] Patrick: But, you know, I was just wondering, because I was… I was looking in here, and it's like, almost every one of these has that on the, template, so…
+[00:06:03] Sasha: Yeah…
+[00:06:04] Sasha: I mean, if you submitted your campaign, and you had, like, 25 different pages, and only some of them had the breaking news.
+[00:06:12] Sasha: That could definitely explain why certain creatives were getting
+[00:06:17] Sasha: Approved and certain we're getting rejected.
+[00:06:20] Sasha: Because when they're, like, each creative gets checked to click through to the landing page.
+[00:06:25] Sasha: Each… the different page will… will load up, if that makes sense, when they're, like, checking them.
+[00:06:31] Patrick: Well, that… yeah, this doesn't make sense, because I've used the same image here in every one of these, but these… I have, like, two, I think, or 3 that were approved.
+[00:06:40] Patrick: So, and I'm using the same, headlines.
+[00:06:45] Patrick: As before.
+[00:06:46] Sasha: Well, wait, you're using… you're using this image in your ad?
+[00:06:51] Patrick: Yeah.
+[00:06:54] Sasha: And that's the one that got rejected?
+[00:06:56] Patrick: Actually, this one didn't, for some reason,
+[00:07:02] Patrick: If you can… here, let me scroll down a little bit here.
+[00:07:06] Patrick: If you can see, so that image actually was used in every one of them, or most of them got rejected, but… let's see, 1, 2…
+[00:07:15] Patrick: Three, we're… not.
+[00:07:19] Sasha: I think they probably would eventually get rejected anyway. I think it's probably, like, whatever AI automated system checked it, I don't know, maybe didn't catch the text in your image. I just don't recommend you using that image in your heads.
+[00:07:32] Sasha: Even beyond the fact that it's not compliant, it's like, you can't read a lot of that font, and really, like, your place to use Word.
+[00:07:40] Patrick: Okay.
+[00:07:40] Sasha: in the headline and sub-headline, the image probably shouldn't have any text in it at all. I think that's just kind of a little bit much. And it definitely, like, even if it passes compliance initially through their automated systems, eventually a human will catch it and flag it as rejected, so…
+[00:07:57] Sasha: I would just, yeah, use a standard image, just a plain image.
+[00:08:04] Patrick: Okay, yeah, well, I got plenty of those. Yeah, just, I just,
+[00:08:09] Patrick: Because… because the jump page, you know, the advertorial's got,
+[00:08:14] Patrick: That particular image as your hero shot.
+[00:08:19] Patrick: I was going to make my ads…
+[00:08:23] Patrick: Use that main hero shot, but…
+[00:08:28] Patrick: you know, you want it to be somewhat relative, I guess, right?
+[00:08:32] Sasha: I mean, I think it's a valid testing strategy down the road, once you've figured out what image is working on landing pages, to also test that on your ad.
+[00:08:42] Sasha: But it doesn't really make sense to do that to start… start off with. I think you just want to keep your ad image separate… ad image testing separate from your landing page image testing. At least when you're doing split testing, because you will, like, a lot of the time.
+[00:09:01] Sasha: You will see a little bit of a bump in click-through rates if the image on your ad is the same as on your landing page.
+[00:09:08] Sasha: But unless you've figured out that that's the image that's working, it's also… it's almost like…
+[00:09:13] Sasha: I don't know, artificially inflating your numbers before you've really kind of honed in on an image that you think works the best, so… I would just kind of separate those two ideas for now, just until you're, like, after your initial, like.
+[00:09:28] Sasha: 5x5 test.
+[00:09:31] Sasha: And then, later stages, once you've honed in on a headline and a hero shot that works for the landing page, you can try and test that same image on the ad. But for now, I just… I just focus on getting a good
+[00:09:43] Sasha: Image on the ad side, and then different images to test on the landing pages.
+[00:09:49] Patrick: Right. Yeah, I've already gone through Metric Mover and did, like, I got, like, a hundred variations.
+[00:09:56] Patrick: Because I had 10 images and 10 headlines.
+[00:09:59] Patrick: Is that…
+[00:10:01] Sasha: I think that's probably too many, yeah.
+[00:10:04] Sasha: I mean, it's not inherently too much, you just have to spend quite a bit of money before you have a significant enough data to actually make decisions on that. Plus, I think, especially, like, on the image side.
+[00:10:18] Sasha: I think you'd be hard-pressed to find 10 unique angles that are 10 different images for what your product is. Because remember, like, the initial test on the landing page side is you're kind of testing angles.
+[00:10:30] Sasha: Later down the road, when you're, like, refining images, if you've found an image idea that works, and you want to test different… 10 different slight variations of that image, you can do that, because then it has a less significant impact on it. You're just, like, working on honing in on
+[00:10:45] Sasha: The best image of that style.
+[00:10:47] Sasha: But initially, it's more worthwhile to get more significant data to fewer variations, just so that you're actually making a kind of a statistically significant decision on what worked and what didn't.
+[00:11:02] Patrick: Right, okay.
+[00:11:05] Sasha: And I just opened up my Flexi, so if you go to the websites, there's, there's actually, they, they labeled it. There's one that says 4.5-2, or 4.5.2, exclusive, do not use on Caterpillar. There's, there's, like.
+[00:11:19] Sasha: ones that say which you shouldn't use on Caterpillar, and then one that says, I think, staging, and I think it's probably the staging ones that…
+[00:11:27] Sasha: don't have the braking.
+[00:11:30] Sasha: There's…
+[00:11:31] Patrick: Oh.
+[00:11:31] Sasha: I'm looking at it right now, it's 4.5…
+[00:11:34] Patrick: Whoa.
+[00:11:35] Patrick: 4.6, too, is the new one.
+[00:11:37] Sasha: Yeah, 4.6, maybe. I'm looking to see if…
+[00:11:42] Sasha: Yeah, yeah, 4.6 for the relieve doesn't have the breaking news. It has that same image, but with the text removed.
+[00:11:51] Patrick: Oh, okay.
+[00:11:54] Patrick: Okay.
+[00:11:56] Sasha: Although that headline still has breaking, so I don't… I don't know, that… that might need to be removed as well. I see that, yeah.
+[00:12:03] Patrick: Okay, well, we're…
+[00:12:05] Sasha: That might have been created before we do that. We shouldn't use that in even just braking. But, you know, just delete it from the original before you put it into Metric Mover.
+[00:12:14] Patrick: Sure, that's easy enough, yeah.
+[00:12:16] Patrick: Alright, well, this, this particular…
+[00:12:20] Patrick: offer has been very challenging. I'm on my fourth month now, because we… things keep changing, and that's kind of…
+[00:12:29] Patrick: the way the business goes, I guess, but,
+[00:12:33] Patrick: Yeah, I'm hoping to get something rolling here real quick. This is my round two, so…
+[00:12:39] Patrick: I wanna, I wanna make sure I, I, you know, cross all my T's and dot my I's.
+[00:12:43] Sasha: Of course, so… Yeah. I appreciate all your input there, Sasha, and .
+[00:12:49] Patrick: Yeah, I'll definitely work on that, and I'll probably go into the new website and use those, and just start over.
+[00:12:59] Sasha: Okay. Sounds good.
+[00:13:00] Patrick: But, yeah, appreciate it. Talk to you soon.
+[00:13:05] Sasha: Alright, have a good one. Bye.
+[00:13:11] Sasha: Alright, Karen, it looks like they got back to you. Yeah, it's probably something that they need to…
+[00:13:16] Karen Jedele: Yeah, I'm just looking too on the back end. I sent it over…
+[00:13:21] Karen Jedele: But then it bounced, because there's only one P. I just copied that thing out of there. Okay.
+[00:13:29] Sasha: Oh yeah, support is misspelled.
+[00:13:31] Karen Jedele: Yeah, so it just bounced, I'm just doing it. But, let me see if there's anything else I have, as long as I'm the only one on here, right?
+[00:13:38] Sasha: Well, there's 15105, but…
+[00:13:41] Karen Jedele: Oh, yeah.
+[00:13:41] Sasha: in it.
+[00:13:42] Karen Jedele: person.
+[00:13:42] Sasha: Okay.
+[00:13:53] Sasha: you can still do kind of, like, the same things that you would accomplish with Affiliate CMO, just sort of in… through…
+[00:13:59] Sasha: other avenues, you know, just so you know that that's not, like, if it's not working right now… What do you mean?
+[00:14:04] Sasha: Well, you know, Affiliate CMO is essentially like a chat GPT that's, like, trained in a specific way.
+[00:14:11] Sasha: Okay. But at its core, what it's doing is analyzing your offer, and then kind of pulling marketing angles out of it, and using certain headline writing styles to write you headlines, right?
+[00:14:24] Karen Jedele: Yeah.
+[00:14:24] Sasha: And so, you can kind of recreate a similar process, though not with exactly the same training, sort of manually. So I don't know if you have a ChatGPT or a Claude subscription, even if you don't. If you have a free version, you can kind of, you know, still work with it. I have the paid version of ChatGPT. Okay.
+[00:14:42] Sasha: So, you can do a similar thing, it just kind of takes more manual steps, but I feel like you kind of also have a little bit more control over it, because you're the one that's in control over the, sort of the reference inputs that you put into it.
+[00:14:56] Karen Jedele: Okay.
+[00:14:57] Sasha: But I think we talked about it a little last time. If you go to the Creative Drive on the agency portal.
+[00:15:03] Karen Jedele: Yeah, I went in there and I was messing around, yep, okay.
+[00:15:06] Sasha: Yeah, so that, headlines folder in there will have…
+[00:15:11] Sasha: One folder that has a bunch of documents about headline writing, and then one folder that has, the ad angles PDF.
+[00:15:21] Sasha: And that add angles PDF is the same one that Adam talks about in his video in the Blitz. That kind of just defines what an angle is as he sees it, you know, the kind of, like, the beginning of your story. And so…
+[00:15:33] Sasha: if you go into ChatGPT, upload that document, upload an advertorial, upload a sales page, those are your, like, 3 main, or, yeah, 3 main documents, and you say, hey.
+[00:15:45] Sasha: I'm an affiliate marketer, gonna be promoting this product, this is the advertorial my ads will go to, this is the product that my ads will go to. Here is, you know, look at the ad angles document and use that concept to come up with ad angles for my marketing funnel.
+[00:16:03] Sasha: something along the lines. It doesn't have to be those exact words, but you get the idea. It's like, you introduce who you are, what you're doing, kind of gives it the idea of, like, what it is that you're trying to accomplish. You give it a reference document for, like, this is how I define the thing that I want you to extract, and it can come up with, you know, 10 different marketing angles for you. And then…
+[00:16:22] Sasha: you know, you can kind of, like, look at them and see if they're reasonable. Sometimes they'll be far-fetched. Some things don't need a conspiracy angle. You know, if you're promoting a dog toy, there isn't a giant dog toy conspiracy that just is, you know, comical and a little far-fetched. That kind of maybe will work with a…
+[00:16:38] Sasha: you know, a health and wellness product or something. So you kind of use your own common judgment, but, like, pick out marketing angles that you like.
+[00:16:45] Sasha: Have it come up with more if you need to, but just, like, come up with a list that you save yourself, and then you can kind of do a similar process with headline writing, where you kind of…
+[00:16:53] Sasha: upload your, you know, your advertorial and your product sales page, and then say, okay, now help me write some headlines. Here are some reference documents for how to write headlines that you can pull up from the Creative Drive. So.
+[00:17:05] Sasha: It's a little bit more of a manual process, but what it does allow you to do is it allows you to
+[00:17:12] Sasha: mix and match different inputs, because a lot of those headliner writing documents will be from different copywriters throughout time. They'll have different styles, some of them will work for certain products, some of them won't. I'll just mess around with one or two or three at a time and see what kind of copy it comes out with.
+[00:17:27] Sasha: And then I just use that as a, as a draft list. I'll start copying and pasting headlines or even phrases that I like into a document.
+[00:17:35] Sasha: And then kind of work on refining. So, it just kind of gives you a little bit more control in a different way than Affiliate CMO for… because you're the one in control of, sort of, the training materials for how it creates it. Now, Affiliate CMO is a lot more thorough in other ways. It'll go ahead and do, like, background demographic research for you on the back end, and kind of come up with
+[00:17:58] Sasha: that idea, but that's also stuff that you can kind of do manually with ChatGPT. You can do a deep search, you know, I don't know if you've used that function, but it's like,
+[00:18:08] Sasha: a really.
+[00:18:09] Karen Jedele: I… I've used… I haven't used ChatGBT for, like, I'm… I'm not real,
+[00:18:15] Karen Jedele: good at… oh my god, I love Spindrift. Anyway, so I have so many similarities, that's funny. So, I just had the pineapple last night, but anyway, so in here, like, I am not really good at the prompts.
+[00:18:31] Sasha: You know, you don't need to worry about, like, a couple of years ago, you really had to be good with prompts with ChatGPT. Nowadays, it's a conversational flow. Just talk to it like you would a human, and give it positive reinforcement and negative reinforcement, and it learns what you're trying to do a lot better. Prompting sequences, I don't think, are as important as they used to be. I think it's more about…
+[00:18:51] Sasha: giving it clear instructions on what you want, with as much detail as you can provide, and giving it reference materials, which is kind of what I'm telling you about. It's like, we have all these documents that are kind of help with the… with the training process. But beyond that, it still involves some common sense and proofreading, like, don't just take everything it gives you, like.
+[00:19:11] Sasha: take what you want out of it, save it, and then refine and refine and refine, and so…
+[00:19:16] Sasha: you know, use that copy blocks document that's in the Blitz, use the headline writing documents, use the angle writing document, and as long as you kind of, like, start with that general flow of angle first, headline draft second, copy blocks for kind of refining.
+[00:19:31] Sasha: That's… you can get some great output that way, as long as you treat it as, like, an iterative process, rather than trying to just get a final product of a product being your headline.
+[00:19:43] Karen Jedele: So you do the angle first. You do.
+[00:19:45] Sasha: I do the angle first, absolutely, because it all… it all starts with the angle. That's, like, the foundation of what you're trying to do. Initially, you're kind of…
+[00:19:53] Karen Jedele: And that the angle's the image, right?
+[00:19:55] Sasha: No, the angle is sort of the underlying concept that, of the product.
+[00:20:02] Karen Jedele: And so the angle language.
+[00:20:05] Sasha: Yeah, kind of. I mean, the angle applies to both the language and the image, it's just more of the, like, your approach to the sale, in a way. Like, as an example, if we're talking about a dog product, you know, that dog product that moves around by itself, are you…
+[00:20:20] Sasha: targeting people who have older dogs that are more sedentary? Are you targeting people that are guilty because they're at work all day and their dog is lonely? Is their dog bored and destructive and chewing up the couch? Like, you know, you're selling the same thing, but
+[00:20:37] Sasha: the way you're selling it and who you're selling it to changes with the angle, and so that's… that's the initial test.
+[00:20:44] Karen Jedele: And the angle, that's on the, the, that goes on the banner ad, right?
+[00:20:49] Sasha: The angle doesn't really go anywhere word verbatim, it's more of the concept through which headlines are built.
+[00:20:58] Sasha: So it's like, if you're targeting the, like, you know.
+[00:21:02] Karen Jedele: So, I understand who am I adding? I guess I… that's, like, my avatar, right? Is that…
+[00:21:07] Sasha: A little bit different, because your avatar is ultimately the person who buys it, the ad angle is how do you sell it to them?
+[00:21:16] Karen Jedele: Okay.
+[00:21:17] Sasha: because, you know, the ad angle can also be, you know, can be a lot of things. It can be, like, a cost-effective thing, like, this is cheaper than alternative solutions. It's just, like, the whole package of how you get
+[00:21:30] Sasha: to the sale, and the customer avatar is kind of built into that inherently.
+[00:21:35] Sasha: Also, they're kind of sort of separate concepts, because a customer avatar of someone, you know, whatever, 45 plus that
+[00:21:42] Sasha: has a dog and is away from home all the time is pretty general, but, like, the persona, like, the specific angle that would apply to that people, there's still…
+[00:21:52] Sasha: different angles that would apply to a single customer avatar. But, I mean, you're right, you have to consider the customer avatar, but even within that, there are still different angles, and that's kind of like what Adam talks about in that video, and is in the PDF, and…
+[00:22:05] Sasha: And so that's why it always starts with the angle, because headlines get written for the angle. The headlines will change depending on the angle that you have chosen.
+[00:22:16] Sasha: And that's how you can kind of…
+[00:22:18] Karen Jedele: my ad angle, then I'm doing my headline.
+[00:22:24] Karen Jedele: Or am I doing… because I'm doing my… I'm doing the picture last, or am I doing the picture first?
+[00:22:30] Sasha: I would say you're doing the picture somewhere in the headline writing stage, because the picture kind of applies…
+[00:22:39] Sasha: kind of to the angles, I guess.
+[00:22:42] Sasha: And, you know, the angle is… the angle testing is kind of in both your headlines and your landing pages. You're kind of…
+[00:22:51] Sasha: Split testing both in a way simultaneously.
+[00:22:55] Sasha: You know, that said, it's a little bit, I guess, more important to have, I think, distinct angles on the landing page side, and have headlines that can kind of apply to all angles initially, because you kind of want to see what angle works best before really refining it in your ad headlines.
+[00:23:14] Sasha: Because if you have, like, you know, whatever, angle 1 that goes to, you know, 4 or 5 different angles, like, sometimes there'll be a drop-off if you're… they're just, like.
+[00:23:23] Sasha: Too different between your ad and your landing pages, so…
+[00:23:27] Sasha: You know, it's a little bit… you kind of have to be a little bit broad with your ad headline at first.
+[00:23:32] Sasha: see what's… what angle is working on your landing pages, and then kind of bring that insight back into your ad headlines, and kind of really connect the two a little bit more. And that's kind of why we… we test broadly to begin with, and then refine and iterate once you see something that is kind of clicking a bit.
+[00:23:50] Karen Jedele: Nico.
+[00:23:51] Sasha: But, yeah, that general flow of, like, angle, you know, headline drafts, and then kind of refined headline structure is my general word.
+[00:24:01] Karen Jedele: So, do you try to drive into your angle with ChatGBT?
+[00:24:05] Sasha: What do you mean?
+[00:24:06] Karen Jedele: Do you… like, your ad angle, do you try and drive down into that with ChatGBT?
+[00:24:13] Sasha: Sure. Do you have an angle?
+[00:24:14] Sasha: Yeah, I'll help… I'll use its help to, like, identify the ad angles, and then…
+[00:24:20] Sasha: refine them, I guess. I mean, usually the angles end up, you know, being, I don't know, not necessarily obvious, but, like, that is a little bit more straightforward and quicker, I think, of a process to establish.
+[00:24:35] Karen Jedele: I'm thinking… I want to do those little eye things that go underneath your eyes, okay?
+[00:24:40] Sasha: other beast available?
+[00:24:41] Karen Jedele: Yeah, so it's like that is, you know, it's for busy people, people that aren't sleeping, you know, whatever, like, all people that, you know, don't want big eyes, you know, whatever. So, it's just… and it's quick, it's easy, you could do it in between emails, you can do it before a meeting, you know, you could do it whenever. So, that's kind of where… because I was playing with that,
+[00:25:05] Karen Jedele: concept… what did I come up with last night? I was, where's my…
+[00:25:12] Karen Jedele: Oh, Lula, wherever this thing is… affiliates…
+[00:25:21] Karen Jedele: So I was just kind of playing on that copy block, sheet…
+[00:25:29] Karen Jedele: Where's… oh, it came to the copy box automatically.
+[00:25:38] Karen Jedele: like, busy women ready for showtime in 15 minutes, or busy women, like, lining up for an instant eye lift, or, you know, just busy women, I think, you know, it doesn't have to be women, but busy people, but I think…
+[00:25:54] Sasha: Probably will be women.
+[00:25:55] Karen Jedele: Yeah. So, like, just, like, I think it's just because it's 15 minutes, it's easy, they can do it whenever,
+[00:26:04] Karen Jedele: You know, so I was kind of, you know, kind of getting into that mindset.
+[00:26:11] Sasha: Yeah, I mean, I think you have the right idea. I think I would, you know, I mean, like, okay, busy women is kind of, like, an angle of itself, is like, there's something quick. So it's like, if it's something quick, it's something effective. I mean, just a variety is kind of what you want to test. So, like, I wouldn't put busy women in every single headline, because then you're testing one thing over and over again, even if
+[00:26:32] Sasha: The second part of it is slightly different.
+[00:26:34] Sasha: But, you know, I think it… what you really want to make sure is that, like, whatever you're testing isn't just an angle in theory, but it's an angle that exists in your marketing content after the ad. So it's like, the angles come from…
+[00:26:48] Sasha: the advertorial and the product, because they have to be consistent with the rest of that, which is why you have to choose women here, because this is the, you know, 42-year-old mom's story, right? So if you all of a sudden marketed this towards men, there would be a drop-off, because it just doesn't really apply.
+[00:27:04] Sasha: Even… even if, in theory, you could market it that way, that's not what this is… this specific advertorial is geared towards. And that's why I kind of keep coming back to it, it's like.
+[00:27:13] Sasha: the angle is something you extract from your marketing content. It isn't something you come up with as, like, I think this should happen. You're… you're taking something that exists, and you're extracting it to be able to maintain
+[00:27:26] Sasha: Like, a continual, sort of, story arc throughout your marketing funnel.
+[00:27:30] Sasha: And so, as long as you are kind of extracting it in that way, and using ChatGPT to extract it in that way, it's probably, you know, a valid test.
+[00:27:42] Karen Jedele: Yeah, so yeah, the breaking… so I think I have to take that breaking out, right?
+[00:27:47] Sasha: Yeah, I would do that to be safe.
+[00:27:49] Karen Jedele: I could do more, like, busy 40… 42-year-old moms, you know, 15-minute… but I'm supposed to mess with this headline also, right?
+[00:28:02] Karen Jedele: The 42-year-old mom's 15 minutes.
+[00:28:04] Sasha: The general idea is that you use the headline that is in the advertorial template as your control.
+[00:28:12] Karen Jedele: Yeah.
+[00:28:13] Sasha: headlines, so you're testing against something. Now, with this one, I would just remove braking, and use 42-year-old moms, yada yada, as your control, and then you, you create…
+[00:28:24] Sasha: Four different ones, yeah.
+[00:28:26] Karen Jedele: Yeah, okay.
+[00:28:27] Sasha: you know, as far as testing angles go, if, you know, 15-minute eye trick, whatever, 10 years younger, like, that's… if that's one, now you have to come up with variety that is different than that. Don't just test variations of this same headline, because that is, like, a refinement stage, and that's not the point.
+[00:28:45] Karen Jedele: Okay.
+[00:28:46] Sasha: initial testing. You want to create things that are distinctly different while still being consistent with the content of this advertorial and the product.
+[00:28:54] Sasha: And that's… that's, like, the kind of, like, the core of testing angles, is what part of what's in this advertorial that is also sort of backed up by the product sales page is going to work better as a marketing angle, and then you can kind of start
+[00:29:10] Sasha: The refinement stage and testing, you know, 5 more headlines that are very similar, like, within that headline, or angle, but differently structured, or might bring out different, you know, specifics from the advertorial.
+[00:29:23] Karen Jedele: Because they even, I think even in, not on the sales page, but I believe in the advertorial here, they even, like, talk about, like.
+[00:29:31] Karen Jedele: FDA approved, or…
+[00:29:33] Karen Jedele: Something like that, and I'm like, that might not be a bad thing to bring up into,
+[00:29:40] Karen Jedele: the, the headline or the, what's the thing before the headline? The.
+[00:29:48] Sasha: The… I mean, they're both headlines, but in ads. I don't know, I think FDA approved…
+[00:29:55] Sasha: Is that too much? I don't know if it's too much, I just, like…
+[00:29:59] Sasha: I don't know if that's much of a selling point for me. It's like, to me, it's like, it almost brings up, like, well, why wouldn't it be FDA approved?
+[00:30:04] Karen Jedele: Oh, I see, okay.
+[00:30:05] Sasha: You know what I like.
+[00:30:06] Karen Jedele: Okay.
+[00:30:06] Sasha: It's like… I don't know. I don't know if FDA is, like, an organization that people put a lot of trust into, of like, man, that's really cool. It's like, usually when you have an authority figure, it's like, you know, Stanford Research or something like that, right?
+[00:30:23] Karen Jedele: Okay.
+[00:30:23] Sasha: If they had things like that in the headline, but, like, FDA approved, to me, is… maybe it's necessary in other things when you're talking about, like, I don't know, supplements or something where someone might be like, oh, is this…
+[00:30:37] Sasha: Is this risky or not? But…
+[00:30:39] Sasha: I don't know, it's potentially worth testing. My, I guess, initial reaction to that would be, like, meh, whatever, FDA approved.
+[00:30:46] Karen Jedele: Okay.
+[00:30:46] Sasha: FDA approved, like, I don't know if that's a huge selling point, in the beauty industry, but, like, I also haven't, you know, done research into this demographic either, so maybe it would. Like, don't, I guess, just take my word for it.
+[00:31:01] Karen Jedele: There you go.
+[00:31:01] Sasha: It is the… that is one of the elements that you want to include in your headlines, as per the copy block thing, is the kind of the authority angle, or not angle, authority block, I don't remember.
+[00:31:13] Sasha: I don't remember how it is phrased in the copy blocks, but there is part of it as, like, credibility, maybe? Like, something that lends credibility to the headline.
+[00:31:22] Karen Jedele: And then the, so, when you have the date there, like, this one says Monday, October 20th, 2025, like, is there a way that that date is always, current?
+[00:31:36] Sasha: Yes, but…
+[00:31:38] Sasha: That's something you can apply later. There's, like, a… basically, like, a JavaScript code you can put in in place of that, but it gets messed up when you run it through MetricMover.
+[00:31:49] Sasha: So, for initial tests, just set it manually to this year, till January, if you want, and then later you can tweak that. It's not that hard to just, like, update it manually every once in a while, and I don't… I don't think it's, like.
+[00:32:03] Sasha: a huge selling point. I've seen other people
+[00:32:07] Sasha: when you don't have, like, this traditional byline of, like, Monday, October 20th, or something like that, that was, like, it says, like.
+[00:32:13] Sasha: by Sarah Mitchell 5 hours ago or something, you know, like, there are different ways to, like, make it seem like it is brand new, but I think it's something that people mostly will skim over, so if it's close enough to pretty recent, that's probably fine.
+[00:32:31] Karen Jedele: Yeah, and I was, like, I know, I spoke with some… one of the… I think it was Bruce, about the reviews.
+[00:32:36] Karen Jedele: Like, the reviews are pretty old on this… Thing.
+[00:32:41] Karen Jedele: So, I don't know,
+[00:32:43] Karen Jedele: how you feel about that? I'm not a real fan of having old reviews, and I asked him if there was a way to… because I know on, like, the Barker thing, and the cat.
+[00:32:52] Karen Jedele: They don't have the dates for the reviews, they just have the reviews, so I just asked if there was a way to just…
+[00:33:01] Karen Jedele: You know, have that happen.
+[00:33:02] Sasha: Oh, have them removed? Yeah, let me… I'll write that down, and I'll ask to see if that's possible in our next meeting.
+[00:33:10] Karen Jedele: Cause it would be so great, yeah.
+[00:33:17] Karen Jedele: I think a lot of the products, too, like, because I was looking and looking, and I'm like, there's none of them that have really, you know…
+[00:33:24] Karen Jedele: Great reviews or, reviews that are current.
+[00:33:30] Karen Jedele: Or they're, like, all on one day, or, you know, it just… it's like, you just don't want to get all the way to that point, and then they look at the reviews, and it's like, oh, the reviews are, you know, a year old.
+[00:33:41] Sasha: Yeah, yeah, for sure. I mean, I think a lot of these reviews are kind of brought in from the manufacturer, and so they might have just been batch brought in at the time when the product was made initially. Yeah, I'm not sure how that goes, but I'll check in and see if they can
+[00:33:57] Sasha: Remove the date, because…
+[00:33:58] Karen Jedele: Yeah, and if that's the case, you know, it's like, I don't… you know, if… if this is like, you know… I don't want to be fighting an uphill battle, you know what I mean? It's like, I want something that's gonna be… if I'm gonna put all the work and time into it, it's like, I would like everything to just kind of be easy to fall in line if people would like to purchase it.
+[00:34:17] Karen Jedele: Or do I do something on ClickBank that's a little bit more current? I don't know.
+[00:34:24] Sasha: Yeah, I mean, ClickBank is definitely an option. I think we'll be,
+[00:34:30] Sasha: Releasing some… some other affiliate networks pretty soon that'll be integrated into our system.
+[00:34:36] Sasha: that are similar to ClickBank, so just kind of keep an eye on that on that announcement. I'm not exactly sure when it's gonna happen, but I think…
+[00:34:45] Sasha: at least one of those networks is more CPA-based rather than rev share, which ClickBank is, which makes it a little bit easier to… to start with, so…
+[00:34:57] Sasha: Yeah, I would say if you're, you know, if you're interested in going down that road, just kind of hang tight a little and wait for that announcement soon. I'm hoping it'll be happening soonish, once the integration with our systems is complete.
+[00:35:10] Sasha: Because that's definitely another, another option as well.
+[00:35:15] Karen Jedele: Yeah, love it. I just, yeah, it's just like, you want… you want everything to be kind of lined up.
+[00:35:20] Sasha: Yeah, yeah, and I think a lot of, kind of, the general process of what you're kind of learning and the workflow will still be applicable. So even if this ends up being, you know, VistaVeil ends up being sort of a practice round for you to get familiar with the process of creating these materials, it still won't be, like.
+[00:35:38] Sasha: you know, wasted time, per se.
+[00:35:40] Karen Jedele: Yeah.
+[00:35:41] Sasha: Mark… marketing with… with…
+[00:35:43] Sasha: ClickBank and companies like that is a little bit different in terms of structure, because you're working with, kind of, bridge pages rather than full-on advertorials. So the process and how many pages of each and how many headlines is a little bit different as an initial, as you start testing, but…
+[00:36:01] Sasha: the way you get to those headlines is very similar in terms of, like, the inputs you have for chat GPT and whatnot to come up with headlines, so…
+[00:36:12] Sasha: I would so… I would say just kind of keep… keep plugging away and practicing.
+[00:36:16] Sasha: This, because the more you do it, the easier and more intuitive it gets.
+[00:36:20] Karen Jedele: Yeah, I know, and it's like, I have other things that I'd like, I have my own stuff that I would like to start marketing to, so I think all of it, just learning the process, I think, is just perfect. Yeah. Like, it's exactly what I need.
+[00:36:35] Karen Jedele: It's like, when you know what you don't know, you know…
+[00:36:40] Karen Jedele: You need to learn it. So, thank you. Oh, and there was that EMB, like, I looked… I guess it's changed, like, it's not what it used to be, and it's on hold or something?
+[00:36:56] Karen Jedele: And… but they had something where you could actually still market it, like, to Facebook and to all these other things.
+[00:37:05] Karen Jedele: And there was supposed to be a call… like, there's a call, I think, on… it was yesterday, but nobody was on the call.
+[00:37:15] Karen Jedele: So I just hung up. But… and then today, also, I jumped onto a call, because, like, at the… in the training portion of that affiliate CMO,
+[00:37:26] Karen Jedele: there's also, like, at the head of the training, there's something that's a Zoom link that is Wednesdays at 3.30, and I jumped on there, and there was nobody on that one either. So I'm like, I don't know if I'm, like, finding calls that don't long… no longer exist.
+[00:37:42] Sasha: Yeah, that might have just been an old link, because that's… that's roughly…
+[00:37:48] Sasha: the time that I'm leading these calls. Yeah, that might just be an old link that we need to fix. I didn't even realize we had links in Affiliate CMO.
+[00:37:58] Karen Jedele: Yeah, there's one at the top, it says, live weekly question and answer, and it says, returns January 7th.
+[00:38:06] Karen Jedele: So… I'm guessing that wasn't… unless it was 2025, but, yeah.
+[00:38:13] Sasha: Now, the returns part might be accurate, it's just the time might be incorrect. I think it's probably supposed to link to…
+[00:38:20] Sasha: this call or a call earlier in the day today that was by… oh, it probably was… we had a coach
+[00:38:29] Sasha: that's no longer working here, that he just kind of moved on. Dan, he was the one that was kind of in charge of bringing affiliate CMO together. He was one of the people that kind of built it and trained it.
+[00:38:40] Karen Jedele: So probably linked, linked to…
+[00:38:42] Sasha: his call, and so yeah, I think that just needs to be updated a little bit. As to…
+[00:38:50] Sasha: As to the… the promoting the program call, I… I don't know what to tell you. I know those calls should exist, so maybe that's another thing you can ask support and see if that's changed at all.
+[00:39:07] Sasha: Or if the time of that has changed, maybe it was just…
+[00:39:11] Sasha: Someone missed it on accident or something, I'm not sure. But yeah, as far as I know, those calls should still be happening at the store.
+[00:39:17] Karen Jedele: Caleb?
+[00:39:19] Sasha: Yeah.
+[00:39:19] Karen Jedele: Okay, so yes, Tuesdays at 7pm, Tuesdays and Thursdays at 7pm, because I think that, like, even if I don't promote
+[00:39:29] Karen Jedele: this, at least I can sit in on those calls and learn more about marketing on Facebook and Google Ads, which is what it looks like you're learning on that, so I think.
+[00:39:41] Sasha: Yeah.
+[00:39:41] Karen Jedele: For me, too.
+[00:39:43] Sasha: Yeah, yeah, definitely.
+[00:39:45] Karen Jedele: So… because, yeah, it's like, I don't know, like, I think it went to, like, before it was, like, what, $2,500 if you got, someone to purchase, or whatever, and now it's at, like, a flat fee of, like, $200, which is very different.
+[00:40:04] Karen Jedele: So, I don't know where… I can't find back where that was, but,
+[00:40:12] Karen Jedele: Yeah, it's… the number is very different. Yeah, earned commissions, $200…
+[00:40:18] Karen Jedele: per IAS sale, which I don't know what that is, and 25% on sales up to your level, but I don't know if that was on hold, I don't know. I think I.
+[00:40:28] Sasha: No, no, I think that's… yeah, I mean, you should probably get an update on, like, a specific…
+[00:40:35] Sasha: Numbers…
+[00:40:38] Karen Jedele: Yeah.
+[00:40:41] Karen Jedele: So, I don't know. Maybe on Thursday, I can, it looks like it'll be right after the regular, live coaching call, so…
+[00:40:51] Karen Jedele: Alright, cool. So, when I'm on ChatGBT, I guess to finalize our thought, so ChatGBT, I'm just putting something about me being an affiliate, marketer.
+[00:41:04] Karen Jedele: And then I'm gonna upload the product page and the, adversarial page.
+[00:41:12] Karen Jedele: And then I'm gonna be asking for, an ad angle for busy women, and then.
+[00:41:21] Sasha: Well, I would, I mean, use the ad angles document also, and upload that as well, and come up with multiple marketing angles, and don't…
+[00:41:32] Sasha: You don't necessarily.
+[00:41:33] Karen Jedele: That's what I said, like, when you say use the add angle sheet, I think, I don't know if I'm following you…
+[00:41:40] Sasha: So, in the.
+[00:41:41] Karen Jedele: So here's the angles, finding your edge, there's a PDF.
+[00:41:48] Sasha: Yeah, exactly, that.
+[00:41:50] Karen Jedele: Is that it.
+[00:41:51] Sasha: Yeah, upload that document in addition to the advertorial.
+[00:41:54] Karen Jedele: But this is just, like, a PowerPoint, right?
+[00:41:57] Sasha: Exactly, yeah.
+[00:41:58] Karen Jedele: Oh, so I'm uploading this.
+[00:42:00] Sasha: Yeah, that kind of, like, that kind of helps define how you are… how we are looking at angles for ChatGPT, so that it knows, kind of, how to…
+[00:42:10] Sasha: how to pull out those concepts. Yeah.
+[00:42:15] Karen Jedele: Okay, so I just, I just, highlight the, the text.
+[00:42:21] Karen Jedele: Oh wait, it's not letting me.
+[00:42:23] Sasha: No, no, no, you just upload the whole PDF.
+[00:42:25] Karen Jedele: Oh, so I'm…
+[00:42:26] Sasha: Download, yeah, download it onto your computer, and then you can just drag and drop it into ChatGPT.
+[00:42:31] Karen Jedele: Okay, and then what do I say with that document, then? I just say, this is.
+[00:42:37] Sasha: This is what I think.
+[00:42:38] Karen Jedele: an ad angle is.
+[00:42:39] Sasha: Yeah, I just say, please, you know, here's my… like, so whenever you upload stuff, just label it what it is. So, like, here's my advertorial, here's my product sales page.
+[00:42:49] Sasha: here's the ad angles document, right? And so, when you're starting your initial prompt, you do all that stuff we talked about, which is, like, what you're trying to do. You're an affiliate marketer, marketing this product.
+[00:43:01] Sasha: You know, your ads will go to this advertorial, which will go to this product sales page, you know, and then say, please.
+[00:43:09] Sasha: read and analyze this ad angles document, and then come up
+[00:43:13] Sasha: with 10 different ad angles for my marketing funnel. So that way, you have… here's the advertorial on the product page, that's where it's going to be kind of extracting the ad angles from. Then you have your way of defining ad angles as per that PDF document.
+[00:43:29] Sasha: And the, you know, specific instructions say, hey, read all of this, use the concepts and add angles to come up with ad angles for
+[00:43:37] Sasha: Kind of the advertorial and, and, product.
+[00:43:41] Karen Jedele: Do you happen to have a prompt already written, or no?
+[00:43:46] Karen Jedele: Just asking, because…
+[00:43:47] Sasha: I don't… this is, like, totally foreign to me. I… I might. Let me see if I have one here.
+[00:44:00] Sasha: I might have it in a previous email or something.
+[00:44:14] Karen Jedele: Sorry, what do you want? I haven't…
+[00:44:44] Sasha: Here, I have this.
+[00:45:02] Sasha: Let me see… I'm gonna… create a… a Google document.
+[00:45:11] Sasha: On my drive here, and then just share you the link.
+[00:45:14] Karen Jedele: That would be amazing.
+[00:45:15] Sasha: I have this general follow-up that I have from
+[00:45:19] Sasha: one-on-one coaching calls, kind of talking about this kind of stuff that I send in a follow-up email, and I think it kind of covers…
+[00:45:26] Sasha: Most of what we just talked about.
+[00:45:29] Karen Jedele: I'm sure it'll be better than whatever I try to create.
+[00:45:40] Karen Jedele: It's just like, I'm sure, like, at one point I'll get the flow down, but I just don't have the flow yet.
+[00:45:45] Karen Jedele: Yeah. It's like, even just the language is just new to me, just overall, so…
+[00:45:51] Karen Jedele: not… I don't even… like, what is a… this? And I don't even know what these things are yet, so…
+[00:45:55] Sasha: Yeah, well, you're going through a lot of… a lot of new videos.
+[00:46:01] Sasha: Depending on the link.
+[00:46:09] Sasha: There we go. Let me know if you can open that, just to make sure.
+[00:46:13] Karen Jedele: Okay, let's see… Copy link…
+[00:46:24] Karen Jedele: We'll browse for a new campaign. Okay, yes, so let me file, make a copy… Make a copy…
+[00:46:43] Karen Jedele: Okay.
+[00:46:44] Karen Jedele: Cool, and I'll just favorite this so I have it… done.
+[00:46:53] Sasha: So I kind of structured these prompts, just to make sure you understand, that, like…
+[00:46:59] Sasha: You have… so, are you looking at it right now?
+[00:47:01] Karen Jedele: Yeah, I am.
+[00:47:02] Sasha: You see any place where it has the, like, whatever they're called, square… square…
+[00:47:06] Karen Jedele: Yeah.
+[00:47:07] Sasha: Yeah, those things, so wherever it says, like.
+[00:47:10] Sasha: parentheses, advertorial document name. Those are all places to copy and paste the specific names of your documents.
+[00:47:17] Sasha: That's why I kind of have the initial reference documents for this stage, where it says, like, advertorial document, product sales page document, and so for me, it'll be, like.
+[00:47:26] Sasha: you know, VistaVale Advertoreal, Vistavail product sales page, and Add Angles, document name.
+[00:47:33] Sasha: and then specific headline writing document name. So I just have that on a notepad or whatever, and I just copy and paste that in to the specific locations in the individual prompts. I just find it helpful where you're like.
+[00:47:46] Sasha: Clearly referencing specific documents.
+[00:47:49] Karen Jedele: to chat GPT, so it knows the general flow of things.
+[00:47:53] Karen Jedele: Yes.
+[00:47:54] Sasha: So yeah, this should be enough to get you started. I mean, it is…
+[00:47:57] Karen Jedele: Use the headlines documents… As reference to Noah.
+[00:48:04] Karen Jedele: Okay. So, I'm taking the headlines out of the, the banner ad? Is it a banner ad? And the.
+[00:48:14] Sasha: No, the… so wherever… we're talking about headlines, documents, that's… those are the other things that you can download from the Creative Drive.
+[00:48:23] Karen Jedele: Oh, okay.
+[00:48:24] Sasha: So, remember where you got your add angles document? There is another folder that is with just PDFs about writing headlines.
+[00:48:31] Karen Jedele: Yeah, I saw, and there was, like, a million of them in.
+[00:48:33] Sasha: Yeah, there's a good amount. I think you kind of just have to open up each one. Some aren't in, like, formats that are particularly great for,
+[00:48:44] Sasha: Or ChatGPT, I know, like, one of them just has a bunch of, like, newspaper clippings and stuff.
+[00:48:50] Sasha: I think, yeah, you just need to go through them a little bit.
+[00:48:53] Karen Jedele: Okay, so just, okay, attach a headlines document. When I attach them all, they can be PDFs, they can be Word, they can be anything, it doesn't matter.
+[00:49:02] Sasha: Yeah.
+[00:49:04] Karen Jedele: Okay. But I just want to title them Headlines Document, so that ChatGBT picks it up.
+[00:49:11] Sasha: Yeah, I… yeah, I just, I start them all with… I don't know, maybe they're already structured this way, but I just have headlines and big, all caps in the beginning.
+[00:49:20] Sasha: Just… just so that it knows that anytime I'm talking about headlines documents, it,
+[00:49:28] Sasha: It knows that those are the ones you're talking about.
+[00:49:31] Sasha: Here, I'll paste… I forgot I had this in another email thread. I'll paste, like, 4 example ones that you can kind of start that I… that I use, but I still recommend you kind of go through them and see
+[00:49:44] Sasha: you know, what the other ones are like as well, but just to kind of get started.
+[00:49:49] Karen Jedele: That would be fabulous.
+[00:49:55] Karen Jedele: I know, today I was watching that… hours of that,
+[00:50:00] Karen Jedele: affiliate CMO, and it's like, holy crap, my brain was ready.
+[00:50:05] Karen Jedele: Explode.
+[00:50:20] Sasha: Okay, I just updated the… that Google Doc to have some…
+[00:50:26] Karen Jedele: Oh, okay, so I can ju- okay, so I have to still probably copy it again. Here, let me copy…
+[00:50:39] Karen Jedele: Peace.
+[00:50:45] Karen Jedele: Copy of it.
+[00:51:03] Karen Jedele: Okay. Example of headlines document to use.
+[00:51:10] Karen Jedele: Okay, so then I just save those documents as PDFs, and then attach them to my… to this… Okay.
+[00:51:23] Karen Jedele: Alright!
+[00:51:25] Karen Jedele: Mon it!
+[00:51:29] Sasha: Alright, we got your work cut out for you.
+[00:51:31] Karen Jedele: Yes, I do. Thank you so much for your help. You have no idea.
+[00:51:37] Sasha: You're welcome.
+[00:51:39] Karen Jedele: Alright, cool! Well, enjoy your Spindrift, and your,
+[00:51:43] Karen Jedele: Backdrop, hopefully we'll all get to Wyoming one of these days. Back there again.
+[00:51:49] Sasha: Alright, have a good evening.
+[00:51:50] Karen Jedele: Thank you, too. Bye.
+[00:51:52] Sasha: Bye.

@@ -1,0 +1,248 @@
+TITLE: Live Coaching Call - Todd
+SOURCE: coaching-transcripts.txt
+TURNS: 244
+
+[00:00:22] aaronwoodhouse1: Good morning!
+[00:00:23] Todd: I mean…
+[00:00:45] Todd: Alright.
+[00:00:50] Todd: I think we've got everybody in here.
+[00:00:54] Todd: Welcome. One thing that's new, starting this week, I'm glad to see the support team is on here. So.
+[00:01:03] Todd: On all of the calls now, we are gonna actually have, somebody from the support team that is monitoring the chat. So, hopefully, if you guys have any kind of technical issue or, you know, questions, that, you know, are more kind of technical-related stuff that, you know, might eat up a bunch of time on the call, they certainly are here to help from that perspective, so…
+[00:01:27] Todd: Definitely utilize them in the chat. I may refer you to the chat. If you're unsure, you can certainly ask me your question. And obviously, with a smaller group, we might be able to get through some of those questions as well, too, but this is a… this will be a great resource for you guys. They'll be able to look up any of your tickets that you have, give you status of any of your tickets that you have.
+[00:01:49] Todd: So…
+[00:01:50] Todd: That's just brand new starting this week, so, awesome to see that on here. So, with that, let's jump into it. Does anybody have any specific… Karen, I see you raising your hand, yeah?
+[00:02:02] Karen Jedele: Yeah, I don't know why I'm not able to raise my hand on here. I'm not sure what's going on. Normally it's in the React thing, right?
+[00:02:10] Todd: Yes.
+[00:02:11] Karen Jedele: And I'm not seeing it for some reason, and I came on yesterday and I wasn't able to either. I'm not sure if there's a setting, or… can anyone.
+[00:02:19] Todd: I have,
+[00:02:21] Todd: Are you on the… the web, like, the app, or are you on the, like, website, Zoom?
+[00:02:28] Karen Jedele: I'm on the website Workplace.
+[00:02:31] Todd: Okay, so it might look a little bit different, but sometimes in the React, if you actually click on React versus the up arrow, you're gonna get some different.
+[00:02:40] Karen Jedele: Oh my gosh, you're right! Thank you! Okay.
+[00:02:43] Karen Jedele: Okay, alright. Should I ask my question.
+[00:02:46] Todd: Yeah, go for it, yeah.
+[00:02:47] Karen Jedele: I'm new, and I'm trying to… so I'm trying to figure out in my mind how this is all, you know, in the background going on. So the subdomain… when we're choosing a subdomain, is it going to be something that we want to choose that correlates with the…
+[00:03:04] Karen Jedele: Thing that we're going to be marketing, or is this a subdomain that we're going to be using for everything?
+[00:03:10] Todd: Yes. Okay. So the correct answer is, I mean, you really can, but I would defer to the second one, because you're really going to be using it for everything, so you don't want to have…
+[00:03:22] Todd: you know, the name of the product, dot, you know, whatever, whatever, because if you're promoting another product, right, you've got to create another subdomain and go through all of that. So, just choose a, you know, a generic enough one that whatever you're promoting on there, you know, it's not gonna stick out like a sore thumb.
+[00:03:42] Karen Jedele: Okay.
+[00:03:43] Karen Jedele: Alright, so, like, wellness, whatever.
+[00:03:46] Todd: Yeah, absolutely, or, you know, gadgets galore, or, you know, deals, I think is the example one, or, you know, latest tech, right? You know, stuff like that, whatever it might be that is, you know, generic enough that it will work for whatever product you're gonna eventually promote.
+[00:04:02] Karen Jedele: Okay, cool. And then, what was my other question? I know I put it in the,
+[00:04:09] Karen Jedele: Discord,
+[00:04:12] Karen Jedele: Oh, the… the cutting edge, like, I'm supposed to use the cutting edge one, I believe, because I'm using… I'm doing a gadget, like a wellness gadget for your eyes. So, cutting edge, and it had…
+[00:04:25] Karen Jedele: like, the 4.4-1, then it had 4.5 staging, then it had 4.51 breaking news, do not use with Caterpillar. I don't even know what Caterpillar is, but I'm just, I don't know which one I'm supposed to use.
+[00:04:41] Todd: So, really, I would probably use the one that doesn't say… the latest one that doesn't say staging on it.
+[00:04:51] Karen Jedele: And now she's with Caterpillar?
+[00:04:53] Todd: Caterpillar is a traffic source, and so there are certain things that, like, in some of the landing pages that are not allowed on that specific traffic source.
+[00:05:06] Todd: I mean, the…
+[00:05:07] Todd: the really short answer is, right, like, it really doesn't matter, because even if you choose that one, and you want to run on Caterpillar, you can make the changes to the landing page that you need to make, in order to be compliant with that specific, traffic source.
+[00:05:25] Todd: So, I would just use… I would use the… and…
+[00:05:29] Todd: The latest one as well, too, right? Because a lot of times, the landing pages get updated based off of performance, they get updated based off of compliance, they get updated off of…
+[00:05:39] Todd: Whatever the issue might be, and so that's why, kind of using the latest and, you know, the most recent released one is usually the safest bet.
+[00:05:50] Karen Jedele: Okay. I have more questions, but there's more people, so I will, I'll jump on later for another question.
+[00:05:55] Todd: Okay, yeah, certainly. We've got not a huge group, so I'm sure we can get back to you.
+[00:05:59] Karen Jedele: Okay.
+[00:06:01] Todd: Aaron.
+[00:06:07] aaronwoodhouse1: Hey, Todd, I just wanted to…
+[00:06:10] aaronwoodhouse1: Review some of my numbers on a… Test here, let me…
+[00:06:13] Todd: Okay?
+[00:06:14] aaronwoodhouse1: Share my screen.
+[00:06:32] aaronwoodhouse1: Sorry, my bar across the top now, I can't see.
+[00:06:36] aaronwoodhouse1: Which tab?
+[00:06:38] aaronwoodhouse1: There we go.
+[00:06:40] aaronwoodhouse1: I don't know if you remember.
+[00:06:43] aaronwoodhouse1: I tried a few different products, now I'm finally getting some sales with Barkchester. And then during the holidays, kind of when you guys were on vacation, I was… I had finished up my last test, and so I just kind of waited and started a test this past weekend.
+[00:06:59] Todd: Okay.
+[00:07:01] aaronwoodhouse1: I…
+[00:07:02] aaronwoodhouse1: I basically have kind of been refining. I found, like, a winning headline, or so I think, then tried some different images.
+[00:07:11] aaronwoodhouse1: I had one… This one that has 5 sales.
+[00:07:18] aaronwoodhouse1: it just… as I let it keep running, it didn't hold, or stay profitable, right?
+[00:07:24] Todd: Okay.
+[00:07:25] aaronwoodhouse1: I went back to the drawing board and tested 10 new images. So right now, I'm in the middle of that test.
+[00:07:31] aaronwoodhouse1: And the numbers and everything are looking better.
+[00:07:35] Todd: Okay.
+[00:07:35] aaronwoodhouse1: And so, my question is…
+[00:07:38] aaronwoodhouse1: kind of where or what to keep looking for. Once every… if one of these do hold, this one, 140…
+[00:07:47] aaronwoodhouse1: 142… I'm just looking at these numbers across, and everything seems a lot better than previous ones, where, you know, my cost per click.
+[00:07:56] aaronwoodhouse1: My… my landing page click-through rates.
+[00:07:59] Todd: Yep.
+[00:08:00] aaronwoodhouse1: The one thing I'm noticing as I'm…
+[00:08:03] aaronwoodhouse1: I'm getting kind of, like, sporadic sa- the different sales on different ads.
+[00:08:08] aaronwoodhouse1: Which is feeding more information to… My landing… my aggregate information.
+[00:08:18] aaronwoodhouse1: So I'm just trying to figure out if there's any other things to do.
+[00:08:25] aaronwoodhouse1: I guess, or what to have on the horizon, you know what I mean? What are some of your thoughts of what's the next kind of steps? I've never been to this point, you know?
+[00:08:35] Todd: Yeah, no, it's… yeah, no, it's awesome. Well, first off, congratulations, that's awesome. There's a lot of green on that page, so that's really cool.
+[00:08:42] Todd: Yeah, seeing those conversions is always a good thing, right? Yeah, I mean, I think you're basically… you're thinking about this correctly, right? I mean, I look at that aggregate data, though, right? And, like.
+[00:08:54] Todd: I mean, it's pretty apparent to me, you know, what your winners are from a headline and a… and a hero shot perspective, right?
+[00:09:03] aaronwoodhouse1: Okay.
+[00:09:04] Todd: So you might even think about, again, even continuing to narrow down, you know, landing page offers as well, too, at this point, right? I mean, you are… you're really just in the process of just…
+[00:09:20] Todd: continuously refining stuff down, right? From, you know, ultimately trying to get to, you know, an ad banner or two, and a, you know, one landing page, ultimately, right? If you can… if that is the,
+[00:09:35] Todd: Is that… if that is the best performer, and just, obviously, keep… keep trying to refine. You'll constantly… you'll have that landing page, and then you might test a couple of iterations, and you might get to the point, right, we kind of… you focus on hero shot, for the landing page.
+[00:09:53] Todd: test iterations of that, headline for the landing page, test iterations of that, and then if you find that combination of headline and hero shot, then you can even start to tweak with, you know, kind of that opening paragraph, right? And tweaking that. You know, moving stuff around, like, where's the first link that they can click on? All of those different kinds of things, right? But…
+[00:10:16] Todd: Ultimately, right, you're trying to find that image and headline at the ad level, that image and headline at the landing page level. So, you're just refining and testing, trying to get down to kind of those four critical things.
+[00:10:31] Todd: And then at that point, it's, you know, minor tweaks on any of those things that you're constantly testing, seeing if you can even improve those numbers even more.
+[00:10:42] aaronwoodhouse1: Okay.
+[00:10:43] aaronwoodhouse1: Okay.
+[00:10:45] Todd: So yeah, I would… I would, at the end of this one, like, I would hope that you probably could have, you know, or do have, like, a hero shot and headline for a landing page.
+[00:10:58] Todd: And then I would, I would, you know, potentially
+[00:11:02] Todd: Maybe the next test is just running enough traffic through that one to see if those numbers hold at that landing page level, with obviously what you've figured out to be,
+[00:11:14] Todd: Kind of the best ad, as well.
+[00:11:17] aaronwoodhouse1: Okay.
+[00:11:20] Todd: Yeah, I mean, you're really at a point, right, where you're just trying to…
+[00:11:24] Todd: trying to find that exact right combination. That's all you're trying to do.
+[00:11:29] aaronwoodhouse1: Okay.
+[00:11:30] aaronwoodhouse1: Okay.
+[00:11:36] Todd: And yeah, it looks like you've got… you've got one landing page that is profitable overall.
+[00:11:41] Todd: Looks like? Yeah.
+[00:11:43] aaronwoodhouse1: Yeah.
+[00:11:43] Todd: Yep.
+[00:11:44] aaronwoodhouse1: That's what I was gonna ask. I noticed now it's starting to… I guess now it's starting to slowly separate, but, like, here we got 6 and 7, so… Yep.
+[00:11:52] aaronwoodhouse1: in reading this, I know down in the aggregate.
+[00:11:56] aaronwoodhouse1: But earlier on, even though the hero one and the Headline 1 and the aggregate was tell… aggregate was telling me the higher number, this one had, like.
+[00:12:07] aaronwoodhouse1: less sales sometimes than other ones, so I was like…
+[00:12:11] aaronwoodhouse1: You know what I mean? Do I just…
+[00:12:12] Todd: Yeah, I wasn't sure, but now it's starting to…
+[00:12:16] Todd: Pick up those numbers, is that what you're saying?
+[00:12:19] aaronwoodhouse1: Yeah, well… So, down here, I… I did have more purchases
+[00:12:26] aaronwoodhouse1: On my headline one, and my hero one.
+[00:12:30] aaronwoodhouse1: But Headline 1 and Hero 1, that combination up here.
+[00:12:34] Todd: Yep.
+[00:12:35] aaronwoodhouse1: Wasn't the winner at that time.
+[00:12:38] Todd: So I was kind of second-guessing, like.
+[00:12:40] aaronwoodhouse1: I know the numbers down here are telling me that's better, but…
+[00:12:44] Todd: But now those are lining up.
+[00:12:47] Todd: Yeah, that's great. That's great.
+[00:12:49] aaronwoodhouse1: Okay.
+[00:12:50] Todd: Yeah, I mean, I… that would be, you know, again, like, yeah, you're… again, I don't know how much you're testing, how much more you're pushing through this one, but, like, yeah, you… you know, again, that… that may be…
+[00:13:01] Todd: taking that winning landing page, that H1V1, and just, you know, trying to run, you know, another couple hundred visitors through that to see if those numbers continue to hold, and you, you know, continue to be profitable.
+[00:13:17] aaronwoodhouse1: So, I mean, I…
+[00:13:19] aaronwoodhouse1: I really don't have a specific plan, so if there's anything you recommend, then I would do that. I wasn't sure if I do start to shut some of the other ones off while I'm still testing, or if I leave the images that I'm currently testing until I see…
+[00:13:36] aaronwoodhouse1: one that's… I mean, I would…
+[00:13:40] Todd: I would continue to just, run this out, monitor it, start turning off, you know, your lowest performing ad banners. How much… how much were you planning to spend on this… this round of testing?
+[00:13:55] aaronwoodhouse1: Well, I was… The other, the other one that, when I had 5 sales on.
+[00:14:01] aaronwoodhouse1: I let it run to, like, 100, and then I had, like, I think 2 sales. It was kind of even. So then I just kept letting it run, and it would stay and break even, and then once it started to kind of separate, then I just turned it off.
+[00:14:14] aaronwoodhouse1: And I think it ended up, like, $350, so…
+[00:14:18] aaronwoodhouse1: originally, when I tested these 10 images, I said, I'll do, like, 30 bucks each, and if some that don't have a sale, I just turn those ones off, but now I have…
+[00:14:28] aaronwoodhouse1: Each of these ones that are still active all have sales and are still green.
+[00:14:34] aaronwoodhouse1: So I'm…
+[00:14:35] aaronwoodhouse1: I'm not really sure, it's, because I don't want to turn it off too soon. I feel like.
+[00:14:40] Todd: Yeah, yeah.
+[00:14:40] aaronwoodhouse1: In previous things, I've…
+[00:14:43] aaronwoodhouse1: got anxious about the spend, and I'm like, I'll just shut it off. But then it's like, you don't know.
+[00:14:48] Todd: Yeah, yeah, exactly. Well, and that's, like, I mean…
+[00:14:53] Todd: everything that you've got on still, right? I mean, it's positive, right? Like…
+[00:14:57] aaronwoodhouse1: Yeah.
+[00:14:58] Todd: I would say, you know, so there's… there's nothing wrong with just continuing to run this until, you know, hopefully you do start to see that separation, right? And maybe… maybe the only indication is it goes negative, right? And, you know, the first one that goes negative, turn that one off, right?
+[00:15:16] aaronwoodhouse1: That's kind of what I was thinking, actually, to do. Yeah. Okay.
+[00:15:19] Todd: I think that's totally a logical way to approach it. Yeah, I mean, as long as they're continuing to be positive, like.
+[00:15:27] Todd: let them run out until… until somebody proves that it's not as good as the rest of them that are running, and then just start eliminating them, and then to, you know, hopefully you do get an outlier or a true, you know, number one that you can then… again, I'd be thinking about kind of that next round, like.
+[00:15:47] Todd: I would take that, hopefully take that winning ad, and maybe run a couple of, you know, tweaking, very minor tweaks, you know, a word here or a word there, a minor tweak to the image, adding something to the image, right? And then that winning landing page, same thing, minor tweaks to the headlines, you know, maybe testing 3 or 4 landing pages, but it's all basically
+[00:16:10] Todd: the exact… you're just really trying to refine it. You know it's a proven winner, but can one word take it from a, you know, 15% click-through to a 30% click-through, right?
+[00:16:22] aaronwoodhouse1: Okay.
+[00:16:25] aaronwoodhouse1: Okay, thank you, that's good advice.
+[00:16:27] Todd: Yeah.
+[00:16:28] aaronwoodhouse1: I think sometimes I get… Too crazy on the changes.
+[00:16:32] Todd: Yeah, and you can… you can get, you know, yeah, I mean, you…
+[00:16:36] Todd: you've got proven stuff that is working, right? And sometimes we… we… we…
+[00:16:43] Todd: you want to be constantly testing, right? But you don't want to be constantly testing a bunch of very different things, right? If you've got a proven winner, like, just test, you know, minor, minor tweaks on that, because again, like, it's your winner, it's positive, it's… it's…
+[00:17:01] Todd: you know, providing positive results, you know? Your break-even, or maybe even slightly profitable overall, you want to get to profitability, and it's going to be minor, minor tweaks.
+[00:17:13] Todd: that you're testing to try and get there, versus a whole new iteration of images, or a whole new… right? Like, you've gone through all of that, you've proven this is the best.
+[00:17:22] Todd: I need to make it just a little bit better.
+[00:17:25] aaronwoodhouse1: Okay.
+[00:17:29] aaronwoodhouse1: Now, one question I have is, if I kind of find… the winner…
+[00:17:36] aaronwoodhouse1: To me, it's still a little unclear. Is this something that's gonna end up going to emails, or are we just…
+[00:17:42] aaronwoodhouse1: scaling up here within Caterpillar.
+[00:17:45] Todd: You ultimately can, yes, right? But you, you know, it's kind of the… the, you know, idea of that is, right, like, you've got to have a profit, you know, a pretty profitable campaign and, you know, a resource ad and, you know, landing page that you are
+[00:18:05] Todd: a thousand percent confident in, right, that when I… I know it's gonna… I know it's gonna convert, right?
+[00:18:12] aaronwoodhouse1: Oh.
+[00:18:12] Todd: At the level I needed to convert. So yeah, you're ultimately… you ultimately could get there, but there's also nothing wrong, right? Like, you can scale… you can scale, you know, you could set it at 5 grand a day, right? Spending, if you're making…
+[00:18:28] aaronwoodhouse1: it right here.
+[00:18:28] Todd: Yeah, if you're making 6 or 7 grand a day, you know, you're netting two grand a day, right? Like, that's not a bad place to be, so…
+[00:18:37] aaronwoodhouse1: Yeah, yeah.
+[00:18:37] Todd: you can scale it, you know, pretty hard, you know, in this platform itself, too. And again, it's, you know, typically it's, you know, an offer like
+[00:18:48] Todd: you know, this is, you know, not always the case, right? But a $35 offer, like, that's probably not the one you want to, you know, go to dedicated email with, right?
+[00:18:59] aaronwoodhouse1: Oh, I see. Versus, you know, something that you're making, you know, a couple hundred bucks on every, every sale.
+[00:19:04] Todd: But, you're absolutely right, that's… that is not a hard and fast rule by any means.
+[00:19:11] aaronwoodhouse1: Yes.
+[00:19:12] Todd: But, you know, you'd love to be able to send a dedicated email with something that you're making, you know, 200, 200, 400 bucks on every sale, right?
+[00:19:21] aaronwoodhouse1: Okay.
+[00:19:22] aaronwoodhouse1: Okay. No, that makes sense.
+[00:19:26] aaronwoodhouse1: Okay, yeah, I think I was a little confused, because I'm previous, or…
+[00:19:31] aaronwoodhouse1: since I've been in for a little while, that's been the trajectory, and I haven't heard much of that since we changed to Caterpillar, and I was like, are we still go that way or not?
+[00:19:41] Todd: I mean, ultimately, it's still… still the… the primary objective, right? Because that's where… that's where, you know, you can… you can, you know…
+[00:19:50] Todd: make a lot of money, right? But it's just, you know, again, too, right, we don't… it's…
+[00:19:56] Todd: it's not really easy to get there, right? And so, again, it's… your marketing material has to be, you know, 100%… you have to be 100% convinced that this will work, based off of all of the testing and information and data that you've seen testing in these various platforms.
+[00:20:14] aaronwoodhouse1: Okay.
+[00:20:18] aaronwoodhouse1: Alright, well, thank you.
+[00:20:19] Todd: Yeah, you're welcome.
+[00:20:21] aaronwoodhouse1: Yeah.
+[00:20:25] Todd: Alright… Alright, see, we got some good stuff going in the chat, thank you, that's super helpful.
+[00:20:36] Todd: Karen looks like she is preoccupied, so we'll see if she's got questions still. Karen, are you back?
+[00:20:47] Todd: -Oh, you're on mute, Karen.
+[00:20:51] Todd: Alright, it's coming into the… coming into the computer.
+[00:20:55] Karen Jedele: Okay, now I can hear myself on hold.
+[00:20:59] Todd: Now we got an echo.
+[00:21:01] Karen Jedele: We got two… two things going. Okay, so my other thing… okay, so the copy blocks, so I'm going through… now I'm in a disco.
+[00:21:11] Todd: Yeah.
+[00:21:12] Karen Jedele: Copy blocks, so I'm going through those, and I'm learning that. So, I guess from the last conversation, that was beautiful, Erin, thank you for that conversation, the copy blocks, that is gonna be what I'm putting on the headline, or the ads, right?
+[00:21:30] Todd: So that, that framework can work for either the ad banners or the landing pages, right? It's really a framework for building out headlines.
+[00:21:40] Karen Jedele: Okay, and then… So, I found the landing page, you know, in the, Flexi.
+[00:21:50] Karen Jedele: for the thing that I'm using. So, with that.
+[00:21:54] Karen Jedele: Paige, I'm gonna be editing that, or am I leaving that alone?
+[00:21:58] Todd: So, initially, and that's kind of what we were just talking about, the only thing you're going to be editing is you're going to use, MetricMover, which is another piece of software, and you are building out,
+[00:22:11] Todd: You know, 5 different headlines, and you're gonna have 5 different hero shots, which that's gonna give you a total of 25 different iterations of landing pages.
+[00:22:22] Karen Jedele: Okay.
+[00:22:23] Todd: But you're only focused on the headline, and the… when I say hero shot, that's the very first image, at the top of the landing page. That's gonna be your main focus for, you know, probably your first several rounds of testing, is you're gonna be… because those have the biggest impact on
+[00:22:43] Todd: People read… continuing to read and eventually clicking through your landing page.
+[00:22:48] Karen Jedele: Okay.
+[00:22:49] Todd: once you get, again, to where, you know, Aaron might be here shortly, and you've got a winning headline and a winning hero shot, then yeah, you could potentially start to tweak with some of the copy itself in the landing page to try and make it even better. But those are… that's kind of what has been…
+[00:23:08] Todd: Optimized for you guys to start with initially.
+[00:23:11] Karen Jedele: Yeah, it looked good to me.
+[00:23:14] Karen Jedele: Alright, awesome. That's good, thank you so much for that. So, I need 5…
+[00:23:21] Karen Jedele: Hero shots and 5, copy blocks.
+[00:23:25] Todd: 5 head… yeah, 5 headlines, yep. And you'll find, like, the… and so those… the… and the difference, right, between,
+[00:23:35] Todd: Landing page headlines and… and add…
+[00:23:39] Todd: you know, either ad or banner, depending on which traffic source you're using, kind of the difference between them. So, like, the Caterpillar traffic source, right, you're… you have a character count limit on your ad.
+[00:23:52] Todd: Landing pages, you have… there's no restrictions. Also, if you're doing an ad banner on a different traffic source, you're limited by the amount of space that you have, right? So you… not necessarily characters, but, you know, if you use a, you know, size…
+[00:24:07] Todd: you know, 14 or 7 font, right? Nobody's gonna be able to read it. You can fit a bunch of words in there, right?
+[00:24:14] Karen Jedele: Okay.
+[00:24:14] Todd: But you're limited from that space. So, you may not be able to get all of the different, components of the copy block into an ad or banner headline that you can get into a landing page headline.
+[00:24:30] Karen Jedele: Okay.
+[00:24:33] Karen Jedele: Okay.
+[00:24:34] Karen Jedele: Creation.
+[00:24:34] Todd: also never… it's, you know, probably never a bad thing to build out, like, incorporate as, you know, as many of those copy blocks, components you can in a landing page headline, and then you can go into AI or whatever and say, hey, I'm limited to 90 character count.
+[00:24:54] Todd: Make these headlines as strong as possible based off of
+[00:24:58] Todd: this headline, but only using 90 characters, right? And you can get yourself some… some admin or headlines that… that might be really, really good as well.
+[00:25:09] Karen Jedele: Love it. Thank you so much.
+[00:25:11] Todd: Yeah, you're welcome.
+[00:25:12] Karen Jedele: I'm gonna go back to just listening in.
+[00:25:13] Todd: Okay, okay. We might have… might not have too much else on here, but, any other questions? I see Dennis is working in the chat there, good, that's good.
+[00:25:26] Todd: Aaron's got his directions.
+[00:25:31] Todd: Mary's on and just listening.
+[00:25:36] Todd: Anything else I can help you guys with this morning?
+[00:25:42] Todd: Or if you guys all know what you need to go do, we can…
+[00:25:45] Todd: We can cut it a little short, as well.
+[00:25:49] Karen Jedele: I don't…
+[00:25:53] aaronwoodhouse1: I'm good, thank you so much.
+[00:25:55] Todd: Okay?
+[00:25:56] Todd: Awesome. Dennis, do you, and what's going on over there in support? Are you good? You think you've gotten everything you need?
+[00:26:06] : Denis: Drapeau.: I'll send a general support, because it's about the affiliate side, we're out, because I wanted to offer the program.
+[00:26:12] Todd: Okay.
+[00:26:13] : Denis: Drapeau.: And, it seems like there's…
+[00:26:16] : Denis: Drapeau.: There was another website at the beginning that I got, and it says for affiliates.
+[00:26:21] : Denis: Drapeau.: And I wanted to offer, and it seems that that was the website where we could see…
+[00:26:26] : Denis: Drapeau.: if people join or whatever, they take the program, and it seems to be a problem getting onto that website, so I don't know.
+[00:26:33] Todd: Oh, okay, okay, well, yeah, hopefully they can get you… get you resolved.
+[00:26:37] : Denis: Drapeau.: Yeah, thank you.
+[00:26:38] Todd: Awesome.
+[00:26:42] Todd: All right.
+[00:26:43] : Denis: Drapeau.: Coach, you know.
+[00:26:44] Todd: I'm brand new to this, too, so I… Okay, well, welcome!
+[00:26:47] : Denis: Drapeau.: Brand new, so I'm starting today. Today's my big day where I'm gonna be pushing things and looking at everything, and…
+[00:26:53] Todd: Okay.
+[00:26:55] Todd: Awesome. Awesome. Well, welcome.
+[00:26:58] Todd: Alright, any other questions?
+[00:27:07] Todd: All right. Well, we will wrap it up today. Calls, continue as normal this week. I think everybody's… everybody's good for this week, and, yes, this new added resource of… of having support on the line in the chat, I think will be super helpful for everyone. So, thank you, support for being on, and, I will catch you guys
+[00:27:29] Todd: Friday morning!
+[00:27:32] Todd: All right. Thanks, everybody. Bye.

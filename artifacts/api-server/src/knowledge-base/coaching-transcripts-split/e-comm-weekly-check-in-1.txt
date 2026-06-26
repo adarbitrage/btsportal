@@ -1,0 +1,563 @@
+TITLE: E-Comm Weekly Check In(1)
+SOURCE: coaching-transcripts.txt
+TURNS: 559
+
+[00:00:02] Build Test Scale: And then I see Mark.
+[00:00:08] Build Test Scale: Hey, Mark!
+[00:00:09] Mark Blyn: Hi.
+[00:00:10] Mona Palad: Happy Monday!
+[00:00:12] Mark Blyn: Hello!
+[00:00:13] Mona Palad: Hello! How are you?
+[00:00:17] Mark Blyn: Good, good, good, good, good, good, good.
+[00:00:20] Mark Blyn: Everybody had a good weekend?
+[00:00:23] Mona Palad: Yup, yup, yup. My son had his first camping.
+[00:00:28] Mona Palad: So…
+[00:00:29] Mark Blyn: How did that go?
+[00:00:31] Mona Palad: He survived, he came home in one piece.
+[00:00:37] Mona Palad: He's dirty, he's grimy, he's 9, so he doesn't know how to take care of himself, but at least he's alive. But the parents, my husband and I, can't sleep the entire Saturday evening thinking, what is he doing, you know, like.
+[00:00:53] Mark Blyn: Yeah.
+[00:00:54] Mona Palad: Overthinking.
+[00:00:55] Mona Palad: So.
+[00:00:56] Mark Blyn: Well, I guess at least he didn't get upset and want to go back home.
+[00:01:01] Mona Palad: No, he slept like a log after he dumped all of his luggage and stuff.
+[00:01:07] Mona Palad: were all asleep, even the youngest one. So… yeah, I think the youngest one also felt like his brother is not at home, so he misses his brother, his mortal enemy.
+[00:01:19] Mona Palad: And when he saw the hairline of his, you know, brother, she felt at ease. So everyone was sleeping like a baby.
+[00:01:29] Mark Blyn: Alright, very cool. All right. Well, what's, what's going on there, Mona? Catch us up on what's going on.
+[00:01:36] Mona Palad: Actually, it's pretty… yeah, pretty chill. You know, we… all of the backlogs from the January, you know, the…
+[00:01:44] Mona Palad: New Year's have been pushed out. The main challenges that I have right now is Rumble Mouse. All three of our suppliers are, you know, out of stock. That's why we sent out the bread.
+[00:01:56] Mona Palad: Toy.
+[00:01:57] Mona Palad: Yeah, it's pretty chill. JM has been sending the reports earlier, because I asked him. I feel like he's getting busier with George, so I just sent him, that's why I asked him to send the reports.
+[00:02:12] Mona Palad: Monday morning, so that he won't forget about it. And yeah, it's… yeah, I'm just waiting on you guys, when are we gonna do…
+[00:02:23] Mona Palad: The next steps for media management.
+[00:02:24] Mark Blyn: Got it.
+[00:02:25] Mark Blyn: Okay.
+[00:02:28] Mark Blyn: Alright, yeah, so we'll let you know what's going on with testing and all that stuff as soon as I get some more direction from Adam.
+[00:02:36] Mona Palad: Yep.
+[00:02:37] Mark Blyn: But in the meantime, if we have a couple of small little tasks or projects that we know that you can handle, are you open to doing these?
+[00:02:44] Mona Palad: For sure, yeah.
+[00:02:46] Mark Blyn: Okay.
+[00:02:47] Mark Blyn: Okay.
+[00:02:48] Mark Blyn: Alright, so I'm gonna meet with Gene after this here.
+[00:02:51] Mark Blyn: after our call, and I've got some things for her to start working on, which may or may not include your help while you're waiting to find out what we're doing with Media Mavens, maybe you can help us in some other things.
+[00:03:05] Mona Palad: Sure, no worries.
+[00:03:07] Mark Blyn: Cool, cool, cool, cool. Alright, I know there's not a lot going on, but I haven't talked to you in a couple weeks. I just wanted to hear from you, make sure you're doing okay. And… yeah, that's it. Let's… Jen…
+[00:03:20] Mark Blyn: Gene, not Jen, Gene, do you have anything you want to add?
+[00:03:23] Build Test Scale: Not really, it's, you already, mentioned that to Mona, so we're gonna keep her updated, should we be testing your products, like, if we're gonna be outsourcing. I think, Mona, you raised, a concern about, like, suppliers, with me, so… Yeah.
+[00:03:42] Mona Palad: I talked to Mark about that. Right now, we are sending out red toy, the RoboMouse one, instead of white. And yeah, if we need new products, like I've mentioned before, I know all of the,
+[00:03:56] Mona Palad: operations, the steps, how Dan does it, so… Yeah.
+[00:04:01] Mark Blyn: Okay.
+[00:04:02] Build Test Scale: Okay.
+[00:04:04] Mark Blyn: Alright, alright, I think, I mean, I'm good on my end. Gene, you want to let you go?
+[00:04:11] Mark Blyn: Okay. Alright, Gene, you and I can stay on, and then Mona, we'll talk to you soon. Have a great day. Thank you.
+[00:04:17] Mona Palad: Take care, bye.
+[00:04:22] Build Test Scale: Do you want this to be recorded, or do you want me to stop the recording?
+[00:04:27] Mark Blyn: No, we can record, it's fine, it doesn't matter.
+[00:04:30] Mark Blyn: So, I know that there's a lot going on in your world, we're gonna get through everything.
+[00:04:36] Mark Blyn: But I do think…
+[00:04:39] Mark Blyn: on a more serious conversation about Mona, because I don't know that we're going to start testing products anytime soon.
+[00:04:46] Mark Blyn: And start cranking that back up, because we're gonna add more affiliate networks, too.
+[00:04:51] Mark Blyn: the mix, and not really focus too much on Media Mavens, which means that Mona needs something to fill her time.
+[00:04:58] Mark Blyn: Or, you know, we're not gonna be able to keep her on and just keep paying her. So, with that being said.
+[00:05:04] Mark Blyn: Let's talk about where you are.
+[00:05:09] Mark Blyn: And is Mona able to help you out, trying to get things like Emails in 15 minutes…
+[00:05:16] Build Test Scale: The chats, all the compliance stuff.
+[00:05:22] Mark Blyn: There was something else, too.
+[00:05:25] Mark Blyn: The stuff that Mike G needs for us to clean up, is that something that Mona can do, or you have a plan for that?
+[00:05:32] Build Test Scale: I already asked the team to do it. Currently, we have, Neil and John doing it, with the GHL automation. 13 automations was needed to be updated, 7 was assigned to John, 6 was assigned to Neil, and, currently the status is that, 3?
+[00:05:51] Build Test Scale: out of 7 is done, for John, currently ongoing with the, the other one, and 3 are pending. And, so does for Neil. For Neil, I'm asking for update, but I think he hasn't, seen my message, probably, in the channel, so I haven't had the full metrics with him.
+[00:06:09] Build Test Scale: But I think we can make use of Mona in that, and if she's willing, I would like to also somehow get her the things that the support is doing.
+[00:06:20] Build Test Scale: Because I asked Kay,
+[00:06:25] Build Test Scale: actually, I asked them when the scheduling and what the changes was turned over to them. They were asking me if they can, you know, eventually get a hand on it, especially that
+[00:06:39] Build Test Scale: you know.
+[00:06:41] Build Test Scale: I'm not sure how to say this. Like, Kay mentioned that it's, it's, like, because she has, like, a bunch of questions for me, that…
+[00:06:51] Build Test Scale: I wanted to also discuss with you. She's asking me if, moving forward, if we're gonna be, you know, getting a new person, or, like, adding to the team, and I told her, currently, no. We have to make use of what we have at most, and, we're not gonna be hiring anytime soon with anyone.
+[00:07:11] Build Test Scale: So…
+[00:07:13] Build Test Scale: I think with all this 15 minutes turnaround in terms of, like, the emails and then the chat, I think…
+[00:07:20] Build Test Scale: But I think it's doable. I told them it's doable, but I think she's kind of in a bit of, like…
+[00:07:27] Build Test Scale: not in… in panic, but just, like, you know, she's really worried if… if they can consistently… just four of them can consistently run, like, 8 to 8, though I gave them, like, the full overview, and I, told them that, you know, you can always let me know, reach out to me if you have… if you need any support, if I still have bandwidth.
+[00:07:47] Build Test Scale: I was trained to do this, I was, you know, this kind of issues was being escalated to me, so I know how to dive into this, so…
+[00:07:55] Build Test Scale: So far, I haven't heard back from them how the first day went out, but hopefully it's good.
+[00:08:03] Build Test Scale: I asked her to… I confirmed with her, we've already tested it, so we have turned off the automated email response from 8 to 8, that's what I told her. We're still keeping that off hours and Sundays, as agreed, so…
+[00:08:21] Build Test Scale: I think… Mona, mona.
+[00:08:26] Build Test Scale: I think we've also used her to…
+[00:08:31] Build Test Scale: Anything about social media? I know she has a good background about social media.
+[00:08:36] Build Test Scale: anything related to that. She has… She has background.
+[00:08:42] Build Test Scale: to… to that. So… We either want to use her time.
+[00:08:47] Build Test Scale: filling in Reno, considering Reno's on part-time only.
+[00:08:54] Build Test Scale: And before we let go of him, Mona will take on the task on a daily basis.
+[00:08:59] Mark Blyn: Yeah, it's like, what is Reno doing again?
+[00:09:02] Build Test Scale: Just that. I know. Just that.
+[00:09:06] Mark Blyn: He keeps an eye on social media, and he deletes comments, and he cleans all that stuff up.
+[00:09:11] Build Test Scale: Yes, that's just it. And I don't… I don't even think he's posting, like, he's using or he's creating a…
+[00:09:20] Build Test Scale: It's creating somewhat… Contents.
+[00:09:23] Build Test Scale: He's more of repurposing. That's, as per my previous conversation with him in Caliph. So, I know Mona has a great portfolio when she submitted her application to us.
+[00:09:34] Build Test Scale: she has a great portfolio in terms of social media. Maybe we can start exploring that part, instead of just actually deleting comments, we can build new contents for Adam. So, you know, just like what Justin Williams was doing before with Adam, wherein they're mainly, you know.
+[00:09:52] Build Test Scale: editing videos, getting out contents for our social media platforms. Mona, I believe, can do that for us. I think she'll be happy to take that on, since she has experience making those kind of
+[00:10:05] Build Test Scale: you know, contents. So, that's one thing I can think of.
+[00:10:10] Build Test Scale: Like this.
+[00:10:12] Build Test Scale: Oh…
+[00:10:13] Mark Blyn: Do you think, do you think Kay can use her in support?
+[00:10:16] Build Test Scale: I think so, yes, I think so.
+[00:10:18] Build Test Scale: If she's, I mean, I can have a conversation with Mona if she's willing to, you know, to somehow
+[00:10:24] Build Test Scale: Train partly with support, you can definitely support them.
+[00:10:28] Build Test Scale: I've seen her emails before, and dan Fernandez, highly, you know, speaks about her work ethics in terms of, like, communication, responses, and so on. So, yeah, we can definitely, you know, make use of her on those kind of tasks as well.
+[00:10:45] Mark Blyn: So, our… so which…
+[00:10:48] Mark Blyn: what are you doing, or what's the team doing? Are you building out, like, response messages ready to go?
+[00:10:55] Mark Blyn: For the 15-minute response, or, you know, like, like a library of 20, 30, 40, 50 different answers to questions, or… what's your approach to that?
+[00:11:06] Build Test Scale: Yes, I already asked, Kate to turn it off, and then I asked her to build me, the existing response that they have, and then I asked their… I gave them prompts to run it to ChildGPT, and they're already aware that we're gonna be putting their name, so I told them that please do not, you know, own your own, own, a copy of, like, list of responses for you guys, because
+[00:11:30] Build Test Scale: I don't want mentees saying.
+[00:11:33] Build Test Scale: For instance, I'm the mentee, I submitted a DIY tracks, issue, and Michael responded to me, and then I'm seeing Loisa responding to me with the same first, touch base of emails. We don't want that, so they're very much aware of it.
+[00:11:48] Build Test Scale: And I also asked them to make sure the consistency of the,
+[00:11:53] Build Test Scale: like, format of the responses, because currently I review them, when we started talking about this, I audit the previous responses. I mean, I told them, you guys can copy-paste exactly from ChatGPT, but please make sure to have it in CTRL, or Command-Shift-V, instead of, like, just CTRL-V, because, guys, we wanted the formatting to be same.
+[00:12:18] Build Test Scale: because I noticed, and mainly this was from, Maiko's email, is that he's… I think he's copy-pasting directly from, ChatGPT, so even the icons, the points, and things like that, the spacing, it was copied exactly the same, and I told him.
+[00:12:36] Build Test Scale: I know what you mean. Yeah, I wanted to make sure that this is…
+[00:12:40] Build Test Scale: This feels, like, more, human.
+[00:12:43] Build Test Scale: then, you know, we understand that you guys need AI. I, myself, I've been using ChatGPT for quick responses as well, and just proofreading it and making sure the format is in line. But please, if you're using either ChatGPT, Claude, or even Gemini, just make sure that it still feels and looks
+[00:13:00] Build Test Scale: Human to whoever we're sending it.
+[00:13:04] Build Test Scale: And…
+[00:13:04] Mark Blyn: And they need a prompt… they need a prompt chat, or whichever one.
+[00:13:08] Build Test Scale: Yep.
+[00:13:08] Mark Blyn: it needs… it needs to feel like a human is actually responding, so it's kind of… Exactly. The other important thing is, and I know you know this.
+[00:13:16] Build Test Scale: Ownership.
+[00:13:17] Mark Blyn: So, the person that starts off that email
+[00:13:21] Mark Blyn: Correspondence is the same person all the way through the process to the very end, right?
+[00:13:26] Build Test Scale: Yes, exactly. Not unless if it started out as something, like, more of a refund, and then eventually it gradually, when we check it, or, how do I say this? Like, if an issue started with something else, and then eventually it goes to more technical side, then we'll have Loisa take over, but I told them, the transition should be like this, hi, for example, you're an MD. Hi, Mark,
+[00:13:51] Build Test Scale: Jean here again, I just wanted to inform you that our technical support team member has raised this concern, and she will be the one responding to you moving forward, so I'm looping in Loisa in this email thread, and she will be seeing your responses here.
+[00:14:05] Build Test Scale: That is the cadence that I wanted to see. Instead of just Maiko, for example, responding to it initially, and then along the way, they found out that it's something that has to be dealt by Loisa or with the dev team, and just Loisa will just jump in straight to that email and responding with her name. We don't want that with a mentee.
+[00:14:24] Build Test Scale: So, I told them, if it's something like that, make sure you have the message transition, to the mentee, so that they're well aware that whoever they're speaking to before, they were being introduced to another support team member. And apart from that, I also asked them to add, like, a, you know, an email in, especially for the first few emails, a reminder that
+[00:14:47] Build Test Scale: Hi, Menti, please keep, the responses in one thread so that we can better track of your, the issue that you have raised with us. Please refrain. I mean, in that sense, not necessarily exactly like that.
+[00:15:00] Mark Blyn: Yeah.
+[00:15:01] Build Test Scale: Please refrain from, you know, sending multiple emails,
+[00:15:05] Build Test Scale: tackling same issues, or reporting same issues, because, that will, that will just, you know, somehow prolong the process. Anything in that sense, I told them to add that as a reminder, at least for the first one to three emails.
+[00:15:18] Build Test Scale: With a mentee, so that they're aware that, okay, I have to reply to this, so I don't have to add or, like, create a new email and send it to the support team.
+[00:15:28] Mark Blyn: And how are you tracking, or how is the team tracking, every single email that's coming in? How does that work?
+[00:15:37] Build Test Scale: We have a sheet that, that we have built out, and let me… and I think we have shared it with you, but let me…
+[00:15:43] Build Test Scale: Double check.
+[00:15:44] Mark Blyn: So if I wanted to, or Adam, or you, or whomever wanted to go into this sheet, I could see. Today, for instance.
+[00:15:52] Mark Blyn: How many emails, who talked to each mentee, and kind of where we're at?
+[00:15:57] Build Test Scale: Yep, let me see… okay.
+[00:15:59] Mark Blyn: Bye.
+[00:16:00] Build Test Scale: So this is currently the sheet that we are working on, when it comes to kind of issues that we have. So, this is filtered, by the way, that's why it's showing just a few. And then, these are the current tasks that they're, on. So, this is the type of emails that they're tracking.
+[00:16:18] Build Test Scale: But… and I can… you could review them, let me know if it's something that makes sense, or if you want to add tabs or columns, or if you want us to create a totally separate one, but this is where we can, track. This is not, per se, per email, per email thread. This is more of, like, the issues that were raised.
+[00:16:38] Build Test Scale: So, and this was also, like, for this one, case monitoring, this was the…
+[00:16:44] Build Test Scale: the issue reported, the mentee's name, email, whoever reported it, what kind… the… this would… this is easy for me to see. Like, for example, Case raised a concern about, Simon Rasho.
+[00:16:59] Build Test Scale: I would know, I would be able to grab whatever it is in here. The only thing I think missing here, and I'm not sure why these two, but you can see I asked them to add a Helpwise link. This is easier for me to track. Like, I can just simply click this one, and I would be redirected to
+[00:17:18] Build Test Scale: The email thread that they work with this mentee.
+[00:17:22] Build Test Scale: So I think they probably will be filling this out, so… not sure why it's… these two are missing the email thread, but, like, yeah, it's clickable, you would be able to see exactly how the conversation went to whoever it was assigned.
+[00:17:40] Mark Blyn: But these are for issues. Look, I'm talking about.
+[00:17:42] Build Test Scale: Yes.
+[00:17:43] Mark Blyn: Are we gonna create… and maybe I'm looking at it, are we gonna create a spreadsheet where we see every email, every day that comes in that's answered?
+[00:17:51] Mark Blyn: Or is that just too much?
+[00:17:54] Build Test Scale: Well, we can have that.
+[00:17:56] Build Test Scale: Though…
+[00:17:57] Build Test Scale: I think that's gonna be double, like, work for everybody, because they're already tracking, like, per issue. But if you wanted, we can… we can add,
+[00:18:08] Build Test Scale: Like, a report tab in here, where it says,
+[00:18:14] Build Test Scale: email reports or email stats, something like that, and I can ask them to do that, because before, Concierge was doing that.
+[00:18:21] Build Test Scale: If you,
+[00:18:24] Build Test Scale: If you remember, because I have here… this was their previous tracker. We can definitely do the same thing. So, this includes the date, whose team member is assigned, the mentee's name, email, the offer, the request that they did, so…
+[00:18:44] Build Test Scale: This was the, like, the sheet of the concierge. We can adapt this one, and this would say exactly the same email.
+[00:18:52] Build Test Scale: Like, hear that slide.
+[00:18:56] Build Test Scale: And these are, like, their booking calls, which not necessarily meant to them, but we can adapt the same thing, like, we have the email date, like, when was the email started, the
+[00:19:07] Build Test Scale: member.
+[00:19:08] Mark Blyn: Yes.
+[00:19:10] Build Test Scale: Date when it was resolved, and then the mentee name, mentee email, issue, cost, email subject, email category.
+[00:19:20] Build Test Scale: And Helpwise.
+[00:19:22] Build Test Scale: link.
+[00:19:23] Build Test Scale: If you want that, I can build that.
+[00:19:26] Mark Blyn: Yeah, I just… I just think we need to…
+[00:19:29] Mark Blyn: Create a log of every email that's coming in.
+[00:19:32] Mark Blyn: Which, we know that that volume of emails is gonna start
+[00:19:37] Mark Blyn: shrinking, because they're… they're gonna start going through all the live chat instead, but… yeah, I just think that that was the purpose of this as well, is to log every email that's coming in.
+[00:19:47] Mark Blyn: Right. Kay talked to Mark. Mark's issue was he couldn't fund his DIY trucks. Issue resolved.
+[00:19:55] Mark Blyn: And we can see the entire path of that email.
+[00:19:59] Mark Blyn: is, I think, is one of the things we definitely want to do with this, so…
+[00:20:04] Build Test Scale: Yep, definitely. I'll start building that out, and then I'll have a call with Kate to explain this to her and the team, to make sure that they understand how to use it. But it's gonna be pretty straightforward. Same goes with what I showed you, from this Concierge Tracker. We'll just adapt a few of this, and then we'll take it from there.
+[00:20:25] Mark Blyn: for instance, when you meet, and I think I'm gonna be on these calls this week. Sure. So, when you meet with a support team, and you say, alright, Michael, let's take a look at your emails for the week. He's gonna have
+[00:20:38] Mark Blyn: on that tracker, we can see all of Michael's emails that he has responded to that week, and we can kind of see where he's at.
+[00:20:44] Mark Blyn: Maybe he wants to go through and talk about it with us, maybe he wants to talk about things that are still not resolved, or I…
+[00:20:51] Mark Blyn: You know what I mean?
+[00:20:53] Build Test Scale: Yep, and do you want this to be just the emails, or you also wanted the live chats? Which…
+[00:20:58] Build Test Scale: honestly, the live chats, we can pull out in Helpwise, but let me know if you want it, if it makes sense for you to have it in one place, so that if you're going to meet with Adam, you would
+[00:21:09] Build Test Scale: be able to just grab it in one place, and like, hey Adam, this is what the team has been working on for the past week. These are, like, the live chats that came in, these are the number of live chats we're dealing with, just like what we did with… just like what we're doing with Consearch, wherein I asked them to track, like, every calls and every tasks.
+[00:21:27] Mark Blyn: Yeah, I know it sounds like a lot, and that's why I'm thinking we can add Mona into the mix to help, but I think we need to track everything.
+[00:21:34] Build Test Scale: Got it. Okay, I'll, I'll start working on this, and then I'll meet with them, and then, they can start filling this out. Good thing, because that's just the first day of whatever we're.
+[00:21:45] Mark Blyn: Right.
+[00:21:46] Build Test Scale: the changes, so then definitely they can catch up on this easy. So, I'll do that, I'll do this after, our call, and then I'll meet with them, four of them.
+[00:21:56] Mark Blyn: I mean, do you think… what do you think? Do you think it's too much, or…
+[00:22:00] Build Test Scale: I don't think it's too much, to be honest. It's just another part, to track of, because we're doing that with the concierge anyway.
+[00:22:07] Build Test Scale: I know they're gonna be telling me that, but we have this, like, because they have a lot. Do you see these tabs? Like, they have a lot, but this was, like, the… more of neat and greet details of each
+[00:22:20] Build Test Scale: type of issue that they're dealing with, but not necessarily, and I agree with you, not necessarily the tracking of emails and live chats that are coming in. So, I don't think it's too much. They can just simply copy whatever we're putting here.
+[00:22:35] Build Test Scale: To their respective sheets that they wanted to work on, or they could abandon
+[00:22:41] Build Test Scale: majority of this, and just focus on one sheet wherein it would be the source of truth for everybody. For you, for me, when I'm investigating any escalations, same goes for them if they wanted to track back the previous conversation from one team member passing along to the other. And…
+[00:22:58] Build Test Scale: Just to confirm, we wanted this to be starting off today, or you want me to track back from January 1st?
+[00:23:07] Mark Blyn: Start today.
+[00:23:09] Build Test Scale: Just today, okay.
+[00:23:10] Build Test Scale: Okay.
+[00:23:11] Mark Blyn: So… and then an additional layer is…
+[00:23:15] Mark Blyn: How do we make sure that the mentee hears from somebody every day?
+[00:23:21] Mark Blyn: So we don't want a day to go by where they've not heard from us. Even if nothing's been resolved.
+[00:23:26] Mark Blyn: They need to hear from us. Hey, Mark.
+[00:23:29] Mark Blyn: Wanted to touch base.
+[00:23:31] Mark Blyn: We're still working on this issue.
+[00:23:33] Mark Blyn: You know, something… so they can…
+[00:23:37] Mark Blyn: I guess what I'm saying is, is they can, before they are done with their shift, their day, whatever, they can go through the sheet you and I are talking about right now, they can go right down the whole list.
+[00:23:47] Mark Blyn: I need to reach out to, touch base with, let them know we're still working on it. We don't want the mentees to go more than 24 hours.
+[00:23:54] Mark Blyn: Where they don't know what's happening next.
+[00:23:57] Build Test Scale: Yeah, of course, with the 15 minutes, they're bound to respond to it, since we don't no longer have automated response. Definitely one of them will reach out to the mentee. Before, what we're doing is, we're sending, like, follow-through at least 2 days. That's the, like, you know, the…
+[00:24:16] Build Test Scale: most of it, like 48 hours to be sending updates, whether it's an update that we resolve them, or it's in progress, we're currently working on, something, under review, you know, things like that. But if you
+[00:24:30] Build Test Scale: I mean, if you think it makes sense to have them in the same day, then we can do that.
+[00:24:36] Build Test Scale: I think the only con to that would be the mentees tend to… if we're sending a lot of emails, they tend to assume that, okay, they're sending me now this email, I'm assuming it's gonna be resolved, and when it takes more time, then
+[00:24:51] Build Test Scale: than what they expected, they start to… but you keep sending me this email, because you had that in the past,
+[00:24:57] Build Test Scale: that we… you keep sending me an email just telling me that you're on it, you're doing something about it, but then, really, it's been 4 days, it's been a week, and I don't…
+[00:25:07] Build Test Scale: It's not even resolved, but you're sending me all this bunch of emails saying the same thing, that you're on it. So I think that's the only thing that we have to consider if we're gonna be updating them on a daily basis.
+[00:25:19] Mark Blyn: Yeah, so let's try and shoot for every 24 hours, and so that brings up another good point.
+[00:25:25] Mark Blyn: If that's happening, Then that's where we need to start pushing
+[00:25:32] Mark Blyn: The dev team, or whoever to get the answers to the questions.
+[00:25:36] Mark Blyn: And that also means that we are…
+[00:25:40] Mark Blyn: staying on top of issues a lot closer than we probably know that we have been in the past. So I understand your point.
+[00:25:50] Mark Blyn: But I just think that kind of tightens up everybody a little bit more.
+[00:25:54] Mark Blyn: So that a day doesn't go by, that the mentee hears from us, and if we're not getting the answers from
+[00:26:00] Mark Blyn: I guess it would be the dev team.
+[00:26:03] Mark Blyn: then you and I need to push and get the answers.
+[00:26:07] Build Test Scale: Right.
+[00:26:08] Mark Blyn: So yeah, so start tracking every email.
+[00:26:11] Mark Blyn: Let's make it a rule that we have to touch base with the mentee every 24 hours.
+[00:26:17] Mark Blyn: Have all of…
+[00:26:19] Build Test Scale: We're binders here.
+[00:26:22] Build Test Scale: I can set up, like, some reminders, and just… just for the team to… somewhere here in the, in this sheet, I'll have it, added here.
+[00:26:32] Build Test Scale: the new rules in terms of 15 minutes turnaround, live chat, and all that, though I have already given them a note on that, but I will have, like, a more comprehensive,
+[00:26:43] Build Test Scale: List of those in here, so that they're well reminded every single day.
+[00:26:48] Mark Blyn: Okay.
+[00:26:49] Mark Blyn: And also… what was I gonna say?
+[00:26:53] Mark Blyn: You already have… they all have their profile pictures, they've got their own signatures… That's all set up, right?
+[00:27:01] Build Test Scale: Yep.
+[00:27:01] Build Test Scale: Yes. Okay.
+[00:27:04] Mark Blyn: Yeah, this helps center.
+[00:27:04] Build Test Scale: Sorry, for the signature, it's the same, like, best regards, but they're gonna be inserting their name. Best regards. K.
+[00:27:13] Build Test Scale: Strength and Media, something like that.
+[00:27:15] Mark Blyn: What are they calling themselves? What are the titles that we're giving them? What are they…
+[00:27:20] Build Test Scale: It's, it's the same thing for everybody, Sherrington Media, support team, but…
+[00:27:26] Build Test Scale: I think I wanted to… actually, I wanted to have them on… on their, different, like, titles.
+[00:27:34] Build Test Scale: If… if that makes sense. Like, for example, Kay can mention, like, in their support team lead, Loisa would be the technical support, Maika would be a support team member, you know, I… I can think of more suitable titles for.
+[00:27:50] Mark Blyn: More personal, so that's good.
+[00:27:51] Build Test Scale: Okay, and I'll have them,
+[00:27:54] Build Test Scale: Put that in their own signature per account.
+[00:27:58] Mark Blyn: Now, the Help Center and Helpwise.
+[00:28:01] Build Test Scale: It sounds like that's something that we need to build out.
+[00:28:05] Build Test Scale: Yes.
+[00:28:06] Mark Blyn: So that when somebody types in a question in the live chat box.
+[00:28:10] Mark Blyn: We can start providing them answers before they even start talking to somebody, so…
+[00:28:14] Build Test Scale: Yeah. I wonder…
+[00:28:16] Mark Blyn: If this is a good role for Mona to take on as well, to start building out the Help Center.
+[00:28:21] Build Test Scale: I think she can… she'll be a good fit to this, because she's good at research.
+[00:28:25] Build Test Scale: Yes. Fernandez has been really, you know, he's been telling good things about Mona, knowing how to dig information. As long as we provide those, and I can work, closely with Mona on this. I mean, I have basically the info… I think most of the information, can come from me, you and Adam, but, basically, I'm the first layer. I can, you know, give out to her the information.
+[00:28:50] Build Test Scale: FAQs that we have in the past.
+[00:28:52] Build Test Scale: Just make sure those are updated, and of course, we'll submit it to you and to Adam, just for review, approval, and things like that. So, yeah, I'll have a conversation with Mona.
+[00:29:04] Mark Blyn: Cool, that's a really good idea. That's awesome.
+[00:29:06] Build Test Scale: And I'll reach out to Ashruf as well. I mean, I like it better when I'm talking to him.
+[00:29:12] Build Test Scale: Via chat, honestly. I'm so.
+[00:29:15] Mark Blyn: No, I get it, yeah, I get it.
+[00:29:17] Build Test Scale: I'm so
+[00:29:18] Build Test Scale: Yeah, I was like, it's so hard for me when I'm sitting on him on… in a call and he's explaining things, I was like, I'm… it's… my mind is not wiring properly to what.
+[00:29:28] Mark Blyn: So I was wondering to myself, is Gene struggling as much as I am trying to understand him?
+[00:29:33] Build Test Scale: I didn't.
+[00:29:34] Mark Blyn: Just, no, because I'm just, you know, I'm just a white guy from America.
+[00:29:38] Build Test Scale: No, I think… that's why I had to… I had to off my camera, because when he was talking, I was actually leaning more than I should.
+[00:29:46] Mark Blyn: beyond my country.
+[00:29:47] Build Test Scale: computer, because it's so… I'm also having a hard time, like, What is exactly his… Okay.
+[00:29:54] Mark Blyn: Well, I feel better. I was like, wait, what did he just say? That's why I was like, yeah, Gene, did you… do you…
+[00:30:01] Mark Blyn: okay with this? Do you have any questions? Because I don't really know what he said.
+[00:30:05] Build Test Scale: Okay, cool.
+[00:30:08] Build Test Scale: He's really good explaining things at chat. He was the one who, like, walked me through using just chat. He walked me through how to delete users, add users, edit users, and things like that, so…
+[00:30:19] Build Test Scale: I have to give it to him.
+[00:30:21] Mark Blyn: And then we can start building out a report that we can go through every week on the support weekly meeting, and I think we can run the reports per person. We can see what Michael did, we can see what Kay did, we can see…
+[00:30:34] Build Test Scale: Yeah.
+[00:30:34] Mark Blyn: And this goes hand-in-hand with tracking every one of the emails on a sheet somewhere.
+[00:30:39] Build Test Scale: Yep, and if I were to build this, definitely we could just… I could just put the names of the team member assigned, we filter it out, and we will see everything that is assigned to Michael. Anything that is pending, closed, whatever it is, instead of… I mean…
+[00:30:54] Build Test Scale: I admire Sandy, like, she's really keen into, like, getting into that, kind of reports, but I think this sheet, I'll just have for the support so that they don't feel overwhelmed, like, reporting things to you and me during those calls. I'll just have it filter it out by name and by status, which is either it's completed, which we don't… we just, you know, simply
+[00:31:15] Build Test Scale: Just…
+[00:31:17] Build Test Scale: discuss about it, or, you know, just give the numbers of, like, how many is complete… are completed, and then we can have filter data pending or ongoing, whatever status we're using.
+[00:31:30] Build Test Scale: Awesome. Everyone.
+[00:31:32] Mark Blyn: And then you said, Neil and… I forgot who.
+[00:31:36] Build Test Scale: John. Yes.
+[00:31:38] Mark Blyn: The work, they're working on the compliance stuff for Mike G?
+[00:31:41] Build Test Scale: Yep, 3 were already done, one is currently in progress, 3 are pending.
+[00:31:45] Mark Blyn: What do you mean, 3 are already done? What are you talking about
+[00:31:48] Mark Blyn: about that list that I sent you?
+[00:31:50] Build Test Scale: Yep, yeah. John confirmed, that he has completed 3 of those, requests from Mike Chain.
+[00:31:59] Mark Blyn: Okay.
+[00:32:00] Mark Blyn: So that might be done, like, pretty soon.
+[00:32:03] Build Test Scale: Pretty soon, yes. Neil… I think Neil is working on it, that's why he's not… he's not really, responding to me just yet, because we were in contact earlier, when… when he was asking questions about it. I think he's…
+[00:32:17] Build Test Scale: probably dive into it, and he has calls too. And with that, do we mark…
+[00:32:23] Build Test Scale: refresh my memory of… I think I'm… I'm not sure, do we have a paid Claude account?
+[00:32:29] Build Test Scale: Or no? I don't think we have. I cannot find an access that actually has cloned.
+[00:32:36] Mark Blyn: Mmm… I don't think we do either.
+[00:32:41] Build Test Scale: No.
+[00:32:43] Build Test Scale: Yeah, because, the…
+[00:32:46] Build Test Scale: they were… they reached out to me because Mike G just showed the example for ChatGPT and Claude. I asked them if we can use Gemini, but they said that, from Mike G's instruction, they prefer Claude and ChatGPT.
+[00:32:59] Mark Blyn: Right.
+[00:33:00] Build Test Scale: asked Veronica to reach out to Mikey about it. She said, we need to ask you if we have or if we're getting one.
+[00:33:09] Build Test Scale: But…
+[00:33:10] Build Test Scale: I… I believe George was using one, I'm just not sure if it's, like, his personal cloud that he's using for codings, or is it something that is issued by Sherrington Media to him?
+[00:33:23] Build Test Scale: So…
+[00:33:24] Mark Blyn: I'll ask George. I don't think we do. They're gonna have to use chat.
+[00:33:28] Build Test Scale: See ya.
+[00:33:29] Build Test Scale: I mean…
+[00:33:31] Build Test Scale: Veronica said they can wait until it refreshes and have the free version of Claude again, but yeah, ChatGPT, we don't have any issues, so just… just Claude.
+[00:33:41] Mark Blyn: Yeah, just use ChatGPT. Yeah, okay, great, so…
+[00:33:48] Mark Blyn: Alright. Yeah, I tested the, the chat this morning, that worked out well.
+[00:33:53] Mark Blyn: I like that. I like the fact that it knew my name as soon as I opened it up, so that was good.
+[00:33:58] Build Test Scale: Yeah, it is, and it's also good for the support team, because they would be able to immediately see who's they're chatting with, like, emails, the details, the one that Loisa showed this morning, so it's good for them to, instead of, like, them rambling when the mentee sends it, they have to verify everything first before proceeding, you know, things like that.
+[00:34:19] Build Test Scale: Yeah, and I think it's a learning curve for everybody. Even I, myself, when I was reviewing it, showing it to them, I told them, it looks a lot of changes, it looks or feels a bit
+[00:34:33] Build Test Scale: overwhelming to start with, but definitely it's doable. It's something that I believe you guys can carry on, and again, you know, we learn as we go, so…
+[00:34:45] Mark Blyn: Yeah, it's a game changer. I'm really excited that we have this now, and we've got the 15-minute initiative, and the chat, it's just really gonna step up our support much more aggressive, yeah.
+[00:34:57] Build Test Scale: And I told them that the real… one of the goals of having a live chat, I know it sounds like
+[00:35:02] Build Test Scale: you know, it's too much because you have to respond in a certain period of time, get on it, knock it off immediately, but the goal really long-term is that we minimize the volume of emails that are pending on your inbox. I'm not saying that you're trying to sit on those emails in your inbox and just, you know,
+[00:35:22] Build Test Scale: Keep it there, but really the goal, the long-term… one of the long-term goals is to make sure that it's… there's not a lot of emails in inboxes, and instead we knock every single one of those issues right there and then when the mentor raise it, instead of, you know.
+[00:35:39] Build Test Scale: Building it out in, like, 50, 100 emails a day that you guys have to deal with and have to keep track of.
+[00:35:48] Mark Blyn: Yeah, you're right. I mean, that forces them to take care of the issue, answer the question right then and there on the spot.
+[00:35:54] Mark Blyn: It's a much quicker response for the mentee, it's just… it's just good all the way around, and this is something that they'll get used to really quickly, I would say within…
+[00:36:04] Build Test Scale: By the end of this month or so, they'll be like, it's fine.
+[00:36:07] Mark Blyn: we actually like this better. So…
+[00:36:11] Mark Blyn: Now, refresh my memory, our… so we're gonna track the… Chat. Box.
+[00:36:18] Mark Blyn: As well as the emails coming in. Okay, perfect.
+[00:36:21] Build Test Scale: on the same tab. We will have a filter to see whether it's an email or a live chat category.
+[00:36:29] Mark Blyn: I would like you to share your results with Adam, maybe not this week, but maybe next week.
+[00:36:37] Mark Blyn: on the C-level and say, hey, this is how the program's working, this is… this is what we're looking at, this is the… these are the… these are the live chats, these are the emails, and this is the success of the program.
+[00:36:49] Mark Blyn: And I want you to take the credit on that, and just say, hey, listen, this is… this is the operations that we put into place, and it's working. So…
+[00:36:57] Mark Blyn: Cool.
+[00:36:59] Build Test Scale: some notes for you guys and the C-level meeting. And, have you seen Todd's chat in the coach's channel? He said that it's really helpful, like, having the support, which is the concierge team on the call. Yeah, so…
+[00:37:14] Mark Blyn: on that.
+[00:37:15] Build Test Scale: I re… I tracked back the schedule, it was actually John who was in the call, and I was, you know, I was trying to tease John about it. I was like, I, you know, I'm just so glad it was you, I don't expect less from a team lead, and he was like, oh my god, the pressure is on me.
+[00:37:32] Mark Blyn: That's awesome.
+[00:37:33] Build Test Scale: Yeah.
+[00:37:34] Mark Blyn: Yeah, I mean, Todd… Todd doesn't talk a lot, so when he put that into the channel, I was quite surprised. Yeah. And I told him, I said, hey, that means a lot. Thanks, Todd, appreciate you sharing that with us, so… Yeah. Yeah. It's a really good idea. And, it's just gonna help the coaches a lot better.
+[00:37:52] Build Test Scale: Definitely.
+[00:37:52] Mark Blyn: So, speaking of…
+[00:37:55] Build Test Scale: I talked to Sasha over the weekend.
+[00:37:58] Mark Blyn: And Sasha has agreed to take on the kind of leadership role amongst the coaches.
+[00:38:05] Build Test Scale: Oh, that's great! So, Sasha…
+[00:38:07] Mark Blyn: is going to have direct access to our rep in Newsbreak.
+[00:38:13] Mark Blyn: in the Slack channel.
+[00:38:15] Mark Blyn: And then Sasha's gonna be able to ask that person any questions that he needs to get answered, so that he can teach the rest of the coaches
+[00:38:23] Mark Blyn: How to use the traffic source, any issues they're coming up with.
+[00:38:28] Mark Blyn: how to optimize campaigns, all these things that I don't have answers to, you don't have answers to. Adam doesn't want to be on those calls, he's got other things going on, so…
+[00:38:39] Mark Blyn: I said, Sasha, I think you're the guy. He said, okay. And so that also means we need start…
+[00:38:45] Mark Blyn: Hmm?
+[00:38:46] Build Test Scale: so happy.
+[00:38:48] Build Test Scale: like, Sasha was bombarding me with so much questions, I have to always do the back and forth with Katie, between Katie, with Loisa, with Sasha, and him getting direct access to that is just really wonderful.
+[00:39:02] Mark Blyn: I know, and that's why he's gonna be really good at this, because he does ask a lot of questions, I understand that. He used to kill me with questions when I was…
+[00:39:11] Mark Blyn: hosting my own coaching calls, and he would get on. I was like, oh, man, this dude's on here again?
+[00:39:17] Build Test Scale: But, you know…
+[00:39:18] Mark Blyn: You know what, now that he's on our team.
+[00:39:21] Build Test Scale: Yeah.
+[00:39:21] Mark Blyn: Yeah, he's gonna be really good at it. He's gonna ask that person a lot of questions, and he's gonna have some good insight.
+[00:39:27] Mark Blyn: He and the rest of the coaches can be on the same page when it comes to advice for the mentees?
+[00:39:33] Build Test Scale: is…
+[00:39:34] Mark Blyn: He's going to also clean up a little bit of the 21 Day Blitz.
+[00:39:39] Mark Blyn: Take control of that.
+[00:39:41] Mark Blyn: He's just gonna do a lot of small things that need to be done.
+[00:39:45] Mark Blyn: And he's also going to contribute to the mentee's success as being that leader, so…
+[00:39:52] Mark Blyn: I told Adam I had a good call, Adam's excited about it, so I need to get Adam or Sasha, access in Newsbreak. I just asked Adam if he's okay with that. He may want Sasha to sign an NDA when it comes to not disclosing that the traffic source.
+[00:40:08] Build Test Scale: I can get that NDA, I can get that NDA ready for Sasha.
+[00:40:12] Mark Blyn: So it's… it's… it's top secret that Sasha doesn't tell the students, or even the other coaches, that it's news break, so that's really, really important. The traffic source needs to stay anonymous. So I haven't heard back from Adam yet. Let me look here.
+[00:40:28] Build Test Scale: And Sasha.
+[00:40:29] Mark Blyn: Can you talk?
+[00:40:30] Build Test Scale: Sasha was also asking for, like, the processing of Tipaldi, so I just, you know, I reached out to Autumn, hopefully the funds will be coming in anytime this week, because the last date that we have processed commissions was December 14th, and…
+[00:40:47] Build Test Scale: So, we've been… Veronica was just reaching out to me, like she said, she's been messaging Adam, but haven't gotten any response, so I… I also been messaging him, and today he said, I'll transfer some funds, so hopefully it will be today, or any time this week.
+[00:41:03] Build Test Scale: Because it's a lot, it's already a lot in there, including Sasha himself.
+[00:41:08] Build Test Scale: They have.
+[00:41:09] Mark Blyn: Like, how much, when you say a lot, how much is a lot?
+[00:41:11] Build Test Scale: I haven't computed it, but let me show you.
+[00:41:14] Mark Blyn: Like, 5,000? 10,000?
+[00:41:16] Build Test Scale: 3,000?
+[00:41:18] Build Test Scale: More than that.
+[00:41:19] Mark Blyn: Oh, really?
+[00:41:20] Build Test Scale: Yeah.
+[00:41:22] Mark Blyn: Wow.
+[00:41:24] Mark Blyn: Well, good for the mentees. I know Sasha's probably number one on that list.
+[00:41:29] Build Test Scale: Yup, I can show that.
+[00:41:31] Build Test Scale: to you.
+[00:41:36] Build Test Scale: So… Right here.affiliate… There's that… oops.
+[00:41:45] Build Test Scale: This one… So… We have here status.
+[00:41:57] Build Test Scale: So these are all of those.
+[00:42:00] Mark Blyn: The green ones, or the yellow ones?
+[00:42:03] Build Test Scale: Waiting for points…
+[00:42:05] Mark Blyn: Okay.
+[00:42:08] Mark Blyn: Wow, what's the total on that?
+[00:42:10] Build Test Scale: I'm not really sure, like, you see, it's all 50s here.
+[00:42:17] Build Test Scale: A few couple hundred.
+[00:42:18] Mark Blyn: Hangouts.
+[00:42:19] Build Test Scale: still have the… Rahiktavin.
+[00:42:22] Mark Blyn: Okay.
+[00:42:23] Build Test Scale: quite a lot. But we're gonna be trying our best to maximize the funds that Adam will be putting in into Polity.
+[00:42:32] Mark Blyn: And that's another reason we want to get…
+[00:42:34] Mark Blyn: affiliate networks introduced as fast as possible, so we have two.
+[00:42:39] Mark Blyn: coming on board. Tomorrow, Jason said tomorrow he should have both new affiliate networks ready to go, so we'll see what happens tomorrow, and we can get that introduced to the Minty so they can start…
+[00:42:50] Mark Blyn: Promoting those offers and kind of getting away from media mavens, that's gonna help a little bit when it comes to Adam and revenue, and paying everybody, and overpaying everybody, actually.
+[00:43:02] Mark Blyn: That's gonna help out.
+[00:43:04] Build Test Scale: Okay.
+[00:43:05] Mark Blyn: Alright, cool, so… yeah, I think Mona's gonna be a good help.
+[00:43:10] Mark Blyn: with the Help Center, with support.
+[00:43:14] Mark Blyn: I forgot what we're paying her per month, like, $1,600 a month? Is it… does that sound about right? $1,200 a month? I'm not even sure.
+[00:43:21] Build Test Scale: Sasha?
+[00:43:22] Mark Blyn: Mona.
+[00:43:23] Build Test Scale: Oh, Mona, I think 1500.
+[00:43:26] Mark Blyn: But let me double…
+[00:43:31] Build Test Scale: You have.
+[00:43:31] Mark Blyn: You know, if we were to ask her, what are you actually working in hours per week? I would say the answer's probably 5.
+[00:43:38] Build Test Scale: Yeah, let's see, Mona… Yeah, it's 1500.
+[00:43:45] Mark Blyn: Okay, so we need, we need to put her to work.
+[00:43:48] Build Test Scale: Yep. And also, Sandy,
+[00:43:52] Build Test Scale: somehow, but not… it's, like, directly was asking me, but, like, hey, Jane, do you have an idea when are we gonna be having hit that,
+[00:44:04] Build Test Scale: temporary, like, remove the temporary salary, things like that. I was telling her that, hopefully things are gonna be good.
+[00:44:12] Build Test Scale: sooner than we expected, and Mark will be discussing that with Adam, so…
+[00:44:19] Mark Blyn: Yeah, so I did, I talked to Adam.
+[00:44:21] Mark Blyn: before… when did we… we met Wednesday. Yeah, we met Wednesday.
+[00:44:27] Mark Blyn: And I asked him that. He said, I really haven't thought about that. And I said, well.
+[00:44:32] Mark Blyn: we need to start talking about that. I said, I'm hoping that January turns out to be a really good month, and it's… it's going that way, it's doing pretty well. It's getting better. I said, so, let's have the conversation by the end of the month, Adam. He said, okay, I'm fine with that.
+[00:44:47] Mark Blyn: So, that doesn't mean yes, it just means he's open to having the conversation.
+[00:44:51] Mark Blyn: Because, you know, I know you're hurting, and I know Sandy's hurting, and I am too. You know, I took a big hit, too, so, you know, I get it.
+[00:45:00] Mark Blyn: So, yeah.
+[00:45:03] Mark Blyn: I'm gonna have that conversation with him by the end of the month.
+[00:45:07] Build Test Scale: Sure. Yeah.
+[00:45:08] Mark Blyn: Probably means January 31st.
+[00:45:13] Build Test Scale: Yeah, I'll just… yeah, let's, let's, touch base on that. If… if she or Maricel asked… Maricel was also part of, the.
+[00:45:22] Mark Blyn: Yeah.
+[00:45:23] Build Test Scale: Yeah. She's also asking me that, when she processed the payroll for December, and she's like, Jean, do you think this will be the last month that we'll be having, like, this temporary salary deduction? And I told her, honestly, that I'm not so sure, but Mark…
+[00:45:40] Build Test Scale: told me that, he'll have that discussion with Adam any… between, like.
+[00:45:46] Build Test Scale: January, I'm not sure what exact date, so, you know, if… just in case they will raise the same question to me, coming to this almost payroll, dates, then I'll, you know, I'll just say the same thing to them.
+[00:45:59] Mark Blyn: Yeah, I mean, that's the truth, so we're not lying to anybody, so that's the truth.
+[00:46:05] Mark Blyn: Okay.
+[00:46:07] Mark Blyn: Alright, so all good stuff.
+[00:46:10] Mark Blyn: Yeah, so when you have the conversation with Mona, say.
+[00:46:14] Mark Blyn: Mona, in order for us to keep you, here's what we need from you.
+[00:46:18] Mark Blyn: And you're the perfect person for this.
+[00:46:20] Build Test Scale: Yeah, I think she's gonna be pretty open to that, you know.
+[00:46:24] Mark Blyn: Yeah.
+[00:46:25] Mark Blyn: And that also kind of makes you wonder what we're gonna do with Reno.
+[00:46:29] Mark Blyn: But I'll let you think about that, so… That'll be your call.
+[00:46:35] Build Test Scale: It's so sad to… it's always so sad for me to let go of people, but then, you know, I don't think he's even spending that part-time, like… I don't… I personally, when I do it, I don't think I need to spend an hour doing that.
+[00:46:49] Mark Blyn: Okay, so, just, let's just… let's quit delaying this, let's go ahead and…
+[00:46:54] Mark Blyn: Unfortunately, let's remove him from the company, and whatever he is doing, Mona can take over that as well.
+[00:47:01] Build Test Scale: Yeah, I'll have, I'll have, Reno record a Loom video for me first, and see, and then, loop in Mona to that.
+[00:47:08] Build Test Scale: And then we'll take it from there.
+[00:47:12] Mark Blyn: Okay.
+[00:47:13] Build Test Scale: Because I don't… I don't want to, send him any termination notice, and then we don't know exactly what he's doing, like, especially handing over the accounts. I mean, that's part of the process.
+[00:47:25] Build Test Scale: So…
+[00:47:26] Mark Blyn: So, yeah, create an NDA. Adam just responded to me.
+[00:47:30] Mark Blyn: Create an NDA that he cannot divulge.
+[00:47:34] Mark Blyn: or tell anybody that the traffic source is Newsbreak.
+[00:47:39] Mark Blyn: He needs to sign that. Once that's signed.
+[00:47:42] Mark Blyn: Then let's get him access to that. I think you're in that Slack channel, aren't you, with Newsbreak?
+[00:47:46] Build Test Scale: Yep, I was the one asking question alongside Boysa on the.
+[00:47:51] Mark Blyn: Okay.
+[00:47:53] Mark Blyn: Alright.
+[00:47:54] Mark Blyn: And then, yes, once we get that sign, he can go into the channel.
+[00:47:58] Build Test Scale: Okay.
+[00:48:00] Mark Blyn: I'll let him know that you're gonna send him something.
+[00:48:02] Build Test Scale: Yep, I will send it within the day. I have to make the adjustment, because that doesn't mention anything about that, so I'll add a specific clause saying that, like, explicitly saying that he cannot disclose
+[00:48:17] Build Test Scale: Our traffic source.
+[00:48:22] Mark Blyn: You cannot. If he does, well, you know what. You know what to say, so put it in there. Okay, I'll send him a message now.
+[00:48:30] Mark Blyn: And… let me think…
+[00:48:36] Mark Blyn: Okay. That's all I got, that's a lot, so…
+[00:48:40] Build Test Scale: Cool. Great job, Gene.
+[00:48:42] Build Test Scale: pretty lot of changes, but once we get a hang of everything, I believe this is, like, worth, doing. And it has been a delay, honestly, if you're gonna ask me.
+[00:48:55] Mark Blyn: It has what?
+[00:48:56] Build Test Scale: It has been a long overdue changes that we have to make.
+[00:48:59] Mark Blyn: Oh, yeah.
+[00:49:00] Build Test Scale: through.
+[00:49:00] Mark Blyn: Oh yeah, it's painfully awful.
+[00:49:02] Build Test Scale: Amazing. Yep.
+[00:49:03] Mark Blyn: Yeah, I was thinking about this over the break, I'm like, man…
+[00:49:07] Mark Blyn: Our support team is awesome, but our system sucks.
+[00:49:11] Build Test Scale: It's like, we have such talented employees, we need to create a better system.
+[00:49:17] Build Test Scale: Yeah, exactly. All they have to do is a redirection of everything, including the concierge and, you know.
+[00:49:23] Build Test Scale: Like, I mean, I appreciate each one of them. They have very different, strengths and weaknesses, I would say, but, like, coming to… as a team, I would say they're pretty solid, especially if they know exactly what they do, or they have, like, you know, the protocols. I've seen them grow in every way that I can see them, you know, coming from…
+[00:49:46] Build Test Scale: Shadowing concierge calls down to, slowly.
+[00:49:51] Build Test Scale: getting my way to the support emails, the inboxes, and then coming to this position. I've seen that each one of them grow, respectively, so I'm just, you know, I just wanted to make sure we also set them up for success, and I think the new system that we have for them will do that for each one of them, too.
+[00:50:11] Mark Blyn: And so, how is the concierge team doing?
+[00:50:15] Build Test Scale: They're pretty good, and I also… I told ya, and I expect the same thing with the rest of the team members, not just him, on a serious note, not just him, but I wanted everybody to be, that kind of support to the coaches during those coaching calls. And apart from that, you're still getting on calls,
+[00:50:33] Build Test Scale: Tasks, so whatever we're, you know, if we're gonna be introducing new affiliate networks, definitely that's, they would have
+[00:50:42] Build Test Scale: a lot of changes in terms of compliance and everything, but they're pretty, you know, pretty flexible, and there already knows that we're changing every, you know, from time to time. So, as long as we have those, information set out for them, like, ready when we launch, or, like, when we introduce
+[00:50:59] Build Test Scale: new products, new compliance, and affiliate networks, I don't think they can, you know, they can get their heads on it. They're definitely good with the changes that we're putting in. And moving forward, if we're gonna be introducing any new, I think…
+[00:51:16] Build Test Scale: It's, you know, it's… Gonna be more easy for them to…
+[00:51:21] Build Test Scale: To do so many, like, tasks that they're currently doing now.
+[00:51:27] Mark Blyn: And how is… is her name Lee? Leah?
+[00:51:30] Mark Blyn: Lee?
+[00:51:31] Build Test Scale: They play late?
+[00:51:32] Mark Blyn: Lay.
+[00:51:32] Build Test Scale: Yeah, Lee.
+[00:51:34] Mark Blyn: How's she doing?
+[00:51:36] Build Test Scale: She's good, actually. She has a lot of progress in terms of calls. She started out, like, a bit shy, you know, trying to always, like.
+[00:51:46] Build Test Scale: just coerce the mentee, like, yes, we don't understand, and then she has already grown so much from it, and she was very, like, I watch recent calls from her, and she's pretty confident now answering questions, showing them how to do things.
+[00:52:02] Build Test Scale: So I think, yeah, Lei, Lei is progressing really good, just like the others. I mean, I, I don't, you know, like, 5 of them, from the concierge, we already know their capabilities in terms of calls, especially
+[00:52:17] Build Test Scale: My personal favorite with calls would be Neil and Jericho. They're actually really good at handling mentees, whether they're, like, ranting, venting out, or just simply getting, you know, empathy.
+[00:52:31] Build Test Scale: there's even one mentee that was booking calls every day to them, and I really admire the patience of Concierge team, because, you know, but I told them to somehow
+[00:52:40] Build Test Scale: still draw a line to those kind of mentees, like, hey, I think we've met the full week, you maybe want to book your call to the other, you know, concierge team member, because they really do have that kind of situation wherein every single day, one mentee will be booking to just one specific concierge team. Not just with Neil, but, like, most of, like, all of them experienced that, so I'm telling them to also
+[00:53:03] Build Test Scale: Somehow, you know, make sure that they are utilizing each, you know, call booking, because we don't want to limit
+[00:53:11] Build Test Scale: for example, Neil can share so much about, like, this process, and then Jonah and, Mika can share their insights on, like, a lot of creatives that they're doing, you know, things like that. So I told them to really play around, make sure to mention to the mentee, like, hey, I noticed that this is going to be your concern, or this is one of your concerns. Moving forward, you can also book to this team member, because this team member
+[00:53:35] Build Test Scale: One of her, like, you know, specialty, or, like, one of her keen skills is related to this, you know, something like that.
+[00:53:43] Build Test Scale: But I think they're pretty good, they're doing good. Some of them, from time to time, you're asking me to, like.
+[00:53:49] Build Test Scale: block a specific hour, especially if they have a lot of, like, a bunch of, like, tasks requested. For example, Mika and Jonah, they're more of, like, the creative side of the things that they're doing, more than the others, so they were, like, sometimes sending me a message, hey, Jean, can I block two hours for this day? Because I was, like, so… I have so much tasks assigned to me by John.
+[00:54:13] Build Test Scale: on the email, on the inbox and help-wise, I just wanted to knock things off, and I will, you know, approve it. I told them, as long as you guys inform me, so that I know, like, how your calendar works. I mean, I can always go to your calendar and see whether you have calls or not, but
+[00:54:30] Build Test Scale: I wanted to put trust in everybody, especially with John, considering he's your team lead, that you guys are responsible to your calls. I mean, I could randomly just…
+[00:54:41] Build Test Scale: sneak into your calendar. I can open GHL and see how your day looks like, but I wanted to put the trust in you guys.
+[00:54:48] Build Test Scale: To let me know if you really need to turn off a calendar for specific hours, if you need to block it off, and, you know, anything about that, let me know. And so far, it's working well. I mean, they're really, you know, in terms of communication, everybody was, like, reaching out to me, making sure that I'm well aware of, like.
+[00:55:08] Build Test Scale: How funny.
+[00:55:12] Build Test Scale: So…
+[00:55:13] Build Test Scale: Yeah, I think… I think they have really, grown over the months, or I would say year that I've already, you know, been working with them in.
+[00:55:23] Mark Blyn: Discipline.
+[00:55:24] Mark Blyn: And so everyone in the coaching calls, I didn't look at the schedule. Is it always going to be a concierge team member on the coaching calls? Yes. Okay, so that's good. Yep. That's good.
+[00:55:33] Mark Blyn: Okay, cool.
+[00:55:35] Mark Blyn: Alright,
+[00:55:38] Mark Blyn: So we're gonna take down the EMB… take down the EMB page. I don't know what to do.
+[00:55:43] Build Test Scale: Yeah, Sandy is on it. She just, yeah, she just messaged me about it.
+[00:55:48] Mark Blyn: I don't know what to do with the people that are currently running.
+[00:55:52] Mark Blyn: I don't know.
+[00:55:54] Build Test Scale: I mean, maybe we can let them finish off… whatever opt-ins?
+[00:56:00] Build Test Scale: They bought already?
+[00:56:02] Build Test Scale: let's just keep it running, if that makes sense for you, so that we won't avoid any problems. And then once, for example, if they bought a silver, and once they reach that opt-ins, and we have proof that they indeed reach that opt-ins, then we can, you know, capture something and, like, inform the mentee.
+[00:56:20] Build Test Scale: hey, unfortunately, you ran out of opt-ins now, and we just would like to thank you for your support with EMB.
+[00:56:29] Build Test Scale: You know, something in that sense that will inform them that the, opt-ins are already… it already runs out, and that, for now, we will be having a pause until further notice, so they cannot purchase
+[00:56:45] Build Test Scale: any… Traffic, again?
+[00:56:49] Build Test Scale: I mean, that's… that's, like, that's something on top of my head, but not something… I… I cannot think of, like, what exactly, because I don't want to send an email to them that, hey, we're gonna be cutting it off.
+[00:57:02] Build Test Scale: Because that would be a lot of…
+[00:57:06] Build Test Scale: Out. And frustrations on their end.
+[00:57:11] Mark Blyn: Okay.
+[00:57:13] Mark Blyn: Alright.
+[00:57:14] Build Test Scale: If that makes sense, let's finish out whatever it is, and I can track them for you. I mean, George showed me how to check opt-ins. I can definitely look those for you. Those are reflecting in their P&L anyways as well. And, you know, just let me know if you wanted me to track those so that
+[00:57:30] Build Test Scale: you would know, like, hey, we only have 3 Mendees currently running on EMB, and these are the opt-ins currently.
+[00:57:38] Mark Blyn: Now, are you checking that periodically, or…
+[00:57:41] Build Test Scale: No, I did not check anything yet this week. Last week, I did, because I reviewed a P&L that was raised to me. I think that was Tuesday or Wednesday last week, but that was the last time I touched anything related to, EFB opt-ins, but I can check that. I can start, you know, checking that on a daily basis for you guys.
+[00:57:59] Mark Blyn: And who's updating the CM Financial?
+[00:58:02] Build Test Scale: Meaning?
+[00:58:02] Mark Blyn: Is that you? Just you? Yeah. Okay.
+[00:58:04] Build Test Scale: Yes, it's up… it's up to date. I usually update them as much as I can morning.
+[00:58:09] Build Test Scale: But if not, at the… any time within the day, I try to make sure that I did that. Like, for,
+[00:58:16] Build Test Scale: Friday, Saturday, and Sunday, of course, you will be seeing those 3 days Monday morning, or, like, any time Monday, but the rest, like, for example, this Monday, today, tomorrow I will… tomorrow morning, I will update the financials, so yes, it's up to date.
+[00:58:31] Mark Blyn: Okay. It's up to date today for over the weekend.
+[00:58:35] Build Test Scale: Yes. Okay. The only, yeah, until, January 11th, the, all data is there.
+[00:58:42] Mark Blyn: And our Better Business Bureau, how was our rating?
+[00:58:46] Build Test Scale: Yep, it's A, it's A, still A, but not… no longer A+, it's A negative, because we still have… let me double check… though we… we have… we don't have anything that wasn't resolved, but, like, we have 1, 2, 3…
+[00:59:04] Build Test Scale: 4, 5, 6 ongoing, waiting for a decision, and I think if we close this, if this was resolved just like the usual, we'll get back to A+, but currently it's A negative.
+[00:59:16] Mark Blyn: Okay. That's fine, that's fine. It's still an A, so… Alright.
+[00:59:21] Build Test Scale: That's the code, never be out of A.
+[00:59:25] Mark Blyn: Okay, and then… gosh, I think that's it. We've gone through a lot,
+[00:59:32] Mark Blyn: Yeah, I'm gonna be on your meetings on Wednesday.
+[00:59:36] Build Test Scale: Yep.
+[00:59:37] Build Test Scale: We miss you there. Very much, you know, we're… we're gonna be happy. The team's gonna be happy that you'll be at that call.
+[00:59:46] Mark Blyn: Awesome. Cool. I need to talk to my guy, Jericho.
+[00:59:50] Build Test Scale: Yes, he misses you!
+[00:59:52] Mark Blyn: Alright, cool. Gene, great job. Continue on.
+[00:59:59] Mark Blyn: Let me know how the conversation goes with Mono.
+[01:00:02] Mark Blyn: You gonna have that today?
+[01:00:04] Build Test Scale: Yeah, I will, after this call.
+[01:00:07] Mark Blyn: put together the NDA for Sasha, I'm gonna message him now, let him know you're gonna send that to him, please.
+[01:00:13] Build Test Scale: Yes, I will, reach out to you as well, and confirm with you once I have the NBA ready. I'll probably just run it with ChatGPT and feed, the few clauses that we want, which is explicitly saying that he cannot disclose our traffic source to coaches, mentees, or any other team members except the C-level, which is you, George, me.
+[01:00:36] Build Test Scale: Mike, Adam, and technical support, which is Loisa. So that's it.
+[01:00:43] Mark Blyn: Okay.
+[01:00:44] Build Test Scale: any other team members, not even to Mona.
+[01:00:48] Mark Blyn: Awesome. No. Okay, great.
+[01:00:51] Mark Blyn: I'll talk to you soon. Thank you.
+[01:00:52] Build Test Scale: Okay. Thanks, Mark! Let me know if you need anything.

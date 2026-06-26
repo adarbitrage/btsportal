@@ -1,0 +1,225 @@
+TITLE: TCE Concierge Coaching Weekly
+SOURCE: coaching-transcripts.txt
+META: BTS Concierge Coaching Weekly
+TURNS: 220
+
+[00:00:07] Build Test Scale: Hi, Lee!
+[00:00:16] Aliena Leigh Mascariña: Hi, Jean.
+[00:00:18] Build Test Scale: Bye!
+[00:00:21] Build Test Scale: Complete… Sinil, Silena.
+[00:00:26] Build Test Scale: It's very cool.
+[00:00:28] Build Test Scale: Si, Noisa.
+[00:00:31] Build Test Scale: Tijun.
+[00:00:33] Build Test Scale: I deleted.
+[00:00:34] Build Test Scale: Hi, Sandy!
+[00:00:36] Sandy Kumar: Hey guys!
+[00:00:38] Neil Warren: Hello, Sanji. Hello, guys!
+[00:00:40] Sandy Kumar: Hi, Neil. Hi, Jean. Hi, guys.
+[00:00:43] Build Test Scale: Hi! Mark will be joining on today's call again, but, we can go ahead and proceed. John, Neil, team, is there anything that you, need to discuss with Sandy? Any concern?
+[00:01:00] Sandy Kumar: No.
+[00:01:01] Sandy Kumar: Fair enough, guys.
+[00:01:02] Neil Warren: I don't have anything. Yeah, I don't have anything.
+[00:01:06] Aliena Leigh Mascariña: None on my end.
+[00:01:08] John: I'm all good.
+[00:01:09] Jhona Andal: All good on my end, too.
+[00:01:11] Build Test Scale: Sounds great! I think that was…
+[00:01:14] Sandy Kumar: That is the fastest so far.
+[00:01:16] Build Test Scale: Under a minute. Yep, record, 2 minutes.
+[00:01:20] Build Test Scale: Right. Okay, if you don't have anything, Sandy has really quite a lot of things.
+[00:01:27] Sandy Kumar: genius.
+[00:01:28] Build Test Scale: So today, I will let Sandy go, and then we can proceed with the call. Mark is here.
+[00:01:35] Sandy Kumar: Okay.
+[00:01:36] Sandy Kumar: Awesome. I will drop off the call then, guys. If there's anything, feel free to reach out on Slack.
+[00:01:43] Neil Warren: Thank you.
+[00:01:43] Build Test Scale: Thank you.
+[00:01:44] Build Test Scale: than the…
+[00:01:45] Sandy Kumar: You guys, have a great day.
+[00:01:47] Build Test Scale: Have a great day. Hey, Mark!
+[00:01:50] Neil Warren: Happy New Year, Mark.
+[00:01:52] Mark Blyn: Happy New Year, everybody!
+[00:01:54] John: Oh, wow. Happy New Year.
+[00:01:56] Mark Blyn: Into my call.
+[00:02:01] Mark Blyn: Alright, sorry, I'm a minute late. Go ahead, keep going.
+[00:02:04] Build Test Scale: No worries, yep, so…
+[00:02:07] Build Test Scale: So far, we had a good feedback from the coaches regarding the… you guys joining the call, so thank you for joining the call. I know some of you will still ought to, get to those calls later this week, so let's just keep the momentum going and make sure that we're aligned with them and, you know, coaches feel supported, because it works good. Thank you, John, with Todd.
+[00:02:31] Build Test Scale: So, and the rest of the team, but let's… let's make sure that they… everybody or all of the coaches feels the same way.
+[00:02:38] Build Test Scale: A quick update regarding the coaches, so we will now have… we will now have Sasha as the team lead for the senior coaches. Sasha will gonna be the main point of contact for the mentees and for coaches' questions to our traffic source.
+[00:02:54] Build Test Scale: But still, you guys would be, you know, good for support and in terms of, during those calls that you have with the mentees.
+[00:03:04] Build Test Scale: Again, our priority still is, caterpillar medium events, but if they still, and they really do want to insist using Grasshopper and crane, we can, use that, but…
+[00:03:16] Build Test Scale: let us, you know, promote, Caterpillar.
+[00:03:27] Build Test Scale: Alright!
+[00:03:28] Build Test Scale: Mark,
+[00:03:32] Build Test Scale: The concierge last quarter, actually just last, mid-November, December, they have changed the call form, a little bit in line with the Caterpillar, but the form is also… Sandy's also aware about the few changes. It's very minimal, so we didn't, you know, really get to have, like, yours or Adam's approval on this, but it didn't affect anything, it's just
+[00:03:57] Build Test Scale: we wanted to make sure that the mentee, knows what they're selecting in terms of… since we have multiple, traffic sources for them, so that's the only thing that has changed in the form. And in line with that, we're gonna be… I asked the concierge team to build a new, tracker starting off this January, which I believe, Neil, John, it's still under
+[00:04:22] Build Test Scale: your weight, right?
+[00:04:23] John: Yeah.
+[00:04:25] Build Test Scale: Okay, so we're gonna have that, automated. They will be sending those to me, Mark, before the weekend, so probably, tomorrow or Friday, I'll send it to you once, we have tracked… we have retracted, because I asked them to, get a new tracker, starting January 1st.
+[00:04:43] Mark Blyn: Okay.
+[00:04:58] Mark Blyn: Everybody's so quiet.
+[00:05:00] Build Test Scale: Yeah, Jericho is quiet. Jericho, how are you? I think Smart misses you.
+[00:05:14] Build Test Scale: Hi there!
+[00:05:17] Build Test Scale: We can't hear you.
+[00:05:22] Build Test Scale: Is it just me?
+[00:05:23] Build Test Scale: Can you guys…
+[00:05:24] Mark Blyn: He must have got… he must have got that headset from Timo.
+[00:05:29] Mark Blyn: Yeah.
+[00:05:31] Build Test Scale: I… on that note, Mark, I think we have to explore digital, you know, like.
+[00:05:37] Build Test Scale: products that is in line with electronics for us. Is that something that Adam can work with the new affiliate networks that we're trying to get to?
+[00:05:45] Mark Blyn: Yeah, yeah, yeah, yeah, yeah. Well, Jericho, I can't hear you, but it's good to see… good to see you, good to see all you all.
+[00:05:57] Jericko Tordecilla: Ray, hello?
+[00:05:59] Neil Warren: Yeah, can you hear me?
+[00:06:00] Mark Blyn: There we go.
+[00:06:01] Jericko Tordecilla: There you go. Just remove my headset for good.
+[00:06:05] Build Test Scale: Sounds good. Good.
+[00:06:08] Build Test Scale: Yeah, it's.
+[00:06:08] Jericko Tordecilla: Hi, everybody. Hi, Mark! Happy New Year!
+[00:06:12] Mark Blyn: a… Happy New Year.
+[00:06:14] Jericko Tordecilla: Yeah.
+[00:06:14] Mark Blyn: Good.
+[00:06:15] Jericko Tordecilla: Great to see you again. How are you?
+[00:06:17] Mark Blyn: Good, good, good. So…
+[00:06:20] Mark Blyn: How are the calls going with the mentees? Are there still a lot of calls, a lot of volume going on, a lot of requests?
+[00:06:27] Jericko Tordecilla: Yes, Mark? So, because there are some mentees are consistently taking a booking, a call with us, so…
+[00:06:36] Jericko Tordecilla: I will be more specific, so if you would remember Gene Stats.
+[00:06:44] Mark Blyn: Yes.
+[00:06:45] Jericko Tordecilla: Yeah, so he's one of my regular mentees.
+[00:06:49] Jericko Tordecilla: That are keeping booking a call, and together with some of the mentees, like.
+[00:06:56] Jericko Tordecilla: John Black… John Blackwell and Ginger, so something like that.
+[00:07:02] Mark Blyn: Okay.
+[00:07:05] Jericko Tordecilla: And, yeah, we are keeping the call more on…
+[00:07:12] Jericko Tordecilla: enjoyable, having a conversation with them on how the agency will help their…
+[00:07:18] Jericko Tordecilla: life, using… promoting, and have their own business at home. So, for their… for the… for us, of course, we are trying to make it simple and enjoyable conversation, and that's why they are also happy with our services.
+[00:07:40] Mark Blyn: Fantastic.
+[00:07:41] Mark Blyn: I don't doubt it for a second.
+[00:07:46] Mark Blyn: Okay.
+[00:07:47] Jericko Tordecilla: Sorry?
+[00:07:48] Mark Blyn: I said, okay. Alright,
+[00:07:53] Mark Blyn: Yeah, so the coaches' calls, having you all on there for the coaches' calls is working out very well. Like Gene said, the coaches love having you all there to handle some of the
+[00:08:05] Mark Blyn: technical issues, questions about software, questions about things that the coaches really don't need to answer on the coaching calls. We want the coaches to be able to
+[00:08:15] Mark Blyn: help the mentees with strategies, talk about their campaigns, what to do next, how to optimize, not necessarily what the problem is with DIY tracks, or things of this nature, where you all can help them out through the chat.
+[00:08:28] Mark Blyn: So, by you all being on these calls, really helps the coaches focus on what they're supposed to be doing.
+[00:08:34] Mark Blyn: And that's coaching. So we really appreciate you all stepping up as far as that goes. That's a big, big help. Todd on Monday's call. Who was with Todd on Monday?
+[00:08:45] John: I'm the one moving part.
+[00:08:47] Mark Blyn: Oh, that's why it was so good!
+[00:08:50] John: That's funny.
+[00:08:51] Mark Blyn: God was so happy. He had, he had,
+[00:08:55] Mark Blyn: He had John on there, very nice. Yeah, so, let's continue. Keep it up, keep up the good work.
+[00:09:01] John: There are 2 new affiliate networks.
+[00:09:05] Mark Blyn: We're working on getting online, probably next week.
+[00:09:09] Mark Blyn: So, in addition to ClickBank, we'll have two more. Once I know more about that, I will let you all know, so you all can become familiar with it, because the mentees are going to be asking you for their help when it comes to the new affiliate networks. So, we'll have
+[00:09:25] Mark Blyn: Mini Mavens, ClickBank, and then 2 more new networks to add to the mix.
+[00:09:31] Mark Blyn: Why? Because we want the mentees to have a lot of choices.
+[00:09:35] Mark Blyn: for any offers that they want to think about promoting, and they're just not locked into ClickBank or just Media Mavens, right? We want them to have hundreds of… hundreds of offers to choose from.
+[00:09:48] Mark Blyn: So adding these two new affiliate networks is going to help a lot. We do plan on adding probably one affiliate network per month, moving forward.
+[00:09:57] Mark Blyn: So I would… I would say by the end of the year, we're gonna have a lot.
+[00:10:03] Mark Blyn: So…
+[00:10:06] Mark Blyn: Make sure you guys are ready for that, make sure you understand how… how all of that works. But I'll let you guys know. I know… I know that both of those were sent into production, this week, so I'm hoping that maybe next week, we can start promoting this with the mentees, okay?
+[00:10:24] Mark Blyn: I don't want to tell you what they are yet, because they're not approved, so… but we're very, very close.
+[00:10:31] Mark Blyn: What else is going on, Gene?
+[00:10:35] Build Test Scale: Yeah, I think, those are the only, like, major changes that we have so far. We're still, I'm still checking together with John, we're still, you know, monitoring, like, the, tasks that are coming in for the email. We're still…
+[00:10:48] Build Test Scale: receiving a bunch of it, and that's good, because if they're, getting books, you know, booking calls with concierge and asking for those, you know, materials, then definitely it's good, because the mentees are getting a campaign set up and done.
+[00:11:03] Build Test Scale: And just wanted to, commend everybody, and I know there's, like, a lot of, you know, changes that is going on for both teams for concierge and support team, and we're just, you know, we're grateful that you guys are always, you know, very open and, willing to, you know.
+[00:11:21] Build Test Scale: To get the company better, make sure that we're growing altogether, so really appreciate everybody's, you know, enthusiastic response when we actually laid out this, and your
+[00:11:32] Build Test Scale: All very much willing to get on those calls and support our coaches.
+[00:11:38] Mark Blyn: So what's the number one request now that mentees are asking for? Is it still… how do I get started? Is that still the number one question?
+[00:11:47] John: Yeah, for the new man, please.
+[00:11:50] Build Test Scale: For the new Mentis, yes. I think the one that is off the list is DIY tracks, right, guys?
+[00:11:56] Mark Blyn: That's good.
+[00:11:56] Build Test Scale: So it's not… I don't think it's part of the top three anymore, because based on the emails that we had so far, though some of them are still having, like, a few concerns about it, few questions, but I don't think it has now… it is still part of the top three, because before, it's, like, between 1 and 2, 1 and 2.
+[00:12:16] Build Test Scale: You know, it's just changing, but we have minimized those issues.
+[00:12:23] Mark Blyn: So I'm looking at the portal, and I'm wondering, this is why I need your all's feedback, is there confusion be… or is there confusion from the mentees asking why there's a quick start guide, and why there's a 21-day blitz?
+[00:12:38] Mark Blyn: Are they… are they confused between the two? Are they asking, which one am I supposed to be using first?
+[00:12:46] Neil Warren: I haven't experienced, mentees asking about that.
+[00:12:51] Neil Warren: But I think, just for the 21-day blitz, most of the call that I've been receiving is more on the 21-day blitz. They are a bit confused, you know, with the 21-day blitz, where to find this, and…
+[00:13:06] Neil Warren: What's the… the next steps, or like that. So, it's more on the clarification with the 21-day blitz.
+[00:13:15] Mark Blyn: Okay.
+[00:13:16] Mark Blyn: So I'm wondering, do we need to have a Quick Start Guide in the portal? Is that helping, or is that hurting? Because we want them to follow the 21-day blitz. That's why I'm asking you all, is there a confusion? Are the mentees asking you, wait, so there's a quick start guide?
+[00:13:33] Mark Blyn: And then there's the 21-day blitz. Excuse me, which one am I supposed to follow? So I'm just wondering if that's something that needs to be removed from the portal, the Quick Start Guide.
+[00:13:44] Mark Blyn: Does it help, I guess.
+[00:13:46] John: I think it would be better if we can focus on only one, like the 21 tablets, and it should be updated.
+[00:13:53] John: And…
+[00:13:54] John: In addition, it's on a different topic. I think the one that, we are currently lacking is when it comes to marketing side.
+[00:14:02] John: Because all of… I think 80% of the mentee doesn't… doesn't really know how to…
+[00:14:08] John: Or doesn't really know, any… there's… they don't have any idea on the metrics.
+[00:14:14] John: Especially when I review all of the coaching calls.
+[00:14:18] John: like, Bruce reviewing the Mantis, stats. Bruce said that LPCTR, ad click CTR, then turn this one off, turn this thing off. They, they just, a plain explanation without…
+[00:14:33] Mark Blyn: giving more information on why this ad CTR is.
+[00:14:37] John: better, why this LPCDR is better. So, I think that's what we are currently lacking, because I have a few mentees, booking a one-on-one call with me, asking why Bruce
+[00:14:49] John: Bruce or other coaches, turn off this kind of ads without explaining, without giving more information. So, I think that's… that's the, currently,
+[00:15:02] John: Not a problem, but lacking without a metrics, without at least basic understanding when it comes to reading metrics and market-based.
+[00:15:12] Mark Blyn: So, one of the things that Sasha will be doing
+[00:15:17] Mark Blyn: Is… and he now has direct access to our traffic source.
+[00:15:22] Mark Blyn: So he can ask our rep on that traffic source specific questions about
+[00:15:27] Mark Blyn: Optimizing campaigns based upon the traffic source's history.
+[00:15:32] Mark Blyn: So, with Sasha having that contact with that rep from the traffic source, he should be able to bring back more direction
+[00:15:40] Mark Blyn: to all of the coaches that they can hand out to the mentees during the coaching calls, because I think
+[00:15:47] Mark Blyn: what's been missing is Adam has not been in there really testing or running a lot of campaigns, and so he's not able to tell the coaches.
+[00:15:57] Mark Blyn: The answers to those questions.
+[00:16:00] Mark Blyn: So now Sasha has direct access to that traffic source rep, so he can start asking that rep, hey, what do we do in this situation? What do we do over here with these metrics? What do you guys suggest we do?
+[00:16:13] Mark Blyn: as we are using your traffic source. I'm hoping there's going to be a little more clarity that's brought to the coaching calls, once Sasha really gets
+[00:16:22] Mark Blyn: Starts digging in deep with that traffic source, with that rep.
+[00:16:26] Mark Blyn: If that… if that helps at all, John.
+[00:16:28] John: Yeah, yeah, that would be great. Also, we will be allowing, concierge and also coaches.
+[00:16:35] John: When it comes to optimization and get the, Caterpillars set up. And there is some coaches using AI,
+[00:16:43] John: Testing the congruency of the materials, and then there's other coaches just doing… using their experience, knowledge on reviewing stuff.
+[00:16:52] Mark Blyn: Right.
+[00:16:52] John: So, we… we… I think all of the coaches has a different style when it comes to optimization. That's why Mentis is struggling, which coaches, needs, which coaches,
+[00:17:05] John: need to be followed, like, rules, my.
+[00:17:07] Mark Blyn: You know.
+[00:17:08] John: Sasha, they all have different style of optimization.
+[00:17:13] Mark Blyn: Yeah, so we're gonna talk about that today on the coaches' meeting. You'll be on there as well. So I'm gonna bring that up and let Sasha talk a little bit about that. But I agree with you. I want…
+[00:17:24] Mark Blyn: The coaches… listen, coaches all have different styles, and that's fine.
+[00:17:28] Mark Blyn: But the coaches need to all…
+[00:17:30] Mark Blyn: kind of be on the same page when it comes to optimizing the mentee's campaigns, utilizing this traffic source. Now, I, you know, I could teach
+[00:17:41] Mark Blyn: Everyone on this call, how to make a glass of lemonade.
+[00:17:46] Mark Blyn: And then you could ask somebody else how to make a glass of lemonade.
+[00:17:49] Mark Blyn: And the end result is we're both gonna have lemonade, but I do it differently than somebody else does it.
+[00:17:55] Mark Blyn: But I think we all need to understand that when we are
+[00:17:59] Mark Blyn: making a glass of lemonade, there are two things we need. Water and lemons.
+[00:18:04] Mark Blyn: That's the traffic source. We need to understand the basics.
+[00:18:08] Mark Blyn: And then we as coaches can all, of course, coach the mentees, our own style, but at least if we know the answers to the questions about the traffic source, then that's a great place to start from. So…
+[00:18:21] Mark Blyn: I don't know if my lemonade analogy was any good, but I think you guys understand what I'm talking about.
+[00:18:26] John: Yeah, we understood.
+[00:18:28] Mark Blyn: Okay. The more I started getting into it, I realized maybe this wasn't a good one to go with.
+[00:18:36] Mark Blyn: But yeah, we're gonna talk about that on the coaching call today, John.
+[00:18:40] John: Okay, thank you.
+[00:18:41] Mark Blyn: Sure.
+[00:18:47] Mark Blyn: Is there a lot of frustration?
+[00:18:50] Mark Blyn: On these calls with you all?
+[00:18:55] Neil Warren: gone so far.
+[00:18:58] Jericko Tordecilla: None so far, Mark. All good.
+[00:19:00] Mark Blyn: Wow, okay.
+[00:19:04] Jericko Tordecilla: Yeah, I think my microphone is working now.
+[00:19:07] Mark Blyn: What?
+[00:19:08] Jericko Tordecilla: I think my microphone is working.
+[00:19:12] Mark Blyn: Oh, yeah.
+[00:19:12] Jericko Tordecilla: Yeah, right. I don't get this from Timo.
+[00:19:17] Mark Blyn: Hey, my headset cost me 5 cents. Where'd you get it from? Timu! That's why it's not working.
+[00:19:28] Mark Blyn: Alright.
+[00:19:29] Mark Blyn: Okay, you guys want to bring anything else up? Ladies, gentlemen, anything else you want to talk about? Any concerns? Ideas on changes, things you would like to see happen?
+[00:19:40] Jhona Andal: Hi Mark. Yeah, Happy New Year, by the way.
+[00:19:43] Mark Blyn: Hi.
+[00:19:44] Jhona Andal: Yeah, actually, it's kind of good, because most of the mentees that I'm having a call with, they are more into, you know.
+[00:19:52] Jhona Andal: having their initiative and have, gathering their creatives, which is kind of good, because at least they, they have this, yeah, as what I said, the initiative to gather what they want to promote or whatnot. So, I just, you know, always, remind them that compliance review is really a must, so if ever, the concierge team or
+[00:20:14] Jhona Andal: They're the ones who gathered those creatives.
+[00:20:17] Jhona Andal: They need to do the compliance review.
+[00:20:20] Mark Blyn: Okay, good. Yes, very important. They must do compliance.
+[00:20:25] Mark Blyn: Good.
+[00:20:31] Mark Blyn: Alright, well, Gene, I don't have anything.
+[00:20:37] Build Test Scale: Does anybody have anything? Last call for me, for Mark? Any questions?
+[00:20:42] Build Test Scale: If not, let us Mark go. Mark has a lot of things, he's still a few meetings left today, so we don't want to hold him up.
+[00:20:51] Build Test Scale: Last call, everybody.
+[00:20:53] Build Test Scale: All good?
+[00:20:54] Neil Warren: All good.
+[00:20:55] Build Test Scale: I think we're good.
+[00:20:56] Mark Blyn: Alright, good.
+[00:20:57] Build Test Scale: So.
+[00:20:57] Mark Blyn: Everybody, you all, hey, listen, before we go, you guys are great, great team, a lot of talent, you're all doing very well.
+[00:21:06] Mark Blyn: It's nice that you all have been around for a long time, and you will continue to be around for a long time. The longer you all continue
+[00:21:14] Mark Blyn: With the agency, the better the agency becomes. So, doing a great job. I will tell you that one of the things I do not stress out about is the concierge team. That's low on my list of things I need to be worried about. That's how well you all do your jobs, and really appreciate that. Just wanted to let you know before we go.
+[00:21:33] Mark Blyn: Have a great day, good to see everybody. I'll probably see you all soon again, okay?
+[00:21:40] John: Thank you so much, Mark.
+[00:21:42] Jhona Andal: Thank you, Mom. Thank you, have a great day.
+[00:21:44] Mark Blyn: Bye-bye.
+[00:21:45] Jhona Andal: Bye-bye.
+[00:21:45] John: Bye, go ahead.

@@ -1,0 +1,393 @@
+TITLE: Fauuex Daniel - help
+SOURCE: coaching-transcripts.txt
+META: Dec 16, 2025 03:56 AM Singapore ID: 836 2608 8416
+TURNS: 388
+
+[00:00:30] John Dela Cruz: Hi, folks. How are you?
+[00:00:38] Fauuex Daniel: Huh, good, how are you doing?
+[00:00:40] John Dela Cruz: Doing great.
+[00:00:41] Fauuex Daniel: Good. Did you have trouble this morning?
+[00:00:46] John Dela Cruz: Yeah.
+[00:00:47] John Dela Cruz: Yeah, it's pretty sad. On my internet, every time there's a strong wind.
+[00:00:55] John Dela Cruz: He doesn't like…
+[00:00:56] Fauuex Daniel: We're kidding.
+[00:00:57] John Dela Cruz: Yeah.
+[00:00:59] Fauuex Daniel: I wondered if that happened again, so I thought, I'll just find a spot and book again.
+[00:01:04] Fauuex Daniel: So that we can have our little visit.
+[00:01:06] Fauuex Daniel: Are we in round 2 now?
+[00:01:09] John Dela Cruz: Oh, we're still on round one.
+[00:01:11] John Dela Cruz: Oh, okay. You don't need to spend another…
+[00:01:14] John Dela Cruz: We just have spent a lot, so they usually say $300 or something like that.
+[00:01:20] John Dela Cruz: Yeah, total ad spend is $500. We will be start optimizing the campaign at 300.
+[00:01:27] Fauuex Daniel: Oh, I see, that's what we've been doing.
+[00:01:29] John Dela Cruz: Yes, that's, that's why there's only 1, 2, 3, 4 active banners, ads.
+[00:01:34] Fauuex Daniel: Yeah, I noticed that you made some changes, so that was good. I noticed some of them were a little high the other day when I looked, and I thought, I wonder if I should deactivate that, and I thought, you know what, no, you're watching it, I'm just gonna let you do your thing.
+[00:01:48] John Dela Cruz: That's.
+[00:01:48] Fauuex Daniel: So.
+[00:01:49] John Dela Cruz: I think I did this one yesterday. That's why…
+[00:01:53] John Dela Cruz: These stats that you are seeing right now, all of those stats has been changed compared to previous or yesterday's stats.
+[00:02:03] Fauuex Daniel: Yeah.
+[00:02:04] Fauuex Daniel: Sir, are you happy with how it's going still?
+[00:02:07] John Dela Cruz: Yeah, we have a lot of potential headlines, ads that we can use for round to.
+[00:02:13] Fauuex Daniel: Oh, good.
+[00:02:14] Fauuex Daniel: Good.
+[00:02:16] Fauuex Daniel: Cool! That's what I wanted to ask, if we were in Round 2 yet, or not, because I'm gonna have to, send in my $1,000… first thousand dollar… what do you call it? To the…
+[00:02:29] Fauuex Daniel: Support team.
+[00:02:34] Fauuex Daniel: And explained to them that I started fresh again, so I'm actually only at, you know, 421.
+[00:02:42] Fauuex Daniel: But they said to send to the support team, always, when you get to your first $1,000, your second $1,000, like, the $2,000 mark, so…
+[00:02:53] Fauuex Daniel: I thought, if I know where I'm at with you, then I can tell them exactly what's going on.
+[00:02:59] Fauuex Daniel: So I'll tell them that we're still in round one, we're just.
+[00:03:02] John Dela Cruz: Yeah, we're still in round one, and about to start with round two. So, on round two, what we need to do is…
+[00:03:08] John Dela Cruz: We'll be getting, based on your result, We have one… To…
+[00:03:21] Fauuex Daniel: The hot ones are the hot ones.
+[00:03:22] John Dela Cruz: 3 best headlines, currently.
+[00:03:25] John Dela Cruz: I think this, this, this one…
+[00:03:28] John Dela Cruz: This, ad ID number 16U.
+[00:03:32] Fauuex Daniel: 16, this one?
+[00:03:34] John Dela Cruz: Yeah, if landing page event clicks increase, then we will use this, but if this doesn't increase, then we will use this tree uptim.
+[00:03:45] John Dela Cruz: Or the headline.
+[00:03:47] Fauuex Daniel: Oh, really? I would have not thought you would pick that one.
+[00:03:50] John Dela Cruz: No, it's based on the stats.
+[00:03:54] Fauuex Daniel: Yeah, but what are you seeing? Help me see what you're seeing.
+[00:03:57] John Dela Cruz: This one, this ad ID number 16, is currently active. It only spent $17.35, so there's a lot of potential on this.
+[00:04:06] Fauuex Daniel: But…
+[00:04:08] John Dela Cruz: If the numbers doesn't change, then we will not be using this one. I will check this one later today, after 5 hours. Then, if this one doesn't change, doesn't increase, then we will go and activate one of the inactive campaigns.
+[00:04:26] John Dela Cruz: Like, for this one, at ID number 19.
+[00:04:29] John Dela Cruz: Or at ID number 17.
+[00:04:34] Fauuex Daniel: 17 and…
+[00:04:36] John Dela Cruz: 19.
+[00:04:37] Fauuex Daniel: And 19…
+[00:04:39] John Dela Cruz: Yeah, I will reactivate this too if numbers doesn't change on ad ID number 16, but…
+[00:04:45] John Dela Cruz: We already have potentials here, potential headline that we can use, so…
+[00:04:50] Fauuex Daniel: What gives… so, what gives it the most potential? Help me understand what does that.
+[00:04:56] Fauuex Daniel: Okay, it was low spending, right? It was 39 cents each, and it… only spent…
+[00:05:03] Fauuex Daniel: 1735, which is what you were saying to me there a minute ago.
+[00:05:08] Fauuex Daniel: But what about all the rest of the stuff in here?
+[00:05:12] Fauuex Daniel: Like, what… is that what matters the most?
+[00:05:15] John Dela Cruz: When 300 US dollars yesterday, when reached $300 yesterday, this number is different.
+[00:05:26] John Dela Cruz: of this app.
+[00:05:27] John Dela Cruz: All of this active, headline.
+[00:05:31] John Dela Cruz: gives more than 20% LPCTR.
+[00:05:37] John Dela Cruz: And then this inactive… this inactive, headline that you can see, these stats is from yesterday's stats.
+[00:05:46] John Dela Cruz: And then, all of this active headline changed their stat, increased the ad clicks.
+[00:05:52] John Dela Cruz: they get a lot of ad clicks, they get, and they get few LP event clicks. That's why, instead of, their numbers continue to increase.
+[00:06:02] John Dela Cruz: They are decreasing, so it's okay.
+[00:06:05] Fauuex Daniel: Oh, I see.
+[00:06:07] John Dela Cruz: Because they are, they are the only one active. That's why they are the only, ads that change stats.
+[00:06:16] Fauuex Daniel: Oh, really? Yeah. The number 16. How'd you go…
+[00:06:20] John Dela Cruz: All of this inactive ads doesn't change their stats. Only active ads will change the stats.
+[00:06:27] Fauuex Daniel: Okay.
+[00:06:29] Fauuex Daniel: So it was the one that was most active yesterday. Can we go back to yesterday?
+[00:06:33] John Dela Cruz: Yeah.
+[00:06:33] Fauuex Daniel: You said it was yesterday, right?
+[00:06:35] John Dela Cruz: No, it's starting, starting from, from, from the date we started our campaign until yesterday.
+[00:06:44] Fauuex Daniel: Oh, this one's been the most active?
+[00:06:48] John Dela Cruz: No. This one yesterday gives a very good performance.
+[00:06:54] Fauuex Daniel: Okay.
+[00:06:56] Fauuex Daniel: So you look at the most recent one that's giving performance.
+[00:07:00] John Dela Cruz: It's based on the stats.
+[00:07:02] John Dela Cruz: This one is overall stats.
+[00:07:05] John Dela Cruz: for the whole week of run, or for the whole,
+[00:07:09] John Dela Cruz: time that we're running our campaign. This one is not just one-day stats.
+[00:07:15] John Dela Cruz: not to…
+[00:07:15] Fauuex Daniel: Resets.
+[00:07:16] John Dela Cruz: stats. This one is accumulated stats for all… for the whole time that the campaign is active and running.
+[00:07:25] Fauuex Daniel: Okay, so 16. Can we go back and look then, and you can sort of guide me through that?
+[00:07:32] John Dela Cruz: You… we can check the previous date by… setting here in Zoom.
+[00:07:38] John Dela Cruz: We can, lower the…
+[00:07:40] Fauuex Daniel: started on… Okay. The 20th, was it?
+[00:07:44] Fauuex Daniel: No.
+[00:07:45] John Dela Cruz: Anna, click this one.
+[00:07:50] Fauuex Daniel: Toggle campaign?
+[00:07:52] John Dela Cruz: Yeah.
+[00:07:54] John Dela Cruz: We started on the 10th.
+[00:07:58] Fauuex Daniel: On the 10th?
+[00:07:59] John Dela Cruz: Yeah, as you can see… Start 10, 11, 12, 13, 14.
+[00:08:08] Fauuex Daniel: Oh.
+[00:08:09] Fauuex Daniel: Guess I have to do them both, what am I doing?
+[00:08:11] John Dela Cruz: No, no, no, no, not 10-10.
+[00:08:15] John Dela Cruz: Change this, no, no, change this to… on Sunday.
+[00:08:23] John Dela Cruz: 14.
+[00:08:24] Fauuex Daniel: 14th?
+[00:08:27] John Dela Cruz: Then click search.
+[00:08:31] Fauuex Daniel: So from the 10th to… The 14th.
+[00:08:35] John Dela Cruz: Yeah. Scroll down.
+[00:08:40] John Dela Cruz: So, as you can see.
+[00:08:43] John Dela Cruz: This is, before I turn off this inactive campaign. So you can see, Ad16ID has a 14% compared to the other
+[00:08:54] John Dela Cruz: And this one, 19.
+[00:08:56] John Dela Cruz: This one 20, this one 20. But if you add the data today, This will be 11%.
+[00:09:07] John Dela Cruz: 12%.
+[00:09:10] Fauuex Daniel: Venice.
+[00:09:10] John Dela Cruz: I think it's… So it kind of slowed down…
+[00:09:17] Fauuex Daniel: Oh, really?
+[00:09:18] John Dela Cruz: The stats, the stats, the stats will change.
+[00:09:21] John Dela Cruz: Because we got a lot of ad clicks, LP Event Clicks… still…
+[00:09:28] John Dela Cruz: increased a little. Same with the other ad… active ads.
+[00:09:34] John Dela Cruz: And, or if you, search all.
+[00:09:39] John Dela Cruz: So, the results from where we start our campaigns until today, Monday.
+[00:09:45] John Dela Cruz: You will see that all of these inactive ads, those numbers doesn't change, doesn't increase, because they are already inactive.
+[00:09:53] John Dela Cruz: And the number that…
+[00:09:54] John Dela Cruz: the change, or the stats that change is only at ID 16, 18, 12, and 13. And as I explained yesterday, it reached 300, more than 300,
+[00:10:08] John Dela Cruz: then when I check the overall stats, this is the only ad that gives… I better result.
+[00:10:17] Fauuex Daniel: That's given more results,
+[00:10:19] John Dela Cruz: Yeah, yeah.
+[00:10:20] Fauuex Daniel: Based on all the stats, like, how many out of, how many? Yeah, because there's a low amount of impressions, but there's high activity.
+[00:10:29] John Dela Cruz: Yeah.
+[00:10:31] Fauuex Daniel: Per… compared to, say, 89 out of 3,500, or…
+[00:10:36] Fauuex Daniel: Is that what… that's part of it?
+[00:10:39] John Dela Cruz: Yes, I always check mostly on a landing page of NCDR on the ads, and same with the other,
+[00:10:49] John Dela Cruz: optimization tab. So, as you can see, Scroll down more.
+[00:10:55] John Dela Cruz: This is… this is where I start optimizing your campaign.
+[00:10:59] Fauuex Daniel: Okay.
+[00:11:00] John Dela Cruz: As you can see, we have…
+[00:11:02] John Dela Cruz: Below 10%, that's why I turned this thing off.
+[00:11:05] John Dela Cruz: Say my…
+[00:11:06] Fauuex Daniel: Okay, below 10.
+[00:11:09] John Dela Cruz: This is… this is the lowest, and I… I love this image, that's why I give it a chance. Still 9.56% is okay.
+[00:11:21] Fauuex Daniel: Okay, that's, this one's the 16.
+[00:11:24] Fauuex Daniel: Up above…
+[00:11:25] John Dela Cruz: Yeah, and on round 2 testing, what we'll need to do is…
+[00:11:31] John Dela Cruz: We'll just update our campaign, we'll create new sub-campaign, and then use the best headline for the ads, and then add different creatives.
+[00:11:42] John Dela Cruz: Okay. We will be… we will try to use New Range this time.
+[00:11:46] Fauuex Daniel: How come I… How come we don't use higher ones in here?
+[00:11:51] Fauuex Daniel: Like, this is higher than this and this, right? I'm just wondering why, what the…
+[00:11:58] John Dela Cruz: This one is image, this one is headline, they are different.
+[00:12:03] Fauuex Daniel: Oh, okay.
+[00:12:07] Fauuex Daniel: Which you mentioned was that… oh, that was that one?
+[00:12:10] John Dela Cruz: They are the… this one is the best performing image that we have.
+[00:12:16] John Dela Cruz: Which one? The number 5. Number 5.
+[00:12:19] Fauuex Daniel: Yeah, I noticed it was doing good.
+[00:12:24] Fauuex Daniel: Okay, well, I don't… I don't quite understand yet, but what I'm looking for… I'm trying to understand, but I'm just not. I'm not
+[00:12:32] Fauuex Daniel: That's something…
+[00:12:34] John Dela Cruz: This one is headline, okay?
+[00:12:38] John Dela Cruz: As you can see, H stands for headline. I am.
+[00:12:41] Fauuex Daniel: Oh, yeah.
+[00:12:42] John Dela Cruz: stance.
+[00:12:42] Fauuex Daniel: Yeah, I know these are headlines, but how we're coming to the conclusions that you're coming to, I'm trying to understand…
+[00:12:48] John Dela Cruz: It's below 10% of my standards, and…
+[00:12:52] John Dela Cruz: I didn't turn off this one, because.
+[00:12:55] Fauuex Daniel: Oh, those are the off ones, what am I thinking?
+[00:12:58] John Dela Cruz: There's an… this highlighted blue is inactive.
+[00:13:06] Fauuex Daniel: Okay, right, okay, now I'm seeing that.
+[00:13:09] Fauuex Daniel: So this one here, You… this one here…
+[00:13:14] Fauuex Daniel: Isn't the highest, but it's better somewhere else, right, you said?
+[00:13:18] John Dela Cruz: I just give it another chance.
+[00:13:22] Fauuex Daniel: Oh, I see, okay.
+[00:13:24] Fauuex Daniel: You already like these two. This one, you just want to see what else it will do.
+[00:13:28] John Dela Cruz: Yeah.
+[00:13:29] Fauuex Daniel: Okay, gotcha.
+[00:13:31] Fauuex Daniel: Oh, okay. Yeah, for some reason, I was forgetting these bars are inactive right now.
+[00:13:37] John Dela Cruz: Yeah, those are inactive. Once it's highlighted inactive.
+[00:13:41] Fauuex Daniel: Yeah, okay. That's what I was missing. I'm going, what am I missing here? I'm missing something.
+[00:13:46] Fauuex Daniel: Oh, okay.
+[00:13:48] John Dela Cruz: You always need to, check the status.
+[00:13:51] John Dela Cruz: If it's active or not.
+[00:13:54] Fauuex Daniel: Oh, okay.
+[00:13:56] Fauuex Daniel: Oh, this is interesting. Whoops. Trying to find the upper spot now.
+[00:14:00] John Dela Cruz: And scroll up.
+[00:14:01] Fauuex Daniel: Can you stop?
+[00:14:01] John Dela Cruz: run up.
+[00:14:03] John Dela Cruz: More?
+[00:14:05] John Dela Cruz: As you can see here on the activity graph.
+[00:14:10] John Dela Cruz: Our campaign is on up, down, up, down.
+[00:14:15] Fauuex Daniel: Is that normal?
+[00:14:16] John Dela Cruz: Yeah, it's normal. It doesn't always going up, going up, going up, going up. You know, it's something like this.
+[00:14:25] Fauuex Daniel: They… do they do that naturally?
+[00:14:28] John Dela Cruz: Yeah, because day by day, the audience that we are getting is always different.
+[00:14:33] Fauuex Daniel: So day-by-day behavior of the audience is always different.
+[00:14:37] Fauuex Daniel: Okay, that would make sense. Especially around Christmas time.
+[00:14:43] Fauuex Daniel: Well, that's cool.
+[00:14:45] Fauuex Daniel: This one sure got a lot of clicks.
+[00:14:50] Fauuex Daniel: These are event clicks.
+[00:14:53] Fauuex Daniel: Is that the one that was originally a little high?
+[00:15:00] John Dela Cruz: Which one?
+[00:15:02] Fauuex Daniel: This one? The 10?
+[00:15:04] John Dela Cruz: Oh, yeah, this one. This, this, this one, I, didn't consider this one, because
+[00:15:09] John Dela Cruz: if we get sales at least one here, then I can consider this, but then add to cart and doesn't give anything, so I don't consider this one as a winning.
+[00:15:21] Fauuex Daniel: Oh, okay. So they can still purchase, though, when they've got into the ATC event, too, I guess,
+[00:15:29] John Dela Cruz: No, the only…
+[00:15:30] Fauuex Daniel: everywhere else.
+[00:15:30] John Dela Cruz: October.
+[00:15:31] John Dela Cruz: They already abandoned their product on the add to cart.
+[00:15:36] John Dela Cruz: So this… this 10 Add to Cart is… we get this one.
+[00:15:43] John Dela Cruz: Before I inactive the campaign, so I think it's already, auto part… this auto part is, like, 3, 2 days ago, or 3 days ago?
+[00:15:53] John Dela Cruz: And doesn't convert into purchase.
+[00:15:56] Fauuex Daniel: Okay, I…
+[00:15:57] John Dela Cruz: No, I didn't… I don't consider this one as ink meaning.
+[00:16:00] Fauuex Daniel: Okay.
+[00:16:03] Fauuex Daniel: Wow, this is interesting.
+[00:16:05] Fauuex Daniel: This is so different than I thought.
+[00:16:07] Fauuex Daniel: I'll have to learn a little bit more yet, I guess.
+[00:16:11] Fauuex Daniel: But I trust you, so I'm going with you.
+[00:16:14] John Dela Cruz: Okay, I'm…
+[00:16:15] Fauuex Daniel: I'm happy to do it your way, because you know what you're doing, and I don't.
+[00:16:19] John Dela Cruz: Yeah, your campaign will be turned off tomorrow, once you reach 500.
+[00:16:25] Fauuex Daniel: It'll be turned off.
+[00:16:27] John Dela Cruz: Yeah, it'll be turned off tomorrow.
+[00:16:29] Fauuex Daniel: And then what do we do?
+[00:16:31] John Dela Cruz: What we need to do is get image.
+[00:16:36] John Dela Cruz: Because we will be using the…
+[00:16:38] John Dela Cruz: the video. We'll be using this ads video, this ad video.
+[00:16:44] John Dela Cruz: And maybe this adds video.
+[00:16:46] John Dela Cruz: Or tomorrow.
+[00:16:48] John Dela Cruz: Then we will be adding more teams.
+[00:16:51] Fauuex Daniel: What about 16? Are we using it too?
+[00:16:54] John Dela Cruz: Yeah, we will also use 16, but yeah, it depends on how this number 16 performs.
+[00:16:59] Fauuex Daniel: So are we putting 4 in in round 2?
+[00:17:03] John Dela Cruz: Probably.
+[00:17:06] Fauuex Daniel: Don't they tell you to pick one? Why do they tell you to pick one?
+[00:17:11] John Dela Cruz: That's why I said probably. So, it depends how…
+[00:17:16] John Dela Cruz: Because we still have, need to spend around 80 US dollars, so after we reach 500, then we will start optimizing again, choose the best of the best.
+[00:17:27] John Dela Cruz: Okay.
+[00:17:29] Fauuex Daniel: Okay. So you do it a little bit different than what they tell us to do.
+[00:17:34] John Dela Cruz: Yeah, because, it, it's, it's a, it depends on how these stats that we, how, how good the stats we have.
+[00:17:44] John Dela Cruz: Because if we have 3 best stats.
+[00:17:47] John Dela Cruz: Then we'll be using the three best. We're not just using one, because…
+[00:17:52] John Dela Cruz: All of those 3 best performing ads has a lot of potential.
+[00:17:58] John Dela Cruz: You're not just getting the… for example, there's only 2% different
+[00:18:03] John Dela Cruz: with their stats. So, we will just get this one that is, that is,
+[00:18:10] John Dela Cruz: Best because it's 2% higher compared to the other two.
+[00:18:14] John Dela Cruz: For me, I'm not, doing those kind of, strategy. I will get the top 3 or top 4.
+[00:18:23] Fauuex Daniel: And they just pound it.
+[00:18:25] John Dela Cruz: And then I will just use it, and then for round two, because it's already tested and a lot of potential, maybe using this best headline, combining with different creatives will generate things.
+[00:18:38] Fauuex Daniel: And it'll show the best one of the 3 or 4 too, wouldn't it?
+[00:18:42] John Dela Cruz: Yeah.
+[00:18:46] Fauuex Daniel: Hmm, okay, cool.
+[00:18:48] Fauuex Daniel: Well, I'm in. I'm game.
+[00:18:52] Fauuex Daniel: Okay. So we shut it off, and then you revamp a little bit, and then we go again that tomorrow after you revamp?
+[00:18:58] John Dela Cruz: Yes.
+[00:19:00] Fauuex Daniel: Or whenever we hit 500, you said?
+[00:19:03] John Dela Cruz: Yeah, once we hit 500.
+[00:19:05] John Dela Cruz: competing.
+[00:19:06] Fauuex Daniel: That'll probably be tomorrow.
+[00:19:08] John Dela Cruz: Rebump the campaign.
+[00:19:11] Fauuex Daniel: Okay.
+[00:19:14] Fauuex Daniel: Well, awesome.
+[00:19:16] Fauuex Daniel: I'm excited to see how it goes!
+[00:19:20] John Dela Cruz: Any more questions concerning?
+[00:19:22] Fauuex Daniel: I think… I think not right now.
+[00:19:27] John Dela Cruz: Yeah, let's… let's…
+[00:19:29] Fauuex Daniel: I need to get another… I need to get another expert.
+[00:19:33] Fauuex Daniel: Thing in here one of these days.
+[00:19:35] John Dela Cruz: Yeah, you can, you can attend the one-on-one call, if you want, ask them if you want.
+[00:19:42] Fauuex Daniel: Wednesday is 5 o'clock.
+[00:19:45] Fauuex Daniel: I might do it on Wednesday.
+[00:19:49] Fauuex Daniel: What's today?
+[00:19:51] Fauuex Daniel: Today is Monday. I guess I could do Bruce today.
+[00:19:54] John Dela Cruz: Yeah, you can ask Bruce if you want.
+[00:19:58] Fauuex Daniel: And then maybe do a Wednesday one.
+[00:20:01] Fauuex Daniel: Except for I was gonna go see my mom on Wednesday, right about that time, too. Shoot.
+[00:20:08] Fauuex Daniel: Maybe I'll go see Mum today, then.
+[00:20:12] Fauuex Daniel: I shall see. Okay.
+[00:20:16] Fauuex Daniel: I thought I'd try and get a few… few in.
+[00:20:20] Fauuex Daniel: Get them in and going.
+[00:20:23] Fauuex Daniel: Cause…
+[00:20:26] Fauuex Daniel: I don't know if it's even… do you think it's even possible to make $5,000 between now and January 27th? It's, like, only a month and a little bit. No.
+[00:20:37] John Dela Cruz: Is anything possible? It's not possible until we… if we have enough data
+[00:20:43] John Dela Cruz: For now, it's possible, but right now.
+[00:20:46] John Dela Cruz: There will be a… when you start getting profit, there's… you will be on a… Breaking even.
+[00:20:56] John Dela Cruz: stage.
+[00:20:58] John Dela Cruz: You're still looking for the best of the best before we start scaling and start earning.
+[00:21:06] Fauuex Daniel: Yeah, that's what I was thinking.
+[00:21:09] John Dela Cruz: So, for one month, yeah, it's not possible. Like, for example, this one, this round one testing.
+[00:21:15] John Dela Cruz: Last forward to… 6 days or 7 days, so it's not possible.
+[00:21:23] Fauuex Daniel: Yeah, that's what I was thinking. Unless God wants to do a miracle, that's about it.
+[00:21:28] John Dela Cruz: Yeah, and if we… if you want to get rushed, but I don't know how the stats will… will, how many stats, or how good the stats we can get if we increase our budget. So right now, I also optimized your, changed the budget yesterday.
+[00:21:45] John Dela Cruz: From 75, I increased it to 100.
+[00:21:48] John Dela Cruz: That's why the stats is drastically changed.
+[00:21:52] Fauuex Daniel: Oh, okay, so that'll shift things a little more, too.
+[00:21:55] John Dela Cruz: Yeah.
+[00:21:57] Fauuex Daniel: Okay.
+[00:21:59] Fauuex Daniel: Well, we'll roll with it.
+[00:22:02] John Dela Cruz: And also, we'll, set up the campaign with a $100 deal in budget.
+[00:22:11] Fauuex Daniel: Say that again?
+[00:22:12] John Dela Cruz: For round two, the budget will continue to start at $100.
+[00:22:18] Fauuex Daniel: Oh, okay.
+[00:22:20] Fauuex Daniel: Well, you see how much money I have there? That's what we're working with. And it all has to be spent by the 27th of
+[00:22:29] Fauuex Daniel: January.
+[00:22:31] John Dela Cruz: And then if you didn't get sales, then you will be asking a refund. I think you already reached the…
+[00:22:38] John Dela Cruz: the A90-day guarantee, the only thing that you need to do is spend 5,000 US dollars.
+[00:22:46] Fauuex Daniel: Yeah, I have to spend 5… the full $5,000. And so there was $5,000 exactly in there when I started.
+[00:22:56] Fauuex Daniel: So, all of them, what's left is… that has to all be spent by then.
+[00:23:02] Fauuex Daniel: But it should be anyway, right?
+[00:23:06] John Dela Cruz: Yes, that's right.
+[00:23:08] John Dela Cruz: Okay, as long as you make sure it's all spent, because that's part of the criteria.
+[00:23:13] Fauuex Daniel: Never thought I'd say that in a million years.
+[00:23:17] Fauuex Daniel: Just in case I don't. But I mean, they… I don't know if they consider 5,000… earning $5,000 as if it's revenue or profit.
+[00:23:26] Fauuex Daniel: I think it's revenue.
+[00:23:28] John Dela Cruz: That's also my question, if it's revenue or profit.
+[00:23:31] Fauuex Daniel: Because revenue… Well, if it's revenue, then we might be able to…
+[00:23:39] Fauuex Daniel: Possibly, even that's… I don't know if we could actually make that much revenue, even.
+[00:23:45] Fauuex Daniel: By then, anyway.
+[00:23:48] John Dela Cruz: Yep.
+[00:23:49] Fauuex Daniel: So… Well.
+[00:23:54] Fauuex Daniel: I noticed some messages…
+[00:23:55] John Dela Cruz: We'll see how pumping performs.
+[00:23:58] Fauuex Daniel: Yeah.
+[00:23:59] Fauuex Daniel: Okay.
+[00:24:01] Fauuex Daniel: We'll just do what we can do, and God is in charge of the rest, so… we'll just do our best.
+[00:24:07] John Dela Cruz: Yeah. Yeah.
+[00:24:10] Fauuex Daniel: And then, you know what? If it did happen that I didn't meet, or that I,
+[00:24:15] Fauuex Daniel: I did everything I was supposed to do, and I didn't make it, then they give me my money back for the BTS membership.
+[00:24:22] John Dela Cruz: Yes, because that's the agreement.
+[00:24:25] Fauuex Daniel: Yeah, and then… Now, one thing I don't know is if they just…
+[00:24:30] Fauuex Daniel: if they don't, if I don't have to commit to paying it anymore, too. I sure hope not, because…
+[00:24:38] Fauuex Daniel: But then I can take that money and put it in… in, and we can keep going, right?
+[00:24:45] John Dela Cruz: I…
+[00:24:46] Fauuex Daniel: Because I'm running out of cash, like, I'm really, like, at the end of my rope here.
+[00:24:51] John Dela Cruz: So, for example, if you get your money-back guarantee, 90-day money-back guarantee, then you are no longer be a member of BTS.
+[00:25:00] Fauuex Daniel: Yeah, and what they do is they keep helping you. They give you the same things as you had in BTS.
+[00:25:06] John Dela Cruz: No, your account will be expired with 3 months mentorship.
+[00:25:11] John Dela Cruz: Then it's up to you if you want to extend it or not.
+[00:25:16] Fauuex Daniel: Yeah, that's normal. That's normally, but if… if I… if they…
+[00:25:21] Fauuex Daniel: If the 90… like, they have the 90-day guarantee, which they say you'll get all your money back for your course.
+[00:25:28] Fauuex Daniel: the BTS.
+[00:25:30] John Dela Cruz: Yeah.
+[00:25:31] Fauuex Daniel: And, and, and, not or, and we'll help you to keep moving forward.
+[00:25:37] Fauuex Daniel: you can still have all of the access to all the coaches and everything. That's their agreement.
+[00:25:42] Fauuex Daniel: It's a pretty really good agreement, let me tell ya.
+[00:25:47] John Dela Cruz: Yeah, as long as you're still on the 3-month mentorship, but if you… the 3-month mentorship has been passed, then you're no longer be accessed… you don't have an access on BTS.
+[00:26:00] Fauuex Daniel: Yeah, I don't… I don't know. That's not what it sounded like, so maybe I'll have to get more, information on that.
+[00:26:05] John Dela Cruz: Yeah, because you enroll on 3 months mentorship, and then once 3 months mentorship is done.
+[00:26:12] John Dela Cruz: Then you, you don't…
+[00:26:14] Fauuex Daniel: I'm actually on the year… I actually went on the plan.
+[00:26:19] John Dela Cruz: You're on one year.
+[00:26:21] Fauuex Daniel: Well, however long it was to finish paying the TCE3. Which, of course, I'm not going to be able to pay that if I'm not making money.
+[00:26:31] John Dela Cruz: Yeah.
+[00:26:31] Fauuex Daniel: Right?
+[00:26:34] John Dela Cruz: Oh, yeah, I think you are on 3-month contract, and your end date is on January 30th.
+[00:26:46] Fauuex Daniel: Yeah, the 3-month for the criteria, like, the 90-day guarantee, it's January 27th, but I had signed up under the lowest amount payment per month.
+[00:26:58] Fauuex Daniel: And… which is supposed to go for, like, 18 months or something like that?
+[00:27:02] John Dela Cruz: Yeah, I think that's a different, tier. It's… I think it's not mentorship.
+[00:27:07] Fauuex Daniel: So, I'll have to…
+[00:27:09] John Dela Cruz: You need to… about.
+[00:27:11] Fauuex Daniel: Yeah, I'll ask support how that goes, because from what I understand, they pay you back for the mentorship, however much you put in it, and they just let you carry on in it.
+[00:27:23] John Dela Cruz: Yeah, I think you need to ask support for that. I don't know agreement.
+[00:27:28] Fauuex Daniel: Yeah, so the Craig… I never thought of that earlier.
+[00:27:32] Fauuex Daniel: I'll have to do that, I guess.
+[00:27:34] John Dela Cruz: Yeah.
+[00:27:36] Fauuex Daniel: Get a little more understanding again.
+[00:27:38] Fauuex Daniel: Because I, like, I seriously would not be able to pay the…
+[00:27:42] Fauuex Daniel: The rest of the membership owed.
+[00:27:47] Fauuex Daniel: If I'm not making money, there's no money to pay with.
+[00:27:50] Fauuex Daniel: I am out of it. I've been using my LLC and my Visa card and my MasterCard. Everything that I've done is from there.
+[00:27:57] Fauuex Daniel: Because, seriously, Ash people don't make much money. I had a good credit rating, and that's how I was… had access to that much money.
+[00:28:07] Fauuex Daniel: But it all had to be in payment form.
+[00:28:11] Fauuex Daniel: So I'm kinda like, Lord, now what do I do?
+[00:28:14] Fauuex Daniel: So we'll see.
+[00:28:16] Fauuex Daniel: God's got a good plan, maybe… I don't know what all He's got in mind, so…
+[00:28:23] Fauuex Daniel: We shall move forward with gusto and do our best, that's all I know.
+[00:28:28] John Dela Cruz: Yes. Let's… let's see how things work moving forward.
+[00:28:33] Fauuex Daniel: Yeah, like… If God wants to do a miracle, He's fully capable of it, so…
+[00:28:37] John Dela Cruz: Yes, that's relay.
+[00:28:39] Fauuex Daniel: We won't put them in a box.
+[00:28:43] John Dela Cruz: I've seen too many miracles in my life already, so it's not like he's… he's not able to, so I'm fully aware of that.
+[00:28:52] Fauuex Daniel: He healed my kidneys, and he's done a lot of stuff. I should be dead by now, really.
+[00:28:58] Fauuex Daniel: A long time ago, actually.
+[00:29:00] Fauuex Daniel: So… Okay, well, thank you so much, partner.
+[00:29:06] John Dela Cruz: Yeah, no worries. If you have any more questions, concerns, you can, send me an email, or, yeah, book another one or not.
+[00:29:15] Fauuex Daniel: Okay, sounds good. Okay, you have a really good rest of the day, and we'll talk to you tomorrow.
+[00:29:22] John Dela Cruz: Thank you so much. Have a great day, Fox.
+[00:29:24] Fauuex Daniel: Okay, thanks, you too.
+[00:29:27] John Dela Cruz: Bye.
+[00:29:27] Fauuex Daniel: Thank you, bye-bye.

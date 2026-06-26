@@ -1,0 +1,368 @@
+TITLE: Live Coaching Call - Sasha(1)
+SOURCE: coaching-transcripts.txt
+TURNS: 364
+
+[00:02:06] Sasha: Hello, Karen.
+[00:02:11] Sasha: Seems like you're the first one to join today.
+[00:02:15] Karen Jedele: Hey, who are you?
+[00:02:17] Sasha: I'm doing well Looks like we got some one-on-one time. We also have a…
+[00:02:22] Sasha: Sharing to media support on the… on the call today.
+[00:02:27] Sasha: We're starting a new thing where we'll have members of the support team here as well to help with, kind of more technical questions and chat and things like that.
+[00:02:37] Karen Jedele: Yeah. I'm new, so I was on a call this morning, and then I'm on a call again now.
+[00:02:41] Sasha: Oh, wow. Two in one day.
+[00:02:43] Karen Jedele: Oh my god, you're back.
+[00:02:45] Sasha: Good morning.
+[00:02:45] Karen Jedele: My favorite place in the world.
+[00:02:47] Sasha: Oh, you like the Tetons?
+[00:02:49] Karen Jedele: Oh my gosh… It's the best.
+[00:02:52] Sasha: Yeah, I actually took that picture on one of my trips.
+[00:02:54] Karen Jedele: Did you? Where were you? Because it looks like where I like to van life.
+[00:03:00] Sasha: I was in my van at the, dispersed camping area just, east. I think it's, like, what is it, Shadow Mountain?
+[00:03:07] Karen Jedele: Yes! It's exactly what I thought! Oh my god, I spent, like, 3 weeks there!
+[00:03:12] Sasha: Yeah, yeah, I did several trips there. It's a beautiful camping area.
+[00:03:16] Karen Jedele: Yes!
+[00:03:17] Sasha: there.
+[00:03:18] Karen Jedele: Oh my god, it is literally my favorite place in the world, and I was just like, oh my god, that looks like my favorite… I'm like, I can't believe it. I've been… I don't know, I've been there multiple times, and I just never want to leave. That's so funny!
+[00:03:29] Sasha: Same here.
+[00:03:31] Karen Jedele: That is so fun. Alright. So, my first question…
+[00:03:38] Karen Jedele: is about the, what is that, EMP?
+[00:03:42] Sasha: EMB.
+[00:03:43] Karen Jedele: Yeah, EMB… EMP, or EMB, whatever it is.
+[00:03:47] Sasha: G as in Bob.
+[00:03:48] Karen Jedele: Okay, so… Like, that sounds amazing, by the way. And how,
+[00:03:57] Karen Jedele: How much do, like, is this the same thing as…
+[00:04:02] Karen Jedele: when, what I'm understanding is this is when you market the actual program, like that, like, we've signed up to purchase.
+[00:04:11] Karen Jedele: But then, when I was reading through everything, it said something about, like, $200 as the,
+[00:04:18] Karen Jedele: like, the commission, and I'm like, well, is that just a number that they're throwing out there? But really, it's based on, like, what package we bought in at?
+[00:04:27] Sasha: Sort of the… there's those two levels of commissions, and really to get, like, more granular with this, you'll probably kind of have to email
+[00:04:36] Sasha: support and kind of get, more information, but there's, there's the commission that's just, like, the kind of, like, the initial buying in, and then the commission for the actual, like.
+[00:04:46] Sasha: mentorship program. So, the mentorship program part of it is, your commission is based on what tier you bought into it at, whereas the initial commission for, like, just buying kind of a lower tier thing, some of the DIY stuff, is a flat rate, because that's just kind of a…
+[00:05:06] Sasha: based on, I think, averages of…
+[00:05:08] Sasha: what all people buy, so that's just like a CPA, essentially, how… what, you know, what it's called in the industry.
+[00:05:15] Sasha: Just cost per action. And then, out of those people, those people that buy into that kind of get continued to get marketed to for the larger mentorship program, which you're on, and then that part of it is,
+[00:05:29] Sasha: Sort of, essentially, like, a percentage based on what tier you bought in.
+[00:05:35] Karen Jedele: Okay.
+[00:05:35] Sasha: So, and the EMV program is, you know, where it's kind of like the done-for-you program, and there is also the option to market the program yourself with, you know, all the approved creatives. You can't just kind of make stuff up on your own. There are approved sets of creatives, but if you are
+[00:05:53] Sasha: either familiar with marketing on Meta and Google, or are willing to learn, you can
+[00:06:00] Sasha: market it yourself, and not kind of necessarily kind of pay for the EMB program to market for you. So there's essentially two tiers of how you can market the program, is by yourself, and then the EMB, which is the Elite Media Buyers
+[00:06:13] Sasha: Elite Media Buyers? Something like that, yeah. And that's where there's, you know, a dedicated team that's going to be doing the…
+[00:06:21] Sasha: The media buying, you know, on your behalf, and you get the commissions off of that.
+[00:06:27] Karen Jedele: Okay, so you suggest emailing… Somebody…
+[00:06:31] Sasha: I… Have you signed up for the Discord yet? The Discord channel?
+[00:06:37] Karen Jedele: Yes.
+[00:06:38] Sasha: Yeah, I think you could…
+[00:06:41] Sasha: I believe it's affiliates at oursupport.com, but you could just email support at oursupport.com, just to clarify, which email you should be asking those questions to.
+[00:06:53] Sasha: But I'm pretty sure it's affiliates.
+[00:06:59] Karen Jedele: Okay, so on Discord, just ask, you think?
+[00:07:04] Sasha: Yeah, I mean, honestly, the quickest way to get an answer to that would probably be to email support.
+[00:07:11] Karen Jedele: Okay.
+[00:07:11] Sasha: And, or actually, you know, if you wanted to try out a new feature that we just enabled, there's a live chat widget in the BTS portal on the bottom right. You can try and open that up and ask the question there.
+[00:07:25] Karen Jedele: Look at this, I have it right here.
+[00:07:27] Sasha: Yeah, you joined at a good time. This is, like, day… day one of this thing being on, I think.
+[00:07:33] Karen Jedele: Super fun.
+[00:07:34] Sasha: So… and you should be able to get a response within, like, 15 minutes on that chatbot for… for any questions you have in the future that are kind of more technical to do with campaign setup, things like that, or if you're having issues. And I think, yeah, I think they're around from…
+[00:07:50] Sasha: 8 to 8 on the… on the weekdays, I believe.
+[00:07:54] Karen Jedele: 18, okay.
+[00:07:57] Karen Jedele: Okay. Alright, I'll just throw a message there, and then,
+[00:08:02] Karen Jedele: Cool, that was my main… I'm,
+[00:08:05] Karen Jedele: Just going through everything and, learning, you know, about the ad and the,
+[00:08:13] Karen Jedele: headlines and advertorials, and here are fats, so I need to.
+[00:08:17] Karen Jedele: creating those, and I was thinking, do you think it would be a good idea to even, because we have that, like.
+[00:08:25] Karen Jedele: those VAs.
+[00:08:27] Karen Jedele: So, do you think it's a good strategy to just say, hey, I'm gonna be marketing this product, could you come up with, you know, 5 headlines and 5 hero shots for me? Is that…
+[00:08:41] Karen Jedele: And just see what they come up with.
+[00:08:43] Sasha: I mean, that's definitely up to you. Like, long… in the long run, you know, these are all things that you need to learn yourself. They're definitely there to help you out. What I usually recommend for people, especially if you're, like, you know, you don't have that much time, or, you know, you're feeling rushed, is to try and get both perspectives. Like, do some of the research yourself.
+[00:09:02] Sasha: Try and get an understanding of this whole process, see what you can come up with yourself, see what they can come up with, kind of compare against each other.
+[00:09:10] Sasha: But, you know, once again, in the long run, the whole point of, you know, you being here is learning this, and so I definitely recommend you also, you know, start going through the training and learning how to do this yourself, because you'll…
+[00:09:25] Sasha: definitely get more value for it that way in the long run. One of the places… I know that the Blitz is a pretty extensive
+[00:09:34] Sasha: section of the portal, and has a lot of videos and stuff, and it can be overwhelming. And one of the core things that I try and guide people towards in the very beginning is just learning and understanding the concept of ad angles in affiliate arbitrage, and just how Adam defines ad angles, and how that fits into
+[00:09:53] Sasha: this marketing style in general, and I think having a good
+[00:09:58] Sasha: foundation and a conceptual understanding of that principle will allow you to evaluate what they send you and what you come up with in a more, kind of, educated way, because
+[00:10:11] Sasha: you know, if you ask them to create you headlines right now, they will definitely do that, but, you know, it'll still kind of on you to make a decision of, like, oh, I like this headline, or I don't like this headline, and there should be some sort of, like.
+[00:10:25] Sasha: Reasoning, or how you evaluate, what you are given, and then, you know, how you research things in general as well, so…
+[00:10:32] Sasha: I would definitely recommend you at least look at that, that video. It's basically a video of a previous call from, I don't know, a year or two ago.
+[00:10:41] Karen Jedele: That's the one I'm on right now, actually.
+[00:10:43] Sasha: Yeah? Okay, good.
+[00:10:44] Karen Jedele: That is finding your edge with the,
+[00:10:46] Sasha: Yeah, yeah, perfect.
+[00:10:48] Karen Jedele: This one's… this one says Add Banner, but… at the f… Whoa.
+[00:10:54] Karen Jedele: Anyway, I think that… I think that is it. AgB banner psychology.
+[00:11:01] Karen Jedele: I don't know, it's like, for whatever, I moved it over, because I was… wanted the screen. But anyway, I think, yeah, I think that's the one I'm on, is the… the foot with the arrow.
+[00:11:11] Sasha: Yeah, yeah, yeah, the ad banner conceptual training, yeah.
+[00:11:14] Karen Jedele: Cool. And just, like, creating the story, like, kind of is what he's saying. Yeah, I think there's a lot of good nuggets in there. You know, some of the things in there are kind of, like.
+[00:11:24] Sasha: a little bit different from how we do things now with the current traffic sources we're working with. Mainly, he talks about ad banners.
+[00:11:32] Sasha: which is a little bit different than what we're doing. You're not actually creating ad banners for the current traffic source, you're just coming up with an image and a headline, and they're doing the formatting. But the kind of underlying principles of what you're looking for when you are coming up with
+[00:11:46] Sasha: ad copy and images for ads, and your ad angle. That is kind of universal for whatever traffic source you're working with in general.
+[00:11:55] Sasha: And in addition to that, if you've signed up for the Creative Drive, it's basically like our internal Google Drive where we store relevant documents, there's, in one of the folders in there, I think it's in the headline one, there is a PDF document, essentially, I think, this exact PDF document that he has here.
+[00:12:15] Sasha: And I recommend people download that to have on your computer, and use it when you're working on headlines with AI, like, you know, ChatGPT or Claude or whatever you work with. It's a good trading document to get, you know, ChatGPT to, like.
+[00:12:30] Sasha: understand what you are asking for for this specific style of marketing. So I'll… I'll upload that when I'm working on a project, and I'll say, hey, help me come up with ad angles based on this
+[00:12:41] Sasha: understanding of what an ad angle is. And I'll upload my landing page, or my advertorial, I'll upload the product sales page, and there it gives it enough reference points of, like.
+[00:12:50] Sasha: Here are the two main pieces of copy, that, you know, the people who are gonna be looking, clicking on your ads are gonna be going to.
+[00:12:58] Sasha: how do we get an ad angle from this process, and how do we make headlines out of it? So…
+[00:13:03] Sasha: I'd say, like, that is probably the most important foundation that everything else is built on, and if you can get a good grasp of that, and you can start evaluating, you know, your own marketing and, you know, whatever headlines the VAs can come up for you with that lens, it'll be a great start to…
+[00:13:23] Sasha: To the whole process.
+[00:13:25] Karen Jedele: Cool, thank you so much for that.
+[00:13:27] Sasha: Yes.
+[00:13:27] Karen Jedele: Awesome. And there was the one that was called, what, Affiliate CE, or Affiliate.
+[00:13:35] Sasha: CMO?
+[00:13:36] Karen Jedele: DMO. Is that a good one to use for the, headlines, or do you recommend…
+[00:13:42] Sasha: I kind of like… I like to use a little bit of everything. Okay. You know, in my sort of brainstorming phase, I'll try a bunch of different things and get…
+[00:13:51] Sasha: they're all trained a little bit differently, you know, how that particular AI was trained versus how free ad copy is trained versus how you set up your own workflow and chat GPT, kind of in the style that I was telling you, of, like, uploading reference documents. You're gonna get slightly different content.
+[00:14:06] Sasha: Coming out of all of them, and I think they're all a valid, you know.
+[00:14:11] Karen Jedele: valid starting point. That's, like, the brainstorming phase, the draft phase. I like to…
+[00:14:16] Sasha: compile different styles, and then kind of refine from there, because you never know what it's going to come up with. So I just recommend trying a little bit of everything, and seeing which one you like more, which one you like working with more, because all of them
+[00:14:30] Sasha: require a different kind of… a little bit of workflow, and some have more control over the output, and some have less control, so it just… it just kind of depends on what you end up liking, and, you know, the kind of…
+[00:14:41] Sasha: Marketing material that comes out of them, and if you like that or not, too.
+[00:14:46] Karen Jedele: Awesome. Thank you. Thank you, thank you, thank you.
+[00:14:50] Karen Jedele: Okay.
+[00:14:51] Karen Jedele: Yeah, I have a lot to go, and I'm trying to understand the,
+[00:14:57] Karen Jedele: what is it, the caterpillar, or the whatever? I haven't even gotten to that yet, so I don't even know what that even means, but I keep hearing it so much.
+[00:15:04] Sasha: Yeah, I mean, I can give you a general overview of that. We kind of have a few available traffic sources,
+[00:15:11] Sasha: Currently. And Caterpillar is the recommended starting one for a couple of reasons. The other ones have, kind of a minimum campaign budget, so it's, like, I think $1,500 that you need to
+[00:15:23] Sasha: spend before you're allowed to make any changes, essentially, on your first campaign. It's like an initial budget.
+[00:15:29] Karen Jedele: Oh, wow.
+[00:15:29] Sasha: That's a constraint for people.
+[00:15:31] Sasha: Yeah, and this one is… it doesn't have any restrictions like that, and and kind of like I was talking about before, you… it kind of allows you to skip a step that would be required for other traffic sources, which is making your own ad banners.
+[00:15:49] Sasha: Which isn't terribly difficult, but it is just another thing you have to learn, and with Caterpillar, you're just coming up with images, and you're coming up with headlines. So, like I said before, the formatting is sort of taken care of internally, and you don't have to do any of your own, kind of, ad banner creation, and then compressing them, and things like that, so it's…
+[00:16:08] Sasha: It's a little bit simpler and easier to start out with.
+[00:16:12] Sasha: And so, yeah, Caterpillar is just a nickname for a traffic source within our system.
+[00:16:17] Karen Jedele: Okay, okay. So the other ones…
+[00:16:21] Karen Jedele: you can't do the split testing like you can… this Caterpillar allows you to do all that different split testing before you start putting increased dollars at it.
+[00:16:31] Sasha: No, you can do… I mean, the split testing you do in any traffic source, that's just… Oh, okay. That's just a strategic way of testing,
+[00:16:39] Sasha: the…
+[00:16:41] Sasha: the… I'd say the main difference is just one is a… what's known as a native traffic source, and one is what's known as a display traffic source. Display is the ad banners.
+[00:16:51] Sasha: When you are, you know, creating the actual banner itself, and there's various dimensions for it. Whereas native, it, the traffic source itself formats your creatives to match wherever they're being placed to make it look like it's part of the feed.
+[00:17:09] Sasha: It's kind of… I'm sure you've seen it in your own, like, scrolling. It'll just be, like, if you're looking at a news website, and it'll be something that, you know, some…
+[00:17:16] Sasha: sponsored or something in small font, sponsored by, but the image and the words will kind of match the format. It'll just look like it's… it's part of the content, whereas a banner kind of
+[00:17:26] Sasha: stands out, and there's various dimensions. It's more of, like, something you'd see in, like, email sponsorships. You'd have little ad banners, or, you know, normal websites, you have your little…
+[00:17:36] Sasha: horizontal add on the side and vertical add on the side, so it's just a slightly different style. But in terms of, like, the methodology of split testing, those principles are the same, you know.
+[00:17:47] Karen Jedele: Okay.
+[00:17:47] Sasha: More of, like.
+[00:17:48] Sasha: Starting with a bunch of ideas, and then narrowing down on what's working based on the data you're seeing.
+[00:17:56] Karen Jedele: Cool. Okay.
+[00:17:58] Karen Jedele: And when you said you couldn't change anything, that's where I guess I was like, oh gosh, you're, like, putting one ad out there, and then you're like.
+[00:18:05] Sasha: No, well, you're basically, like, putting, you know, 10 variations out there, but it has a minimum campaign budget where, like, with a new campaign, then it has to spend a certain amount before you can…
+[00:18:17] Sasha: Create more ads.
+[00:18:19] Karen Jedele: Okay. So you better know what you're doing a little bit more.
+[00:18:22] Sasha: A little bit, yeah.
+[00:18:24] Karen Jedele: I mean, it'.
+[00:18:25] Sasha: It's not… it's not terribly different. You're just… you can just start with a smaller budget with Caterpillar, but how you're actively running your campaign is basically the same.
+[00:18:37] Karen Jedele: Okay, cool.
+[00:18:39] Karen Jedele: Alright!
+[00:18:40] Karen Jedele: Well, that helps me a lot.
+[00:18:45] Karen Jedele: Understand. And I think that's kind of all I have.
+[00:18:49] Karen Jedele: So all the.
+[00:18:50] Sasha: Okay.
+[00:18:50] Karen Jedele: them about the, EMB program, and…
+[00:18:54] Karen Jedele: I just… it just sounds like a nice thing to kind of just start generating revenue right away, where you don't have to do anything.
+[00:19:03] Karen Jedele: So, I don't know. For me, that just sounds like a nice idea.
+[00:19:10] Sasha: Yeah. Yeah, definitely reach out to them, and they'll give you more info.
+[00:19:13] Karen Jedele: flowing.
+[00:19:16] Karen Jedele: Awesome. Well, thank you so much! I don't know if.
+[00:19:18] Sasha: Yeah.
+[00:19:19] Karen Jedele: Ask any questions?
+[00:19:21] Sasha: Yeah, you're welcome. The other… the other kind of general piece of advice I'd give you as you're going through the 21-day blitz is… or at least, I don't know, this is something that works for me when I'm kind of learning things, is, like, the first time around, I would just, like, watch all the videos, don't try and necessarily do all the steps at the same time, just get a feel for it. You're gonna hear a lot of…
+[00:19:40] Sasha: Words for different pieces of software and different concepts, just kind of, like, soak it all in. And then, when you're actually ready to start setting things up, kind of, like, you'll have a better idea of where to go to find that information.
+[00:19:53] Sasha: Because I think it's easier to learn all this stuff when you try and separate the technical setup of what you're doing, like the software and the, like, the creating the accounts and the integrating everything.
+[00:20:04] Sasha: from the marketing. I think those are kind of two different brain spaces for me, personally. And I think most of the marketing, per se, can be done in a Google document, in a folder on your computer.
+[00:20:16] Sasha: And then the rest of the software setup is, you know, just more of, like… I don't know, for me, I just have, like, different mindsets that I'm in. I either want to work creatively on marketing, or I want to do, like, technical stuff with software. And if you can kind of
+[00:20:28] Sasha: put the… separate the training into those two separate buckets, it becomes a little bit easier to… to take it all in and know, you know, what goes where. Because, you know, for me, for the most part.
+[00:20:40] Sasha: I don't really deal with the software until I have my marketing material ready. Like, I come up with everything on a Google document and a folder, and once I have my headlines for the ads, for the advertorial, the relative images and whatnot, then you can do the software stuff when that's all ready.
+[00:20:57] Sasha: And I think some people kind of stumble on trying to do everything at once.
+[00:21:01] Sasha: And try and follow along in a very linear fashion.
+[00:21:04] Sasha: And then it just, you know, if you run into a software issue, you feel like you're stuck with your process, where most of the time that's not the case. There's… you always have something you can be working on, but if you feel like you're stuck with a software issue, it's just a kind of a recurring roadblock I've seen for people if they're trying to do everything simultaneously, so…
+[00:21:23] Sasha: If I were to encourage you to focus somewhere in the beginning, it's on the conceptual training of what this process is, the ad angles, the kind of the psychology behind this marketing, the stylistic, you know, the style of the headlines that you're working on, that kind of stuff, so…
+[00:21:43] Sasha: Usually the, like, the ad angles, the understanding the headline writing style for this, looking at the copy block tutorial that's just a little bit down.
+[00:21:53] Karen Jedele: Yay.
+[00:21:54] Sasha: from where you are. All of that stuff is extremely valuable, and it's like…
+[00:21:58] Sasha: That's… that is what defines, you know, success in this style of marketing, and the software itself is just the nitty-gritty of how to put everything together.
+[00:22:10] Karen Jedele: Thank you so much.
+[00:22:11] Karen Jedele: It's all the things I need to be hearing right now.
+[00:22:15] Sasha: Alright.
+[00:22:16] Karen Jedele: Thank you.
+[00:22:18] Sasha: You're welcome. Oh, Catherine's here. Hi, Catherine.
+[00:22:22] catherine: Hey, okay, I just have some questions. So, I went, I started running ads, last week, and it looks like things…
+[00:22:33] catherine: were being sent out, being pushed out, and then the last few days, it just looks like maybe nothing's been sent out, or just nothing's been spent, I don't know. So I'm trying to, like, understand what DIY Trax is doing with all of my,
+[00:22:50] catherine: Ad spend, all of that.
+[00:22:52] catherine: So I don't know the…
+[00:22:54] catherine: A couple of cameras.
+[00:22:55] Sasha: So if it would… sure, yeah, that'd be helpful.
+[00:23:01] Karen Jedele: I'm just gonna stay and observe.
+[00:23:03] Sasha: Yeah, for sure.
+[00:23:07] Sasha: Well, first things first, scroll up a little higher and click that toggle campaign activity graph, that button right there, yeah.
+[00:23:22] Sasha: Okay, it looks like it just…
+[00:23:25] Sasha: Stopped a couple days ago. Let's go into your campaign settings.
+[00:23:33] catherine: Oh, settings?
+[00:23:34] Sasha: Oh, no, you're in the right place, sorry, in the campaigns, yeah. And then…
+[00:23:40] Sasha: Whichever, whichever is your, your active one right now, yeah. And then the, the traffic source tab.
+[00:23:47] Sasha: Sub-campaign.
+[00:23:49] Sasha: Or, sorry, ads, never mind, ads.
+[00:23:53] Sasha: Okay, those all say active and approved.
+[00:23:57] Sasha: Well, did you turn off your campaign?
+[00:24:01] catherine: No, that's what… like, I… it said, don't look at it for the first two, you know, two days, so I didn't, and when I came in today, I was like, wait a second, it just went straight down. I don't know what…
+[00:24:13] catherine: So that's why I'm not sure what's going on.
+[00:24:19] catherine: Oops.
+[00:24:22] Sasha: Looks like you have two that are named identically, too. Is the…
+[00:24:27] catherine: Yeah, number… number 3, they, got rejected. I use the VAs for a lot of this, and so I wanted to, do exactly what you said, where I ran some… I went through the blitz and had
+[00:24:42] catherine: VAs do a lot of it, too, so that I could get started and watch them do the process for me, and so, Campaign 3 doesn't have… and it was rejected, so I had to fix it and make another one, so…
+[00:24:56] Sasha: Okay, so Campaign 4 is the active one, and so you… when did you turn it on? Was it on the 5th?
+[00:25:01] catherine: The… on the 8th.
+[00:25:05] catherine: So…
+[00:25:06] Sasha: You turned it on on the 8th.
+[00:25:08] catherine: Yeah.
+[00:25:09] Sasha: Cause it doesn't look like it.
+[00:25:13] Sasha: Okay, now that you've selected the date and time, will you turn on the toggle campaign activity graph again?
+[00:25:19] catherine: Yep.
+[00:25:22] Sasha: Well, that's confusing to me.
+[00:25:26] catherine: That's nothing to hear.
+[00:25:26] Sasha: Well, not like necessarily there's a… there's a problem, it just doesn't… doesn't make sense to me, which I guess is a problem. And so, did you have the $1,500, like, $1,500 in there from.
+[00:25:39] catherine: Yeah, and I still have…
+[00:25:40] Sasha: Just add anything?
+[00:25:41] catherine: I still have 1400.
+[00:25:42] Sasha: Yeah.
+[00:25:43] catherine: Available.
+[00:25:44] Sasha: Yeah, that is kind of bizarre. I don't know, like, I don't know what would have triggered your campaign to go off, other than, like.
+[00:25:51] catherine: And it's only spent $10 in 5 days, which seems really low to me.
+[00:25:56] Sasha: Yeah, yeah, I mean, it just looks like it turned on and then got turned off for some reason.
+[00:26:01] Sasha: Pretty much immediately.
+[00:26:03] Sasha: Because it… what is your daily budget set to?
+[00:26:08] catherine: What would that be in campaigns?
+[00:26:12] Sasha: That would be in the sub-campaign level.
+[00:26:14] Sasha: So it'll be campaigns, number 4, Traffic Source tab.
+[00:26:20] Sasha: Sub campaign… yeah, $100. Will you just go into the settings there?
+[00:26:25] Sasha: Just so you can kind of double-check that.
+[00:26:27] catherine: in…
+[00:26:28] Sasha: That, that little, in that sub-campaign, that gray box right there?
+[00:26:32] catherine: This one?
+[00:26:36] Sasha: Let's see, complete payment… Oh, your, your end time, you forgot to set it to next year.
+[00:26:44] Sasha: You see how the end time is the 9th?
+[00:26:47] Sasha: You turned it on and it ran for a day, but you…
+[00:26:50] catherine: Got it.
+[00:26:51] Sasha: Yeah.
+[00:26:56] catherine: So, at it… I mean, does it matter how long…
+[00:26:59] Sasha: No, I mean, that's why we kind of recommend just setting it for a long time in the future, so that something like this doesn't happen, is like, you control when it's on and off, so we just set it for…
+[00:27:07] Sasha: Next year, that way it only turns off when… when you're ready.
+[00:27:11] catherine: than I want.
+[00:27:12] Sasha: Fair enough. Yeah, yeah, exactly.
+[00:27:14] catherine: Okay, so then… That would be my problem. Okay.
+[00:27:18] Sasha: Awesome. Well, while you're here, too, just a couple of things, because I think the, like, the whole set it and forget it thing is just a bit of a misnomer. Like, you do want to pay attention to it a little bit, but the main thing that you're paying attention to is just, ad spend on the banner level.
+[00:27:35] catherine: Okay. So, your initial goal is to get.
+[00:27:38] Sasha: A relatively email… even amount of ad spend per banner, just so that you have, like, an equal
+[00:27:45] Sasha: kind of apples-to-apples comparison on all of them, in terms of, like, you know, how much traction each one got. So the things I look out… I look out for in the beginning is make sure you don't have, like, a runaway ad banner that it just spends half your budget, you know?
+[00:28:00] Sasha: Because there is, like, there is an algorithm that's, you know, working on the traffic source side that, like, will start to favor things based on clicks initially, because when it sees it puts out a certain amount of impressions, and then it gets a lot of clicks, like, it wants that to happen, but you don't necessarily want that to happen, because you just trying to get data.
+[00:28:20] Sasha: Well, I mean, sometimes it works out, like, an ad banner that's doing well will also get a lot of clicks, the algorithm will favor it, but sometimes an underperforming ad banner will just run away and spend a bunch of money if you're just not paying attention.
+[00:28:33] Sasha: So, that is the number one thing I look out for, is like, you know, if it reaches whatever… whatever your desired per banner spend.
+[00:28:40] Sasha: Which is, like, your round one testing budget divided by the number of banners.
+[00:28:44] Sasha: You can just turn it off manually, let the other ones catch up.
+[00:28:48] Sasha: And then the other one I would keep an eye out for is if it spends, like.
+[00:28:52] Sasha: I don't know, $20, $30 on an ad banner, but it's really underperforming. Like, I would say, like, sub-5%, like, landing page click-through rate.
+[00:29:02] Sasha: Like, if people are clicking on your ad, but just not clicking through to the offer page, there's something going on there that's not working, you might as well not waste money on it. So there's sort of, like, a minimum threshold of, like, you know, $5 is just not enough to make that decision. The next bunch of clicks might do well, but…
+[00:29:18] Sasha: After, like, $20 or $30 out of, like, $50 or even $70 per ad banner, depending on how your math works out for your particular product, you might as well turn off the underperformers at a certain point, and give the other ad banners that are actually performing a little bit more of that budget.
+[00:29:33] catherine: Okay.
+[00:29:34] catherine: And so, you would know that. You said it was your…
+[00:29:38] catherine: Round 1 testing budget divided by the number of ads, so that would give you…
+[00:29:45] catherine: how much you're spending per ad? Is that the idea?
+[00:29:49] catherine: Okay.
+[00:29:51] Sasha: And it looks like…
+[00:29:53] Sasha: It looks like not all of your ads are even rotated. How many did you start out with?
+[00:29:57] catherine: I think I did…
+[00:30:01] Sasha: Because they might have, like, if they only ran for a day, they might have not all even started delivering, because they don't start necessarily… like, if you started with 10, and it's only, like, you know, part of your way through your budget, it might not even have time to, like, rotate.
+[00:30:13] catherine: kick you off.
+[00:30:13] Sasha: 10 yet, so…
+[00:30:15] catherine: Okay, I think I did 15, but I'm not sure. It could have been 10.
+[00:30:20] Sasha: Okay, yeah, 15 might be a little bit too much. I think 10 is an okay starting point. We've even been kind of encouraged to, like, by the traffic source to test, like.
+[00:30:30] Sasha: Five-ish at a time.
+[00:30:31] catherine: Oh, okay. So should I turn off some right now?
+[00:30:36] Sasha: Well, it's kind of… if it was 15, I probably would. If you started out with 10, I don't know. I personally haven't seen any problems with that in my own testing, but we have been told that, like, it's, you know.
+[00:30:51] Sasha: it's a little bit trickier on the algorithm side with 10. I just kind of start out with 10, and then, like, kind of like, we talked about, I'll start eliminating some underperformers, and it gets down to 5 fairly quickly.
+[00:31:03] catherine: Okay.
+[00:31:03] Sasha: But, I mean, you can also, like…
+[00:31:05] Sasha: You can also, you know, even if you had 10, you could run 5 at a time.
+[00:31:10] Sasha: let those play out, run another 5, see how they do, and… and compare. Like I said, this is just kind of…
+[00:31:17] Sasha: what we've been told by the traffic source versus my own, I guess, lived experience before they even told us that, so…
+[00:31:24] catherine: I've run 10 without a problem, but…
+[00:31:27] Sasha: They are kind of encouraging smaller batches as well.
+[00:31:30] catherine: Okay, because on one of the things in the Blitz, it was talking about how we need to, wait until we hit the 250, but you were saying that in Caterpillar, we don't have to wait till 250.
+[00:31:41] Sasha: What's the 250 number you're talking about?
+[00:31:44] catherine: They said you had to wait, like, you had to get your ad to 250 ad spend before you could turn it off.
+[00:31:51] Sasha: No, no, I don't know a $250 number. For a different traffic source, there was a $1,500 minimum spend on a campaign level before you could introduce new ads, but that's for a different traffic source. For this one, there's no… there's no restriction on how much or little you should spend on any ad.
+[00:32:10] Sasha: I think, maybe if you're… you're talking about, like.
+[00:32:14] Sasha: certain metrics. It would be,
+[00:32:18] Sasha: But no, it wouldn't be $2.50. Like, later, in later stages, there's a factor of, like.
+[00:32:25] Sasha: A multiple of your average order value that comes into effect, which is more of the, like.
+[00:32:30] Sasha: Letting a banner run out a certain amount of spend relative to the cost of your product to see if your stats hold and are doing well.
+[00:32:38] catherine: Okay.
+[00:32:38] Sasha: But I don't… I don't know of any, like, $250 as a specific metric for…
+[00:32:43] Sasha: turning something on or off, it's just… it's more to do with…
+[00:32:46] catherine: Sorry about that at all.
+[00:32:47] Sasha: No, no.
+[00:32:48] catherine: Okay, sounds good.
+[00:32:50] catherine: Okay, so now… so now the plan is we just wait, we, like, in a day or two, I can go in.
+[00:32:57] catherine: And then when I'm filling out this P&L tracker, this is for the entire day, right?
+[00:33:05] Sasha: Yeah.
+[00:33:07] catherine: Yeah, yeah, and also, with that one, I would…
+[00:33:11] Sasha: Wait to fill in numbers, until you're looking at the previous day's data.
+[00:33:17] catherine: Okay?
+[00:33:18] Sasha: And this also kind of applies to your sort of real-time decision-making when you're looking at this. So, the… the actual cost data with this traffic source and our, you know, DIY tracks, it comes in, kind of regular… at regular intervals throughout the day.
+[00:33:36] Sasha: So, all of the, like, when you see, an ad click and the landing page event click, those are in real time, so are purchases, because that's something that's tracked by DIY tracks. So, like, we know when someone clicks on the ad and lands on the landing page, we know when someone clicks on the landing page, goes to the offer page, and then purchases.
+[00:33:54] Sasha: But for things like impressions, and their relative cost.
+[00:34:00] Sasha: That's something the traffic source sends us, you know, via the API, and so… and that happens at, like, I think 4 to 6 hour intervals throughout the day, so you'll see day of financial numbers kind of fluctuate a bit.
+[00:34:12] Sasha: Because you may have gotten a bunch of ad clicks that happen, but the impressions haven't caught up to them yet, so you'll see your CPCs kind of go up and down.
+[00:34:23] Sasha: Until it all sort of stabilizes, so to speak, when it's already tomorrow, and you're looking at, you know, today's data, and that's already been synchronized. So, just kind of a general caveat of, like.
+[00:34:35] Sasha: sometimes you'll, like, turn off a banner because it's spent $50, and you're like, oh shoot, why is it now at $60? That's because the cost is still catching up to it. So, even when you're making, kind of like.
+[00:34:46] Sasha: you know, real-time decisions day of, those numbers will change a little bit, so that's why I kind of advise, like, in the beginning, you're only making
+[00:34:55] Sasha: Like, big, kind of.
+[00:34:57] Sasha: not granular decisions day of. You're just making, like, I need to turn off this ad banner because it's had about enough spend, or I'm turning off an underperformer because even if another $10 got added to the total, like, the clicks… the click-through rate was low enough that, like, it's not going to change much. So you're only making just very…
+[00:35:15] Sasha: General kind of decisions day of, and…
+[00:35:18] catherine: Okay, and in the beginning, what is the recommended ad spend per day per ad?
+[00:35:23] catherine: I mean, if you're only doing 5.
+[00:35:26] Sasha: That's up to you. I mean, that's just more of, like, a daily budget thing and kind of what you're comfortable with.
+[00:35:31] Sasha: I don't… there… there isn't, one inherent right or wrong, it's just more of, like, how quickly do you want to do it? Like, how comfortable are you with the process, and…
+[00:35:41] Sasha: Making decisions in real time, because if you spent your daily budget at $500,
+[00:35:46] Sasha: most of the time, it'll spend that $500 real quick, and if you are either uncomfortable with that, or you haven't been paying attention to your stats quickly enough, you might just overspend on some stuff. So, initially, I mean, yeah, about $100 a day on banners is nice, comfortable, slow-paced. Some people will even do $50, some people will do…
+[00:36:05] Sasha: 150, like, it's a good, good starting point where you're at. The other thing is.
+[00:36:12] Sasha: When you are at a point of, like.
+[00:36:14] Sasha: Wanting to increase your daily budget, like, if you are seeing things that are working, and you want to kind of, like.
+[00:36:20] Sasha: move it up a little bit. We recommend that you don't change it by more than about 20% per day.
+[00:36:27] Sasha: That's just directly from the traffic source and how their algorithm works. It can kind of throw things off, so about 20% a day is the recommended.
+[00:36:36] Sasha: Kind of max that you would change it up or down.
+[00:36:40] catherine: Okay.
+[00:36:43] catherine: up or down, so don't change it more than 20% up, like, don't decrease it by a ton, okay.
+[00:36:51] Sasha: Yeah.
+[00:36:53] catherine: When it's… when it's a performing ad.
+[00:36:56] catherine: Not on the ads that are underperforming.
+[00:36:59] Sasha: No, just in general. I'm not talking about turning ads on and off, I'm talking about the sub-campaign level daily spend.
+[00:37:06] catherine: Yeah, okay.
+[00:37:07] Sasha: You can turn off ads that aren't working anytime. That doesn't actually change your daily budget, it just reallocates it to the ones that, you know, to the other ones.
+[00:37:17] catherine: Sounds good.
+[00:37:21] catherine: Okay, I think that's all my questions. Now that it's running, hopefully it doesn't… Right?
+[00:37:27] Sasha: Oh.
+[00:37:28] Karen Jedele: Catherine, when I saw you change it, there was something up in the right corner that said OK, and I don't know if you clicked that, so I just… since I'm on here and I saw that, I just wanted to at least mention it, just to kind of take a peek again.
+[00:37:43] Sasha: Oh, and also, you'll need to turn it back on.
+[00:37:45] Sasha: You're… it's… it's on, it's deactivated here, so… well, actually, she's right, you might want to change your… check your sub-campaign settings first.
+[00:37:54] Sasha: Oh, yeah, Yeah, yeah.
+[00:38:00] catherine: But… and then you said the… it's turned off?
+[00:38:05] Sasha: Yeah, you want to turn it on here, and then click save.
+[00:38:09] Sasha: And so, in general, this just got turned off because of the date, but in general, I just recommend you turn off on the sub-campaign level.
+[00:38:42] catherine: Okay, I'm sorry.
+[00:38:44] Sasha: No, it's alright.
+[00:38:47] catherine: I have 5 kids, and I'm trying to…
+[00:38:49] catherine: Trying to figure this out with 5, so…
+[00:38:53] catherine: What were you saying about the ad campaign?
+[00:38:55] Sasha: So it got turned off because of the date, but in general, in the future, if you are trying to just stop your ad spend, turn off the sub-campaign rather than the campaign in general. That'll turn off everything.
+[00:39:08] catherine: Okay.
+[00:39:09] Sasha: So even if you have active ads, even if the campaign is active and basic info, turning it off in the sub-campaign and the traffic source is kind of the preferred way to do it, in my opinion.
+[00:39:20] Sasha: Because if you forget that your basic info campaign is off and you create new ads, they'll get rejected because they're not able to check your landing pages and stuff for compliance. It turns off the campaign.
+[00:39:32] Sasha: URL link, is kind of the technical reason for that, so I just recommend people just turn things on and off from the sub-campaign level if you just want to turn off the whole thing.
+[00:39:42] Sasha: And then just individual ads, if you're trying to turn off individual ads.
+[00:39:48] catherine: Okay.
+[00:39:51] catherine: But now everything's ready to go.
+[00:39:55] Sasha: Yep, it should be. It'll… it'll take a little bit for it to trigger and kind of sync with the traffic source, but yeah, now that you've updated that, it should be good.
+[00:40:03] catherine: Cool, awesome, thank you, I appreciate it.
+[00:40:11] Karen Jedele: Alright, have a good night, everybody!
+[00:40:13] catherine: Alright, I guess it's a pretty light call today. Yeah, which is kind of nice, because then we were able to ask our questions, but…
+[00:40:19] Sasha: Yeah, yeah.
+[00:40:21] catherine: Awesome, thank you.
+[00:40:22] Sasha: Have a good evening.
+[00:40:24] catherine: Me too.
+[00:40:24] Karen Jedele: Bye.

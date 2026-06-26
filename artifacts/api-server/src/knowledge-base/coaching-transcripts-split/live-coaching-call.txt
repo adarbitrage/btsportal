@@ -1,0 +1,646 @@
+TITLE: Live Coaching Call
+SOURCE: coaching-transcripts.txt
+META: Dec 15, 2025 05:00 PM Mountain Time (US and Canada) ID: 873 5341 8859
+TURNS: 641
+
+[00:00:34] Sasha: Hi, everybody.
+[00:00:37] Patrick: Hey, Sasha.
+[00:00:41] Sasha: Hey, Clayton, did, support ever get back to you about ClickBank?
+[00:00:47] Clayton Goff: They did, and they said that, they are… Not currently set up.
+[00:00:55] Clayton Goff: to offer ClickBank products through Caterpillar, is the answer I got back.
+[00:01:01] Sasha: So, they haven't followed up with you since, so it's not an issue of not being able to run on Caterpillar, it's more of that ClickBank changed their post-back integration, so we have to update it on our backend.
+[00:01:13] Sasha: But we now, we now…
+[00:01:16] Sasha: finish that, so you'll… you'll be able to run a ClickBank offer. There's just a…
+[00:01:23] Sasha: A new step on setting that up.
+[00:01:25] Clayton Goff: Okay.
+[00:01:26] Sasha: And…
+[00:01:28] Clayton Goff: That will lead to my question, then.
+[00:01:30] Sasha: Yeah, they'll either be able to send you a video of how to do it, or, like, step-by-step instructions, or I'll…
+[00:01:39] Sasha: I'll review how to do it, and can show you on the next call, probably, on how to set it up. They just… it's fairly simple. It's like copying and pasting the postback URL and putting it into ClickBank and, like, testing it, so it should only take…
+[00:01:53] Sasha: A few minutes should be… should be fairly straightforward. I just wanted to let you know, because I know… I knew you were working on getting a campaign set up and kind of got…
+[00:02:01] Sasha: sidetracked about that, and I was a little bit surprised by the response that you got, because I didn't hear anything about ClickBank offers not being able to run, so… Yeah, it is still something you can do.
+[00:02:12] Clayton Goff: Yeah, my question is, why do we have that traffic source, and we don't have… we can't run on it with…
+[00:02:19] Clayton Goff: Flood bank, so…
+[00:02:22] Sasha: Yeah, I mean, there are still, like, I think with Crane, you can't run ClickBank. Certain traffic sources won't allow that kind of stuff, but it's not the case with Caterpillar. It was more of a tracking issue to make sure that
+[00:02:33] Sasha: the conversions from ClickBank were actually reported in DIY tracks properly, and how ClickBank
+[00:02:38] Sasha: does their stuff, kind of changed a little bit, so it just took time to integrate that back into DIY tracks.
+[00:02:44] Clayton Goff: Gotcha, gotcha, gotcha.
+[00:02:46] Clayton Goff: My… I always had a question, was… on the affiliate CMO.
+[00:02:54] Sasha: -Oh.
+[00:02:55] Clayton Goff: I may have missed it.
+[00:02:58] Clayton Goff: I think I did, but how did he come up with Ollie? Was that just something he just picked at random?
+[00:03:04] Clayton Goff: When Dan did the, tutorials on how to use the software.
+[00:03:11] Sasha: How did he come up with what?
+[00:03:12] Clayton Goff: Ollie, or… yeah. Because Ollie Dog Food is the one he's trying to advertise, or he's trying to fill out, was for.
+[00:03:21] Sasha: Oh.
+[00:03:21] Clayton Goff: dog food.
+[00:03:22] Sasha: No, I didn't… I didn't watch that video. Yeah, it must have just been just a general example.
+[00:03:27] Clayton Goff: Okay, cause… can you… Because he's going through the entire thing.
+[00:03:32] Clayton Goff: And there's saying that you use a VSL. Well, media mavens don't have VSLs.
+[00:03:41] Clayton Goff: And so, for a… All this information that he was getting off of the… Cause…
+[00:03:49] Clayton Goff: Ollie is an affiliate dog food, where other people can sell it.
+[00:03:53] Sasha: Hmm.
+[00:03:55] Clayton Goff: And so…
+[00:03:57] Clayton Goff: And from what I can tell, or what I've seen, you can't do that off of medium maintenance, because they don't have that… they only have one.
+[00:04:04] Clayton Goff: one website.
+[00:04:06] Clayton Goff: that you…
+[00:04:08] Sasha: Yeah, I mean, if you're asking what you'd put in place of the VSL transcript, it would just be the advertorial. I mean, the VSL is just a pre-sale mechanism, and that's what the advertorial is in the Media Mavens framework.
+[00:04:23] Clayton Goff: But if… if we can use ClickBank now, then I'll just…
+[00:04:28] Clayton Goff: use ClickBank stuff, and you can get a lot more information from there to be able to fill out your
+[00:04:35] Clayton Goff: advertorial for the affiliate CMO.
+[00:04:39] Sasha: Yeah, yeah, you can use it, and…
+[00:04:42] Sasha: Yeah, if you want to, like, keep working on your marketing materials, I'll help you set up the final step on Wednesday's call.
+[00:04:50] Clayton Goff: Yes, please.
+[00:04:53] Clayton Goff: That's it, thank you very much.
+[00:04:55] Sasha: Yep, sounds good. Alright, Patrick, how's it going?
+[00:04:59] Patrick: Hey, Sasha. Pretty good, man. I'm gonna share…
+[00:05:03] Patrick: Screen with you here real quick.
+[00:05:11] Patrick: Yeah, so, I just re-
+[00:05:14] Patrick: I just finished up on my,
+[00:05:17] Patrick: For a test, and this is the result.
+[00:05:21] Patrick: And I'm looking… so I had to…
+[00:05:25] Patrick: I had to go inactive on some of them during this, because I was looking at,
+[00:05:30] Patrick: I got the top here, this one, the CPC and, Ctr…
+[00:05:42] Patrick: I talked to Bruce Saturday, Saturday morning.
+[00:05:45] Patrick: And, from what I understand.
+[00:05:49] Patrick: We kind of want to keep this… CTR below…
+[00:05:53] Patrick: 4%, or… did I hear him wrong?
+[00:05:57] Sasha: Below 4%? No.
+[00:05:59] Sasha: No, you heard him right. No, okay. It would be above. The higher the CTR, the better. But you also have,
+[00:06:06] Sasha: I mean, like, that one, for an example, since your mouse is on it, your ad spend is pretty low on it, so there's not really much to say about that, because it's only had, like, $8.
+[00:06:15] Sasha: We have another one with $5. See how the rightmost hand, the rightmost column says ad spend?
+[00:06:21] Sasha: You want to try and kind of…
+[00:06:23] Sasha: turn them on and off, so they get to a closer to an even spend, or at least have a certain, I guess, minimum, just to have, like, a decent amount of data overall.
+[00:06:36] Patrick: Okay, yeah, because some of them were… I mean, like this one here at number 2, went up to $129 for spend.
+[00:06:43] Sasha: Yeah, yeah, you could have probably shut that off a little bit earlier. I mean, what is your… Yeah, I did, on…
+[00:06:52] Patrick: I did that on these here before I reached 100 point, but…
+[00:06:59] Patrick: So, my daily budget was set at $150.
+[00:07:04] Sasha: Okay.
+[00:07:05] Sasha: That's good. It'll kind of allow you to keep an eye on things.
+[00:07:07] Patrick: or… I think I took a 4… 4 or 5 days for… for me to reach my,
+[00:07:14] Patrick: 500 on spend, so,
+[00:07:18] Patrick: So, I don't know, at this point, I mean, I know I've got some better ones than others, but
+[00:07:23] Patrick: So to… To continue on, you know, with the,
+[00:07:29] Patrick: Second testing now. Do I…
+[00:07:34] Patrick: I need to modify some headlines, or what should I do now?
+[00:07:39] Sasha: Are you able to…
+[00:07:41] Sasha: make the… like, decrease the size, or scroll down a bit. I can't… I haven't actually, like, seen…
+[00:07:47] Sasha: All of your creatives here, 1, 2, 3, 4, 5, 6, 7, 8, 9. Okay, so there's gonna be one more below it.
+[00:07:53] Sasha: Beautiful $34.
+[00:07:57] Sasha: Yeah, I mean, let's just start by organizing it by landing page click-through rate, and just kind of see what pops up on the top there.
+[00:08:19] Sasha: It'll take a minute here, because I think you have a little bit of… lag due to…
+[00:08:25] Patrick: Yeah.
+[00:08:36] Patrick: Let's see here, these, these two up here at the top, at 100%, see, these are…
+[00:08:42] Patrick: previous launch, and that was all changed at the… but, you know, I was gonna archive that.
+[00:08:51] Patrick: And…
+[00:08:51] Sasha: Yeah, I mean, we can… we can kind of ignore those. Those are kind of… Right.
+[00:08:56] Sasha: They're not real ads.
+[00:08:57] Sasha: Right.
+[00:08:58] Patrick: So… So, 23 and a half there at,
+[00:09:04] Sasha: Yeah, I mean, I would like to see more ad spend on number… like, it only has $13 in ad spend. I mean, it's a promising start, but it's only 17 people landed on the landing page in 4 clicks, so it's not…
+[00:09:17] Sasha: It's not enough to, like, proceed with that as a winner, per se.
+[00:09:22] Sasha: And, you know, kind of the same with number 3, at ID number 3.
+[00:09:29] Sasha: you know, number 9 didn't really get it, you know, kind of up to you whether or not you want to run it, but, like, number 9, for an example, had a really low, ad CPC.
+[00:09:39] Sasha: Which, you know, kind of promising if the landing page click-through rate went up a bit, so…
+[00:09:46] Sasha: It's honestly kind of like…
+[00:09:49] Sasha: Feels like the data's a little bit incomplete, because you have it on some of your, kind of, or at least on your, sort of, most promising one, you don't really have enough ad spend on it.
+[00:10:03] Patrick: Yeah.
+[00:10:05] Sasha: But, you know, if we're… if we're just, like, ignoring that for a second, you know, your 10 and 5 are the next two, kind of, like.
+[00:10:11] Patrick: Yeah.
+[00:10:12] Sasha: better candidates.
+[00:10:13] Patrick: Right.
+[00:10:14] Sasha: Do you want to hover over one of them? So you… did you do one image?
+[00:10:18] Patrick: I only did one image. Yeah.
+[00:10:21] Sasha: Okay.
+[00:10:22] Patrick: Yep.
+[00:10:23] Patrick: So, on ads, do you think that, it's better to go static, or to go, GIF on that?
+[00:10:32] Sasha: You want to start with static. Exploring GIF and video is kind of a later step. You know, another thing I'm kind of noticing is if you hover over your image again.
+[00:10:45] Sasha: I can't quite see it yet. It's kind of, like, white on white, it just looks like a fairly generic image.
+[00:10:53] Sasha: First of all, like, white on gray just doesn't create all that much contrast. I guess the red kind of makes it pop a little bit, but I think, like.
+[00:11:00] Sasha: You know, for…
+[00:11:02] Sasha: future testing, you kind of want to, like, put a little bit more time into finding an image that is, I don't know, a little bit more unique, or kind of shows a little bit more emotion.
+[00:11:12] Sasha: This one just came in.
+[00:11:14] Sasha: feels a bit templated, like, you know, if you think about people with, like, back pain or something, or kind of how we've talked about, like, grip it and jar strength, is like…
+[00:11:23] Sasha: you know, those hands aren't really showing tension, the back doesn't really showing tension, it's also, like, a younger person's body, so, like, depending on your target demographic, there might be a little bit of a mismatch there.
+[00:11:34] Sasha: But in terms of just raw composition…
+[00:11:37] Patrick: That's a lot.
+[00:11:39] Sasha: What's that?
+[00:11:40] Patrick: I actually had a lot of them where, where, you know, they were, I had it,
+[00:11:46] Patrick: The person, the image, was a…
+[00:11:49] Patrick: I have a neck and lower back, and then,
+[00:11:53] Patrick: what I wanted to do was get the, you know, the back side of them instead of showing faces, so… and plus, that's where usually, you know, the area of concern is. But I do have, probably about 15 of them.
+[00:12:11] Patrick: And, but, you know, a lot of them were good, but I don't know. I went with this one because it was,
+[00:12:19] Patrick: I need to use, probably, AI better than,
+[00:12:24] Patrick: I think I, I think I got this off of YouTube or something? .
+[00:12:29] Sasha: Yeah, I mean, you have the right idea, like, you're targeting a specific pain point, right? But that's not the only way to show pain, like, sometimes pain is shown through facial emotions, or, like.
+[00:12:39] Patrick: Right, yeah, I know.
+[00:12:41] Sasha: So, I don't know, that's kind of a later thing, but just note… I think noticing that your CPCs, ad CPCs, are kind of on the high side, and image is potentially something that could help that.
+[00:12:52] Sasha: Out of curiosity, Oh, no, that's only… that's 28 cents.
+[00:12:58] Sasha: Yeah, what are… what are some of your other headlines? Like, what's number 1, 10?
+[00:13:06] Patrick: Yeah, on the ad.
+[00:13:15] Patrick: Oops, not that.
+[00:13:22] Sasha: Oh, yeah, that won't show the headline, you just need to, like, scroll up on the page a bit more, and then just hover over number 1 again.
+[00:13:37] Patrick: Yeah. I, I have, I'm sorry, I have the, my Zoom…
+[00:13:41] Patrick: tab right in front of it, so I couldn't see.
+[00:13:45] Patrick: Okay, so here we go.
+[00:13:51] Patrick: You know, so I used metrics, and I used, like, city and state, right?
+[00:14:00] Sasha: Did you use, like, city and state on all of them?
+[00:14:04] Patrick: No, not all of them. No. See, like, this one's City. Houston, Texas.
+[00:14:08] Sasha: But I mean, did you use… did you use, like, dynamic content in all of them?
+[00:14:13] Patrick: No, let me see here… I think… yeah, see, this one is not.
+[00:14:19] Patrick: Well, because in training, I was noticing that You know, you don't…
+[00:14:25] Patrick: You don't have to, use that in every one of them.
+[00:14:31] Sasha: Yeah, yeah, I was just noticing that, like, I don't know, the city residents, it kind of… that one feels a little bit forced, like, it doesn't feel all that natural to me, but it could work. How about on the landing page side of things on the bottom? What are you seeing down there?
+[00:14:52] Patrick: Yeah…
+[00:14:54] Sasha: I'm, like, at the very bottom, the aggregate section.
+[00:15:06] Patrick: So, we got,
+[00:15:15] Patrick: CTR… yeah.
+[00:15:20] Patrick: So these are the… see, these are the images I used for this, and you know, some of them I don't really like, but… like this one.
+[00:15:28] Patrick: See, that's why…
+[00:15:29] Sasha: Those are the… those are the old ones.
+[00:15:33] Patrick: Oh, you're right. Yeah, I'm sorry.
+[00:15:36] Patrick: That's right, I change a lot, these are the old ones.
+[00:15:45] Patrick: So, headlines… So the…
+[00:15:52] Patrick: Thought all this was changed.
+[00:15:54] Sasha: You have…
+[00:15:55] Patrick: See, I removed…
+[00:15:55] Sasha: What's happening?
+[00:15:56] Patrick: I remember breaking. Huh.
+[00:15:59] Patrick: I removed braking from all of them, and then I had the concierge do that for me.
+[00:16:04] Sasha: Did you…
+[00:16:05] Patrick: Is it?
+[00:16:05] Sasha: Did you deactivate them in the landing page section?
+[00:16:13] Patrick: Under basic info, or what? What do you mean?
+[00:16:16] Sasha: Just in the landing page tab, like…
+[00:16:19] Sasha: Because it looks like you still have duplicate headlines that are active.
+[00:16:25] Sasha: Like, you have 5 images right now, and you have 10 headlines that are running.
+[00:16:47] Patrick: Yeah, something's not looking right.
+[00:16:52] Sasha: Why don't you… will you check in your landing page section to make sure that you, like, deleted the old variants? And I'll… I'm gonna get to Lindsay real quick, and then… and then come back to you.
+[00:17:05] Patrick: Sure.
+[00:17:09] Sasha: Hey, Lindsay, I didn't see a hand up, but I figured you were here for a reason.
+[00:17:13] Lindsey S: Oh, I'm sorry, thank you.
+[00:17:18] Lindsey S: just had a few quick questions. Do I… okay, I guess maybe I will share really quick, just to kind of catch you up to where I'm at, and what I'm trying to succeed, or trying to do.
+[00:17:32] Lindsey S: I tried to run another round two.
+[00:17:36] Lindsey S: And… I don't know that I got…
+[00:17:40] Lindsey S: enough data? I'm not really sure, but…
+[00:17:44] Lindsey S: I think, like, my gut is telling me that I need a link further up on the landing page. I know there's a reason to have it pretty far down, but for the VistaVale one, it's…
+[00:17:58] Lindsey S: Very far down.
+[00:18:00] Sasha: Yeah.
+[00:18:00] Lindsey S: So… I think that's what I'd like to try to do, is just move it…
+[00:18:06] Lindsey S: Up a little, like, not all the way at the top, of course, but, you know, on a cell phone, it's taking, like, 7 swipes to get to the first.
+[00:18:14] Lindsey S: And even on a computer, like, a full three and a half scrolls, you know? So, I'd like to create a hyperlink a little further up, and I needed to know, is that something, like, you… like, a coach could help me with, or do I need to book a…
+[00:18:31] Sasha: No, I could… I could… I could help you do that right now if you want.
+[00:18:34] Lindsey S: Okay, that'd be cool. And then.
+[00:18:37] Sasha: long.
+[00:18:38] Lindsey S: Okay, perfect. So, I guess I will sh…
+[00:18:41] Lindsey S: I just didn't want to try it on my own, and then,
+[00:18:44] Lindsey S: mess it up, you know? Yeah. But… Let's see… so this was…
+[00:18:53] Lindsey S: My attempt at another round 2, and… I just don't, like, it's…
+[00:19:01] Lindsey S: I'm getting good click-throughs, but then they're not…
+[00:19:06] Lindsey S: They're… they're falling off on the landing page side.
+[00:19:10] Lindsey S: And…
+[00:19:13] Lindsey S: I have no aggregate landing page data, which… is that only because I have 5… only 5 running? Like, do you need more than that to get…
+[00:19:21] Sasha: No, aggregate is only when you run a metric mover campaign, and you're specifically doing the two elements of HeroShot and…
+[00:19:30] Sasha: Okay.
+[00:19:30] Lindsey S: I…
+[00:19:31] Sasha: And headline.
+[00:19:32] Lindsey S: I just cloned them this time to kind of just have some more, like, control, I guess. And my metric mover was down, and it took, like, a week to get it fixed, so…
+[00:19:43] Sasha: There's some kind of…
+[00:19:43] Lindsey S: Quoted it with.
+[00:19:45] Sasha: works, too. Yeah, that's fine.
+[00:19:52] Sasha: I don't remember what… what were your… around what… are you… okay, actually, first question, are you in the vertical or horizontal, ad placement right now?
+[00:20:00] Lindsey S: So, I went back to just doing, horizontal. I didn't get great results when I…
+[00:20:11] Lindsey S: Did the variations of both, you know.
+[00:20:14] Sasha: No, I did true.
+[00:20:14] Lindsey S: that whole recommendation of having…
+[00:20:18] Lindsey S: you know, the horizontal, the GIF, and the video, and then doing vertical, the same thing, and I just didn't get a ton of great results and spend a lot of money. So, the recommendation was to, okay, take, like, half a step back.
+[00:20:33] Lindsey S: I guess, and go back to horizontal.
+[00:20:36] Lindsey S: And… We picked my, like, winning angle, and I tried to, like, play off of that.
+[00:20:46] Sasha: Did your, did your click-through rates go up or down when you made, when you made these changes?
+[00:20:54] Lindsey S: It's… It feels like they went down. Some of them…
+[00:21:04] Lindsey S: I mean, some of them went up, but then the LP event CPC is…
+[00:21:10] Sasha: Yeah, you have…
+[00:21:11] Lindsey S: It skyrocketed.
+[00:21:12] Sasha: Yeah, you have one ad that's… that's quite… Expensive. Is that number 42?
+[00:21:20] Sasha: That's… that's just a still image?
+[00:21:22] Lindsey S: No, that is a video, horizontally.
+[00:21:24] Sasha: That's why. Okay, that's why.
+[00:21:26] Lindsey S: Oh, is that more…
+[00:21:27] Sasha: expensive.
+[00:21:27] Lindsey S: deserve to run.
+[00:21:28] Sasha: Video placements are more expensive, yeah. They tend to be a little bit more responsive, but are also…
+[00:21:34] Sasha: a little bit more expensive, so that makes sense, because that's a… because the ad CTR is pretty high for it… for the ad CPC to be that high, and for a.
+[00:21:42] Lindsey S: go.
+[00:21:43] Sasha: A still image placement, so… That kind of makes sense.
+[00:21:49] Sasha: What is the… so that one was a video, and the rest were still images?
+[00:21:54] Lindsey S: There's one other that is… a gift.
+[00:22:03] Lindsey S: Oh, this one.
+[00:22:11] Sasha: That's weird, it kind of, like, flashes fairly quickly. Is that the GIF is just going back and forth between two images? Okay.
+[00:22:18] Lindsey S: Yeah.
+[00:22:19] Sasha: See, it was just taking a… taking a minute to load.
+[00:22:24] Lindsey S: You think it's too fast?
+[00:22:27] Sasha: I don't know, it's weird, like, it does slow and then fast.
+[00:22:34] Sasha: Yeah, you see how it does that?
+[00:22:37] Sasha: Yeah.
+[00:22:42] Sasha: Anyway, sorry, where were we? What was your question?
+[00:22:45] Lindsey S: Okay, so… I feel like the ad clicks are higher on these, like, these two. I feel…
+[00:22:56] Lindsey S: So it feels like, to me, the ads themselves did well, and then…
+[00:23:00] Lindsey S: They fell off at the landing page. Is that what this data is telling me? I'm still trying.
+[00:23:04] Sasha: Yeah, yeah, the landing page click-through rate is pretty low, I'd say, across the board, but, like, you know, very low on those cheap ads.
+[00:23:14] Sasha: Which I suppose kind of makes sense. Usually what you see is that, like, when the ad CPCs are super low, the click-through rate is also low, but, like, the landing page event CPC can still be fine. But these are… even taking that into consideration, they're still a little bit on the…
+[00:23:29] Sasha: on the expensive side, you know, the landing page event CPC, but I think in general, like, across the board, you'll kind of want to see your landing page event click-through rate go up.
+[00:23:41] Sasha: You know, even taking into consideration ad CPCs and things like that, I think the goal is to get the landing page click-through rate a bit higher.
+[00:23:51] Lindsey S: Like, above 10% is the goal, right?
+[00:23:53] Sasha: Yeah, yeah, definitely above 10. That would be nice. Are you… is that,
+[00:23:58] Sasha: Have you checked to make sure that your landing pages are optimized for mobile and look good in mobile?
+[00:24:06] Lindsey S: like, in the edit screen, yes. In the previous round, I was one of those ones that had the…
+[00:24:14] Lindsey S: Issue with the Cutting Edge logo? Yeah, yeah. Yeah.
+[00:24:18] Sasha: Oh, right. I mean, have you, like, sent the campaign URL to your own phone and just to, like, look at it?
+[00:24:25] Sasha: It's a, it's a.
+[00:24:25] Lindsey S: Okay.
+[00:24:29] Lindsey S: Where's the best pla- like, click on one of these, copy, and, like, email it to myself, so then… and pull it up onto my phone?
+[00:24:37] Sasha: Yeah, that's how I usually do it. Either… well, yeah, clicking on one of those… usually what I do before I start running a campaign is I sent the actual campaign URL, not the landing page link from here. Because with the campaign URL, you can actually test to make sure it's going to your offer page properly. That's another good thing to test.
+[00:24:57] Lindsey S: Okay.
+[00:24:58] Sasha: And that's done through the campaign settings on the offer page tab. There's the campaign URL, so that's the one I usually send to
+[00:25:07] Sasha: to my phone and check it. But you'll obviously… you'll want to have the campaign on in basic settings when you do that, but have the campaign off.
+[00:25:16] Sasha: Cause that… without the campaign on in basic settings, the campaign URL link won't work.
+[00:25:22] Lindsey S: Okay.
+[00:25:22] Sasha: But as long as your sub-campaigns are off, it's not gonna spend any money, but…
+[00:25:27] Lindsey S: Okay.
+[00:25:27] Sasha: Test the… the links, unless you… unless you do that.
+[00:25:31] Lindsey S: Understood. Okay.
+[00:25:41] Lindsey S: Okay, got it. Just making sure I understand how to do all of that.
+[00:25:49] Sasha: So, yeah, the URL link, we can… we can go…
+[00:25:53] Lindsey S: Definitely work.
+[00:25:54] Sasha: on that. So, if you want to scroll all the way to the top.
+[00:25:57] Lindsey S: Okay.
+[00:26:00] Sasha: And then just click on that, the image.
+[00:26:03] Lindsey S: Okay. Your hero shot?
+[00:26:05] Sasha: Yep. And then, on the right-hand side, Scroll down… Wait… Shoot, maybe, maybe up.
+[00:26:17] Sasha: Sorry, the screen's a little small.
+[00:26:20] Lindsey S: Oh, sorry.
+[00:26:20] Sasha: That's alright, maybe it's in… styles, maybe this isn't linked here, let me…
+[00:26:26] Sasha: Maybe just go down to the, is there no…
+[00:26:32] Sasha: Is the hero shot not linked?
+[00:26:38] Sasha: Well, maybe, maybe just scroll down to where, your first hyperlink is in, in the…
+[00:26:47] Lindsey S: Should the hero shot be linked? Because that might be a mistake on my part.
+[00:26:51] Sasha: Yeah, the hero shot is usually linked by default. It's not… people don't usually know to click there, it's just kind of on there just in case.
+[00:27:00] Sasha: As one way to get people there, but, for now, if you…
+[00:27:08] Sasha: really, I think most of the images… I usually hyperlink most of the images, and it just, you know, why not?
+[00:27:14] Lindsey S: Yeah, good idea.
+[00:27:15] Sasha: If you highlight that… this text…
+[00:27:20] Lindsey S: Oh, just this.
+[00:27:21] Sasha: Well, actually, it looks like that whole thing is linked.
+[00:27:24] Sasha: And then you see that little, the little link button next to the, like, directly? Yeah, that one?
+[00:27:32] Lindsey S: Yep.
+[00:27:33] Sasha: Will you click that?
+[00:27:34] Lindsey S: That should pull up a… yeah, and so that whole URL section, just copy that entire thing.
+[00:27:40] Lindsey S: Okay.
+[00:27:43] Sasha: And then just click cancel.
+[00:27:45] Sasha: So, now we just need to find…
+[00:27:47] Sasha: whatever text you want to hyperlink.
+[00:27:51] Lindsey S: Okay.
+[00:27:51] Sasha: necessarily meet the… necessarily have to be, like, the product name, it could be… it could say, like, even, like, a link on social media, you know, that could be it, like, something that would make sense to… to go there.
+[00:28:02] Lindsey S: Okay.
+[00:28:04] Sasha: Yeah, but thanks so… or actually, wait.
+[00:28:06] Sasha: You could do, but thanks to a brilliant breakthrough device, you could do that.
+[00:28:11] Lindsey S: Okay.
+[00:28:12] Sasha: But let's just do it with that brilliant breakthrough device, just to kind of show you how it's done, and then you can kind of…
+[00:28:17] Sasha: Repeat the process wherever you want.
+[00:28:20] Lindsey S: Okay.
+[00:28:21] Lindsey S: Let's see…
+[00:28:29] Lindsey S: Who knows? Scrap.
+[00:28:30] Sasha: The… so the 1, 2, 3, 4th paragraph says, but thanks to a brilliant.
+[00:28:35] Lindsey S: Yep. Thank you, I'm sorry.
+[00:28:37] Sasha: That's alright. No, it's alright.
+[00:28:40] Sasha: And so, yeah, click that. Once you select all that text, click that little link button that's slightly different now.
+[00:28:45] Lindsey S: Fantastic. Okay.
+[00:28:47] Sasha: Paste it in there, and then, an open link and new window.
+[00:28:53] Sasha: Yeah.
+[00:28:54] Sasha: Okay.
+[00:28:57] Sasha: Perfect. That will highlight that, then you want to click your save button and click publish.
+[00:29:02] Lindsey S: Okay.
+[00:29:04] Lindsey S: Perfect, thank you so much, I really appreciate it.
+[00:29:06] Sasha: Yeah, of course.
+[00:29:11] Sasha: Let's take a look at what your mobile view looks like.
+[00:29:14] Lindsey S: Okay.
+[00:29:15] Sasha: Wait, you don't have a… Wait a minute, this isn't…
+[00:29:23] Sasha: You're just… this is the templated advertorial?
+[00:29:26] Sasha: Where are you right now?
+[00:29:29] Lindsey S: I am…
+[00:29:31] Sasha: Because you're… if you were touching…
+[00:29:32] Lindsey S: a new one.
+[00:29:34] Sasha: They just gave.
+[00:29:35] Lindsey S: the new version of Flexi so that my metric mover will move, or, like, work again?
+[00:29:42] Lindsey S: So now I'm having to, like, start all over, basically, with my landing pages?
+[00:29:46] Sasha: I see, okay, okay, that makes sense, because your domain isn't connected to this specific one right now, but I guess that this will do it, that makes sense.
+[00:29:55] Lindsey S: Oh, Okay, I wonder if… Because…
+[00:30:00] Sasha: Because you can also just move the subdomain to that new template section. I mean, there's multiple ways to do this, but let's just try clicking save and see what this does.
+[00:30:09] Lindsey S: Jack? No?
+[00:30:17] Sasha: Okay, so that looks like… It worked.
+[00:30:21] Lindsey S: What?
+[00:30:23] Sasha: And this is the new template that fixes the…
+[00:30:27] Sasha: The logo thing? Is that… is that correct?
+[00:30:29] Lindsey S: Yes.
+[00:30:30] Sasha: Okay.
+[00:30:31] Lindsey S: And I guess makes my metric mover work again. There was something broken on the back end.
+[00:30:36] Sasha: Okay.
+[00:30:38] Sasha: Well, yeah, let's just double check what the mobile view looks like with… with that. I just wanted to make sure, because most of our… most of the traffic that's in this traffic source is mobile, so it's definitely important.
+[00:30:51] Lindsey S: Sure.
+[00:30:51] Sasha: sure it looks good.
+[00:30:52] Sasha: A mobile, okay.
+[00:30:56] Lindsey S: Are they, like, offering any extensions with…
+[00:31:00] Lindsey S: Like, all the trouble with Caterpillar that all of the mentees have had.
+[00:31:05] Sasha: Probably, I would just write into support, and kind of, like, you know.
+[00:31:11] Sasha: Document, you know, where you've had issues, and how long, and when, and they're usually pretty good about working with you on that.
+[00:31:19] Lindsey S: Okay. And if my mentorship gets… Extended, does that include… Like, the…
+[00:31:30] Lindsey S: the time for, like, the money-back guarantee, you know, because it's like, you have to spend $5,000. Well, at this point, it doesn't even feel like I've had the opportunity to do so, because I'm not going to be throwing money at a, you know, an ad that all it shows is the CE, and you know what?
+[00:31:45] Sasha: premium.
+[00:31:46] Lindsey S: Like, it's been… A little rough, so…
+[00:31:50] Sasha: Yeah, I'm honestly not sure how that process works. The best I can tell you to do is to write into support about that. That's right. Yeah, yeah.
+[00:32:00] Lindsey S: All right, and when you said to look at the mobile view, did you mean this, or…
+[00:32:06] Sasha: Yeah, yeah, that's, that's a, that's a good starting point,
+[00:32:10] Sasha: Yeah, it looks like the sizing of things works. You know, one thing…
+[00:32:15] Sasha: You could do is if you go back to the desktop view,
+[00:32:22] Sasha: You could move that, like, the byline below the image.
+[00:32:27] Sasha: You can just kind of drag and drop that box, if you can… yeah.
+[00:32:32] Lindsey S: Like this.
+[00:32:32] Sasha: Yeah, see that little, the four arrows on the right-hand side?
+[00:32:36] Lindsey S: Yep.
+[00:32:36] Sasha: You can drag that below the image.
+[00:32:39] Lindsey S: Okay.
+[00:32:39] Sasha: I don't find that to be that important enough to be above the image. What I want is the, like.
+[00:32:45] Sasha: the headline, the sub-headline, and the image to be above the fold, I think is…
+[00:32:51] Lindsey S: Sure. Yep.
+[00:32:52] Sasha: I think it just dropped.
+[00:32:53] Lindsey S: Yeah, I did.
+[00:32:56] Lindsey S: Okay, and it is important to keep that. That was the question, because I also have to keep coming in and changing the date, you know, like, how old should that date be running on…
+[00:33:07] Sasha: It's… I don't… I don't think the data is that important, honestly. Like, if it's…
+[00:33:11] Lindsey S: Okay.
+[00:33:12] Sasha: Sometime this quarter, it's recent enough.
+[00:33:15] Lindsey S: It's… Okay. I wouldn't worry about that.
+[00:33:17] Lindsey S: Okay, fair enough.
+[00:33:19] Sasha: Hmm… And then…
+[00:33:27] Sasha: You know, I'd also just make that sub-headline not bold.
+[00:33:32] Sasha: I find that a little bit… a little bit easier on the eyes to have just, like, a visual distinction between headline and sub-headline. I don't… we're not, like…
+[00:33:41] Sasha: making a huge difference here. If you just, like, select the entire thing, and you'll be able to click the.
+[00:33:46] Lindsey S: P.
+[00:33:47] Sasha: button.
+[00:33:48] Lindsey S: Okay, thank you.
+[00:33:49] Sasha: That's a personal preference, I don't know if that makes a huge difference. I just feel like it makes it a little bit easier to scan text when your headline and headline is a little bit separated. They just feel like distinct, different chunks of
+[00:34:01] Sasha: material.
+[00:34:03] Lindsey S: I would agree.
+[00:34:05] Lindsey S: Any other, like, optimizing tricks that you have for the.
+[00:34:10] Lindsey S: I'm starting over.
+[00:34:10] Sasha: No, no, I mean, like, kind of, like, the main, the main test is the, like,
+[00:34:16] Sasha: I guess, making sure that the headline and the sub-headline, and then at least part of the image is kind of the first thing they see when they look at the phone without having to scroll. It's just like… it's almost like a second ad, you know? You just kind of want to see everything at once.
+[00:34:31] Sasha: So, depending on how it looks on your phone, like, this preview image kind of gives you an idea, but depending on how it looks on your phone and the size of your actual headlines, you can play around with the font size, specifically on the mobile side.
+[00:34:44] Sasha: So, if you make a change here while you're in the mobile view, it'll change it only for the mobile view.
+[00:34:50] Sasha: And so, sometimes I'll, you know, make the sub-headline a little bit smaller, and then, you know, play around with the headline, depending on how long my headline is, just to make it…
+[00:35:02] Sasha: look normal and, you know, appear above the fold. You can kind of play around with padding. Anytime you click on an.
+[00:35:09] Lindsey S: implement that.
+[00:35:10] Sasha: has, like, an orange box outline, or any kind of outline. You can play around with those pixels to, like, squeeze things a little tighter or space them out a little bit, you know?
+[00:35:19] Lindsey S: Okay. So, that's just, like…
+[00:35:22] Sasha: you know, getting a little bit granular with things, I probably wouldn't… I wouldn't mess with the visibility on…
+[00:35:29] Sasha: on the logo, I would just… anything below here, like,
+[00:35:33] Sasha: If you click just outside of that on the top, you could probably shrink the space a little bit between that and the header.
+[00:35:38] Sasha: There's kind of, like, a few boxes in there, so, like…
+[00:35:43] Sasha: The purple one has some spacing in it, too, so…
+[00:35:46] Lindsey S: Okay.
+[00:35:47] Sasha: Like I said, that's not something that makes a huge difference, but as long as you can get close to having your headline, sub-headline, and hero shot image above the fold, I think that's just helpful for an initial impression, and just for the website to kind of, like, look a bit more kind of professional and put together.
+[00:36:04] Lindsey S: Sure.
+[00:36:07] Lindsey S: Okay.
+[00:36:08] Lindsey S: Sounds great. As…
+[00:36:14] Lindsey S: as far as how to proceed, I'm obviously gonna… I think, like, is 5 landing pages…
+[00:36:24] Lindsey S: Adequate to test?
+[00:36:29] Sasha: It kind of depends on what you're testing, like, if you had, you know, traction on a headline from your initial test, and you're kind of trying to work within that ad angle, I think maybe it was you, like, that was one suggestion to, like, get data faster to your headline, rather than also testing,
+[00:36:45] Sasha: Images at the same time.
+[00:36:48] Lindsey S: Yeah.
+[00:36:48] Sasha: So that's kind of, like, my reason when I do only test headlines, is because, you know, I have something that is working, I had an image that worked well enough, and I kind of want to work on the headlines a little bit quicker, just to get more data to them a little bit faster, so…
+[00:37:04] Lindsey S: Yeah.
+[00:37:04] Sasha: Yeah, in that scenario, I think… I think 5, you know, 5 is okay, is… is good.
+[00:37:10] Sasha: That would be, like, the scenario in which I do, you know, make that decision when I'm trying to hone in on a headline to get it to work a little bit better.
+[00:37:19] Lindsey S: Sure.
+[00:37:22] Lindsey S: Okay, I think I will let you get back to Patrick. I really appreciate all your help.
+[00:37:26] Sasha: Okay, yeah, you're welcome.
+[00:37:27] Lindsey S: Stay safe. Thanks.
+[00:37:28] Sasha: Alright, bye.
+[00:37:32] Sasha: Hey, Patrick.
+[00:37:36] Patrick: Yeah, sorry about that earlier. I am…
+[00:37:40] Patrick: I'm a little weary this evening, so… I'll try to, I'll try to keep up with you, though, on this. I do have a few questions, however, so we'll go back.
+[00:37:52] Sasha: stopping the screen share on your part?
+[00:37:56] Sasha: I think I can… I can stop that somewhere, but I don't know how.
+[00:38:04] Sasha: Let's see… There we go, thank you.
+[00:38:09] Patrick: Okay.
+[00:38:11] Patrick: Let's see here, here we go.
+[00:38:14] Patrick: Oops.
+[00:38:18] Patrick: So… I, you know, I started off with,
+[00:38:25] Patrick: affiliate marketing and ClickFunnels. So, it's nice that, Flexi is pretty similar.
+[00:38:36] Patrick: It's just the transition that I'm making, you know, between… from one to the other that's been difficult, but .
+[00:38:43] Patrick: So anyway, I looked at the, these are all…
+[00:38:47] Patrick: The new… the new headlines… The editorial's here, so… Yeah… it loads…
+[00:38:58] Patrick: So, yeah, we… I removed all the, you know, braking and flash and all that. Now, I believe it was just the braking that we had to discontinue using, right?
+[00:39:09] Sasha: Yes, breaking or breaking news?
+[00:39:12] Patrick: Yeah, right, okay, yeah, so… Anyway… So we're,
+[00:39:20] Patrick: Let's see, what are we looking at? What do you want to look at?
+[00:39:23] Patrick: Well, I'm curious, I just want to make sure you're only, like, right now, you're only driving traffic to 25 landing pages, right?
+[00:39:30] Patrick: Yes.
+[00:39:31] Patrick: Right.
+[00:39:33] Sasha: That's what I want to make sure, because on your aggregate section, it looked like you had 10 headline elements, and so I'm wondering if some of the old headline elements carried over from before.
+[00:39:44] Patrick: No, see, these… these are all, inactive, these ones here.
+[00:39:49] Patrick: So, we don't have to worry about those anymore. Okay.
+[00:39:55] Patrick: Let's see, I have now about 872 entries, so it's been changed a few times, you know?
+[00:40:02] Patrick: I know what you're… you're looking at here, but yeah… I don't…
+[00:40:11] Patrick: So, what's up with these? What's up with these? These are not what I wanted, though. Is this a problem?
+[00:40:16] Patrick: Because, see, it says breaking, and all these, and flash, and…
+[00:40:19] Patrick: So, how come these are active? That's what I don't get.
+[00:40:23] Sasha: I… that's what I'm trying to…
+[00:40:25] Patrick: This was concierge.
+[00:40:27] Sasha: the HTV one.
+[00:40:34] Sasha: Okay, and scroll down to the bottom again, did you have 10 down there? Because it looks like…
+[00:40:39] Sasha: First, you had the CTAV1, which was an image, right? And then you had… HDV1, which is,
+[00:40:49] Sasha: Text, okay, and then… So what…
+[00:40:53] Patrick: -Oh.
+[00:40:56] Sasha: So those are the, like…
+[00:40:58] Patrick: This isn't… this isn't right.
+[00:41:01] Sasha: Yeah, so this is, like, a previous version of…
+[00:41:06] Sasha: I mean, you can just go ahead and…
+[00:41:07] Patrick: Changed.
+[00:41:09] Sasha: Well…
+[00:41:09] Patrick: I don't know at all.
+[00:41:10] Sasha: I did, because the bottom 5 are probably correct.
+[00:41:17] Patrick: You mean that… what, these right here?
+[00:41:21] Patrick: I guess.
+[00:41:22] Sasha: Image preview isn't showing right now.
+[00:41:23] Patrick: of… Yeah, it's kind of weird.
+[00:41:27] Patrick: So these are the hero shots, and then,
+[00:41:30] Patrick: The headlines, of course, are my old ones.
+[00:41:34] Patrick: I don't know what happened there.
+[00:41:37] Patrick: And they say active, so… That's a problem.
+[00:41:43] Patrick: How do I get that corrected? Should I.
+[00:41:46] Sasha: Well, I think you can just, yeah, just deactivate the HD, 1 through 5.
+[00:41:54] Patrick: Alright.
+[00:42:02] Sasha: What was your, jeez.
+[00:42:04] Patrick: What the heck?
+[00:42:10] Sasha: What was your last name again? I was just gonna pop into the… your DIY tracks and check the settings, because…
+[00:42:16] Patrick: Farrell. F.
+[00:42:18] Sasha: ARR.
+[00:42:19] Patrick: ELL.
+[00:42:30] Sasha: Because what it kind of looks like is that, like, the new ones were…
+[00:42:34] Sasha: put into DIY tracks, but not all of the old ones were deactivated.
+[00:42:40] Sasha: Just based on, like, that section still.
+[00:42:44] Patrick: Yeah, that's definitely what I'm seeing here. What happened here?
+[00:42:48] Sasha: Fair enough, okay.
+[00:42:52] Patrick: But then also, the… Headline…
+[00:43:01] Patrick: Huh, these are all active, see?
+[00:43:07] Sasha: Yeah, on the back.
+[00:43:08] Patrick: Oh, that's all messed up.
+[00:43:10] Sasha: On the… on the backend, it's showing… Just 25 landing pages.
+[00:43:23] Patrick: Which is, I think, all they created for me, when the, it was updated.
+[00:43:30] Patrick: As far as my headlines go.
+[00:43:35] Patrick: So that was all changed.
+[00:43:43] Patrick: I don't understand this, undefined, it's just…
+[00:43:51] Sasha: Yeah, this is very strange.
+[00:43:55] Patrick: Bye.
+[00:44:03] Patrick: So, yeah.
+[00:44:06] Patrick: So these should be turned off, too.
+[00:44:09] Sasha: I'm…
+[00:44:14] Patrick: I don't know what happened here, geez.
+[00:44:19] Sasha: That would be good.
+[00:44:20] Patrick: go.
+[00:44:21] Sasha: To be honest, this might…
+[00:44:25] Sasha: Might require a support ticket, because what I'm… what I'm seeing is on the back end, when I go to your landing pages tab, there's only 25 landing pages there.
+[00:44:36] Sasha: That are… that are, not deleted.
+[00:44:43] Sasha: So I'm gonna see if those are your…
+[00:44:46] Sasha: Your current ones, because the ones that are showing in the stats are…
+[00:44:51] Sasha: Looks like some of them are the old ones.
+[00:44:54] Sasha: That haven't been deleted.
+[00:44:59] Patrick: Oh, you mean down below here?
+[00:45:03] Sasha: Yeah, on the bottom section, how there was, like, 10 in the…
+[00:45:10] Sasha: You had your kind of, like, images and landing page headlines mixed up.
+[00:45:20] Sasha: Why don't you, try… try looking at it by searching for it by when you started the campaign most recently?
+[00:45:29] Sasha: To try and remove the stats from the previous version that you ran for, like, a day and then stopped.
+[00:45:37] Sasha: So when was the… when was the, when did you start your campaign this most, most recent time?
+[00:45:47] Patrick: What's that?
+[00:45:50] Patrick: Monday?
+[00:45:52] Patrick: I think… Monday the 8th?
+[00:45:55] Sasha: If you toggle the campaign activity graph, it'll give you a little… chart.
+[00:46:05] Patrick: Okay…
+[00:46:11] Patrick: Oh, it's at 12.9, yeah.
+[00:46:17] Sasha: Okay, that's better.
+[00:46:19] Patrick: Yeah.
+[00:46:21] Sasha: So…
+[00:46:23] Sasha: Alright, I think we can reactivate those. Sorry, I'm also looking at it on my second screen here, so I'm kind of doing the same thing you are on your campaign.
+[00:46:36] Sasha: So yeah, I think without…
+[00:46:38] Sasha: without filtering, starting on the 9th, it was just kind of showing you a bunch of old data, but when you filter from the 9th to today, and you go down to the landing page section, it all looks fine. It all just shows you the current things. Well, right now, they're all turned off, because you just turned them all off, but…
+[00:46:55] Patrick: If you do that, you can reactivate all of those, because those are the current ones.
+[00:47:01] Sasha: And are actually… showing properly.
+[00:47:10] Patrick: So yeah, on landing page performance here, where everything's inactive, now that's because I turned off my sub-campaign, right?
+[00:47:19] Sasha: No, that's because I think while we were trying to figure out what's going on, we started deactivating things.
+[00:47:27] Sasha: the…
+[00:47:29] Sasha: the creative status, you've turned off the creatives, and on the landing page side, you just need to start turning back on the ones that are this current version. You know, now that… are you filtered by the 9th through the…
+[00:47:43] Sasha: The 14th right now?
+[00:47:45] Patrick: Oh.
+[00:47:47] Patrick: No.
+[00:47:48] Patrick: Hang on.
+[00:47:51] Patrick: Yeah, okay.
+[00:47:51] Sasha: Yeah, just select your end date as the 14th, and then click search.
+[00:47:57] Sasha: And then scroll down to the bottom to the aggregate landing page section.
+[00:48:10] Patrick: Keeps loading.
+[00:48:15] Patrick: Yeah.
+[00:48:16] Patrick: So… There it is, okay.
+[00:48:22] Patrick: So there's where the problem lies, is that my previous campaign, that I think only lasted me a couple of days before I turned it back off.
+[00:48:33] Patrick: And this was because of the update with Caterpillar, right? So, you know, we weren't allowed to use breaking or breaking news anymore, so that's when I…
+[00:48:41] Patrick: I had shut down my campaign, and, and,
+[00:48:46] Patrick: you know, I came up with,
+[00:48:48] Patrick: new headlines, and… I don't think I changed the hero shots, but,
+[00:48:54] Patrick: But then I… then I also changed the ad, you know.
+[00:48:59] Patrick: To accommodate that rule, so…
+[00:49:04] Patrick: Both, both landing page and ad were, we're altered, so… I'm just…
+[00:49:16] Sasha: So, you'll just want to turn… make all of these active again.
+[00:49:19] Patrick: Right. So, by turning on sub-campaign, that won't automatically do it, huh?
+[00:49:24] Sasha: No, no, right now, just all of your landing pages are… are… have been made inactive.
+[00:49:31] Patrick: Yeah.
+[00:49:33] Patrick: Hmm.
+[00:49:53] Patrick: Okay.
+[00:49:57] Patrick: Sure is skipping around a lot. That's not me.
+[00:50:08] Patrick: Okay, so turning these on will activate also my…
+[00:50:13] Patrick: There it goes, there it goes, okay.
+[00:50:17] Patrick: Took a while.
+[00:50:18] Patrick: Okay, see, now these are all active, okay.
+[00:50:21] Sasha: Yeah. Yeah. Alright, so I think from now on, just when you look at your campaign stats, just start looking at from the 9th until whatever day you're currently on.
+[00:50:31] Sasha: And that won't mess up the landing page stuff, because those other ones are deleted, it's just showing weird data on the front end for some reason, but if you're filtering by the right dates, it should now start showing the.
+[00:50:43] Patrick: When I was talking, okay, when I was talking with Bruce, you know what he told me?
+[00:50:46] Patrick: When I… because I guess he really didn't understand what… what I did, is when I had to shut down
+[00:50:53] Patrick: you know, the first campaign, and I… Restarted.
+[00:50:58] Patrick: When you're at the… here, let me go to the top real quick here. And when you're… when you're searching like that, he told me to clear the from and to, and then hit search. So what that did is it pulled up history, all of it. And that data was combined, so that, I believe, is what kind of threw this off, so…
+[00:51:18] Sasha: Yeah, yeah, that makes sense.
+[00:51:20] Patrick: Yeah.
+[00:51:22] Patrick: But I'm gonna go ahead and hit active on these two, in the aggregate. Oops.
+[00:51:28] Patrick: Oh, boy.
+[00:51:36] Patrick: Okay, so let's just… ugh.
+[00:51:44] Patrick: When it loads, it just kind of hops around on the page.
+[00:51:48] Patrick: Alright.
+[00:51:51] Patrick: So, let's see here, that looks good.
+[00:51:56] Patrick: Okay, what about, so these will… okay, these will all… If I hit…
+[00:52:03] Patrick: sub-campaign for my second round, this'll be… All active, right?
+[00:52:10] Sasha: Well, not unless you turn off.
+[00:52:11] Patrick: somehow.
+[00:52:11] Sasha: odds.
+[00:52:14] Patrick: Oh.
+[00:52:16] Sasha: Because right now, all of your ads are inactive.
+[00:52:18] Sasha: It looks like you turned them off.
+[00:52:20] Sasha: Manually.
+[00:52:22] Patrick: Yeah, because what's funny… now, here's a question for you, okay? Let's go here to campaigns real quick.
+[00:52:30] Patrick: Yeah.
+[00:52:35] Patrick: No, it's not working, okay.
+[00:52:40] Patrick: Basic info here, I got, I left, so that's on, so that's what you want.
+[00:52:48] Patrick: For your link to work, and then go into traffic source, subcampaign, And, and that is off, so…
+[00:52:57] Patrick: When I… so, yeah, what you're saying is, when I go back.
+[00:53:06] Patrick: For round 2 here, and I hit… I turn on sub-campaign.
+[00:53:10] Patrick: I still have to turn on each individual ad, right?
+[00:53:15] Sasha: Well, yeah, I mean, you wouldn't want to turn them all on right now, because… I mean, I guess, yeah, once you add the ads, but yes, like, they have to be active in the campaign in order for them to run when you turn the sub-campaign on.
+[00:53:27] Patrick: Okay, so my… I guess my question for you is then, when I turned this off, when I was done running…
+[00:53:34] Patrick: when I reached my limit, my spend limit, I turned this off, but… The ads that were still…
+[00:53:41] Patrick: Active in stats, right?
+[00:53:46] Sasha: They would stop running.
+[00:53:47] Patrick: running, I mean, but they didn't.
+[00:53:50] Sasha: It'll just take a while for it to catch up. The spend data isn't in real time.
+[00:53:55] Sasha: So there's a little bit of a lag of, like, you know, 4 hours or something.
+[00:53:59] Sasha: So, when you stop…
+[00:54:00] Patrick: Oh, really?
+[00:54:01] Sasha: There's… there's still, you know, the…
+[00:54:04] Sasha: The data that tells us how much money is spent is behind the click data.
+[00:54:09] Sasha: There's about, like, I don't know, a 4-hour gap or something, so even when you stop, the numbers will change a little bit for the next, you know.
+[00:54:16] Sasha: Part of the day, and then they'll… they'll settle and stop.
+[00:54:22] Patrick: Alright, good to know. Alright. So, as long as that sub-campaign is turned off, you shouldn't… it should.
+[00:54:28] Sasha: Yeah, even if all of your ads were active, it'll stop… it'll stop spending on them, it just won't… you won't see that it stopped spending on them until a few hours later.
+[00:54:40] Patrick: Alright.
+[00:54:43] Patrick: Okay, so I'd need to… So for round 2, select… What's… What's moving the best, right?
+[00:54:58] Sasha: Yeah.
+[00:54:59] Sasha: But again, you kind of have, like, incomplete data on some of them. Like, 139 didn't get much ad spend, so probably not a bad idea to kind of turn it on and let those spend a little bit, just to see, you know, at least, like, I don't know, 30 to…
+[00:55:16] Sasha: $40 just to see how it compares. You know, 9 at this point doesn't look promising, but once again, it doesn't have that much ad spend yet, whereas number 3 is looking kind of on par with your other ones that are
+[00:55:30] Sasha: Kind of towards the top, so…
+[00:55:33] Sasha: You know, if you wanted to start making decisions now, without putting more money into the ads that haven't finished running, so to speak, there's, you know, your one that's at 12.96 is kind of performing the best right now.
+[00:55:46] Sasha: But…
+[00:55:49] Patrick: Nope.
+[00:55:49] Sasha: Well… Sort of, I guess.
+[00:55:52] Patrick: UPC was a little high on that one, so…
+[00:55:55] Sasha: Yeah, yeah, the CPU.
+[00:55:56] Patrick: Why is quite high.
+[00:55:57] Sasha: on that one.
+[00:55:59] Sasha: Oh, just the…
+[00:56:00] Patrick: static, so I don't… I don't know why that would be so costly.
+[00:56:05] Patrick: I mean, I was on a few of them. I was up, like, $1.05, and
+[00:56:11] Patrick: 86 cents a click, and I mean…
+[00:56:13] Patrick: That seems pretty high for not having a video, right?
+[00:56:18] Sasha: Yeah, I mean, the different placements, even within still images, will have different CPM costs, just depending on which publisher they're going to, so it's not… it's not gonna be 100%, like, the same for all of them.
+[00:56:33] Patrick: Okay.
+[00:56:38] Patrick: Alright, well, I'll run the… I think I'll just run those 3 for a little while longer then, probably turn those on in the morning, perhaps.
+[00:56:47] Sasha: Yeah, that way you can kind of keep an eye on it throughout the day, yeah.
+[00:56:50] Patrick: Yeah.
+[00:56:54] Patrick: Alright, well, I don't know what else I had for you.
+[00:57:01] Sasha: Alright, well, I'm glad we at least figured out the landing… that the landing page stuff is… is working properly.
+[00:57:08] Patrick: Yeah, yeah, I appreciate it, man, thank you.
+[00:57:10] Sasha: Yep, have a good evening.
+[00:57:13] Patrick: You too, bye.

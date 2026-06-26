@@ -1,0 +1,112 @@
+TITLE: E-Comm Weekly Check-in
+SOURCE: coaching-transcripts.txt
+META: Dec 15, 2025 02:55 PM Eastern Time (US and Canada) ID: 871 4118 4568
+TURNS: 107
+
+[00:03:17] Build Test Scale: Hi, Mona.
+[00:03:18] Mona Palad: I'm not real, I'm gonna…
+[00:03:28] Build Test Scale: Hey, Mark.
+[00:03:29] Mona Palad: Hi, Mark!
+[00:03:33] Mark Blyn: Gene, you gonna make it?
+[00:03:35] Build Test Scale: Yeah, I opened the meeting 5 minutes before.
+[00:03:40] Mona Palad: She's still breathing.
+[00:03:41] Build Test Scale: Yeah, I'm still breathing.
+[00:03:44] Mark Blyn: Excellent.
+[00:03:45] Mark Blyn: It's just the potential.
+[00:03:46] Mona Palad: There it is.
+[00:03:48] Mark Blyn: Yeah, yeah, yeah. Well, so, let me share my screen.
+[00:03:56] Mark Blyn: I'm just looking at this for the first time since you updated it. So, how do you feel about all the products? Do we have the ones killed off?
+[00:04:04] Mark Blyn: the stores closed that we're not using, we're good on that? Yes. Paying for anything we don't need to pay for? Okay.
+[00:04:12] Mark Blyn: So, what am I looking at here? So… one sheet.
+[00:04:16] Mona Palad: You should check the product offers. Sorry, can you check on internal?
+[00:04:24] Mona Palad: Yeah, that one. That is, the most updated one, because Adam Sheets is the one
+[00:04:32] Mona Palad: Adam used before, you know, just to line up all of the products coming in, something like that. So, Dan decided not to touch it.
+[00:04:40] Mona Palad: So, if you wanted me to hide that sheet, let me know.
+[00:04:46] Mark Blyn: Oh, I see, okay, alright. So, what I'm looking at, this is the lineup of products that are currently offered on Media Mavens, right?
+[00:04:54] Mona Palad: Yes, that's right.
+[00:04:57] Mark Blyn: Okay.
+[00:04:58] Mark Blyn: Activate that.
+[00:04:59] Mona Palad: Well, I have to correct you on that. Bill there in the internal, has the active in the products that are waiting to be tested, like the Concour, the Golden Tail Playball, you can filter them by statuses.
+[00:05:17] Mona Palad: Because it's filtered into Act days?
+[00:05:21] Mona Palad: Yeah, and then we have fast testing, I believe, yeah.
+[00:05:26] Mark Blyn: Okay, got it.
+[00:05:30] Mona Palad: Okay.
+[00:05:31] Mark Blyn: All right, cool.
+[00:05:34] Mark Blyn: What does Adam Sheet? Oh, so this is his… this is the main…
+[00:05:38] Mona Palad: Yeah, this has the old ones that we already closed out, you know, all that's jazz.
+[00:05:48] Mark Blyn: All that jazz. Alright.
+[00:05:52] Mark Blyn: Alright, so… 1, 2… 12, 14…
+[00:06:00] Mark Blyn: So we have 16 products, okay.
+[00:06:03] Mark Blyn: Smart eye relief device.
+[00:06:06] Mark Blyn: IEs.
+[00:06:08] Mona Palad: Yep.
+[00:06:12] Mark Blyn: Look at some of this.
+[00:06:13] Mark Blyn: Alright, cool. Well… I know we talked here recently, last week.
+[00:06:19] Mona Palad: What's new? What's going on?
+[00:06:21] Mark Blyn: I know we're kind of not doing a lot until the beginning of next year, but again, I just want to make sure we're not paying for anything that we don't need to pay for.
+[00:06:30] Mark Blyn: Or that things are still open that we're paying for that we thought we closed, but now we owe more money. I just want to make sure that we're all caught up on that.
+[00:06:38] Mona Palad: Yeah, we're all caught up on that. Everything that has, you know, payment failed, we're already, waived. The… or…
+[00:06:46] Mona Palad: In other words, we don't have to pay for anything more. I already contacted with the subscriptions that we are using for the stores that we closed, so they also waived the fees, so everything is all good on that. Regarding, you know, work-wise, it's really, you know, more into fulfillment of orders, and then just doing a lot of cleanups. Just this morning.
+[00:07:10] Mona Palad: You guys know that we're supposed to close the TAFELAID orders, so, I already instructed JM to do that, and then we are…
+[00:07:21] Mona Palad: We updated all of the reviews for all of the active… the 16 products that we have, to make sure everything looks nice, you know, no negative comments whatsoever. Oh, so yeah.
+[00:07:36] Mark Blyn: So walk me through, when you say you updated the reviews, what does that mean?
+[00:07:39] Mona Palad: When we update reviews, we generate it using Claude, so we have, around 1,040 reviews generated, and we upload them on the website manually every month, so that's routineary,
+[00:07:54] Mona Palad: the way Dan set it up, just to make sure everything is updated, because some of the products, like, for example, with IEs, they're not getting…
+[00:08:02] Mona Palad: You know,
+[00:08:05] Mona Palad: monthly or weekly orders, so whenever, you know, a mentee would like to, promote it, at least when they check on it, the reviews stay up to date.
+[00:08:16] Mona Palad: So, that's that. And part of the cleanup is also making sure that there's no negative review on the first page of the sales page.
+[00:08:26] Mark Blyn: Okay.
+[00:08:27] Mark Blyn: Yep. How does Judge Me… how does that work?
+[00:08:30] Mona Palad: Judge Me is a plugin that we use on Shopify, so they have… so basically, it's just, you know, to make the… what do you call that?
+[00:08:43] Mona Palad: of the… site.
+[00:08:46] Mona Palad: reviews look nicer. So, with that, we… Because there's no new orders coming in, especially for new products, we decided to just generate
+[00:08:57] Mona Palad: What do you call that? Generate reviews that looked in… that looked real.
+[00:09:03] Mona Palad: So yeah, that's that. It's a plugin, and we're not paying for it, so that's… that's good.
+[00:09:11] Mark Blyn: We're… we're not paying for it?
+[00:09:12] Mona Palad: No. The only thing that we are paying is the blocky, which is really important for the themes.
+[00:09:19] Mona Palad: of the Shopify in the Prime bundles, so that we can, sell it
+[00:09:26] Mona Palad: In singles, duo, and trio.
+[00:09:29] Mona Palad: So… Those are the only place we take.
+[00:09:33] Mark Blyn: Do you know, or where would I see, and maybe it's right here in front of me, how much we're paying per store, per product?
+[00:09:39] Mona Palad: I… I don't have a list, but let me just pull up, Bartchester, since I have it in front of me. Every month, we are paying 80…
+[00:09:52] Mona Palad: Around about 60.
+[00:09:55] Mona Palad: 66.
+[00:09:57] Mona Palad: dollars.
+[00:09:58] Mark Blyn: That includes the monthly, which is, $29.
+[00:10:02] Mona Palad: Dollars, let me just check, to give you the exact…
+[00:10:07] Mona Palad: So yeah, our subscription is $39, and then for both of the apps, the Prime bundles and the, Blocky, it's $22.99.
+[00:10:20] Mona Palad: So, I can give you, a list of the products, the…
+[00:10:26] Mona Palad: amounts we pay monthly. I'll update the sheet as well, the one that you have right now.
+[00:10:33] Mark Blyn: Yeah, I thought we had a sheet.
+[00:10:34] Mark Blyn: That I saw before. I probably have it somewhere inside my different… 100 different spreadsheets.
+[00:10:42] Mona Palad: Oh yeah, yeah, I found it, but it's not updated, so I'll try to…
+[00:10:50] Mona Palad: I'll update it, and then I'll let you Yep.
+[00:10:56] Mark Blyn: Alright.
+[00:10:57] Mark Blyn: Let me think…
+[00:11:04] Mark Blyn: I don't think I have really much more. Anything that you want to talk about, or you have concerns with, or you want to ask about?
+[00:11:10] Mona Palad: Nothing much, because there's nothing going on so much, but I just wanted to share, I received Dan's package already.
+[00:11:18] Mona Palad: for Skin Spectra and the VistaVeil. He sent this last October, and it lost in the mail. So the plan for this is for me to take shots of it, because the ones that we have right now, doesn't…
+[00:11:37] Mona Palad: have the front, doesn't have the back portion, so if we want to, like, make a video or, like, tweak it, to make it more…
+[00:11:48] Mona Palad: to make the images with the target audience that we have, say, 35 to 45 women, we can easily alter good it. So, yeah, I haven't opened it yet, but yeah, I'll work on it as well, so we have new photos coming in, in case we need to.
+[00:12:05] Mark Blyn: I couldn't see, what is it? What are those packages?
+[00:12:09] Mona Palad: Sorry, my night is really…
+[00:12:11] Mark Blyn: No, you gotta hold it, like, right in front of the camera, so it kind of…
+[00:12:15] Mona Palad: Yeah, it's the Spectra one.
+[00:12:17] Mark Blyn: Oh, okay. Yeah. Bull light, but yeah. You got some bright light there.
+[00:12:22] Mona Palad: I know, my husband got me, like, two lights above me, because I have migraines when I… when it's too dark, and then the computers are all set up. But yeah, it's the VistaVeil one, and the Skin Spectra, so the goal is for me to use it, and then I'll tweak my face to look
+[00:12:39] Mona Palad: older, hopefully look more Western, because I look so Asian. You know what I mean?
+[00:12:46] Mona Palad: So that's really the goal of it. That's funny. So, we'll experiment.
+[00:12:54] Mark Blyn: All right, very good. Okay. I don't think we have much more to talk about. I know Jean probably just doesn't feel good, so she doesn't need to talk.
+[00:13:04] Mona Palad: Yeah, you should take a rest.
+[00:13:06] Build Test Scale: Just listening, and if I I mean, I had to just, like, earlier meeting with George.
+[00:13:12] Mark Blyn: Okay. All right. All right, well, I think we're good. I think it's, again, it's important that we stay… and… not stay, it's important that we meet once a week just to talk about everything that's happening, even if that means there's not a lot going on, we still need to see each other and talk to each other.
+[00:13:28] Mark Blyn: And, we'll continue doing this. Again, I do expect the beginning of next year, we're gonna ramp up a lot.
+[00:13:36] Mark Blyn: And so that means you'll be taking on a lot more roles. But until that, just make sure that
+[00:13:42] Mark Blyn: We're not…
+[00:13:44] Mark Blyn: Paying for expenses that we don't need to pay for, just keep an eye on all of the money that's going out, as well as money coming in, but we want to be very mindful of what our expenses are, and what we're bringing in for revenue, just like any other smart business, so…
+[00:14:00] Mark Blyn: just stay on top of that, and I think we're good to go, so I will see you on Wednesday's coaching call.
+[00:14:06] Mona Palad: Yep, I'll see you guys next week, and then I'll update the sheet so we have all of the data, updated.
+[00:14:13] Mark Blyn: Awesome.
+[00:14:14] Mona Palad: I'll keep you posted on that. Thanks so much for your time, guys. Gene, take a yes.
+[00:14:18] Build Test Scale: Thanks, Mona. Thanks for a lot.
+[00:14:21] Mona Palad: Thanks, Mark, bye.

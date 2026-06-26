@@ -174,3 +174,15 @@ id = "hhIUXWHxUCqgvhcsy9DZX"
 uri = "file://artifacts/api-server/src/knowledge-base/coaching-transcripts.txt"
 type = "text"
 title = "Full 1-on-1 coach call corpus — coaching-transcripts.txt (3.0 MB)"
+
+[[outputs]]
+id = "0YL0ahP-S69iJ8bc4PH51"
+uri = "file://artifacts/api-server/src/knowledge-base/coaching-transcripts-split/_index.txt"
+type = "text"
+title = "Split index — all 52 calls (sorted by length)"
+
+[[outputs]]
+id = "o8wMRtKLuJajVFbNftE26"
+uri = "file://artifacts/api-server/src/knowledge-base/coaching-transcripts-split/live-coaching-call-sasha-1.txt"
+type = "text"
+title = "Example cleaned call — Sasha (364 turns)"

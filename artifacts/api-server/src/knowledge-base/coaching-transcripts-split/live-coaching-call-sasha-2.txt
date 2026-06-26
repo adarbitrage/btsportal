@@ -1,0 +1,688 @@
+TITLE: LIVE COACHING CALL - SASHA(2)
+SOURCE: coaching-transcripts.txt
+TURNS: 684
+
+[00:00:29] Sasha: Hello, Jen.
+[00:00:30] Jenn Thiessen: Hello! Looks like I'm the only one so far.
+[00:00:33] Sasha: Yeah, so far.
+[00:00:36] Sasha: Give me one second.
+[00:00:38] Jenn Thiessen: Okay.
+[00:00:59] Sasha: Oh, alright.
+[00:01:01] Sasha: Okay, I'm ready. How are you doing?
+[00:01:04] Jenn Thiessen: Good, how are you?
+[00:01:04] Blain Carson: Doing good.
+[00:01:05] Sasha: I'm doing well.
+[00:01:07] Sasha: Looks like you… you got your hand up, so what's the question, Jen?
+[00:01:12] Jenn Thiessen: Well, I feel like my campaign is a flop, so I wanted you to take a look at it and,
+[00:01:19] Jenn Thiessen: see where to go. Let me share my screen here.
+[00:01:22] Sasha: Okay.
+[00:01:24] Jenn Thiessen: So I talked to Bruce, I think it was last week, and I did round one, and so I picked my winning
+[00:01:31] Jenn Thiessen: headline, and he had me kind of jump to round three. I'm not exactly sure why, but that's how, I guess, it used to be done. So now I have my one headline with 10 different images.
+[00:01:43] Jenn Thiessen: And I'm just not getting any sales, I only have one ad to cart, so I don't know what I'm doing wrong, but…
+[00:01:53] Jenn Thiessen: Yeah. Yeah.
+[00:01:54] Sasha: The no sales part is… Not… not great, and then you're…
+[00:02:01] Sasha: It looks like your landing page click-through rate is pretty low.
+[00:02:05] Jenn Thiessen: Yeah.
+[00:02:07] Jenn Thiessen: So I don't know if I need to redo round one and pick a different… winning headline, or…
+[00:02:13] Sasha: What were the, sort of the metrics behind your winning headline that you moved forward with? And let's actually look at it, too, since you're.
+[00:02:21] Jenn Thiessen: Okay, yeah, I can… Try to remember the dates, I think it was the 18th.
+[00:02:26] Sasha: If you toggle the campaign activity graph button right there, it'll kind of show you where your waves were.
+[00:02:33] Jenn Thiessen: Oh, okay.
+[00:02:35] Jenn Thiessen: Yeah, so I think, like, the 18th.
+[00:02:38] Jenn Thiessen: 20… Okay.
+[00:02:48] Jenn Thiessen: Because I didn't get a sale the first round either.
+[00:02:54] Jenn Thiessen: So…
+[00:02:58] Jenn Thiessen: I forget how Bruce had me. I think he had me do CPC? Does that sound right?
+[00:03:05] Sasha: Landing page event CPC would be one way to filter it, yeah, that's a good way to look at it.
+[00:03:12] Jenn Thiessen: I think it was this… yeah, it was this top one here that he had me go ahead and use.
+[00:03:27] Jenn Thiessen: I don't know why the picture's not loading, but…
+[00:03:29] Sasha: Yeah, it happens sometimes. Sometimes if you click on it, it loads it in a new screen.
+[00:03:34] Jenn Thiessen: Oh, there we go.
+[00:03:36] Jenn Thiessen: He also said this image wasn't the best, because it…
+[00:03:40] Jenn Thiessen: can come across as, like, because I'm doing the RoboMouse, and it can come across as, like, a…
+[00:03:46] Jenn Thiessen: A sleep aid, like a pill for cats instead of…
+[00:03:50] Jenn Thiessen: the RoboMouse, so… Anyway, I…
+[00:03:54] Sasha: It's different.
+[00:03:55] Jenn Thiessen: Pictures with this second round, but.
+[00:03:59] Jenn Thiessen: But yeah, I don't know if that's good, solid metrics to go ahead and use that, or if I should redo.
+[00:04:06] Sasha: I mean, yeah, I mean, it was a good, like, early stage indication of interest, and…
+[00:04:12] Sasha: I'm a little surprised that you're…
+[00:04:15] Sasha: your click-through rates dropped so much, because, I mean, that was a…
+[00:04:21] Sasha: A decent… a decent start, at least.
+[00:04:23] Sasha: How about your, your landing page, overall, like, landing page performance.
+[00:04:32] Jenn Thiessen: I don't know, I don't think we ever looked at that.
+[00:04:35] Sasha: Oh, you do have a purchase. When is that from?
+[00:04:37] Jenn Thiessen: Oh, so I was doing soothe steps to begin with.
+[00:04:43] Jenn Thiessen: And…
+[00:04:45] Jenn Thiessen: Yeah, Bruce told me to switch, because I wasn't doing well with that, but I did get one purchase from that.
+[00:04:53] Sasha: Wait, but you didn't start a new campaign for Soothe Steps?
+[00:04:56] Jenn Thiessen: I did.
+[00:04:57] Sasha: We're sorry.
+[00:04:57] Jenn Thiessen: spent…
+[00:04:58] Jenn Thiessen: the first few steps, yeah, I spent, like, I don't know, $1,800 on ad spend, and I only got that one purchase, and…
+[00:05:05] Sasha: But… but did you start a new campaign when you started RoboMouse?
+[00:05:09] Jenn Thiessen: Yeah,
+[00:05:11] Sasha: That's weird, so why is there still a purchase there?
+[00:05:14] Jenn Thiessen: That's a good question.
+[00:05:15] Sasha: Because the revenue is $50, I don't know if the Soothe Steps is the same.
+[00:05:20] Jenn Thiessen: Oh, it's 75. Maybe I did get a.
+[00:05:22] Sasha: Yeah, so it looks like…
+[00:05:24] Jenn Thiessen: just them.
+[00:05:25] Sasha: sometimes… If a postback doesn't, like, fire properly, like, you'll get a purchase on…
+[00:05:32] Sasha: within, kind of, Media Mavens, but it won't track back to the ad. So that's something that I think is something you can message with the support team. They can figure that out manually and see if they can… and they'll be able to attribute it to what ad it came from.
+[00:05:46] Sasha: Which might be helpful in your case. And we actually do have the support team in the chat right here on this call, so you can try and just kind of ask them to look into that just while you're on this call.
+[00:06:00] Jenn Thiessen: Okay.
+[00:06:01] Jenn Thiessen: Huh, yeah.
+[00:06:02] Sasha: Yeah, that's.
+[00:06:02] Jenn Thiessen: That's the first time seeing that event.
+[00:06:04] Sasha: Yeah, yeah, that would be good to know. I mean, it would be good to know whether that came from…
+[00:06:08] Sasha: this current round, or… or a previous round. Let's try… I'm not sure if this will…
+[00:06:16] Jenn Thiessen: Yeah, my previous round, I got 13 Add to Carts, and so Bruce was saying, I'm surprised you haven't gotten a sale, but maybe I did, and it just didn't.
+[00:06:25] Sasha: Yeah, I just enjoyed it.
+[00:06:26] Jenn Thiessen: it right, or something.
+[00:06:28] Sasha: Yeah, yeah, but that happens.
+[00:06:30] Sasha: Alright, well, I guess back to… I mean, definitely figuring out where that came from would be helpful, because…
+[00:06:37] Sasha: That might sort of change the direction of how a certain ad is looking, you know?
+[00:06:42] Jenn Thiessen: Yeah, okay.
+[00:06:43] Sasha: For example, that came from another ad that was kind of a top contender from round one.
+[00:06:50] Sasha: But you decided to go with, you know, another one based on not knowing that metric.
+[00:06:55] Sasha: That could potentially change things a little bit.
+[00:06:58] Sasha: Okay. So that's… that's a decent thing to look… to look into.
+[00:07:03] Jenn Thiessen: Okay.
+[00:07:07] Sasha: Yeah, you know, the one thing is that, like, the… the whole tool word, I think, in this… in this case might be, like.
+[00:07:15] Sasha: Instead of kind of, like, creating curiosity in a way, it might just be a bit misleading in a way that's not resonating.
+[00:07:24] Sasha: you could try different phrasing of, like, you know, just say toy, you know, like, this clever toy instead of secret tool, just to sort of pre-frame, I guess, the idea that, like, alright, this is kind of what you're going to expect.
+[00:07:39] Sasha: And I think, especially with kind of, like, lower ticket items, such as RoboMouse and, like, Barkchester, just…
+[00:07:47] Sasha: Potentially, you know, talking about it as a…
+[00:07:51] Sasha: a little bit more directly, like, as a toy or a gadget, that might actually kind of help improve things rather than hurting. It's kind of a fine line, like, you kind of still have to…
+[00:08:02] Sasha: talk about it in a kind of editorial way, rather than a true, like, hey, buy this toy kind of thing. But, that is something I would recommend. You just test in some of your headlines, is being a little bit more direct. Once again, kind of.
+[00:08:20] Sasha: In the same kind of editorial vein, because that might…
+[00:08:24] Sasha: You know, attract the kind of clicks that would actually
+[00:08:28] Sasha: Drive people that might be intended to be looking for something like that.
+[00:08:34] Jenn Thiessen: Okay, that makes sense. That's just kind of, like, an intuitive reading into that headline, like, it's definitely still was worth a test to, like.
+[00:08:42] Sasha: Try that wording, but…
+[00:08:44] Sasha: Just thinking of next round steps of if you were to test headlines, but you already have some data in terms of, like, you know, what showed initial promise.
+[00:08:54] Sasha: It's not like you're starting testing from scratch again. You kind of have some idea of things that drove engagement, but now we can kind of start thinking about other ways of phrasing that.
+[00:09:07] Jenn Thiessen: Okay. Would I just take, like, my top 5 phrases, or headlines?
+[00:09:15] Jenn Thiessen: I got these from, the concierge team, too, they helped me, and Bruce was like, I don't like this one because the state doesn't fit
+[00:09:25] Jenn Thiessen: like, it sounds weird, don't let your, I'm in Colorado.
+[00:09:28] Sasha: Yeah.
+[00:09:29] Jenn Thiessen: couch. He's like, that sounds weird, but I just got it from the concierge team, so… I guess…
+[00:09:36] Sasha: Yeah.
+[00:09:37] Sasha: Yeah, I mean, I think that, like, the state and stuff like that, it can… it can work.
+[00:09:42] Sasha: But it shouldn't necessarily be forced.
+[00:09:45] Jenn Thiessen: Right, right.
+[00:09:46] Sasha: So, I would just, like, kind of just use… use your best judgment and your own intuition when you're sort of proofreading the headlines that the concierge gives you. You know, I think they're a good resource for, you know, helping brainstorming and coming up with ideas, but, you know, it's still kind of…
+[00:10:02] Sasha: use your own, you know, mental filter when reading things, and you know, same when I work with ChatGPT or something like that, like, I'm…
+[00:10:11] Sasha: still being like, well, I don't like that, that seems weird, and I'll kind of change things around. So definitely feel free to…
+[00:10:17] Sasha: To, you know, not treat their, their sort of examples or ideas as, like, you must do this.
+[00:10:23] Jenn Thiessen: Yeah, yeah.
+[00:10:25] Sasha: Just as another tool to help you come up with… with… different assets.
+[00:10:29] Sasha: In terms of the… the numbers, I guess,
+[00:10:34] Sasha: you know, all of those that are, like, in the $3 to $5 landing page event CPC, just, like, looking at raw numbers, not even looking at, like.
+[00:10:44] Sasha: the headlines behind them. Those are all within a decent range for, like, for starting, You know…
+[00:10:52] Sasha: starting metrics.
+[00:10:54] Sasha: So, iterating off those isn't…
+[00:10:58] Sasha: isn't a bad idea, you know what I mean? That said, you kind of want to go over them and see if there are any other headlines that kind of rub you the wrong way, kind of like that misplaced state, you know, thing.
+[00:11:08] Jenn Thiessen: Yeah.
+[00:11:09] Jenn Thiessen: Okay.
+[00:11:10] Sasha: The other thing to keep in mind, and this is kind of a minor detail, but, I just found out that when, when there is the state,
+[00:11:18] Sasha: dynamic, placement. It actually doesn't spell out the full state, they abbreviate it into its two-letter abbreviation.
+[00:11:26] Jenn Thiessen: Oh, really?
+[00:11:27] Sasha: It doesn't make a huge difference, it actually is kind of beneficial, because some states are pretty long names.
+[00:11:33] Sasha: And so, it doesn't… it doesn't run the risk of your headlining getting… your headline getting truncated, because, you know, Mississippi is long. If you're already close to 90 characters, the end of your headline might get cut off. So yeah, just keep in mind, in terms of, like, if you are using that, that that's how it's gonna be presented.
+[00:11:52] Jenn Thiessen: Okay.
+[00:11:53] Jenn Thiessen: Interesting.
+[00:11:55] Sasha: But yeah, I mean, I think your first next step is figuring out where the purchase came from, and then, kind of, hopefully it fits into one of your ones that we block out.
+[00:12:06] Jenn Thiessen: or…
+[00:12:07] Sasha: Yeah, a top 4 engagement… engagement rate, ones. And then I would probably recommend, you know, we're getting more and more guidance that, like, fewer,
+[00:12:18] Sasha: ads in a sub-campaign is a little bit more beneficial for the algorithm initially. So, probably, like, if you start another round, then doing,
+[00:12:30] Sasha: Doing 3 to 5 per sub-campaign.
+[00:12:33] Sasha: is… is a good… good starting point instead of 10. I think it just kind of helps keep, CPC costs down a little bit. And also, using…
+[00:12:45] Sasha: I think we're gonna be moving a little bit more in the direction of using different images in the same vein, even for headline testing.
+[00:12:52] Sasha: We've been kind of, like, told that sometimes if you're using the same image, they can kind of compete with each other for placement within the algorithm, I think. And, and that can slightly drive up your cost per clicks. Like, it's not a huge change, it's not, like, an invalid test, necessarily, to test with the, you know, the same image, but it was just another kind of, like.
+[00:13:12] Sasha: Point of feedback we got from the traffic source that it can kind of…
+[00:13:16] Sasha: help improve the costs a little bit. You know, that said, if you are doing, like, a headline test, I would still test images that are sort of in the same vein, that are probably fairly similar, so you're not… you're still testing, essentially, a single variable, which is the headline, but you're at least have…
+[00:13:33] Sasha: different enough images that it doesn't run into that issue of kind of, you know, competing against each other. So, I would still, like, if you had, for example, like, a picture of a sleepy cat, I would just have 4 different pictures in similar, kind of.
+[00:13:47] Sasha: proportions and, you know, backgrounds of a sleepy cat. So you're testing, like, the sleepy cat is essentially the angle of the image that you're testing, but you just have four slightly different ones.
+[00:13:59] Jenn Thiessen: Okay.
+[00:14:00] Sasha: So, yeah, that's another… Another kind of small adjustment that you can make in future.
+[00:14:06] Sasha: Rounds of, of testing.
+[00:14:08] Jenn Thiessen: So for each… because I used the same sub-campaign for my round one and my second round. Is that not what I should be doing?
+[00:14:16] Sasha: I think, you know, I think at this point you can start, new… new sub-campaigns for future rounds of testing. I think there's a… there's kind of, like, the combination of things. There's a certain amount of algorithm learning that happens on the sub-campaign level, but then…
+[00:14:34] Sasha: it still kind of applies that general knowledge of where your placements are working to the campaign level. And part of sort of the learning process that every sub-campaign goes to is trying to, like, get to a certain number of conversions before it exits learning mode.
+[00:14:52] Sasha: And so, if you're not essentially getting those conversions after a period of time, it can kind of, like, slow down the traffic a little bit, and slow down
+[00:15:01] Sasha: sort of the breadth of where it's being delivered. So, yeah, I would say you can… to start kind of a fresh initial boost of traffic, you can probably start with a fresh sub-campaign. Definitely within the same campaign, since this is already a RoboMouse one, but…
+[00:15:17] Jenn Thiessen: Yeah.
+[00:15:17] Sasha: at this point, since, you know, you haven't had many conversions, I think it might actually be beneficial to kind of, like, start with a fresh one, kind of using what you've learned from
+[00:15:27] Sasha: From the previous rounds.
+[00:15:30] Jenn Thiessen: Okay, so I just toggle this off, I don't actually delete it, I just…
+[00:15:34] Sasha: Yeah, yeah, that's correct.
+[00:15:35] Jenn Thiessen: toggle it. Okay. And then, I probably should just turn it off and not let it run the next 100, right?
+[00:15:41] Sasha: Yeah, yeah, I would say at this point, let's just pause a little bit, figure out where that conversion came from, kind of reassess your headlines, hopefully including where the conversion came in, and then just, you know, figure out ways to kind of tweak the headlines that showed promise to kind of improve them a little bit.
+[00:16:00] Jenn Thiessen: Okay, and you said 3 to 5 ads within a sub-campaign?
+[00:16:05] Jenn Thiessen: And then… so I might have multiple sub-campaigns with, like, multiple ads in each one.
+[00:16:11] Sasha: Yeah, yeah, you could, but, you know, it's up to you. I'd say it kind of depends on
+[00:16:16] Sasha: you know, your overall budget for spending, if you're… if you're running… like, I wouldn't…
+[00:16:22] Sasha: I wouldn't push a sub-campaign to only, like, $50 a day, probably. I think that's kind of a little bit below the bare minimum for what the algorithm kind of needs to start spreading out your traffic, so if your budget is around $100, I would probably limit it to one subcampaign.
+[00:16:38] Jenn Thiessen: Yeah, okay.
+[00:16:39] Sasha: In general, just to make sure it kind of has that initial boost of delivering it to all sorts of, kind of, pockets of traffic.
+[00:16:47] Sasha: Yeah. Because you can always, like, let, you know, 3 to 5 run for a little bit, see how they do, you know, add 3 to 5 more, turn off the original ones. It's just more of the, like, 3 to 5 at a time, I think, that's… that's more important.
+[00:17:01] Jenn Thiessen: Okay.
+[00:17:02] Jenn Thiessen: Okay, and then I messaged the support team on the chat, and they haven't responded.
+[00:17:09] Sasha: Yeah, I actually messaged them a little earlier, too. They haven't responded, so I'll… yeah, I don't know. Hopefully, hopefully they'll…
+[00:17:16] Jenn Thiessen: They don't.
+[00:17:16] Sasha: Send an email, or you can try the, we have in the TC portal, we have that little live chat widget, and there's usually people around to answer questions there, too.
+[00:17:28] Jenn Thiessen: Where is that at?
+[00:17:29] Sasha: That little blue icon…
+[00:17:31] Jenn Thiessen: Oh, right here. Okay. Interesting. Okay.
+[00:17:35] Jenn Thiessen: Cool, well, that helps me out. Thank you so much.
+[00:17:39] Sasha: Yeah, yeah, you're welcome.
+[00:17:42] Sasha: Alright, Blaine.
+[00:17:44] Blain Carson: Hey, how are you?
+[00:17:45] Sasha: I'm doing well.
+[00:17:46] Blain Carson: Good Good, so I, let me share my screen here.
+[00:18:06] Blain Carson: Okay, so what… here I had one sale right in the very beginning with the first. I haven't had any since.
+[00:18:14] Blain Carson: This… the… the thing is, is I did… originally did,
+[00:18:20] Blain Carson: And I guess, you know, pretty much all of these at one time.
+[00:18:24] Blain Carson: And then I was talking with, Bruce.
+[00:18:29] Blain Carson: And he had me… oh, let me just scroll down. So here's my activity, and then here's the most recent.
+[00:18:37] Blain Carson: Which was a desperate… was a… which was a failure, it appears.
+[00:18:45] Blain Carson: And I've only… I've just got these.
+[00:18:49] Blain Carson: going right now. In fact, well, I'm out of money here, so I… I just wanted to talk to one… to you before…
+[00:18:58] Blain Carson: Before I did anything else.
+[00:19:01] Blain Carson: So, bruce, had me use the, this, Writing method for writing
+[00:19:13] Blain Carson: Method for Writing Winning Sales Letters.
+[00:19:17] Blain Carson: And I used the head… and he's got riding killer headlines on here.
+[00:19:22] Blain Carson: I passed this on to, to, the concierge.
+[00:19:31] Blain Carson: And I had them write new headlines based on the writings in this method.
+[00:19:38] Blain Carson: And that's… and that's what I… that has been my, that is what this is right here.
+[00:19:44] Sasha: Hmm.
+[00:19:45] Sasha: Okay.
+[00:19:46] Blain Carson: Okay, just to give you an idea, here's… Here's the, the, the, the, the…
+[00:19:57] Blain Carson: The words that he suggested using was something more along unique.
+[00:20:03] Blain Carson: And… weird.
+[00:20:06] Blain Carson: So I had them use, trending.
+[00:20:10] Blain Carson: And, weird… there's weird again.
+[00:20:14] Blain Carson: Stops, oops, stops, slip-ups.
+[00:20:18] Blain Carson: Targeted grip works for lifts, and so on.
+[00:20:22] Blain Carson: And then, and there's Weird again, so… Here…
+[00:20:28] Blain Carson: is the one that I had the one sale.
+[00:20:32] Blain Carson: And.
+[00:20:37] Sasha: Spectre, okay.
+[00:20:39] Blain Carson: Okay, and, and so… I was wondering… what…
+[00:20:48] Blain Carson: And I was kind of thinking along what Jen was talking about.
+[00:20:52] Blain Carson: Is what can I… what can I do to improve this?
+[00:20:57] Sasha: Well…
+[00:20:58] Sasha: So far, I've kind of just got a glimpse of some of your headlines on the ad side. You know, what's… how a funnel works is always a combination of, like, what is in the ad, and then what is in the landing page, and then what is in the product page. And so, I know…
+[00:21:14] Sasha: vaguely that the, you know, the content of the advertorial talks about the, like, you know, grip strength is, is an indicator of longevity. But what sorts of headlines… what have been, like, the angles of the headlines that you've been testing on the landing page side?
+[00:21:34] Blain Carson: They would be down here, is that correct?
+[00:21:37] Sasha: Yeah, if you just scroll down beyond this section to the aggregate landing page performance, okay.
+[00:21:45] Sasha: So, let's see, here I shot. So, let me… let's just take a glance at some of your headlines. So, it'd be the top, the H-V12, those are there. If you hover over the eyeball.
+[00:21:58] Sasha: Okay.
+[00:21:59] Sasha: Let's just kind of keep scrolling down them.
+[00:22:06] Sasha: Okay.
+[00:22:11] Sasha: Okay, so let's talk about…
+[00:22:23] Sasha: Okay.
+[00:22:24] Sasha: Yeah, it seems like they… they all kind of… Talk about,
+[00:22:31] Sasha: The kind of longevity angle in general.
+[00:22:34] Blain Carson: Yeah.
+[00:22:36] Sasha: I mean… You know, my best guess is that, like, there's still a little bit of a…
+[00:22:42] Sasha: Kind of a disconnect between the approach of the headlines and the advertorial.
+[00:22:51] Sasha: And I think connecting them a little bit more… I mean, it's, you know, the basic way to look at it, I guess, is that, like, when…
+[00:22:57] Sasha: If you have never seen your headline before, and you look at your headline, and you look at your image, and then you yourself click through it.
+[00:23:05] Sasha: Are you expecting, sort of, that type of content to be there? And if not, how can those messages be aligned a little bit more?
+[00:23:14] Sasha: Because in terms of some of the, like, individual ad metrics for your recent test, like, I saw an improvement of overall click-through percentages. Like, your aggregate performance here is fairly low, but I think that's because it takes into account all of the ads that you have run, even the unsuccessful ones.
+[00:23:33] Sasha: So, I mean, let's at least try and break it down in terms of, like, the rounds of testing. If you go up to the top, will you filter by the most recent round of testing that you've done? No, keep scrolling all the way up to the top.
+[00:23:45] Blain Carson: All the way up to the top.
+[00:23:46] Sasha: Yeah, so see, you got, the 15th through the 20th, so maybe let's just start there, just to see…
+[00:23:53] Sasha: What this, like, most recent round of tests.
+[00:23:56] Blain Carson: Oh, over here.
+[00:23:58] Sasha: Yeah, so if you go up to the top, you see how there's a from and a to, and little calendar icons next to them?
+[00:24:04] Blain Carson: Yep.
+[00:24:05] Sasha: So you can select the date range there, and we can just try the 15th.
+[00:24:10] Sasha: Through the 20th.
+[00:24:11] Blain Carson: Because this would be January, right?
+[00:24:14] Sasha: Yeah.
+[00:24:15] Blain Carson: Rift 8…
+[00:24:16] Sasha: Huh.
+[00:24:23] Blain Carson: Through the 20th? Is that what she said? Is that what it was?
+[00:24:27] Sasha: Yeah, yeah, the 20th. And then click, search on the right-hand side.
+[00:24:40] Sasha: Okay, so this should show your, kind of, most recent ads.
+[00:24:45] Sasha: Looks like you got a couple of them that, like, kind of got away from you a little bit and spent… spent more money
+[00:24:53] Sasha: than others…
+[00:24:59] Sasha: Let's see, 192, 123… What's your ad number 27?
+[00:25:09] Sasha: If you just hover over the 27, it's the second, second row down.
+[00:25:13] Blain Carson: Let's see, second row, and over here.
+[00:25:19] Sasha: Okay.
+[00:25:24] Sasha: That was expensive. And what about number 22? What's that?
+[00:25:32] Sasha: So, that one…
+[00:25:34] Sasha: I think is kind of nice, because… weird metric, grip strength predicts your mortality better than blood pressure. So that one, I feel like, just spells out the body, you know, content of the advertorial.
+[00:25:48] Sasha: And I think that's… it seems to be kind of working. You know, the…
+[00:25:52] Sasha: 12% is a little bit on the low end, but your landing page event CPC is still around $5, which is nice, and I think that's because your ad CPC is actually
+[00:26:03] Sasha: fairly low compared to some of these other ones. You see how some is, like, almost $2, one is a dollar and a half, like… that is pretty good. So there's something that… about that message, you know, and maybe… maybe just the, you know, the GIF kind of image that's… that's getting people to click.
+[00:26:21] Sasha: And if that's kind of the ad angle that you were testing, which is that, you know, the grip strength versus, you know, mortality and better than blood pressure and whatnot.
+[00:26:29] Blain Carson: Right.
+[00:26:30] Sasha: I think… I think kind of leaning into versions of that kind of headline,
+[00:26:40] Sasha: It'll be interesting to see. Let's, let's do one more thing. See how right up, above this little section, but below the graph, there's a filter by ad ID?
+[00:26:50] Blain Carson: Here. Put in number… put in number 22 there.
+[00:26:54] Sasha: And then, once this finishes loading.
+[00:26:57] Sasha: Scroll down to the next section, the top of the landing page section.
+[00:27:03] Sasha: This one here? Yeah, where it says select extra token.
+[00:27:06] Blain Carson: Yeah?
+[00:27:07] Sasha: Click Add ID.
+[00:27:12] Sasha: So right now, I'm just gonna try to look at,
+[00:27:16] Sasha: Just out of the people that clicked on that ad.
+[00:27:19] Sasha: which… which of your landing pages seem to resonate a little bit more. And let's, let's just filter by landing page event CTR, so that… that kind of column right below your mouse.
+[00:27:30] Blain Carson: Right here.
+[00:27:31] Sasha: Yeah.
+[00:27:39] Sasha: Let's see…
+[00:27:48] Sasha: So, I'm just kind of looking for, like, see where it says, you know, all the pages, the second column? It's like H-V1, H-V1, V3, V4, V1…
+[00:27:59] Sasha: This isn't, you know, exactly a scientific method here, but what I'm seeing is, you know, out of the top 5 or 6, headline 1 comes up 3 times.
+[00:28:10] Sasha: So that's kind of a good early sign. It's kind of a manual way of just seeing which headline worked best with that, which landing page headline worked best with that ad headline.
+[00:28:20] Sasha: So, just, click on that for a sec, let's just see what that headline is again.
+[00:28:27] Sasha: Yeah, and it just spells out how long you'll live.
+[00:28:30] Sasha: So I think figuring out…
+[00:28:33] Sasha: You know, more… more direct messaging that just kind of really hits that part of… of the angle.
+[00:28:42] Sasha: Probably be a good test.
+[00:28:44] Sasha: start leaning into potentially using similar language. You know, you're saying predict how long you live, mortality, there's similar principles, so that's close enough. But I think, like, if that is sort of what's been working the best, then…
+[00:28:58] Sasha: Testing more things like that is a good idea.
+[00:29:02] Blain Carson: Okay.
+[00:29:03] Sasha: And I don't, once again, I don't really remember. It seems like some of your headlines talked about similar things.
+[00:29:11] Blain Carson: Yeah, it's… I mean, there's… How long, how long will you live?
+[00:29:20] Blain Carson: longer life, longer mortality.
+[00:29:26] Blain Carson: Because… because of your grip strength, and because you have that. Man, I shook… I shook the hand of a lady yesterday.
+[00:29:33] Blain Carson: And I'm a games athlete, a CrossFit Games athlete. I mean, I've been competing at the top for a couple of years.
+[00:29:42] Blain Carson: And my gosh, she almost took me down with a grip strength.
+[00:29:47] Blain Carson: It was unbelievable.
+[00:29:49] Blain Carson: And she was in CrossFit as well.
+[00:29:51] Sasha: So, yeah, that's what… that's what…
+[00:29:53] Blain Carson: I, I like this… this.
+[00:29:58] Blain Carson: Picture as well.
+[00:30:02] Sasha: Yeah, yeah, I mean, as far as pictures go, I like that it's on, you know, kind of an older hand, and you can actually kind of see the tension in the fingers, you know? So, yeah, I mean, at this point, I don't know if we're at a, like, we've decided that there's enough data to show which image is working. I'm kind of mostly focusing on… on headlines.
+[00:30:20] Sasha: But, you know, I think it's just, like, about really analyzing the minute details of what is consistent about the headline that is working on the ad level and the headline level, and sometimes it's even, like.
+[00:30:35] Sasha: The difference between, you know, like, predict, you know, like an indicator.
+[00:30:40] Blain Carson: Yeah.
+[00:30:40] Sasha: how long you'll live. I think that was the same kind of idea was in your ad. So, really, I guess what I'm driving at is that, like.
+[00:30:48] Sasha: You see something that is working on the ad headline level, you see something that is kind of working on the landing page headline level, and really trying to
+[00:31:00] Sasha: Bridge them together so that there's even maybe, like, some sort of repetition or reinforcement of that concept between the two.
+[00:31:08] Sasha: So that when someone, you know, obviously, you had good ad click-through rates on that one headline, so people are interested in that idea, right? And so, if all of a sudden they're being delivered slightly different ideas, or even
+[00:31:24] Sasha: what you think is, like, the right concept, but it's actually phrased differently, like, really creating a little bit more of, like, congruity in your messaging, I think, is something that can improve that click-through rate. So, like, keeping
+[00:31:39] Sasha: the phrasing similar on the ad level, because you want to keep those ad CPCs low, but then…
+[00:31:45] Sasha: Improving the messaging on the landing page level to…
+[00:31:51] Sasha: to, you know, increase the landing page click-through rate, that's… that's kind of the goal.
+[00:31:56] Blain Carson: Okay.
+[00:31:57] Sasha: So, I would probably…
+[00:32:00] Sasha: that's probably what I would kind of set your mind to, figuring that out. You know, I think it's kind of…
+[00:32:06] Sasha: Beyond the scope of this call to really, like, go in on every single headline that you've run, and really analyze every single
+[00:32:13] Sasha: advertorial headline that you have, but, you know, hopefully you can kind of just apply what we're talking about here, and just, like, really… really figure out how… how you can… how you can…
+[00:32:24] Sasha: try and make it a little bit more consistent between the two. Heck, you could even… you can test the same headline you have in your ad, run that same headline on your landing page, you know, immediate.
+[00:32:35] Sasha: Congruency. Adam does that sometimes, too. That's like a test he runs. If the headline is clicking well on the ad level, give it a shot on the landing page level. That way, they're like, okay, I'm where I'm supposed to be.
+[00:32:47] Sasha: I read that thing, this is exactly the thing it was pointing me to, you know? Yeah, yeah. It's a worthwhile test, not guaranteed to work, but it is… it is something that's… that's worth testing as, like.
+[00:32:58] Sasha: immediate,
+[00:33:01] Sasha: kind of reinforcement that, like, they're in the right place. You can do that with an image, too, although I wouldn't really recommend necessarily doing that with your current image, because it's a GIF.
+[00:33:11] Sasha: But, you know, I would also try… try some different images as well. You could try this
+[00:33:18] Sasha: This image right here on an ad, you know?
+[00:33:21] Sasha: And find… find more like it, too. I think the high… the whole…
+[00:33:26] Sasha: Opening jars thing is, you know, maybe a little bit…
+[00:33:31] Sasha: Seems a little bit obvious, but it's a fairly, you know, appropriate message, I guess, in terms of the target demographic.
+[00:33:37] Blain Carson: Right, right.
+[00:33:38] Sasha: What is it that people struggle with?
+[00:33:40] Blain Carson: Yeah, and that's one of the things that we struggle with, you know, is grip strength in order to open jars.
+[00:33:46] Sasha: Yeah.
+[00:33:47] Blain Carson: And it's… it hits home, is what it…
+[00:33:49] Sasha: Yeah.
+[00:33:50] Sasha: And, you know, the other thing I would encourage you to play around with is, you know, kind of working on… on writing some headlines yourself with ChatGPT. Like, if you… if you kind of…
+[00:34:02] Sasha: told it about what you're doing, and the overall, like, marketing style of, like, native ad, going to a advertorial, going to a, you know, e-com product, it understands the concept behind that. And so after that, you can say, hey, here's my headline that's been testing well, here's this writing killer headlines document, just upload it into that.
+[00:34:22] Sasha: Help me write some more headlines to… to kind of, like, create a more…
+[00:34:26] Sasha: to increase my click-through rate, if this is the angle that is working, so…
+[00:34:30] Blain Carson: Okay.
+[00:34:31] Sasha: And there's… there's other headline documents that you can download from the Creative Drive, too, to kind of, you know, try and… try and vary your approaches a little bit. And I guess.
+[00:34:42] Blain Carson: and…
+[00:34:42] Sasha: The last comment I'd make, too, is that, like, on the landing page side, I think it's worthwhile to test both shorter and longer headlines. All of yours are kind of on the shorter side, which is, I think, a valid test initially when you're testing angles, but if I think at this point you've kind of landed on an angle that you want to kind of expand upon.
+[00:35:01] Sasha: Try and…
+[00:35:02] Sasha: you have more real estate there to… to, like, pack more of a punch with your messaging. Okay. So, look at the, the copy blocks tutorial that, Dan has in the, in the 21 Day Blitz.
+[00:35:16] Sasha: And read that, kind of understand the concepts behind it, and also use it in, you know, your work with ChatGPT, because it really helps break down what a headline is into individual parts of what
+[00:35:30] Sasha: What, different words or phrases do to add to the message in your headline?
+[00:35:36] Sasha: And I think that would help you,
+[00:35:40] Sasha: Kind of get your message across in a little bit of a stronger way.
+[00:35:44] Sasha: Similar to, like, what writing Killer Headlines does, but it just… it really breaks down the format, at least for me, in a helpful way. It just creates these visual blocks that you can identify as, like, what does this phrase do? You know, is it a… is it a sense of, you know, authority? Is it a sort of a promise of result? Is it removing a constraint for someone?
+[00:36:04] Sasha: So… Definitely take a look at that, and I think you'll be able to, kind of.
+[00:36:09] Sasha: Strengthen your headlines that way.
+[00:36:11] Blain Carson: And this is what you were talking about, that I've got a lot of space that I can use it, that's kind of open there doing nothing, right?
+[00:36:17] Sasha: No, I'm talking about on… in the, on your landing page side. You have a character limit on your ad side. On the landing page, you don't have a character limit. There's just sort of a reasonable amount of length that is expected for someone to be able to read.
+[00:36:32] Sasha: essentially, like, like a news headline, right? But, like, that… that headline at the top, that could be 3 lines, if you wanted to, especially since your sub-headline is pretty short. So, you… when I'm talking about, like, real estate, I'm more talking about
+[00:36:46] Sasha: the expectation of someone's attention span, of, like, when they land somewhere, how quickly? If they can scan a headline in 2 to 3 seconds, that's within, you know, the expected
+[00:36:57] Sasha: attention span that someone will have when they land on your page. And since you don't have a character limit, you might as well
+[00:37:03] Sasha: At least test using that to its fullest, and seeing if you can create a longer headline, and really…
+[00:37:08] Sasha: You know, add some more, because you never know when a short headline or a long headline is going to work, so you might as well experiment.
+[00:37:16] Blain Carson: Okay.
+[00:37:17] Blain Carson: Alright, sir.
+[00:37:21] Blain Carson: I appreciate it. Thank you so much, thank you so much.
+[00:37:25] Sasha: Yeah, no problem.
+[00:37:26] Sasha: Alright, let's see, I might mispronounce this. Emirates?
+[00:37:32] Emerance Monji: Hi, Sasha.
+[00:37:33] Sasha: Alright, did I get your name right? Emirates?
+[00:37:36] Emerance Monji: That's fine.
+[00:37:37] Sasha: Okay.
+[00:37:37] Emerance Monji: Thank you.
+[00:37:40] Sasha: So what's going on? What can I help you with?
+[00:37:42] Emerance Monji: I just need to share my screen. This is, like, my first campaign. I just need some critics, some… if you can just have a look at it and give me some pointers of what's going on.
+[00:37:57] Sasha: Okay. Yeah.
+[00:37:59] Emerance Monji: Well, Get my screen…
+[00:38:16] Emerance Monji: Okay.
+[00:38:17] Emerance Monji: So, I kind of put the whole range of the days when I ran it.
+[00:38:23] Emerance Monji: But I had to stop it at some point.
+[00:38:27] Emerance Monji: Just to get feedback and then finish it up.
+[00:38:33] Emerance Monji: I don't know if I should keep the control, or you need to have the control, or…
+[00:38:39] Sasha: Well, let me… so, you see on the top left, where's the DIY tracks icon? Will you click those three lines over there on the left-hand side?
+[00:38:52] Sasha: Sorry, on the opposite end, on the left.
+[00:38:55] Sasha: I'm just trying to shrink that sidebar where it says campaigns and stats and things like that.
+[00:39:06] Emerance Monji: Greens, Kompinsk.
+[00:39:10] Sasha: Yeah, just keep moving your mouse left, and I'll show you.
+[00:39:15] Sasha: Yeah, keep going left into that gray area. Keep going.
+[00:39:18] Emerance Monji: This one?
+[00:39:19] Sasha: Nope, keep going left.
+[00:39:21] Sasha: Alright, and go up from there?
+[00:39:24] Sasha: See that little box, the gray box with the three lines, a little bit higher? Yeah, that one. Yeah.
+[00:39:30] Sasha: So if you click on that…
+[00:39:31] Emerance Monji: one.
+[00:39:32] Sasha: Yeah.
+[00:39:36] Sasha: There we go, okay.
+[00:39:39] Sasha: Alright, well, let's scroll down now so I can… I can see all the ads.
+[00:39:45] Sasha: Okay.
+[00:39:48] Sasha: So it looks like you had a pretty, kind of.
+[00:39:50] Sasha: Uneven ad spend, in terms of…
+[00:39:54] Sasha: per different ad. You see how the ad spend column, one is, like, $7, $16, and then you had one at $160, and then $33.72?
+[00:40:06] Emerance Monji: Yes.
+[00:40:07] Sasha: So, I think in future rounds of testing, you might want to…
+[00:40:12] Sasha: if one is kind of spending a lot and the other ones aren't spending as much, you might want to kind of slow down the spend. But that said, I think in this case, at least, the one that spent a bunch was the one that got the better landing page click-through rate. So, you know, that's okay.
+[00:40:32] Sasha: In this case, but just something to be aware of in the future.
+[00:40:36] Emerance Monji: You know…
+[00:40:38] Sasha: Because that one was the one that kind of got, a good… a good amount of runtime, and other ones you can…
+[00:40:44] Sasha: probably eliminate. So, the first thing I look at is basically the landing page event CTR column.
+[00:40:51] Sasha: And the landing page event CPC column. Yeah, those two right there.
+[00:40:55] Emerance Monji: Okay.
+[00:40:56] Sasha: So, landing page events.
+[00:40:58] Emerance Monji: Let's…
+[00:40:58] Sasha: CTR is just, out of the people that clicked on your ad, how many people clicked on your landing page as a percentage?
+[00:41:06] Sasha: And then the landing page event CPC, the column just immediately to the left of that, that's…
+[00:41:15] Sasha: That's, like, how much did that cost? Because you can have, like, the ad costs level, and then that's basically how much each click costs you.
+[00:41:24] Sasha: And so all of these are…
+[00:41:29] Sasha: are fairly expensive, you know, the $11 per click, you know, the 7 is the best. So like I said, the one that spent the most money was actually doing the best. So let's take a look at the headline and the image for that one.
+[00:41:42] Sasha: For ad ID number 6.
+[00:41:45] Emerance Monji: 6, 19.
+[00:41:48] Sasha: Yeah.
+[00:41:50] Sasha: You might need to scroll up a bit on the page so we can see the headline.
+[00:41:54] Sasha: Okay, yeah.
+[00:41:59] Sasha: For instance…
+[00:42:04] Emerance Monji: As it's usually do this, cause I kind of saw this a lot.
+[00:42:09] Sasha: You can just, you can…
+[00:42:11] Emerance Monji: picture?
+[00:42:12] Sasha: If you just click on it, it should open it in a new page.
+[00:42:16] Sasha: Oh, there we go.
+[00:42:20] Sasha: Okay.
+[00:42:27] Sasha: Okay, and let's go to the, let's go down to your landing page side.
+[00:42:35] Sasha: So if you just keep scrolling down…
+[00:42:40] Sasha: Yeah, keep going down until we get to the next section.
+[00:42:48] Sasha: Okay… Alright, just, go up a little bit so we can see the two elements, yeah, right there.
+[00:42:56] Emerance Monji: Okay.
+[00:43:01] Sasha: Okay, so what is… The HD-V2.
+[00:43:07] Sasha: If you can hover over that eyeball over there.
+[00:43:10] Sasha: It's, the… the top section, it's the… Second one down.
+[00:43:17] Sasha: On the left-hand side.
+[00:43:21] Sasha: Yeah, so that's the HS, so if you go up to the next section…
+[00:43:28] Sasha: No, sorry, go up instead.
+[00:43:32] Sasha: Yeah, right there.
+[00:43:35] Sasha: See where it says HD?
+[00:43:37] Sasha: V2.
+[00:43:40] Sasha: Yeah.
+[00:43:51] Sasha: Let's see here.
+[00:43:57] Sasha: Hey.
+[00:43:59] Sasha: Asking questions. Interesting. And what about some of the other headlines? So you see how that headline had a 12% click-through rate, and then you had one that was, like, a, you know, 1%?
+[00:44:24] Sasha: That's interesting. Why do you have, the asterisk around the, the last phrase.
+[00:44:33] Sasha: Is that a formatting thing?
+[00:44:36] Emerance Monji: I have no idea.
+[00:44:39] Sasha: How did you get to these headlines?
+[00:44:44] Emerance Monji: I… I asked the concierge for help. I did… The mmm…
+[00:44:53] Emerance Monji: The first one, what are those? The, headlines, right?
+[00:44:59] Emerance Monji: I did them in the HUD app.
+[00:45:04] Emerance Monji: Well, everything is flying off. So I gave them some… some headlines, then they… they did everything else for me.
+[00:45:13] Sasha: You said you gave the concierge some headlines?
+[00:45:16] Emerance Monji: Yes.
+[00:45:17] Sasha: Okay.
+[00:45:19] Sasha: So, did you come up with these headlines, or did they? I'm trying to figure out where what content came from.
+[00:45:28] Emerance Monji: This… this… this wasn't for me. What I came up with, I think it's this, the ones, like.
+[00:45:40] Emerance Monji: The ones that we sold up here.
+[00:45:42] Emerance Monji: I'm mixing up the words.
+[00:45:45] Sasha: So for the ad?
+[00:45:48] Emerance Monji: Yeah, so these ones I came up with.
+[00:45:51] Sasha: Okay.
+[00:45:52] Emerance Monji: Yes.
+[00:45:54] Emerance Monji: I did this, then I sent to them, because we had to, to have, I think it was 5 and 5.
+[00:46:03] Emerance Monji: they did the pictures for me, and then I… I had the five headlines, then they mixed it up for me. They did the metric,
+[00:46:15] Emerance Monji: Yes, it is.
+[00:46:19] Emerance Monji: The ones with the hysterics, I didn't do those.
+[00:46:23] Sasha: Yeah, that is strange. I think that probably needs to be reformatted a bit. Okay. You know, I think, you know, you can try and work on creating more headlines that are similar to number 6.
+[00:46:37] Emerance Monji: Okay.
+[00:46:39] Sasha: And I think, you know, one small change you could make is kind of make it more of, like, active language rather than passive language.
+[00:46:48] Emerance Monji: Do you hope.
+[00:46:48] Sasha: over number 6, I can kind of show you what that means.
+[00:46:56] Emerance Monji: This one at the top.
+[00:46:57] Sasha: Yeah, yeah, so see how it says,
+[00:47:02] Sasha: Reduction starts in just 14 days.
+[00:47:06] Sasha: make that, like, you know, start reducing in just 14 days. It's a minor shift, but it's just, like, a different phrase. It, you know, kind of puts the person.
+[00:47:15] Emerance Monji: Hmm.
+[00:47:15] Sasha: in the driver's seat, you know? Like, you will do this rather than something is happening. So that's… that's just a small change you can try.
+[00:47:24] Sasha: But, you know, kind of creating more variations on headlines similar to this one, since it did well.
+[00:47:32] Sasha: Would be a good start, you know, just by looking at the numbers, you know, the other ones just didn't really have much of a landing page click-through rate.
+[00:47:40] Sasha: So, focusing on… More, you know, headlines like this.
+[00:47:46] Sasha: And I would also,
+[00:47:48] Sasha: test, similar type of images with them. You know, use different images and different headlines, but have your image be the same kind of idea and similar images, I think would be helpful.
+[00:48:03] Sasha: And then…
+[00:48:06] Sasha: I think on the… the landing page side, too, I think the… kind of cleaning that up a little bit. I think the formatting is weird with those… those asterisks.
+[00:48:16] Sasha: And… Kind of… making your landing page headlines?
+[00:48:23] Sasha: Talk… talk about the concept similar to how your… your ad headlines are phrased would be a good idea, similar… that same kind of, angle.
+[00:48:33] Emerance Monji: Okay.
+[00:48:34] Sasha: Pretty good.
+[00:48:46] Emerance Monji: So, the change I need to do it now before I can actually finish up the campaign, or I need to finish it up.
+[00:48:54] Emerance Monji: Because I have, like, 175… 777 left, right?
+[00:49:01] Emerance Monji: And it's my first campaign. When do… do I move to the second? I need to have a sale. Do I need to have a sale?
+[00:49:09] Sasha: Yeah, I think you would need to have some… some better overall…
+[00:49:13] Sasha: overall numbers, you know? The moving to, like, between different rounds isn't, like, automatic. Sometimes you do round 1.5, and you kind of keep improving until…
+[00:49:25] Sasha: Until things get better, so…
+[00:49:28] Sasha: You know, you don't need to rush into moving into different rounds. This is kind of, you know, the most important one in the beginning, is figuring out what.
+[00:49:37] Emerance Monji: The first one.
+[00:49:38] Sasha: angle works, and what headlines are working, kind of really getting to your core messaging, I think, is very important, so…
+[00:49:46] Sasha: I wouldn't… would not rush this. So, yeah, just… just work on… on those things first. I think you can probably…
+[00:49:55] Sasha: I would probably… Just pause… pause this.
+[00:50:00] Sasha: This sub-campaign, for now.
+[00:50:02] Sasha: And then start a new one with new ideas, and just do maybe 5, 5 different ads.
+[00:50:10] Sasha: With different headlines that are similar to this number 6, and different, images
+[00:50:18] Sasha: For each one, but similar type of image.
+[00:50:22] Sasha: And then, also, kind of, you know, improvement on the landing page side, as well for…
+[00:50:29] Sasha: both kind of consistent messaging, and as well for the format, because I think that… that… that asterisk thing looks a little bit weird, so that's a good thing to fix before you move on.
+[00:50:41] Emerance Monji: Okay.
+[00:50:43] Emerance Monji: So I'm starting… oh, I'm sorry, I'm just making some notes.
+[00:50:47] Sasha: Okay.
+[00:50:48] Emerance Monji: Okay.
+[00:50:50] Emerance Monji: So I'm gonna start a new one with improvement tools. Okay, okay, got it.
+[00:50:57] Emerance Monji: So, I will try that and see.
+[00:51:00] Sasha: Okay.
+[00:51:01] Emerance Monji: Thank you so much.
+[00:51:03] Sasha: Yeah, yeah, you're welcome.
+[00:51:07] Sasha: Alright. Hi, Betty.
+[00:51:10] Sasha: Thanks for waiting.
+[00:51:11] Betty Anne Bush: Woo!
+[00:51:12] Betty Anne Bush: Thank you.
+[00:51:13] Sasha: well.
+[00:51:15] Betty Anne Bush: I am, like, at the very bottom. I don't understand things, I'm trying to learn them, get through them.
+[00:51:21] Betty Anne Bush: on… on January the 8th, I got a notice from Concierge saying that they had, they had, put the… my… they had gotten my request for metric mover landing pages, and they were all uploaded into DLI Track.
+[00:51:37] Sasha: Okay.
+[00:51:38] Betty Anne Bush: So, they said, you know, go to DIY Trash, go into Links and Pixels, copy it, put it in an incognito… incognito page. Why didn't appear?
+[00:51:50] Betty Anne Bush: There's nothing there, and then I asked Mike about it last, a couple nights ago. Wiseman?
+[00:51:58] Sasha: Yeah, yeah, yeah.
+[00:52:00] Betty Anne Bush: And he said, oh man, everything's wrong.
+[00:52:03] Sasha: I'm lying.
+[00:52:06] Sasha: Okay.
+[00:52:07] Betty Anne Bush: And so, anyway, I'm trying to kind of start over.
+[00:52:12] Betty Anne Bush: And, I wanted to ask…
+[00:52:14] Betty Anne Bush: something… I had… I'd asked for an appointment tonight with one of the people on 101,
+[00:52:20] Betty Anne Bush: For a one-on-one thing, and she's never contacted me back.
+[00:52:24] Betty Anne Bush: And I don't know whether or not it's even gonna happen, and I had asked for it last night, and there wasn't anybody there.
+[00:52:32] Betty Anne Bush: So, I don't know. Lee is no longer there. She's the one that I had asked to do something for me earlier.
+[00:52:40] Betty Anne Bush: Go online. Okay.
+[00:52:41] Betty Anne Bush: Are they… are it just the two guys that are left?
+[00:52:44] Betty Anne Bush: You know anything about that?
+[00:52:46] Sasha: Yeah, it's possibly. I know some people did leave, so I'm not exactly sure who's there and who's not. I think that's a… that's a good thing to just ask the support team, either in this…
+[00:52:59] Sasha: the chat here, or even in the live chat, like, widget in the TC portal.
+[00:53:06] Sasha: Have you seen that? It's on the bottom right of the screen.
+[00:53:10] Betty Anne Bush: blue dot.
+[00:53:12] Sasha: Yeah, the little blue circle with the lines through it, it just looks like a chat icon.
+[00:53:18] Betty Anne Bush: Yeah, okay, I'll do that. But…
+[00:53:22] Betty Anne Bush: Anyway, I'm just kind of… I went back into my…
+[00:53:26] Betty Anne Bush: I don't really even understand… and I have been through every single video imaginable, and the whole… everything.
+[00:53:33] Betty Anne Bush: And I'm… I'm getting… I'm getting… I feel like I'm getting more confused than I am.
+[00:53:38] Betty Anne Bush: understanding, and
+[00:53:41] Betty Anne Bush: But anyway, I went through. There was one on, I think it's number 8 that Dan Pine did.
+[00:53:48] Betty Anne Bush: about, DIY tracks.
+[00:53:51] Betty Anne Bush: And, I understood it.
+[00:53:53] Betty Anne Bush: And, but I still can't get the right stuff in there to make it work.
+[00:54:00] Betty Anne Bush: It's just not…
+[00:54:02] Sasha: Do you wanna… are you able… are you able to share your screen and show me what's going on a little bit?
+[00:54:08] Betty Anne Bush: Gonna tell you, I can't figure out how to share my screen.
+[00:54:11] Sasha: So it's on the… on the bottom, there should be a, like, either a gray or a green share button. Looks like a square with an arrow in it.
+[00:54:20] Betty Anne Bush: Okay, there used to be… you look in under More.
+[00:54:25] Betty Anne Bush: See if it's in the… I got it, there we are.
+[00:54:30] Betty Anne Bush: Okay, no.
+[00:54:35] Betty Anne Bush: This is my DIY tract.
+[00:54:37] Betty Anne Bush: Over here on this side, can you see this one?
+[00:54:40] Sasha: I am… I don't see anything yet. I don't think you've started sharing.
+[00:54:47] Betty Anne Bush: Click the button.
+[00:54:48] Betty Anne Bush: Oh, I'm sorry.
+[00:54:51] Sasha: Okay, yeah, I'm seeing it now.
+[00:54:54] Betty Anne Bush: This… campaign over here.
+[00:55:01] Betty Anne Bush: I believe… I mean, they suggested that I go into LinkedIn… well, that's not where I am now. Landing page.
+[00:55:07] Betty Anne Bush: I have 25 landing pages.
+[00:55:10] Betty Anne Bush: So…
+[00:55:11] Sasha: Okay, will you go to your, the basic info tab for a second?
+[00:55:15] Betty Anne Bush: Yeah.
+[00:55:18] Sasha: Okay, so, and go to your traffic source tab for a second.
+[00:55:25] Sasha: Up top, just, just same place where, like, Link and Pixels was, it's just a different section.
+[00:55:31] Betty Anne Bush: Oh, great.
+[00:55:32] Sasha: Yeah.
+[00:55:33] Sasha: Okay, so do you have any sub-campaigns set up yet?
+[00:55:37] Sasha: No, probably not.
+[00:55:40] Sasha: I just want to make sure you don't, yeah, if you just… okay, good. Just go back to basic info for a second, and then turn, there's a… see where it says active? Turn that on.
+[00:55:55] Sasha: And then click save. Oh.
+[00:56:00] Betty Anne Bush: Save up here.
+[00:56:02] Sasha: Yeah.
+[00:56:05] Sasha: And then go back to Lincoln Pixels.
+[00:56:09] Sasha: And try… oops.
+[00:56:13] Sasha: That's weird. Try clicking it again.
+[00:56:18] Sasha: That's very strange.
+[00:56:21] Sasha: Maybe just go back to your, like, campaigns page?
+[00:56:28] Betty Anne Bush: Okay.
+[00:56:31] Sasha: Are you able to make your screen wider? Just make that, the, that window the full screen?
+[00:56:37] Sasha: Because you just need to stay… yeah.
+[00:56:39] Sasha: I think shrinking it down that narrow might be a problem.
+[00:56:46] Betty Anne Bush: I'm on iMac, so it's giant.
+[00:56:50] Sasha: Yeah, yeah, you can grab it by the side there and pull it out.
+[00:56:59] Sasha: There we go. Alright, try, try Lincoln Pixels again.
+[00:57:05] Sasha: Okay.
+[00:57:06] Sasha: Alright, maybe go back to the left and click on Campaigns again, just to exit the screen.
+[00:57:16] Sasha: And then go back into that same campaign.
+[00:57:20] Betty Anne Bush: I knew this just being moved over.
+[00:57:31] Sasha: You don't need to move that, you just go into the campaign.
+[00:57:36] Betty Anne Bush: I found that.
+[00:57:38] Sasha: Right there, number 4, where it says Caterpillar Heat Haven? Like, it's just in the center of the screen.
+[00:57:45] Betty Anne Bush: Yes.
+[00:57:46] Sasha: No, just, yeah, just click on the name.
+[00:57:50] Betty Anne Bush: Oh, okay.
+[00:57:52] Sasha: Alright, now try Linkin Pixels again.
+[00:57:56] Sasha: Okay, and now click the copy button that's next to the big long link.
+[00:58:03] Sasha: Wait a minute.
+[00:58:06] Betty Anne Bush: This one?
+[00:58:07] Sasha: Yeah.
+[00:58:10] Betty Anne Bush: Gorgeous coffee.
+[00:58:10] Sasha: Copy that for a second. Will you go back to basic info again? I don't think it's saved.
+[00:58:19] Sasha: Yeah.
+[00:58:20] Sasha: Try and click the active button on again.
+[00:58:26] Betty Anne Bush: Where is it?
+[00:58:29] Sasha: It's right, right kind of in the middle of the screen,
+[00:58:32] Sasha: And then go up top and click save again.
+[00:58:41] Sasha: Okay, hopefully that stays on. Alright, try opening a new tab then, and pasting that thing that you just copied into it.
+[00:58:51] Betty Anne Bush: Hmm… I don't want to change the S.
+[00:58:56] Sasha: Little, little plus sign next to your current tab, you can open a new one that way.
+[00:59:04] Sasha: Alright, and then you can just press Command-V into there.
+[00:59:09] Betty Anne Bush: in here.
+[00:59:10] Sasha: No, into the URL at the top.
+[00:59:18] Sasha: Like, where it says search Google or type a URL?
+[00:59:24] Betty Anne Bush: I knew.
+[00:59:25] Sasha: Nope, keep going up to the top.
+[00:59:29] Betty Anne Bush: Oh, hello.
+[00:59:30] Sasha: Right there.
+[00:59:31] Betty Anne Bush: Mandy, I have.
+[00:59:37] Sasha: Either that, or you can right-click and select Paste.
+[00:59:47] Sasha: Alright, and you can press enter.
+[00:59:55] Betty Anne Bush: See, that's what happened yesterday.
+[00:59:58] Betty Anne Bush: Did not fail.
+[01:00:02] Betty Anne Bush: What about?
+[01:00:04] Sasha: Yeah, I… I don't know what went wrong in the setup.
+[01:00:10] Sasha: I was just trying to… because the campaign needs to be on for you to be able to test that link, so I thought that that might be the issue.
+[01:00:18] Sasha: But yeah, I think someone from support would have to help track down what happened, because I didn't…
+[01:00:26] Sasha: You know, I wasn't involved in making this metric mover campaign.
+[01:00:31] Betty Anne Bush: Okay,
+[01:00:33] Betty Anne Bush: Well, I guess I'll just ask for another one.
+[01:00:38] Betty Anne Bush: Just a second. I guess I… I mean, I can go to teach, I can just go to the concierge and fill in that form.
+[01:00:47] Sasha: You can, yeah, you can also just start by trying to talk to support about it. That might be a little bit faster of trying to see what went wrong.
+[01:00:56] Sasha: Okay.
+[01:00:58] Sasha: So, I think you probably still have time to…
+[01:01:03] Sasha: start a chat with them tonight, if you want, if you're just in the TC portal.
+[01:01:07] Sasha: And there's that little blue chat icon you can… you can try there.
+[01:01:12] Sasha: But yeah, I don't… I'm not sure what part of the process went wrong with your…
+[01:01:18] Betty Anne Bush: Because I didn't do that. I asked them to do it.
+[01:01:22] Sasha: Yeah, yeah, no, I understand that. So, somewhere in there, there was a misstep, because there shouldn't be a 404 error.
+[01:01:30] Betty Anne Bush: But I had no idea. I wouldn't have known. So, anyway,
+[01:01:37] Betty Anne Bush: Another… well, something else I wanted to understand is that I know we have a landing page, we have a hero shot, we have
+[01:01:46] Betty Anne Bush: that first part, whatever that's… is that what you made?
+[01:01:51] Betty Anne Bush: when you're…
+[01:01:52] Sasha: The first part is the ad.
+[01:01:55] Betty Anne Bush: The first part of the ad, yes.
+[01:01:57] Betty Anne Bush: And then… and then there's this whole body, like, when you go… and I'm doing Heat Haven. So, there aren't many pictures with Heat Haven. I mean, it doesn't get very exciting.
+[01:02:08] Betty Anne Bush: It's just a person laying there.
+[01:02:10] Betty Anne Bush: So, but, if I wanted to eliminate some of the verbiage in there, because it's, like, huge!
+[01:02:20] Betty Anne Bush: I don't think I want all that. Can I pick and choose different…
+[01:02:28] Betty Anne Bush: parts of that whole ad. Is that what most people do? I don't even understand it.
+[01:02:34] Sasha: Are you talking… so you're talking about the advertorial, you're wondering if you can edit it?
+[01:02:38] Betty Anne Bush: Yes.
+[01:02:39] Betty Anne Bush: And what do you edit?
+[01:02:42] Sasha: I mean…
+[01:02:44] Sasha: advertorial writing is a skill of its own, so you're welcome to edit it at any point. You know, this is your campaign and your money, and if you don't like something about it, you're welcome to change it. But, you know, long-form advertorials are a fairly common pre-sell mechanism.
+[01:03:04] Sasha: And I don't, you know, I wouldn't, I wouldn't necessarily, like, if the issue is you're worried about the length alone.
+[01:03:12] Sasha: That's not… you know, necessarily a problem, I think.
+[01:03:18] Sasha: A lot of people kind of skim and read, and usually our advertorials are kind of broken down into pretty skimmable sections.
+[01:03:26] Sasha: So… but, you know, if there are parts of it, you know, I guess there's two parts to that question, and the answer, is that, like, can you do it? Absolutely, yes, you can. Should you do it? It sort of depends on your level of confidence of, like, are you making changes that you think are the right changes? And if…
+[01:03:43] Sasha: You don't like some part of it, you're certainly welcome to change any part of it that you want.
+[01:03:48] Betty Anne Bush: Okay, I just didn't know if… if the big advertorial… I… I didn't…
+[01:03:53] Betty Anne Bush: say my question right. I don't… I thought that the large… long editorial was something that we… that we were supposed to choose 5 different settings, 5 different parts of it, to be tested.
+[01:04:07] Sasha: No, what you're choosing is 5 different versions of the headline that goes into it.
+[01:04:14] Betty Anne Bush: Okay, okay, okay.
+[01:04:17] Betty Anne Bush: Well, and then, and making… and having a hero shot.
+[01:04:24] Betty Anne Bush: That is interesting.
+[01:04:27] Betty Anne Bush: Yes.
+[01:04:27] Betty Anne Bush: So you're, you're testing those as well?
+[01:04:30] Betty Anne Bush: Okay, okay. Well, it's kind of hard to test for either a shot, but we'll give it a shot.
+[01:04:36] Betty Anne Bush: Okay, well, I'm gonna see who I can… if I can find somebody to figure out what I've done wrong.
+[01:04:44] Betty Anne Bush: And, or what has been done wrong, whether it's me or somebody else, but, doesn't matter, as long as I get it.
+[01:04:51] Sasha: Okay. I was just, it seems like you have a call set up later with a concierge, is that correct?
+[01:04:59] Betty Anne Bush: I'm supposed to have one at 7.30.
+[01:05:01] Sasha: Oh, okay. Well, there you go. That's what the… I was… I was asking support about that, and it sounds like that's still happening, so…
+[01:05:08] Betty Anne Bush: Okay, okay. Well, the other person would contact me immediately and say, yes.
+[01:05:13] Betty Anne Bush: This is confirmed for 7.30, whatever, and I haven't heard from her, so I didn't know.
+[01:05:19] Sasha: Okay, well, it sounds like it's still… it's still on.
+[01:05:22] Betty Anne Bush: Okay, sounds good.
+[01:05:24] Betty Anne Bush: Thank you, sir.
+[01:05:26] Sasha: You're welcome.
+[01:05:27] Betty Anne Bush: You're welcome. Thank you. Bye.
+[01:05:29] Sasha: Alright, have a good evening. Bye-bye.

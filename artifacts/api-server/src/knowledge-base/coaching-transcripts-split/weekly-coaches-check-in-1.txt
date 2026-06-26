@@ -1,0 +1,596 @@
+TITLE: Weekly Coaches Check In(1)
+SOURCE: coaching-transcripts.txt
+TURNS: 592
+
+[00:00:07] Sandy Kumar: There you go!
+[00:00:08] Build Test Scale: Sandy!
+[00:00:09] Mona Palad: Yeah, you said?
+[00:00:10] Sandy Kumar: I'm no staging.
+[00:00:12] Build Test Scale: Yes, we've been in a lot of…
+[00:00:13] Sandy Kumar: Thank you.
+[00:00:15] Sandy Kumar: Haven't seen you in an hour!
+[00:00:19] Sandy Kumar: Mona, how are you feeling?
+[00:00:21] Mona Palad: Still alive.
+[00:00:24] Build Test Scale: Just… just clean up the water.
+[00:00:25] Sandy Kumar: of my life.
+[00:00:27] Mona Palad: Yeah, because we need money, so we have to be here.
+[00:00:31] Sandy Kumar: Yes.
+[00:00:34] Mona Palad: Ugh.
+[00:00:35] Sandy Kumar: Yes, yes, yes.
+[00:00:39] Sandy Kumar: It's my daughter's birthday tomorrow, so I was just…
+[00:00:43] Mona Palad: Trying to get some stuff done.
+[00:00:47] Mona Palad: What are you up to tomorrow.
+[00:00:48] Build Test Scale: The youngest one, right? The younger.
+[00:00:50] Sandy Kumar: Yeah. The 8-year-old, the… I didn't send you the pics, Jean, I sent.
+[00:00:54] Build Test Scale: Yes.
+[00:00:55] Sandy Kumar: She went to her first gymnastics competition, and she won… so there are four events, she won places in all four events, and she won third overall, which is amazing.
+[00:01:08] Build Test Scale: Then you have to make something really, really great for her birthday.
+[00:01:11] Sandy Kumar: Yes.
+[00:01:12] Build Test Scale: She's gonna be expecting a lot more coming to that, you know?
+[00:01:17] Sandy Kumar: Yeah, I know, I have to step up my game.
+[00:01:20] Build Test Scale: Definitely.
+[00:01:22] Sandy Kumar: Yeah… Hi, baby.
+[00:01:30] Build Test Scale: I wonder why they still aren't here, it's one minute left, but…
+[00:01:35] Mona Palad: I just hope they forget it.
+[00:01:38] Sandy Kumar: Like, let's just go home.
+[00:01:40] Mona Palad: Let's all log off.
+[00:01:42] Sandy Kumar: Oh, there's so much to get done.
+[00:01:45] Build Test Scale: Glorise you.
+[00:01:46] Sandy Kumar: Oh…
+[00:01:50] Sandy Kumar: I finish one task, and then I get 3 more on the plate, and I'm like, deep breaths, it's okay.
+[00:01:55] Sandy Kumar: You've got this.
+[00:01:57] Build Test Scale: Tell me all about it.
+[00:02:00] Sandy Kumar: Ugh.
+[00:02:02] Sandy Kumar: I have to check EMB. The thing is, because those pages were removed, I need to restore the page, then I need to log in, because I'm trying to find the traffic page.
+[00:02:10] Sandy Kumar: But the traffic page is the same as the other page, it's just like a conditional logic that we put in there, so I cannot test the traffic page or check the traffic page till the page is restored. So I was working with
+[00:02:24] Sandy Kumar: John Michael on fixing the format, which I feel like is so much better than what we had.
+[00:02:30] Sandy Kumar: Before… Hey, Laura. Hey, John.
+[00:02:34] Mona Palad: Hey, Laura! Hey, John!
+[00:02:36] Build Test Scale: Hello.
+[00:02:53] Build Test Scale: Let's just wait for the others. Hopefully they do get the invite. This was sent yesterday. And by the way, Sandy, I finally figured out Zoom, like, it's not gonna be giving us Bill's name or email or anything when we're sending out.
+[00:03:09] Sandy Kumar: Oh yeah, I saw that, because it came from C… it came from your name. It didn't come.
+[00:03:13] Build Test Scale: Yeah, it's under, Sherrington Media admin email now, so that's a good thing. Hey there, Bruce! Sasha!
+[00:03:21] Sandy Kumar: Hi, Bruce. Hi, Sasha.
+[00:03:23] Build Test Scale: Mark is joining 14.
+[00:03:29] Build Test Scale: Let's just wait for the others for now.
+[00:03:39] Build Test Scale: Does any of you… oh, there's Mark. Hey, Mark!
+[00:03:47] Build Test Scale: And there's…
+[00:03:53] Sandy Kumar: We're waiting for Michael.
+[00:03:56] Build Test Scale: Yep.
+[00:04:00] Build Test Scale: Michael… And who else?
+[00:04:05] Sandy Kumar: Robin?
+[00:04:05] Build Test Scale: Yeah.
+[00:04:07] Build Test Scale: Abdul to… is Abdul Journey?
+[00:04:09] Sandy Kumar: Hmm, I don't think.
+[00:04:10] Mark Blyn: No, I don't think so.
+[00:04:11] Build Test Scale: Oh, okay.
+[00:04:14] Build Test Scale: Yeah, Michael and Robin.
+[00:04:24] Mark Blyn: Sasha, are you sleeping?
+[00:04:27] Sasha: Nike.
+[00:04:32] Mark Blyn: I'm sorry, Gene, what?
+[00:04:34] Build Test Scale: Now, do you want to start now, or are we gonna wait for a few more minutes for Michael and Robin?
+[00:04:43] Mark Blyn: Let's wait 30 seconds. Can I answer a message here real quick?
+[00:04:46] Build Test Scale: Sure.
+[00:05:34] Mark Blyn: Alright, let's get going. 103, yeah, let's keep going. 12.03.
+[00:05:39] Mark Blyn: So, Sandy is here. Again, hey, Sandy, I think it says the third time I've seen you today.
+[00:05:46] Sandy Kumar: I know, I was just telling Jean, I haven't seen you in, like, a whole hour.
+[00:05:50] Mark Blyn: Exactly. So, any questions out of the gate for Sandy?
+[00:05:55] Mark Blyn: If not, she's got a list of things to get to, but she is here to answer questions. Does anybody have anything?
+[00:06:03] Sasha: Can I ask her a question about the live chat? Is she kind of involved in that?
+[00:06:08] Sasha: I kind of just tested it out, just to see how it would work, and then let them know that, you know, I was a coach, so they didn't actually create a ticket. And the main thing is, is there going to be an auto-response for the first text that kind of establishes the timeline?
+[00:06:23] Sandy Kumar: Yeah, so basically how it's supposed to be working, and I'm just checking based off of some feedback I've gotten from the support team today morning, but between 8am and 8pm CST, the chat is supposed to be live.
+[00:06:38] Sandy Kumar: And so they get immediate responses. Mark, is it within 15 minutes?
+[00:06:44] Sandy Kumar: Mount Gene?
+[00:06:45] Build Test Scale: Yes.
+[00:06:46] Sandy Kumar: Within 15 minutes, and that should show up on the screen automatically. I can just double check that, but if it's anything outside of those hours, then it's supposed to be… there should be an automated response that goes out, which I'm hearing might or might not be working.
+[00:07:04] Sandy Kumar: And so I'm just double-checking on that right now.
+[00:07:08] Mark Blyn: I'll pause you right there. So, the live chat…
+[00:07:11] Mark Blyn: the response time is not 15 minutes, that's the email response time, right, Gene? But the live chat?
+[00:07:17] Build Test Scale: Yes, the, like…
+[00:07:19] Build Test Scale: The live chat is immediate, so we have the support assigned to a specific hours, and they will be getting that immediately. So, the most of it, they will have to wait
+[00:07:31] Build Test Scale: like, 2 to 3 minutes, that's the most waiting time they would get, but they… live chat should be real… almost real time.
+[00:07:41] Sasha: Yeah, I understand that.
+[00:07:42] Mark Blyn: 15 minutes. Okay.
+[00:07:45] Sasha: Yeah, I understand that conceptually, I just mean when I… when I opened a conversation, and I've obviously, like, you know, used live chats in other situations, there's usually, like, a… you know, we have…
+[00:07:55] Sasha: agent's working, or whatever, like, we'll get back to you within 2-3 minutes, because right now, you just write a message, it says unread, and there isn't really, like, any kind of expectation being set for a response. I don't know, it's kind of a minor detail, but I think it would be fairly easy to implement something that says, you know, we'll get back to you within a few minutes, or something like that.
+[00:08:14] Sasha: Because I'm assuming later.
+[00:08:16] Sasha: gonna be some sort of implementation of, like, an automated triage that happens in the beginning of, like, what kind of issue this is, and FAQs and things like that. But just in the meantime, I think it would be nice, because that's how, I don't know, other chats usually function, is it's, like, your number, whatever, in the queue, expect to hear from us within X amount of minutes.
+[00:08:35] Sandy Kumar: Okay, yeah, I see what you mean.
+[00:08:37] Mark Blyn: So, what's… yeah, I just want to make sure that we're clear. So, what you're seeing right now is the… is the, what's con… what's considered the MVP, and so this is an ongoing, ever-improving.
+[00:08:49] Sandy Kumar: Hmm.
+[00:08:50] Mark Blyn: chat widget that we're working on, so yeah, that's a great idea, Sasha. It is one of the things that we're going to implement, but we just wanted to get it up and going and in front of the mentees to start using immediately, but we're always going to be making improvements on it, and that's one of the things we could probably do first.
+[00:09:07] Sandy Kumar: Yeah, I've just made a note of that.
+[00:09:11] Sasha: And the other minor thing is, are we gonna make an announcement about it existing on Discord? Just kind of starting to guide people to using that?
+[00:09:20] Mark Blyn: Yeah.
+[00:09:21] Bruce: I think they're…
+[00:09:22] Mark Blyn: It is. It is. So, based upon this week's
+[00:09:27] Mark Blyn: Trial and errors. I think by the end of the week, if things are smooth, I think we can go ahead and make that announcement.
+[00:09:34] Mark Blyn: But let me tell you, People are using it already, because it's in the portal.
+[00:09:40] Sasha: I know, but I think that, like, some of the, I guess you'd say, older generation might not know what that little blue box is on the bottom, or not know to look for it, so I think pointing people in that direction will be helpful.
+[00:09:52] Mark Blyn: I think… I think he's talking about us, Bruce.
+[00:09:54] Sasha: No, I'm actually saying…
+[00:09:56] Bruce: I didn't even know it was there, I'm just now looking at it.
+[00:10:00] Sasha: There you go. There you go.
+[00:10:01] Mark Blyn: Hey, what is that thing?
+[00:10:05] Todd: Put your glasses on, Bruce.
+[00:10:07] Todd: No, that's…
+[00:10:08] Mark Blyn: It's good from over here.
+[00:10:13] Mark Blyn: Oh my gosh. Alright, a little bit of humor. Yeah, Sasha, we can make an announcement, but let's just make sure that we're comfortable with it. Really started everything on Monday, so today's only Wednesday. But we do have both sides of the support that I talked about last week up and running.
+[00:10:31] Mark Blyn: Email is… email human responses are 15 minutes.
+[00:10:36] Mark Blyn: The auto-reply is off during working hours, so the first response they're going to receive is from an actual human.
+[00:10:44] Mark Blyn: The live chat widget we just talked about is working.
+[00:10:48] Mark Blyn: And it's just gonna get better and better and better, so… big improvements, that's a lot.
+[00:10:53] Mark Blyn: That's a big ask. Probably a lot more than everybody realizes, but support team's doing a great job with this.
+[00:10:59] Mark Blyn: Sandy, especially, she's been working tirelessly at this. So, thank you so much.
+[00:11:06] Sandy Kumar: Yes, it's… I think it was easier on the portal. It's like the apps are what's kind of proving to be a little more challenging, so we've been going back and forth with their support chat to kind of personalize, because now…
+[00:11:21] Sandy Kumar: The way it is, we are able to, like, so the login page.
+[00:11:26] Sandy Kumar: has it where they have to enter the information if we don't realize who the member that's there is, but then once they log into the portal, we're able to recognize and pass the name, which isn't working for Flexi, and so we're working back and forth with them, so hopefully…
+[00:11:42] Sandy Kumar: the goal is for us to have the chat widget on, like, DIY tracks and all the apps eventually, so that it makes it easier to streamline support a little bit more.
+[00:11:52] Sandy Kumar: So it's been a process.
+[00:11:54] Mark Blyn: Yeah.
+[00:11:56] Mark Blyn: Well, like we said, we just launched it, so we're doing well.
+[00:12:00] Mark Blyn: Okay, besides that, anybody have anything for Sandy?
+[00:12:13] Mark Blyn: Alright.
+[00:12:15] Sasha: Let's let her go.
+[00:12:16] Mark Blyn: Thank you, Sandy.
+[00:12:18] Build Test Scale: Thank you.
+[00:12:18] Sandy Kumar: Thanks, you guys. Have a great day, and a great week.
+[00:12:21] Sandy Kumar: See ya.
+[00:12:25] Mark Blyn: Alright, so Sasha, not to put you on the spot, but I am… going to. So… I wanted to…
+[00:12:36] Mark Blyn: talk about the, kind of, the other side of this equation that I have pictured for a little bit of a better experience for mentees, and that is…
+[00:12:46] Mark Blyn: Trying to get them to understand a little more about
+[00:12:52] Mark Blyn: Traffic source, testing, optimization, what to do when, what's next, things that…
+[00:13:01] Mark Blyn: I think the coaches have a hard time answering, just because we just don't know.
+[00:13:05] Mark Blyn: Adam is… is kind of removed from the day-to-day job as an affiliate marketer, so he's not really testing anything and running traffic.
+[00:13:15] Mark Blyn: He is instead creating other ideas for business.
+[00:13:19] Mark Blyn: Ideas for turning to media.
+[00:13:21] Mark Blyn: And so we didn't really have that kind of go-to. Dan Pine is not here any longer, as we know.
+[00:13:29] Mark Blyn: So there was a big reservoir that needed to be filled.
+[00:13:33] Mark Blyn: And I believe that person is Sasha. Spoke with Sasha over the weekend.
+[00:13:38] Mark Blyn: Would like Sasha to kind of take point, kind of lead, so to speak, with the coaches.
+[00:13:44] Mark Blyn: So what does that mean?
+[00:13:47] Mark Blyn: So, we have put Sasha in direct contact with the traffic source, in that way for Caterpillar.
+[00:13:54] Mark Blyn: So this way, on a day-to-day basis.
+[00:13:57] Mark Blyn: Sasha can ask questions and get answers that you coaches can then relate to the mentees.
+[00:14:05] Mark Blyn: And also, I believe Sasha can relay information to you coaches
+[00:14:10] Mark Blyn: So that all the coaches are kind of reading off the same sheet.
+[00:14:14] Mark Blyn: When it comes to the mentees and guiding them, and helping them optimize their campaigns.
+[00:14:21] Mark Blyn: I think having Sasha as a direct contract with the traffic source, is going to…
+[00:14:29] Mark Blyn: Create a thoroughness of the information that we are handing out on the coaching calls.
+[00:14:34] Mark Blyn: That way, we're a little more clear as to what to do, so we're not waiting for Adam, or Dan Pine, or anybody else to tell us.
+[00:14:43] Mark Blyn: So, you all can start talking with Sasha a little more, and any questions or things you're not sure of that you need answers from when it comes to the traffic sources, Sasha can get that for you, and we can talk about it on these weekly coaching calls.
+[00:15:00] Mark Blyn: I know, Sasha, we got you in there yesterday. I know you're gonna have a call with the rep here soon. I don't know if that's happening today, tomorrow, by the end of this week.
+[00:15:09] Mark Blyn: But kind of give us your thoughts there, Sasha, what you're thinking about doing, maybe talk a little bit about the 21-day blitz.
+[00:15:18] Mark Blyn: Kind of what you are conceptualizing moving forward.
+[00:15:24] Sasha: Yeah, I haven't set up a call yet. I just told the rep that I was going to, so it'll be either at the end of this week or beginning of next week, and I kind of wanted to have an opportunity to, you know, talk to the coaches and kind of get a list of questions together. I've been jotting down some of my own, but yeah, I mean, I think the general goal is to kind of
+[00:15:43] Sasha: refine what it is that we're advising a little bit more concretely, so that we're a little bit more on the same page, and I kind of have some ideas for minor tweaks to the 21-day blitz, and, you know, definitely willing to take input on how to do that.
+[00:16:00] Sasha: I think, for me personally, just, you know, having gone through a bunch of coaching calls and one-on-ones and reflecting on, you know, the things that I'm constantly telling people and the things that people find useful,
+[00:16:15] Sasha: And then the things that are sort of unclear, and I think where people kind of take a wrong turn in their testing, I guess. So those major things is I think that, like, I think that the concept of
+[00:16:28] Sasha: sort of…
+[00:16:29] Sasha: add angles and how that translates into headlines is a little bit buried in the Blitz. I think, it can be, you know, either stressed a little bit more, or potentially brought up to the top a little bit more. You know, even in Adam's, like.
+[00:16:44] Sasha: the Finding Your Edge video, which is in the Blitz, and it's a helpful one, you know, he talks about how the angle is, like, you know, 70% of your success. And I don't feel like people put enough effort into that, especially in their first round of testing, when they're kind of just…
+[00:17:00] Sasha: rushing to… to get to stuff. So, conceptually, I would like to…
+[00:17:05] Sasha: kind of really bring that to the forefront and get people thinking about it before they go through the logistical steps of, like, how to set up my DIY tracks and how to clone pages in Flexi. I kind of want to stress the marketing a little bit more up front so that they're thinking about that first and not, like.
+[00:17:22] Sasha: how to necessarily set up the software, because any time I've had coaching calls where I'm, like, stressed people to separate the marketing from the logistics, people find that pretty helpful. So, however we figure out how to do that.
+[00:17:36] Sasha: I think would be good. I mean…
+[00:17:39] Sasha: check my notes. Oh, and the other major thing is I kind of want to figure out how to add some… some nuance in the direction of, sort of, the round one to round two testing. I feel like the way that it is phrased, sometimes people speed into their round two when they're not ready for it.
+[00:17:57] Sasha: And my main problem, I guess, with how it is currently phrased is…
+[00:18:04] Sasha: Just in the way that it's oversimplified, of, like, amount of revenue relative to ad spend, doesn't necessarily…
+[00:18:13] Sasha: translate in certain campaigns. So, like, just as, like, a logistical example, you have an ad banner with 25% click-through rate that didn't get a purchase, and then you have a couple of one-off purchases on some 8% or 9% click-through rates, or something like that. And so some people maybe can technically meet the revenue threshold to move forward.
+[00:18:33] Sasha: But the ad banners aren't necessarily the ones that they should be moving forward to, so I'm not exactly sure how we want to do this yet, but, like, there are plenty of times when I'm looking over people's campaign data, and I'm like, I think you're ready for round 1.5.
+[00:18:46] Sasha: You know, but you're not necessarily ready to start image testing. Like, you had some good early indicators of what might be working, but you need to maybe work on your headlines a little bit more based on data you're seeing. So I'm definitely…
+[00:18:59] Sasha: you know, looking for input onto how to communicate this in the 21-day blitz. Obviously, it's something that we're doing on the one-on-one calls, but I think, you know, some people don't… either don't show an…
+[00:19:12] Sasha: up enough to one of those, or show up to that after they've already kind of moved on to Round 2, and we have to say, okay, well, maybe you weren't quite ready, so…
+[00:19:20] Sasha: Those are kind of conceptually the biggest things that I thought of just in the last couple of days, in terms of, I think, areas for improvement that would prevent certain situations of basically kind of like wasted ad spend, in a way.
+[00:19:35] Sasha: And then maybe also just bringing in a little bit more content on
+[00:19:41] Sasha: analyzing DIY tracks data to start. I know that Bruce has a video out there somewhere of just, like, explaining the metrics and how to look at it and stuff like that. I don't remember where that video is, but bringing in
+[00:19:54] Sasha: a little bit more of that kind of content into the Blitz, just so that it's easily accessible and people kind of
+[00:20:01] Sasha: Know what to expect of, of,
+[00:20:05] Sasha: Of how to just look at things when they first start.
+[00:20:08] Sasha: So, you know, I'll be thinking of other ideas. I have a couple of more in terms of, like, all of our, kind of, various AI tools.
+[00:20:17] Sasha: I think that, personally, the affiliate CMO, not a huge fan of it, honestly. Like, I think we should probably downplay it a little bit. I kind of tell people it's just one of the tools you have. Use it for brainstorming, get ideas from it, but use a variety of approaches, and…
+[00:20:33] Sasha: I think that we could also have a little bit more content as to, like, different coaches' workflow approaches from, like, product to angle to headlines, because we all have slightly different styles, they're all…
+[00:20:45] Sasha: valid, but giving people a little bit more, more ideas into how to come up with content beyond just what Adam has in his tips and tricks of just kind of throwing things into chat, giving it his anstrax headlines, and that's it, you know, so…
+[00:21:02] Sasha: I think that's, you know, from my perspective, the whole concept of angles and how to get from angles to headlines is the thing that needs to be stressed a little bit more to get people to come up with some more quality, structured testing in the very beginning.
+[00:21:18] Sasha: But in general, you know, I wanna kind of…
+[00:21:22] Sasha: Brainstorm with everybody onto… as to what people think is maybe where we're falling short, and how that can be improved in small ways in the coming months.
+[00:21:34] Mark Blyn: Yeah, great. So, maybe upon meeting the rep from the traffic source coaches, if you have any questions you would want to get answered, if you were on that call with that person, maybe…
+[00:21:45] Mark Blyn: you can hand those off to Sasha, and he can ask and get those answers for you all. But I just think everybody being on the same page, making improvements as a team to the 21-day blitz, whatever we think's missing.
+[00:21:59] Mark Blyn: please kind of come together on this and help Sasha to make the program, the system, a little bit better. That'd be great.
+[00:22:11] Mark Blyn: Max Web and BuyGoods, I think we're gonna have those ready to go next week. I'll let you know, Sasha, later on this week, if that's a go, so you can start taking a look at that and getting familiar with it.
+[00:22:23] Mark Blyn: So, 2 more affiliate networks should be coming on board here shortly. I did see this morning they were sent to production, so that's good.
+[00:22:33] Mark Blyn: Todd, I think you said you had a call Monday, and you had a concierge team member on your call, and you said it went pretty well?
+[00:22:40] Todd: Yep. Yeah, I mean, they were, you know, just in the background, but we had, you know, a couple of issues that they were able to help with, so…
+[00:22:48] Todd: Made it nice to have them available right there.
+[00:22:52] Mark Blyn: Okay. Alright, good.
+[00:22:54] Mark Blyn: All right.
+[00:22:56] Mark Blyn: Yeah, so anyway, I wanted to make that introduction, let you know what's going on with Sasha. Again.
+[00:23:03] Mark Blyn: Just somebody to kind of lead up the team a little bit, and kind of take charge in some of the things that we need to.
+[00:23:11] Mark Blyn: Start taking a closer look at and start improving on.
+[00:23:14] Mark Blyn: Is the purpose of this entire introduction of Sasha onto the team. And so, when I met with him over the weekend, he was definitely excited about it, and I could tell he's already been working on things he wants to get accomplished immediately, which is great.
+[00:23:32] Mark Blyn: So, really keep an open line of communication with him, please.
+[00:23:37] Mark Blyn: It's just gonna help everybody move along even better than what's happening currently.
+[00:23:44] Sasha: Yeah, maybe at the end of this call, we can just, if anyone does have questions, things, brainstorming ideas of things to bring up for a conversation at the traffic source, that'd be helpful. Because like I said, I think…
+[00:23:56] Sasha: When I looked yesterday, they had availability
+[00:24:00] Sasha: Friday, and then beginning of next week, so…
+[00:24:03] Sasha: I kind of like to get an idea of what we're gonna talk about before that happens, beyond the questions that I've had.
+[00:24:13] Mark Blyn: Yeah, that's a good idea. Okay.
+[00:24:16] Mark Blyn: And then every week when we have this meeting, Sasha, I would like you to kind of start the meeting and kind of introduce
+[00:24:22] Mark Blyn: Some new ideas, or some answers, or some thoughts, or things that you're looking at changing, so we can all talk about it.
+[00:24:31] Mark Blyn: Of course, we'll have Sandy on as well. We can ask her about any issues we're having tech-wise.
+[00:24:36] Mark Blyn: But these meetings moving forward, just want them to be a little more productive. I feel like we're just kind of waiting for things to talk about.
+[00:24:46] Mark Blyn: now, I would like us to start talking about things, about the things we're working on, the things we're improving, the ideas we have, so that these become a lot more productive.
+[00:24:57] Mark Blyn: And we know where we're headed, versus us just kind of showing up, and we all kind of talk about a few things, and then move on with our day. I want these to feel different.
+[00:25:06] Mark Blyn: I want to stack different, and, you know, I think…
+[00:25:11] Mark Blyn: This just adds to the entire priority number one of Q1, which is mentee success.
+[00:25:19] Mark Blyn: Okay, so the better aligned the coaches are, obviously, the better the experience for the mentees. So I think, Sasha, you had asked me.
+[00:25:29] Mark Blyn: I know it was last week or over the weekend.
+[00:25:32] Mark Blyn: What is your idea of mentee success?
+[00:25:35] Mark Blyn: And my idea of mentee success is…
+[00:25:38] Mark Blyn: Nothing from the agency side should prevent a mentee from being successful.
+[00:25:44] Mark Blyn: I don't want us to have issues that prevent them. I don't want lack of communication to prevent them.
+[00:25:51] Mark Blyn: I don't want… Mismatched messages coming from?
+[00:25:56] Mark Blyn: Coaches or concierge team?
+[00:25:59] Mark Blyn: To throw a minty off.
+[00:26:01] Mark Blyn: The mentee should have an open line, an open view of success all the way down the pipeline.
+[00:26:08] Mark Blyn: That is my ultimate goal.
+[00:26:10] Mark Blyn: At the end of the day, if the mentee is not successful in their mind financially, then I don't want it to be because it was the agency's lack of resources, or the agency's fault that that mentee didn't get to that success. I think we all know
+[00:26:28] Mark Blyn: It's tough to be successful as an affiliate marketer, we know that.
+[00:26:31] Mark Blyn: But we offer the best tools that are out in existence, the best coaches.
+[00:26:40] Mark Blyn: Some of the best support systems, to make them successful.
+[00:26:46] Mark Blyn: And I think if we clean up, and we already are, our support end to the mentees, and we start improving our coaching message a little bit more.
+[00:26:55] Mark Blyn: I think we're making big strides in getting mentees to that success line, so…
+[00:27:01] Mark Blyn: That is my idea of success, is to have nothing from the agency prevent a mentee from being successful. If they're not successful.
+[00:27:09] Mark Blyn: It's probably the mentee's mentality.
+[00:27:12] Mark Blyn: The mentee's lack of drive, ambition to see it's real, because
+[00:27:17] Mark Blyn: Even the sales team is letting the mentees know as they're going through the process. Our onboarding. This is not easy.
+[00:27:24] Mark Blyn: You can't flip a switch and be successful. It doesn't work that way. You've got to work hard. There's ups, there's downs.
+[00:27:31] Mark Blyn: you're gonna go through all of this. It's not easy to become financially, successful.
+[00:27:38] Mark Blyn: At the highest level.
+[00:27:41] Mark Blyn: to be the next Adam. You can. You can get there.
+[00:27:45] Mark Blyn: But it's not gonna be easy, but we're gonna help you. We're gonna coach you, we're gonna mentor you, and we're gonna help you as much as we possibly can to get you there. So…
+[00:27:55] Mark Blyn: I think with Sasha helping us out a little bit more, just makes us a little bit more stronger as a team.
+[00:28:02] Mark Blyn: That's my message.
+[00:28:08] Laura Lynn: I have a question.
+[00:28:09] Mark Blyn: Right, well,
+[00:28:11] Laura Lynn: About, State of the Union. I notice it's been a while since they've… we've had an update on State of the Union. Is that something I still need to be talking about on the calls, or are we postponing State of the Union for a while?
+[00:28:23] Mark Blyn: So, I think I'm going to be able to not convince Adam, but have him commit to doing one of those a month.
+[00:28:32] Mark Blyn: So most likely by the end of this month. Will not be weekly.
+[00:28:36] Mark Blyn: Probably not gonna be bi-weekly, but at least once a month.
+[00:28:39] Mark Blyn: You'll get to see him, hear from him, he can introduce new ideas, new concepts, so yes.
+[00:28:54] Mark Blyn: Alright, well, you guys are quiet.
+[00:28:56] Mark Blyn: Anything you want to talk about?
+[00:28:59] Sasha: Yeah, what's the deal with Chipoti?
+[00:29:03] Mark Blyn: The deal with Tipaltay, you mean as far as payments?
+[00:29:07] Sasha: Yeah, I mean, it seems like our timeline of payouts is kind of broken at this point. What is the issue that's happening?
+[00:29:15] Sasha: Where… why that's… I don't know, so backlogged.
+[00:29:21] Mark Blyn: We are… Close eye on financials.
+[00:29:27] Mark Blyn: Keeping a close eye on… our revenue.
+[00:29:33] Mark Blyn: And our expenses, so we will get those paid here. I think I'm… I got a meeting with Adam today. I do believe we're gonna get payments out today, and try and get it back on track to a more,
+[00:29:46] Mark Blyn: consistent.
+[00:29:48] Mark Blyn: Payment plan, payment dates.
+[00:29:50] Mark Blyn: So, we're working on those.
+[00:29:58] Mark Blyn: I think, actually, you're at the top of the list to get paid.
+[00:30:02] Sasha: Yeah, I mean, I knew it would eventually happen. I'm not, like, personally all that concerned, but, like, if I'm in that position, and I'm in these calls, able to ask these questions, and I've had mentees ask questions about it, too, and I kind of just…
+[00:30:16] Sasha: Tell them, oh, don't worry about it, it'll happen soon, but, you know, it's…
+[00:30:20] Sasha: It will. It's quite a ways off from what we… we talk about.
+[00:30:23] Mark Blyn: Right. In terms of…
+[00:30:24] Sasha: schedule.
+[00:30:24] Mark Blyn: Hey, yeah, we'll make sure.
+[00:30:30] Todd: Park, when are we gonna.
+[00:30:31] Sasha: Hmm.
+[00:30:31] Todd: Start testing offers.
+[00:30:33] Todd: Again.
+[00:30:36] Mark Blyn: Hmm… Probably gonna be a…
+[00:30:42] Mark Blyn: Gosh, Todd, you know what? I don't want to give you a day. I'm gonna say, probably not gonna be this month.
+[00:30:48] Mark Blyn: This month is gonna be a real litmus test on a lot of different things. By the end of the month, we'll have a really good idea.
+[00:30:55] Mark Blyn: How we're performing overall as a company with all the changes that we've made.
+[00:31:01] Mark Blyn: I think that's… I don't think, I know. This is why we want to bring other affiliate networks into the mix.
+[00:31:07] Mark Blyn: So that we can have the mentees choose the offers that are converting, that are proven.
+[00:31:12] Mark Blyn: So it takes a lot of pressure off of us to test our own products and start that up again.
+[00:31:19] Mark Blyn: So, when are we gonna start being able to test our own?
+[00:31:25] Mark Blyn: Probably not gonna be this month.
+[00:31:27] Mark Blyn: Maybe February.
+[00:31:30] Bruce: Are we moving away from Media Maven's products in general?
+[00:31:34] Bruce: I mean, that's what it kind of sounds like. If we're going to…
+[00:31:38] Bruce: take on other affiliate networks, you know, and utilize their authors. I mean…
+[00:31:44] Bruce: even that, I mean, I don't…
+[00:31:48] Bruce: You know, you don't have a proven product, necessarily, on those. I mean, that's a whole… a whole other ballgame when you start.
+[00:31:55] Bruce: Incorporating new products from other
+[00:31:59] Bruce: vendors, I mean, from a coach's perspective, it can be very challenging if all of a sudden… I'm not sure how that's going to work. I'm assuming they all have to
+[00:32:09] Bruce: Sign up and get their own account, kind of like we did in the past.
+[00:32:14] Mark Blyn: Right.
+[00:32:14] Bruce: And they're gonna have to… used the…
+[00:32:19] Bruce: Landing pages at the affiliate level.
+[00:32:23] Bruce: As opposed to building our own landing pages, which means we lose a lot of data in terms of,
+[00:32:33] Bruce: You know, what's gonna… how it's gonna convert, because we don't have landing page data
+[00:32:38] Bruce: in DY tracks anymore, unless we're somehow going to get that
+[00:32:42] Bruce: implemented, which is… seems unlikely into these affiliate networks. I mean, ultimately, all you get back is conversions, so all you basically have is
+[00:32:53] Bruce: Landing, all you have is ad clicks and conversions?
+[00:32:56] Sasha: Bruce, the… I looked into both of these affiliate networks, MaxWeb and BuyGoods, and they're both, similar to ClickBank, except it seems like more CPA. They're focused on health and wellness and beauty and supplements, so…
+[00:33:11] Sasha: I think we were kind of getting back to…
+[00:33:15] Sasha: bridge slash jump page mentality, so I think we'll still have landing page data, but this is a.
+[00:33:21] Bruce: Yeah, VSS.
+[00:33:23] Bruce: Or are they long form?
+[00:33:25] Sasha: Yeah, I mean, they're…
+[00:33:26] Bruce: trails.
+[00:33:26] Bruce: Yeah, they're like… BuyGoods is very similar to ClickBank, if I remember well. I mean, it's like…
+[00:33:32] Sasha: Yeah, and so is… I mean, just from, like, looking at Google AI overview of their offerings, it seems like they're…
+[00:33:40] Sasha: more health and wellness focus, maybe a little bit more selective than ClickBank on their offers, and…
+[00:33:48] Sasha: I think more geared towards CPA, and don't have,
+[00:33:55] Sasha: like, a minimum amount of conversions before payouts, that kind of stuff, so I think from that perspective, it becomes a little bit easier than ClickBank.
+[00:34:03] Sasha: But I do think that that will…
+[00:34:06] Sasha: Require us to hone our coaching skills back to
+[00:34:11] Sasha: The strategy of, you know, starting by testing a bunch of different unique bridge pages, and then…
+[00:34:17] Sasha: Refining from there, so… I think that'll take…
+[00:34:21] Sasha: A little bit of… of work to…
+[00:34:24] Sasha: Know how we're gonna talk about… that particular… Avenue for them.
+[00:34:31] Michael: Where would.
+[00:34:31] Mark Blyn: Yeah, and so…
+[00:34:32] Michael: We used to use the DSP and test
+[00:34:36] Michael: Landing pages, short-form landing pages there.
+[00:34:40] Michael: Because it was cheap, and we were able to do that. You remember doing that, Bruce. We'd test 100 landing pages in the DSP.
+[00:34:49] Bruce: Yeah, that was the system back then.
+[00:34:52] Michael: Right.
+[00:34:52] Bruce: age test.
+[00:34:53] Michael: Right, so we would do the landing page test, and then… and, you know, you were… We're back to…
+[00:35:02] Michael: Mentees are now gonna be responsible, for the most part, the way I see it, of creating their own stuff.
+[00:35:08] Michael: Not necessarily us.
+[00:35:14] Bruce: I mean, how… yeah, because how do we approach jump pages? I mean, if we're gonna… because we don't… we can't obviously have… create jump pages for every offer on all these affiliate networks, so it's like…
+[00:35:26] Michael: No, they're gonna have to do their own.
+[00:35:28] Bruce: Yeah, everyone's… that's the way we started at the very beginning. We had to create our own short-form landing page, and…
+[00:35:36] Michael: Absolutely, and that's still… that's what I believe will have to happen.
+[00:35:40] Bruce: Yeah, it will.
+[00:35:42] Sasha: I mean, I think we can… we can update our template experience for health and wellness offers, I think.
+[00:35:49] Sasha: I think while I think Dan had his… headed the right place for, like, creating the bots, I think some of them are a little bit overkill and a little bit long. I think we can…
+[00:36:00] Sasha: I don't know, just do some basic anstrax research and find examples of structures for really short bridge pages as… or jump pages.
+[00:36:09] Michael: Real soon.
+[00:36:10] Michael: Yeah, I know, but…
+[00:36:13] Sasha: But that's the point. I kind of view a bridge page or a jump page as almost like a second ad banner, with just a little bit more copy. Like, you have your headline, you have your hero shot, and then you have, you know, 3-4 sentences, a paragraph that's almost kind of like the…
+[00:36:27] Sasha: on Adam's old, ad banners, that, like, that short bit of copy on the bottom. But stuff like that, to be able to test initial angles, I don't think would be terribly complicated to…
+[00:36:38] Sasha: To implement, as a starting point.
+[00:36:42] Michael: I think it depends on what it's leading to, in my mind. If it's going to a VSL, you know, I'm okay with that, but if it's going to…
+[00:36:50] Sasha: Yeah, no, I mean, I think this is gonna be VSL heavy.
+[00:36:54] Michael: But I'm, well, thinking… I mean, I'm just saying, as long as we know it's going to a VSL,
+[00:36:59] Michael: then that's one thing. If it's not, then it's a different thing.
+[00:37:03] Mark Blyn: So, I know Adam's got experience with both of these networks, so what I would like to do is, next week, Sasha, try and put together maybe a quick meeting with him, so we can ask him these questions and get a little bit of
+[00:37:16] Mark Blyn: Clarity as to our approach as coaches.
+[00:37:19] Mark Blyn: What we talk about, how we introduce it, what we tell the mentees to do, what we suggest, is what I would like to do so that next week's call, we can really get into this and talk about
+[00:37:32] Mark Blyn: What the SOP is.
+[00:37:35] Michael: I mean, I know I was late, but is the Blitz gonna get updated around all this?
+[00:37:41] Mark Blyn: Yes, that is part of Sasha's new role. Doesn't mean it's gonna happen all at once, but if we can make small updates.
+[00:37:49] Mark Blyn: as often, maybe every week, every couple weeks, once a month, that'd be great, but yes, that is one of the things I know Sasha wants to start taking care of.
+[00:37:59] Mark Blyn: Right out of the gate.
+[00:38:02] Michael: Okay.
+[00:38:02] Mark Blyn: I'm just looking for… Consistent messages from all the coaches.
+[00:38:06] Mark Blyn: When it comes to the mentees. And I realize, again, that everybody has a different style of teaching and coaching, I get that, that'll never change, but at least let's all kind of have that same consistent message.
+[00:38:17] Mark Blyn: really important.
+[00:38:20] Mark Blyn: So, Bruce, yes.
+[00:38:22] Mark Blyn: Getting away from media mavens a little bit, we want to offer a lot more for the mentees to be able to
+[00:38:28] Mark Blyn: promote, so they're not feeling like they're locked into just Media Mavens, or they don't feel like they have so much competition, or they feel like that they can actually go out outside of Media Mavens and find an offer that they can relate to, that they get behind.
+[00:38:44] Mark Blyn: Is… is definitely the vision that we have.
+[00:38:49] Bruce: Is there a reason that we're… I'm sorry, Sasha, is there a reason we're…
+[00:38:54] Bruce: Sticking pretty much to just both of those affiliate networks.
+[00:38:59] Bruce: are pretty much health and wellness, as opposed to gadgets, like Giddy Up, or Verve, or something like we did in the past, where we had gadgets in the mix as well. Is there a reason we're not including those in there as well?
+[00:39:12] Mark Blyn: So, Adam didn't give me a reason, he just said, we're going to launch these two now, and then we're going to start launching a lot more throughout the year, but I want these two up and running first.
+[00:39:25] Bruce: Okay.
+[00:39:26] Mark Blyn: That's what I got.
+[00:39:34] Bruce: Because almost all those…
+[00:39:36] Bruce: Those are going to be supplement offers for the 90% of what we're going to be doing going forward, I'm assuming, then.
+[00:39:44] Bruce: I don't… I don't remember what BuyGoods… I've used BuyGoods in the past, I've signed up for it in the past, so it's been years ago, but it seemed like it was…
+[00:39:53] Bruce: pretty much all supplement-type products. I can't remember what.
+[00:39:57] Mark Blyn: Did you, did you get in there, Sash, and look at it closer?
+[00:40:01] Sasha: No, I didn't create accounts, I just did searches of what types of offers they have, and… the… They're…
+[00:40:09] Sasha: You know, affiliate model.
+[00:40:12] Mark Blyn: Okay.
+[00:40:13] Sasha: I mean, I do think that, like, anything with a CPA offer, even if it's, like, obviously lower than the rev share, I think it's just…
+[00:40:23] Sasha: easier to start with. I think having a flat number for a conversion is something that's easier to back into on smaller initial testing, so…
+[00:40:35] Sasha: So, at least I think that that's an improvement.
+[00:40:40] Mark Blyn: Yeah, I agree.
+[00:40:44] Sasha: But, you know, that said, my question was pretty much the same as Bruce's, like, is there a…
+[00:40:49] Sasha: Down-the-road vision to also introduce affiliate networks that are gadgets or not supplements specifically, that
+[00:40:56] Sasha: We can also use to be able to Create variety for options.
+[00:41:01] Mark Blyn: Yeah, of course, yeah, definitely. Definitely. These are just the first two that he suggested.
+[00:41:10] Sasha: Because I think at this point, we're gonna need to figure out, like, what is our general…
+[00:41:14] Sasha: guidance. You know, we've been pushing people towards media mavens. Are we gonna be actively encouraging Max Web buy goods, saying there are options?
+[00:41:24] Sasha: I don't know. I just feel like more and more, especially if we're, you know, not gonna be testing new products anytime soon, that we don't have any… that many particularly great offers in Media Mavens, and…
+[00:41:36] Sasha: Sometimes kind of sucks being neutral about it, knowing that some people are picking products that are… probably just don't… not gonna do all that great, just based on historical patterns of what we've seen.
+[00:41:49] Mark Blyn: Yeah, I think we want to get into the mindset where we want the mentees to go out and find an offer.
+[00:41:55] Mark Blyn: Right, we don't… we don't want to suggest a certain couple of two or three. We want them to do their homework.
+[00:42:03] Mark Blyn: Look at the networks, What do you believe in?
+[00:42:07] Mark Blyn: What is your lifestyle?
+[00:42:09] Mark Blyn: What can you get behind?
+[00:42:11] Mark Blyn: what do you feel good about promoting? You go find it.
+[00:42:16] Mark Blyn: And we'll teach you how to market it, we'll teach you how to promote it.
+[00:42:21] Mark Blyn: We'll teach you how to build and go after the traffic.
+[00:42:24] Mark Blyn: That's the mindset.
+[00:42:40] Mark Blyn: Thoughts? Any ideas?
+[00:42:43] Mark Blyn: What's everybody thinking about?
+[00:42:46] Sasha: Yeah, do any… any other coaches have any…
+[00:42:50] Sasha: Tra- questions for traffic source?
+[00:42:54] Sasha: That they would…
+[00:42:56] Bruce: Yeah, I do.
+[00:42:56] Sasha: To get clarity on.
+[00:42:58] Bruce: Yeah, scaling. Aaron Woodhouse has a profitable ad banner and landing page.
+[00:43:05] Bruce: He's asking me about scaling.
+[00:43:08] Bruce: on… this…
+[00:43:10] Bruce: platform, I don't know. For some reason, it's stuck in my mind that Adam said no more than 20%.
+[00:43:17] Bruce: on a daily budget on this. But, I mean, I don't… I'd like to know, and also…
+[00:43:23] Bruce: you know, I'm sure it's… I'm sure you got this one on your list, too. It's like the,
+[00:43:29] Bruce: You know, the conversion, changing over to the,
+[00:43:34] Bruce: letting the algorithm start taking over and do the max conversions, or the CPAs, as opposed to the…
+[00:43:42] Bruce: one we have now, because, I mean.
+[00:43:45] Bruce: that's how you're gonna scale. You can't… you're gonna need to scale, you're gonna probably need to utilize the algorithm, and we don't know how to do that. We don't even know…
+[00:43:53] Bruce: how it shows up anywhere, so… and we've got somebody right now that…
+[00:43:59] Bruce: for Berkshire has a profitable ad banner.
+[00:44:03] Bruce: And… and profitable landing page. He's nailed it down to one, and he wants to scale them, and…
+[00:44:09] Bruce: I think… was he on your call, Todd? Do you remember? I thought he mentioned he was on your call as well.
+[00:44:14] Bruce: Yeah, and wanting to know what to do next, and I was like.
+[00:44:17] Bruce: I don't know. Increase your budget, I think, is the only thing we could tell him to do. I didn't really mess… tell him to… want to mess with anything, you know, if you've got something that's worked, let's just push it and see if he can make money off of it.
+[00:44:30] Bruce: But I didn't know how much she could push her.
+[00:44:32] Bruce: Because he's wanting to do $300 a day, and so I don't know if he can do that or not. I would do it, too, if I could.
+[00:44:38] Sasha: What's he at currently, per day?
+[00:44:40] Bruce: Hundred.
+[00:44:42] Sasha: Oh, okay.
+[00:44:43] Sasha: Yeah, I mean, we had a few kind of questions about that in that, you know, the spreadsheet that talked about it, and the gist I got was that, like.
+[00:44:51] Sasha: Scaling really happens.
+[00:44:54] Sasha: through, max conversion, and CPA is if you have, like, I don't know, really specific margins for some reason, but yeah, I agree, it is a little bit unclear, and that is something I'd like to get guidance on, but that is something they said, is… I don't think it's…
+[00:45:11] Sasha: Their phrase wasn't 20% per day, it was, like, no more than 40% every 48 hours, or something like that, which…
+[00:45:19] Sasha: Ends up being roughly the same thing, but.
+[00:45:22] Bruce: I don'.
+[00:45:22] Sasha: That is one of the things I'd like to get some clarity on.
+[00:45:27] Bruce: Also, clarity on sub-campaigns versus
+[00:45:31] Bruce: how the algorithm works on sub-campaigns, because we're told, you know, in that document, it talked about trying to get 20 conversions. It said preferably within 3 or 4 days, you know, is that… that's… is that a hard and fast rule, or can… I mean, because Adam Lockheed acted like you could scale still
+[00:45:49] Bruce: Even if you didn't hit that 3 or 4 days threshold, as long as you got your 20 conversions, but is that on… I'm assuming that's on a sub-campaign basis, so if you have 2 sub-campaigns, do you need 20 in each, or how does that…
+[00:46:02] Bruce: work, and how does that work in terms of ultimately switching? I think the 20…
+[00:46:07] Bruce: Conversions is what you needed to ultimately switch a
+[00:46:11] Bruce: Campaign to a max conversion process, but does that mean
+[00:46:16] Bruce: that if you've got two campaigns, does one help the other? When you've got sub-campaigns, is conversions in one helping the overall campaign, or is it just limited to each sub-campaign? Because there was kind of… I remember some… it seemed kind of nebulous in there that we didn't know whether
+[00:46:33] Bruce: I think they said it could help the overall campaign as well, having conversions, but a little more clarity on that would be, I think, great.
+[00:46:43] Sasha: Yeah, yeah, agreed.
+[00:46:45] Mark Blyn: So, this is perfect. So, if you're asking these questions, Bruce, I'm imagining the other coaches are also kind of wondering the same thing, so…
+[00:46:52] Mark Blyn: this is why this is going to work well, Sasha, when you get in there and establish that relationship, and you're able to ask those questions.
+[00:47:00] Mark Blyn: This is exactly what we need.
+[00:47:02] Todd: Yeah, Sasha, I would also, like, just an understanding of the best practices, like, I know Dan and Adam, but, like, our, you know, is it headlines, and then placements, and then, you know, but what do they recommend, and what do they see?
+[00:47:17] Todd: I know we still don't have a firm answer. Bruce, I heard you talk about this on your call, too, like, the number of creatives per sub-campaign, does that really matter? You know, those types of things that we…
+[00:47:27] Todd: We've kind of heard, but, like, I don't know if anything's definitive from the traffic source.
+[00:47:35] Bruce: Yeah, because we… I've had mentees tell me that they're… the concierge, or the VAs, are asked… telling them to put no more than 5 ads per sub-campaign.
+[00:47:46] Bruce: And I know that was kind of in that document, but I think the way it was phrased in that document was confusing to me.
+[00:47:54] Bruce: So, because I've been telling people just run 10 in one sub-campaign, because to me, it seems like that would be the way you'd want to try to scale to get to the 20 conversions, so we need more clarity on…
+[00:48:07] Michael: Yeah.
+[00:48:07] Bruce: On that as well.
+[00:48:09] Michael: This is where we're all coaches, and we don't… we're not on the same page, because we don't have
+[00:48:16] Michael: Easy information in a form where we can all have it.
+[00:48:21] Michael: Okay.
+[00:48:22] Bruce: It's That's clear.
+[00:48:24] Michael: Clear, that's clear, okay? It's gotta be clear. Well, easy, clear. It's gotta be clear, and we need it in a form where we can all have it, and have it available.
+[00:48:35] Michael: So…
+[00:48:41] Michael: But that's what's hurting us as far as all coaches, because I've been telling people, I…
+[00:48:46] Michael: Now, I don't even remember where I saw it, but I've been telling people to do 5 and 5 across 2 different sub-campaigns.
+[00:48:52] Bruce: Yeah. Exact opposite of what you've been telling them, Bruce.
+[00:48:56] Bruce: Well, yeah, I mean, I don't know that it really matters, to be honest.
+[00:48:59] Michael: I don't know that it does either.
+[00:49:02] Bruce: because I haven't seen any noticeable difference running 10 versus 5, you know, and it's really hard to tell in DY tracks anyway, but just clarity on that type of…
+[00:49:11] Bruce: stuff. Well, we don't very helpful.
+[00:49:13] Michael: Like you were saying, we don't know if that means the algorithm's treating it different or what.
+[00:49:19] Michael: We don't know.
+[00:49:27] Mark Blyn: I'd also be curious about whether or not they.
+[00:49:29] Sasha: They have retargeting campaigns.
+[00:49:32] Sasha: Because I know, like, other traffic sources offer that.
+[00:49:38] Bruce: How would you implement that?
+[00:49:41] Sasha: Well, I mean, if you have a campaign that's…
+[00:49:44] Sasha: Oh, yeah, DY attracts doesn't happen, but, like, maybe it can be. I don't know, that's kind of, like, a more advanced concept, I think, but, like, if on a campaign level, you had a sub-campaign where a bunch of, you know, people
+[00:49:55] Sasha: clicked but didn't necessarily buy, can you create a retargeting campaign with another set of ads to only target, you know, initial clickers and try and get that sell again?
+[00:50:06] Sasha: That's probably… Less pressing of an issue, but…
+[00:50:11] Michael: That's down the road. I think that's down the road from other things that we need to get…
+[00:50:16] Sasha: No, for sure, for sure. I, yeah, I definitely agree on that.
+[00:50:19] Michael: That's down the road, so…
+[00:50:22] Bruce: I'd like some clar… also like some clarity on…
+[00:50:25] Bruce: how the traffic is distributed, because I know we've all seen the 5 and 10 cent cost per clicks on there, and what that is exactly, and… because I'm…
+[00:50:37] Sasha: Oh, people hate it.
+[00:50:38] Bruce: I don't know, I'm assuming it's just a headline and nothing else showing up somewhere, because, you know, people get tons of clicks on it, and
+[00:50:46] Bruce: I haven't really seen any of them perform, but they
+[00:50:50] Bruce: we understood them a little bit more, we could potentially… I mean, you can get a… if you got a dime cost per click, you can get away with a…
+[00:50:57] Bruce: 4 or 5% landing page click-through rate, probably, but we kind of need clarity on what those are exactly. And, well, it's just general pockets of traffic. Sometimes I see
+[00:51:10] Bruce: I mean, you… I haven't tested on this platform. I know you have, Sasha, but I see… on a call yesterday, I had somebody with a 9x16
+[00:51:20] Bruce: video that was costing them $1.71 a click. They were getting… they had some 4 conversions on it, I think.
+[00:51:29] Bruce: So it was actually profitable, but she'd had 4 out of 8 conversions, 4 conversions out of 8 landing page clicks, so I had to convince her that probably wasn't going to hold.
+[00:51:39] Bruce: But still, I mean…
+[00:51:41] Bruce: on that… and I don't know what causes the adjustment in the cost per clicks. Are there certain…
+[00:51:48] Bruce: formats that are actually better than others, because we don't really understand that either. It seems to be real confusing, and just some better guidance on how the publishers distributes the
+[00:52:01] Bruce: traffic and what it means in terms of when we see some props. Sometimes they'll have 40 cent clicks, sometimes we'll have over-dollar clicks on some of this stuff. Is that a function?
+[00:52:12] Sasha: Yeah.
+[00:52:13] Sasha: that's definitely one of my, like, broad questions and topics that I want to cover, which is, like, how are… what are the… why is there such a drastic difference in the CPM costs for cross-campaigns? I think maybe what could be happening, because this has happened in other places that I've tested, although, like.
+[00:52:30] Sasha: specifically with a rep, that maybe certain offers have different… offer types have different, whitelist buckets, potentially, of that. They're like, well, we know these sites are more, you know, convert better with these kind of offers, and so they might have
+[00:52:47] Sasha: sort of automatic application of whitelist, blacklist, depending on the type of offer it is. But yeah, I'm certainly baffled by how a certain campaign, even within a sub-campaign, can have one ad banner that can have
+[00:53:01] Sasha: 5 to 10 cent clicks, and another one that has, you know, $1.20. That's kind of a pretty huge distribution, even when the headlines don't look
+[00:53:12] Sasha: that different, you know? So yeah, I would definitely like to get clarity on that, too.
+[00:53:20] Sasha: And I'm curious about,
+[00:53:23] Sasha: How just getting some examples of how the ads actually look, in terms of when they're presented on their platform.
+[00:53:32] Sasha: because I just want to see of, like, what are the different sizes, how do these come out, you know? Just, like, just be helpful for understanding, potentially, like, image composition as well, like, are some…
+[00:53:43] Sasha: the ad's really big, and some of the ads really small. I want to know if, if the sub-headline is always shown, because I know that in other traffic sources, sometimes the headline… the sub-headline is truncated, or maybe not shown on kind of smaller placements, and that would help understand of, like.
+[00:53:59] Sasha: How crucial is the sub-headline, in terms of
+[00:54:03] Sasha: In terms of the overall ad, and if part of your core messaging resides in your sub-headline, and it's sometimes not shown, that might be a bit detrimental.
+[00:54:12] Sasha: So yeah, that…
+[00:54:15] Sasha: I'd like to get to the bottom of some of… some of these issues that I think are big, big question marks for us.
+[00:54:24] Sasha: But, I don't know, maybe I'll start a little,
+[00:54:28] Sasha: Google Doc or something, and share it in our Slack, in case you guys come up with other questions. Let's just say before, next Monday, I think it's unlikely that I'll have a meeting set up for this Friday, so I'll probably…
+[00:54:41] Sasha: Probably try and set one up for next Monday.
+[00:54:46] Mark Blyn: Perfect. This is… this is great. This is what we want.
+[00:54:55] Mark Blyn: And you know what, Sasha? Maybe this rep needs to have somebody else with her as well. I don't know.
+[00:55:04] Mark Blyn: Because I think you're gonna have a lot of questions for her.
+[00:55:07] Mark Blyn: And I'm hoping that she's gonna be able to answer all these questions, or she may have to go and get somebody that
+[00:55:13] Mark Blyn: Maybe a little more knowledgeable to help her answer some of these questions that you have.
+[00:55:19] Sasha: Yeah, yeah, we'll see.
+[00:55:21] Mark Blyn: Yeah.
+[00:55:25] Mark Blyn: Alright, so you're gonna start a Google Doc, Coaches can think of things.
+[00:55:32] Mark Blyn: That's a really good idea, and then we can talk about all these things on next Wednesday's call. Probably gonna talk a little more about the affiliate networks.
+[00:55:39] Mark Blyn: I'm going to try and put us together with Adam, Sasha, and talk about those.
+[00:55:45] Mark Blyn: In the meantime, so…
+[00:55:51] Mark Blyn: Anything else you guys are thinking about?
+[00:55:56] Sasha: General question, I guess, as to the EMB program. Is it functioning? Are people seeing any success? I still get, when new people are coming on board, people talking about
+[00:56:08] Sasha: EMB, and I just don't feel like I have much insight into that, other than pointing them to, like.
+[00:56:14] Sasha: ask their questions to support or affiliates at the agency or whatever.
+[00:56:19] Mark Blyn: So yeah, EMB is not delivering, so we decided to shut it down this week.
+[00:56:25] Mark Blyn: There's not that many people that aren't even running.
+[00:56:28] Mark Blyn: in the EMB.
+[00:56:30] Mark Blyn: people that are currently running in the MB, gonna let them continue with what they've already purchased in terms of their ad spend.
+[00:56:37] Mark Blyn: But we're gonna shut it down.
+[00:56:40] Mark Blyn: it's just not… it's not what we want, it's not delivering the expectations, not meeting the expectations, not delivering results. So, the sales team knows that while EMB
+[00:56:52] Mark Blyn: is not an offer any longer, the ability to promote mentorship is, right? So…
+[00:56:58] Mark Blyn: Mentees can still self-promote. That's in the portal.
+[00:57:01] Mark Blyn: It's under the resources, we can still teach them how to do that, we can help them set it up, they can self-promote the mentorship all day long.
+[00:57:09] Mark Blyn: But EMB, where it's a paid and done-for-your-you program, done for you, we're just gonna put… we're just gonna press pause on that for now. And so, if you go into the portal, and I don't know, Gene, if this is back up yet, but that page should say that something to the tune of.
+[00:57:24] Mark Blyn: We're not starting any…
+[00:57:28] Mark Blyn: any new mentees with EMB, or we paused it for now. Yes. But the current mentees that we're running, that are still running, they can still access their P&L sheets on a daily basis, see how their campaigns are doing while they finish out their ad spends.
+[00:57:46] Build Test Scale: Yep, it's already back, yeah, it's already back on the portal, so, any mentee who will try to access EMB will definitely see those update, those, the notice that is under EMB.
+[00:58:02] Sasha: What is the problem that is happening there? They're just not getting conversions, or the conversion costs not what we wanted them to be?
+[00:58:10] Mark Blyn: Combination of things. The cost is not in line. Conversions are taking a little bit longer.
+[00:58:18] Mark Blyn: It's just… It's causing more headaches.
+[00:58:23] Mark Blyn: than it is… then we're getting wins, let me just put it that way. It's like, you know.
+[00:58:29] Mark Blyn: What are the pros? What are the cons? Is the juice worth the squeeze? Right now, it's not.
+[00:58:35] Mark Blyn: So, let's go ahead and pause it, let's rethink about it, let's refocus, if we're even gonna have this moving forward.
+[00:58:44] Mark Blyn: I know it's a little painful to stop again, But…
+[00:58:48] Mark Blyn: it's just not a good offer, okay? And that's not what we want. So this goes back to…
+[00:58:53] Mark Blyn: Priority number one is mentee success. And so, if we're putting them down the path of EMB, and it's not delivering, okay, it's not working. So, gotta refocus them.
+[00:59:05] Mark Blyn: Gotta refocus. Gotta think of other ways that we can offer Other programs to them.
+[00:59:12] Laura Lynn: I had, like, 3 people on the call last week. They were so sold on EMB program.
+[00:59:18] Mark Blyn: And that's the problem.
+[00:59:20] Laura Lynn: Good to meet you.
+[00:59:20] Mark Blyn: is that we had a… we had a meeting with the sales team, I did, last week.
+[00:59:26] Mark Blyn: Because they're selling the EMB program.
+[00:59:29] Mark Blyn: The done for you.
+[00:59:31] Mark Blyn: They're not talking about the fact that they can self-promote the mentorship, We have the coaching.
+[00:59:38] Mark Blyn: calls every week. We have the assets they can start using, we can help them set up their accounts and get them going.
+[00:59:45] Mark Blyn: The comp plan is exactly the same.
+[00:59:49] Mark Blyn: Whether you are in EMB or you're self-promoting.
+[00:59:54] Mark Blyn: And so the sales team had to be re-educated.
+[00:59:57] Mark Blyn: Okay, there is no more EMB sales team.
+[01:00:00] Mark Blyn: But the comp plan and self-promoting is still there, it's always been there, nothing's changed as far as the comp plan. Stop talking about EMB.
+[01:00:09] Mark Blyn: Okay? They can still refer, they can still make 25% commissions.
+[01:00:14] Mark Blyn: Okay, that's still all intact. It's just… now it's just not a done-for-you, it's a done-with-you.
+[01:00:21] Mark Blyn: program.
+[01:00:22] Mark Blyn: Either way, you've got to commit to ad spend.
+[01:00:25] Mark Blyn: whether it's EMB,
+[01:00:27] Mark Blyn: or you're self-promoting, but of course, with EMB, it was a done-for-you, and you're paying a monthly fee to have it all done for you.
+[01:00:41] Mark Blyn: So now they know. Now they understand. They understa- we've told them this… Half dozen times last year.
+[01:00:50] Mark Blyn: So…
+[01:00:56] Mark Blyn: That's where we're at with EMB.
+[01:01:02] Mark Blyn: Alright, anything else, guys?
+[01:01:07] Mark Blyn: Well, I think next week's call is going to be, very informative, Sasha. I can't wait to hear everything that you've learned.
+[01:01:17] Sasha: Yeah, me too. It'll be nice to have…
+[01:01:19] Mark Blyn: It's gonna be good.
+[01:01:19] Sasha: It's direct connection to… Get questions answered a little bit quicker.
+[01:01:26] Mark Blyn: Okay.
+[01:01:28] Mark Blyn: Alright, well, I don't have anything else unless anybody does. If not, let's go ahead and let's call it.
+[01:01:33] Build Test Scale: Thanks, everyone. Mark, I have a couple of…
+[01:01:37] Laura Lynn: dress.
+[01:01:37] Build Test Scale: Oh, messages for you.
+[01:01:41] Mark Blyn: Let's you and I reconnect after this.
+[01:01:43] Build Test Scale: Alright.
+[01:01:44] Build Test Scale: Thank you.
+[01:01:45] Mark Blyn: Alright, everybody.
+[01:01:46] Michael: No more.
+[01:01:46] Mark Blyn: Thanks.
+[01:01:47] Build Test Scale: Hi, everyone.
+[01:01:48] Sasha: I guess.
