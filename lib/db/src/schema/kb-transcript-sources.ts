@@ -40,6 +40,10 @@ export const kbTranscriptSourcesTable = pgTable("kb_transcript_sources", {
   notes: text("notes"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
+  // Durable processed-record: set when the mining/authoring pipeline has mined
+  // drafts from this source. Lets a re-run skip already-mined sources even after
+  // the staging queue is cleared. NULL = never mined.
+  lastMinedAt: timestamp("last_mined_at", { withTimezone: true }),
 }, (table) => [
   uniqueIndex("kb_transcript_sources_name_uniq").on(table.sourceName),
   index("kb_transcript_sources_disposition_idx").on(table.disposition),

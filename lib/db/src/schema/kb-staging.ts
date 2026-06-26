@@ -1,6 +1,7 @@
-import { pgTable, text, serial, timestamp, integer, index, real } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, timestamp, integer, boolean, jsonb, index, real } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
 import { usersTable } from "./users";
+import { kbTranscriptSourcesTable } from "./kb-transcript-sources";
 
 export const kbStagingDocsTable = pgTable("kb_staging_docs", {
   id: serial("id").primaryKey(),
@@ -33,6 +34,59 @@ export const kbStagingDocsTable = pgTable("kb_staging_docs", {
   autoAction: text("auto_action"),
   autoActionAt: timestamp("auto_action_at", { withTimezone: true }),
   autoActionConfidence: real("auto_action_confidence"),
+  // ── Task #2 taxonomy + risk-flag fields ──────────────────────────────────
+  // All additive/nullable (or NOT NULL with a default) so existing staging rows
+  // keep working. The controlled vocabularies live in the api-server
+  // kb-taxonomy registry (plain text, no pg enums) so they can evolve as data.
+  //
+  // Taxonomy target the reviewer sets/confirms before a draft is published.
+  homeRoot: text("home_root"),
+  node: text("node"),
+  // Registry-controlled concept/tool/troubleshooting tags (jsonb, distinct from
+  // the legacy free-text `tags` column above which stays for back-compat).
+  taxonomyTags: jsonb("taxonomy_tags").$type<string[]>().notNull().default(sql`'[]'::jsonb`),
+  // Target doc_class once published: 'curated' | 'overview'. (Transcript drafts
+  // are never published as 'transcript' — that class is training-only.)
+  docClassTarget: text("doc_class_target"),
+  blitzSection: integer("blitz_section"),
+  ceiling: text("ceiling"),
+  handoff: text("handoff"),
+  // Work-type facet (primary, alongside shelf/node): the kind of review work.
+  //   'truth_draft'   — AI-authored truth doc mined from transcripts (full read).
+  //   'existing_doc'  — a Task #1 hand-written doc being re-verified/filed (light).
+  //   'study_material'— supporting/training reference.
+  docType: text("doc_type").notNull().default("truth_draft"),
+  // Clean origin (replaces the inconsistent legacy `source` values):
+  //   'strategy_coaching_call' | 'va_call' | 'training_video' | 'curated_upload'
+  //   | 'ai_synthesized' | 'manual_entry'.
+  originType: text("origin_type"),
+  // Authority of the originating source, inherited from kb_transcript_sources:
+  //   'strategic_coach' | 'va' | 'curriculum' | 'internal'.
+  authorityRole: text("authority_role"),
+  // FK to the screened transcript source this draft was mined from (nullable for
+  // uploads / manual / AI-synthesized drafts with no single recording origin).
+  sourceId: integer("source_id").references(() => kbTranscriptSourcesTable.id, { onDelete: "set null" }),
+  // Computed checkable risk flags (NOT a confidence score). Array of flag codes
+  // — see api-server kb-flags registry (conflict, single_source, corroborated,
+  // high_stakes, possible_duplicate, weak_source, stale_legacy, va_strategy_claim).
+  riskFlags: jsonb("risk_flags")
+    .$type<{ type: string; severity: string; message: string; detail?: string }[]>()
+    .notNull()
+    .default(sql`'[]'::jsonb`),
+  // How many distinct sources corroborate this draft (count, not a score).
+  corroborationCount: integer("corroboration_count").notNull().default(0),
+  // Conflict-adjudication payload: { sentences:[{text,sources:[]}],
+  // resolved:bool, canonicalSourceId, supersededSourceIds:[] } — null when no
+  // conflict detected.
+  conflictData: jsonb("conflict_data"),
+  // Old-vs-new legacy reference translations: [{ old, proposed, applied:bool }].
+  staleReferences: jsonb("stale_references"),
+  // AI's suggested taxonomy (suggestion only; human confirms): { homeRoot, node,
+  // tags:[], docClass, blitzSection, ceiling, handoff }.
+  aiSuggestedTaxonomy: jsonb("ai_suggested_taxonomy"),
+  // Reviewer parked this draft for a subject-matter expert (could not adjudicate).
+  needsExpert: boolean("needs_expert").notNull().default(false),
+
   // Upload-specific fields (added alongside the KB upload feature)
   audience: text("audience").notNull().default("member"),
   sourceObjectPath: text("source_object_path"),
@@ -47,6 +101,11 @@ export const kbStagingDocsTable = pgTable("kb_staging_docs", {
   index("kb_staging_search_idx").using("gin", sql`to_tsvector('english', ${table.title} || ' ' || ${table.content})`),
   index("kb_staging_source_idx").on(table.source),
   index("kb_staging_phase_idx").on(table.phase),
+  index("kb_staging_home_root_idx").on(table.homeRoot),
+  index("kb_staging_node_idx").on(table.node),
+  index("kb_staging_doc_type_idx").on(table.docType),
+  index("kb_staging_origin_type_idx").on(table.originType),
+  index("kb_staging_source_fk_idx").on(table.sourceId),
 ]);
 
 export type KbStagingDoc = typeof kbStagingDocsTable.$inferSelect;

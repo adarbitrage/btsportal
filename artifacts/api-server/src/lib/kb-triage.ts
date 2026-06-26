@@ -1,23 +1,32 @@
 /**
- * KB Triage Service
+ * KB Triage / Analysis Service (Task #2 — de-fanged).
  *
- * Scores a staging doc with AI and decides whether to auto-approve,
- * auto-reject, or flag it as needs_review based on a configurable threshold.
+ * Previously this auto-APPROVED (and pushed live) or auto-REJECTED staging docs
+ * based on an AI confidence score. That is gone: a member-facing truth doc is
+ * NEVER published by a machine. Triage now only ANALYZES — it asks the model for
+ * a cleaned title, a one-line summary and a suggested taxonomy, computes
+ * human-readable risk flags (see kb-flags.ts), and always parks the doc in
+ * `needs_review` for a human gate. Nothing here writes to knowledgebase_docs.
  *
- * All auto-actions and undos are written to kbTriageAuditLogTable (INSERT-only)
- * so the full history is always preserved. Undo does NOT clear the autoAction
- * columns on the staging row — it appends an 'undone' audit record instead.
+ * Analysis events are still written to kbTriageAuditLogTable (INSERT-only) so
+ * the history is preserved.
  */
 
 import { db } from "@workspace/db";
+import { kbStagingDocsTable, kbTriageAuditLogTable } from "@workspace/db/schema";
+import { eq } from "drizzle-orm";
 import {
-  kbStagingDocsTable,
-  knowledgebaseDocsTable,
-  systemSettingsTable,
-  kbTriageAuditLogTable,
-} from "@workspace/db/schema";
-import { eq, sql } from "drizzle-orm";
-import { scrubPrivateContent } from "./content-privacy-filter";
+  computeRiskFlags,
+  gatherFlagContext,
+  maxSeverity,
+  type RiskFlag,
+} from "./kb-flags.js";
+import {
+  HOME_ROOTS,
+  ALL_NODES,
+  ALL_TAGS,
+  DOC_CLASSES,
+} from "./kb-taxonomy.js";
 
 // ── Run-state flag (unified for manual and pipeline-triggered runs) ──────────
 
@@ -27,90 +36,56 @@ export function isTriageRunning(): boolean {
   return _triageRunning;
 }
 
-// ── Settings ─────────────────────────────────────────────────────────────────
+// ── AI analysis prompt ────────────────────────────────────────────────────────
 
-export interface TriageSettings {
-  autoApproveThreshold: number;
-  autoRejectThreshold: number;
-}
+const NODE_LIST = ALL_NODES.map((n) => `${n.slug} (${n.root})`).join(", ");
+const ROOT_LIST = HOME_ROOTS.map((r) => r.slug).join(" | ");
 
-const DEFAULT_SETTINGS: TriageSettings = {
-  autoApproveThreshold: 0.85,
-  autoRejectThreshold: 0.20,
-};
+const TRIAGE_PROMPT = `You are a knowledge-base librarian for the BTS (Build Test Scale) affiliate-marketing coaching assistant.
 
-const SETTINGS_KEY = "kb_triage_settings";
+You receive a DRAFT training document extracted from a transcript or coaching session. You do NOT decide whether to publish it — a human always does that. Your job is to suggest clean metadata so the human reviewer can work faster.
 
-export async function getTriageSettings(): Promise<TriageSettings> {
-  try {
-    const [row] = await db
-      .select()
-      .from(systemSettingsTable)
-      .where(eq(systemSettingsTable.key, SETTINGS_KEY));
-    if (row?.value) {
-      return { ...DEFAULT_SETTINGS, ...(row.value as Partial<TriageSettings>) };
-    }
-  } catch {
-    // ignore
-  }
-  return DEFAULT_SETTINGS;
-}
-
-export async function saveTriageSettings(settings: Partial<TriageSettings>): Promise<TriageSettings> {
-  const current = await getTriageSettings();
-  const merged = { ...current, ...settings };
-  await db
-    .insert(systemSettingsTable)
-    .values({
-      key: SETTINGS_KEY,
-      value: merged as unknown as Record<string, unknown>,
-      category: "kb_triage",
-      description: "AI auto-triage confidence thresholds for knowledge base staging",
-    })
-    .onConflictDoUpdate({
-      target: systemSettingsTable.key,
-      set: { value: merged as unknown as Record<string, unknown>, updatedAt: new Date() },
-    });
-  return merged;
-}
-
-// ── AI scoring prompt ─────────────────────────────────────────────────────────
-
-const TRIAGE_PROMPT = `You are a strict quality-control reviewer for a knowledge base used by the BTS (Build Test Scale) affiliate marketing coaching assistant.
-
-You will receive a training document extracted from a video transcript or coaching session. Your job is to evaluate it and return a structured triage decision.
-
-SCORING CRITERIA:
-- High quality (0.80-1.00): Clearly on-topic, actionable, well-structured, correct BTS branding, specific enough to be useful to a member asking the AI assistant. No private names, no filler, no off-brand references.
-- Medium quality (0.40-0.79): On-topic but too vague, repetitive, missing key details, or needs minor editing. Should be reviewed by a human.
-- Low quality (0.00-0.39): Off-topic, incoherent, mainly filler/small talk, duplicate of common knowledge with nothing specific, or contains significant brand/privacy violations.
-
-BTS BRAND RULES:
+BTS BRAND RULES (note violations in "reasoning", do not silently fix):
 - Must say "Build Test Scale" or "BTS" — never "TCE", "Cherrington", "Charrington"
 - Coach surnames must not appear (Bobilev, Wissbaum, Rupp, Clark, Shepard)
 - Adam's full name must not appear
 - "support@buildtestscale.com" is the correct email
 
-CATEGORIES: curriculum | strategy | sop | faq | platform_guide
+TAXONOMY:
+- home root (pick ONE): ${ROOT_LIST}
+- node (pick ONE that fits the home root): ${NODE_LIST}
+- doc class (pick ONE): ${DOC_CLASSES.join(" | ")}
+- tags (pick 0-4 from): ${ALL_TAGS.join(", ")}
 
-Respond ONLY with valid JSON matching this exact schema (no markdown, no extra text):
+CATEGORIES (legacy field, pick one): curriculum | strategy | sop | faq | platform_guide
+
+Respond ONLY with valid JSON (no markdown, no extra text):
 {
-  "confidenceScore": <number 0.00-1.00>,
-  "recommendedAction": <"approve" | "reject" | "needs_review">,
-  "suggestedCategory": <one of the 5 categories above>,
-  "cleanedTitle": <improved, concise title for the doc (max 80 chars)>,
-  "summary": <one-sentence summary of what this document teaches (max 150 chars)>,
-  "reasoning": <1-2 sentence explanation of your confidence score>
+  "cleanedTitle": <improved concise title, max 80 chars>,
+  "summary": <one-sentence summary of what it teaches, max 150 chars>,
+  "suggestedCategory": <one of the 5 categories>,
+  "suggestedHomeRoot": <${ROOT_LIST}>,
+  "suggestedNode": <a node slug from the list>,
+  "suggestedDocClass": <${DOC_CLASSES.join(" | ")}>,
+  "suggestedTags": <array of 0-4 tag slugs>,
+  "reasoning": <1-2 sentence note on quality / brand or privacy issues>
 }`;
 
 export interface TriageResult {
-  confidenceScore: number;
-  recommendedAction: "approve" | "reject" | "needs_review";
   suggestedCategory: string;
   cleanedTitle: string;
   summary: string;
   reasoning: string;
+  suggestedHomeRoot: string | null;
+  suggestedNode: string | null;
+  suggestedDocClass: string | null;
+  suggestedTags: string[];
 }
+
+const ROOT_SET = new Set(HOME_ROOTS.map((r) => r.slug));
+const NODE_SET = new Set(ALL_NODES.map((n) => n.slug));
+const TAG_SET = new Set(ALL_TAGS);
+const DOC_CLASS_SET = new Set<string>(DOC_CLASSES as readonly string[]);
 
 export async function triageDoc(doc: {
   title: string;
@@ -144,7 +119,7 @@ export async function triageDoc(doc: {
           { role: "system", content: TRIAGE_PROMPT },
           { role: "user", content: userMessage },
         ],
-        max_completion_tokens: 400,
+        max_completion_tokens: 500,
       }),
       signal: AbortSignal.timeout(30000),
     },
@@ -159,128 +134,110 @@ export async function triageDoc(doc: {
   const raw = json.choices[0]?.message?.content ?? "";
 
   try {
-    const parsed = JSON.parse(raw) as TriageResult;
+    const parsed = JSON.parse(raw) as Partial<TriageResult> & { suggestedTags?: unknown };
+    const tags = Array.isArray(parsed.suggestedTags)
+      ? parsed.suggestedTags.map(String).filter((t) => TAG_SET.has(t)).slice(0, 4)
+      : [];
+    const root = typeof parsed.suggestedHomeRoot === "string" && ROOT_SET.has(parsed.suggestedHomeRoot)
+      ? parsed.suggestedHomeRoot
+      : null;
+    const node = typeof parsed.suggestedNode === "string" && NODE_SET.has(parsed.suggestedNode)
+      ? parsed.suggestedNode
+      : null;
+    const docClass = typeof parsed.suggestedDocClass === "string" && DOC_CLASS_SET.has(parsed.suggestedDocClass)
+      ? parsed.suggestedDocClass
+      : null;
     return {
-      confidenceScore: Math.max(0, Math.min(1, Number(parsed.confidenceScore) || 0)),
-      recommendedAction: ["approve", "reject", "needs_review"].includes(parsed.recommendedAction)
-        ? parsed.recommendedAction
-        : "needs_review",
       suggestedCategory: parsed.suggestedCategory || "curriculum",
       cleanedTitle: (parsed.cleanedTitle || doc.title).substring(0, 80),
       summary: (parsed.summary || "").substring(0, 150),
       reasoning: parsed.reasoning || "",
+      suggestedHomeRoot: root,
+      suggestedNode: node,
+      suggestedDocClass: docClass,
+      suggestedTags: tags,
     };
   } catch {
     throw new Error(`Failed to parse triage response: ${raw.substring(0, 200)}`);
   }
 }
 
-// ── Auto-triage a single doc ──────────────────────────────────────────────────
+// ── Analyze a single doc (no auto-action; always → needs_review) ──────────────
 
 export interface AutoTriageDocResult {
   id: number;
-  action: "auto_approved" | "auto_rejected" | "needs_review";
-  confidenceScore: number;
-  summary: string;
+  action: "analyzed";
   cleanedTitle: string;
+  summary: string;
+  flags: RiskFlag[];
 }
 
 export async function runAutoTriageOnDoc(
   doc: typeof kbStagingDocsTable.$inferSelect,
-  settings: TriageSettings,
 ): Promise<AutoTriageDocResult> {
   const result = await triageDoc(doc);
 
-  let finalAction: "auto_approved" | "auto_rejected" | "needs_review";
-  let newStatus: string;
+  const ctx = await gatherFlagContext({ title: doc.title, aiCleanedTitle: result.cleanedTitle });
+  const flags = computeRiskFlags({
+    title: result.cleanedTitle || doc.title,
+    content: doc.editedContent ?? doc.content,
+    authorityRole: doc.authorityRole,
+    docClassTarget: result.suggestedDocClass ?? doc.docClassTarget,
+    homeRoot: result.suggestedHomeRoot ?? doc.homeRoot,
+    corroborationCount: doc.corroborationCount ?? 0,
+    duplicateTitle: ctx.duplicateTitle,
+    conflictsWithVerified: ctx.conflictsWithVerified,
+  });
 
-  if (result.confidenceScore >= settings.autoApproveThreshold && result.recommendedAction === "approve") {
-    finalAction = "auto_approved";
-    newStatus = "approved";
-  } else if (result.confidenceScore <= settings.autoRejectThreshold && result.recommendedAction === "reject") {
-    finalAction = "auto_rejected";
-    newStatus = "rejected";
-  } else {
-    finalAction = "needs_review";
-    newStatus = "needs_review";
-  }
+  const conflictFlag = flags.find((f) => f.type === "conflict");
+  const needsExpert = maxSeverity(flags) === "critical";
 
-  const updates: Partial<typeof kbStagingDocsTable.$inferSelect> = {
-    aiConfidenceScore: result.confidenceScore,
-    aiRecommendedAction: result.recommendedAction,
-    aiSuggestedCategory: result.suggestedCategory,
-    aiCleanedTitle: result.cleanedTitle,
-    aiSummary: result.summary,
-    status: newStatus as typeof doc.status,
+  const aiSuggestedTaxonomy = {
+    homeRoot: result.suggestedHomeRoot,
+    node: result.suggestedNode,
+    docClass: result.suggestedDocClass,
+    tags: result.suggestedTags,
+    category: result.suggestedCategory,
   };
-
-  if (finalAction === "auto_approved" || finalAction === "auto_rejected") {
-    updates.autoAction = finalAction;
-    updates.autoActionAt = new Date();
-    updates.autoActionConfidence = result.confidenceScore;
-  }
 
   await db
     .update(kbStagingDocsTable)
-    .set(updates)
+    .set({
+      aiRecommendedAction: "needs_review",
+      aiSuggestedCategory: result.suggestedCategory,
+      aiCleanedTitle: result.cleanedTitle,
+      aiSummary: result.summary,
+      aiSuggestedTaxonomy,
+      riskFlags: flags,
+      needsExpert,
+      conflictData: conflictFlag ? { message: conflictFlag.message, detail: conflictFlag.detail } : null,
+      status: "needs_review" as typeof doc.status,
+    })
     .where(eq(kbStagingDocsTable.id, doc.id));
 
-  // Persist to immutable audit log
   await db.insert(kbTriageAuditLogTable).values({
     stagingDocId: doc.id,
-    eventType: finalAction,
-    confidenceScore: result.confidenceScore,
+    eventType: "analyzed",
+    confidenceScore: null,
     actorUserId: null,
     aiReasoning: result.reasoning,
     docTitle: doc.title,
   });
 
-  if (finalAction === "auto_approved") {
-    await pushDocToLive(doc, result);
-  }
-
   return {
     id: doc.id,
-    action: finalAction,
-    confidenceScore: result.confidenceScore,
-    summary: result.summary,
+    action: "analyzed",
     cleanedTitle: result.cleanedTitle,
+    summary: result.summary,
+    flags,
   };
 }
 
-async function pushDocToLive(
-  doc: typeof kbStagingDocsTable.$inferSelect,
-  result: TriageResult,
-): Promise<void> {
-  const content = scrubPrivateContent(doc.editedContent ?? doc.content);
-  const title = scrubPrivateContent(result.cleanedTitle || doc.title);
-  const category = result.suggestedCategory || doc.category;
-
-  await db
-    .insert(knowledgebaseDocsTable)
-    .values({ title, category, content, audience: doc.audience ?? "member" })
-    .onConflictDoUpdate({
-      target: knowledgebaseDocsTable.title,
-      set: {
-        category: sql`EXCLUDED.category`,
-        content: sql`EXCLUDED.content`,
-        audience: sql`EXCLUDED.audience`,
-        updatedAt: sql`NOW()`,
-      },
-    });
-
-  await db
-    .update(kbStagingDocsTable)
-    .set({ status: "pushed" })
-    .where(eq(kbStagingDocsTable.id, doc.id));
-}
-
-// ── Undo an auto-action ────────────────────────────────────────────────────────
+// ── Undo a (legacy) auto-action ──────────────────────────────────────────────
 //
-// IMPORTANT: we do NOT null out autoAction/autoActionAt/autoActionConfidence.
-// Those fields are the original audit record on the staging row. Instead, we
-// append an 'undone' row to kbTriageAuditLogTable so the full history is
-// preserved and both the action and its reversal are queryable.
+// Kept for staging rows created before de-fanging that still carry an
+// autoAction stamp. New analysis never sets autoAction, so this is a no-op for
+// fresh docs. We append an 'undone' audit row and move the doc back to review.
 
 export async function undoAutoAction(
   doc: typeof kbStagingDocsTable.$inferSelect,
@@ -290,7 +247,6 @@ export async function undoAutoAction(
     throw new Error("Document has no auto-action to undo");
   }
 
-  // Move doc back to human review queue
   await db
     .update(kbStagingDocsTable)
     .set({
@@ -300,7 +256,6 @@ export async function undoAutoAction(
     })
     .where(eq(kbStagingDocsTable.id, doc.id));
 
-  // Append immutable undo event (preserves original autoAction* columns)
   await db.insert(kbTriageAuditLogTable).values({
     stagingDocId: doc.id,
     eventType: "undone",
@@ -309,40 +264,30 @@ export async function undoAutoAction(
     aiReasoning: `Undone by admin (original action: ${doc.autoAction})`,
     docTitle: doc.title,
   });
-
-  // If the doc was auto-approved and pushed live, remove it from the live KB
-  if (doc.autoAction === "auto_approved") {
-    const cleanedTitle = scrubPrivateContent(doc.aiCleanedTitle ?? doc.title);
-    await db
-      .delete(knowledgebaseDocsTable)
-      .where(eq(knowledgebaseDocsTable.title, cleanedTitle));
-  }
 }
 
-// ── Background batch triage (manages the shared run-state flag) ───────────────
+// ── Background batch analysis (manages the shared run-state flag) ─────────────
 
 export async function runTriageBackground(
   docs: (typeof kbStagingDocsTable.$inferSelect)[],
-): Promise<{ autoApproved: number; autoRejected: number; needsReview: number; errors: number }> {
+): Promise<{ analyzed: number; errors: number }> {
   if (_triageRunning) {
     console.log("[KB Triage] Already running — skipping duplicate invocation");
-    return { autoApproved: 0, autoRejected: 0, needsReview: 0, errors: 0 };
+    return { analyzed: 0, errors: 0 };
   }
 
   _triageRunning = true;
-  const settings = await getTriageSettings();
-  let autoApproved = 0, autoRejected = 0, needsReview = 0, errors = 0;
+  let analyzed = 0, errors = 0;
 
-  console.log(`[KB Triage] Starting triage on ${docs.length} documents`);
+  console.log(`[KB Triage] Starting analysis on ${docs.length} documents`);
 
   for (let i = 0; i < docs.length; i++) {
     const doc = docs[i];
     try {
-      const result = await runAutoTriageOnDoc(doc, settings);
-      if (result.action === "auto_approved") autoApproved++;
-      else if (result.action === "auto_rejected") autoRejected++;
-      else needsReview++;
-      console.log(`[KB Triage] ${i + 1}/${docs.length}: ${result.action} (${(result.confidenceScore * 100).toFixed(0)}%) — ${result.cleanedTitle}`);
+      const result = await runAutoTriageOnDoc(doc);
+      analyzed++;
+      const sev = maxSeverity(result.flags);
+      console.log(`[KB Triage] ${i + 1}/${docs.length}: analyzed (${result.flags.length} flag(s)${sev ? `, max ${sev}` : ""}) — ${result.cleanedTitle}`);
     } catch (err) {
       errors++;
       console.error(`[KB Triage] Error on doc ${doc.id} "${doc.title}":`, err instanceof Error ? err.message : err);
@@ -353,6 +298,6 @@ export async function runTriageBackground(
   }
 
   _triageRunning = false;
-  console.log(`[KB Triage] Done. auto_approved=${autoApproved}, auto_rejected=${autoRejected}, needs_review=${needsReview}, errors=${errors}`);
-  return { autoApproved, autoRejected, needsReview, errors };
+  console.log(`[KB Triage] Done. analyzed=${analyzed}, errors=${errors}`);
+  return { analyzed, errors };
 }

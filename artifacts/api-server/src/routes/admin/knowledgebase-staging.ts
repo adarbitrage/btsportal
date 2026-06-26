@@ -1,18 +1,18 @@
 import { getParam } from "../../lib/params";
 import { Router, Request, Response } from "express";
 import { db } from "@workspace/db";
-import { kbStagingDocsTable, knowledgebaseDocsTable } from "@workspace/db/schema";
+import { kbStagingDocsTable, knowledgebaseDocsTable, kbDocProvenanceTable, kbTriageAuditLogTable } from "@workspace/db/schema";
 import { eq, desc, sql, count, and, ne, isNotNull } from "drizzle-orm";
 import { requirePermission } from "../../middleware/rbac.js";
 import { scrubPrivateContent } from "../../lib/content-privacy-filter";
 import {
-  getTriageSettings,
-  saveTriageSettings,
-  runAutoTriageOnDoc,
   undoAutoAction,
   runTriageBackground,
   isTriageRunning,
 } from "../../lib/kb-triage.js";
+import { CITABLE_DOC_CLASSES } from "../../lib/kb-taxonomy.js";
+import { detectLegacyRefs } from "../../lib/kb-mining.js";
+import { blocksBulkConfirm, type RiskFlag } from "../../lib/kb-flags.js";
 
 export { runTriageBackground } from "../../lib/kb-triage.js";
 
@@ -24,6 +24,8 @@ router.get("/", async (req: Request, res: Response) => {
     const status = (req.query.status as string) || undefined;
     const search = (req.query.search as string) || undefined;
     const sourceFilter = (req.query.source as string) || undefined;
+    const docTypeFilter = (req.query.docType as string) || undefined;
+    const homeRootFilter = (req.query.homeRoot as string) || undefined;
     const page = parseInt((req.query.page as string) || "1");
     const limit = Math.min(parseInt((req.query.limit as string) || "20"), 100);
     const offset = (page - 1) * limit;
@@ -31,6 +33,12 @@ router.get("/", async (req: Request, res: Response) => {
     let where = sql`1=1`;
     if (status) {
       where = sql`${where} AND ${kbStagingDocsTable.status} = ${status}`;
+    }
+    if (docTypeFilter && docTypeFilter !== "all") {
+      where = sql`${where} AND ${kbStagingDocsTable.docType} = ${docTypeFilter}`;
+    }
+    if (homeRootFilter && homeRootFilter !== "all") {
+      where = sql`${where} AND ${kbStagingDocsTable.homeRoot} = ${homeRootFilter}`;
     }
     if (search) {
       where = sql`${where} AND to_tsvector('english', ${kbStagingDocsTable.title} || ' ' || ${kbStagingDocsTable.content}) @@ plainto_tsquery('english', ${search})`;
@@ -75,6 +83,16 @@ router.get("/", async (req: Request, res: Response) => {
       .from(kbStagingDocsTable)
       .groupBy(kbStagingDocsTable.source);
 
+    const docTypeCounts = await db
+      .select({ docType: kbStagingDocsTable.docType, cnt: count() })
+      .from(kbStagingDocsTable)
+      .groupBy(kbStagingDocsTable.docType);
+
+    const shelfCounts = await db
+      .select({ homeRoot: kbStagingDocsTable.homeRoot, cnt: count() })
+      .from(kbStagingDocsTable)
+      .groupBy(kbStagingDocsTable.homeRoot);
+
     res.json({
       documents: docs,
       pagination: {
@@ -94,6 +112,13 @@ router.get("/", async (req: Request, res: Response) => {
           .filter((s) => !s.source || !["blitz", "coaching_call", "upload"].includes(s.source ?? ""))
           .reduce((sum, s) => sum + s.cnt, 0),
       },
+      docTypeCounts: Object.fromEntries(
+        docTypeCounts.map((d) => [d.docType, d.cnt]),
+      ),
+      shelfCounts: shelfCounts
+        .filter((s) => s.homeRoot)
+        .map((s) => ({ homeRoot: s.homeRoot as string, count: s.cnt }))
+        .sort((a, b) => b.count - a.count),
     });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : "Unknown error";
@@ -101,29 +126,10 @@ router.get("/", async (req: Request, res: Response) => {
   }
 });
 
-// ── AI Triage endpoints (must be BEFORE /:id to avoid capture) ──────────────
-
-router.get("/triage-settings", async (_req: Request, res: Response) => {
-  try {
-    const settings = await getTriageSettings();
-    res.json(settings);
-  } catch (err: unknown) {
-    res.status(500).json({ error: err instanceof Error ? err.message : "Unknown error" });
-  }
-});
-
-router.patch("/triage-settings", async (req: Request, res: Response) => {
-  try {
-    const { autoApproveThreshold, autoRejectThreshold } = req.body as {
-      autoApproveThreshold?: number;
-      autoRejectThreshold?: number;
-    };
-    const saved = await saveTriageSettings({ autoApproveThreshold, autoRejectThreshold });
-    res.json(saved);
-  } catch (err: unknown) {
-    res.status(500).json({ error: err instanceof Error ? err.message : "Unknown error" });
-  }
-});
+// ── AI analysis endpoints (must be BEFORE /:id to avoid capture) ────────────
+//
+// Triage no longer auto-approves/rejects (no thresholds). It only analyzes:
+// suggested metadata + risk flags + always needs_review.
 
 router.post("/run-triage", async (req: Request, res: Response) => {
   try {
@@ -137,7 +143,7 @@ router.post("/run-triage", async (req: Request, res: Response) => {
       includeStatuses?: string[];
     };
 
-    const statuses = includeStatuses ?? ["pending_review"];
+    const statuses = includeStatuses ?? ["needs_review"];
 
     let targetDocs: (typeof kbStagingDocsTable.$inferSelect)[];
 
@@ -177,7 +183,7 @@ router.get("/triage-status", async (_req: Request, res: Response) => {
   try {
     const [triaged, pending, needsReview] = await Promise.all([
       db.select({ cnt: count() }).from(kbStagingDocsTable).where(isNotNull(kbStagingDocsTable.aiRecommendedAction)),
-      db.select({ cnt: count() }).from(kbStagingDocsTable).where(eq(kbStagingDocsTable.status, "pending_review")),
+      db.select({ cnt: count() }).from(kbStagingDocsTable).where(eq(kbStagingDocsTable.status, "needs_review")),
       db.select({ cnt: count() }).from(kbStagingDocsTable).where(eq(kbStagingDocsTable.status, "needs_review")),
     ]);
     const autoActions = await db
@@ -271,7 +277,7 @@ router.patch("/:id", async (req: Request, res: Response) => {
     if (category) updates.category = category;
     if (tags !== undefined) updates.tags = tags;
 
-    if (status === "approved" || status === "rejected" || status === "needs_edit") {
+    if (status === "approved" || status === "rejected" || status === "needs_review") {
       updates.reviewedBy = (req as unknown as { userId: number }).userId;
       updates.reviewedAt = new Date();
     }
@@ -304,8 +310,21 @@ router.post("/bulk-approve", async (req: Request, res: Response) => {
 
     const userId = (req as unknown as { userId: number }).userId;
     let approved = 0;
+    const blocked: number[] = [];
 
     for (const id of ids) {
+      // Bulk-confirm is gated: a doc carrying a conflict / high-stakes (blocking)
+      // risk flag must be opened and adjudicated one-by-one, never rubber-stamped.
+      const [doc] = await db
+        .select({ riskFlags: kbStagingDocsTable.riskFlags, needsExpert: kbStagingDocsTable.needsExpert })
+        .from(kbStagingDocsTable)
+        .where(eq(kbStagingDocsTable.id, id));
+      if (!doc) continue;
+      if (doc.needsExpert || blocksBulkConfirm((doc.riskFlags ?? []) as RiskFlag[])) {
+        blocked.push(id);
+        continue;
+      }
+
       const [updated] = await db
         .update(kbStagingDocsTable)
         .set({
@@ -316,14 +335,14 @@ router.post("/bulk-approve", async (req: Request, res: Response) => {
         .where(
           and(
             eq(kbStagingDocsTable.id, id),
-            eq(kbStagingDocsTable.status, "pending_review"),
+            eq(kbStagingDocsTable.status, "needs_review"),
           ),
         )
         .returning();
       if (updated) approved++;
     }
 
-    res.json({ approved, total: ids.length });
+    res.json({ approved, total: ids.length, blocked: blocked.length, blockedIds: blocked });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : "Unknown error";
     res.status(500).json({ error: message });
@@ -423,7 +442,7 @@ OUTPUT FORMAT:
         content: mergedContent,
         tags: topicsMatch ? topicsMatch[1].trim() : allTags,
         sourceVideoTitle: allSources,
-        status: "pending_review",
+        status: "needs_review",
       })
       .returning();
 
@@ -466,13 +485,31 @@ router.post("/push-approved", async (_req: Request, res: Response) => {
     await db.transaction(async (tx) => {
       for (const doc of newlyApproved) {
         const content = scrubPrivateContent(doc.editedContent ?? doc.content);
-        await tx
+
+        // Resolve the published taxonomy. A published (citable) doc MUST carry a
+        // citable doc_class + last_verified — that is the human gate the citable
+        // filter enforces. The reviewer sets docClassTarget; fall back to the
+        // safer 'curated' class only when it is missing.
+        const docClass = doc.docClassTarget && CITABLE_DOC_CLASSES.includes(doc.docClassTarget as (typeof CITABLE_DOC_CLASSES)[number])
+          ? doc.docClassTarget
+          : "curated";
+        const tags = Array.isArray(doc.taxonomyTags) ? doc.taxonomyTags : [];
+
+        const [live] = await tx
           .insert(knowledgebaseDocsTable)
           .values({
             title: scrubPrivateContent(doc.title),
             category: doc.category,
             content,
             audience: doc.audience ?? "member",
+            docClass,
+            homeRoot: doc.homeRoot,
+            node: doc.node,
+            tags,
+            blitzSection: doc.blitzSection,
+            ceiling: doc.ceiling,
+            handoff: doc.handoff,
+            lastVerified: sql`NOW()`,
           })
           .onConflictDoUpdate({
             target: knowledgebaseDocsTable.title,
@@ -480,13 +517,34 @@ router.post("/push-approved", async (_req: Request, res: Response) => {
               category: sql`EXCLUDED.category`,
               content: sql`EXCLUDED.content`,
               audience: sql`EXCLUDED.audience`,
+              docClass: sql`EXCLUDED.doc_class`,
+              homeRoot: sql`EXCLUDED.home_root`,
+              node: sql`EXCLUDED.node`,
+              tags: sql`EXCLUDED.tags`,
+              blitzSection: sql`EXCLUDED.blitz_section`,
+              ceiling: sql`EXCLUDED.ceiling`,
+              handoff: sql`EXCLUDED.handoff`,
+              lastVerified: sql`NOW()`,
               updatedAt: sql`NOW()`,
             },
+          })
+          .returning({ id: knowledgebaseDocsTable.id });
+
+        // Provenance: trace the published claim back to its screened source. We
+        // refresh it on each push so re-publishing keeps a single accurate row.
+        if (live) {
+          await tx.delete(kbDocProvenanceTable).where(eq(kbDocProvenanceTable.docId, live.id));
+          await tx.insert(kbDocProvenanceTable).values({
+            docId: live.id,
+            sourceId: doc.sourceId ?? null,
+            chunkRef: doc.sourceVideoTitle ?? null,
+            relation: "source",
           });
+        }
 
         await tx
           .update(kbStagingDocsTable)
-          .set({ status: "pushed" })
+          .set({ status: "published" })
           .where(eq(kbStagingDocsTable.id, doc.id));
       }
     });
@@ -564,6 +622,152 @@ router.post("/:id/undo-auto-action", async (req: Request, res: Response) => {
     const userId = (req as unknown as { userId: number }).userId;
     await undoAutoAction(doc, userId);
     res.json({ success: true, message: "Auto-action undone. Document moved to needs_review." });
+  } catch (err: unknown) {
+    res.status(500).json({ error: err instanceof Error ? err.message : "Unknown error" });
+  }
+});
+
+// ── Instruct-the-AI redraft (Task #2, step 9) ────────────────────────────────
+//
+// The reviewer types a plain-language instruction ("tighten the intro", "remove
+// the pricing claim", "add a steps section") and the AI rewrites the current
+// draft accordingly. The result is parked in editedContent for human review —
+// status stays needs_review (never auto-published), legacy refs are re-detected,
+// and the redraft is recorded in the audit log.
+router.post("/:id/redraft", async (req: Request, res: Response) => {
+  try {
+    const id = parseInt(getParam(req.params.id));
+    const { instruction } = req.body as { instruction?: string };
+
+    if (!instruction || !instruction.trim()) {
+      res.status(400).json({ error: "An instruction is required" });
+      return;
+    }
+
+    const [doc] = await db.select().from(kbStagingDocsTable).where(eq(kbStagingDocsTable.id, id));
+    if (!doc) {
+      res.status(404).json({ error: "Document not found" });
+      return;
+    }
+
+    const current = doc.editedContent ?? doc.content;
+    const systemPrompt = `You are revising a BTS (Build Test Scale) knowledge-base draft per a reviewer's instruction.
+Apply ONLY the requested change. Preserve correct facts, headings and structure otherwise.
+BRAND RULES: say "Build Test Scale" / "BTS" (never "TCE" or "Cherrington"); no coach surnames; support email is support@buildtestscale.com.
+Return ONLY the full revised document body (markdown). No preamble, no explanation.`;
+
+    const resp = await fetch(
+      process.env.AI_INTEGRATIONS_OPENAI_BASE_URL + "/chat/completions",
+      {
+        method: "POST",
+        headers: {
+          Authorization: "Bearer " + process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model: "gpt-5",
+          messages: [
+            { role: "system", content: systemPrompt },
+            {
+              role: "user",
+              content: `INSTRUCTION: ${instruction.trim()}\n\nTITLE: ${doc.title}\n\nCURRENT DRAFT:\n${current.substring(0, 8000)}`,
+            },
+          ],
+          max_completion_tokens: 3000,
+        }),
+        signal: AbortSignal.timeout(60000),
+      },
+    );
+
+    if (!resp.ok) {
+      throw new Error("AI redraft failed: " + resp.status);
+    }
+
+    const json = (await resp.json()) as { choices: Array<{ message: { content: string } }> };
+    const revised = (json.choices[0]?.message?.content ?? "").trim();
+    if (!revised) {
+      throw new Error("AI returned an empty redraft");
+    }
+
+    const userId = (req as unknown as { userId: number }).userId;
+
+    const [updated] = await db
+      .update(kbStagingDocsTable)
+      .set({ editedContent: revised, status: "needs_review" })
+      .where(eq(kbStagingDocsTable.id, id))
+      .returning();
+
+    await db.insert(kbTriageAuditLogTable).values({
+      stagingDocId: id,
+      eventType: "redrafted",
+      confidenceScore: null,
+      actorUserId: userId,
+      aiReasoning: `Redrafted per instruction: ${instruction.trim().substring(0, 300)}`,
+      docTitle: doc.title,
+    });
+
+    res.json({ document: updated, instruction: instruction.trim() });
+  } catch (err: unknown) {
+    res.status(500).json({ error: err instanceof Error ? err.message : "Unknown error" });
+  }
+});
+
+// ── Re-verify imported curated docs (Task #2, step 14) ───────────────────────
+//
+// The ~117 hand-written curated docs (doc_class='curated') from Task #1 carry no
+// last_verified, so the citable filter holds them back. This pulls them into the
+// review queue as `existing_doc` drafts so a human can confirm each on the
+// fast/guided track. Idempotent: a curated doc already staged as existing_doc is
+// skipped. Legacy refs are flagged so dated content is caught before re-verify.
+router.post("/import-curated", async (_req: Request, res: Response) => {
+  try {
+    const curated = await db
+      .select()
+      .from(knowledgebaseDocsTable)
+      .where(eq(knowledgebaseDocsTable.docClass, "curated"));
+
+    // Titles already staged as existing_doc drafts — don't double-import.
+    const existing = await db
+      .select({ title: kbStagingDocsTable.title })
+      .from(kbStagingDocsTable)
+      .where(eq(kbStagingDocsTable.docType, "existing_doc"));
+    const staged = new Set(existing.map((r) => r.title));
+
+    let imported = 0;
+    let skipped = 0;
+
+    for (const doc of curated) {
+      if (staged.has(doc.title)) {
+        skipped++;
+        continue;
+      }
+      const staleRefs = detectLegacyRefs(doc.content);
+      const tags = Array.isArray(doc.tags) ? doc.tags : [];
+
+      await db.insert(kbStagingDocsTable).values({
+        title: doc.title,
+        category: doc.category,
+        content: doc.content,
+        tags: tags.join(", "),
+        status: "needs_review",
+        source: "curated_import",
+        audience: doc.audience,
+        docType: "existing_doc",
+        originType: "curated_upload",
+        docClassTarget: doc.docClass ?? "curated",
+        homeRoot: doc.homeRoot,
+        node: doc.node,
+        taxonomyTags: tags,
+        blitzSection: doc.blitzSection,
+        ceiling: doc.ceiling,
+        handoff: doc.handoff,
+        staleReferences: staleRefs.length > 0 ? staleRefs : null,
+        adminNotes: "Imported curated doc for re-verification (Task #1 corpus).",
+      });
+      imported++;
+    }
+
+    res.json({ imported, skipped, totalCurated: curated.length });
   } catch (err: unknown) {
     res.status(500).json({ error: err instanceof Error ? err.message : "Unknown error" });
   }

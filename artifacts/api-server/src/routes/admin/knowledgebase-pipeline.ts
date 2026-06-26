@@ -12,7 +12,14 @@ import { createRequire } from "module";
 import { matchVideoToCurriculum, type BlitzLesson } from "./blitz-curriculum.js";
 import AdmZip from "adm-zip";
 import { runTriageBackground } from "./knowledgebase-staging.js";
-import { getTriageSettings, runAutoTriageOnDoc, type AutoTriageDocResult } from "../../lib/kb-triage.js";
+import { runAutoTriageOnDoc, type AutoTriageDocResult } from "../../lib/kb-triage.js";
+import {
+  loadMiningSources,
+  decideMining,
+  markSourceMined,
+  originTypeForKind,
+  detectLegacyRefs,
+} from "../../lib/kb-mining.js";
 import { ObjectStorageService } from "../../lib/objectStorage.js";
 import mammoth from "mammoth";
 
@@ -240,8 +247,17 @@ router.post("/process-single/:index", async (req: Request, res: Response) => {
       .replace(/^Video ID:.*\n/m, "")
       .trim();
 
+    // Source gate: only mine a human-cleared (training) source.
+    const sources = await loadMiningSources();
+    const decision = decideMining(`video:${videoTitle}`, sources, { force: true });
+    if (!decision.mine && decision.skipReason === "quarantined") {
+      res.status(409).json({ error: `Source quarantined — not eligible for mining: ${videoTitle}` });
+      return;
+    }
+
     const cleaned = cleanTranscript(transcriptBody);
     const doc = await extractDocument(cleaned, videoTitle);
+    const staleRefs = detectLegacyRefs(doc.content);
 
     const [inserted] = await db
       .insert(kbStagingDocsTable)
@@ -252,9 +268,15 @@ router.post("/process-single/:index", async (req: Request, res: Response) => {
         tags: doc.topics,
         sourceVideoTitle: videoTitle,
         sourceVideoId: videoId,
-        status: "pending_review",
+        status: "needs_review",
+        sourceId: decision.source?.id ?? null,
+        authorityRole: decision.source?.authorityRole ?? "curriculum",
+        originType: originTypeForKind(decision.source?.sourceKind ?? "video"),
+        staleReferences: staleRefs.length > 0 ? staleRefs : null,
       })
       .returning();
+
+    if (decision.source) await markSourceMined(decision.source.id);
 
     res.json({ success: true, document: inserted });
   } catch (err: unknown) {
@@ -289,6 +311,10 @@ async function processTranscriptsBackground(
   );
   let processed = 0;
   let errors = 0;
+  let skipped = 0;
+
+  // Load the screened source registry once; gate + stamp each draft.
+  const sources = await loadMiningSources();
 
   for (let i = 0; i < sections.length; i++) {
     const section = sections[i];
@@ -301,9 +327,18 @@ async function processTranscriptsBackground(
       .replace(/^Video ID:.*\n/m, "")
       .trim();
 
+    // Skip quarantined / already-mined sources so a re-run doesn't reprocess.
+    const decision = decideMining(`video:${videoTitle}`, sources);
+    if (!decision.mine) {
+      skipped++;
+      console.log(`[KB Pipeline] Skip (${decision.skipReason}): ${videoTitle}`);
+      continue;
+    }
+
     try {
       const cleaned = cleanTranscript(transcriptBody);
       const doc = await extractDocument(cleaned, videoTitle);
+      const staleRefs = detectLegacyRefs(doc.content);
 
       await db.insert(kbStagingDocsTable).values({
         title: doc.title,
@@ -312,8 +347,14 @@ async function processTranscriptsBackground(
         tags: doc.topics,
         sourceVideoTitle: videoTitle,
         sourceVideoId: videoId,
-        status: "pending_review",
+        status: "needs_review",
+        sourceId: decision.source?.id ?? null,
+        authorityRole: decision.source?.authorityRole ?? "curriculum",
+        originType: originTypeForKind(decision.source?.sourceKind ?? "video"),
+        staleReferences: staleRefs.length > 0 ? staleRefs : null,
       });
+
+      if (decision.source) await markSourceMined(decision.source.id);
 
       processed++;
       console.log(
@@ -331,17 +372,14 @@ async function processTranscriptsBackground(
       await new Promise((r) => setTimeout(r, 500));
     }
   }
-
-  console.log(
-    `[KB Pipeline] Complete. Processed: ${processed}, Errors: ${errors}`,
-  );
+  console.log(`[KB Pipeline] Complete. processed=${processed}, skipped=${skipped}, errors=${errors}`);
 
   if (processed > 0) {
-    console.log(`[KB Pipeline] Auto-triaging ${processed} new docs…`);
+    console.log(`[KB Pipeline] Analyzing ${processed} new docs…`);
     const newDocs = await db
       .select()
       .from(kbStagingDocsTable)
-      .where(eq(kbStagingDocsTable.status, "pending_review"));
+      .where(eq(kbStagingDocsTable.status, "needs_review"));
     runTriageBackground(newDocs).catch((err) =>
       console.error("[KB Pipeline] Triage error:", err),
     );
@@ -751,7 +789,7 @@ async function processBlitzBackground(
         tags: doc.topics + (toolsMentioned.length > 0 ? ", " + toolsMentioned.join(", ") : ""),
         sourceVideoTitle: video.title,
         sourceVideoId: video.id,
-        status: "pending_review",
+        status: "needs_review",
         source: "blitz",
         phase: lesson.phase,
         module: lesson.module,
@@ -787,7 +825,7 @@ async function processBlitzBackground(
     const newDocs = await db
       .select()
       .from(kbStagingDocsTable)
-      .where(eq(kbStagingDocsTable.status, "pending_review"));
+      .where(eq(kbStagingDocsTable.status, "needs_review"));
     runTriageBackground(newDocs).catch((err) =>
       console.error("[Blitz Pipeline] Triage error:", err),
     );
@@ -984,7 +1022,7 @@ OUTPUT FORMAT:
         tags: topicsMatch ? topicsMatch[1].trim() : "",
         sourceVideoTitle: null,
         sourceVideoId: null,
-        status: "pending_review",
+        status: "needs_review",
         source: "blitz",
         phase: doc.phase,
         module: doc.module,
@@ -1268,12 +1306,25 @@ router.post("/process-coaching-retry", async (_req: Request, res: Response) => {
 async function processCoachingBatch(files: { coach: string; filePath: string; filename: string }[]) {
   const total = files.length;
 
+  // Load the screened source registry once; gate + stamp each draft.
+  const sources = await loadMiningSources();
+
   for (let i = 0; i < total; i++) {
     const file = files[i];
     coachingProcessingStatus.currentFile = `${i + 1}/${total}: ${file.filename}`;
 
     try {
       console.log(`[Coaching Pipeline] ${i + 1}/${total}: Processing ${file.coach}/${file.filename}`);
+
+      // Skip quarantined / already-mined sources so a re-run doesn't reprocess.
+      const sourceName = `${file.coach}/${file.filename.replace(/\.docx$/i, "")}`;
+      const decision = decideMining(sourceName, sources);
+      if (!decision.mine) {
+        console.log(`[Coaching Pipeline] Skip (${decision.skipReason}): ${sourceName}`);
+        coachingProcessingStatus.skipped++;
+        coachingProcessingStatus.processed++;
+        continue;
+      }
 
       const rawText = extractDocxText(file.filePath);
       if (!rawText || rawText.length < 100) {
@@ -1294,6 +1345,8 @@ async function processCoachingBatch(files: { coach: string; filePath: string; fi
         continue;
       }
 
+      const staleRefs = detectLegacyRefs(extracted.content);
+
       await db.insert(kbStagingDocsTable).values({
         title: extracted.title,
         category: extracted.category,
@@ -1301,10 +1354,16 @@ async function processCoachingBatch(files: { coach: string; filePath: string; fi
         tags: extracted.topics,
         sourceVideoTitle: file.filename,
         sourceVideoId: `${file.coach}/${file.filename}`,
-        status: "pending_review",
+        status: "needs_review",
         source: "coaching_call",
         module: file.coach,
+        sourceId: decision.source?.id ?? null,
+        authorityRole: decision.source?.authorityRole ?? "va",
+        originType: originTypeForKind(decision.source?.sourceKind ?? "va_docx"),
+        staleReferences: staleRefs.length > 0 ? staleRefs : null,
       });
+
+      if (decision.source) await markSourceMined(decision.source.id);
 
       coachingProcessingStatus.processed++;
       console.log(`[Coaching Pipeline] Done: ${extracted.title}`);
@@ -1351,7 +1410,7 @@ router.post("/seed-blitz", async (_req: Request, res: Response) => {
         tags: doc.tags || "",
         sourceVideoTitle: doc.source_video_title,
         sourceVideoId: doc.source_video_id,
-        status: doc.status || "pending_review",
+        status: doc.status || "needs_review",
         adminNotes: doc.admin_notes,
         editedContent: doc.edited_content,
         source: doc.source,
@@ -1499,12 +1558,10 @@ router.post("/create-from-upload", async (req: Request, res: Response) => {
 });
 
 // Manually-entered documents (the "Add Document" form) are routed through the
-// same AI triage as uploads instead of being written straight to the live KB.
-// The content is already supplied, so triage runs synchronously (one AI call)
-// and the final outcome is returned immediately. Possible outcomes:
-//   - auto_approved → pushed live by runAutoTriageOnDoc
-//   - auto_rejected → kept in the review queue as "rejected"
-//   - needs_review  → kept in the review queue for a human to approve
+// same AI analysis as uploads instead of being written straight to the live KB.
+// The content is already supplied, so analysis runs synchronously (one AI call)
+// and the doc always lands in the human review queue (needs_review) with
+// suggested metadata + risk flags. Nothing is ever auto-published.
 router.post("/create-from-text", async (req: Request, res: Response) => {
   try {
     const { title, category, content, audience } = req.body as {
@@ -1536,20 +1593,17 @@ router.post("/create-from-text", async (req: Request, res: Response) => {
       })
       .returning();
 
-    let action: AutoTriageDocResult["action"] = "needs_review";
-    let confidenceScore: number | null = null;
+    let action: AutoTriageDocResult["action"] | "needs_review" = "needs_review";
     let summary = "";
 
     try {
-      const settings = await getTriageSettings();
-      const result = await runAutoTriageOnDoc(inserted, settings);
+      const result = await runAutoTriageOnDoc(inserted);
       action = result.action;
-      confidenceScore = result.confidenceScore;
       summary = result.summary;
     } catch (triageErr) {
-      // Triage is best-effort; on failure the doc still belongs in the human
+      // Analysis is best-effort; on failure the doc still belongs in the human
       // review queue rather than going live unreviewed.
-      console.error("[KB Manual] Triage error:", triageErr);
+      console.error("[KB Manual] Analysis error:", triageErr);
       await db
         .update(kbStagingDocsTable)
         .set({ status: "needs_review" })
@@ -1566,7 +1620,6 @@ router.post("/create-from-text", async (req: Request, res: Response) => {
       stagingDocId: inserted.id,
       title: inserted.title,
       action,
-      confidenceScore,
       summary,
     });
   } catch (err: unknown) {
@@ -1683,24 +1736,23 @@ async function processUploadInBackground(
       .set({ content, adminNotes, processingStage: "Running AI triage…" })
       .where(eq(kbStagingDocsTable.id, id));
 
-    // Run triage synchronously on this single doc so the final status is set
-    // exactly once. runAutoTriageOnDoc updates the row's status to one of
-    // approved/rejected/needs_review (i.e. no longer "processing").
+    // Run analysis synchronously on this single doc so the final status is set
+    // exactly once. runAutoTriageOnDoc updates the row's status to needs_review
+    // (i.e. no longer "processing"); it never auto-publishes.
     const [withContent] = await db
       .select()
       .from(kbStagingDocsTable)
       .where(eq(kbStagingDocsTable.id, id));
 
     try {
-      const settings = await getTriageSettings();
-      await runAutoTriageOnDoc(withContent, settings);
+      await runAutoTriageOnDoc(withContent);
     } catch (triageErr) {
-      // Triage is best-effort; if it fails the doc still belongs in the
+      // Analysis is best-effort; if it fails the doc still belongs in the
       // human review queue. Never leave it stuck in "processing".
-      console.error("[KB Upload] Triage error:", triageErr);
+      console.error("[KB Upload] Analysis error:", triageErr);
       await db
         .update(kbStagingDocsTable)
-        .set({ status: "pending_review" })
+        .set({ status: "needs_review" })
         .where(eq(kbStagingDocsTable.id, id));
     }
 
@@ -1710,7 +1762,7 @@ async function processUploadInBackground(
       .update(kbStagingDocsTable)
       .set({
         processingStage: null,
-        status: sql`CASE WHEN ${kbStagingDocsTable.status} = 'processing' THEN 'pending_review' ELSE ${kbStagingDocsTable.status} END`,
+        status: sql`CASE WHEN ${kbStagingDocsTable.status} = 'processing' THEN 'needs_review' ELSE ${kbStagingDocsTable.status} END`,
       })
       .where(eq(kbStagingDocsTable.id, id));
   } catch (err: unknown) {
