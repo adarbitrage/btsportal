@@ -162,3 +162,9 @@ id = "jcoiL-8dHzJojO3cZPXxQ"
 uri = "file://artifacts/api-server/src/data/coaching-transcripts/John/John Blackwell - DIYTrax Campaign Setup_.docx"
 type = "word_document"
 title = "Live coaching call transcript — DIYTrax Campaign Setup (raw source)"
+
+[[outputs]]
+id = "daPtRQXyzUCmaPX-IgHbh"
+uri = "file://artifacts/api-server/src/data/coaching-transcripts/Neil/Sasha Sams.docx"
+type = "word_document"
+title = "Coaching call transcript — Sasha Sams (raw source)"
