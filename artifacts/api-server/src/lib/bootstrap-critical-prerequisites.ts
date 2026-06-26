@@ -12,6 +12,7 @@ import {
   reclassifyKnowledgebaseDocClasses,
 } from "./seed-kb";
 import { seedMemberBroadContent } from "./seed-kb-member-content";
+import { seedOperationsKb } from "./seed-operations-kb";
 import {
   rescrubKnowledgebaseDocs,
   findUnscrubbedTitles,
@@ -258,6 +259,19 @@ export async function bootstrapCriticalPrerequisites(): Promise<PrerequisiteResu
   } catch (err) {
     console.error("[Bootstrap] ensureBtsAgreementKbContent() threw:", err);
     missing.push("ensureBtsAgreementKbContent");
+  }
+
+  // 8b. Seed the Operations root (Task #3, Bucket C): human-verified curated
+  //     docs for the coach roster, support routing/escalation, coaching call
+  //     hours, refunds, membership basics, "how to get help", and the current
+  //     portal navigation map. Stamped with a fixed authored verification date
+  //     so they are immediately citable. Idempotent (keyed on title, only
+  //     rewrites changed rows); reaches prod only on boot.
+  try {
+    await seedOperationsKb();
+  } catch (err) {
+    console.error("[Bootstrap] seedOperationsKb() threw:", err);
+    missing.push("seedOperationsKb");
   }
 
   // 9. Backfill doc_class on every legacy knowledgebase_docs row so transcript-

@@ -6,13 +6,14 @@
  * data module (not Postgres enums and not TS union literals baked into the
  * schema): the DB columns (`home_root`, `node`, `tags`, `doc_class`, source
  * `disposition` / `authority_role`) are plain `text`, so the taxonomy can grow
- * — e.g. Task #3 populating the Operations nodes — without a schema migration.
+ * — e.g. populating the Operations nodes — without a schema migration.
  *
- * Scope of THIS task: define the Process + Concepts & Skills node trees and the
- * cross-cutting tag vocabularies, the doc-class / source-disposition /
- * authority-role vocabularies, and the Blitz→node mapping (guarded by a drift
- * test). Operations nodes are intentionally left empty here — they are authored
- * in Task #3.
+ * This module defines the Operations, Process, and Concepts & Skills node trees
+ * and the cross-cutting tag vocabularies, the doc-class / source-disposition /
+ * authority-role vocabularies, the ceiling / handoff vocabularies, and the
+ * Blitz→node mapping (guarded by a drift test). The Operations root is the
+ * human-owned "how the membership works / where to get help" truth; its docs
+ * are authored from this registry by seed-operations-kb.ts.
  */
 
 import { BLITZ_SECTION_IDS } from "@workspace/blitz-curriculum";
@@ -96,8 +97,21 @@ export const CONCEPT_NODES: readonly TaxonomyNode[] = [
   { slug: "traffic-and-placements", root: "concepts", label: "Traffic & Placements" },
 ] as const;
 
-/** Operations nodes are authored in Task #3 — intentionally empty here. */
-export const OPERATIONS_NODES: readonly TaxonomyNode[] = [] as const;
+/**
+ * Operations nodes (Task #3) — the human-owned "how the membership works /
+ * how to get help" root. Derived from walking the current BTS portal
+ * navigation (see {@link "./kb-portal-navigation-map"}). Operations is the
+ * handoff hub: {@link HANDOFF_TARGETS} routes concept→coaching and
+ * troubleshooting→support into the `coaching-access` and `support` nodes here.
+ */
+export const OPERATIONS_NODES: readonly TaxonomyNode[] = [
+  { slug: "membership",         root: "operations", label: "Membership & Account" },
+  { slug: "billing-and-refunds", root: "operations", label: "Billing & Refunds" },
+  { slug: "coaching-access",    root: "operations", label: "Coaching Access & Schedule" },
+  { slug: "support",            root: "operations", label: "Support & Escalation" },
+  { slug: "getting-help",       root: "operations", label: "Getting Help" },
+  { slug: "navigation",         root: "operations", label: "Portal Navigation Map" },
+] as const;
 
 export const ALL_NODES: readonly TaxonomyNode[] = [
   ...PROCESS_NODES,
@@ -108,6 +122,39 @@ export const ALL_NODES: readonly TaxonomyNode[] = [
 const NODE_BY_SLUG: ReadonlyMap<string, TaxonomyNode> = new Map(
   ALL_NODES.map((n) => [n.slug, n]),
 );
+
+// ───────────────────────────────────────────────────────────────────────────
+// Ceiling + handoff — the depth-ceiling / handoff mechanism (foundation §3.6).
+// ───────────────────────────────────────────────────────────────────────────
+
+/**
+ * A doc's depth domain — how far it can answer before it should hand off. This
+ * is the lever Task #6 wires into the answer-time prompts; it is captured as
+ * controlled data here so authoring (Task #2) and answer-time stay aligned.
+ * - operational:    factual ops/policy answers (membership, refunds, hours, nav).
+ *                   Account-specific actions hand off to support.
+ * - conceptual:     grounded concept/strategy explanation. Deeper, member-specific
+ *                   strategy hands off to live coaching.
+ * - troubleshooting: known fixes / how-tos. Unresolved issues hand off to support.
+ */
+export const CEILINGS = ["operational", "conceptual", "troubleshooting"] as const;
+export type Ceiling = (typeof CEILINGS)[number];
+
+/**
+ * Where a doc hands off when its ceiling is hit. Both destinations live in the
+ * Operations root (the handoff hub): a concept question that exceeds grounded
+ * depth → live coaching; a troubleshooting/ops question the KB can't resolve →
+ * support. {@link HANDOFF_TARGET_NODES} maps each target to the Operations node
+ * that actually holds the destination content.
+ */
+export const HANDOFF_TARGETS = ["coaching", "support"] as const;
+export type HandoffTarget = (typeof HANDOFF_TARGETS)[number];
+
+/** The Operations node each handoff target routes into. */
+export const HANDOFF_TARGET_NODES: Readonly<Record<HandoffTarget, string>> = {
+  coaching: "coaching-access",
+  support: "support",
+};
 
 // ───────────────────────────────────────────────────────────────────────────
 // Tags — cross-cutting vocabularies (a doc may carry several).
@@ -299,6 +346,24 @@ export function isDocClass(value: unknown): value is DocClass {
 
 export function isCitableDocClass(value: unknown): boolean {
   return typeof value === "string" && (CITABLE_DOC_CLASSES as readonly string[]).includes(value);
+}
+
+export function isCeiling(value: unknown): value is Ceiling {
+  return typeof value === "string" && (CEILINGS as readonly string[]).includes(value);
+}
+
+export function isHandoffTarget(value: unknown): value is HandoffTarget {
+  return typeof value === "string" && (HANDOFF_TARGETS as readonly string[]).includes(value);
+}
+
+export function isOperationsNode(value: unknown): boolean {
+  const n = typeof value === "string" ? NODE_BY_SLUG.get(value) : undefined;
+  return !!n && n.root === "operations";
+}
+
+/** Resolve a handoff target to the Operations node that holds its content. */
+export function resolveHandoffNode(handoff: string | null | undefined): string | null {
+  return isHandoffTarget(handoff) ? HANDOFF_TARGET_NODES[handoff] : null;
 }
 
 /** Filter a candidate tag list down to the registry-controlled vocabulary. */
