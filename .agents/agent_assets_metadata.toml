@@ -156,3 +156,9 @@ id = "Z1VMM2Tom9r2M2UWfCKOY"
 uri = "file://docs/ticketdesk-form-review-integration-plan.md"
 type = "text"
 title = "Form Reviews → TicketDesk Integration Plan"
+
+[[outputs]]
+id = "jcoiL-8dHzJojO3cZPXxQ"
+uri = "file://artifacts/api-server/src/data/coaching-transcripts/John/John Blackwell - DIYTrax Campaign Setup_.docx"
+type = "word_document"
+title = "Live coaching call transcript — DIYTrax Campaign Setup (raw source)"
