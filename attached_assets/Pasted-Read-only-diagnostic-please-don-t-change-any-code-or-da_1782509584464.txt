@@ -1,0 +1,15 @@
+Read-only diagnostic — please don't change any code or data, just inspect and report back on each of the following for the BTS portal.
+
+1. Mentorship products: In the products table, confirm whether all five of these exist as records — LaunchPad, 3-Month Mentorship, 6-Month Mentorship, 1-Year Mentorship, Lifetime Mentorship. For each that exists, give me its product slug/id, display name, the full entitlement_keys array, and whether it's time-based (and if so, the duration / expires_at rule).
+
+2. Front-end products: Which front-end offers exist as products in the same table? Specifically, is "Your Second Engine" one of them? Also check for Backroad, Off-Market, Reserve Income, Silent Partner, and Test Like Mad. For each front-end product, give the slug/id and entitlement_keys. Critically: do all front-ends grant the same content entitlement (content:frontend), or does each front-end grant its own offer-specific content entitlement?
+
+3. Content model: In the training content (tracks/modules/lessons), is any content scoped or tagged to a specific front-end offer? Is there a separate content track per front-end, or one shared foundational track gated by content:frontend? In particular — if a member came in through Your Second Engine, is there any YSE-specific content, or do all front-end members see identical foundational content?
+
+4. Fulfillment-map page: The admin page at /admin/integrations/fulfillment-map — which database table(s) back it, and what does it actually map? Walk me through what a single row/entry represents and what fields it has. Does it map external front-end offers → BTS products → entitlements → content? Is it currently populated, and if so, with which offers?
+
+5. Origin-offer tracking: When a member is created from a purchase, do we store which front-end offer they originally came in through (an origin / entry / source field on the user or user_products record)? Or is that only inferable from which front-end product they own?
+
+6. Presentation / precedence: When a member owns BOTH a front-end product AND a mentorship product, is there any code that orders or prioritizes what content they see — e.g. mentorship content shown as the primary experience and front-end content as a secondary section — or is it simply the union of entitlements with no presentation ordering? Where in the codebase does the "what does this member see on their dashboard/training page" decision get made?
+
+7. Machine→BTS fulfillment: How does a purchase of a front-end offer over on The Machine actually create the corresponding BTS product/entitlement for that member? Is there a webhook or integration, and does it currently handle all six front-end offers or only some of them?
