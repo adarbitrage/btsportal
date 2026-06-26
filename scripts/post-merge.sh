@@ -139,6 +139,25 @@ if [ -n "$DATABASE_URL" ]; then
   #     Idempotent (CREATE TABLE IF NOT EXISTS).
   psql "$DATABASE_URL" -v ON_ERROR_STOP=1 \
     -f lib/db/drizzle/0056_ticket_attachments.sql >/dev/null
+
+  # 11. Add the KB taxonomy foundation tables (kb_transcript_sources +
+  #     kb_doc_provenance). Two pure additive tables: applying them explicitly
+  #     here keeps the live-schema-drift gate below green so push stays skipped
+  #     on this merge instead of flipping to FAIL and triggering a slow whole-DB
+  #     `drizzle-kit push --force` (which, on this DB, hangs/EOFs on an
+  #     interactive prompt under the non-TTY post-merge) just to create two
+  #     tables. Apply in dependency order: kb_transcript_sources (0069) before
+  #     kb_doc_provenance (0070), which FK-references it. The taxonomy columns
+  #     added to knowledgebase_docs (0071) ship in the same #1401 foundation —
+  #     additive/nullable (tags NOT NULL but DEFAULT-backfilled), so they apply
+  #     here too to keep the gate green. Idempotent (CREATE TABLE/COLUMN/INDEX
+  #     IF NOT EXISTS, guarded ADD CONSTRAINT).
+  psql "$DATABASE_URL" -v ON_ERROR_STOP=1 \
+    -f lib/db/drizzle/0069_kb_transcript_sources.sql >/dev/null
+  psql "$DATABASE_URL" -v ON_ERROR_STOP=1 \
+    -f lib/db/drizzle/0070_kb_doc_provenance.sql >/dev/null
+  psql "$DATABASE_URL" -v ON_ERROR_STOP=1 \
+    -f lib/db/drizzle/0071_knowledgebase_docs_taxonomy_columns.sql >/dev/null
 fi
 
 # Schema sync — CONDITIONAL push.
