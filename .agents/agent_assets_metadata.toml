@@ -168,3 +168,9 @@ id = "daPtRQXyzUCmaPX-IgHbh"
 uri = "file://artifacts/api-server/src/data/coaching-transcripts/Neil/Sasha Sams.docx"
 type = "word_document"
 title = "Coaching call transcript — Sasha Sams (raw source)"
+
+[[outputs]]
+id = "hhIUXWHxUCqgvhcsy9DZX"
+uri = "file://artifacts/api-server/src/knowledge-base/coaching-transcripts.txt"
+type = "text"
+title = "Full 1-on-1 coach call corpus — coaching-transcripts.txt (3.0 MB)"
