@@ -1,17 +1,10 @@
 {
   "constraints": {
-    "onlyInPush": [
-      "kb_staging_docs | f | FOREIGN KEY (source_id) REFERENCES kb_transcript_sources(id) ON DELETE SET NULL"
-    ],
+    "onlyInPush": [],
     "onlyInMigrations": []
   },
   "indexes": {
     "onlyInPush": [
-      "kb_staging_docs | CREATE INDEX <name> ON public.kb_staging_docs USING btree (doc_type)",
-      "kb_staging_docs | CREATE INDEX <name> ON public.kb_staging_docs USING btree (home_root)",
-      "kb_staging_docs | CREATE INDEX <name> ON public.kb_staging_docs USING btree (node)",
-      "kb_staging_docs | CREATE INDEX <name> ON public.kb_staging_docs USING btree (origin_type)",
-      "kb_staging_docs | CREATE INDEX <name> ON public.kb_staging_docs USING btree (source_id)",
       "kb_triage_audit_log | CREATE INDEX <name> ON public.kb_triage_audit_log USING btree (created_at)"
     ],
     "onlyInMigrations": [

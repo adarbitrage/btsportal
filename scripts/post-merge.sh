@@ -158,6 +158,20 @@ if [ -n "$DATABASE_URL" ]; then
     -f lib/db/drizzle/0070_kb_doc_provenance.sql >/dev/null
   psql "$DATABASE_URL" -v ON_ERROR_STOP=1 \
     -f lib/db/drizzle/0071_knowledgebase_docs_taxonomy_columns.sql >/dev/null
+
+  # 12. Add the Task #2 (authoring/review pipeline) taxonomy + screening/risk
+  #     columns to kb_staging_docs and the durable last_mined_at marker to
+  #     kb_transcript_sources. These shipped as a "dev ALTER only" change with no
+  #     companion .sql, so on merge the shared dev DB fell behind the schema and
+  #     the live-schema-drift gate below flipped to FAIL — which then fell back to
+  #     `drizzle-kit push --force` and hung/aborted on an interactive
+  #     "truncate coaching_calls?" prompt under the non-TTY post-merge. Applying
+  #     these additive columns explicitly keeps the gate green so push stays
+  #     skipped (same pattern as steps 7/10/11). Idempotent (ADD COLUMN/INDEX
+  #     IF NOT EXISTS, guarded ADD CONSTRAINT). kb_transcript_sources (0069) must
+  #     already exist for the source_id FK — it is created earlier in this block.
+  psql "$DATABASE_URL" -v ON_ERROR_STOP=1 \
+    -f lib/db/drizzle/0072_kb_staging_taxonomy_screening_columns.sql >/dev/null
 fi
 
 # Schema sync — CONDITIONAL push.
