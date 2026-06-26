@@ -13,6 +13,7 @@ import {
 } from "./seed-kb";
 import { seedMemberBroadContent } from "./seed-kb-member-content";
 import { seedOperationsKb } from "./seed-operations-kb";
+import { seedProcessKb } from "./seed-process-kb";
 import {
   rescrubKnowledgebaseDocs,
   findUnscrubbedTitles,
@@ -272,6 +273,21 @@ export async function bootstrapCriticalPrerequisites(): Promise<PrerequisiteResu
   } catch (err) {
     console.error("[Bootstrap] seedOperationsKb() threw:", err);
     missing.push("seedOperationsKb");
+  }
+
+  // 8c. Seed the Process root (Task #4a, Bucket A→B — content campaign):
+  //     human-verified curated/overview docs for the campaign-build lifecycle,
+  //     mined from the clean training-video corpus and rewritten as current
+  //     BTS truth (stale brand/product/portal-nav references translated; in-app
+  //     nav preserved). Covers all eight Process nodes, highest-demand gaps
+  //     (DIYTrax/Flexy/MetricMover/Caterpillar) first. Stamped with a fixed
+  //     authored verification date so they are immediately citable. Idempotent
+  //     (keyed on title, only rewrites changed rows); reaches prod only on boot.
+  try {
+    await seedProcessKb();
+  } catch (err) {
+    console.error("[Bootstrap] seedProcessKb() threw:", err);
+    missing.push("seedProcessKb");
   }
 
   // 9. Backfill doc_class on every legacy knowledgebase_docs row so transcript-
