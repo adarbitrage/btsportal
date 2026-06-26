@@ -14,6 +14,7 @@ import {
 import { seedMemberBroadContent } from "./seed-kb-member-content";
 import { seedOperationsKb } from "./seed-operations-kb";
 import { seedProcessKb } from "./seed-process-kb";
+import { seedConceptsKb } from "./seed-concepts-kb";
 import {
   rescrubKnowledgebaseDocs,
   findUnscrubbedTitles,
@@ -288,6 +289,22 @@ export async function bootstrapCriticalPrerequisites(): Promise<PrerequisiteResu
   } catch (err) {
     console.error("[Bootstrap] seedProcessKb() threw:", err);
     missing.push("seedProcessKb");
+  }
+
+  // 8d. Seed the Concepts & Skills root (Task #4b, Bucket A→B): human-verified
+  //     curated docs for the marketing-craft topics (angles, headlines & copy,
+  //     creative strategy, offer strategy, testing methodology, scaling
+  //     strategy, metrics & unit economics, traffic & placements), synthesised
+  //     from the coaching transcripts and rewritten into current BTS voice.
+  //     Each carries the conceptual→coaching depth ceiling. Stamped with a
+  //     fixed authored verification date so they are immediately citable.
+  //     Idempotent (keyed on title, only rewrites changed rows); reaches prod
+  //     only on boot.
+  try {
+    await seedConceptsKb();
+  } catch (err) {
+    console.error("[Bootstrap] seedConceptsKb() threw:", err);
+    missing.push("seedConceptsKb");
   }
 
   // 9. Backfill doc_class on every legacy knowledgebase_docs row so transcript-
