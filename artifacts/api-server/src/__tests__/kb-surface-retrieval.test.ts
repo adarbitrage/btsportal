@@ -1,0 +1,131 @@
+import { describe, it, expect } from "vitest";
+import {
+  isNavigationQuery,
+  isFollowUp,
+  buildHistoryAwareQuery,
+  type RetrievalTurn,
+} from "../lib/kb-retrieval";
+import { detectQueryTags, TAG_TRIGGERS, ALL_TAGS } from "../lib/kb-taxonomy";
+
+describe("detectQueryTags", () => {
+  it("maps a tool name onto its controlled tag", () => {
+    expect(detectQueryTags("how do I set up Flexy?")).toContain("flexy");
+    expect(detectQueryTags("what is DIY Trax")).toContain("diytrax");
+    expect(detectQueryTags("Media Mavens account")).toContain("media-mavens");
+  });
+
+  it("maps concept phrasings onto concept tags", () => {
+    expect(detectQueryTags("help me write a headline")).toContain("headline");
+    expect(detectQueryTags("my landing pages have low conversion")).toEqual(
+      expect.arrayContaining(["landing-page", "conversion"]),
+    );
+  });
+
+  it("matches on word boundaries, not substrings", () => {
+    // "latest" contains "test" but must not trip the `testing` tag.
+    expect(detectQueryTags("what is the latest update")).not.toContain("testing");
+    // "creative" stem only — "create" must not match.
+    expect(detectQueryTags("how do I create a campaign")).not.toContain("creative");
+  });
+
+  it("returns an empty array when nothing matches", () => {
+    expect(detectQueryTags("when is the next coaching call")).toEqual([]);
+    expect(detectQueryTags("")).toEqual([]);
+    expect(detectQueryTags("   ")).toEqual([]);
+  });
+
+  it("returns tags in registry order and de-duplicated", () => {
+    const tags = detectQueryTags("angle and hook and angle again");
+    expect(tags).toEqual([...new Set(tags)]);
+    expect(tags).toContain("angle");
+    expect(tags).toContain("hook");
+  });
+
+  it("only ever uses keys that are members of ALL_TAGS", () => {
+    for (const key of Object.keys(TAG_TRIGGERS)) {
+      expect(ALL_TAGS).toContain(key);
+    }
+  });
+});
+
+describe("isNavigationQuery", () => {
+  const navQueries = [
+    "where do I find the coaching calendar",
+    "where is the resource library",
+    "where's my billing page",
+    "how do I find my invoices",
+    "how do I get to the community feed",
+    "which page has the refund policy",
+    "how to navigate to the Blitz guide",
+  ];
+  for (const q of navQueries) {
+    it(`flags "${q}" as navigation`, () => {
+      expect(isNavigationQuery(q)).toBe(true);
+    });
+  }
+
+  const nonNav = [
+    "what is the refund policy",
+    "how do I get a refund",
+    "explain the Blitz program",
+    "when is the next coaching call",
+  ];
+  for (const q of nonNav) {
+    it(`does not flag "${q}"`, () => {
+      expect(isNavigationQuery(q)).toBe(false);
+    });
+  }
+});
+
+describe("isFollowUp", () => {
+  it("treats very short queries as follow-ups", () => {
+    expect(isFollowUp("is it free?")).toBe(true);
+    expect(isFollowUp("why?")).toBe(true);
+    expect(isFollowUp("how much")).toBe(true);
+  });
+
+  it("treats follow-up connectives as follow-ups", () => {
+    expect(isFollowUp("and what about the annual plan pricing")).toBe(true);
+    expect(isFollowUp("what about refunds for that one specifically")).toBe(true);
+  });
+
+  it("treats anaphoric short queries as follow-ups", () => {
+    expect(isFollowUp("how do I cancel it")).toBe(true);
+    expect(isFollowUp("can they be changed later")).toBe(true);
+  });
+
+  it("does not treat standalone questions as follow-ups", () => {
+    expect(isFollowUp("how do I get a refund on my membership plan")).toBe(false);
+    expect(isFollowUp("explain the entire Blitz onboarding curriculum step by step")).toBe(false);
+  });
+
+  it("returns false for empty input", () => {
+    expect(isFollowUp("")).toBe(false);
+    expect(isFollowUp("   ")).toBe(false);
+  });
+});
+
+describe("buildHistoryAwareQuery", () => {
+  const history: RetrievalTurn[] = [
+    { role: "user", content: "tell me about Flexy" },
+    { role: "assistant", content: "Flexy is a landing page builder." },
+  ];
+
+  it("prepends the last user turn for a follow-up", () => {
+    expect(buildHistoryAwareQuery("is it free?", history)).toBe("tell me about Flexy is it free?");
+  });
+
+  it("leaves a standalone question untouched", () => {
+    const q = "how do I get a refund on my membership";
+    expect(buildHistoryAwareQuery(q, history)).toBe(q);
+  });
+
+  it("leaves a follow-up untouched when there is no history", () => {
+    expect(buildHistoryAwareQuery("is it free?", [])).toBe("is it free?");
+  });
+
+  it("ignores assistant-only history (no prior user turn)", () => {
+    const onlyAssistant: RetrievalTurn[] = [{ role: "assistant", content: "Hi there" }];
+    expect(buildHistoryAwareQuery("why?", onlyAssistant)).toBe("why?");
+  });
+});

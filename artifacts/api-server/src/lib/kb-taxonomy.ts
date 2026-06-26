@@ -204,6 +204,86 @@ export const ALL_TAGS: readonly string[] = [
 const TAG_SET: ReadonlySet<string> = new Set(ALL_TAGS);
 
 // ───────────────────────────────────────────────────────────────────────────
+// Functional tag detection — turn the concept/tool tags into retrieval levers.
+// ───────────────────────────────────────────────────────────────────────────
+
+/**
+ * Member-facing phrasings that map a free-text query onto a controlled tag.
+ * Used by surface-aware retrieval to BOOST docs carrying the matched tag (e.g.
+ * "Flexy" → boost `tool:flexy` docs), rather than relying on the literal word
+ * appearing in the doc body. Triggers are matched on word boundaries (the query
+ * is normalised + space-padded), so "test" does not match inside "latest".
+ *
+ * Every key MUST be a member of {@link ALL_TAGS}; guarded by a unit test.
+ */
+export const TAG_TRIGGERS: Readonly<Record<string, readonly string[]>> = {
+  // Tool / software tags.
+  flexy: ["flexy"],
+  diytrax: ["diytrax", "diy trax", "diy tracks"],
+  metricmover: ["metricmover", "metric mover"],
+  caterpillar: ["caterpillar"],
+  "media-mavens": ["media mavens", "mediamavens", "media maven"],
+  clickbank: ["clickbank", "click bank"],
+  // Concept tags.
+  angle: ["angle", "angles"],
+  headline: ["headline", "headlines"],
+  hook: ["hook", "hooks"],
+  copywriting: ["copywriting", "copy writing", "copywriter"],
+  creative: ["creative", "creatives", "ad creative", "ad creatives"],
+  "landing-page": ["landing page", "landing pages", "lander", "landers"],
+  "native-ad": ["native ad", "native ads", "native advertising"],
+  offer: ["offer", "offers"],
+  funnel: ["funnel", "funnels"],
+  tracking: ["tracking", "tracker", "pixel tracking"],
+  compliance: ["compliance", "compliant"],
+  testing: ["testing", "split test", "split testing", "a b test", "ab test"],
+  scaling: ["scaling", "scale up", "scale out"],
+  budget: ["budget", "budgets", "budgeting"],
+  metrics: ["metrics", "kpi", "kpis"],
+  conversion: ["conversion", "conversions"],
+  audience: ["audience", "audiences"],
+  placement: ["placement", "placements"],
+};
+
+/**
+ * Normalise free text for trigger matching: lowercase, strip accents, collapse
+ * punctuation/whitespace to single spaces, and pad with surrounding spaces so
+ * multi-word triggers match on word boundaries. Mirrors the voice-synonyms
+ * normaliser so the two layers behave identically.
+ */
+function normalizeForTagMatch(text: string): string {
+  const collapsed = text
+    .toLowerCase()
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  return collapsed ? ` ${collapsed} ` : "";
+}
+
+/**
+ * Detect which controlled tags a member query references, so retrieval can boost
+ * docs carrying those tags. Returns the (deduped) tag slugs in registry order.
+ * Empty when nothing matches (the common case).
+ */
+export function detectQueryTags(query: string): string[] {
+  const haystack = normalizeForTagMatch(query);
+  if (!haystack) return [];
+  const matched: string[] = [];
+  for (const tag of ALL_TAGS) {
+    const triggers = TAG_TRIGGERS[tag];
+    if (!triggers) continue;
+    const hit = triggers.some((t) => {
+      const needle = normalizeForTagMatch(t);
+      return needle !== "" && haystack.includes(needle);
+    });
+    if (hit) matched.push(tag);
+  }
+  return matched;
+}
+
+// ───────────────────────────────────────────────────────────────────────────
 // Doc class — how a doc may be used by the assistant.
 // ───────────────────────────────────────────────────────────────────────────
 

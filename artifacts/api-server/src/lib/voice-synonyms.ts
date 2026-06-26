@@ -52,6 +52,109 @@ export const VOICE_SYNONYM_GROUPS: VoiceSynonymGroup[] = [
       "can i get my money back",
     ],
   },
+  {
+    // Membership cancellation → the cancel/billing content. Kept distinct from
+    // refund: a member can cancel without it being a refund question.
+    canonical: ["cancel", "cancellation"],
+    triggers: [
+      "cancel my membership",
+      "cancel my subscription",
+      "cancel my account",
+      "cancel my plan",
+      "stop my membership",
+      "stop my subscription",
+      "end my membership",
+      "quit the program",
+      "leave the program",
+      "how do i cancel",
+    ],
+  },
+  {
+    // "Get a human / contact support" phrasings → the support routing content.
+    canonical: ["support", "ticket"],
+    triggers: [
+      "talk to a human",
+      "talk to a person",
+      "speak to someone",
+      "speak to a person",
+      "contact support",
+      "reach support",
+      "get in touch with support",
+      "customer service",
+      "customer support",
+      "help desk",
+      "open a ticket",
+      "raise a ticket",
+      "submit a ticket",
+    ],
+  },
+  {
+    // Billing / charges → the billing content (separate from refund eligibility).
+    canonical: ["billing", "charge"],
+    triggers: [
+      "get charged",
+      "got charged",
+      "double charged",
+      "charged twice",
+      "my invoice",
+      "my receipt",
+      "payment method",
+      "update my card",
+      "change my card",
+      "billing question",
+      "billing issue",
+    ],
+  },
+  {
+    // "Done-for-you" requests → the Concierge content.
+    canonical: ["concierge"],
+    triggers: [
+      "done for you",
+      "done-for-you",
+      "do it for me",
+      "have it done for me",
+      "have the team do",
+    ],
+  },
+  {
+    // 1-on-1 / private session phrasings → the private coaching content. Avoids
+    // the bare word "coaching" so it never trips the group-call schedule query.
+    canonical: ["private"],
+    triggers: [
+      "one on one",
+      "one-on-one",
+      "1 on 1",
+      "1-on-1",
+      "one to one",
+      "private session",
+      "private coaching session",
+      "personal coaching",
+      "dedicated coach",
+    ],
+  },
+  {
+    // Ad / copy approval phrasings → the compliance review content.
+    canonical: ["compliance"],
+    triggers: [
+      "get my ad approved",
+      "ad approval",
+      "approve my ad",
+      "review my ad",
+      "review my creative",
+      "review my copy",
+      "is my ad compliant",
+    ],
+  },
+  {
+    // Member community phrasings → the community content.
+    canonical: ["community"],
+    triggers: [
+      "the forum",
+      "member community",
+      "member group",
+      "community feed",
+    ],
+  },
 ];
 
 /**

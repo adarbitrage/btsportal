@@ -15,9 +15,7 @@ import {
 import { eq, and, desc, sql, asc } from "drizzle-orm";
 import { getAnthropicClient } from "@workspace/integrations-anthropic-ai";
 import { getUserEntitlements, hasMemberAccessBypass } from "../lib/entitlements";
-import { scrubPrivateContent } from "../lib/content-privacy-filter";
-import { buildVoiceSynonymTsquery, expandVoiceQuerySynonyms } from "../lib/voice-synonyms";
-import { citableDocFilter } from "../lib/kb-citable-filter";
+import { retrieveSurfaceAware, type RetrievalTurn } from "../lib/kb-retrieval";
 
 const router: IRouter = Router();
 
@@ -119,83 +117,24 @@ async function tryIncrementDailyUsage(userId: number, chatTier: string, dailyLim
   return { allowed: true, count: (result.rows[0] as any).message_count };
 }
 
-export async function searchKnowledgebase(query: string, categories: string[]): Promise<Array<{ title: string; content: string; category: string }>> {
-  if (categories.length === 0) return [];
-
-  const categoriesArray = `{${categories.join(",")}}`;
-
-  // Map natural member phrasings ("money back", "do I get my money back") onto
-  // the canonical content terms ("refund") and OR-fold them into the base
-  // tsquery. When nothing matches, `synonymOr` is empty and the query is left
-  // exactly as before. Mirrors the voice assistant's retrieval path.
-  const synonymOr = buildVoiceSynonymTsquery(query);
-  const primaryTsquery = synonymOr
-    ? sql`(websearch_to_tsquery('english', ${query}) || to_tsquery('english', ${synonymOr}))`
-    : sql`websearch_to_tsquery('english', ${query})`;
-
-  // When the member used a casual synonym phrasing (e.g. "money back"), their
-  // literal words ("get", "money", "back") match noisy transcripts that would
-  // otherwise bury the precise refund context. Rank synonym-relevant docs first
-  // so the canonical refund material (incl. the glossary guarantee definition)
-  // surfaces, then break ties by overall relevance. Without a synonym match the
-  // ordering is exactly the plain relevance ranking as before.
-  const primaryOrderBy = synonymOr
-    ? sql`ts_rank(to_tsvector('english', title || ' ' || content), to_tsquery('english', ${synonymOr})) DESC, rank DESC`
-    : sql`rank DESC`;
-
-  const primaryResults = await db.execute(
-    sql`SELECT title, content, category,
-        ts_rank(to_tsvector('english', title || ' ' || content), ${primaryTsquery}) as rank
-      FROM knowledgebase_docs
-      WHERE to_tsvector('english', title || ' ' || content) @@ ${primaryTsquery}
-        AND category = ANY(${categoriesArray}::text[])
-        AND audience <> 'admin'
-        AND ${citableDocFilter()}
-      ORDER BY ${primaryOrderBy}
-      LIMIT 6`
-  );
-
-  if ((primaryResults.rows as any[]).length >= 3) {
-    // Answer-time scrub: strip PII from every result before it reaches the
-    // model, as a defense-in-depth layer against content that predates a rule.
-    return (primaryResults.rows as any[]).map((r) => ({
-      title: scrubPrivateContent(r.title),
-      content: scrubPrivateContent(r.content),
-      category: r.category,
-    }));
-  }
-
-  // OR the raw query words with any matched synonym terms so the looser
-  // fallback also benefits from the alias layer.
-  const orQuery = [...query.trim().split(/\s+/).filter(Boolean), ...expandVoiceQuerySynonyms(query)]
-    .join(" | ");
-  const fallbackResults = await db.execute(
-    sql`SELECT title, content, category,
-        ts_rank(to_tsvector('english', title || ' ' || content), to_tsquery('english', ${orQuery})) as rank
-      FROM knowledgebase_docs
-      WHERE to_tsvector('english', title || ' ' || content) @@ to_tsquery('english', ${orQuery})
-        AND category = ANY(${categoriesArray}::text[])
-        AND audience <> 'admin'
-        AND ${citableDocFilter()}
-      ORDER BY ${primaryOrderBy}
-      LIMIT 6`
-  );
-
-  const seen = new Set((primaryResults.rows as any[]).map((r: any) => r.title));
-  const merged = [...(primaryResults.rows as any[])];
-  for (const r of fallbackResults.rows as any[]) {
-    if (!seen.has(r.title)) {
-      merged.push(r);
-      seen.add(r.title);
-    }
-  }
-
-  // Answer-time scrub applied uniformly on all merged results.
-  return merged.slice(0, 6).map((r) => ({
-    title: scrubPrivateContent(r.title),
-    content: scrubPrivateContent(r.content),
-    category: r.category,
-  }));
+/**
+ * Text chat assistant KB retrieval. Thin wrapper over the shared surface-aware
+ * retrieval path (lib/kb-retrieval.ts); kept as a stable export (used by the
+ * chat route + retrieval guard tests). Pass `history` (prior turns, excluding
+ * the current message) so short follow-ups resolve against their referent.
+ */
+export async function searchKnowledgebase(
+  query: string,
+  categories: string[],
+  history?: RetrievalTurn[],
+): Promise<Array<{ title: string; content: string; category: string }>> {
+  const result = await retrieveSurfaceAware(query, {
+    surface: "chat",
+    categories,
+    limit: 6,
+    history,
+  });
+  return result.docs.map((d) => ({ title: d.title, content: d.content, category: d.category }));
 }
 
 async function getActiveSystemPrompt(): Promise<string> {
@@ -272,7 +211,13 @@ router.post("/chat", async (req, res): Promise<void> => {
 
   const orderedHistory = history.reverse();
 
-  const ragResults = await searchKnowledgebase(message, config.knowledgebaseCategories);
+  // Prior turns only (drop the just-inserted current message) so a short
+  // follow-up ("is it free?") resolves against the previous question.
+  const priorTurns: RetrievalTurn[] = orderedHistory
+    .slice(0, -1)
+    .map((m) => ({ role: m.role as "user" | "assistant", content: m.content }));
+
+  const ragResults = await searchKnowledgebase(message, config.knowledgebaseCategories, priorTurns);
 
   const [user] = await db.select({ name: usersTable.name }).from(usersTable).where(eq(usersTable.id, userId));
 

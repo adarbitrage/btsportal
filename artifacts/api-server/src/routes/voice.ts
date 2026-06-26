@@ -9,9 +9,7 @@ import { setupRetellAgentKb, getCachedRetellSetupResult, setCachedRetellSetupRes
 import { requirePermission } from "../middleware/rbac";
 import { csvEscape } from "../lib/csv";
 import { logAdminAction } from "../lib/audit-log";
-import { buildVoiceSynonymTsquery, expandVoiceQuerySynonyms } from "../lib/voice-synonyms";
-import { scrubPrivateContent } from "../lib/content-privacy-filter";
-import { citableDocFilter } from "../lib/kb-citable-filter";
+import { retrieveSurfaceAware } from "../lib/kb-retrieval";
 import { queueTicketDeskDelivery, sendSupportFallbackEmail } from "../lib/ticketdesk-queue";
 import { autoRouteTicket } from "../lib/ticket-routing";
 import { createSlaForTicket } from "../lib/sla";
@@ -57,64 +55,22 @@ async function getIsAdmin(userId: number): Promise<boolean> {
 }
 
 export async function searchKnowledgebaseForVoice(query: string): Promise<string> {
-  const categoriesArray = `{${ALL_KB_CATEGORIES.join(",")}}`;
+  // Delegate to the shared surface-aware retrieval path so voice and chat share
+  // identical ranking, synonym, tag-boost, nav-grounding and confidence
+  // behaviour. Voice has no turn-by-turn history here, so no follow-up context.
+  const result = await retrieveSurfaceAware(query, {
+    surface: "voice",
+    categories: ALL_KB_CATEGORIES,
+    limit: 4,
+  });
 
-  // Map natural member phrasings ("money back guarantee", "do I get my money
-  // back") onto the canonical content terms ("refund") and OR-fold them into the
-  // base tsquery. When nothing matches, `synonymOr` is empty and the query is
-  // left exactly as before.
-  const synonymOr = buildVoiceSynonymTsquery(query);
-  const primaryTsquery = synonymOr
-    ? sql`(websearch_to_tsquery('english', ${query}) || to_tsquery('english', ${synonymOr}))`
-    : sql`websearch_to_tsquery('english', ${query})`;
+  if (result.docs.length === 0) return "No relevant information found.";
 
-  const primaryResults = await db.execute(
-    sql`SELECT title, content, category,
-        ts_rank(to_tsvector('english', title || ' ' || content), ${primaryTsquery}) as rank
-      FROM knowledgebase_docs
-      WHERE to_tsvector('english', title || ' ' || content) @@ ${primaryTsquery}
-        AND category = ANY(${categoriesArray}::text[])
-        AND audience <> 'admin'
-        AND ${citableDocFilter()}
-      ORDER BY rank DESC
-      LIMIT 4`
-  );
-
-  let rows = primaryResults.rows as any[];
-
-  if (rows.length < 2) {
-    // OR the raw query words with any matched synonym terms so the looser
-    // fallback also benefits from the alias layer.
-    const orQuery = [...query.trim().split(/\s+/).filter(Boolean), ...expandVoiceQuerySynonyms(query)]
-      .join(" | ");
-    const fallbackResults = await db.execute(
-      sql`SELECT title, content, category,
-          ts_rank(to_tsvector('english', title || ' ' || content), to_tsquery('english', ${orQuery})) as rank
-        FROM knowledgebase_docs
-        WHERE to_tsvector('english', title || ' ' || content) @@ to_tsquery('english', ${orQuery})
-          AND category = ANY(${categoriesArray}::text[])
-          AND audience <> 'admin'
-          AND ${citableDocFilter()}
-        ORDER BY rank DESC
-        LIMIT 4`
-    );
-    const seen = new Set(rows.map((r: any) => r.title));
-    for (const r of fallbackResults.rows as any[]) {
-      if (!seen.has(r.title)) rows.push(r);
-    }
-  }
-
-  if (rows.length === 0) return "No relevant information found.";
-
-  // Answer-time scrub: strip PII from every result before it is handed to the
-  // voice model or the 800-number agent, as a defense-in-depth layer against
-  // content that predates a rule or entered through a bypassed ingestion path.
-  return rows
-    .slice(0, 4)
-    .map(
-      (r: any) =>
-        `${scrubPrivateContent(r.title as string)}: ${scrubPrivateContent((r.content as string).slice(0, 400))}`,
-    )
+  // Voice answers are spoken/relayed by the 800-number agent: keep each doc terse
+  // (title + first 400 chars). Docs are already privacy-scrubbed by the shared
+  // path.
+  return result.docs
+    .map((d) => `${d.title}: ${d.content.slice(0, 400)}`)
     .join("\n\n");
 }
 
