@@ -431,6 +431,34 @@ export type FulfillmentCatalogResponse = {
   unknownKeys: FulfillmentUnknownKey[];
 };
 
+// ── Content Access Map types ──────────────────────────────────────────────────
+
+export type ContentAccessMappingRow = {
+  id: number;
+  pageKey: string;
+  productSlugs: string[];
+  updatedBy: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type ContentAccessProduct = {
+  slug: string;
+  group: "frontend" | "mentorship";
+  ladderOrder: number | null;
+  name: string;
+};
+
+export type ContentAccessCatalogResponse = {
+  pages: Array<{ pageKey: string; routePath: string; label: string }>;
+  products: ContentAccessProduct[];
+  mappings: ContentAccessMappingRow[];
+};
+
+export type ContentAccessUpsertResult =
+  | { ok: true; deleted: true; pageKey: string }
+  | { mapping: ContentAccessMappingRow };
+
 export const adminPanelApi = {
   async getDashboardKpis() {
     const res = await authFetch("/admin/dashboard/kpis");
@@ -1881,6 +1909,53 @@ export const adminPanelApi = {
   async getFulfillmentCatalog(): Promise<FulfillmentCatalogResponse> {
     const res = await authFetch("/admin/fulfillment/catalog");
     if (!res.ok) throw new Error("Failed to load fulfillment catalog");
+    return res.json();
+  },
+
+  // ── Content Access Map ──────────────────────────────────────────────────────
+
+  async getContentAccessCatalog(): Promise<ContentAccessCatalogResponse> {
+    const res = await authFetch("/admin/content-access/catalog");
+    if (!res.ok) {
+      const data = await res.json().catch(() => undefined);
+      throw new Error(
+        extractApiError(data) ?? "Failed to load content access catalog",
+      );
+    }
+    return res.json();
+  },
+
+  /**
+   * Upsert the product-slug set for a page. Passing an empty array deletes the
+   * row, reverting the page to OPEN (all members can see it).
+   */
+  async upsertContentAccessMapping(body: {
+    pageKey: string;
+    productSlugs: string[];
+  }): Promise<ContentAccessUpsertResult> {
+    const res = await authFetch("/admin/content-access", {
+      method: "POST",
+      body: JSON.stringify(body),
+    });
+    if (!res.ok) {
+      const data = await res.json().catch(() => undefined);
+      throw new Error(
+        extractApiError(data) ?? "Failed to save content access mapping",
+      );
+    }
+    return res.json();
+  },
+
+  async deleteContentAccessMapping(id: number): Promise<{ ok: true }> {
+    const res = await authFetch(`/admin/content-access/${id}`, {
+      method: "DELETE",
+    });
+    if (!res.ok) {
+      const data = await res.json().catch(() => undefined);
+      throw new Error(
+        extractApiError(data) ?? "Failed to delete content access mapping",
+      );
+    }
     return res.json();
   },
 
