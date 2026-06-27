@@ -82,3 +82,4 @@ export * from "./moderation";
 export * from "./assistant-cards";
 export * from "./voice-calls";
 export * from "./voice-daily-usage";
+export * from "./content-access-map";

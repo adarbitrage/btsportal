@@ -30,6 +30,9 @@
     },
     {
       "path": "../../lib/blitz-curriculum"
+    },
+    {
+      "path": "../../lib/content-access-registry"
     }
   ]
 }

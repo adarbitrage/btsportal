@@ -80,6 +80,7 @@ import voiceRouter from "./voice";
 import webhooksRetellRouter from "./webhooks-retell";
 import adminFulfillmentCatalogRouter from "./admin-fulfillment-catalog";
 import kbSearchRouter from "./kb-search";
+import contentAccessRouter from "./content-access";
 
 const router: IRouter = Router();
 
@@ -164,5 +165,6 @@ router.use(voiceRouter);
 router.use(webhooksRetellRouter);
 router.use(adminFulfillmentCatalogRouter);
 router.use(kbSearchRouter);
+router.use(contentAccessRouter);
 
 export default router;

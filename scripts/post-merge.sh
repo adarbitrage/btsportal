@@ -172,6 +172,14 @@ if [ -n "$DATABASE_URL" ]; then
   #     already exist for the source_id FK — it is created earlier in this block.
   psql "$DATABASE_URL" -v ON_ERROR_STOP=1 \
     -f lib/db/drizzle/0072_kb_staging_taxonomy_screening_columns.sql >/dev/null
+
+  # 13. Create the content_access_map table (new table: one row per gated
+  #     portal page, holding the product slugs that unlock it). Written as
+  #     CREATE TABLE IF NOT EXISTS so re-running is a no-op. Applying it here
+  #     ensures the live-schema-drift test below passes on the first run and
+  #     the conditional push stays skipped.
+  psql "$DATABASE_URL" -v ON_ERROR_STOP=1 \
+    -f lib/db/drizzle/0073_content_access_map.sql >/dev/null
 fi
 
 # Schema sync — CONDITIONAL push.
