@@ -1,0 +1,13 @@
+Status check only — don't make any changes, just report where each task stands. I dispatched a batch for the per-member brand-substitution feature and lost my copy of the task list, so I need you to confirm what's actually built. For each item: mark it done / partial / not started and give concrete evidence (files created or changed).
+
+1. Brand primitives — Two new files: a brand config (six front-end brands + a `bts` fallback, each with a full name and short form) and a substitution helper (a string replacer plus a TipTap-document walker that rewrites only text nodes). Are both present, and is the config filled with real values?
+
+2. Brand resolution + origin fix — A resolveMemberBrand() helper that reads the member's front-end product; the hardcoded sourceProduct: "yse" in the external-grant path replaced with the real offer slug; a backfill script for existing members. Which exist, and was the backfill actually run?
+
+3. Lesson read seam — In GET /api/lessons/:id, is per-member substitution applied to the lesson body, title, and description? Was a ?raw=true bypass added, and does the admin lesson editor load via the raw path (raw {{tokens}}, never substituted)?
+
+4. Brand to the client — Does /api/members/me return the member's brand strings, and is there a useBrand() hook consuming them?
+
+5. Standalone training pages (two phases) — (a) Did you produce the Phase 1 proposal: a per-page list of every "BTS" / "Build Test Scale" mention classified as program (rebrand) vs feature/platform (leave literal)? (b) Were any edits actually applied to the page components — Home, onboarding Welcome, Seven Pillars, Core Training, Pillars-to-Blitz, Quick Start, Direct Edge? If edits were applied, state plainly whether they followed an approved classification or whether you made the program-vs-feature calls on your own — Phase 2 was supposed to wait for my sign-off.
+
+Report as a per-task status with file paths, and separately flag any shared file you touched (the /members/me route, the lesson route, and the external-grant path).

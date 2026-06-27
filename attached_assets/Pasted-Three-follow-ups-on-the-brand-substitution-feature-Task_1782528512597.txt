@@ -1,0 +1,13 @@
+Three follow-ups on the brand-substitution feature. Tasks 1 and 2 are edits; Task 3 is verification. They touch different files — run in parallel.
+
+TASK 1 — Finish PillarsToBlitz + materialize the curation map.
+- Edit PillarsToBlitz.tsx: it was skipped in the page-branding pass. Wire in useBrand() and apply the same approved classification used on the other pages — program mentions → brand.full / brand.short; feature/platform/trademark names left literal. Specifically review line ~45: "Media Mavens (BTS's in-house network)" — "Media Mavens" stays literal (it's a feature/sub-brand), but flag the "BTS's in-house network" descriptor and propose program-vs-platform for it; do NOT just guess — show me the before/after for that one line.
+- Also: write the Phase 1 curation map to a committed file (e.g. docs/brand-curation-map.md) — the per-page list of every "BTS"/"Build Test Scale" mention classified program vs feature/platform, across all seven pages including PillarsToBlitz and DirectEdge. This is so the classification is auditable instead of living only in task history.
+- Files: PillarsToBlitz.tsx, docs/brand-curation-map.md. Report the PillarsToBlitz diff back before considering it done.
+
+TASK 2 — Run the sourceProduct backfill.
+- Execute scripts/backfill-source-product.ts. Before running, tell me which database connection it will target (dev vs prod) and the count of users whose sourceProduct will change. Run it, then report: rows changed, and confirm no user_products or entitlement rows were modified (it should only touch users.sourceProduct).
+- Do NOT run against prod without stating that's what you're doing first.
+
+TASK 3 — Prove the non-YSE path (read-only, no changes).
+- The only origin-fix test asserts sourceProduct === yseSlug, which only exercises YSE. Verify the non-YSE path end to end: pick (or describe) a member whose front-end product is Backroad (or any non-YSE), and confirm resolveMemberBrand() returns that brand and that GET /api/lessons/:id (and the dashboard + module-title surfaces at dashboard.ts:107 and tracks.ts:152) render that brand's strings — NOT "Your Second Engine." Also confirm those two extra surfaces substitute via the same helper and don't double-apply. Report what you checked and the resolved values.
