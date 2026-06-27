@@ -153,6 +153,7 @@ import ModerationWordlist from "@/pages/admin/moderation/wordlist";
 import YseOrders from "@/pages/admin/YseOrders";
 import YseGrantFailures from "@/pages/admin/YseGrantFailures";
 import FulfillmentMap from "@/pages/admin/FulfillmentMap";
+import ContentAccessMap from "@/pages/admin/ContentAccessMap";
 import AdminAssistantGroups from "@/pages/admin/AdminAssistantGroups";
 import AdminAssistantCards from "@/pages/admin/AdminAssistantCards";
 import AdminAssistantQuestions from "@/pages/admin/AdminAssistantQuestions";
@@ -167,6 +168,8 @@ import { AdminRoute } from "@/components/auth/AdminRoute";
 import { CoachRoute } from "@/components/auth/CoachRoute";
 import { adminPanelApi } from "@/lib/admin-panel-api";
 import { useToast } from "@/hooks/use-toast";
+import { useContentAccess } from "@/hooks/use-content-access";
+import { ContentLockedScreen } from "@/components/content-access/ContentLockedScreen";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -289,6 +292,81 @@ export function EntitlementRoute({ component: Component, entitlement }: { compon
   return <Component />;
 }
 
+/**
+ * Guards a content page with the admin-configurable Content Access Map.
+ * - Admin and coach roles bypass the map and always see the page.
+ * - For members: if the map has no rows for this pageKey the page is open
+ *   (API returns it as accessible); if rows exist and this member lacks a
+ *   qualifying product, the locked screen is rendered in place (no redirect).
+ */
+export function ContentAccessRoute({
+  component: Component,
+  pageKey,
+}: {
+  component: React.ComponentType<any>;
+  pageKey: string;
+}) {
+  const { user, loading } = useAuth();
+  const { data: member, isLoading: memberLoading } = useGetCurrentMember();
+  const { accessiblePageKeys, isLoading: accessLoading, isError: accessError } = useContentAccess();
+
+  if (loading || memberLoading || accessLoading) {
+    return (
+      <div style={{
+        minHeight: "100vh",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        background: "#faf9f7",
+        fontFamily: "Roboto, sans-serif",
+      }}>
+        <div style={{ textAlign: "center" }}>
+          <div style={{
+            width: 40,
+            height: 40,
+            border: "3px solid #e8e4dc",
+            borderTop: "3px solid #1a56db",
+            borderRadius: "50%",
+            animation: "spin 1s linear infinite",
+            margin: "0 auto 16px",
+          }} />
+          <p style={{ color: "#6b7280", fontSize: 14 }}>Loading...</p>
+          <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+        </div>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return <Redirect to="/login" />;
+  }
+
+  if (user.mustChangePassword) {
+    return <Redirect to="/change-password" />;
+  }
+
+  if (!user.onboardingComplete && !isCoachRole(user.role)) {
+    const stepRoute = STEP_ROUTES[(user.onboardingStep || 1) - 1] || STEP_ROUTES[0];
+    return <Redirect to={stepRoute} />;
+  }
+
+  const isAdmin = isAdminRole(user?.role) || isAdminRole(member?.role);
+  const isCoach = isCoachRole(user?.role) || isCoachRole(member?.role);
+
+  if (isAdmin || isCoach) {
+    return <Component />;
+  }
+
+  // Fail-open on error: transient API failures should not lock members out.
+  // Only show the locked screen when we have a definitive "not in the set"
+  // answer from a successful fetch.
+  if (!accessError && !accessiblePageKeys.has(pageKey)) {
+    return <ContentLockedScreen />;
+  }
+
+  return <Component />;
+}
+
 export function OnboardingRoute({ component: Component, step }: { component: React.ComponentType<any>; step: number }) {
   const { user, loading } = useAuth();
 
@@ -391,12 +469,12 @@ function Router() {
       <Route path="/onboarding/quick-start">{() => <OnboardingRoute component={OnboardingQuickStart} step={5} />}</Route>
       <Route path="/">{() => <ProtectedRoute component={Home} />}</Route>
       <Route path="/dashboard">{() => <ProtectedRoute component={Dashboard} />}</Route>
-      <Route path="/core-training">{() => <ProtectedRoute component={CoreTraining} />}</Route>
-      <Route path="/core-training/quick-start">{() => <ProtectedRoute component={QuickStartGuide} />}</Route>
-      <Route path="/core-training/7-pillars">{() => <ProtectedRoute component={SevenPillars} />}</Route>
-      <Route path="/core-training/pillars-to-blitz">{() => <ProtectedRoute component={PillarsToBlitz} />}</Route>
-      <Route path="/core-training/direct-edge">{() => <ProtectedRoute component={DirectEdge} />}</Route>
-      <Route path="/tips-and-tricks">{() => <ProtectedRoute component={TipsAndTricks} />}</Route>
+      <Route path="/core-training">{() => <ContentAccessRoute component={CoreTraining} pageKey="core-training" />}</Route>
+      <Route path="/core-training/quick-start">{() => <ContentAccessRoute component={QuickStartGuide} pageKey="quick-start" />}</Route>
+      <Route path="/core-training/7-pillars">{() => <ContentAccessRoute component={SevenPillars} pageKey="seven-pillars" />}</Route>
+      <Route path="/core-training/pillars-to-blitz">{() => <ContentAccessRoute component={PillarsToBlitz} pageKey="pillars-to-blitz" />}</Route>
+      <Route path="/core-training/direct-edge">{() => <ContentAccessRoute component={DirectEdge} pageKey="direct-edge" />}</Route>
+      <Route path="/tips-and-tricks">{() => <ContentAccessRoute component={TipsAndTricks} pageKey="tips-and-tricks" />}</Route>
       <Route path="/va-calls/book">{() => <EntitlementRoute component={BookVaCall} entitlement="coaching:group" />}</Route>
       <Route path="/va-calls">{() => <ProtectedRoute component={VaCalls} />}</Route>
       {/* Legacy concierge VA-call paths now live under /va-calls. Preserve the
@@ -408,24 +486,24 @@ function Router() {
       <Route path="/concierge">{() => <ProtectedRoute component={Concierge} />}</Route>
       <Route path="/coaching/sessions">{() => <ProtectedRoute component={CoachingSession} />}</Route>
       <Route path="/advantage">{() => <ProtectedRoute component={Advantage} />}</Route>
-      <Route path="/compliance/submit">{() => <ProtectedRoute component={ComplianceSubmit} />}</Route>
-      <Route path="/compliance">{() => <ProtectedRoute component={ComplianceReview} />}</Route>
+      <Route path="/compliance/submit">{() => <EntitlementRoute component={ComplianceSubmit} entitlement="software:base" />}</Route>
+      <Route path="/compliance">{() => <EntitlementRoute component={ComplianceReview} entitlement="software:base" />}</Route>
       <Route path="/prime-corporate">{() => <ProtectedRoute component={PrimeCorporate} />}</Route>
       <Route path="/ad-credit">{() => <ProtectedRoute component={AdCredit} />}</Route>
       <Route path="/coaching/recruitment">{() => <ProtectedRoute component={CoachingRecruitment} />}</Route>
       <Route path="/self-promoting">{() => <ProtectedRoute component={SelfPromoting} />}</Route>
       <Route path="/ai-assistant">{() => <ProtectedRoute component={AiAssistant} />}</Route>
       <Route path="/assistant/voice">{() => <EntitlementRoute component={VoiceAssistant} entitlement="voice:access" />}</Route>
-      <Route path="/blitz">{() => <ProtectedRoute component={BlitzHub} />}</Route>
-      <Route path="/blitz/guide">{() => <ProtectedRoute component={Blitz} />}</Route>
-      <Route path="/blitz/guide/:lessonId">{() => <ProtectedRoute component={Blitz} />}</Route>
+      <Route path="/blitz">{() => <ContentAccessRoute component={BlitzHub} pageKey="blitz" />}</Route>
+      <Route path="/blitz/guide">{() => <ContentAccessRoute component={Blitz} pageKey="blitz" />}</Route>
+      <Route path="/blitz/guide/:lessonId">{() => <ContentAccessRoute component={Blitz} pageKey="blitz" />}</Route>
       <Route path="/blitz-archive">{() => <AdminRoute component={BlitzHubArchive} permission="content:manage" />}</Route>
       <Route path="/blitz-archive/guide">{() => <AdminRoute component={BlitzArchive} permission="content:manage" />}</Route>
       <Route path="/blitz-archive/guide/:lessonId">{() => <AdminRoute component={BlitzArchive} permission="content:manage" />}</Route>
       <Route path="/videoreview">{() => <AdminRoute component={VideoReview} permission="content:manage" />}</Route>
-      <Route path="/training">{() => <ProtectedRoute component={Training} />}</Route>
-      <Route path="/training/modules/:id">{() => <ProtectedRoute component={ModuleDetail} />}</Route>
-      <Route path="/training/lessons/:id">{() => <ProtectedRoute component={LessonView} />}</Route>
+      <Route path="/training">{() => <ContentAccessRoute component={Training} pageKey="training" />}</Route>
+      <Route path="/training/modules/:id">{() => <ContentAccessRoute component={ModuleDetail} pageKey="training-module" />}</Route>
+      <Route path="/training/lessons/:id">{() => <ContentAccessRoute component={LessonView} pageKey="training-lesson" />}</Route>
       <Route path="/admin/content/tracks">{() => <AdminRoute component={ContentTracks} permission="content:manage" />}</Route>
       <Route path="/admin/content/lessons/:id/edit">{() => <AdminRoute component={LessonEditor} permission="content:manage" />}</Route>
       <Route path="/admin/affiliate-networks">{() => <AdminRoute component={AdminAffiliateNetworks} permission="content:manage" />}</Route>
@@ -443,7 +521,7 @@ function Router() {
       <Route path="/wins/:id">{() => <ProtectedRoute component={WinDetail} />}</Route>
       <Route path="/coaching/book-session/book">{() => <ProtectedRoute component={BookSessionPack} />}</Route>
       <Route path="/coaching/book-session">{() => <ProtectedRoute component={SessionBooking} />}</Route>
-      <Route path="/coaching">{() => <ProtectedRoute component={Coaching} />}</Route>
+      <Route path="/coaching">{() => <EntitlementRoute component={Coaching} entitlement="coaching:group" />}</Route>
       <Route path="/account">{() => <ProtectedRoute component={Account} />}</Route>
       <Route path="/account/products">{() => <ProtectedRoute component={MyProducts} />}</Route>
       <Route path="/plans">{() => <ProtectedRoute component={Plans} />}</Route>
@@ -458,9 +536,9 @@ function Router() {
       <Route path="/resources/:collectionSlug/:resourceId">{() => <ProtectedRoute component={ResourceDetail} />}</Route>
       <Route path="/resources/:collectionSlug">{() => <ProtectedRoute component={CollectionDetail} />}</Route>
       <Route path="/resources">{() => <ProtectedRoute component={Resources} />}</Route>
-      <Route path="/resource-library">{() => <ProtectedRoute component={ResourceLibrary} />}</Route>
-      <Route path="/knowledge-base">{() => <ProtectedRoute component={KnowledgeBase} />}</Route>
-      <Route path="/affiliate-networks">{() => <ProtectedRoute component={AffiliateNetworks} />}</Route>
+      <Route path="/resource-library">{() => <ContentAccessRoute component={ResourceLibrary} pageKey="resource-library" />}</Route>
+      <Route path="/knowledge-base">{() => <ContentAccessRoute component={KnowledgeBase} pageKey="knowledge-base" />}</Route>
+      <Route path="/affiliate-networks">{() => <ContentAccessRoute component={AffiliateNetworks} pageKey="affiliate-networks" />}</Route>
       <Route path="/media-mavens">{() => <ProtectedRoute component={MediaMavens} />}</Route>
       <Route path="/media-mavens/performance">{() => <ProtectedRoute component={MediaMavensPerformance} />}</Route>
       <Route path="/admin/tickets">{() => <AdminRoute component={AdminTicketQueue} permission="tickets:view" />}</Route>
@@ -481,7 +559,7 @@ function Router() {
       <Route path="/admin/wins">{() => <AdminRoute component={AdminWins} permission="wins:manage" />}</Route>
       <Route path="/tools">{() => <ProtectedRoute component={Tools} />}</Route>
       <Route path="/tools/:slug">{() => <ProtectedRoute component={ToolDetail} />}</Route>
-      <Route path="/apps">{() => <ProtectedRoute component={Apps} />}</Route>
+      <Route path="/apps">{() => <EntitlementRoute component={Apps} entitlement="software:base" />}</Route>
       <Route path="/partner-tools">{() => <ProtectedRoute component={PartnerTools} />}</Route>
       <Route path="/admin/commissions">{() => <AdminRoute component={CommissionOverview} permission="commissions:view" />}</Route>
       <Route path="/admin/commissions/all">{() => <AdminRoute component={CommissionAll} permission="commissions:view" />}</Route>
@@ -535,6 +613,7 @@ function Router() {
       <Route path="/admin/integrations/machine">{() => <AdminRoute component={YseOrders} permission="members:view" />}</Route>
       <Route path="/admin/integrations/yse/failures">{() => <AdminRoute component={YseGrantFailures} permission="system:view" />}</Route>
       <Route path="/admin/integrations/fulfillment-map">{() => <AdminRoute component={FulfillmentMap} permission="members:view" />}</Route>
+      <Route path="/admin/integrations/content-access-map">{() => <AdminRoute component={ContentAccessMap} permission="members:view" />}</Route>
       <Route path="/admin/assistant/groups">{() => <AdminRoute component={AdminAssistantGroups} permission="content:manage" />}</Route>
       <Route path="/admin/assistant/groups/:groupId/cards">{() => <AdminRoute component={AdminAssistantCards} permission="content:manage" />}</Route>
       <Route path="/admin/assistant/cards/:cardId/questions">{() => <AdminRoute component={AdminAssistantQuestions} permission="content:manage" />}</Route>

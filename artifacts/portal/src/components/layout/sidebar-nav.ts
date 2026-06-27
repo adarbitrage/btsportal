@@ -14,6 +14,12 @@ export interface NavLeaf {
   showModerationBadge?: boolean;
   showUnreadBadge?: boolean;
   hiddenForRoles?: string[];
+  /**
+   * When set, this nav item is hidden for members who lack access to the
+   * given content page key (admin/coach bypass applies).
+   * Must match a key from the shared GATEABLE_PAGES registry.
+   */
+  contentPageKey?: string;
 }
 
 export interface NavFolder {
@@ -84,6 +90,39 @@ export function filterNavByEntitlements(
       node.children,
       entitlements,
       bypassEntitlements,
+    );
+    if (filteredChildren.length === 0) continue;
+    result.push({ ...node, children: filteredChildren });
+  }
+  return result;
+}
+
+/**
+ * Drops nav items whose `contentPageKey` is not in `accessiblePageKeys`.
+ * Admin and coach users bypass this filter entirely.
+ * Items without a `contentPageKey` are always shown.
+ */
+export function filterNavByContentAccess(
+  nodes: NavNode[],
+  accessiblePageKeys: Set<string>,
+  bypass = false,
+): NavNode[] {
+  const result: NavNode[] = [];
+  for (const node of nodes) {
+    if (node.kind === "leaf") {
+      if (
+        bypass ||
+        !node.contentPageKey ||
+        accessiblePageKeys.has(node.contentPageKey)
+      ) {
+        result.push(node);
+      }
+      continue;
+    }
+    const filteredChildren = filterNavByContentAccess(
+      node.children,
+      accessiblePageKeys,
+      bypass,
     );
     if (filteredChildren.length === 0) continue;
     result.push({ ...node, children: filteredChildren });

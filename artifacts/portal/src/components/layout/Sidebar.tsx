@@ -60,6 +60,7 @@ import {
   Sparkles,
   Phone,
   BookOpen,
+  LayoutGrid,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useGetCurrentMember, type MemberProfile } from "@workspace/api-client-react";
@@ -69,6 +70,7 @@ import { NotificationBell, NotificationBadgeCount } from "@/components/community
 import { useAdminModerationPendingCount } from "@/hooks/useAdminModeration";
 import { UnreadBadge } from "@/components/dm/unread-badge";
 import {
+  filterNavByContentAccess,
   filterNavByEntitlements,
   filterNavByHiddenRoles,
   filterNavByRole,
@@ -82,6 +84,7 @@ import {
   type NavLeaf,
   type NavNode,
 } from "./sidebar-nav";
+import { useContentAccess } from "@/hooks/use-content-access";
 import { hasPermission } from "@/lib/permissions";
 import { UpgradeFeaturesCard } from "@/components/upgrade/UpgradeFeaturesCard";
 
@@ -111,9 +114,9 @@ export const MEMBER_NAV: NavNode[] = [
     icon: GraduationCap,
     defaultOpen: false,
     children: [
-      { kind: "leaf", href: "/core-training/7-pillars", label: "7 Pillars", icon: Layers },
-      { kind: "leaf", href: "/blitz", label: "The Blitz™", icon: Zap },
-      { kind: "leaf", href: "/tips-and-tricks", label: "Tips & Tricks", icon: Lightbulb },
+      { kind: "leaf", href: "/core-training/7-pillars", label: "7 Pillars", icon: Layers, contentPageKey: "seven-pillars" },
+      { kind: "leaf", href: "/blitz", label: "The Blitz™", icon: Zap, contentPageKey: "blitz" },
+      { kind: "leaf", href: "/tips-and-tricks", label: "Tips & Tricks", icon: Lightbulb, contentPageKey: "tips-and-tricks" },
     ],
   },
   {
@@ -137,9 +140,9 @@ export const MEMBER_NAV: NavNode[] = [
     icon: FolderOpen,
     defaultOpen: false,
     children: [
-      { kind: "leaf", href: "/resource-library", label: "Resource Library", icon: Library },
-      { kind: "leaf", href: "/knowledge-base", label: "Knowledge Base", icon: BookOpen },
-      { kind: "leaf", href: "/affiliate-networks", label: "Affiliate Networks", icon: Network },
+      { kind: "leaf", href: "/resource-library", label: "Resource Library", icon: Library, contentPageKey: "resource-library" },
+      { kind: "leaf", href: "/knowledge-base", label: "Knowledge Base", icon: BookOpen, contentPageKey: "knowledge-base" },
+      { kind: "leaf", href: "/affiliate-networks", label: "Affiliate Networks", icon: Network, contentPageKey: "affiliate-networks" },
       { kind: "leaf", href: "/prime-corporate", label: "Prime Corporate", icon: Building2 },
       { kind: "leaf", href: "/support", label: "Support", icon: LifeBuoy },
     ],
@@ -333,6 +336,7 @@ export const ADMIN_CHILDREN: NavNode[] = [
     defaultOpen: false,
     children: [
       { kind: "leaf", href: "/admin/integrations/fulfillment-map", label: "Fulfillment Map", icon: Package, requiredPermission: "members:view" },
+      { kind: "leaf", href: "/admin/integrations/content-access-map", label: "Content Access Map", icon: LayoutGrid, requiredPermission: "members:view" },
       { kind: "leaf", href: "/admin/ghl", label: "GHL Sync", icon: Activity, requiredPermission: "ghl:view" },
       { kind: "leaf", href: "/admin/ghl/contacts", label: "GHL Contacts", icon: Users, requiredPermission: "ghl:view" },
       { kind: "leaf", href: "/admin/ghl/config", label: "GHL Config", icon: Settings, requiredPermission: "ghl:manage" },
@@ -594,9 +598,15 @@ export function SidebarContent({ onNavClick }: { onNavClick?: () => void }) {
   const highestSlug: string = member?.highestProductSlug ?? "free";
   const hasLifetime = isLifetimeSlug(highestSlug);
 
+  const { accessiblePageKeys } = useContentAccess();
+
   const filteredMemberNav = filterNavByRole(
     filterNavByHiddenRoles(
-      filterNavByEntitlements(MEMBER_NAV, entitlements, isAdminUser || isCoach),
+      filterNavByContentAccess(
+        filterNavByEntitlements(MEMBER_NAV, entitlements, isAdminUser || isCoach),
+        accessiblePageKeys,
+        isAdminUser || isCoach,
+      ),
       userRole,
     ),
     userRole,
