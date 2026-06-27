@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen } from "@testing-library/react";
 import type { ReactNode } from "react";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
 // --- Mocks -----------------------------------------------------------------
 // These are intentionally allow-list-friendly: each external module is mocked
@@ -83,6 +84,15 @@ vi.mock("wouter", () => ({
 
 import { SidebarContent } from "./Sidebar";
 
+function makeWrapper() {
+  const qc = new QueryClient({
+    defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+  });
+  return ({ children }: { children: ReactNode }) => (
+    <QueryClientProvider client={qc}>{children}</QueryClientProvider>
+  );
+}
+
 const UPGRADE_CARD_TESTID = "upgrade-features-card-sidebar";
 
 beforeEach(() => {
@@ -114,7 +124,7 @@ describe("SidebarContent staff label + upgrade card (rendered)", () => {
       },
     });
 
-    render(<SidebarContent />);
+    render(<SidebarContent />, { wrapper: makeWrapper() });
 
     expect(screen.getByText("Super Admin")).toBeInTheDocument();
     expect(screen.queryByText("Free Member")).toBeNull();
@@ -133,7 +143,7 @@ describe("SidebarContent staff label + upgrade card (rendered)", () => {
       },
     });
 
-    render(<SidebarContent />);
+    render(<SidebarContent />, { wrapper: makeWrapper() });
 
     expect(screen.getByText("Admin", { selector: "p" })).toBeInTheDocument();
     expect(screen.queryByText("Free Member")).toBeNull();
@@ -152,7 +162,7 @@ describe("SidebarContent staff label + upgrade card (rendered)", () => {
       },
     });
 
-    render(<SidebarContent />);
+    render(<SidebarContent />, { wrapper: makeWrapper() });
 
     // The tier label paragraph reads "Free Member".
     expect(screen.getByText("Free Member", { selector: "p" })).toBeInTheDocument();
@@ -175,7 +185,7 @@ describe("SidebarContent staff label + upgrade card (rendered)", () => {
       },
     });
 
-    render(<SidebarContent />);
+    render(<SidebarContent />, { wrapper: makeWrapper() });
 
     // The tier label paragraph reflects the purchased product, not "Free Member".
     expect(screen.getByText("6-Month Mentorship", { selector: "p" })).toBeInTheDocument();
@@ -196,7 +206,7 @@ describe("SidebarContent staff label + upgrade card (rendered)", () => {
       },
     });
 
-    render(<SidebarContent />);
+    render(<SidebarContent />, { wrapper: makeWrapper() });
 
     // Lifetime members get the top-tier label and never see the upgrade card.
     expect(screen.getByText("Lifetime Member", { selector: "p" })).toBeInTheDocument();
@@ -217,7 +227,7 @@ describe("SidebarContent coach section (rendered)", () => {
       },
     });
 
-    render(<SidebarContent />);
+    render(<SidebarContent />, { wrapper: makeWrapper() });
 
     // The Coach section heading and its only leaf render for a coach.
     // Scope to the section-heading div: a coach also gets a "Coach" role badge
@@ -246,7 +256,7 @@ describe("SidebarContent admin empty state (rendered)", () => {
     // empty-state block rather than rendering the Admin folder.
     authMocks.hasPermissionMock.mockReturnValue(false);
 
-    render(<SidebarContent />);
+    render(<SidebarContent />, { wrapper: makeWrapper() });
 
     // The empty-state container and its "Contact a super admin" support link
     // both render, with the link pointing at /support.

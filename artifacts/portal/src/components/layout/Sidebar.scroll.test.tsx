@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen } from "@testing-library/react";
 import type { ReactNode } from "react";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
 // ---------------------------------------------------------------------------
 // Module mocks (same allow-list pattern as Sidebar.render.test.tsx)
@@ -59,6 +60,15 @@ vi.mock("wouter", () => ({
 
 import { SidebarContent } from "./Sidebar";
 
+function makeWrapper() {
+  const qc = new QueryClient({
+    defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+  });
+  return ({ children }: { children: ReactNode }) => (
+    <QueryClientProvider client={qc}>{children}</QueryClientProvider>
+  );
+}
+
 const SCROLL_KEY = "sidebar-scroll-top";
 
 function stubMember(overrides: Record<string, unknown> = {}) {
@@ -109,7 +119,7 @@ function simulateScroll(el: HTMLElement, offset: number) {
 describe("SidebarContent scroll persistence", () => {
   it("saves scrollTop to sessionStorage when the user scrolls the nav container", () => {
     stubMember();
-    render(<SidebarContent />);
+    render(<SidebarContent />, { wrapper: makeWrapper() });
 
     const container = screen.getByTestId("member-sidebar-scroll");
     simulateScroll(container, 150);
@@ -122,7 +132,7 @@ describe("SidebarContent scroll persistence", () => {
     sessionStorage.setItem(SCROLL_KEY, "220");
     stubMember();
 
-    render(<SidebarContent />);
+    render(<SidebarContent />, { wrapper: makeWrapper() });
 
     // useLayoutEffect runs synchronously before paint in jsdom; scrollTop
     // must be set to the saved value by the time the assertion runs.
@@ -133,7 +143,7 @@ describe("SidebarContent scroll persistence", () => {
   it("leaves scrollTop at 0 when there is no saved value", () => {
     stubMember();
 
-    render(<SidebarContent />);
+    render(<SidebarContent />, { wrapper: makeWrapper() });
 
     const container = screen.getByTestId("member-sidebar-scroll");
     expect(container.scrollTop).toBe(0);
@@ -145,7 +155,7 @@ describe("SidebarContent scroll persistence", () => {
     useGetCurrentMemberMock.mockReturnValue({ data: undefined });
     sessionStorage.setItem(SCROLL_KEY, "180");
 
-    const { rerender } = render(<SidebarContent />);
+    const { rerender } = render(<SidebarContent />, { wrapper: makeWrapper() });
 
     // Member data arrives — more nav rows render, content grows taller.
     useGetCurrentMemberMock.mockReturnValue({
@@ -166,7 +176,7 @@ describe("SidebarContent scroll persistence", () => {
 
   it("scroll/restore round-trip: scroll, remount, offset is preserved", () => {
     stubMember();
-    const { unmount } = render(<SidebarContent />);
+    const { unmount } = render(<SidebarContent />, { wrapper: makeWrapper() });
 
     const container = screen.getByTestId("member-sidebar-scroll");
     simulateScroll(container, 300);
@@ -176,7 +186,7 @@ describe("SidebarContent scroll persistence", () => {
 
     // Second mount simulates navigating to a new page (full remount).
     stubMember();
-    render(<SidebarContent />);
+    render(<SidebarContent />, { wrapper: makeWrapper() });
 
     const restored = screen.getByTestId("member-sidebar-scroll");
     expect(restored.scrollTop).toBe(300);
