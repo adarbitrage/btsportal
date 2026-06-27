@@ -7366,7 +7366,31 @@ components:
             $ref: "#/components/schemas/OwnedProduct"
         ticketLimit:
           type: integer
-      required: [id, name, email, role, onboardingComplete, onboardingStep, smsOptIn, ticketReplySmsOptIn, securitySmsOptIn, billingSmsOptIn, coachingSmsOptIn, contentSmsOptIn, marketingOptIn, currentStreak, memberSince, highestProductName, highestProductSlug, entitlements, products, ticketLimit]
+        brand:
+          $ref: "#/components/schemas/BrandStrings"
+      required: [id, name, email, role, onboardingComplete, onboardingStep, smsOptIn, ticketReplySmsOptIn, securitySmsOptIn, billingSmsOptIn, coachingSmsOptIn, contentSmsOptIn, marketingOptIn, currentStreak, memberSince, highestProductName, highestProductSlug, entitlements, products, ticketLimit, brand]
+
+    BrandStrings:
+      type: object
+      description: |
+        Resolved brand display strings for the member's front-end product.
+        Derived from the member's earliest active frontend product grant;
+        falls back to the BTS platform defaults when no frontend product
+        is held.
+      properties:
+        full:
+          type: string
+          description: Full brand name (e.g. "Build Test Scale" or "Your Second Engine").
+        short:
+          type: string
+          description: Short brand name (e.g. "BTS" or "YSE").
+        possessive:
+          type: string
+          description: Full possessive form (e.g. "Build Test Scale's").
+        shortPossessive:
+          type: string
+          description: Short possessive form (e.g. "BTS's").
+      required: [full, short, possessive, shortPossessive]
 
     AdminCancelledEmailChange:
       type: object

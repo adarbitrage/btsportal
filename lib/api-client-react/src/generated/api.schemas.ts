@@ -658,6 +658,18 @@ always sends regardless.
   entitlements: string[];
   products: OwnedProduct[];
   ticketLimit: number;
+  brand: BrandStrings;
+}
+
+export interface BrandStrings {
+  /** Full brand name (e.g. "Build Test Scale" or "Your Second Engine"). */
+  full: string;
+  /** Short brand name (e.g. "BTS" or "YSE"). */
+  short: string;
+  /** Full possessive form (e.g. "Build Test Scale's"). */
+  possessive: string;
+  /** Short possessive form (e.g. "BTS's"). */
+  shortPossessive: string;
 }
 
 export interface EntitlementSet {

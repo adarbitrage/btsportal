@@ -33,6 +33,8 @@ import {
 } from "../lib/email-change-prefill-token";
 import { logAuditEvent } from "../lib/audit-log";
 import { PRODUCT_RANK } from "../lib/product-rank";
+import { brandStrings } from "@workspace/brand-config";
+import { resolveMemberBrand } from "../lib/entitlements";
 
 const router: IRouter = Router();
 const BCRYPT_ROUNDS = 12;
@@ -68,6 +70,7 @@ router.get("/members/me", async (req, res): Promise<void> => {
   const products = await getUserProducts(userId);
   const highest = getHighestProductLabel(entitlements);
   const ticketLimit = getSupportTicketLimit(entitlements);
+  const brand = brandStrings(await resolveMemberBrand(userId));
 
   // Surface the most recent admin-cancelled email change so the security
   // page can explain why a previously-pending change has disappeared.
@@ -144,6 +147,7 @@ router.get("/members/me", async (req, res): Promise<void> => {
     entitlements: getEntitlementsList(entitlements),
     products,
     ticketLimit,
+    brand,
   }));
 });
 

@@ -117,6 +117,16 @@ export const GetCurrentMemberResponse = zod.object({
     }),
   ),
   ticketLimit: zod.number(),
+  brand: zod
+    .object({
+      full: zod.string().describe('Full brand name (e.g. "Build Test Scale" or "Your Second Engine").'),
+      short: zod.string().describe('Short brand name (e.g. "BTS" or "YSE").'),
+      possessive: zod.string().describe('Full possessive form (e.g. "Build Test Scale\'s").'),
+      shortPossessive: zod.string().describe('Short possessive form (e.g. "BTS\'s").'),
+    })
+    .describe(
+      "Resolved brand display strings for the member's front-end product.\nFalls back to BTS platform defaults when no frontend product is held.\n",
+    ),
 });
 
 /**

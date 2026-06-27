@@ -17,6 +17,7 @@
     "@types/qs": "^6.15.0",
     "@workspace/api-zod": "workspace:*",
     "@workspace/auth": "workspace:*",
+    "@workspace/brand-config": "workspace:*",
     "@workspace/blitz-curriculum": "workspace:*",
     "@workspace/brand-config": "workspace:*",
     "@workspace/db": "workspace:*",
