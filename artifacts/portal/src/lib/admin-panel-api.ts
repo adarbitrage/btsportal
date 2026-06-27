@@ -2117,6 +2117,8 @@ export const adminPanelApi = {
     role?: string;
     externalSource?: string;
     externalOrderId?: string;
+    sortBy?: string;
+    sortDir?: "asc" | "desc";
   }) {
     const qs = new URLSearchParams();
     if (params.page) qs.set("page", String(params.page));
@@ -2125,6 +2127,8 @@ export const adminPanelApi = {
     if (params.role) qs.set("role", params.role);
     if (params.externalSource) qs.set("externalSource", params.externalSource);
     if (params.externalOrderId) qs.set("externalOrderId", params.externalOrderId);
+    if (params.sortBy) qs.set("sortBy", params.sortBy);
+    if (params.sortDir) qs.set("sortDir", params.sortDir);
     const res = await authFetch(`/admin/members?${qs.toString()}`);
     if (!res.ok) throw new Error("Failed to fetch members");
     return res.json();

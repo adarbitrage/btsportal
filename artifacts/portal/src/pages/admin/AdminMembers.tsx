@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Users, Search, ChevronLeft, ChevronRight, Eye, Download, Loader2, UserPlus, ShieldPlus, Copy, Check } from "lucide-react";
+import { Users, Search, ChevronLeft, ChevronRight, Eye, Download, Loader2, UserPlus, ShieldPlus, Copy, Check, ChevronUp, ChevronDown, ChevronsUpDown } from "lucide-react";
 import { adminPanelApi, saveBlobAsFile, type StreamDownloadProgress } from "@/lib/admin-panel-api";
 import { formatDownloadProgress } from "@/lib/download-progress";
 import { useToast } from "@/hooks/use-toast";
@@ -32,6 +32,36 @@ function formatSourceLabel(source: string): string {
   return source.toUpperCase();
 }
 
+function formatOriginLabel(origin: string | null | undefined): string {
+  if (!origin) return "—";
+  if (origin === "bts") return "Direct (BTS)";
+  return origin.replace(/-/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+type SortBy = "name" | "email" | "role" | "joined" | "level";
+type SortDir = "asc" | "desc";
+
+function levelBadgeClass(rank: number | undefined): string {
+  switch (rank) {
+    case 5: return "bg-yellow-100 text-yellow-800 border-yellow-300";
+    case 4: return "bg-purple-100 text-purple-800 border-purple-300";
+    case 3: return "bg-orange-100 text-orange-800 border-orange-300";
+    case 2: return "bg-blue-100 text-blue-800 border-blue-300";
+    case 1: return "bg-green-100 text-green-800 border-green-300";
+    case 0: return "bg-slate-100 text-slate-700 border-slate-300";
+    default: return "bg-muted text-muted-foreground border-border";
+  }
+}
+
+function LevelBadge({ label, rank }: { label?: string; rank?: number }) {
+  const text = label ?? "Free";
+  return (
+    <span className={`inline-block rounded border px-1.5 py-0.5 text-[10px] font-medium ${levelBadgeClass(rank)}`}>
+      {text}
+    </span>
+  );
+}
+
 function formatRoleLabel(role: string): string {
   if (role === ROLE_ALL) return "All roles";
   if (role === "member") return "Member";
@@ -46,6 +76,8 @@ export default function AdminMembers() {
   const [roleFilter, setRoleFilter] = useState<string>(ROLE_ALL);
   const [externalOrderId, setExternalOrderId] = useState("");
   const [availableSources, setAvailableSources] = useState<string[]>([]);
+  const [sortBy, setSortBy] = useState<SortBy | null>(null);
+  const [sortDir, setSortDir] = useState<SortDir>("desc");
   const [loading, setLoading] = useState(true);
   // Tracks an in-flight export so we can disable the button (no double
   // submits) and surface a streamed bytes/rows hint while a wide member
@@ -78,15 +110,19 @@ export default function AdminMembers() {
   const canCreateMembers = hasPermission(currentUser?.role, "members:edit");
   const canCreateStaff = hasPermission(currentUser?.role, "members:assign_role");
 
-  const load = async (page = 1, roleOverride?: string) => {
+  const load = async (page = 1, roleOverride?: string, sortByOverride?: SortBy | null, sortDirOverride?: SortDir) => {
     try {
       setLoading(true);
+      const effectiveSortBy = sortByOverride !== undefined ? sortByOverride : sortBy;
+      const effectiveSortDir = sortDirOverride !== undefined ? sortDirOverride : sortDir;
       const data = await adminPanelApi.getMembers({
         page,
         search: search || undefined,
         role: (roleOverride ?? roleFilter) || undefined,
         externalSource: externalSource && externalSource !== SOURCE_ANY ? externalSource : undefined,
         externalOrderId: externalOrderId || undefined,
+        sortBy: effectiveSortBy ?? undefined,
+        sortDir: effectiveSortBy ? effectiveSortDir : undefined,
       });
       setMembers(data.members);
       setPagination(data.pagination);
@@ -110,6 +146,18 @@ export default function AdminMembers() {
   }, []);
 
   const handleSearch = () => { load(1); };
+
+  const handleSort = (col: SortBy) => {
+    if (sortBy === col) {
+      const nextDir: SortDir = sortDir === "asc" ? "desc" : "asc";
+      setSortDir(nextDir);
+      load(1, undefined, col, nextDir);
+    } else {
+      setSortBy(col);
+      setSortDir("asc");
+      load(1, undefined, col, "asc");
+    }
+  };
 
   const handleCreate = async () => {
     const email = newEmail.trim();
@@ -317,11 +365,27 @@ export default function AdminMembers() {
               <table className="w-full">
                 <thead>
                   <tr className="border-b text-left">
-                    <th className="p-4 text-xs font-medium text-muted-foreground">Name</th>
-                    <th className="p-4 text-xs font-medium text-muted-foreground">Email</th>
-                    <th className="p-4 text-xs font-medium text-muted-foreground">Role</th>
-                    <th className="p-4 text-xs font-medium text-muted-foreground">Source</th>
-                    <th className="p-4 text-xs font-medium text-muted-foreground">Joined</th>
+                    {(["name", "email", "role", "level", "joined"] as SortBy[]).map((col) => (
+                      <th
+                        key={col}
+                        className="p-4 text-xs font-medium text-muted-foreground cursor-pointer select-none hover:text-foreground transition-colors"
+                        onClick={() => handleSort(col)}
+                      >
+                        <span className="inline-flex items-center gap-1">
+                          {col === "name" ? "Name"
+                            : col === "email" ? "Email"
+                            : col === "role" ? "Role"
+                            : col === "level" ? "Level"
+                            : "Joined"}
+                          {sortBy === col ? (
+                            sortDir === "asc" ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />
+                          ) : (
+                            <ChevronsUpDown className="w-3 h-3 opacity-40" />
+                          )}
+                        </span>
+                      </th>
+                    ))}
+                    <th className="p-4 text-xs font-medium text-muted-foreground">Origin</th>
                     <th className="p-4 text-xs font-medium text-muted-foreground"></th>
                   </tr>
                 </thead>
@@ -331,8 +395,11 @@ export default function AdminMembers() {
                       <td className="p-4 text-sm font-medium">{m.name}</td>
                       <td className="p-4 text-sm text-muted-foreground">{m.email}</td>
                       <td className="p-4"><Badge variant="outline" className="text-[10px]">{m.role}</Badge></td>
-                      <td className="p-4 text-sm text-muted-foreground">{m.sourceProduct || "N/A"}</td>
+                      <td className="p-4">
+                        <LevelBadge label={m.levelLabel} rank={m.levelRank} />
+                      </td>
                       <td className="p-4 text-sm text-muted-foreground">{m.memberSince ? format(new Date(m.memberSince), "MMM d, yyyy") : ""}</td>
+                      <td className="p-4 text-sm text-muted-foreground">{formatOriginLabel(m.sourceProduct)}</td>
                       <td className="p-4">
                         <Link href={`/admin/members/${m.id}`}>
                           <Button variant="ghost" size="sm"><Eye className="w-4 h-4" /></Button>
