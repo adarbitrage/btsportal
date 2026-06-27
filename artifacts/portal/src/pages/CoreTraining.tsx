@@ -4,6 +4,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Link } from "wouter";
 import { authFetch } from "@/lib/auth";
+import { useBrand } from "@/hooks/use-brand";
 import {
   Rocket, Search, CalendarDays, Layers, Radio,
   BookOpen, ArrowRight, CheckCircle2, Circle
@@ -19,11 +20,12 @@ interface CourseItem {
   href: string;
 }
 
-const courses: CourseItem[] = [
+function getCourses(brandShort: string): CourseItem[] {
+  return [
   {
     number: 1,
     courseId: "quick-start",
-    title: "The BTS Quick-Start Guide: Mastering Affiliate Arbitrage with the Build, Test, Scale Framework",
+    title: `The ${brandShort} Quick-Start Guide: Mastering Affiliate Arbitrage with the Build, Test, Scale Framework`,
     description: "Your step-by-step roadmap to mastering affiliate arbitrage using the Build, Test, Scale framework. Whether you're just getting started or looking to refine your approach, this guide walks you through the exact process of launching and scaling profitable campaigns — from choosing high-converting offers to split-testing banners with Blaze\u2122 Ad Server and leveraging the Responsive Rolodex\u2122 for proven traffic. You'll also discover how to tap into our powerful support system, including the BTS Concierge\u2122 for done-for-you ad creation, live coaching calls with expert mentors, and the BTS Community for round-the-clock guidance.",
     icon: Rocket,
     ctaLabel: "HEAD TO THE QUICK-START GUIDE",
@@ -74,7 +76,8 @@ const courses: CourseItem[] = [
     ctaLabel: "HEAD TO THE DIRECT EDGE",
     href: "/core-training/direct-edge",
   },
-];
+  ];
+}
 
 interface CourseProgressEntry {
   id: number;
@@ -87,6 +90,8 @@ export default function CoreTraining() {
   const [completedCourses, setCompletedCourses] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
   const [toggling, setToggling] = useState<string | null>(null);
+  const brand = useBrand();
+  const courses = getCourses(brand.short);
 
   const fetchProgress = useCallback(async () => {
     try {
@@ -147,7 +152,7 @@ export default function CoreTraining() {
 
         <div className="bg-[#1a56db] rounded-2xl p-6 sm:p-8 text-white text-center shadow-lg">
           <h1 className="text-3xl md:text-4xl font-bold font-['Roboto'] tracking-tight">
-            Build Test Scale&trade; Training
+            {brand.full} Training
           </h1>
         </div>
 

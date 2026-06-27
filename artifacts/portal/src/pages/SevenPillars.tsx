@@ -3,6 +3,7 @@ import { VidalyticsEmbed } from "@/components/VidalyticsEmbed";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Link } from "wouter";
+import { useBrand } from "@/hooks/use-brand";
 import {
   Layers, Briefcase, ShoppingBag, Users2, Mail,
   Target, Zap, Heart, ChevronUp, ArrowRight, CheckCircle2, Rocket,
@@ -185,6 +186,7 @@ function CheckList({ items }: { items: React.ReactNode[] }) {
 
 export default function SevenPillars() {
   const topRef = useRef<HTMLDivElement>(null);
+  const brand = useBrand();
 
   return (
     <AppLayout>
@@ -228,7 +230,7 @@ export default function SevenPillars() {
                 In this training, we're going to dive deep into the heart of digital marketing. We're not just skimming the surface; we're dissecting the industry, breaking it down into its core components, and <strong className="text-foreground">revealing the essential elements that make a profitable digital business</strong>. This isn't a quick overview; it's a comprehensive exploration of the intricate details that can propel your success in this industry.
               </p>
               <p className="text-muted-foreground leading-relaxed">
-                The digital marketing landscape is vast and complex, but that shouldn't deter you. With the right guidance and a solid understanding of the fundamentals, <strong className="text-foreground">you can navigate this landscape with confidence and precision</strong>. That's where Build Test Scale comes in. This program is designed to equip you with the knowledge, skills, and strategies you need to thrive in the digital marketing world.
+                The digital marketing landscape is vast and complex, but that shouldn't deter you. With the right guidance and a solid understanding of the fundamentals, <strong className="text-foreground">you can navigate this landscape with confidence and precision</strong>. That's where {brand.full} comes in. This program is designed to equip you with the knowledge, skills, and strategies you need to thrive in the digital marketing world.
               </p>
               <p className="text-muted-foreground leading-relaxed">
                 We've broken down the process of building a successful digital business into <strong className="text-foreground">seven key pillars</strong>. These pillars are the foundation of any successful digital business, and understanding them is crucial to your success. Each pillar represents a vital component of your business, and we're going to explore each one in detail.
@@ -289,7 +291,7 @@ export default function SevenPillars() {
                 </div>
               </div>
               <p className="text-muted-foreground leading-relaxed">
-                As part of your enrollment in Build Test Scale, you'll gain access to hundreds of health and wellness offers through multiple affiliate network relationships. <strong className="text-foreground">You will never need to hunt for offers — your pathway to success is already paved.</strong>
+                As part of your enrollment in {brand.full}, you'll gain access to hundreds of health and wellness offers through multiple affiliate network relationships. <strong className="text-foreground">You will never need to hunt for offers — your pathway to success is already paved.</strong>
               </p>
               <BackToTop topRef={topRef} />
             </CardContent>
@@ -385,13 +387,13 @@ export default function SevenPillars() {
             <PillarHeader pillar={pillars[5]} />
             <CardContent className="p-8 md:p-10 space-y-5">
               <p className="text-muted-foreground leading-relaxed">
-                In the fiercely competitive landscape of affiliate marketing, having an edge is not just a luxury — it's a necessity. That's where Build Test Scale comes into play, providing you with the tools and resources you need to not just compete, but to <strong className="text-foreground">thrive and succeed</strong>.
+                In the fiercely competitive landscape of affiliate marketing, having an edge is not just a luxury — it's a necessity. That's where {brand.full} comes into play, providing you with the tools and resources you need to not just compete, but to <strong className="text-foreground">thrive and succeed</strong>.
               </p>
               <p className="text-muted-foreground leading-relaxed">
                 Our edge is delivered through two primary channels: our <strong className="text-foreground">proprietary software (Paid Media Suite™)</strong> and our dedicated <strong className="text-foreground">BTS Concierge™</strong>. These two elements work in perfect harmony to give you a significant advantage.
               </p>
               <p className="text-muted-foreground leading-relaxed">
-                As part of Build Test Scale, you'll have access to the BTS Concierge™ — a dedicated group of top-tier experts who handle the creation of all your marketing materials, saving you countless hours and significant financial resources.
+                As part of {brand.full}, you'll have access to the BTS Concierge™ — a dedicated group of top-tier experts who handle the creation of all your marketing materials, saving you countless hours and significant financial resources.
               </p>
               <HighlightBox title="Proprietary Software Suite:">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
@@ -420,13 +422,13 @@ export default function SevenPillars() {
             <PillarHeader pillar={pillars[6]} />
             <CardContent className="p-8 md:p-10 space-y-5">
               <p className="text-muted-foreground leading-relaxed">
-                The final pillar, and perhaps the most critical, is <strong className="text-foreground">the commitment</strong>. Success in affiliate marketing, as in any business, requires a steadfast commitment to your goals and the willingness to put in the necessary work. Build Test Scale provides you with the tools, the team, and the strategy, but the commitment must come from you.
+                The final pillar, and perhaps the most critical, is <strong className="text-foreground">the commitment</strong>. Success in affiliate marketing, as in any business, requires a steadfast commitment to your goals and the willingness to put in the necessary work. {brand.full} provides you with the tools, the team, and the strategy, but the commitment must come from you.
               </p>
               <p className="text-muted-foreground leading-relaxed">
                 Affiliate marketing is not a get-rich-quick scheme. It's a legitimate business model that requires time, effort, and dedication. You must be willing to learn, adapt, and grow. You must be ready to face challenges and overcome obstacles. And most importantly, <strong className="text-foreground">you must be committed to taking consistent action towards your goals</strong>.
               </p>
               <p className="text-muted-foreground leading-relaxed">
-                Build Test Scale is designed to guide you on this journey, providing you with a clear path to follow. But it's up to you to walk that path. It's up to you to make the commitment to your success.
+                {brand.full} is designed to guide you on this journey, providing you with a clear path to follow. But it's up to you to walk that path. It's up to you to make the commitment to your success.
               </p>
               <BackToTop topRef={topRef} />
             </CardContent>
@@ -441,7 +443,7 @@ export default function SevenPillars() {
                 Conclusion & Next Steps
               </h2>
               <p className="text-muted-foreground leading-relaxed">
-                Build Test Scale is a comprehensive training program that covers all aspects of affiliate marketing — from the business model to the product, the market, the demographic, the traffic, the edge, and the commitment. It's designed to provide you with a <strong className="text-foreground">clear, step-by-step guide to building a successful affiliate marketing business</strong>.
+                {brand.full} is a comprehensive training program that covers all aspects of affiliate marketing — from the business model to the product, the market, the demographic, the traffic, the edge, and the commitment. It's designed to provide you with a <strong className="text-foreground">clear, step-by-step guide to building a successful affiliate marketing business</strong>.
               </p>
               <p className="text-muted-foreground leading-relaxed">
                 But remember, the training program is just a tool. It's a roadmap to success. But you are the driver. You are the one who must take the wheel and steer your business towards your goals.

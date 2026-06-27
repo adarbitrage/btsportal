@@ -1,6 +1,7 @@
 import { OnboardingLayout } from "@/components/onboarding/OnboardingLayout";
 import { useAuth } from "@/lib/auth";
 import { useGetCurrentMember, usePatchOnboardingStep } from "@workspace/api-client-react";
+import { useBrand } from "@/hooks/use-brand";
 import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -15,6 +16,7 @@ export default function OnboardingWelcome() {
   const [, navigate] = useLocation();
   const [submitting, setSubmitting] = useState(false);
   const patchOnboarding = usePatchOnboardingStep();
+  const brand = useBrand();
 
   const handleContinue = async () => {
     setSubmitting(true);
@@ -47,7 +49,7 @@ export default function OnboardingWelcome() {
             Welcome, {user?.name?.split(" ")[0]}!
           </h2>
           <p className="text-lg text-muted-foreground max-w-xl mx-auto">
-            We're excited to have you as a member of Build Test Scale. Let's get your account
+            We're excited to have you as a member of {brand.full}. Let's get your account
             set up so you can start making progress right away.
           </p>
         </div>

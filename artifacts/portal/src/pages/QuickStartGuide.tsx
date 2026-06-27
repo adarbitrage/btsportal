@@ -2,6 +2,7 @@ import { AppLayout } from "@/components/layout/AppLayout";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Link } from "wouter";
+import { useBrand } from "@/hooks/use-brand";
 import {
   Rocket, Hammer, TestTubes, TrendingUp, Headphones,
   ArrowRight, ChevronUp, Search, BarChart3, Palette,
@@ -24,6 +25,7 @@ function BackToTop({ topRef }: { topRef: React.RefObject<HTMLDivElement | null> 
 
 export default function QuickStartGuide() {
   const topRef = useRef<HTMLDivElement>(null);
+  const brand = useBrand();
 
   return (
     <AppLayout>
@@ -31,7 +33,7 @@ export default function QuickStartGuide() {
 
         <div className="bg-[#1a56db] rounded-2xl p-8 md:p-10 text-white shadow-lg">
           <h1 className="text-3xl md:text-4xl font-bold font-['Roboto'] tracking-tight mb-2">
-            The BTS Quick-Start Guide
+            The {brand.short} Quick-Start Guide
           </h1>
           <p className="text-lg md:text-xl opacity-90">
             Mastering Affiliate Arbitrage with the Build, Test, Scale Framework
@@ -44,7 +46,7 @@ export default function QuickStartGuide() {
               Congratulations on taking the first step toward building a profitable affiliate
               arbitrage business using direct media buying. This <strong className="text-foreground">Quick-Start Guide</strong> is
               your <strong className="text-foreground">step-by-step roadmap</strong> through
-              the <strong className="text-foreground">BTS framework</strong> — guiding you from your first
+              the <strong className="text-foreground">{brand.short} framework</strong> — guiding you from your first
               campaign setup to full-scale profitability.
             </p>
             <p className="text-muted-foreground leading-relaxed">
@@ -81,7 +83,7 @@ export default function QuickStartGuide() {
                   <li>Choosing the Right Affiliate Offer</li>
                   <li>Conducting Market Research for Winning Angles</li>
                   <li>Organizing Your Workflow</li>
-                  <li>Building Banner Ads & Landing Pages with BTS Tools</li>
+                  <li>Building Banner Ads & Landing Pages with {brand.short} Tools</li>
                   <li>Submitting Your Ads for Approval</li>
                 </ul>
               </div>
@@ -103,7 +105,7 @@ export default function QuickStartGuide() {
                 </ul>
               </div>
               <div>
-                <a href="#support" className="text-[#1a56db] font-semibold hover:underline">BTS Support & Resources</a>
+                <a href="#support" className="text-[#1a56db] font-semibold hover:underline">{brand.short} Support & Resources</a>
                 <ul className="mt-2 ml-5 space-y-1 text-sm text-muted-foreground list-disc">
                   <li>The BTS Concierge™ — Done-For-You Ad Creation & Setup</li>
                   <li>Live Coaching Calls — Expert Guidance 6 Days/Week</li>
@@ -176,11 +178,11 @@ export default function QuickStartGuide() {
                 </h3>
                 <p className="text-muted-foreground leading-relaxed">
                   The best way to start is with a high-converting affiliate offer. We recommend networks
-                  like <strong className="text-foreground">Media Mavens™</strong> (exclusive to BTS members — 100%+ commissions)
+                  like <strong className="text-foreground">Media Mavens™</strong> (exclusive to {brand.short} members — 100%+ commissions)
                   and <strong className="text-foreground">ClickBank</strong> (fast approval and high-payout offers).
                 </p>
                 <p className="text-muted-foreground leading-relaxed">
-                  To get started, apply for these networks and choose a proven offer that aligns with BTS traffic sources.
+                  To get started, apply for these networks and choose a proven offer that aligns with {brand.short} traffic sources.
                   If you need help choosing, ask in
                   our <Link href="/coaching" className="text-[#1a56db] underline hover:no-underline">weekly coaching calls</Link> or
                   consult the BTS Concierge™.
@@ -223,10 +225,10 @@ export default function QuickStartGuide() {
               <div className="border-t border-[#e8e4dc] pt-5 space-y-3">
                 <h3 className="text-lg font-semibold text-foreground flex items-center gap-2">
                   <Palette className="w-4 h-4 text-[#1a56db]" />
-                  Building Banner Ads & Landing Pages with BTS Tools
+                  Building Banner Ads & Landing Pages with {brand.short} Tools
                 </h3>
                 <p className="text-muted-foreground leading-relaxed">
-                  Use BTS proprietary tools to build your ads efficiently:
+                  Use {brand.short} proprietary tools to build your ads efficiently:
                 </p>
                 <div className="grid sm:grid-cols-2 gap-3">
                   {[
@@ -383,7 +385,7 @@ export default function QuickStartGuide() {
                 <div className="w-10 h-10 rounded-lg bg-[#1a56db]/10 flex items-center justify-center">
                   <Headphones className="w-5 h-5 text-[#1a56db]" />
                 </div>
-                <h2 className="text-2xl font-bold text-foreground">BTS Support & Resources</h2>
+                <h2 className="text-2xl font-bold text-foreground">{brand.short} Support & Resources</h2>
               </div>
 
               <div className="grid md:grid-cols-3 gap-4">

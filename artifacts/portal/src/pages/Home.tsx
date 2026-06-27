@@ -7,6 +7,7 @@ import {
   Layers, ArrowRight, Mail, Target,
   Sparkles, Video, Zap, Briefcase, ShoppingBag, Users2, Heart
 } from "lucide-react";
+import { useBrand } from "@/hooks/use-brand";
 
 const pillars = [
   { icon: Briefcase, title: "Pillar 1: The Business Model", desc: "Affiliate Arbitrage — use paid advertising to promote affiliate offers for profit." },
@@ -42,6 +43,7 @@ const firstSteps = [
 export default function Home() {
   const { data: member } = useGetCurrentMember();
   const firstName = member?.name?.split(" ")[0] ?? "Member";
+  const brand = useBrand();
 
   return (
     <AppLayout>
@@ -52,7 +54,7 @@ export default function Home() {
             <h1 className="text-3xl font-bold">Thank You! And Welcome!</h1>
           </div>
           <p className="text-muted-foreground">
-            You are now officially enrolled in <strong className="text-foreground">Build Test Scale™</strong> Mentorship.
+            You are now officially enrolled in <strong className="text-foreground">{brand.full}</strong> Mentorship.
           </p>
         </div>
 
@@ -64,7 +66,7 @@ export default function Home() {
 
             <div className="text-muted-foreground space-y-4 leading-relaxed">
               <p>
-                Welcome to the <strong className="text-foreground">Build Test Scale™ (BTS)</strong> Affiliate Marketing Mentorship.
+                Welcome to the <strong className="text-foreground">{brand.full} ({brand.short})</strong> Affiliate Marketing Mentorship.
               </p>
               <p>
                 You're about to learn how to make big money using <strong className="text-foreground">paid email media buys</strong>.
@@ -74,7 +76,7 @@ export default function Home() {
             </div>
 
             <div className="bg-muted/40 border border-border/60 rounded-xl p-6 space-y-3">
-              <h3 className="font-semibold text-foreground text-lg">Why BTS?</h3>
+              <h3 className="font-semibold text-foreground text-lg">Why {brand.short}?</h3>
               <p className="text-muted-foreground leading-relaxed">
                 After talking to lots of our past students, we found out two things everyone wants:
               </p>
@@ -95,7 +97,7 @@ export default function Home() {
             <div>
               <h2 className="text-xl font-bold text-foreground">What's in Store for You</h2>
               <p className="text-muted-foreground leading-relaxed mt-2">
-                Over the coming months, we will work through the 10,000 foot view of the BTS program —
+                Over the coming months, we will work through the 10,000 foot view of the {brand.short} program —
                 <strong className="text-foreground"> The 7 Pillars™ Of A Profitable Digital Business</strong>,
                 using our proven email traffic sources and our full suite of tools.
               </p>

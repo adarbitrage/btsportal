@@ -8,6 +8,10 @@ vi.mock("@/components/layout/AppLayout", () => ({
   ),
 }));
 
+vi.mock("@/hooks/use-brand", () => ({
+  useBrand: () => ({ full: "Build Test Scale", short: "BTS", possessive: "Build Test Scale's", shortPossessive: "BTS'" }),
+}));
+
 const authFetch = vi.fn();
 
 vi.mock("@/lib/auth", () => ({
