@@ -7,7 +7,6 @@ import {
   Route, ArrowRight, ArrowLeft, Sparkles, ChevronUp, Rocket,
 } from "lucide-react";
 import { useRef, type ComponentType, type SVGProps, type RefObject } from "react";
-import { useBrand } from "@/hooks/use-brand";
 
 type IconType = ComponentType<SVGProps<SVGSVGElement>>;
 
@@ -22,7 +21,7 @@ type Bridge = {
   body: string[];
 };
 
-function getBridges(brandShort: string): Bridge[] {
+function getBridges(): Bridge[] {
   return [
   {
     num: 1,
@@ -44,7 +43,7 @@ function getBridges(brandShort: string): Bridge[] {
     quote:
       "Traditional supplements and wellness gadgets — two categories that work together beautifully and cover all the bases for people serious about their health.",
     body: [
-      `One of your first steps in The Blitz is choosing a product to promote. You'll do this inside one of two affiliate networks — Media Mavens (${brandShort}'s in-house network) or ClickBank. Both are stocked with health and wellness products: supplements, gadgets, and wellness devices aimed at the exact market described in Pillar 2. You won't be hunting for a market or a niche — that decision has already been made. Your job is simply to choose a specific product within it.`,
+      `One of your first steps in The Blitz is choosing a product to promote. You'll do this inside one of two affiliate networks — Media Mavens (BTS's in-house network) or ClickBank. Both are stocked with health and wellness products: supplements, gadgets, and wellness devices aimed at the exact market described in Pillar 2. You won't be hunting for a market or a niche — that decision has already been made. Your job is simply to choose a specific product within it.`,
     ],
   },
   {
@@ -221,8 +220,7 @@ function BridgeCard({ bridge, topRef }: { bridge: Bridge; topRef: RefObject<HTML
 
 export default function PillarsToBlitz() {
   const topRef = useRef<HTMLDivElement>(null);
-  const brand = useBrand();
-  const bridges = getBridges(brand.short);
+  const bridges = getBridges();
 
   return (
     <AppLayout>

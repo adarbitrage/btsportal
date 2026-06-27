@@ -57,16 +57,14 @@ No BTS / Build Test Scale occurrences. The page already uses `brand.full` (wired
 
 | Location | Snippet | Classification | Treatment |
 |---|---|---|---|
-| Bridge 2 body | `Media Mavens (BTS's in-house network)` — the `BTS's` possessive | Program organizational descriptor — names the entity behind the member's program; non-BTS branded members would see a foreign brand name | `brand.short` ✓ → `Media Mavens ({brand.short}'s in-house network)` |
+| Bridge 2 body | `Media Mavens (BTS's in-house network)` — the `BTS's` possessive | Feature / platform descriptor — Media Mavens is platform-owned (BTS), not owned by any front-end brand; the descriptor stays stable across all brands | **Literal** |
 | Bridge 6 body | `BTS Concierge™ — your VA team` | Trademarked feature name | **Literal** |
 
-> **Reasoning for Bridge 2:** "in-house network" is an organizational descriptor. The word
-> "in-house" indicates the network is built and operated by the same entity the member joined.
-> For a member whose program is branded "Your Second Engine," reading "BTS's in-house network"
-> names an unfamiliar brand. `{brand.short}'s in-house network` correctly maps to the operator
-> of their program. This is the same pattern used elsewhere (`{brand.short} members`, `{brand.full}`
-> program references). Compare: `BTS Concierge™` is a trademark that travels with the product
-> regardless of brand, so it stays literal.
+> **Reasoning for Bridge 2:** Media Mavens is a BTS-owned affiliate network, not a front-end
+> brand asset. Saying "Reserve Income's in-house network" (or any other front-end brand name)
+> would be factually wrong — those brands do not own or operate the network. The descriptor
+> "BTS's in-house network" is a platform fact, not a program reference, so it must stay literal.
+> Compare: `BTS Concierge™` is also a platform-owned feature and is likewise literal.
 
 ---
 
@@ -108,5 +106,5 @@ No "BTS" or "Build Test Scale" occurrences. `useBrand()` is not imported and is 
 | `BTS Community` | Always **literal** — named platform / community feature |
 | Program enrollment / membership (`enrolled in`, `member of`, `as part of [program]`) | `brand.full` |
 | Short program reference (`the [BTS] program`, `[BTS] framework`, `[BTS] tools`, `[BTS] members`) | `brand.short` |
-| Organizational possessive describing program operator (`[BTS]'s in-house …`) | `brand.short` |
+| Organizational possessive for platform-owned sub-brands (`Media Mavens (BTS's in-house …)`) | Always **literal** — platform fact, not a program reference; the descriptor stays stable across all brands |
 | Named sub-brands with their own trademark (`Media Mavens™`, `Paid Media Suite™`) | Always **literal** |
