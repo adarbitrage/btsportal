@@ -1,4 +1,6 @@
 import { getParam } from "../lib/params";
+import { PRODUCT_RANK } from "../lib/product-rank";
+import { getProductLabelByRank } from "../lib/entitlements";
 import { Router, type Request, type Response } from "express";
 import crypto from "crypto";
 import bcrypt from "bcryptjs";
@@ -161,6 +163,36 @@ import {
 import jwt from "jsonwebtoken";
 
 const router = Router();
+
+// ---------------------------------------------------------------------------
+// Level-rank SQL helpers — built once at module load from the authoritative
+// PRODUCT_RANK map so no parallel rank table can diverge.
+// ---------------------------------------------------------------------------
+
+/**
+ * SQL CASE fragment that maps products.slug → its tier rank number.
+ * Slugs not in PRODUCT_RANK receive ELSE 0 (front-end level).
+ */
+const LEVEL_RANK_CASE_SQL = Object.entries(PRODUCT_RANK)
+  .map(([slug, rank]) => `WHEN p.slug = '${slug.replace(/'/g, "''")}' THEN ${rank}`)
+  .join(" ");
+
+/**
+ * Correlated subquery: COALESCE(MAX(tier rank of active non-expired grants), -1).
+ * Returns -1 when a user owns no active products (sentinel for "Free").
+ * Active/non-expired scoping mirrors getUserEntitlements.
+ */
+const LEVEL_RANK_EXPR =
+  `COALESCE((` +
+  `SELECT MAX(CASE ${LEVEL_RANK_CASE_SQL} ELSE 0 END) ` +
+  `FROM user_products up ` +
+  `JOIN products p ON up.product_id = p.id ` +
+  `WHERE up.user_id = users.id ` +
+  `AND up.status = 'active' ` +
+  `AND (up.expires_at IS NULL OR up.expires_at > NOW())` +
+  `), -1)`;
+
+// ---------------------------------------------------------------------------
 
 // The burst-stats query, threshold logic, and on-call dispatch all live in
 // `auth-rate-limit-alerter` — the route just calls into it and renders the
@@ -2194,33 +2226,6 @@ router.patch("/admin/products/:id", requirePermission("members:edit"), async (re
   }
 });
 
-// Slug-tier ordering, lowest to highest. Used to derive a user's `source_product`
-// label (shown in the sidebar) from their currently-active product rows.
-const PRODUCT_TIER_RANK: Record<string, number> = {
-  free: 0,
-  frontend: 1,
-  launchpad: 2,
-  "3month": 3,
-  "6month": 4,
-  "1year": 5,
-  lifetime: 6,
-};
-
-async function recomputeSourceProduct(userId: number): Promise<void> {
-  const rows = await db
-    .select({ slug: productsTable.slug })
-    .from(userProductsTable)
-    .innerJoin(productsTable, eq(userProductsTable.productId, productsTable.id))
-    .where(and(eq(userProductsTable.userId, userId), eq(userProductsTable.status, "active")));
-  let bestSlug: string | null = null;
-  let bestRank = -1;
-  for (const r of rows) {
-    const rank = PRODUCT_TIER_RANK[r.slug] ?? 0;
-    if (rank > bestRank) { bestRank = rank; bestSlug = r.slug; }
-  }
-  await db.update(usersTable).set({ sourceProduct: bestSlug }).where(eq(usersTable.id, userId));
-}
-
 router.post("/admin/members/:id/grant-product", requirePermission("members:edit"), async (req: Request, res: Response) => {
   try {
     const id = parseInt(getParam(req.params.id), 10);
@@ -2234,7 +2239,6 @@ router.post("/admin/members/:id/grant-product", requirePermission("members:edit"
       expiresAt: expiresAt ? new Date(expiresAt) : null,
     }).returning();
 
-    await recomputeSourceProduct(id);
     await logAdminAction(req, "grant_product", "user", String(id), `Granted product ${productId} to member ${id}`);
     res.json(userProduct);
   } catch (error) {
@@ -2255,7 +2259,6 @@ router.post("/admin/members/:id/revoke-product", requirePermission("members:edit
       .returning();
 
     if (!updated) { res.status(404).json({ error: "User product not found" }); return; }
-    await recomputeSourceProduct(id);
     await logAdminAction(req, "revoke_product", "user", String(id), `Revoked product (user_product ${userProductId}) from member ${id}`);
     res.json(updated);
   } catch (error) {
@@ -5595,7 +5598,7 @@ router.post("/admin/oncall-destinations/test", requirePermission("settings:manag
 
 router.get("/admin/members", requirePermission("members:view"), async (req: Request, res: Response) => {
   try {
-    const { page = "1", limit = "20", search, role, externalSource, externalOrderId } = req.query;
+    const { page = "1", limit = "20", search, role, externalSource, externalOrderId, sortBy, sortDir } = req.query;
     const pageNum = Math.max(1, parseInt(page as string, 10) || 1);
     const limitNum = Math.min(100, Math.max(1, parseInt(limit as string, 10) || 20));
     const offset = (pageNum - 1) * limitNum;
@@ -5651,11 +5654,55 @@ router.get("/admin/members", requirePermission("members:view"), async (req: Requ
 
     const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
 
-    const [members, countResult] = await Promise.all([
-      db.select({ id: usersTable.id, name: usersTable.name, email: usersTable.email, role: usersTable.role, sourceProduct: usersTable.sourceProduct, memberSince: usersTable.memberSince, lastLoginAt: usersTable.lastLoginAt, createdAt: usersTable.createdAt })
-        .from(usersTable).where(whereClause).orderBy(desc(usersTable.createdAt)).limit(limitNum).offset(offset),
+    // ---------------------------------------------------------------------------
+    // Sort — allowlist both column and direction so params can't inject SQL.
+    // Unknown/missing sortBy falls back to createdAt DESC (existing default).
+    // ---------------------------------------------------------------------------
+    const sortByStr = typeof sortBy === "string" ? sortBy : "";
+    const safeDir = typeof sortDir === "string" && sortDir.toLowerCase() === "asc" ? "ASC" : "DESC";
+
+    // Columns that can be referenced directly through Drizzle table identifiers.
+    const SORT_COL_EXPRS: Record<string, string> = {
+      name: "users.name",
+      email: "users.email",
+      role: "users.role",
+      joined: "users.member_since",
+    };
+
+    let orderExpr: SQL;
+    if (sortByStr === "level") {
+      orderExpr = sql.raw(`${LEVEL_RANK_EXPR} ${safeDir}`);
+    } else if (sortByStr in SORT_COL_EXPRS) {
+      orderExpr = sql.raw(`${SORT_COL_EXPRS[sortByStr]} ${safeDir}`);
+    } else {
+      orderExpr = desc(usersTable.createdAt);
+    }
+    // ---------------------------------------------------------------------------
+
+    const [rawMembers, countResult] = await Promise.all([
+      db.select({
+        id: usersTable.id,
+        name: usersTable.name,
+        email: usersTable.email,
+        role: usersTable.role,
+        sourceProduct: usersTable.sourceProduct,
+        memberSince: usersTable.memberSince,
+        lastLoginAt: usersTable.lastLoginAt,
+        createdAt: usersTable.createdAt,
+        levelRank: sql<number>`${sql.raw(LEVEL_RANK_EXPR)}`,
+      })
+        .from(usersTable)
+        .where(whereClause)
+        .orderBy(orderExpr)
+        .limit(limitNum)
+        .offset(offset),
       db.select({ count: sql<number>`count(*)` }).from(usersTable).where(whereClause),
     ]);
+
+    const members = rawMembers.map((m) => ({
+      ...m,
+      levelLabel: getProductLabelByRank(m.levelRank),
+    }));
 
     res.json({
       members,

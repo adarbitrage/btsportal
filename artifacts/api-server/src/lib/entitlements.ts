@@ -118,14 +118,41 @@ export async function getUserProducts(userId: number) {
     .orderBy(productsTable.sortOrder);
 }
 
+/**
+ * Canonical rank → human label map. Rank values mirror PRODUCT_RANK from
+ * product-rank.ts. -1 is the sentinel for "no active products" (Free).
+ * Both getHighestProductLabel and getProductLabelByRank reference this map so
+ * the label strings can never diverge between the two code paths.
+ */
+export const RANK_LABEL_MAP: Record<number, string> = {
+  [-1]: "Free",
+  [0]: "Front-End Member",
+  [1]: "LaunchPad",
+  [2]: "3-Month Mentorship",
+  [3]: "6-Month Mentorship",
+  [4]: "1-Year Mentorship",
+  [5]: "Lifetime Mentorship",
+};
+
+/**
+ * Return a human-friendly tier label for a pre-computed product rank value.
+ * rank = -1 means the member holds no active products ("Free").
+ * rank = 0 means front-end only ("Front-End Member").
+ * Ranks 1-5 correspond to paid tiers per PRODUCT_RANK in product-rank.ts.
+ * Any rank not in the map falls back to "Free".
+ */
+export function getProductLabelByRank(rank: number): string {
+  return RANK_LABEL_MAP[rank] ?? "Free";
+}
+
 export function getHighestProductLabel(entitlements: Set<string>): { name: string; slug: string } {
-  if (entitlements.has("access:lifetime")) return { name: "Lifetime Mentorship", slug: "lifetime" };
-  if (entitlements.has("commissions:premium")) return { name: "1-Year Mentorship", slug: "1year" };
-  if (entitlements.has("coaching:mastermind")) return { name: "6-Month Mentorship", slug: "6month" };
-  if (entitlements.has("coaching:group")) return { name: "3-Month Mentorship", slug: "3month" };
-  if (entitlements.has("content:advanced")) return { name: "LaunchPad", slug: "launchpad" };
-  if (entitlements.has("content:frontend")) return { name: "Front-End Member", slug: "frontend" };
-  return { name: "Free", slug: "free" };
+  if (entitlements.has("access:lifetime")) return { name: RANK_LABEL_MAP[5], slug: "lifetime" };
+  if (entitlements.has("commissions:premium")) return { name: RANK_LABEL_MAP[4], slug: "1year" };
+  if (entitlements.has("coaching:mastermind")) return { name: RANK_LABEL_MAP[3], slug: "6month" };
+  if (entitlements.has("coaching:group")) return { name: RANK_LABEL_MAP[2], slug: "3month" };
+  if (entitlements.has("content:advanced")) return { name: RANK_LABEL_MAP[1], slug: "launchpad" };
+  if (entitlements.has("content:frontend")) return { name: RANK_LABEL_MAP[0], slug: "frontend" };
+  return { name: RANK_LABEL_MAP[-1], slug: "free" };
 }
 
 export function getSupportTicketLimit(entitlements: Set<string>): number {
