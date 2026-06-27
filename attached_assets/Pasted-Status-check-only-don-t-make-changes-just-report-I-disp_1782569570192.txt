@@ -1,0 +1,15 @@
+Status check only — don't make changes, just report. I dispatched two follow-up tasks for the brand-substitution feature, #1439 and #1440. For each, tell me plainly: is it still only a draft/plan, or has it actually been executed and merged? Don't report what the plan says it will do — report what the code and execution output currently show. Mark each done / partial / not started, with file-level or output-level evidence.
+
+#1439 — Revert Media Mavens rebrand + reconcile map:
+- In PillarsToBlitz.tsx (around line 47): does the Bridge 2 line currently read the LITERAL "Media Mavens (BTS's in-house network)", or is it still the rebranded "{brand.short}'s in-house network"? Paste the current line.
+- Since that was the page's only brand mention: are the now-unused useBrand() call (~line 224), the brand.short argument to getBridges (~line 225), and the useBrand import all removed? Confirm there's no dead hook/import left behind. Paste the relevant current lines.
+- docs/brand-curation-map.md: does it now classify that mention as feature/platform → LITERAL (with the platform-owned note), matching the code? Or does the map still say program/rebrand?
+
+#1440 — Non-YSE reserve_income verification (read-only):
+- Was this actually run, or just planned? If run: name the reserve_income member you used.
+- Confirm resolveMemberBrand() returns "reserve_income" and brandStrings() returns "The Reserve Income System" / "Reserve Income" for that member.
+- Confirm /api/members/me returns that brand object.
+- Confirm the three substitution surfaces render this member's brand and NOT "Your Second Engine": GET /api/lessons/:id, dashboard.ts:107, tracks.ts:152. Show before/after for any {{brand}} token, or if no live content has one, show "Welcome to {{brand}}" passed through the same path resolving to "Reserve Income".
+- Confirm those two extra surfaces use the same helper and do NOT double-substitute.
+
+If either task is still just a draft that was never picked up by a task agent, say so directly rather than describing the intended behavior.
