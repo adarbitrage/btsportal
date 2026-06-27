@@ -1,0 +1,16 @@
+Three things on the Content Access Map. Tasks 1 and 2 are fixes; Task 3 is the end-to-end behavior proof. Report actual-vs-expected; do not edit any test, the resolver, the guard, or the registry logic to force green — a real failure must surface.
+
+TASK 1 — Rebuild the content-access-registry lib and confirm the portal typechecks.
+- The @workspace/content-access-registry package has no dist/ in this tree, so ContentAccessMap.tsx shows 7 phantom typecheck errors (unresolved import → implicit-any cascade). Rebuild it (tsc -b lib/content-access-registry --force or the repo's lib-build command) and re-run the portal typecheck. Confirm all 7 errors clear with NO source edit to ContentAccessMap.tsx. If any error remains after the rebuild, that one is real — show it.
+
+TASK 2 — Fix the Sidebar render tests for the new query dependency.
+- SidebarContent now calls useContentAccess() (a useQuery hook) added by the enforcement task, but Sidebar.render.test.tsx and Sidebar.scroll.test.tsx mount the component without a QueryClientProvider, so all 12 render failures throw "No QueryClient set." Wrap the rendered component in a QueryClientProvider in those two suites (matching how other render tests in the repo provide a query client). This is a test-harness fix only — do NOT change Sidebar.tsx or use-content-access.ts. Re-run both suites and confirm all 12 pass.
+
+TASK 3 — Prove enforcement actually blocks (the acceptance criterion this whole build was for).
+The enforcement code (ContentAccessRoute guard in App.tsx, filterNavByContentAccess, ContentLockedScreen) is merged but its runtime behavior is unverified. Trace and confirm against the real merged code — show the code path, not a paraphrase:
+- (a) URL block: a member who owns only a front-end (e.g. yse_front_end), hitting a page mapped to ["6month"] by DIRECT URL — does ContentAccessRoute render ContentLockedScreen, NOT the page and NOT a silent redirect to the dashboard? Show the guard's decision branch.
+- (b) Launch no-op: with the content_access_map table empty, does every member reach every page AND does filterNavByContentAccess hide NO nav items? Confirm an unmapped page is treated as accessible by both the guard and the nav filter.
+- (c) Nav + guard agree: a gated page the member can't access is BOTH hidden from the sidebar AND blocked at the route — confirm the nav filter and the guard read the same accessiblePageKeys source so they can't disagree.
+- (d) Admin bypass: an admin reaches a gated page and sees all nav items.
+- (e) Did this task also wrap /apps, /compliance, /coaching in route guards (the URL holes flagged in the spec), or are those still reachable by URL? Report which.
+Report the trace for each. Make no edits in Task 3.
