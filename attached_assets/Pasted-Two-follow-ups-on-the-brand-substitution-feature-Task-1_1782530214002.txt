@@ -1,0 +1,17 @@
+Two follow-ups on the brand-substitution feature. Task 1 is a small edit; Task 2 is read-only verification. Different files — run in parallel.
+
+TASK 1 — Revert the line-45 rebrand in PillarsToBlitz, and reconcile the map.
+Reasoning: "Media Mavens (BTS's in-house network)" was rebranded to "{brand.short}'s in-house network", but that's factually wrong for front-end members — it renders e.g. "Media Mavens (Reserve Income's in-house network)", claiming the front-end offer owns the network. Media Mavens is owned by the platform (BTS), not by any front-end. This is a feature/ownership reference, so it stays literal.
+
+- In PillarsToBlitz.tsx line ~45: revert to the literal "BTS's in-house network" (Media Mavens stays literal as before).
+- After reverting: if line 45 was the only brand mention on that page, the useBrand() import/hook call is now unused — remove it so there's no dead import. Verify there are no other consumers on the page before removing.
+- Update docs/brand-curation-map.md: reclassify the "BTS's in-house network" mention as feature/platform → LITERAL (not program), with a one-line note that Media Mavens is platform-owned and the descriptor stays stable across all brands. The committed map must match the code.
+- Report the PillarsToBlitz diff (and the map diff) back.
+
+TASK 2 — Prove the non-YSE path end to end (read-only, no changes).
+Use one of the 3 members whose sourceProduct is now "reserve_income" (name/describe the account you use).
+- Confirm resolveMemberBrand() returns "reserve_income" and brandStrings() returns "The Reserve Income System" / "Reserve Income" for that member.
+- Confirm /api/members/me returns that brand object for them.
+- Confirm the substitution surfaces render this member's brand (NOT "Your Second Engine"): GET /api/lessons/:id, the dashboard surface at dashboard.ts:107, and the module-title surface at tracks.ts:152. For any lesson/title/module that contains a {{brand}} token, show the before (raw) and after (substituted) text for this member. If no live content currently contains a token, say so explicitly and instead pass a representative token string ("Welcome to {{brand}}") through the same code path to demonstrate the seam resolves to "Reserve Income".
+- Confirm those two extra surfaces (dashboard.ts:107, tracks.ts:152) substitute via the same helper and do not double-apply (no doubled or re-substituted text).
+- Report resolved values and the before/after for each surface.
