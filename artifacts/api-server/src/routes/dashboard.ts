@@ -1,8 +1,9 @@
 import { Router, type IRouter } from "express";
 import { db, usersTable, lessonsTable, progressTable, ticketsTable, coachingCallsTable, coachesTable, coachingCallAttendanceTable, announcementsTable, modulesTable, tracksTable, toolsTable, toolUsageLogTable } from "@workspace/db";
 import { eq, count, gte, and, isNull, sql, desc } from "drizzle-orm";
-import { getUserEntitlements, getUserProducts, getHighestProductLabel, getSupportTicketLimit, getEntitlementsList } from "../lib/entitlements";
+import { getUserEntitlements, getUserProducts, getHighestProductLabel, getSupportTicketLimit, getEntitlementsList, resolveMemberBrand } from "../lib/entitlements";
 import { getCallUpgradeUrl } from "../lib/coaching-upgrade";
+import { brandTokens, substituteString } from "@workspace/brand-config";
 
 const router: IRouter = Router();
 
@@ -103,9 +104,11 @@ router.get("/dashboard", async (req, res): Promise<void> => {
       const [trk] = await db.select().from(tracksTable).where(eq(tracksTable.id, mod.trackId));
       trackName = trk?.title ?? "Unknown";
     }
+    const brandSlug = await resolveMemberBrand(userId);
+    const tokens = brandTokens(brandSlug);
     nextLesson = {
       lessonId: nextAccessible.id,
-      lessonTitle: nextAccessible.title,
+      lessonTitle: substituteString(nextAccessible.title, tokens),
       moduleName: mod?.title ?? "Unknown",
       trackName,
       durationMinutes: nextAccessible.durationMinutes,

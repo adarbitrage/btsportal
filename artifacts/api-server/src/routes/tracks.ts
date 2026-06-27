@@ -2,7 +2,8 @@ import { Router, type IRouter } from "express";
 import { db, tracksTable, modulesTable, lessonsTable, progressTable } from "@workspace/db";
 import { eq, count, sql, and } from "drizzle-orm";
 import { ListTracksResponse, GetModuleParams, GetModuleResponse, GetLessonParams, GetLessonResponse } from "@workspace/api-zod";
-import { getUserEntitlements, hasMemberAccessBypass } from "../lib/entitlements";
+import { getUserEntitlements, hasMemberAccessBypass, resolveMemberBrand } from "../lib/entitlements";
+import { brandTokens, substituteString, substituteTipTapDoc } from "@workspace/brand-config";
 
 const router: IRouter = Router();
 
@@ -119,6 +120,8 @@ router.get("/lessons/:id", async (req, res): Promise<void> => {
     return;
   }
 
+  const raw = req.query.raw === "true";
+
   const [lesson] = await db.select().from(lessonsTable).where(and(eq(lessonsTable.id, params.data.id), eq(lessonsTable.status, "published")));
   if (!lesson) {
     res.status(404).json({ error: "Lesson not found" });
@@ -141,10 +144,26 @@ router.get("/lessons/:id", async (req, res): Promise<void> => {
     .from(progressTable)
     .where(sql`${progressTable.userId} = ${userId} AND ${progressTable.lessonId} = ${lesson.id}`);
 
+  let title = lesson.title;
+  let description = lesson.description;
+  let content = lesson.textContent;
+
+  if (!raw) {
+    const brandSlug = await resolveMemberBrand(userId);
+    const tokens = brandTokens(brandSlug);
+    title = substituteString(title, tokens);
+    description = substituteString(description, tokens);
+    if (content != null) {
+      content = substituteTipTapDoc(content as Parameters<typeof substituteTipTapDoc>[0], tokens);
+    }
+  }
+
   res.json(
     GetLessonResponse.parse({
       ...lesson,
-      content: lesson.textContent,
+      title,
+      description,
+      content,
       isCompleted: !!progress,
       isLocked: false,
     })
