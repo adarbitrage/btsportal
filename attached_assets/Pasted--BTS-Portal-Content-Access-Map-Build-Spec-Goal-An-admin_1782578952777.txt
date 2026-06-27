@@ -1,0 +1,283 @@
+# BTS Portal — Content Access Map (Build Spec)
+
+## Goal
+
+An admin-editable map that controls which content pages each member can reach,
+based on the products they own. The admin sets, per page, which of the 11 products
+(6 front-ends + 5 mentorship levels) unlock it — explicit checkboxes, no implied
+ranking. Access resolves as the **union of what a member owns**: a page shows if any
+product they hold is checked for it. This is also the first *real* enforcement on
+the content pages — today they're open to any logged-in member, and a few are
+hidden in nav but reachable by URL.
+
+Pattern: this is the **Fulfillment Map's sibling** — a table + CRUD routes + an
+admin matrix page — with an enforcement layer that feeds the route guard and the
+sidebar from the table instead of hardcoded constants.
+
+---
+
+## Decisions locked
+
+- **Per-product checkboxes** (not a minimum-level threshold). All 11 products are
+  columns. No assumed order between them.
+- **All products mappable** — the 6 front-ends *and* the 5 mentorship levels.
+- **Enforcement: frontend now, server-side as a fast-follow.** The route guard +
+  sidebar read from the map. The table is designed from day one as the single
+  source both layers read, so adding a server guard later is wiring, not a redesign.
+  (See Task A — the resolver is server-side and already reusable for a server guard.)
+- **Denied behavior: a locked/upgrade screen**, not today's silent bounce to the
+  dashboard. Reuse the existing `UpgradeFeaturesCard` styling/messaging.
+- **Unmapped page = open** to any authenticated member (matches today → launch is a
+  no-op until boxes are checked).
+
+---
+
+## Data semantics (read carefully — these prevent lock-out bugs)
+
+The map table holds **one row per gated page**, with a JSONB array of the product
+slugs that unlock it (mirrors the Fulfillment Map's "key → value + audit" shape).
+
+- **No row for a page** → unmapped → **OPEN** to any authenticated member. (Default.)
+- **Row with ≥1 product** → **GATED** → only owners of a checked product (plus
+  admin/coach bypass) can reach it.
+- **Unchecking the last box deletes the row** → page returns to OPEN. An empty
+  product array is never persisted. This is deliberate: it makes "open" always mean
+  "no row," and prevents an admin from accidentally walling a page off from every
+  member by clearing it. (If you ever truly want a page hidden from all members,
+  that's a different mechanism — remove it from the registry / unpublish — not an
+  empty map row.)
+
+---
+
+## Cumulative discipline + copy-upward
+
+Because access is a union of owned products, two 6-Month members can see different
+pages if one came in through a front-end and one bought 6-Month directly (the direct
+buyer owns no front-end column). The fix: keep the mentorship columns **cumulative** —
+each level carries every box its lower levels have, plus its own — so a page is
+unlocked by the *6-Month column* itself, not by also owning a front-end.
+
+- **Copy-upward action** (in the admin matrix): for a page (or all pages), propagate
+  checks up the mentorship ladder so each level inherits all lower levels' checks.
+- **Assumed ladder:** `LaunchPad → 3-Month → 6-Month → 1-Year → Lifetime`.
+  *(Confirm this ordering.)*
+- The **6 front-ends are independent** — not part of the ladder, never auto-propagated.
+- Checkboxes remain authoritative; copy-upward is a convenience the admin can override.
+
+---
+
+## Scope
+
+- **In scope:** the currently-open **content pages** — the Core Training pages, the
+  training/lesson/blitz/resource pages (the registry below). The map governs
+  *page-level* access.
+- **Lessons within a page keep their own entitlement filtering** from the brand
+  work (`requiredEntitlement` on tracks/lessons). Page-level map + lesson-level
+  entitlements. (Per-lesson level-gating is a much larger matrix — out of scope
+  here; flag if wanted.)
+- **Existing entitlement feature-gates stay as-is** — the `EntitlementRoute` gates
+  on voice (`voice:access`), community (`community:access`), and coaching
+  (`coaching:group`) already work and have server enforcement. Do **not** move those
+  into this map. No overlap.
+
+### Initial page registry (the gateable rows)
+
+Each is its own `pageKey` (granular, so "some levels reveal more pages" works
+per-page). The map table starts **empty** (all open); the admin checks boxes to gate.
+
+| pageKey | Route | Label |
+|---|---|---|
+| `core-training` | `/core-training` | Core Training (hub) |
+| `seven-pillars` | `/core-training/7-pillars` | Seven Pillars |
+| `pillars-to-blitz` | `/core-training/pillars-to-blitz` | Pillars to Blitz |
+| `quick-start` | `/core-training/quick-start` | Quick Start Guide |
+| `direct-edge` | `/core-training/direct-edge` | Direct Edge |
+| `training` | `/training` | Track list |
+| `training-lesson` | `/training/lessons/:id` | Lesson view (page-level) |
+| `training-module` | `/training/modules/:id` | Module view (page-level) |
+| `blitz` | `/blitz` | The Blitz™ |
+| `tips-and-tricks` | `/tips-and-tricks` | Tips & Tricks |
+| `resource-library` | `/resource-library` | Resource Library |
+| `knowledge-base` | `/knowledge-base` | Knowledge Base |
+| `affiliate-networks` | `/affiliate-networks` | Affiliate Networks |
+
+New pages become gateable by adding them to the registry. Keys here MUST match the
+keys referenced by the route guards and sidebar items.
+
+---
+
+# Tasks
+
+Tiers:
+- **Tier 1:** Task A (backend — new files only)
+- **Tier 2:** Task B (admin matrix page — depends on A)
+- **Tier 3:** Task C (enforcement integration — depends on A + B; owns the shared
+  frontend files)
+
+---
+
+## Task A — Content Access Map: schema, resolver, API
+
+### What This Does
+The data layer + resolution logic + admin CRUD + the member endpoint the client
+guard reads. All new files; touches no shared frontend file.
+
+### Files Created
+- `lib/db/src/schema/content-access-map.ts` — table `content_access_map`:
+  `id` serial PK, `pageKey` text **unique**, `productSlugs` JSONB (array of product
+  slugs), `updatedBy` text, `createdAt`/`updatedAt` timestamps. Index on `pageKey`.
+- A **shared registry module** importable by both api-server and the portal admin
+  page (mirror how `@workspace/brand-config` is shared) — the page registry table
+  above (`pageKey`, `routePath`, `label`) **and** the mentorship ladder order
+  constant.
+- `.../api-server/src/lib/content-access.ts` — the resolver:
+  - `getAccessiblePageKeys(userId) -> string[]` — for every registry page: include it
+    if it has **no map row** (open) OR the member owns a product in the row's
+    `productSlugs`. Admin/coach get all. This is the single resolution authority
+    (reused by the client endpoint now and a server guard later).
+- `.../api-server/src/routes/content-access.ts` — new route module (member + admin),
+  registered in the server route index:
+  - `GET /api/content-access/me` — returns `{ accessiblePageKeys: string[] }` for the
+    current member (calls the resolver).
+  - `GET /api/admin/content-access/catalog` — for the matrix: all registry pages +
+    all 11 products (slug + name) + current mappings. Perm: `members:view`.
+  - `POST /api/admin/content-access` / `PATCH /api/admin/content-access/:id` /
+    `DELETE /api/admin/content-access/:id` — upsert/delete a page's mapping. Perm:
+    `members:edit`. **An update that results in an empty product array deletes the
+    row** (revert to open).
+
+### Files Modified
+- The server route-index file — register the new route module. (No other task
+  touches it.)
+
+### Schema Changes
+- New table `content_access_map` (owned entirely by this task).
+
+### Dependencies
+- None — fully independent.
+
+### Acceptance Criteria
+- With the table empty, `getAccessiblePageKeys` returns **every** registry page for
+  every member (open-by-default).
+- A page mapped to `["6month","1year","lifetime"]`: a member owning `6month` gets it;
+  a member owning only `yse_front_end` does not; an admin gets it.
+- `PATCH` to an empty product array deletes the row; the page then resolves as open.
+- Resolver is pure/reusable (no Express coupling) so a server guard can call it later.
+
+### Implementation Notes
+- Product slugs are the join key (same slugs as `user_products`/`products`). Validate
+  posted slugs against the products table.
+
+---
+
+## Task B — Admin Content Access matrix page
+
+### What This Does
+The admin screen: pages as rows, the 11 products as columns, checkboxes, save, and
+the copy-upward action. Modeled on `FulfillmentMap.tsx`.
+
+### Files Created
+- `.../portal/src/pages/admin/ContentAccessMap.tsx` — loads
+  `GET /api/admin/content-access/catalog`; renders a matrix (rows = registry pages,
+  columns grouped **Front-ends | Mentorship levels**); checkboxes per cell; **Save**
+  per row (or batched) via the CRUD; a **Copy-upward** action that propagates the
+  mentorship columns up the ladder for a row (and an "apply to all rows" variant);
+  confirm destructive/empty saves via an AlertDialog (an empty row reverts to open —
+  say so in the confirm text).
+- An API client method (in the existing admin API client) for the catalog + CRUD
+  calls.
+
+### Files Modified
+- The admin API client file only (add methods). **Does NOT touch App.tsx or
+  Sidebar.tsx** — Task C wires the route and nav.
+
+### Dependencies
+- Depends on **Task A** (catalog + CRUD endpoints, shared registry).
+
+### Acceptance Criteria
+- Matrix renders all registry pages × 11 products with current state.
+- Checking `3-Month` then Copy-upward also checks `6-Month`/`1-Year`/`Lifetime`;
+  front-end columns are untouched by copy-upward.
+- Saving a row writes the mapping; clearing all boxes prompts and reverts to open.
+
+### Implementation Notes
+- Keep the ladder order sourced from the shared registry constant (Task A), not
+  re-hardcoded here.
+
+---
+
+## Task C — Enforcement integration (owns the shared frontend files)
+
+### What This Does
+Makes the map actually enforce: a route guard blocks gated URLs, the sidebar hides
+gated links, denial shows a locked/upgrade screen, and the admin page is wired into
+routing + nav. Single owner of `App.tsx` and `Sidebar.tsx`.
+
+### Files Created
+- `.../portal/src/hooks/use-content-access.ts` — fetches `GET /api/content-access/me`,
+  exposes `accessiblePageKeys` (cached; mirror `use-brand.ts`).
+- `.../portal/src/components/content-access/ContentLockedScreen.tsx` — full-page
+  locked/upgrade screen reusing `UpgradeFeaturesCard` styling; shows the page is
+  locked and points to upgrading.
+
+### Files Modified
+- `.../portal/src/App.tsx`:
+  - Define a `ContentAccessRoute pageKey="..."` guard **inline** (their guards live in
+    App.tsx): runs the `ProtectedRoute` checks, then **admin/coach bypass**, then
+    allows if `accessiblePageKeys` includes `pageKey`, else renders
+    `ContentLockedScreen` (**not** a silent redirect).
+  - Wrap each registry content route with `ContentAccessRoute` using its `pageKey`.
+  - Register the admin matrix route at `/admin/integrations/content-access-map`
+    (Task B's page).
+  - **(Optional, recommended) close the nav/route mismatch holes** the diagnostic
+    found: `/apps`, `/compliance`, `/coaching` are hidden in nav but reachable by URL
+    — wrap them in `EntitlementRoute` with their existing keys (`software:base`,
+    `software:base`, `coaching:group`) so the link-hide is actually enforced. Drop
+    this bullet if not wanted.
+- `.../portal/src/components/layout/Sidebar.tsx` (+ `sidebar-nav.ts` if the helper
+  lives there):
+  - Add a `contentPageKey` field to the gateable content nav items.
+  - Add a `filterNavByContentAccess` layer (alongside the existing entitlement/role
+    filters) that drops items whose `contentPageKey` isn't in `accessiblePageKeys`
+    (admin/coach bypass).
+  - Add the admin nav entry for the matrix under **Integrations** (perm
+    `members:view`), next to the Fulfillment Map link.
+
+### Dependencies
+- Depends on **Task A** (the `/me` endpoint + resolver) and **Task B** (the admin
+  page to register).
+
+### Acceptance Criteria
+- **Launch no-op:** with the map empty, every member reaches every page exactly as
+  today, and no nav link disappears.
+- After mapping a page to mentorship levels only, a front-end-only member: the nav
+  link is hidden **and** direct-URL navigation shows the locked screen (not a silent
+  bounce, not the page). This is the core fix — nav-hiding alone was never enforcement.
+- Admin/coach reach all pages regardless of map.
+- The admin matrix is reachable at its route and appears under Integrations.
+- (If the optional bullet is included) `/apps`, `/compliance`, `/coaching` are no
+  longer reachable by URL for members lacking the entitlement.
+
+### Implementation Notes
+- This is the only task touching `App.tsx`/`Sidebar.tsx` — keeps file ownership clean.
+- The guard enforces client-side; the resolver it reads is already server-side, so
+  the fast-follow server guard (Task A's `getAccessiblePageKeys` on the content
+  routes' handlers) is a later wiring step, not a redesign.
+
+---
+
+## Dependency map
+
+```
+Tier 1:   Task A  (schema + resolver + API + registry — new files)
+             │
+             ▼
+Tier 2:   Task B  (admin matrix page — new file; deps A)
+             │
+             ▼
+Tier 3:   Task C  (guard + hook + locked screen + wire App.tsx & Sidebar.tsx; deps A, B)
+```
+
+Relay A first; B when A lands; C when A and B are both in. A and B are mostly
+independent of each other's *files*, but B's page is what C registers, so the clean
+order is A → B → C.
