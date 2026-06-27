@@ -1,0 +1,249 @@
+# BTS Portal — Per-Member Brand Substitution (Build Spec)
+
+## Goal
+
+One canonical set of training lessons, authored once with brand **tokens**. At
+read time, each member sees the lessons rendered with their own brand's name
+swapped in (Your Second Engine for a YSE member, Backroad for a Backroad member,
+etc.). Same words, different name. No per-offer copies of content.
+
+Mechanism: brand strings live in one config; a member's brand is resolved from
+the front-end product they own; a substitution pass rewrites only visible text at
+the member read seam. The admin editor always sees raw `{{tokens}}`.
+
+---
+
+## Pre-flight (read-only — do this first, report back before building)
+
+For each of these member-facing surfaces, classify how it is rendered:
+- the **Welcome** page
+- the **Seven Pillars** page
+- any one or two other main training pages the team has flagged
+
+For each, report: is it a **training lesson** (TipTap `text_content` served via
+`/api/lessons/:id`), or a **standalone React page/component** with its own copy
+(e.g. the onboarding "Welcome" step)?
+
+- Lessons are covered by **Task 3** (server read seam).
+- Standalone pages are covered by **Task 4** (client hook). Execute Task 4 only if
+  this classification finds at least one standalone page.
+
+---
+
+## Brand strings — CONFIRM THESE before relaying
+
+Best-guess values below. Correct the full name + short form for each brand, and
+confirm whether the in-content full name should carry the "The … System" form or
+a cleaner form. These six + the fallback are the only brand strings the build
+needs.
+
+| slug | `{{brand}}` (full name) | `{{brand.short}}` (abbrev) |
+|------|-------------------------|----------------------------|
+| `yse_front_end` | Your Second Engine | YSE |
+| `backroad` | The Backroad System | Backroad |
+| `offmarket` | The Off-Market Affiliate System | Off-Market |
+| `reserve_income` | The Reserve Income System | Reserve Income |
+| `silent_partner` | The Silent Partner System | Silent Partner |
+| `test_like_mad` | Test Like Mad | Test Like Mad |
+| `bts` (fallback — member with no front-end origin) | Build Test Scale | BTS |
+
+Possessive forms (`{{brand.possessive}}`, `{{brand.short.possessive}}`) are
+**derived** from these, not entered.
+
+---
+
+## Token vocabulary (for authoring lessons)
+
+| Token | Renders (YSE example) |
+|-------|------------------------|
+| `{{brand}}` | Your Second Engine |
+| `{{brand.short}}` | YSE |
+| `{{brand.possessive}}` | Your Second Engine's |
+| `{{brand.short.possessive}}` | YSE's |
+
+Unknown tokens are left intact (never blanked). The config is structured so named
+phrase tokens (e.g. `{{brand.angle}}`) can be added per brand later without code
+changes — not needed now.
+
+---
+
+# Tasks
+
+Dependency tiers:
+- **Tier 1 (parallel):** Task 1, Task 2
+- **Tier 2 (after Tier 1):** Task 3, and Task 4 *if* pre-flight found standalone pages
+
+---
+
+## Task 1 — Brand primitives (config + substitution helpers)
+
+### What This Does
+Creates the single source of truth for brand strings and the pure substitution
+functions that everything else calls. No reads of DB, no routes — just modules.
+
+### Files Created
+- `.../lib/brand/brand-config.ts` — the 6 brands + fallback from the table above; a
+  function `brandTokens(brandSlug) -> Record<string,string>` that returns the flat
+  token map (`brand`, `brand.short`, `brand.possessive`, `brand.short.possessive`),
+  deriving possessives (append `'s`, or `'` if the string ends in `s`).
+- `.../lib/brand/token-substitution.ts` — two pure functions:
+  - `substituteString(text: string, tokens) -> string` — regex
+    `/\{\{\s*([\w.]+)\s*\}\}/g`; replace when the key exists in `tokens`, else leave
+    the literal token untouched. (This is the email utility's logic, generalized to
+    allow dotted keys.)
+  - `substituteTipTapDoc(doc, tokens) -> doc` — **deep-clone first**, then walk the
+    node tree; for every node where `type === "text"`, run `substituteString` on
+    `node.text` only. Never touch `marks`, `attrs`, `type`, or any URL/href. Return
+    the new doc; do not mutate the input.
+
+### Files Modified
+- None.
+
+### Schema Changes
+- None. (Brands are few and stable; a code config avoids a migration and removes
+  any risk of an admin edit corrupting tokens. Can be promoted to a table later.)
+
+### Dependencies
+- None — fully independent.
+
+### Acceptance Criteria
+- `brandTokens("yse_front_end")` returns the YSE strings incl. derived `Your Second Engine's`.
+- `substituteString("Welcome to {{brand}}", yseTokens)` → `Welcome to Your Second Engine`.
+- `substituteString("Visit {{unknown}}", yseTokens)` → unchanged (token left literal).
+- `substituteTipTapDoc` on a doc containing a link node leaves the link's href and
+  the node structure byte-identical; only text-node `.text` changes.
+- Input doc passed to `substituteTipTapDoc` is not mutated (clone verified).
+
+### Implementation Notes
+- Keep these files free of DB/Express imports so they're trivially unit-testable
+  and importable from any layer.
+
+---
+
+## Task 2 — Brand resolution + `sourceProduct` fix + backfill
+
+### What This Does
+Determines a member's brand from real data, fixes the hardcoded origin bug, and
+backfills existing members. Access logic is untouched — this only affects the
+origin/branding signal.
+
+### Files Created
+- `.../lib/brand/resolve-member-brand.ts` — `resolveMemberBrand(userId) -> brandSlug`.
+  Read the member's active `user_products`, filter to **front-end** products, and
+  return that product's brand slug. If they own several front-ends, return the
+  **earliest-granted** one (entry offer). If they own none, return `"bts"`.
+- A one-time backfill script (e.g. `.../scripts/backfill-source-product.ts`) — for
+  every existing user, set `users.sourceProduct` to the result of the same
+  front-end lookup (`"bts"` / null if none). Idempotent.
+
+### Files Modified
+- `.../external-grant-product.ts` — at the spot that currently hardcodes
+  `sourceProduct: "yse"` (~line 349), replace with the **actual** front-end slug
+  derived from the grant being processed (the offer/funnel slug that resolved to
+  the product), not a literal.
+
+### Schema Changes
+- None — `users.sourceProduct` already exists.
+
+### Dependencies
+- None — fully independent. (Returns a slug; does not need Task 1.)
+
+### Acceptance Criteria
+- A new external grant for a Backroad order writes `sourceProduct: "backroad"` (not `"yse"`).
+- `resolveMemberBrand` returns the correct slug for a member owning exactly one
+  front-end; the earliest for multiple; `"bts"` for none.
+- Backfill, run twice, produces identical values the second time (idempotent) and
+  changes no `user_products` / entitlement rows.
+
+### Implementation Notes
+- `sourceProduct` does **not** gate access (access = entitlements from
+  `user_products`), so the backfill's blast radius is display only. Still: capture
+  before/after counts and confirm no other columns change.
+- This is the load-bearing fix — without it every non-YSE member resolves to YSE,
+  which is invisible in testing because the test account is YSE. Verify with a
+  non-YSE member explicitly.
+
+---
+
+## Task 3 — Apply substitution at the lesson read seam
+
+### What This Does
+Member-facing lesson responses come back branded; the admin edit path stays raw.
+
+### Files Created
+- None.
+
+### Files Modified
+- `.../routes/tracks.ts` — in the member lesson read handler (`GET /api/lessons/:id`,
+  where `textContent` is mapped to the response `content` field just before
+  `GetLessonResponse.parse`): resolve the member's brand (Task 2) → build tokens
+  (Task 1 `brandTokens`) → run `substituteTipTapDoc` on the body **and**
+  `substituteString` on the lesson **title and description** (a title like
+  `Welcome to {{brand}}` must also resolve). Apply only when serving a member.
+- `.../dashboard.ts` — **only if** it returns lesson body/title text to the member
+  (e.g. the "next lesson" preview); if it returns only ids/pointers, leave it.
+
+### Schema Changes
+- None.
+
+### API Endpoints
+- No new endpoints. Add a bypass for the editor: support `?raw=true` on the lesson
+  read (or an existing admin-only fetch) that **skips substitution and returns
+  canonical tokens**. The admin editor's data fetch must use it.
+
+### Dependencies
+- Depends on: **Task 1** and **Task 2**.
+
+### Acceptance Criteria
+- A YSE member requesting a lesson authored with `{{brand}}` receives
+  `Your Second Engine`; a Backroad member receives `The Backroad System`.
+- A member with no front-end receives the `bts` fallback strings, never a raw token.
+- **Critical:** loading that lesson in the admin editor returns the literal
+  `{{brand}}` tokens, and saving the lesson writes the tokens back unchanged (no
+  resolved brand name is ever persisted into stored content).
+- Links/images in lesson bodies are unchanged after substitution.
+
+### Implementation Notes
+- This edit-path exclusion is the highest-risk part: if the editor ever loads
+  substituted content, the next save silently bakes one brand's name over the
+  canonical tokens and corrupts the source for everyone. Confirm explicitly which
+  fetch the editor uses and that it returns raw.
+- Resolution is one cheap query per read; fine for now, memoize per request later
+  if needed.
+
+---
+
+## Task 4 — Standalone-page branding (CONTINGENT)
+
+> Execute **only if** pre-flight classified one or more named surfaces as
+> standalone React pages (not lessons).
+
+### What This Does
+Gives standalone pages (e.g. the onboarding Welcome step) the member's brand
+strings on the client, so their hardcoded names become dynamic.
+
+### Files Created
+- `.../client/.../hooks/useBrand.ts` — returns the resolved brand's token map for
+  the current member, read from the member profile response.
+
+### Files Modified
+- `.../routes/members*` (the `/api/members/me` handler) — add the resolved brand
+  slug + token map (Task 1 `brandTokens` over Task 2 resolution) to the response.
+- The specific standalone page component(s) identified in pre-flight — replace
+  hardcoded offer names with values from `useBrand()`.
+
+### Schema Changes
+- None.
+
+### Dependencies
+- Depends on: **Task 1**, **Task 2**, and the pre-flight classification result.
+
+### Acceptance Criteria
+- `/api/members/me` includes the member's brand strings.
+- The identified standalone page renders the member's brand name (verified with a
+  non-YSE member), and the fallback member sees `Build Test Scale`.
+
+### Implementation Notes
+- Touch visible text only — never link targets.
+- The `"Granted via YSE"` style UI chrome label is the same bug class but is **out
+  of scope** here unless it's one of the named pages; flagged for a later pass.

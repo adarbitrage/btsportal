@@ -1,0 +1,297 @@
+# BTS Portal — Per-Member Brand Substitution (Build Spec)
+
+## Goal
+
+A member sees the front-end program they joined ("Your Second Engine", "The
+Backroad System"…) named throughout the training, while the platform, the
+mentorship tiers, and every named feature stay "BTS" / "Build Test Scale". One
+source of brand strings; brand resolved from the member's front-end product;
+applied two ways — server-side token substitution for TipTap lessons, and a
+client hook for the standalone React pages where the real prose lives.
+
+> Pre-flight changed the center of gravity: nearly all member-visible training
+> prose is in **standalone React pages**, and the lessons table has almost no body
+> content. So **Task 4 is the main work**; Task 3 is correct forward plumbing that
+> brands little live content today.
+
+---
+
+## Pre-flight findings (COMPLETE — read-only)
+
+| Surface | Route | What it is | Task |
+|---|---|---|---|
+| Welcome (post-login landing) | `/` → `Home.tsx` | Standalone React, hardcoded copy | 4 |
+| Welcome (onboarding step 1) | `/onboarding/welcome` → `onboarding/Welcome.tsx` | Standalone React | 4 |
+| Seven Pillars | `/core-training/7-pillars` → `SevenPillars.tsx` | Standalone React (hardcoded `pillars[]` + prose) | 4 |
+| Core Training / Pillars-to-Blitz / Quick Start / Direct Edge | `CoreTraining.tsx`, `PillarsToBlitz.tsx`, `QuickStartGuide.tsx`, `DirectEdge.tsx` | Standalone React | 4 |
+| Real lessons | `/training/lessons/:id` → `LessonView` ← `GET /api/lessons/:id` (`tracks.ts:114-147`, `content: lesson.textContent`) | TipTap lessons | 3 |
+| Admin lesson editor | `LessonEditor.tsx` ← separate admin load hook | TipTap (must stay raw) | 3 |
+
+Exact paths above are from pre-flight; the executor confirms before editing.
+
+---
+
+## Branding rule (the curation principle)
+
+The `{{brand}}` value replaces only mentions of **the program the member joined**.
+Everything that names the platform, company, a mentorship tier, or a feature/tool/
+sub-brand stays **literal "BTS" / "Build Test Scale"**.
+
+- **Rebrandable → `{{brand}}` / `{{brand.short}}`:** the on-ramp offer as the
+  program — e.g. "Welcome to Build Test Scale" (the thing they bought) → "Welcome
+  to {{brand}}".
+- **Literal (never rebrand):** BTS Concierge™, BTS Community, BTS Tools, BTS
+  framework, Paid Media Suite™, Media Mavens™, the company, and the mentorship
+  tier names. A Your-Second-Engine member uses the **BTS Concierge**, not the "Your
+  Second Engine Concierge."
+- **Default when ambiguous: leave it BTS.** Over-rebranding is worse and
+  trademark-risky.
+- **Never put an article before `{{brand}}`** — it already carries "The …". For
+  mid-sentence composable use, write `{{brand.short}}`.
+- **Operating assumption (object now if wrong):** the front-end brand is *program
+  identity only*. A YSE→6-Month member sees "Your Second Engine" as their program
+  but "BTS" for the mentorship tier and all platform features.
+- **Fallback member** (no front-end origin) renders `{{brand}}` = "Build Test
+  Scale", so they see today's copy verbatim and feature names read identically for
+  everyone.
+
+---
+
+## Brand strings (LOCKED)
+
+| slug | `{{brand}}` (full) | `{{brand.short}}` |
+|------|--------------------|-------------------|
+| `yse_front_end` | Your Second Engine | YSE |
+| `backroad` | The Backroad System | Backroad |
+| `offmarket` | The Off-Market Affiliate System | Off-Market |
+| `reserve_income` | The Reserve Income System | Reserve Income |
+| `silent_partner` | The Silent Partner System | Silent Partner |
+| `test_like_mad` | Test Like Mad | Test Like Mad *(confirm short form, e.g. TLM)* |
+| `bts` (fallback) | Build Test Scale | BTS |
+
+Possessives (`{{brand.possessive}}`, `{{brand.short.possessive}}`) are derived,
+not entered.
+
+---
+
+## Token vocabulary
+
+| Token | Renders (YSE) |
+|-------|---------------|
+| `{{brand}}` | Your Second Engine |
+| `{{brand.short}}` | YSE |
+| `{{brand.possessive}}` | Your Second Engine's |
+| `{{brand.short.possessive}}` | YSE's |
+
+**Two application modes — do not mix:**
+- **TipTap lessons (Task 3):** author with literal `{{brand}}` tokens; substituted
+  server-side on read.
+- **React pages (Task 4):** *no* token syntax in JSX — replace hardcoded strings
+  with `useBrand()` values directly (`brand.full`, `brand.short`).
+
+Unknown tokens are left intact.
+
+---
+
+# Tasks
+
+Tiers:
+- **Tier 1 (parallel):** Task 1, Task 2 — and Task 4b **Phase 1** (read-only, can start now)
+- **Tier 2 (after Tier 1):** Task 3, Task 4a
+- **Tier 3 (after Tier 2 + your approval):** Task 4b **Phase 2**
+
+---
+
+## Task 1 — Brand primitives (config + substitution helpers)
+
+### What This Does
+Single source of truth for brand strings + pure substitution functions. Modules
+only; no DB, no routes.
+
+### Files Created
+- `.../lib/brand/brand-config.ts` — the LOCKED table above; `brandTokens(slug) ->
+  Record<string,string>` returning the flat map (`brand`, `brand.short`,
+  `brand.possessive`, `brand.short.possessive`), deriving possessives (append `'s`,
+  or `'` if it ends in `s`). Also export `brandStrings(slug) -> {full, short,
+  possessive, shortPossessive}` for the client hook (Task 4a).
+- `.../lib/brand/token-substitution.ts`:
+  - `substituteString(text, tokens)` — regex `/\{\{\s*([\w.]+)\s*\}\}/g`; replace
+    when key exists, else leave literal.
+  - `substituteTipTapDoc(doc, tokens)` — **deep-clone first**, walk the tree, run
+    `substituteString` only on `node.text` where `type === "text"`. Never touch
+    `marks`, `attrs`, `type`, or URLs. Return new doc; do not mutate input.
+
+### Schema Changes
+None. (Brands are few and stable; code config avoids a migration and removes any
+risk of an admin edit corrupting tokens.)
+
+### Dependencies
+None — fully independent.
+
+### Acceptance Criteria
+- `substituteString("Welcome to {{brand}}", yse)` → "Welcome to Your Second Engine".
+- `substituteString("Visit {{unknown}}", yse)` → unchanged.
+- `substituteTipTapDoc` leaves a link node's href + structure byte-identical; only
+  text changes; input not mutated.
+
+---
+
+## Task 2 — Brand resolution + `sourceProduct` fix + backfill
+
+### What This Does
+Resolves a member's brand from real data, fixes the hardcoded origin bug,
+backfills existing members. Access logic untouched — branding signal only.
+
+### Files Created
+- `.../lib/brand/resolve-member-brand.ts` — `resolveMemberBrand(userId) ->
+  brandSlug`. Read active `user_products`, filter to **front-end** products, return
+  that brand slug; multiple → **earliest-granted**; none → `"bts"`.
+- `.../scripts/backfill-source-product.ts` — set `users.sourceProduct` from the
+  same lookup for all users (`"bts"`/null if none). Idempotent.
+
+### Files Modified
+- `.../external-grant-product.ts` — replace the hardcoded `sourceProduct: "yse"`
+  (~line 349) with the **actual** front-end slug from the grant being processed.
+
+### Schema Changes
+None — `users.sourceProduct` exists.
+
+### Dependencies
+None — fully independent.
+
+### Acceptance Criteria
+- A new Backroad grant writes `sourceProduct: "backroad"` (not `"yse"`).
+- `resolveMemberBrand` correct for one front-end; earliest for several; `"bts"` for none.
+- Backfill run twice is identical; changes no `user_products`/entitlement rows.
+
+### Implementation Notes
+- **Load-bearing fix.** Without it every non-YSE member resolves to YSE — invisible
+  in testing because the test account is YSE. Verify with a non-YSE member.
+- `sourceProduct` does not gate access, so backfill blast radius is display only;
+  still capture before/after counts.
+
+---
+
+## Task 3 — Apply substitution at the lesson read seam (forward plumbing)
+
+### What This Does
+Member lesson responses come back branded; the admin editor stays raw. Correct and
+forward-compatible, though live lesson bodies are thin today.
+
+### Files Modified
+- `.../routes/tracks.ts` — in `GET /api/lessons/:id` (where `textContent` maps to
+  `content` before `GetLessonResponse.parse`): resolve brand (Task 2) → `brandTokens`
+  (Task 1) → `substituteTipTapDoc` on the body **and** `substituteString` on the
+  lesson **title and description**. Member path only.
+- `.../dashboard.ts` — **only if** it returns lesson body/title text (e.g. "next
+  lesson" preview); if only ids/pointers, leave it.
+
+### API
+- No new endpoints. Add `?raw=true` on the member lesson read that **skips
+  substitution**; the admin editor's load (`LessonEditor.tsx` hook) must use the
+  raw path.
+
+### Dependencies
+Depends on **Task 1**, **Task 2**.
+
+### Acceptance Criteria
+- YSE member gets "Your Second Engine"; Backroad member gets "The Backroad System";
+  no-front-end member gets the `bts` fallback, never a raw token.
+- **Critical:** the admin editor loads literal `{{brand}}` tokens, and saving writes
+  the tokens back unchanged — no resolved name is ever persisted into stored content.
+- Links/images in bodies unchanged.
+
+### Implementation Notes
+- The editor exclusion is the highest-risk part: if the editor ever loads
+  substituted content, the next save bakes one brand's name over the canonical
+  tokens and corrupts the source for everyone. Confirm the editor's load path
+  returns raw.
+
+---
+
+## Task 4a — Brand available to the client
+
+### What This Does
+Exposes the resolved brand strings to the frontend and provides the hook the
+standalone pages consume.
+
+### Files Created
+- `.../client/.../hooks/useBrand.ts` — returns `{full, short, possessive,
+  shortPossessive}` for the current member, read from the member/me response.
+
+### Files Modified
+- the `/api/members/me` handler — add `brand: brandStrings(resolveMemberBrand(userId))`
+  (Task 1 + Task 2) to the response.
+
+### Schema Changes
+None.
+
+### Dependencies
+Depends on **Task 1**, **Task 2**.
+
+### Acceptance Criteria
+- `/api/members/me` includes the member's brand strings.
+- `useBrand()` returns "Your Second Engine"/"YSE" for a YSE member and "Build Test
+  Scale"/"BTS" for a no-front-end member.
+
+---
+
+## Task 4b — Tokenize the standalone training pages (the main work)
+
+### What This Does
+Replaces hardcoded program names in the ~7 standalone React training pages with the
+member's brand, per the approved curation map — while leaving every BTS feature/
+platform/tier mention literal.
+
+Files: `Home.tsx`, `onboarding/Welcome.tsx`, `SevenPillars.tsx`, `CoreTraining.tsx`,
+`PillarsToBlitz.tsx`, `QuickStartGuide.tsx`, `DirectEdge.tsx` (confirm paths).
+
+### Phase 1 — Proposal (read-only; START NOW, STOP for approval)
+For each page, list every "BTS" / "Build Test Scale" mention with a short context
+snippet, and propose **program** (rebrand → `brand.full`/`brand.short`) vs
+**feature/platform** (leave literal) per the Branding rule. Output one table per
+page. **Do not edit anything.** Wait for the owner to approve/correct the map.
+
+### Phase 2 — Apply (after approval)
+### Files Modified
+- the 7 page components above — replace only the **approved program mentions** with
+  `useBrand()` values (`brand.full` for formal/standalone, `brand.short`
+  mid-sentence). Leave all feature/platform/tier mentions and trademarked feature
+  names exactly as-is. Touch visible text only — never link targets or routes.
+
+### Schema Changes
+None.
+
+### Dependencies
+- Phase 1: none (read-only).
+- Phase 2: depends on **Task 4a** (the hook) **and** the owner-approved map from
+  Phase 1.
+
+### Acceptance Criteria
+- For a YSE member, approved program mentions render "Your Second Engine"/"YSE";
+  `BTS Concierge™`, `BTS Community`, `Media Mavens™`, tier names, etc. are unchanged.
+- For a no-front-end member, every page reads identically to today.
+- No route/link/href changed.
+
+### Implementation Notes
+- The program-vs-feature judgment is the **owner's call**, not the agent's — the
+  agent proposes, the owner decides, then the agent edits. Keeping one agent across
+  all pages keeps the rule applied consistently.
+- This is the surface where a wrong call ships a visible branding bug; the Phase-1
+  gate exists to prevent exactly that.
+
+---
+
+## Dependency map
+
+```
+Tier 1 (parallel):   Task 1   Task 2   Task 4b·Phase 1 (read-only proposal)
+                        │        │              │
+                        └────┬───┘         (owner approves map)
+                             ▼                   │
+Tier 2 (parallel):   Task 3     Task 4a          │
+                                   │              │
+                                   └──────┬───────┘
+                                          ▼
+Tier 3:                            Task 4b·Phase 2
+```
