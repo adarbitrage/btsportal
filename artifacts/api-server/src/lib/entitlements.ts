@@ -1,6 +1,41 @@
 import { db, userProductsTable, productsTable, usersTable } from "@workspace/db";
-import { eq, and, or, isNull, gte } from "drizzle-orm";
+import { eq, and, or, isNull, gte, asc } from "drizzle-orm";
 import { isAdminRole, isCoachRole } from "@workspace/auth";
+
+/**
+ * Resolve a member's brand from their active front-end product grants.
+ *
+ * Front-end products (`products.type === "frontend"`) carry the brand identity
+ * (e.g. "backroad", "yse_front_end", "reserve_income"). If a user holds several
+ * front-end grants we pick the earliest one (entry offer). If they hold none,
+ * we fall back to the platform default "bts".
+ *
+ * Active/non-expired filtering mirrors getUserEntitlements so the two stay in
+ * lockstep. Does NOT grant any access — sourceProduct is a branding signal only.
+ */
+export async function resolveMemberBrand(userId: number): Promise<string> {
+  const now = new Date();
+
+  const [row] = await db
+    .select({ slug: productsTable.slug })
+    .from(userProductsTable)
+    .innerJoin(productsTable, eq(userProductsTable.productId, productsTable.id))
+    .where(
+      and(
+        eq(userProductsTable.userId, userId),
+        eq(userProductsTable.status, "active"),
+        eq(productsTable.type, "frontend"),
+        or(
+          isNull(userProductsTable.expiresAt),
+          gte(userProductsTable.expiresAt, now),
+        ),
+      ),
+    )
+    .orderBy(asc(userProductsTable.createdAt))
+    .limit(1);
+
+  return row?.slug ?? "bts";
+}
 
 export async function getUserEntitlements(userId: number): Promise<Set<string>> {
   const now = new Date();

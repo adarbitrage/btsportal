@@ -289,7 +289,10 @@ describe("POST /api/integrations/grant-product", () => {
         .where(eq(usersTable.email, email))
         .limit(1);
       expect(user).toBeDefined();
-      expect(user.sourceProduct).toBe("yse");
+      // sourceProduct is now derived from the granted frontend product slug,
+      // not hardcoded to "yse". yseSlug1 has type="frontend" so it becomes
+      // the brand slug for this new user.
+      expect(user.sourceProduct).toBe(yseSlug1);
       seededUserIds.push(user.id);
 
       expect(queueEmailMock).toHaveBeenCalledWith(

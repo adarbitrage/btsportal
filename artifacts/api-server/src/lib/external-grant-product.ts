@@ -339,6 +339,12 @@ export async function handleExternalGrantProduct(
     } else {
       tempPassword = crypto.randomBytes(16).toString("hex");
       const passwordHash = await bcrypt.hash(tempPassword, 10);
+      // Derive sourceProduct from the first frontend product being granted.
+      // Mirrors resolveMemberBrand: frontend products carry the brand identity;
+      // if no frontend product is in this grant, fall back to "bts".
+      const frontendProduct = products.find((p) => p.type === "frontend");
+      const sourceProduct = frontendProduct?.slug ?? "bts";
+
       const [newUser] = await tx
         .insert(usersTable)
         .values({
@@ -346,7 +352,7 @@ export async function handleExternalGrantProduct(
           name,
           passwordHash,
           phone: payload.customer.phone || null,
-          sourceProduct: "yse",
+          sourceProduct,
         })
         .returning({ id: usersTable.id });
       userId = newUser.id;
