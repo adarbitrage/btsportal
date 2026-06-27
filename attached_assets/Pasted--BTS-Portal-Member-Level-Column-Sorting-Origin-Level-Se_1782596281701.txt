@@ -1,0 +1,222 @@
+# BTS Portal — Member Level Column, Sorting & Origin/Level Separation (Build Spec)
+
+## Goal
+
+The admin member list (`/admin/members`) should show each member's **current level**
+(6-Month Mentorship, Lifetime, Front-End Member, Free…), let an admin **sort** the
+list by name / email / role / joined / level, and stop conflating a member's
+**origin** (which front-end they came in through) with their **level** (what they
+hold now). Two existing fields have been fighting over one column; this build
+separates them cleanly.
+
+---
+
+## Decisions locked
+
+- **Level is computed on read**, not stored. A member's level is a pure function of
+  the products they own, so it's derived per request — no denormalized field on
+  `users` to drift. (We just spent a session watching `sourceProduct` rot from
+  exactly that pattern; we are not adding a third such field.)
+- **Keep both columns; relabel "Source" → "Origin".** Origin = which front-end they
+  came in through (attribution); Level = what they're paying for now. Different
+  questions, both useful.
+- **`recomputeSourceProduct` stops writing `sourceProduct`** (folded in — required
+  for Origin to be meaningful; see Findings).
+- **One rank authority:** `product-rank.ts` (`PRODUCT_RANK`). Do not introduce a new
+  rank map or hardcode rank values anywhere.
+
+---
+
+## Findings driving the design (from diagnostic)
+
+- **`sourceProduct` is a contested field.** Two writers store different things in it:
+  the brand backfill + purchase path write **origin** (`reserve_income`, `bts`…),
+  while `recomputeSourceProduct` (`admin-panel.ts:2209-2221`, called on admin grant
+  `:2237` / revoke `:2258`) overwrites it with the **highest tier** slug (`6month`,
+  `lifetime`). Last writer wins, no reconciliation → production is a heterogeneous
+  mix (brands, tiers, a legacy `yse` literal, 12 nulls). It cannot be trusted as
+  "level," and it is actively losing origin data on every admin grant.
+- **The list endpoint does zero per-member computation.** `GET /api/admin/members`
+  (`admin-panel.ts:5596`) is a flat column SELECT (`id, name, email, role,
+  sourceProduct, memberSince, lastLoginAt, createdAt`) + a count, hardcoded
+  `ORDER BY createdAt DESC`. No `user_products` join, no entitlement aggregation.
+- **Level is materialized nowhere trustworthy.** The friendly label
+  (`getHighestProductLabel`, `entitlements.ts:121-129`) needs an entitlement Set
+  (`getUserEntitlements`, per-member aggregation). `products.sort_order` is catalog
+  order (and ranks YSE upsell products above Lifetime), so it's unusable as level.
+- **Three disagreeing rank maps:** `product-rank.ts` `PRODUCT_RANK` (authoritative,
+  used in `members.ts:805`), a client duplicate in `upgrade-plans.ts` (documented
+  keep-in-sync), and an inline `PRODUCT_TIER_RANK` (`admin-panel.ts:2199-2207`, used
+  *only* by `recomputeSourceProduct`, different ordinals). Use `product-rank.ts`;
+  the inline one becomes dead once the corrupting function is fixed.
+- **Table is hand-rolled** (`AdminMembers.tsx:317-344`, static `<th>`); sortable
+  headers are net-new UI. Search + pagination are already server-side, so sort must
+  also be server-side (sorting one 20-row page client-side is meaningless).
+
+---
+
+## How level is computed (the core mechanism)
+
+Per member on the page, compute their **highest active product rank** in SQL, from
+`PRODUCT_RANK` — so the *same* value drives both the sort and the displayed label
+and they can't disagree.
+
+- A subquery over `user_products → products`, **active, non-expired grants only**
+  (`status = 'active' AND (expires_at IS NULL OR expires_at > now())` — same grant
+  scoping the content-access resolver uses), grouped by user, taking
+  `MAX(<rankExpr>)`.
+- `<rankExpr>` is a SQL `CASE` built **by iterating `PRODUCT_RANK`** (rank values
+  come from the one authority, rendered into SQL — not a re-hardcoded parallel map),
+  `ELSE 0` for any slug not in the map (front-ends, upsells, bumps → rank 0, never
+  falsely elevated).
+- `COALESCE(maxRank, -1)` so a member with no active products = `-1` = "Free" and
+  always sorts lowest deterministically.
+- **Label** comes from a rank→label helper that **reuses `getHighestProductLabel`'s
+  exact label strings** (factor them into a shared constant so the two can't
+  diverge): `-1`→"Free", `0`→"Front-End Member", `1`→"LaunchPad", `2`→"3-Month
+  Mentorship", `3`→"6-Month Mentorship", `4`→"1-Year Mentorship", `5`→"Lifetime
+  Mentorship".
+
+**Fallback** (only if building the dynamic `CASE` is awkward in the Drizzle setup):
+add a `tier_rank` integer column to `products`, **seeded from `PRODUCT_RANK` at
+boot** (single source preserved), and `MAX(products.tier_rank)`. Either way: rank
+originates from `product-rank.ts`; do not hardcode a new map.
+
+---
+
+# Tasks
+
+Tiers:
+- **Tier 1:** Task 1 (backend)
+- **Tier 2:** Task 2 (frontend) and Task 3 (data repair) — both after Task 1
+
+---
+
+## Task 1 — Backend: level computation, sort, and origin/level separation
+
+### What This Does
+Extends the member-list endpoint to compute + sort by level, and stops the field
+corruption that makes Origin meaningless. All in the backend.
+
+### Files Modified
+- `.../api-server/src/routes/admin-panel.ts`:
+  - **List endpoint** (`GET /api/admin/members`, ~`:5596-5658`): add the per-member
+    highest-active-rank subquery (above), exposing `levelRank` (COALESCE'd) and the
+    friendly `levelLabel` on each row. Parameterize the `ORDER BY`: accept `sortBy`
+    (allowlist: `name`, `email`, `role`, `joined`, `level`) and `sortDir`
+    (`asc`/`desc`), mapping to real columns — `joined` → `member_since` (the
+    displayed value), `level` → `COALESCE(maxRank,-1)`. **Default stays
+    `createdAt DESC`** when no sort is given (launch no-op). Allowlist identifiers
+    and direction (params can't bind column names or ASC/DESC).
+  - **Origin/level separation:** stop `recomputeSourceProduct` (`:2209-2221`) from
+    writing `sourceProduct`. Remove its calls at the grant (`:2237`) and revoke
+    (`:2258`) sites. Confirm via grep that nothing reads `users.sourceProduct`
+    expecting a *tier* value (it's an origin/branding signal only — `entitlements.ts:5-14`);
+    if the function has no remaining purpose, remove it.
+  - Remove the now-dead inline `PRODUCT_TIER_RANK` (`:2199-2207`).
+- `.../api-server/src/lib/entitlements.ts` — add `getProductLabelByRank(rank)` beside
+  `getHighestProductLabel`, sharing the same label string constants.
+
+### Schema Changes
+- None (recommended CASE approach). Only if the `tier_rank` fallback is used: one
+  additive column on `products`, seeded from `PRODUCT_RANK`.
+
+### Dependencies
+- None.
+
+### Acceptance Criteria
+- Each member row returns a `levelLabel`/`levelRank` reflecting their **highest
+  active** product: a 6-Month holder → "6-Month Mentorship"; a member whose only
+  6-Month grant is **expired** → their next-lower level (not 6-Month); a member with
+  no active products → "Free".
+- `sortBy=level&sortDir=desc` orders Lifetime → … → Front-End → Free; `name`/`email`/
+  `role`/`joined` sort on their real columns; unknown `sortBy` falls back to the
+  default safely.
+- An admin grant or revoke **no longer changes `users.sourceProduct`** (verify a
+  `reserve_income` member still reads `reserve_income` after being granted 6-Month).
+- Rank values come solely from `product-rank.ts`; no parallel rank map remains.
+
+### Implementation Notes
+- **Include an automated test** (alongside the existing brand/content-access tests)
+  asserting: highest-active-rank → correct label for front-end / 6-Month / Lifetime /
+  Free; expired-grant exclusion; level sort ordering; and that grant/revoke leaves
+  `sourceProduct` unchanged. Run it; report pass/fail with actual-vs-expected; do not
+  edit the test to force green.
+- This is the load-bearing correctness work — the sort/label is cosmetic, but the
+  `sourceProduct` fix protects the brand-substitution feature from silent re-corruption.
+
+---
+
+## Task 2 — Frontend: Level column, Origin relabel, sortable headers
+
+### What This Does
+Surfaces level in the list, relabels the origin column, and makes the headers sort.
+
+### Files Modified
+- `.../portal/src/lib/admin-panel-api.ts` — extend `getMembers` (`:2113`) to pass
+  `sortBy`/`sortDir`, and add `levelLabel`/`levelRank` to the member response type.
+- `.../portal/src/pages/admin/AdminMembers.tsx`:
+  - Add a **"Level"** column rendering `levelLabel` (with a tier badge — reuse
+    `getTierBadgeColor`, `entitlements.ts:151`, if it's importable client-side; else
+    a plain label).
+  - **Relabel the "Source" header → "Origin"** (`:323`); keep the cell. Optionally
+    map the origin slug to a friendly name via the brand config (front-ends →
+    display name, `bts` → "Direct (BTS)", null → "—") — mark optional, fall back to
+    the raw slug.
+  - Make the sortable headers (`name`, `email`, `role`, `joined`, `level`) clickable
+    with a sort indicator and state, wired to the new `sortBy`/`sortDir` params;
+    clicking re-loads via the server (sort is server-side). Preserve current default
+    (newest-first) until a header is clicked.
+
+### Dependencies
+- Depends on **Task 1** (response fields + query params).
+
+### Acceptance Criteria
+- The list shows a Level column with the friendly tier per member, and the origin
+  column reads "Origin."
+- Clicking a sortable header reorders the **full** result set server-side (not just
+  the visible page) and shows the active sort direction; pagination + search still work.
+
+### Implementation Notes
+- It's a hand-rolled `<table>`; the sort headers are net-new — don't pull in a heavy
+  data-table dependency, just add click handlers + an icon + sort state.
+
+---
+
+## Task 3 — Data repair: re-backfill corrupted origins (dev)
+
+### What This Does
+Repairs members whose `sourceProduct` was overwritten with a tier by the (now-fixed)
+`recomputeSourceProduct`, so Origin reflects true origin.
+
+### Files Created/Modified
+- None — runs the existing `scripts/backfill-source-product.ts` (sets `sourceProduct`
+  to earliest active **front-end** product slug, else `"bts"`).
+
+### Dependencies
+- After **Task 1** (so repaired values aren't immediately re-corrupted by the next
+  admin grant).
+
+### Acceptance Criteria
+- Run against **dev** (`heliumdb`) — state the target out loud and the pre-flight
+  count of rows that will change before running. Report rows changed; confirm
+  `user_products`/`entitlements` untouched; confirm idempotent re-run changes 0.
+
+### Implementation Notes
+- **Prod is a separate, deliberate step** — the same backfill is already pending
+  against production from the brand build. With Task 1's fix in, that prod run will
+  repair the tier-corrupted prod members the diagnostic found (`1year`, `3month`)
+  **and** they'll stay repaired. Do **not** run prod here.
+
+---
+
+## Dependency map
+
+```
+Tier 1:   Task 1  (backend: level + sort + recompute fix + test)
+             │
+        ┌────┴────┐
+        ▼         ▼
+Tier 2: Task 2    Task 3
+        (frontend) (dev re-backfill)
+```

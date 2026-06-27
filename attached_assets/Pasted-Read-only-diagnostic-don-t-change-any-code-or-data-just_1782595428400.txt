@@ -1,0 +1,14 @@
+Read-only diagnostic — don't change any code or data, just inspect and report, for the BTS portal admin member list (/admin/members, AdminMembers.tsx, GET /api/admin/members in admin-panel.ts). I'm scoping two small fixes: (A) show each member's real level in the list, and (B) add column sorting. Both hinge on whether "level" is materialized and sortable. Report concrete evidence per item.
+
+ITEM A — the level/source column
+1. What field does the member-list "source/product" column actually display, and what does that field semantically represent — the member's ORIGIN (which front-end / which system they came in through, e.g. "yse"/"machine") or their current LEVEL/TIER (e.g. "6-Month")? Show the column's data source in AdminMembers.tsx and the field on the API response.
+2. What does users.sourceProduct literally contain in practice today, after BOTH the brand backfill and recomputeSourceProduct ran? Give the actual value for three real members: (a) a front-end-only member, (b) a member who currently holds 6-Month, (c) a member who was granted a mentorship by an admin. Is sourceProduct an origin slug, a product slug, or does it vary by member? These two writers seem to disagree on its meaning — tell me which one wins in the current data.
+3. Does GET /api/admin/members compute each member's entitlements or tier per row, or does it only SELECT stored user columns (like sourceProduct) with no per-member entitlement aggregation?
+4. The friendly tier label is getHighestProductLabel(entitlements) in entitlements.ts. To show each member's TRUE current level in the list, would the endpoint need to compute entitlements for every member on the page (a per-row aggregation over user_products), or is the highest active product already materialized cheaply on the user row? Is there a product-rank / tier-rank utility (product-rank.ts?) that returns an ordinal per product, usable to order members by level?
+
+ITEM B — column sort
+5. Show the exact current ORDER BY in the list query and how hard it is to parameterize into a sortBy + sortDir (the endpoint currently hardcodes createdAt DESC). 
+6. Which display columns map to real, sortable DB columns (name, email, role, join date) versus computed values? For "sort by level" specifically: is level materialized in a sortable form (a rank column, or sourceProduct holding the product slug), or would sorting by level require a per-member computation/join?
+7. Is the table in AdminMembers.tsx a hand-rolled table or a shared table component, and does it have any existing sort-header affordance, or would clickable sortable headers be net-new UI? Confirm whether sort must be server-side (since search + pagination are already server-side and you can't meaningfully sort a single 20-row page client-side).
+
+Report current state only — file paths, the literal sourceProduct values for those three member types, and whether a sortable level representation exists. No edits, no tasks.

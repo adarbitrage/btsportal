@@ -1,0 +1,15 @@
+Read-only diagnostic — don't change any code or data, just inspect and report, for the BTS portal. I'm assessing whether a member-management admin section exists and what it can do, against six target capabilities: (1) list all members, (2) search/sort by name/email, (3) see each member's level/products, (4) change a member's level, (5) impersonate / "sign in as" a member to see what they see, (6) all in a dedicated admin page/section. For each item below, report what EXISTS (with route + component/file + endpoint) vs. what's MISSING.
+
+1. Member list page: Is there an admin page that lists members? Give its route, the page component, and the API endpoint it calls. What fields/columns does it show per member (name, email, status, products/level, join date, etc.)? Is it paginated, and roughly how does it scale (does it load all members or page/limit them)?
+
+2. Search / sort / filter: Does the member list support searching by name and/or email? Sorting (by what)? Filtering by product/level/status? Show where that happens (server query params and/or client). If search exists, is it server-side or client-side?
+
+3. Level / products per member: For a given member, does the admin UI show which products they hold and/or their derived tier/level? Confirm where the tier-label logic lives (I believe entitlements.ts computes a display tier like "Lifetime Mentorship" down to "Front-End Member") and whether the member admin surfaces uses it. Is there a single-member detail view, or only the list?
+
+4. Changing a member's level (grant / revoke): Is there ANY admin-initiated way to grant or revoke a product/level for a member — i.e. an admin action that writes to user_products (not the purchase/webhook path)? If yes: the endpoint, the UI, and what happens to that member's entitlements/access immediately after (does the entitlement set recompute, are there side effects like emails/CRM sync)? If the only way products get granted today is the external-grant/webhook path (handleExternalGrantProduct) with no admin UI, say so explicitly.
+
+5. Impersonation / "sign in as member": Does a feature exist for an admin to view the portal AS a specific member (impersonate / "view as" / "sign in as")? If yes: the route, the endpoint, the component, and the MECHANISM — is it a real session/token swap, or a read-only "view-as" overlay? Does it render the member's actual portal exactly as they'd see it (their products, their gated content, their nav)? How does the admin EXIT impersonation, and is there any audit logging of who impersonated whom and when? If no impersonation exists at all, state that clearly.
+
+6. Permissions + location: What permissions gate member management (members:view, members:edit, an impersonate permission)? Which roles hold them? And is there already a consolidated "Members" section in the admin nav/sidebar, or are these capabilities (if they exist) scattered across different admin pages?
+
+Report current state only — file paths and concrete evidence per item. Don't draft tasks or make any changes; I just need the ground-truth map of what's there.
