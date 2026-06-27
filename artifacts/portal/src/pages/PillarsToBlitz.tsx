@@ -7,6 +7,7 @@ import {
   Route, ArrowRight, ArrowLeft, Sparkles, ChevronUp, Rocket,
 } from "lucide-react";
 import { useRef, type ComponentType, type SVGProps, type RefObject } from "react";
+import { useBrand } from "@/hooks/use-brand";
 
 type IconType = ComponentType<SVGProps<SVGSVGElement>>;
 
@@ -21,7 +22,8 @@ type Bridge = {
   body: string[];
 };
 
-const bridges: Bridge[] = [
+function getBridges(brandShort: string): Bridge[] {
+  return [
   {
     num: 1,
     title: "The Business Model — Affiliate Arbitrage",
@@ -42,7 +44,7 @@ const bridges: Bridge[] = [
     quote:
       "Traditional supplements and wellness gadgets — two categories that work together beautifully and cover all the bases for people serious about their health.",
     body: [
-      "One of your first steps in The Blitz is choosing a product to promote. You'll do this inside one of two affiliate networks — Media Mavens (BTS's in-house network) or ClickBank. Both are stocked with health and wellness products: supplements, gadgets, and wellness devices aimed at the exact market described in Pillar 2. You won't be hunting for a market or a niche — that decision has already been made. Your job is simply to choose a specific product within it.",
+      `One of your first steps in The Blitz is choosing a product to promote. You'll do this inside one of two affiliate networks — Media Mavens (${brandShort}'s in-house network) or ClickBank. Both are stocked with health and wellness products: supplements, gadgets, and wellness devices aimed at the exact market described in Pillar 2. You won't be hunting for a market or a niche — that decision has already been made. Your job is simply to choose a specific product within it.`,
     ],
   },
   {
@@ -105,7 +107,8 @@ const bridges: Bridge[] = [
       "The Blitz has built the mindset pillar into its structure: there are rules about how long to wait before making decisions, checkpoints that prevent you from panicking and changing things too early, and clear instructions on when to ask for help instead of spinning in place. When the early rounds feel discouraging, come back to Pillar 7. This is what it looks like in practice.",
     ],
   },
-];
+  ];
+}
 
 function BackToTop({ topRef }: { topRef: RefObject<HTMLDivElement | null> }) {
   return (
@@ -119,7 +122,7 @@ function BackToTop({ topRef }: { topRef: RefObject<HTMLDivElement | null> }) {
   );
 }
 
-function PillarQuickNav() {
+function PillarQuickNav({ bridges }: { bridges: Bridge[] }) {
   const scrollTo = (id: string) => {
     document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
   };
@@ -218,6 +221,8 @@ function BridgeCard({ bridge, topRef }: { bridge: Bridge; topRef: RefObject<HTML
 
 export default function PillarsToBlitz() {
   const topRef = useRef<HTMLDivElement>(null);
+  const brand = useBrand();
+  const bridges = getBridges(brand.short);
 
   return (
     <AppLayout>
@@ -258,7 +263,7 @@ export default function PillarsToBlitz() {
           </span>
         </div>
 
-        <PillarQuickNav />
+        <PillarQuickNav bridges={bridges} />
 
         {bridges.map((bridge) => (
           <BridgeCard key={bridge.num} bridge={bridge} topRef={topRef} />
