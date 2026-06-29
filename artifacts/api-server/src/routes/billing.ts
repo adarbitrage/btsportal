@@ -1,4 +1,6 @@
 import { Router } from "express";
+import { eq } from "drizzle-orm";
+import { db, productsTable } from "@workspace/db";
 import { getPublicTokenizationKey } from "../lib/payments/charge-service.js";
 import { processCheckout } from "../lib/payments/checkout-service.js";
 import { sendError, ErrorCodes } from "../lib/api-errors.js";
@@ -23,6 +25,45 @@ router.get("/billing/tokenization-key", async (req, res): Promise<void> => {
   }
 
   res.json({ tokenizationKey });
+});
+
+router.get("/billing/product/:id", async (req, res): Promise<void> => {
+  if (!req.userId) {
+    sendError(res, 401, ErrorCodes.AUTHENTICATION_REQUIRED, "Authentication required");
+    return;
+  }
+
+  const productId = parseInt(req.params.id, 10);
+  if (!Number.isInteger(productId) || productId <= 0) {
+    sendError(res, 400, "INVALID_REQUEST", "productId must be a positive integer");
+    return;
+  }
+
+  const [product] = await db
+    .select({
+      id: productsTable.id,
+      name: productsTable.name,
+      slug: productsTable.slug,
+      priceCents: productsTable.priceCents,
+      isNativeNmi: productsTable.isNativeNmi,
+      billingType: productsTable.billingType,
+      entitlementKeys: productsTable.entitlementKeys,
+    })
+    .from(productsTable)
+    .where(eq(productsTable.id, productId))
+    .limit(1);
+
+  if (!product) {
+    res.status(404).json({ error: "Product not found" });
+    return;
+  }
+
+  if (!product.isNativeNmi) {
+    res.status(400).json({ error: "Product is not available for native checkout" });
+    return;
+  }
+
+  res.json(product);
 });
 
 router.post("/billing/checkout", async (req, res): Promise<void> => {

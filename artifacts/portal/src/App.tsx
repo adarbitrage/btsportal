@@ -162,6 +162,7 @@ import AdminAssistantCards from "@/pages/admin/AdminAssistantCards";
 import AdminAssistantQuestions from "@/pages/admin/AdminAssistantQuestions";
 import Account from "@/pages/Account";
 import Plans from "@/pages/Plans";
+import Checkout from "@/pages/Checkout";
 import MyProducts from "@/pages/MyProducts";
 import CoachDashboard from "@/pages/coaching/CoachDashboard";
 import PackCoachDashboard from "@/pages/coaching/PackCoachDashboard";
@@ -532,6 +533,7 @@ function Router() {
       <Route path="/account">{() => <ProtectedRoute component={Account} />}</Route>
       <Route path="/account/products">{() => <ProtectedRoute component={MyProducts} />}</Route>
       <Route path="/plans">{() => <ProtectedRoute component={Plans} />}</Route>
+      <Route path="/checkout/:productId">{() => <ProtectedRoute component={Checkout} />}</Route>
       <Route path="/support">{() => <ProtectedRoute component={Support} />}</Route>
       <Route path="/support/contact">{() => <ProtectedRoute component={GeneralSupport} />}</Route>
       <Route path="/support/tickets/:id">{() => <ProtectedRoute component={TicketDetail} />}</Route>
