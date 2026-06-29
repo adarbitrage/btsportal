@@ -202,6 +202,19 @@ async function seed() {
       entitlementKeys: ["content:frontend", "content:advanced", "offer:profit_maximizer", "support:standard", "chat:full", "voice:access"],
       priceDisplay: "$97", sortOrder: 13,
     },
+    // Example native NMI product (First Movers Club). priceCents/billingType/
+    // itemType/isNativeNmi are all set; nothing is charged — this is schema-only
+    // (Tier 2). Actual NMI charge calls land in Tier 3+.
+    {
+      slug: "first_movers_club", name: "First Movers Club", type: "backend",
+      entitlementKeys: ["content:frontend", "content:advanced", "software:base", "community:access", "commissions:entry", "support:enhanced", "chat:full", "voice:access"],
+      priceDisplay: "$997", sortOrder: 20,
+      priceCents: 99700,
+      currency: "USD",
+      billingType: "one_time",
+      itemType: "entitlement",
+      isNativeNmi: true,
+    },
   ];
   const insertedProducts = await db.insert(productsTable).values(productData).returning();
   const productsBySlug: Record<string, number> = {};

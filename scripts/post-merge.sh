@@ -180,6 +180,14 @@ if [ -n "$DATABASE_URL" ]; then
   #     the conditional push stays skipped.
   psql "$DATABASE_URL" -v ON_ERROR_STOP=1 \
     -f lib/db/drizzle/0073_content_access_map.sql >/dev/null
+
+  # 14. NMI Billing Tier 2: 6 additive columns on products + bts_orders +
+  #     bts_order_items tables. All operations are idempotent (ADD COLUMN IF
+  #     NOT EXISTS, CREATE TABLE/INDEX IF NOT EXISTS, guarded DO blocks for
+  #     constraints). Applying here keeps the live-schema-drift gate green so
+  #     the conditional push stays skipped on the common merge.
+  psql "$DATABASE_URL" -v ON_ERROR_STOP=1 \
+    -f lib/db/drizzle/0075_nmi_billing_schema.sql >/dev/null
 fi
 
 # Schema sync — CONDITIONAL push.

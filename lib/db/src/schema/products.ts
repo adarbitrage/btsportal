@@ -34,6 +34,17 @@ export const productsTable = pgTable(
     durationLabel: text("duration_label"),
     highlights: jsonb("highlights").notNull().default([]),
     recommended: boolean("recommended").notNull().default(false),
+    // NMI native billing fields (Tier 2). All nullable/defaulted so existing
+    // ThriveCart products are untouched. price_cents is null for products billed
+    // outside this platform (ThriveCart). billing_type/recurring_interval are
+    // null for non-natively-billed products. is_native_nmi=false keeps all
+    // existing products on the ThriveCart flow; true = sold through BTS NMI checkout.
+    priceCents: integer("price_cents"),
+    currency: text("currency").default("USD"),
+    billingType: text("billing_type"),
+    recurringInterval: text("recurring_interval"),
+    itemType: text("item_type").default("entitlement"),
+    isNativeNmi: boolean("is_native_nmi").notNull().default(false),
   },
   (table) => ({
     // Pin the storage shape of `entitlement_keys` to a JSONB array. Without
@@ -55,6 +66,18 @@ export const productsTable = pgTable(
     highlightsIsArray: check(
       "products_highlights_is_array",
       sql`jsonb_typeof(${table.highlights}) = 'array'`,
+    ),
+    billingTypeCheck: check(
+      "products_billing_type_check",
+      sql`${table.billingType} IS NULL OR ${table.billingType} IN ('one_time', 'recurring')`,
+    ),
+    recurringIntervalCheck: check(
+      "products_recurring_interval_check",
+      sql`${table.recurringInterval} IS NULL OR ${table.recurringInterval} IN ('monthly', 'yearly')`,
+    ),
+    itemTypeCheck: check(
+      "products_item_type_check",
+      sql`${table.itemType} IS NULL OR ${table.itemType} IN ('entitlement', 'wallet_topup')`,
     ),
   }),
 );
