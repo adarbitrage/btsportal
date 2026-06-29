@@ -1,4 +1,60 @@
 {
+  "tables": {
+    "onlyInPush": [],
+    "onlyInMigrations": []
+  },
+  "columns": {
+    "onlyInPush": [
+      "chat_messages.admin_notes | text | NULL",
+      "chat_messages.flagged | bool | NOT NULL",
+      "chat_system_prompts.version | int4 | NOT NULL",
+      "coaches.average_rating | numeric | NULL",
+      "coaches.conflict_ghl_calendar_id | text | NULL",
+      "coaches.conflict_ghl_location_id | text | NULL",
+      "coaches.max_daily_sessions | int4 | NOT NULL",
+      "coaches.meet_link | text | NULL",
+      "coaches.total_ratings | int4 | NOT NULL",
+      "community_posts.is_featured | bool | NOT NULL",
+      "community_posts.title | text | NOT NULL",
+      "knowledgebase_docs.audience | text | NOT NULL",
+      "knowledgebase_docs.source_label | text | NULL",
+      "knowledgebase_docs.source_path | text | NULL",
+      "media_mavens_products.tapfiliate_program_id | text | NULL",
+      "media_mavens_products.tapfiliate_program_title | text | NULL",
+      "session_pack_bookings.conflict_block_event_id | text | NULL",
+      "session_pack_bookings.conflict_ghl_location_id | text | NULL",
+      "session_pack_bookings.ghl_location_id | text | NULL",
+      "session_pack_bookings.recording_ingest_at | timestamptz | NULL",
+      "session_pack_bookings.recording_ingest_attempts | int4 | NOT NULL",
+      "session_pack_bookings.recording_ingest_status | text | NOT NULL",
+      "session_pack_bookings.recording_url | text | NULL",
+      "session_pack_bookings.summary_url | text | NULL",
+      "session_pack_bookings.transcript_url | text | NULL",
+      "tickets.delivery_last_attempt_at | timestamptz | NULL",
+      "tickets.delivery_last_error | text | NULL",
+      "tickets.delivery_status | text | NOT NULL",
+      "users.billing_sms_opt_in | bool | NOT NULL",
+      "users.coaching_sms_opt_in | bool | NOT NULL",
+      "users.content_sms_opt_in | bool | NOT NULL",
+      "users.email_change_expires | timestamptz | NULL",
+      "users.email_change_token | text | NULL",
+      "users.must_change_password | bool | NOT NULL",
+      "users.pending_email | text | NULL",
+      "users.security_sms_opt_in | bool | NOT NULL",
+      "users.tapfiliate_affiliate_id | text | NULL",
+      "users.ticket_reply_sms_opt_in | bool | NOT NULL"
+    ],
+    "onlyInMigrations": [
+      "community_reactions.reaction_type | text | NOT NULL",
+      "sequence_enrollments.last_step_at | timestamptz | NULL",
+      "sequence_steps.active | bool | NOT NULL",
+      "sequence_steps.body | text | NULL",
+      "sequence_steps.condition | jsonb | NULL",
+      "sequence_steps.sort_order | int4 | NOT NULL",
+      "sequence_steps.template_slug | text | NULL",
+      "sequences.status | text | NOT NULL"
+    ]
+  },
   "constraints": {
     "onlyInPush": [],
     "onlyInMigrations": []

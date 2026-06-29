@@ -136,12 +136,32 @@ async function applyRawMigrations(dbUrl: string): Promise<void> {
 }
 
 interface DbSnapshot {
+  tables: string[];
+  columns: string[];
   constraints: string[];
   indexes: string[];
 }
 
 async function captureSnapshot(dbUrl: string): Promise<DbSnapshot> {
   return withClient(dbUrl, async (client) => {
+    const tablesRes = await client.query<{ table_name: string }>(
+      `SELECT table_name
+         FROM information_schema.tables
+        WHERE table_schema = 'public'
+          AND table_type = 'BASE TABLE'`,
+    );
+
+    const columnsRes = await client.query<{
+      table_name: string;
+      column_name: string;
+      udt_name: string;
+      is_nullable: string;
+    }>(
+      `SELECT table_name, column_name, udt_name, is_nullable
+         FROM information_schema.columns
+        WHERE table_schema = 'public'`,
+    );
+
     const constraintsRes = await client.query<{
       table_name: string;
       contype: string;
@@ -171,6 +191,14 @@ async function captureSnapshot(dbUrl: string): Promise<DbSnapshot> {
     );
 
     return {
+      tables: tablesRes.rows.map((r) => r.table_name).sort(),
+      columns: columnsRes.rows
+        .map(
+          (r) =>
+            `${r.table_name}.${r.column_name} | ${r.udt_name} | ` +
+            `${r.is_nullable === "NO" ? "NOT NULL" : "NULL"}`,
+        )
+        .sort(),
       constraints: constraintsRes.rows
         .map((r) => `${r.table_name} | ${r.contype} | ${r.def}`)
         .sort(),
@@ -203,21 +231,42 @@ const skipReason = ADMIN_URL ? null : "DATABASE_URL is not set; skipping drift c
 // test`.
 const BASELINE_PATH = path.join(__dirname, "__fixtures__", "expected-drift.json");
 
-interface DriftBaseline {
-  constraints: { onlyInPush: string[]; onlyInMigrations: string[] };
-  indexes: { onlyInPush: string[]; onlyInMigrations: string[] };
+interface DriftSection {
+  onlyInPush: string[];
+  onlyInMigrations: string[];
 }
 
+interface DriftBaseline {
+  tables: DriftSection;
+  columns: DriftSection;
+  constraints: DriftSection;
+  indexes: DriftSection;
+}
+
+const EMPTY_SECTION: DriftSection = { onlyInPush: [], onlyInMigrations: [] };
+
 async function loadBaseline(): Promise<DriftBaseline> {
+  const fallback: DriftBaseline = {
+    tables: { ...EMPTY_SECTION },
+    columns: { ...EMPTY_SECTION },
+    constraints: { ...EMPTY_SECTION },
+    indexes: { ...EMPTY_SECTION },
+  };
   try {
     const raw = await fs.readFile(BASELINE_PATH, "utf8");
-    return JSON.parse(raw) as DriftBaseline;
+    const parsed = JSON.parse(raw) as Partial<DriftBaseline>;
+    // Tolerate an older baseline file that predates the tables/columns
+    // sections: default any missing section to empty so a stale fixture
+    // can't crash the test (it'll simply flag any real drift instead).
+    return {
+      tables: parsed.tables ?? { ...EMPTY_SECTION },
+      columns: parsed.columns ?? { ...EMPTY_SECTION },
+      constraints: parsed.constraints ?? { ...EMPTY_SECTION },
+      indexes: parsed.indexes ?? { ...EMPTY_SECTION },
+    };
   } catch (err) {
     if ((err as NodeJS.ErrnoException).code === "ENOENT") {
-      return {
-        constraints: { onlyInPush: [], onlyInMigrations: [] },
-        indexes: { onlyInPush: [], onlyInMigrations: [] },
-      };
+      return fallback;
     }
     throw err;
   }
@@ -248,21 +297,36 @@ describe.skipIf(skipReason !== null)("schema vs migration drift", () => {
     //   - pushDb     <- only `drizzle-kit push` (schema = source of truth)
     //   - migrateDb  <- only the raw `lib/db/drizzle/*.sql` files
     //
-    // We then snapshot UNIQUE / CHECK / FK / PK constraints and indexes
-    // (including partial indexes) from both, and compare the diff to a
-    // stored baseline. A non-empty *unexpected* diff means a SQL
-    // migration added a constraint the schema doesn't mirror, or the
-    // schema declares one no migration creates — the exact failure mode
-    // behind task #488 (the `webhook_logs.external_id` UNIQUE bug).
+    // We then snapshot tables, columns (with type + nullability), UNIQUE /
+    // CHECK / FK / PK constraints and indexes (including partial indexes)
+    // from both, and compare the diff to a stored baseline. A non-empty
+    // *unexpected* diff means either a SQL migration added something the
+    // schema doesn't mirror, or — the case this guard primarily targets —
+    // the schema declares a table/column/constraint/index that NO committed
+    // companion migration produces. That latter case (`onlyInPush`) is what
+    // drops the shared post-merge into a slow interactive
+    // `drizzle-kit push --force` that hangs in the non-interactive merge
+    // environment. The constraint diff also catches the task #488 failure
+    // mode (the `webhook_logs.external_id` UNIQUE bug).
     applyDrizzlePush(dbUrlFor(pushDb));
     await applyRawMigrations(dbUrlFor(migrateDb));
 
     pushSnap = await captureSnapshot(dbUrlFor(pushDb));
     migrateSnap = await captureSnapshot(dbUrlFor(migrateDb));
 
+    const tableDiff = diff(pushSnap.tables, migrateSnap.tables);
+    const columnDiff = diff(pushSnap.columns, migrateSnap.columns);
     const constraintDiff = diff(pushSnap.constraints, migrateSnap.constraints);
     const indexDiff = diff(pushSnap.indexes, migrateSnap.indexes);
     const current: DriftBaseline = {
+      tables: {
+        onlyInPush: tableDiff.onlyInA,
+        onlyInMigrations: tableDiff.onlyInB,
+      },
+      columns: {
+        onlyInPush: columnDiff.onlyInA,
+        onlyInMigrations: columnDiff.onlyInB,
+      },
       constraints: {
         onlyInPush: constraintDiff.onlyInA,
         onlyInMigrations: constraintDiff.onlyInB,
@@ -287,6 +351,56 @@ describe.skipIf(skipReason !== null)("schema vs migration drift", () => {
       await dropDatabase(admin, migrateDb);
       await admin.end();
     }
+  });
+
+  test("table drift matches the recorded baseline", () => {
+    const current = (globalThis as { __driftCurrent?: DriftBaseline })
+      .__driftCurrent!;
+    expect(
+      current.tables,
+      "Table drift between drizzle-kit push (schema) and the committed raw\n" +
+        "SQL migrations changed since the last baseline.\n\n" +
+        "- New entries in `onlyInPush` mean a TABLE was added to\n" +
+        "  `lib/db/src/schema/*.ts` but NO committed companion migration in\n" +
+        "  `lib/db/drizzle/*.sql` creates it. This is the failure mode this\n" +
+        "  guard exists to stop: on merge the shared post-merge setup falls\n" +
+        "  back to a slow interactive `drizzle-kit push --force` that hangs\n" +
+        "  in the non-interactive merge environment and breaks everyone's\n" +
+        "  dev DB. FIX: write an idempotent `CREATE TABLE IF NOT EXISTS …`\n" +
+        "  companion `.sql` in `lib/db/drizzle/` AND wire it into\n" +
+        "  `scripts/post-merge.sh` (see the additive-table steps, e.g.\n" +
+        "  step 13 / content_access_map).\n" +
+        "- New entries in `onlyInMigrations` mean a migration creates a\n" +
+        "  table the schema no longer declares. Remove the table from the\n" +
+        "  migration set (or drop it explicitly in post-merge) or restore\n" +
+        "  the schema definition.\n" +
+        "- After verifying the diff is intentional, refresh the baseline\n" +
+        "  with `UPDATE_DRIFT_BASELINE=1 pnpm --filter @workspace/db test`.",
+    ).toEqual(baseline.tables);
+  });
+
+  test("column drift matches the recorded baseline", () => {
+    const current = (globalThis as { __driftCurrent?: DriftBaseline })
+      .__driftCurrent!;
+    expect(
+      current.columns,
+      "Column drift between drizzle-kit push (schema) and the committed raw\n" +
+        "SQL migrations changed since the last baseline.\n\n" +
+        "- New entries in `onlyInPush` mean a COLUMN (or its type /\n" +
+        "  nullability) was added/changed in `lib/db/src/schema/*.ts` but\n" +
+        "  NO committed companion migration in `lib/db/drizzle/*.sql`\n" +
+        "  produces it. On merge this drops the shared post-merge into a\n" +
+        "  slow interactive `drizzle-kit push --force` that hangs in the\n" +
+        "  non-interactive merge environment. FIX: write an idempotent\n" +
+        "  `ALTER TABLE … ADD COLUMN IF NOT EXISTS …` companion `.sql` in\n" +
+        "  `lib/db/drizzle/` AND wire it into `scripts/post-merge.sh` (see\n" +
+        "  the additive-column steps, e.g. step 12).\n" +
+        "- New entries in `onlyInMigrations` mean a migration creates a\n" +
+        "  column the schema no longer declares. Reconcile the schema or\n" +
+        "  the migration.\n" +
+        "- After verifying the diff is intentional, refresh the baseline\n" +
+        "  with `UPDATE_DRIFT_BASELINE=1 pnpm --filter @workspace/db test`.",
+    ).toEqual(baseline.columns);
   });
 
   test("UNIQUE / CHECK / FK / PK constraint drift matches the recorded baseline", () => {
