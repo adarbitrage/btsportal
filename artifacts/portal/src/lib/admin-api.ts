@@ -753,7 +753,7 @@ export function fetchKnowledgebaseDocs(params?: { category?: string; search?: st
 export interface KbManualReviewResult {
   stagingDocId: number;
   title: string;
-  action: "auto_approved" | "auto_rejected" | "needs_review";
+  action: "analyzed" | "needs_review";
   confidenceScore: number | null;
   summary: string;
 }

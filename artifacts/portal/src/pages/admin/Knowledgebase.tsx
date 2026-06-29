@@ -482,22 +482,12 @@ export default function Knowledgebase() {
     onSuccess: (result: KbManualReviewResult) => {
       queryClient.invalidateQueries({ queryKey: ["admin-knowledgebase"] });
       resetForm();
-      if (result.action === "auto_approved") {
-        toast({
-          title: "AI approved — published live",
-          description: result.summary
-            ? `Added to the knowledge base. ${result.summary}`
-            : "The document was reviewed by AI and added to the live knowledge base.",
-        });
-      } else {
-        toast({
-          title: "Sent to the review queue",
-          description:
-            result.action === "auto_rejected"
-              ? "AI flagged this document. Approve or discard it in Review Staged Documents."
-              : "AI couldn't auto-approve this document. Approve it in Review Staged Documents.",
-        });
-      }
+      toast({
+        title: "Sent to the review queue",
+        description: result.summary
+          ? `${result.summary} Approve or discard it in Review Staged Documents.`
+          : "Approve or discard this document in Review Staged Documents.",
+      });
     },
     onError: (err: Error) => {
       toast({ title: "Failed to create", description: err.message, variant: "destructive" });
