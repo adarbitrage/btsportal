@@ -96,6 +96,34 @@ export async function createOrder(input: CreateOrderInput): Promise<OrderWithIte
   });
 }
 
+export interface UpdateOrderStatusInput {
+  status: string;
+  gatewayTransactionId?: string | null;
+  metadata?: Record<string, unknown> | null;
+}
+
+/**
+ * Update the status (and optionally gatewayTransactionId / metadata) of an
+ * existing order.  Used by the checkout service after a charge attempt
+ * resolves (paid, failed, or partial-error).
+ */
+export async function updateOrderStatus(
+  id: number,
+  update: UpdateOrderStatusInput,
+): Promise<void> {
+  await db
+    .update(btsOrdersTable)
+    .set({
+      status: update.status,
+      updatedAt: new Date(),
+      ...(update.gatewayTransactionId !== undefined
+        ? { gatewayTransactionId: update.gatewayTransactionId }
+        : {}),
+      ...(update.metadata !== undefined ? { metadata: update.metadata } : {}),
+    })
+    .where(eq(btsOrdersTable.id, id));
+}
+
 /**
  * Fetch a single order (with its line items) by internal id.
  * Returns null if not found.

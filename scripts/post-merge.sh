@@ -188,6 +188,15 @@ if [ -n "$DATABASE_URL" ]; then
   #     the conditional push stays skipped on the common merge.
   psql "$DATABASE_URL" -v ON_ERROR_STOP=1 \
     -f lib/db/drizzle/0075_nmi_billing_schema.sql >/dev/null
+
+  # 15. NMI Billing Tier 3a: checkout_idempotency table.
+  #     New table that tracks in-flight and completed one-time checkout attempts
+  #     so the same idempotency key is never charged twice. Idempotent (CREATE
+  #     TABLE IF NOT EXISTS, guarded DO block for the status CHECK constraint).
+  #     Applying here keeps the live-schema-drift gate green so the conditional
+  #     push stays skipped on the common merge.
+  psql "$DATABASE_URL" -v ON_ERROR_STOP=1 \
+    -f lib/db/drizzle/0076_checkout_idempotency.sql >/dev/null
 fi
 
 # Schema sync — CONDITIONAL push.

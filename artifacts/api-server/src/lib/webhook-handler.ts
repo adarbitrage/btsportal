@@ -6,6 +6,7 @@ import { CommunicationService } from "./communication-service";
 import { ensureAffiliateProfile, resolveUserCommissionTier } from "./commissions";
 import { enrollInSequence } from "./sequence-helpers";
 import { emitWebhookEvent } from "./webhook-events";
+import { insertUserProductGrant } from "./external-grant-product";
 
 const THRIVECART_WEBHOOK_SECRET = process.env.THRIVECART_WEBHOOK_SECRET || "";
 
@@ -264,34 +265,25 @@ async function handleOrderSuccess(payload: ThrivecartPayload, body: Record<strin
   const orderId = getOrderId(payload, body);
   const subscriptionId = getSubscriptionId(payload, body);
 
-  const existingEntitlement = await db
-    .select({ id: userProductsTable.id })
-    .from(userProductsTable)
-    .where(and(
-      eq(userProductsTable.userId, userId),
-      eq(userProductsTable.productId, product.id),
-      eq(userProductsTable.status, "active")
-    ))
-    .limit(1);
-
-  if (existingEntitlement.length > 0) {
-    return { action: "skipped", reason: "User already has active entitlement for this product", userId, productId: product.id };
-  }
-
   let expiresAt: Date | null = null;
   if (product.durationDays) {
     expiresAt = new Date();
     expiresAt.setDate(expiresAt.getDate() + product.durationDays);
   }
 
-  await db.insert(userProductsTable).values({
+  const { alreadyGranted } = await insertUserProductGrant({
     userId,
     productId: product.id,
-    status: "active",
+    externalSource: "thrivecart",
+    externalOrderId: orderId || `tc_${product.id}_${userId}`,
+    durationDays: product.durationDays ?? null,
     thrivecartOrderId: orderId || null,
     thrivecartSubId: subscriptionId || null,
-    expiresAt,
   });
+
+  if (alreadyGranted) {
+    return { action: "skipped", reason: "User already has active entitlement for this product", userId, productId: product.id };
+  }
 
   console.log(`[Webhook] Granted product "${product.name}" to user ${email}`);
   CommunicationService.queueEmail({

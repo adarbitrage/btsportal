@@ -145,6 +145,64 @@ export class UnknownProductSlugsError extends Error {
   }
 }
 
+/**
+ * Single-row user_products grant — the canonical insert shared by every
+ * purchase path (ThriveCart webhook, NMI native checkout, manual admin grant).
+ *
+ * Idempotent: a 23505 unique-constraint violation (user already holds an active
+ * grant for this product) is treated as success — the existing row is left in
+ * place and `alreadyGranted: true` is returned.
+ *
+ * Drizzle wraps PostgreSQL errors in a DrizzleQueryError; the pg code lives on
+ * `err.cause.code`, not `err.code` — hence the double-check below.
+ */
+export async function insertUserProductGrant(params: {
+  userId: number;
+  productId: number;
+  externalSource: string;
+  externalOrderId: string;
+  durationDays?: number | null;
+  /** ThriveCart-specific fields — only set when source is 'thrivecart' */
+  thrivecartOrderId?: string | null;
+  thrivecartSubId?: string | null;
+}): Promise<{ alreadyGranted: boolean }> {
+  const {
+    userId,
+    productId,
+    externalSource,
+    externalOrderId,
+    durationDays,
+    thrivecartOrderId,
+    thrivecartSubId,
+  } = params;
+
+  let expiresAt: Date | null = null;
+  if (durationDays) {
+    expiresAt = new Date();
+    expiresAt.setDate(expiresAt.getDate() + durationDays);
+  }
+
+  try {
+    await db.insert(userProductsTable).values({
+      userId,
+      productId,
+      status: "active",
+      externalSource,
+      externalOrderId,
+      expiresAt,
+      thrivecartOrderId: thrivecartOrderId ?? null,
+      thrivecartSubId: thrivecartSubId ?? null,
+    });
+    return { alreadyGranted: false };
+  } catch (err: unknown) {
+    const e = err as { code?: string; cause?: { code?: string } };
+    if (e.code === "23505" || e.cause?.code === "23505") {
+      return { alreadyGranted: true };
+    }
+    throw err;
+  }
+}
+
 function externalIdLockKeys(externalId: string): [number, number] {
   const hash = crypto.createHash("sha256").update(externalId).digest();
   return [hash.readInt32BE(0), hash.readInt32BE(4)];
