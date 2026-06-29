@@ -813,6 +813,29 @@ export function getKbStagingDoc(id: number) {
   return adminFetch<KbStagingStatus>(`/admin/knowledgebase/staging/${id}`);
 }
 
+// ── Archived staging drafts (read-only "Archive Backup" page) ────────────────
+export interface KbArchiveDoc {
+  id: number;
+  title: string;
+  category: string;
+  content: string;
+  tags: string;
+  source: string;
+  sourceVideoTitle: string;
+  status: string;
+  homeRoot: string;
+  node: string;
+  docType: string;
+  createdAt: string | null;
+  archivedAt: string | null;
+}
+
+export function fetchKbArchiveDocs() {
+  return adminFetch<{ docs: KbArchiveDoc[]; total: number }>(
+    "/admin/knowledgebase/archive",
+  );
+}
+
 export interface RateLimitTier {
   tier: string;
   dailyLimit: number;

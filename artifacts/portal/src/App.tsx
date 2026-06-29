@@ -80,6 +80,7 @@ import SystemPrompts from "@/pages/admin/SystemPrompts";
 import Knowledgebase from "@/pages/admin/Knowledgebase";
 import ContentGaps from "@/pages/admin/ContentGaps";
 import KnowledgeBaseReview from "@/pages/admin/KnowledgeBaseReview";
+import KnowledgeBaseArchive from "@/pages/admin/KnowledgeBaseArchive";
 import RateLimits from "@/pages/admin/RateLimits";
 import WinsWall from "@/pages/wins/WinsWall";
 import WinSubmit from "@/pages/wins/WinSubmit";
@@ -572,6 +573,7 @@ function Router() {
       <Route path="/admin/chat/analytics">{() => <AdminRoute component={ChatAnalytics} permission="chat:view" />}</Route>
       <Route path="/admin/chat/transcripts">{() => <AdminRoute component={ChatTranscripts} permission="chat:view" />}</Route>
       <Route path="/admin/chat/prompts">{() => <AdminRoute component={SystemPrompts} permission="chat:manage" />}</Route>
+      <Route path="/admin/chat/knowledgebase/archivebackup">{() => <AdminRoute component={KnowledgeBaseArchive} permission="chat:manage" />}</Route>
       <Route path="/admin/chat/knowledgebase/review">{() => <AdminRoute component={KnowledgeBaseReview} permission="chat:manage" />}</Route>
       <Route path="/admin/chat/knowledgebase">{() => <AdminRoute component={Knowledgebase} permission="chat:manage" />}</Route>
       <Route path="/admin/chat/content-gaps">{() => <AdminRoute component={ContentGaps} permission="chat:manage" />}</Route>

@@ -13,6 +13,7 @@ import {
   FolderOpen,
   Library,
   Eye,
+  Archive,
   BarChart3,
   Ticket,
   Network,
@@ -305,6 +306,7 @@ export const ADMIN_CHILDREN: NavNode[] = [
     defaultOpen: false,
     children: [
       { kind: "leaf", href: "/admin/chat/knowledgebase/review", label: "Document Review", icon: Eye, requiredPermission: "chat:manage" },
+      { kind: "leaf", href: "/admin/chat/knowledgebase/archivebackup", label: "Archive Backup", icon: Archive, requiredPermission: "chat:manage" },
       { kind: "leaf", href: "/admin/chat/knowledgebase", label: "Live Documents", icon: Database, requiredPermission: "chat:manage" },
       { kind: "leaf", href: "/admin/chat/content-gaps", label: "Content-Gap Radar", icon: Radar, requiredPermission: "chat:manage" },
     ],
