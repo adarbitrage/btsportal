@@ -56,6 +56,17 @@ export const AuthContext = createContext<AuthContextType | null>(null);
 const API_BASE = `${import.meta.env.BASE_URL}api`;
 
 export async function authFetch(path: string, options?: RequestInit) {
+  // Guard against the doubled-prefix footgun: `API_BASE` already ends in
+  // `/api`, so callers must pass paths WITHOUT a leading `/api` (e.g.
+  // "/content-access/me", not "/api/content-access/me"). A doubled
+  // "/api/api/..." silently 404s. Fail loudly in dev so this never ships.
+  if (import.meta.env.DEV && /^\/api(\/|$)/.test(path)) {
+    throw new Error(
+      `authFetch: path must not start with "/api" — authFetch already prepends it. ` +
+        `Got "${path}"; use "${path.replace(/^\/api/, "") || "/"}" instead.`,
+    );
+  }
+
   const res = await fetch(`${API_BASE}${path}`, {
     ...options,
     credentials: "include",

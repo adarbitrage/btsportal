@@ -312,7 +312,11 @@ export function ContentAccessRoute({
   const { data: member, isLoading: memberLoading } = useGetCurrentMember();
   const { accessiblePageKeys, isLoading: accessLoading, isError: accessError } = useContentAccess();
 
-  if (loading || memberLoading || accessLoading) {
+  // Defense-in-depth: never let an *errored* content-access query drive the
+  // spinner. An errored React Query has no data and stays stale, so a bad
+  // request (e.g. a 404) would otherwise keep `accessLoading` flipping on every
+  // remount and spin the guard forever. On error we fall through to fail-open.
+  if (loading || memberLoading || (accessLoading && !accessError)) {
     return (
       <div style={{
         minHeight: "100vh",
