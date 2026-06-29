@@ -592,6 +592,49 @@ export function fetchChatAnalytics() {
   return adminFetch<ChatAnalyticsData>("/admin/chat/analytics");
 }
 
+export interface ContentGapNearMiss {
+  id: number;
+  title: string;
+  score: number;
+}
+
+export interface ContentGapQuestion {
+  id: number;
+  surface: "chat" | "voice";
+  questionText: string;
+  topScore: number;
+  nearMisses: ContentGapNearMiss[];
+  askCount: number;
+  firstAskedAt: string;
+  lastAskedAt: string;
+}
+
+export interface ContentGapsResponse {
+  questions: ContentGapQuestion[];
+  summary: {
+    distinctQuestions: number;
+    totalAsks: number;
+    chatQuestions: number;
+    voiceQuestions: number;
+  };
+  pagination: { page: number; limit: number; total: number; totalPages: number };
+}
+
+export function fetchContentGaps(params: {
+  sort?: "frequency" | "recent";
+  surface?: "chat" | "voice";
+  page?: number;
+  limit?: number;
+} = {}) {
+  const qs = new URLSearchParams();
+  if (params.sort) qs.set("sort", params.sort);
+  if (params.surface) qs.set("surface", params.surface);
+  if (params.page) qs.set("page", String(params.page));
+  if (params.limit) qs.set("limit", String(params.limit));
+  const suffix = qs.toString();
+  return adminFetch<ContentGapsResponse>(`/admin/content-gaps${suffix ? `?${suffix}` : ""}`);
+}
+
 export interface ChatSessionRow {
   id: number;
   title: string;

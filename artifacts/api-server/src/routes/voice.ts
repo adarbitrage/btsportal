@@ -10,6 +10,7 @@ import { requirePermission } from "../middleware/rbac";
 import { csvEscape } from "../lib/csv";
 import { logAdminAction } from "../lib/audit-log";
 import { retrieveSurfaceAware } from "../lib/kb-retrieval";
+import { logUnansweredQuestion } from "../lib/content-gap-radar";
 import { queueTicketDeskDelivery, sendSupportFallbackEmail } from "../lib/ticketdesk-queue";
 import { autoRouteTicket } from "../lib/ticket-routing";
 import { createSlaForTicket } from "../lib/sla";
@@ -69,7 +70,18 @@ export async function searchKnowledgebaseForVoice(query: string): Promise<string
   // confidence bar. Returning the no-info sentinel for a non-confident result is
   // what wires the "no confident match" signal into the voice agent's ESCALATION
   // / NO VERIFIED ANSWER rules so it hands off instead of guessing.
-  if (!result.confident || result.docs.length === 0) return "No relevant information found.";
+  if (!result.confident || result.docs.length === 0) {
+    // Content-Gap Radar: voice has no verified answer for this question. Log it
+    // (privacy-scrubbed) so authoring can follow real demand. Best-effort,
+    // fire-and-forget — never block or break the caller's turn.
+    void logUnansweredQuestion({
+      surface: "voice",
+      question: query,
+      topScore: result.topScore,
+      nearMisses: result.docs.map((d) => ({ id: d.id, title: d.title, rank: d.rank })),
+    });
+    return "No relevant information found.";
+  }
 
   // Voice answers are spoken/relayed by the 800-number agent: keep each doc terse
   // (title + first 400 chars). Docs are already privacy-scrubbed by the shared

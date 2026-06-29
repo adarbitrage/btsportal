@@ -61,6 +61,7 @@ import {
   Phone,
   BookOpen,
   LayoutGrid,
+  Radar,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useGetCurrentMember, type MemberProfile } from "@workspace/api-client-react";
@@ -305,6 +306,7 @@ export const ADMIN_CHILDREN: NavNode[] = [
     children: [
       { kind: "leaf", href: "/admin/chat/knowledgebase/review", label: "Document Review", icon: Eye, requiredPermission: "chat:manage" },
       { kind: "leaf", href: "/admin/chat/knowledgebase", label: "Live Documents", icon: Database, requiredPermission: "chat:manage" },
+      { kind: "leaf", href: "/admin/chat/content-gaps", label: "Content-Gap Radar", icon: Radar, requiredPermission: "chat:manage" },
     ],
   },
   {

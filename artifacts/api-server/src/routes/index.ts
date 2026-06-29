@@ -81,6 +81,7 @@ import webhooksRetellRouter from "./webhooks-retell";
 import adminFulfillmentCatalogRouter from "./admin-fulfillment-catalog";
 import kbSearchRouter from "./kb-search";
 import contentAccessRouter from "./content-access";
+import adminContentGapsRouter from "./admin-content-gaps";
 
 const router: IRouter = Router();
 
@@ -166,5 +167,6 @@ router.use(webhooksRetellRouter);
 router.use(adminFulfillmentCatalogRouter);
 router.use(kbSearchRouter);
 router.use(contentAccessRouter);
+router.use(adminContentGapsRouter);
 
 export default router;

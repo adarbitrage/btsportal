@@ -78,6 +78,7 @@ import ChatAnalytics from "@/pages/admin/ChatAnalytics";
 import ChatTranscripts from "@/pages/admin/ChatTranscripts";
 import SystemPrompts from "@/pages/admin/SystemPrompts";
 import Knowledgebase from "@/pages/admin/Knowledgebase";
+import ContentGaps from "@/pages/admin/ContentGaps";
 import KnowledgeBaseReview from "@/pages/admin/KnowledgeBaseReview";
 import RateLimits from "@/pages/admin/RateLimits";
 import WinsWall from "@/pages/wins/WinsWall";
@@ -573,6 +574,7 @@ function Router() {
       <Route path="/admin/chat/prompts">{() => <AdminRoute component={SystemPrompts} permission="chat:manage" />}</Route>
       <Route path="/admin/chat/knowledgebase/review">{() => <AdminRoute component={KnowledgeBaseReview} permission="chat:manage" />}</Route>
       <Route path="/admin/chat/knowledgebase">{() => <AdminRoute component={Knowledgebase} permission="chat:manage" />}</Route>
+      <Route path="/admin/chat/content-gaps">{() => <AdminRoute component={ContentGaps} permission="chat:manage" />}</Route>
       <Route path="/admin/chat/rate-limits">{() => <AdminRoute component={RateLimits} permission="chat:manage" />}</Route>
       <Route path="/admin/coaching/sessions">{() => <AdminRoute component={PrivateCoaching} permission="coaching:view" />}</Route>
       <Route path="/admin/coaching/credits">{() => <Redirect to="/admin/coaching/sessions" />}</Route>

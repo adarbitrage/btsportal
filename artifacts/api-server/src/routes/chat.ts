@@ -16,6 +16,7 @@ import { eq, and, desc, sql, asc } from "drizzle-orm";
 import { getAnthropicClient } from "@workspace/integrations-anthropic-ai";
 import { getUserEntitlements, hasMemberAccessBypass } from "../lib/entitlements";
 import { retrieveSurfaceAware, type RetrievalTurn } from "../lib/kb-retrieval";
+import { logUnansweredQuestion } from "../lib/content-gap-radar";
 
 const router: IRouter = Router();
 
@@ -246,6 +247,16 @@ router.post("/chat", async (req, res): Promise<void> => {
     systemPrompt += `\n\n## Relevant Knowledge Base Articles\n\n${ragContext}`;
   } else {
     systemPrompt += `\n\n## Knowledge Base Search Result\n\nNo confident match — the knowledge base has no verified answer for this query. You must not fabricate an answer based on general affiliate marketing knowledge, and you must not stitch one together from loosely-related snippets. Follow Rule 12: tell the member you don't have a verified answer to that yet, then route them — conceptual or strategy questions to a live coaching call, and account, billing, or technical questions to a support ticket ([SUGGEST_TICKET]) or support@buildtestscale.com.`;
+
+    // Content-Gap Radar: the assistant has no verified answer for this question.
+    // Log it (privacy-scrubbed) so authoring can follow real demand. Best-effort,
+    // fire-and-forget — never block or break the member's turn.
+    void logUnansweredQuestion({
+      surface: "chat",
+      question: message,
+      topScore: retrieval.topScore,
+      nearMisses: retrieval.docs.map((d) => ({ id: d.id, title: d.title, rank: d.rank })),
+    });
   }
 
   const chatMessages = orderedHistory.map((m) => ({
