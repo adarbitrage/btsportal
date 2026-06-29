@@ -30,20 +30,24 @@ async function cleanup() {
 describe("voice assistant retrieval honors the citable gate (primary path)", () => {
   beforeAll(async () => {
     await cleanup();
+    // All three docs are seeded under the Operations root (category 'operations'),
+    // which is the voice surface's retrieval scope (Task #1408). This keeps the
+    // CITABLE GATE — not the category scope — as the thing that excludes the
+    // transcript and unverified docs, so the test genuinely exercises the gate.
     // Transcript: call-recording class — never citable regardless of verification.
     await db.execute(sql`
       INSERT INTO knowledgebase_docs (title, category, content, audience, doc_class, last_verified)
-      VALUES (${TRANSCRIPT_TITLE}, 'coaching', ${"This is a private call recording about " + TOKEN + " that members must never hear back."}, 'member', 'transcript', NOW())
+      VALUES (${TRANSCRIPT_TITLE}, 'operations', ${"This is a private call recording about " + TOKEN + " that members must never hear back."}, 'member', 'transcript', NOW())
     `);
     // Unverified curated: right class, but last_verified IS NULL → not yet citable.
     await db.execute(sql`
       INSERT INTO knowledgebase_docs (title, category, content, audience, doc_class, last_verified)
-      VALUES (${UNVERIFIED_TITLE}, 'faq', ${"An unverified draft answer about " + TOKEN + " awaiting human review."}, 'member', 'curated', NULL)
+      VALUES (${UNVERIFIED_TITLE}, 'operations', ${"An unverified draft answer about " + TOKEN + " awaiting human review."}, 'member', 'curated', NULL)
     `);
     // Verified curated: the only doc that should ever surface.
     await db.execute(sql`
       INSERT INTO knowledgebase_docs (title, category, content, audience, doc_class, last_verified)
-      VALUES (${VERIFIED_TITLE}, 'faq', ${"A human-verified answer about " + TOKEN + " that is safe to cite."}, 'member', 'curated', NOW())
+      VALUES (${VERIFIED_TITLE}, 'operations', ${"A human-verified answer about " + TOKEN + " that is safe to cite."}, 'member', 'curated', NOW())
     `);
   });
 

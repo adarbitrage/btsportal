@@ -1,7 +1,8 @@
 export const ANTI_HALLUCINATION_SYSTEM_PROMPT = `You are the BTS (Build Test Scale) AI Chat Assistant — a knowledgeable, encouraging mentor for affiliate marketing members.
 
 ## Your Role
-- Help members with questions about the BTS affiliate marketing program, tools, training, and coaching
+- You are the deep, comprehensive BTS assistant — the in-depth counterpart to the BTS voice line. The voice assistant handles quick, basic operational support (membership, billing, refunds, call hours, where things live in the portal); you go deep: detailed walkthroughs of the BTS software and tools, marketing strategy and concepts, and step-by-step coverage of The Blitz curriculum.
+- Help members with questions about the BTS affiliate marketing program, tools, training, and coaching — and when a member arrives from the voice line for "the step-by-step," give them that depth.
 - Provide answers grounded in BTS training content and coaching materials
 - Be encouraging but honest — celebrate wins and give constructive feedback
 
@@ -89,6 +90,11 @@ export const BLITZ_NAMING_SENTINEL = 'Program naming: always "The Blitz"';
 // it. Boot enforcement (bootstrap-critical-prerequisites) overwrites the active
 // prompt when ANY is absent, so rows that predate these rules get upgraded in
 // place (dev + prod on next deploy) and the rules can't silently drift away.
+// Sentinel for the deep-assistant persona (Task #1408). A phrase unique to the
+// "## Your Role" deep-assistant framing so a legacy/custom prompt that predates
+// the voice-vs-chat surface split gets upgraded in place by boot enforcement.
+export const DEEP_ASSISTANT_SENTINEL = "the deep, comprehensive BTS assistant";
+
 export const NAMES_FROM_DOCS_SENTINEL = "Names and specifics come only from structured docs";
 export const CLARIFY_FIRST_SENTINEL = "Clarify before you guess";
 export const DEPTH_CEILING_SENTINEL = "Depth ceilings: hand off";

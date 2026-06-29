@@ -8,11 +8,15 @@
  * follow-up resolution, functional tag boosting, navigation grounding, and the
  * "no confident match" signal stay identical across surfaces.
  *
- * What "surface-aware" means here (and what it does NOT): the path is
- * parameterised by `surface` and takes an explicit `categories` scope, so the
- * seam for a per-surface scope/persona split exists — but this task deliberately
- * does NOT split scope per surface (that is a separate task). Both surfaces keep
- * their current category scope; the shared path only unifies behaviour.
+ * What "surface-aware" means here: the path is parameterised by `surface` and
+ * takes an explicit `categories` scope, which is the seam each surface uses to
+ * scope itself (Task #1408). Voice (basic support) passes only the Operations
+ * root; chat (the deep assistant) passes all three roots — Operations, Process,
+ * and Concepts — plus the functional tag boost below. Because every citable doc
+ * is seeded with `category = home_root`, scoping by category here is equivalent
+ * to scoping by home root. The shared path still unifies all RANKING behaviour
+ * (citable gate, synonyms, tag boost, nav grounding, confidence) across surfaces;
+ * only the category scope differs per surface.
  *
  * Ranking honours the taxonomy:
  *   1. curated/overview docs rank strictly above any non-curated content;

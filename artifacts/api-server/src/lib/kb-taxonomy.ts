@@ -49,6 +49,24 @@ export const HOME_ROOTS: readonly TaxonomyRoot[] = [
 export const HOME_ROOT_SLUGS: readonly string[] = HOME_ROOTS.map((r) => r.slug);
 
 /**
+ * The Operations root — the basic-support / "how to get help" hub. The voice
+ * assistant scopes its KB retrieval to exactly this root (basic support line);
+ * deeper Process/Concepts questions are handed off to the chat assistant.
+ */
+export const OPERATIONS_ROOT_SLUG = "operations";
+
+/**
+ * The KB `category` values that carry citable member-facing taxonomy content.
+ * Every authored citable doc is seeded with `category = home_root` (see
+ * seed-operations-kb / seed-process-kb / seed-concepts-kb), so the citable
+ * category vocabulary is exactly the home-root vocabulary. Surface scoping
+ * (voice → Operations only; chat → all roots) is expressed as a subset of this
+ * list — scoping by category here is equivalent to scoping by home root because
+ * the two columns are kept in lockstep by the seeders.
+ */
+export const CITABLE_KB_CATEGORIES: readonly string[] = HOME_ROOT_SLUGS;
+
+/**
  * Default home for un-migrated / un-homed docs. Operations is the catch-all
  * "handoff hub" root, so an un-classified doc falls back here at read time
  * rather than crashing on a NULL home. (Held docs are not citable regardless,

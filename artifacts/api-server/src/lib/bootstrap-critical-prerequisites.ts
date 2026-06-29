@@ -24,6 +24,7 @@ import {
   ANTI_HALLUCINATION_SENTINEL,
   DIRECT_ANSWER_SENTINEL,
   BLITZ_NAMING_SENTINEL,
+  DEEP_ASSISTANT_SENTINEL,
   NAMES_FROM_DOCS_SENTINEL,
   CLARIFY_FIRST_SENTINEL,
   DEPTH_CEILING_SENTINEL,
@@ -360,6 +361,7 @@ export async function ensureKBGrounding(): Promise<void> {
     (!activePrompt.content.includes(ANTI_HALLUCINATION_SENTINEL) ||
       !activePrompt.content.includes(DIRECT_ANSWER_SENTINEL) ||
       !activePrompt.content.includes(BLITZ_NAMING_SENTINEL) ||
+      !activePrompt.content.includes(DEEP_ASSISTANT_SENTINEL) ||
       !activePrompt.content.includes(NAMES_FROM_DOCS_SENTINEL) ||
       !activePrompt.content.includes(CLARIFY_FIRST_SENTINEL) ||
       !activePrompt.content.includes(DEPTH_CEILING_SENTINEL) ||
@@ -371,7 +373,7 @@ export async function ensureKBGrounding(): Promise<void> {
       .set({ content: ANTI_HALLUCINATION_SYSTEM_PROMPT })
       .where(eq(chatSystemPromptsTable.id, activePrompt.id));
     console.log(
-      "[Bootstrap] Updated active system prompt with grounding + direct-answer + Blitz-naming + names-from-docs + clarify-first + depth-ceiling + navigation/legacy + no-answer-fallback rules.",
+      "[Bootstrap] Updated active system prompt with grounding + direct-answer + Blitz-naming + deep-assistant-persona + names-from-docs + clarify-first + depth-ceiling + navigation/legacy + no-answer-fallback rules.",
     );
   }
 

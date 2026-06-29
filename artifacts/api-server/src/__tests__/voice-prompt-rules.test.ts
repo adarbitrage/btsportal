@@ -54,4 +54,15 @@ describe("voice system prompt — Task #1407 behaviour rules", () => {
     expect(prompt).toContain('The flagship program is called "The Blitz"');
     expect(prompt).toContain("ninety-day refund guarantee");
   });
+
+  it("frames voice as basic support and hands deep questions to the chat assistant (Task #1408)", () => {
+    // Persona positions voice as the quick/basic support line, not the deep teacher.
+    expect(prompt).toContain("BASIC support line");
+    // Dedicated scope/handoff rule exists and points deep questions to chat.
+    expect(prompt).toContain("VOICE SCOPE AND CHAT HANDOFF — MANDATORY");
+    expect(prompt).toContain("chat assistant");
+    expect(prompt).toContain("The Blitz curriculum");
+    // "Prioritize, don't hard-wall": short answer or hand-off, never a flat refusal.
+    expect(prompt).toContain("never a flat");
+  });
 });

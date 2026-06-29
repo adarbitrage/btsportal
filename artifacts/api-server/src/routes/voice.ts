@@ -11,6 +11,7 @@ import { csvEscape } from "../lib/csv";
 import { logAdminAction } from "../lib/audit-log";
 import { retrieveSurfaceAware } from "../lib/kb-retrieval";
 import { logUnansweredQuestion } from "../lib/content-gap-radar";
+import { OPERATIONS_ROOT_SLUG } from "../lib/kb-taxonomy";
 import { queueTicketDeskDelivery, sendSupportFallbackEmail } from "../lib/ticketdesk-queue";
 import { autoRouteTicket } from "../lib/ticket-routing";
 import { createSlaForTicket } from "../lib/sla";
@@ -28,7 +29,16 @@ const RETELL_AGENT_ID = process.env.RETELL_AGENT_ID ?? "";
 const RETELL_FUNCTION_SECRET = process.env.RETELL_FUNCTION_SECRET ?? "";
 const VOICE_DAILY_SECONDS_CAP = parseInt(process.env.VOICE_DAILY_SECONDS_CAP ?? "1800", 10);
 
-const ALL_KB_CATEGORIES = ["faq", "platform_guide", "marketing", "compliance", "advanced_strategy", "troubleshooting", "strategy", "curriculum", "sop", "glossary", "coaching"];
+// Voice is the BASIC-support surface (Task #1408): it answers quick operational
+// questions — membership, refunds, call hours, support routing, portal
+// navigation — all of which live under the Operations home root. Deeper
+// software / strategy / Blitz-curriculum questions belong to the chat assistant,
+// so voice is scoped to the Operations root only. When a caller asks something
+// outside this scope the retrieval returns no confident match, which drives the
+// persona's VOICE SCOPE / CHAT HANDOFF + DEPTH CEILINGS rules to hand off rather
+// than guess. (category == home_root for all citable docs, so scoping by the
+// "operations" category here is equivalent to scoping to the Operations root.)
+const VOICE_KB_CATEGORIES = [OPERATIONS_ROOT_SLUG];
 
 function getTodayDate(): string {
   return new Date().toISOString().split("T")[0];
@@ -61,7 +71,7 @@ export async function searchKnowledgebaseForVoice(query: string): Promise<string
   // behaviour. Voice has no turn-by-turn history here, so no follow-up context.
   const result = await retrieveSurfaceAware(query, {
     surface: "voice",
-    categories: ALL_KB_CATEGORIES,
+    categories: VOICE_KB_CATEGORIES,
     limit: 4,
   });
 

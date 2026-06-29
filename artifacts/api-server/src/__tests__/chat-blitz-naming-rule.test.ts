@@ -5,6 +5,7 @@ import {
   ANTI_HALLUCINATION_SENTINEL,
   DIRECT_ANSWER_SENTINEL,
   BLITZ_NAMING_SENTINEL,
+  DEEP_ASSISTANT_SENTINEL,
   NAMES_FROM_DOCS_SENTINEL,
   CLARIFY_FIRST_SENTINEL,
   DEPTH_CEILING_SENTINEL,
@@ -141,6 +142,7 @@ describe("Rules 8-12 — behaviour rules (Task #1407 prompt surgery)", () => {
 
   it("every behaviour-rule sentinel is a substring of the prompt so none can drift away", () => {
     for (const sentinel of [
+      DEEP_ASSISTANT_SENTINEL,
       NAMES_FROM_DOCS_SENTINEL,
       CLARIFY_FIRST_SENTINEL,
       DEPTH_CEILING_SENTINEL,
@@ -149,6 +151,14 @@ describe("Rules 8-12 — behaviour rules (Task #1407 prompt surgery)", () => {
     ]) {
       expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain(sentinel);
     }
+  });
+});
+
+describe("Task #1408 — deep-assistant persona (voice vs chat surface split)", () => {
+  it("frames chat as the deep, comprehensive counterpart to the voice line", () => {
+    expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain(DEEP_ASSISTANT_SENTINEL);
+    expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain("voice");
+    expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain("step-by-step");
   });
 });
 
@@ -190,6 +200,7 @@ describe("ensureKBGrounding() active-prompt sentinel upgrade", () => {
   });
 
   it.each([
+    ["DEEP_ASSISTANT_SENTINEL", DEEP_ASSISTANT_SENTINEL],
     ["NAMES_FROM_DOCS_SENTINEL", NAMES_FROM_DOCS_SENTINEL],
     ["CLARIFY_FIRST_SENTINEL", CLARIFY_FIRST_SENTINEL],
     ["DEPTH_CEILING_SENTINEL", DEPTH_CEILING_SENTINEL],

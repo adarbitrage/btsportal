@@ -17,6 +17,7 @@ import { getAnthropicClient } from "@workspace/integrations-anthropic-ai";
 import { getUserEntitlements, hasMemberAccessBypass } from "../lib/entitlements";
 import { retrieveSurfaceAware, type RetrievalTurn } from "../lib/kb-retrieval";
 import { logUnansweredQuestion } from "../lib/content-gap-radar";
+import { CITABLE_KB_CATEGORIES } from "../lib/kb-taxonomy";
 
 const router: IRouter = Router();
 
@@ -42,21 +43,21 @@ const TIER_DEFAULTS: Record<string, ChatTierConfig> = {
     maxOutputTokens: 4000,
     historyDepth: 30,
     sessionRetentionDays: null,
-    knowledgebaseCategories: ["faq", "platform_guide", "marketing", "compliance", "advanced_strategy", "troubleshooting", "strategy", "curriculum", "sop", "glossary", "coaching"],
+    knowledgebaseCategories: [...CITABLE_KB_CATEGORIES],
   },
   "chat:full": {
     dailyLimit: 50,
     maxOutputTokens: 2000,
     historyDepth: 20,
     sessionRetentionDays: 30,
-    knowledgebaseCategories: ["faq", "platform_guide", "marketing", "compliance", "advanced_strategy", "troubleshooting", "strategy", "curriculum", "sop", "glossary", "coaching"],
+    knowledgebaseCategories: [...CITABLE_KB_CATEGORIES],
   },
   "chat:basic": {
     dailyLimit: 20,
     maxOutputTokens: 1000,
     historyDepth: 10,
     sessionRetentionDays: 7,
-    knowledgebaseCategories: ["faq", "platform_guide", "strategy", "curriculum", "sop", "glossary"],
+    knowledgebaseCategories: [...CITABLE_KB_CATEGORIES],
   },
 };
 
