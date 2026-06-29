@@ -1,0 +1,77 @@
+## BTS Portal — Native NMI Billing, Tier 3a: one-time checkout endpoint (BACKEND — first real charge)
+
+### What This Does
+The first real money path: an authenticated member buys ONE native product, the server charges the
+Collect.js token through BTS's NMI gateway (Tier 1, merged), records a bts_orders row (Tier 2,
+merged), and on success grants the product's entitlements (or, for a wallet_topup item, records the
+order so Tier 5 can credit it). Backend only — the checkout UI is Tier 3b. This is a money tier:
+idempotent, decline-safe, architect-reviewed.
+
+### Files Created
+- [server billing dir]/checkout-service.ts — orchestrates validate → charge → order → grant.
+- [server billing dir]/checkout-idempotency.ts — request-level idempotency (claim/complete on a
+  unique key) + its own small table (see schema).
+- tests for the above.
+
+### Files Modified
+- the billing router (created in Tier 1) — add the checkout endpoint + a tokenization-key consumer
+  is already there; this only ADDS the POST route.
+
+### Schema Changes
+- NEW checkout_idempotency: id, idempotency_key TEXT UNIQUE NOT NULL, user_id, product_id,
+  status TEXT CHECK in ('in_progress','completed'), order_id (nullable FK bts_orders),
+  result JSONB (nullable), created_at, completed_at (nullable).
+  (This task owns this table — it's checkout-specific and nothing else touches it.)
+
+### API Endpoints
+- POST /api/billing/checkout — Auth: requireAuth (logged-in member).
+  Body: { productId, paymentToken (Collect.js one-time token), idempotencyKey (required) }.
+  Flow:
+   1. Load product; reject if not found, or if is_native_nmi != true, or billing_type != 'one_time'
+      (recurring is Tier 6) → 400. Read price_cents/currency from the product (server-authoritative;
+      NEVER trust an amount from the client).
+   2. claimIdempotencyKey(idempotencyKey, user, product): if a completed row exists → return its stored
+      result (NO second charge); if in_progress → 409; if (user,product) on the existing key differs →
+      409 conflict; else proceed.
+   3. Create a bts_orders row status='pending', order_type = (item_type='wallet_topup' ? 'wallet_topup'
+      : 'one_time'), one bts_order_items line with the product's price + entitlement_keys snapshot,
+      total_cents = price_cents.
+   4. Charge via gateway.chargeWithToken({ amountCents: price_cents, paymentToken, orderId:
+      order.order_number, email: user.email, firstName/lastName }).
+   5. DECLINE/ERROR (success=false): order.status='failed', store gateway responseText in metadata,
+      mark idempotency completed with a failure result, return 402 with a clean "card declined"
+      message. Do NOT grant anything. (A decline is a normal outcome, not a 500.)
+   6. SUCCESS: order.status='paid', store gateway_transaction_id; THEN, only for
+      item_type='entitlement', grant entitlements by inserting/activating user_products for the
+      product (reuse the EXISTING entitlement-grant path the ThriveCart webhook uses — same
+      user_products write, same resolution — do not invent a parallel grant). For item_type=
+      'wallet_topup', leave crediting to Tier 5 (just record the paid order). Mark idempotency
+      completed with the success result. Return { orderNumber, status:'paid', grantedEntitlements? }.
+   7. Money-safe error handling: if anything throws AFTER the charge succeeds, do NOT auto-retry the
+      charge; record the order as paid with a flag that grant is pending, mark idempotency completed,
+      and surface that state — never let a thrown grant-step error cause a re-charge.
+   - Write an audit row for the attempt (reuse/extend whatever audit/logging pattern exists; if none,
+     a simple billing_audit insert is fine — but keep it non-throwing).
+
+### Frontend
+- None this task (Tier 3b).
+
+### Dependencies
+- Depends on: Tier 1 (gateway) + Tier 2 (products/orders) — both merged. Owns its own idempotency table.
+
+### Acceptance Criteria
+- A real sandbox token charges BTS's NMI account, a bts_orders row goes pending→paid with the NMI
+  transactionid, and an entitlement product grants access via the SAME user_products path ThriveCart
+  uses (verify the member's entitlements reflect it).
+- A forced decline returns 402, the order is 'failed', nothing is granted, and NO exception is thrown.
+- Idempotency: the same idempotencyKey twice = one charge, second call returns the stored result.
+  Two different products can't collide on one key (409). 
+- Amount is read from the product server-side; a tampered client amount is impossible (none is accepted).
+- Clean tsc (green) + architect review. Report files/schema. Do NOT create follow-up tasks.
+
+### Implementation Notes
+- Reuse the existing entitlement-grant logic (the ThriveCart webhook's user_products write) rather than
+  writing a second grant path — one source of truth for "what a purchase unlocks."
+- Server is the only authority on price. The client sends a product id + a payment token, never a price.
+- Carry the same money-safety posture as the refund engine: idempotent claim/complete, decline-as-data,
+  never auto-retry a charge.
