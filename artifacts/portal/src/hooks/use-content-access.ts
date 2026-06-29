@@ -28,7 +28,7 @@ export function useContentAccess() {
   const { data, isLoading, isError } = useQuery({
     queryKey: CONTENT_ACCESS_QUERY_KEY,
     queryFn: async (): Promise<ContentAccessResponse> => {
-      const res = await authFetch("/api/content-access/me");
+      const res = await authFetch("/content-access/me");
       if (!res.ok) throw new Error("Failed to fetch content access");
       return res.json();
     },

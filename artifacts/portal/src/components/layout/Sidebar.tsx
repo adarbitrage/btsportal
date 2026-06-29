@@ -602,14 +602,14 @@ export function SidebarContent({ onNavClick }: { onNavClick?: () => void }) {
   const highestSlug: string = member?.highestProductSlug ?? "free";
   const hasLifetime = isLifetimeSlug(highestSlug);
 
-  const { accessiblePageKeys } = useContentAccess();
+  const { accessiblePageKeys, isError: accessError } = useContentAccess();
 
   const filteredMemberNav = filterNavByRole(
     filterNavByHiddenRoles(
       filterNavByContentAccess(
         filterNavByEntitlements(MEMBER_NAV, entitlements, isAdminUser || isCoach),
         accessiblePageKeys,
-        isAdminUser || isCoach,
+        isAdminUser || isCoach || accessError,
       ),
       userRole,
     ),
