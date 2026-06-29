@@ -1,0 +1,85 @@
+## BTS Portal — Native NMI Billing, Tier 4a: saved cards / NMI Customer Vault (BACKEND — security-sensitive)
+
+### What This Does
+Lets a member store a card in NMI's Customer Vault and reuse it — without BTS ever storing the card
+number. Adds the saved-card data model, a vault-only "add a card" path (tokenize → vault → store
+masked metadata), a "pay with a saved card" option on the existing checkout, and management
+(list / set-default / remove). Backend only — UI is Tier 4b. The gateway already has
+createVaultFromToken and chargeWithVault (Tier 1, merged). Money tier: decline-safe, ownership-scoped,
+architect-reviewed.
+
+### Files Created
+- [schema dir]/payment-methods.ts — payment_methods table.
+- [store dir]/payment-methods-store.ts — typed CRUD (all scoped by user_id).
+- migration for the new table.
+- tests (vault add, pay-with-saved, ownership enforcement, remove).
+
+### Files Modified
+- the billing router — ADD the payment-methods endpoints below (sequenced after Tier 1/3a; not parallel).
+- checkout-service.ts (Tier 3a) — accept a saved card as an ALTERNATIVE to a fresh token (see endpoint).
+- the schema barrel — export the new table.
+
+### Schema Changes
+- NEW payment_methods:
+  - id (pk), user_id (FK users, indexed, NOT NULL),
+  - vault_id TEXT NOT NULL — the NMI customer_vault_id (server-side credential; NEVER sent to browser),
+  - last4 TEXT, brand TEXT, exp_month INTEGER, exp_year INTEGER  — DISPLAY metadata only,
+  - is_default BOOLEAN NOT NULL default false,
+  - created_at, updated_at.
+  - One default per user (enforce in code: setting a new default clears the prior).
+  - NEVER store the PAN or CVV. Only the vault id + masked display fields.
+
+### API Endpoints (all require requireAuth; all STRICTLY scoped to the authenticated user)
+- POST /api/billing/payment-methods — body { paymentToken (Collect.js), setDefault? }.
+    → gateway.createVaultFromToken({ paymentToken, email, firstName, lastName }) → store a
+      payment_methods row with the returned vault_id + the masked card metadata (last4/brand/exp the
+      client read from Collect.js's token response — validate they're masked, never a full PAN). If it's
+      the user's first card, force is_default=true. A vault/gateway failure returns a clean error (not a
+      500); a vault failure stores NOTHING.
+- GET /api/billing/payment-methods → the CURRENT user's saved cards (masked fields + id + is_default).
+    NEVER return vault_id to the client.
+- POST /api/billing/payment-methods/:id/default → set this card default (must belong to the user → else
+    404), clear the prior default.
+- DELETE /api/billing/payment-methods/:id → must belong to the user (else 404). Delete from the NMI
+    vault (customer_vault=delete_customer for that vault_id), then remove/soft-delete the row. If the
+    vault delete fails, do not silently drop the row — surface the error. (No active-subscription guard
+    needed yet — subscriptions are Tier 6; note this as a future check.)
+- EXTEND POST /api/billing/checkout (Tier 3a): body now accepts EITHER paymentToken OR paymentMethodId
+    (exactly one; reject if both/neither → 400). For paymentMethodId: look up the saved card, CONFIRM it
+    belongs to req.user (else 404 — never charge another user's card), read its vault_id server-side, and
+    charge via gateway.chargeWithVault({ amountCents: price_cents, customerVaultId, orderId, email }).
+    EVERYTHING ELSE is unchanged — same server-authoritative price, same idempotency claim/complete, same
+    decline→402, same paid/reconciliation states, same single grant path. Do NOT fork the checkout flow;
+    only swap the charge call based on which payment source was supplied.
+
+### Frontend
+- None this task (Tier 4b).
+
+### Dependencies
+- Depends on: Tier 1 (vault methods) + Tier 3a (checkout) — both merged. Owns payment_methods table.
+
+### Acceptance Criteria
+- A member saves a sandbox card: a payment_methods row stores the vault_id + masked last4/brand/exp,
+  NO charge occurs, and the raw PAN is never persisted anywhere.
+- Checkout with paymentMethodId charges the saved card via the vault and grants access exactly like a
+  token purchase (same order/grant/idempotency behavior); a declined saved-card charge returns 402, no
+  grant, no exception.
+- OWNERSHIP IS ENFORCED: a member cannot list, set-default, delete, or CHARGE another member's saved
+  card — referencing an id they don't own returns 404 and never touches the gateway. Add an explicit
+  test for this.
+- Remove deletes the card from the NMI vault AND the row; first-card-saved becomes default; setting a
+  new default clears the old.
+- vault_id is never returned to the client in any response.
+- Clean tsc (green) + architect review. Report schema + files. Do NOT create follow-up tasks. Ensure
+  the migration applies idempotently (watch the known "relation already exists" noise).
+
+### Implementation Notes
+- Model: one customer_vault_id per saved card (simpler than NMI billing-id sub-entries; matches the
+  Tier-1 method signatures). The payment_methods row ties each vault id to the user.
+- THE cardinal rule for this tier: a saved card is a stored credential — every endpoint that references
+  a payment-method id must validate it belongs to the authenticated user BEFORE doing anything. Treat a
+  cross-user reference as not-found, never as a chargeable card.
+- Reuse the Tier-3a money-safety wholesale (idempotency, decline-as-data, reconciliation, single grant
+  path) — only the charge call differs between a fresh token and a vault id.
+- vault_id stays server-side forever; the browser only ever sees masked display fields + the
+  payment_methods id.
