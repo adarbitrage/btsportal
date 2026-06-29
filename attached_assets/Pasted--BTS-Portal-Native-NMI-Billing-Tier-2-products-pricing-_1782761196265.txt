@@ -1,0 +1,79 @@
+## BTS Portal — Native NMI Billing, Tier 2: products pricing + orders data model (schema only, NO money)
+
+### What This Does
+Lays the billing data foundation: makes BTS products natively chargeable (real machine-readable
+prices + billing type), and adds the orders tables that record a native NMI purchase. This task OWNS
+all schema changes for the billing batch — no other billing task should alter these tables in
+parallel. No charging, no checkout, no UI this tier — tables, types, and storage methods only.
+
+### Files Created
+- [schema dir]/bts-orders.ts — Drizzle schema for bts_orders + bts_order_items.
+- [storage/repo dir]/billing-orders-store.ts — typed CRUD/helpers for the new tables.
+- migration file(s) for the schema changes below.
+
+### Files Modified
+- the existing products schema file — ADD the native-billing columns listed below (additive only;
+  do not alter/remove existing columns, including the current priceDisplay string).
+- the schema barrel/index — export the new tables.
+
+### Schema Changes
+1) EXTEND products (all additive, nullable/defaulted so existing rows and the ThriveCart flow are
+   untouched):
+   - price_cents INTEGER (nullable) — machine price; null for non-natively-billed (ThriveCart) products.
+   - currency TEXT default 'USD'.
+   - billing_type TEXT (nullable) CHECK in ('one_time','recurring') — null = not natively billed here.
+   - recurring_interval TEXT (nullable) CHECK in ('monthly','yearly') — set only when billing_type='recurring'.
+   - item_type TEXT default 'entitlement' CHECK in ('entitlement','wallet_topup') — 'wallet_topup'
+     credits the ad-spend balance instead of granting entitlements (wallet itself is Tier 5).
+   - is_native_nmi BOOLEAN default false — true = sold through BTS's own NMI checkout (this build).
+   (Existing entitlement_keys still applies for item_type='entitlement' products.)
+
+2) NEW bts_orders:
+   - id (pk), order_number TEXT UNIQUE NOT NULL (stable, human-readable, app-generated),
+   - user_id (FK users, indexed), email TEXT NOT NULL,
+   - total_cents INTEGER NOT NULL, currency TEXT default 'USD',
+   - status TEXT NOT NULL default 'pending' CHECK in ('pending','paid','failed','refunded','partial_refunded'),
+   - gateway_transaction_id TEXT (nullable) — the NMI sale transactionid once charged,
+   - order_type TEXT NOT NULL CHECK in ('one_time','recurring_initial','recurring_renewal','wallet_topup'),
+   - metadata JSONB (nullable) — refund refs, vault id used, idempotency key, etc.,
+   - created_at, updated_at,
+   - INDEX (user_id), INDEX (email), INDEX (status).
+
+3) NEW bts_order_items (line items — single-item per order to start, but modeled as a list so a
+   multi-item cart can come later):
+   - id (pk), order_id (FK bts_orders, indexed, cascade), product_id (FK products),
+   - description TEXT, unit_price_cents INTEGER NOT NULL, quantity INTEGER NOT NULL default 1,
+   - entitlement_keys_snapshot JSONB (nullable) — the entitlements this line grants, snapshotted at
+     purchase (so later product edits don't rewrite history),
+   - created_at.
+
+Apply the migration(s) to the live Neon DB following the existing migration pattern. Use additive,
+create-not-destructive changes only — never drop or rename existing columns/tables.
+
+### API Endpoints
+- None this tier.
+
+### Frontend
+- None this tier.
+
+### Dependencies
+- None — fully independent. (Tier 3 checkout will consume these; nothing calls them yet.)
+
+### Acceptance Criteria
+- products has the 6 new columns; all existing products rows remain valid (new cols null/defaulted)
+  and the existing ThriveCart purchase/webhook flow is provably unaffected.
+- bts_orders + bts_order_items exist on live Neon with the constraints/indexes above; storage methods
+  can create an order with one line item and read it back.
+- A native product can be seeded (e.g. First Movers Club: price_cents, billing_type='one_time',
+  item_type='entitlement', is_native_nmi=true) — seed or document it; do not charge anything.
+- Clean tsc (green) and an architect review on the diff. Report schema added + files. Do NOT create
+  follow-up tasks.
+
+### Implementation Notes
+- This task owns ALL billing schema — keep every table/column change here so parallel work can't
+  conflict on the products file.
+- Snapshot entitlement keys onto the order line at purchase time; don't rely on reading them live from
+  products later (mirrors how the refund/grant history stays stable).
+- Watch migration state: the environment has shown pre-existing "relation already exists" noise on
+  re-applied migrations — make sure THIS migration applies cleanly and is idempotent, and flag it if
+  the table-creation collides, rather than forcing it.
