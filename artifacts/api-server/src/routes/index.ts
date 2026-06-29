@@ -83,6 +83,7 @@ import adminFulfillmentCatalogRouter from "./admin-fulfillment-catalog";
 import kbSearchRouter from "./kb-search";
 import contentAccessRouter from "./content-access";
 import adminContentGapsRouter from "./admin-content-gaps";
+import billingRouter from "./billing";
 
 const router: IRouter = Router();
 
@@ -170,5 +171,6 @@ router.use(adminFulfillmentCatalogRouter);
 router.use(kbSearchRouter);
 router.use(contentAccessRouter);
 router.use(adminContentGapsRouter);
+router.use(billingRouter);
 
 export default router;
