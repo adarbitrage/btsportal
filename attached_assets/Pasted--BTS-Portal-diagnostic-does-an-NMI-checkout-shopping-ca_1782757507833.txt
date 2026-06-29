@@ -1,0 +1,40 @@
+## BTS Portal — diagnostic: does an NMI checkout / shopping-cart system exist yet? (REPORT ONLY, no code)
+
+Context: I need to know whether the BTS portal can currently charge members for paid items through
+our own BTS NMI gateway / merchant account — i.e. is there a working checkout/shopping-cart, or does
+that still need to be built? Members will be paying, billed directly from the BTS merchant account,
+for things like: topping up an ad-spend balance, a "First Movers Club" membership, a recurring monthly
+fee after their term ends, and other add-on services/products. Investigate the codebase and REPORT in
+natural language — do NOT write any code or create tasks.
+
+Report on each of these:
+
+1. NMI INTEGRATION: Is there ANY NMI payment integration in the BTS portal codebase today — an NMI
+   gateway client, API keys/config (security key), a charge/sale call to NMI? If yes, describe what
+   exists and where. If no NMI code exists at all, say so plainly.
+
+2. CHECKOUT / CART: Is there any checkout flow, shopping cart, or "buy this item" purchase path in the
+   portal — anything that takes a member's payment for a product/service? Describe what exists, or
+   confirm none exists.
+
+3. PRODUCTS / BILLABLE ITEMS: Is there any concept of purchasable products/items/SKUs or prices in the
+   portal's data model (a products table, price fields, an items catalog)? Or is billing today entirely
+   external (e.g. ThriveCart/GoHighLevel webhooks granting access) with no native purchase capability?
+
+4. AD-SPEND BALANCE: Is there any existing notion of a member ad-spend balance/wallet/credit that can
+   be topped up — a balance field, a ledger, a top-up flow? Describe it or confirm none exists.
+
+5. RECURRING / SUBSCRIPTION BILLING: Is there any recurring-billing or subscription mechanism in the
+   portal (e.g. for a monthly fee after a member's term ends) — native, or via an external processor?
+   Describe what's there.
+
+6. PAYMENT METHODS ON FILE: Does the portal store or tokenize member payment methods (e.g. an NMI
+   customer vault / saved card token) so a member could be charged again later without re-entering a
+   card? Or is there nothing like that today?
+
+7. EXISTING MONEY-RELATED CODE: List any other payment/billing/transaction-related code, tables, or
+   integrations you find that are relevant to charging members money (ThriveCart, Stripe, GoHighLevel,
+   Authorize.net, NMI, anything), so I have the full picture of what's already wired vs. greenfield.
+
+Bottom line up front, then the detail. Tell me clearly: does a native NMI checkout exist (and how
+complete), or does it need to be built from scratch? Report findings only — no code, no tasks.

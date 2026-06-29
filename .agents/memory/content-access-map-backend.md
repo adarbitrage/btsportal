@@ -35,5 +35,17 @@ description: Data layer, resolver, registry, and API for the admin-editable page
 - `PATCH /api/admin/content-access/:id` — update by id.
 - `DELETE /api/admin/content-access/:id` — remove (reverts to open).
 
+## Gate is currently a silent no-op (do not trust as enforced)
+- `content_access_map` is EMPTY in dev → every page open regardless of products.
+- Portal `use-content-access.ts` calls `authFetch("/api/content-access/me")`, but
+  `authFetch` already prepends `${BASE_URL}api`, so the real URL is the DOUBLED
+  `/api/api/content-access/me` → 404 → the guard fails open every time.
+- Net effect: member-side content gating never actually fires. It is masked by both
+  the empty table AND the fail-open 404. Fixing the URL while the table is empty is
+  safe; fixing it AFTER rows exist would start locking members out — decide deliberately.
+
+**Why:** a guard that "passes" in testing may only be passing because it's silently
+disabled. Verify the fetch URL and table contents before assuming gating works.
+
 ## post-merge.sh
 Step 13 applies `0073_content_access_map.sql` before the drift gate.
