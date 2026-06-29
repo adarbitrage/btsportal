@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from "react";
-import { AdminLayout } from "@/components/layout/AdminLayout";
+import { AppLayout } from "@/components/layout/AppLayout";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -614,19 +614,19 @@ export default function KnowledgeBaseReview() {
     const doc = currentGuided;
     if (!doc) {
       return (
-        <AdminLayout>
+        <AppLayout>
           <div className="max-w-2xl mx-auto py-20 text-center space-y-4">
             <CheckCircle className="w-16 h-16 text-green-500 mx-auto" />
             <h2 className="text-2xl font-bold text-gray-900">Re-verify Queue Complete!</h2>
             <p className="text-gray-500">All existing-doc drafts have been confirmed.</p>
             <Button onClick={() => { setGuidedMode(false); fetchDocs(); }}>Back to Document List</Button>
           </div>
-        </AdminLayout>
+        </AppLayout>
       );
     }
 
     return (
-      <AdminLayout>
+      <AppLayout>
         <div className="max-w-3xl mx-auto space-y-4">
           <div className="flex items-center justify-between">
             <Button variant="ghost" size="sm" onClick={() => { setGuidedMode(false); fetchDocs(); }}>
@@ -702,7 +702,7 @@ export default function KnowledgeBaseReview() {
         </div>
 
         {renderDetailDialog()}
-      </AdminLayout>
+      </AppLayout>
     );
   }
 
@@ -939,7 +939,7 @@ export default function KnowledgeBaseReview() {
 
   // ── Main list view ────────────────────────────────────────────────────────────
   return (
-    <AdminLayout>
+    <AppLayout>
       <div className="space-y-6">
         <div className="flex items-center justify-between">
           <div>
@@ -1264,6 +1264,6 @@ export default function KnowledgeBaseReview() {
           </div>
         </DialogContent>
       </Dialog>
-    </AdminLayout>
+    </AppLayout>
   );
 }

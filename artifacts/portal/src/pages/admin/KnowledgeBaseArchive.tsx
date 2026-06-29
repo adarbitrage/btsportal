@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { AdminLayout } from "@/components/layout/AdminLayout";
+import { AppLayout } from "@/components/layout/AppLayout";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -66,7 +66,7 @@ export default function KnowledgeBaseArchive() {
   };
 
   return (
-    <AdminLayout>
+    <AppLayout>
       <div className="space-y-6">
         <div>
           <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
@@ -145,7 +145,7 @@ export default function KnowledgeBaseArchive() {
           </>
         )}
       </div>
-    </AdminLayout>
+    </AppLayout>
   );
 }
 
