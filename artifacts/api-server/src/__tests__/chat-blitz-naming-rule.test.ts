@@ -5,6 +5,11 @@ import {
   ANTI_HALLUCINATION_SENTINEL,
   DIRECT_ANSWER_SENTINEL,
   BLITZ_NAMING_SENTINEL,
+  NAMES_FROM_DOCS_SENTINEL,
+  CLARIFY_FIRST_SENTINEL,
+  DEPTH_CEILING_SENTINEL,
+  NAVIGATION_SOURCE_SENTINEL,
+  NO_ANSWER_FALLBACK_SENTINEL,
 } from "../lib/chat-system-prompt";
 
 // ensureKBGrounding() touches the DB and a handful of seed/scrub modules. Mock
@@ -97,6 +102,56 @@ describe("Rule 7 — always 'The Blitz' naming rule", () => {
   });
 });
 
+describe("Rules 8-12 — behaviour rules (Task #1407 prompt surgery)", () => {
+  it("carries the Rule 8 names-only-from-structured-docs language", () => {
+    expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain("Rule 8");
+    expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain(NAMES_FROM_DOCS_SENTINEL);
+    expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain("coach / team-member names");
+  });
+
+  it("carries the Rule 9 clarify-first language", () => {
+    expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain("Rule 9");
+    expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain(CLARIFY_FIRST_SENTINEL);
+    expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain("ONE short clarifying question");
+  });
+
+  it("carries the Rule 10 depth-ceiling handoffs (concept→coaching, troubleshooting→support)", () => {
+    expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain("Rule 10");
+    expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain(DEPTH_CEILING_SENTINEL);
+    expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain("live coaching call");
+    expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain("[SUGGEST_TICKET]");
+  });
+
+  it("carries the Rule 11 current-navigation + legacy-terminology crosswalk", () => {
+    expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain("Rule 11");
+    expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain(NAVIGATION_SOURCE_SENTINEL);
+    expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain("BTS Portal Navigation Map");
+    // Legacy crosswalk coverage: brand, term and location remaps must be named.
+    expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain("Cherrington");
+    expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain("Media Mavens");
+    expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain("Resource Library");
+  });
+
+  it("carries the Rule 12 graceful no-answer fallback wired to the no-confident-match signal", () => {
+    expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain("Rule 12");
+    expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain(NO_ANSWER_FALLBACK_SENTINEL);
+    // References the exact note the chat route injects on a non-confident result.
+    expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain("no confident match");
+  });
+
+  it("every behaviour-rule sentinel is a substring of the prompt so none can drift away", () => {
+    for (const sentinel of [
+      NAMES_FROM_DOCS_SENTINEL,
+      CLARIFY_FIRST_SENTINEL,
+      DEPTH_CEILING_SENTINEL,
+      NAVIGATION_SOURCE_SENTINEL,
+      NO_ANSWER_FALLBACK_SENTINEL,
+    ]) {
+      expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain(sentinel);
+    }
+  });
+});
+
 describe("ensureKBGrounding() active-prompt sentinel upgrade", () => {
   it("overwrites an active prompt missing BLITZ_NAMING_SENTINEL", async () => {
     // Has the older sentinels but predates Rule 7's naming sentinel.
@@ -127,6 +182,23 @@ describe("ensureKBGrounding() active-prompt sentinel upgrade", () => {
     const stale = ANTI_HALLUCINATION_SYSTEM_PROMPT.replace(DIRECT_ANSWER_SENTINEL, "redacted");
     expect(stale).not.toContain(DIRECT_ANSWER_SENTINEL);
     dbState.activePrompt = { id: 3, content: stale };
+
+    await ensureKBGrounding();
+
+    expect(dbState.updateCount).toBe(1);
+    expect(dbState.updatedContent).toBe(ANTI_HALLUCINATION_SYSTEM_PROMPT);
+  });
+
+  it.each([
+    ["NAMES_FROM_DOCS_SENTINEL", NAMES_FROM_DOCS_SENTINEL],
+    ["CLARIFY_FIRST_SENTINEL", CLARIFY_FIRST_SENTINEL],
+    ["DEPTH_CEILING_SENTINEL", DEPTH_CEILING_SENTINEL],
+    ["NAVIGATION_SOURCE_SENTINEL", NAVIGATION_SOURCE_SENTINEL],
+    ["NO_ANSWER_FALLBACK_SENTINEL", NO_ANSWER_FALLBACK_SENTINEL],
+  ])("overwrites an active prompt missing %s", async (_name, sentinel) => {
+    const stale = ANTI_HALLUCINATION_SYSTEM_PROMPT.replace(sentinel, "redacted");
+    expect(stale).not.toContain(sentinel);
+    dbState.activePrompt = { id: 5, content: stale };
 
     await ensureKBGrounding();
 

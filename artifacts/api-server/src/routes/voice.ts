@@ -64,7 +64,12 @@ export async function searchKnowledgebaseForVoice(query: string): Promise<string
     limit: 4,
   });
 
-  if (result.docs.length === 0) return "No relevant information found.";
+  // Gate on the surface-aware "confident" signal, not merely doc count: the loose
+  // word-OR fallback can return marginally-related docs that don't clear the
+  // confidence bar. Returning the no-info sentinel for a non-confident result is
+  // what wires the "no confident match" signal into the voice agent's ESCALATION
+  // / NO VERIFIED ANSWER rules so it hands off instead of guessing.
+  if (!result.confident || result.docs.length === 0) return "No relevant information found.";
 
   // Voice answers are spoken/relayed by the 800-number agent: keep each doc terse
   // (title + first 400 chars). Docs are already privacy-scrubbed by the shared

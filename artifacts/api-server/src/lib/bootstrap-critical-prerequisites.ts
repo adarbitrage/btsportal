@@ -24,6 +24,11 @@ import {
   ANTI_HALLUCINATION_SENTINEL,
   DIRECT_ANSWER_SENTINEL,
   BLITZ_NAMING_SENTINEL,
+  NAMES_FROM_DOCS_SENTINEL,
+  CLARIFY_FIRST_SENTINEL,
+  DEPTH_CEILING_SENTINEL,
+  NAVIGATION_SOURCE_SENTINEL,
+  NO_ANSWER_FALLBACK_SENTINEL,
   LEGACY_GENERIC_KB_TITLES,
 } from "./chat-system-prompt";
 import { ensureFoundingSuperAdmins } from "./ensure-founding-superadmins";
@@ -354,13 +359,20 @@ export async function ensureKBGrounding(): Promise<void> {
     activePrompt &&
     (!activePrompt.content.includes(ANTI_HALLUCINATION_SENTINEL) ||
       !activePrompt.content.includes(DIRECT_ANSWER_SENTINEL) ||
-      !activePrompt.content.includes(BLITZ_NAMING_SENTINEL))
+      !activePrompt.content.includes(BLITZ_NAMING_SENTINEL) ||
+      !activePrompt.content.includes(NAMES_FROM_DOCS_SENTINEL) ||
+      !activePrompt.content.includes(CLARIFY_FIRST_SENTINEL) ||
+      !activePrompt.content.includes(DEPTH_CEILING_SENTINEL) ||
+      !activePrompt.content.includes(NAVIGATION_SOURCE_SENTINEL) ||
+      !activePrompt.content.includes(NO_ANSWER_FALLBACK_SENTINEL))
   ) {
     await db
       .update(chatSystemPromptsTable)
       .set({ content: ANTI_HALLUCINATION_SYSTEM_PROMPT })
       .where(eq(chatSystemPromptsTable.id, activePrompt.id));
-    console.log("[Bootstrap] Updated active system prompt with grounding + direct-answer + Blitz-naming rules.");
+    console.log(
+      "[Bootstrap] Updated active system prompt with grounding + direct-answer + Blitz-naming + names-from-docs + clarify-first + depth-ceiling + navigation/legacy + no-answer-fallback rules.",
+    );
   }
 
   // 3. Re-scrub every existing knowledgebase_docs row through the privacy filter

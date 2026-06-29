@@ -18,7 +18,7 @@ are now thin wrappers. There is still a THIRD path — `rag-retriever.ts`
 4. base lexical rank.
 
 **Why:** consolidating chat+voice keeps ranking/synonym/tag/nav/confidence
-behaviour identical across surfaces (Task #1406). The seam for a per-surface
+behaviour identical across surfaces. The seam for a per-surface
 scope/persona split exists (`surface` param + explicit `categories`) but was
 deliberately NOT split here.
 
@@ -33,6 +33,16 @@ deliberately NOT split here.
   this surgical fetch is the only way that doc surfaces.
 - Confidence = primary precise-match `ts_rank >= CONFIDENCE_FLOOR` (0.01) OR a
   nav doc was grounded. Loose word-OR fallback matches do NOT count.
+- BOTH answer layers gate on `confident`, not doc count: `routes/chat.ts` injects
+  the RAG context only when `retrieval.confident && docs.length>0`, else a "no
+  confident match" note that the chat prompt's Rule 12 keys off of;
+  `searchKnowledgebaseForVoice` returns `"No relevant information found."` when
+  `!confident`, which the voice prompt's ESCALATION/NO-VERIFIED-ANSWER rules
+  treat as a hand-off trigger. Gating on `docs.length` alone leaked
+  marginally-related loose-fallback docs as if verified — that is the bug this
+  wiring fixes. The chat route calls `retrieveSurfaceAware` directly (not the
+  `searchKnowledgebase` wrapper) precisely to see `confident`; the wrapper stays
+  for the openai routes + retrieval guard tests.
 
 # Synonym-test landmine (voice-synonyms.ts)
 

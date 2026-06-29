@@ -217,7 +217,18 @@ router.post("/chat", async (req, res): Promise<void> => {
     .slice(0, -1)
     .map((m) => ({ role: m.role as "user" | "assistant", content: m.content }));
 
-  const ragResults = await searchKnowledgebase(message, config.knowledgebaseCategories, priorTurns);
+  // Retrieve directly (rather than via the searchKnowledgebase wrapper) so we get
+  // the surface-aware "confident" signal: docs can come back from the loose
+  // word-OR fallback without clearing the confidence bar. We treat only a
+  // confident match as a verified answer (Rule 12); a non-confident result feeds
+  // the graceful no-answer + handoff path instead of being presented as fact.
+  const retrieval = await retrieveSurfaceAware(message, {
+    surface: "chat",
+    categories: config.knowledgebaseCategories,
+    limit: 6,
+    history: priorTurns,
+  });
+  const ragResults = retrieval.docs.map((d) => ({ title: d.title, content: d.content, category: d.category }));
 
   const [user] = await db.select({ name: usersTable.name }).from(usersTable).where(eq(usersTable.id, userId));
 
@@ -228,13 +239,13 @@ router.post("/chat", async (req, res): Promise<void> => {
     .replace(/\{\{chat_tier\}\}/g, chatTier)
     .replace(/\{\{daily_limit\}\}/g, String(config.dailyLimit));
 
-  if (ragResults.length > 0) {
+  if (retrieval.confident && ragResults.length > 0) {
     const ragContext = ragResults
       .map((r) => `[${r.category}] ${r.title}:\n${r.content}`)
       .join("\n\n---\n\n");
     systemPrompt += `\n\n## Relevant Knowledge Base Articles\n\n${ragContext}`;
   } else {
-    systemPrompt += `\n\n## Knowledge Base Search Result\n\nNo BTS knowledge base articles matched this query. You must not fabricate an answer based on general affiliate marketing knowledge. If the member is asking about anything BTS-specific (which traffic sources BTS uses, which tools BTS provides, specific BTS processes, policies, or team members), clearly state that you don't have that information in the knowledge base right now and direct them to a live coaching call or contact support at support@buildtestscale.com.`;
+    systemPrompt += `\n\n## Knowledge Base Search Result\n\nNo confident match — the knowledge base has no verified answer for this query. You must not fabricate an answer based on general affiliate marketing knowledge, and you must not stitch one together from loosely-related snippets. Follow Rule 12: tell the member you don't have a verified answer to that yet, then route them — conceptual or strategy questions to a live coaching call, and account, billing, or technical questions to a support ticket ([SUGGEST_TICKET]) or support@buildtestscale.com.`;
   }
 
   const chatMessages = orderedHistory.map((m) => ({
