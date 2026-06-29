@@ -1,0 +1,19 @@
+Read-only end-to-end verification across three merged features — make NO changes, just trace and report with file-level evidence. For each check, classify the result as: PASS (works), GAP (real code defect), or NOT-YET (correct, but unobservable because content/data doesn't exist yet — e.g. no authored lessons, dev data unbackfilled). Do not treat NOT-YET as a failure.
+
+FEATURE 1 — Brand substitution (front-end → content)
+1a. Confirm the lesson read seam substitutes {{brand}} tokens per the member's resolved brand, and the admin editor loads RAW tokens (so saves can't corrupt source).
+1b. Confirm a non-YSE member (e.g. reserve_income) resolves to their brand and would render their brand strings, not "Your Second Engine".
+
+FEATURE 2 — Content access map (level → pages)
+2a. Confirm the resolver is open-by-default (unmapped page → accessible to all) and gates a mapped page to product-owners + admin.
+2b. Confirm the route guard renders the locked screen (not the page, not a silent redirect) for a member lacking access on a DIRECT URL, and that nav-hide and route-guard read the same accessiblePageKeys source.
+
+FEATURE 3 — Member level (members → level)
+3a. Confirm GET /api/admin/members computes each member's level from their highest active product via product-rank.ts, and that all five real mentorship slugs (launchpad/3month/6month/1year/lifetime) match the rank map exactly.
+3b. Confirm an admin grant/revoke no longer overwrites users.sourceProduct (origin stays origin), and the admin list shows a Level column + server-side sort.
+
+CROSS-CUTTING
+4a. Confirm the three features share one source of truth where they overlap: brand origin (sourceProduct) is read consistently, and product rank comes only from product-rank.ts (no competing rank map remains).
+4b. List anything that is coded-and-correct but currently UNOBSERVABLE pending (i) authored lesson content carrying tokens, and (ii) the production sourceProduct backfill. Classify these NOT-YET, not GAP.
+
+Report per-check: PASS / GAP / NOT-YET, with the file + code evidence. If everything is PASS or NOT-YET with zero GAPs, say so plainly: the wiring is sound and what remains is content + data, not code.

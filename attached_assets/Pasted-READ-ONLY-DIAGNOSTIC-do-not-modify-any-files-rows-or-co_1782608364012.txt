@@ -1,0 +1,43 @@
+READ-ONLY DIAGNOSTIC — do not modify any files, rows, or content. Report only.
+
+Goal: Find every member-visible reference to the defunct "The Cherrington
+Experience" mentorship brand (and its "TCE" shorthand) anywhere in the portal.
+This brand was retired during the Build Test Scale rebrand and should not
+appear in member-facing content.
+
+SURFACES — search ALL content surfaces, not just lessons. First discover the
+actual tables (don't assume names); list every table whose rows hold
+member-visible text. At minimum: lessons, tracks, modules, any Blitz
+curriculum tables, vault/resource tables, announcements, knowledge-base
+articles, and email/communication templates. For EACH table, confirm its
+schema first (column names + types) before searching — schemas differ
+(lessons stores rich text in a single text_content jsonb, no flattened column).
+Search every plain-text AND rich-text/jsonb field (cast jsonb to text so no
+node type, mark, or attr can hide).
+
+SEARCH TERMS:
+1. "The Cherrington Experience"   (case-insensitive)
+2. "TCE"  — CASE-SENSITIVE, WHOLE-WORD ONLY (word boundary both sides).
+           List whole-word hits separately from any substring hits.
+3. "Cherrington"  (partial, case-insensitive) — the catch-all.
+
+CLASSIFY each "Cherrington" hit (not every reference is a defect):
+  A. Defunct brand — "The Cherrington Experience" / "TCE"  → likely needs fixing
+  B. Parent entity — "Cherrington Media"  → may be a legitimate legal/footer
+     reference; flag, do NOT assume it's wrong
+  C. Possible pen-name leak — "Adam Cherrington" in member-facing copy
+     (customer-facing should read "Adam Scott")  → flag for review
+  D. Standalone "Cherrington" — needs context
+
+For each match: table + row ID + title, field matched (+ type text vs jsonb),
+full surrounding sentence, bucket (A/B/C/D), and whether it reads as a plain
+brand LABEL vs. first-person NARRATIVE ("when I ran The Cherrington Experience…").
+
+VALIDITY CHECKS (so a zero is trustworthy, not a silent miss):
+- Confirm matcher works: count a generic control word ("affiliate") across the
+  searched fields.
+- Report row count per table + null/empty content counts (nothing skipped).
+- Distinguish "Cherrington appears 0 times" from "appears only as Cherrington Media."
+
+Summarize: total distinct rows per surface, count per term, A/B/C/D breakdown.
+Make NO changes — purely counting + context-gathering.

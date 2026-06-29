@@ -1,0 +1,48 @@
+## Task: BTS — member access revoke endpoint (for The Machine's refund integration)
+
+### What This Does
+Adds an inbound integration endpoint so The Machine can revoke a member's product
+access when an order is fully refunded on The Machine's side. Mirrors the existing
+inbound grant that The Machine already calls. Today there's no revoke counterpart,
+so a refunded buyer keeps BTS access.
+
+### Reuse first — don't duplicate
+- Find the existing inbound grant integration endpoint that The Machine calls (the
+  counterpart to The Machine's grantBtsProducts — likely under /api/integration/ or
+  /api/webhooks/). Add the revoke endpoint alongside it, same router + same auth.
+- Build Spec #2 (ThriveCart webhooks) already handles refunds/cancellations. If that
+  path already contains logic that deactivates user_products on a refund, REUSE that
+  internal revoke function. This endpoint should just be a second trigger for it.
+
+### Endpoint
+- POST /api/integration/revoke-products  (match the path style + auth of the existing
+  grant integration; The Machine will present the same credential). Reject unauthenticated calls.
+- Body: { userRef, productKeys?: string[], sourceOrderNumber, reason }
+  - userRef = same identifier the grant used (email, or the id stored as bts_grant_user_id).
+  - If productKeys given, revoke those; else revoke the product(s) originally granted
+    for sourceOrderNumber.
+
+### Behavior
+- Resolve the member; find the user_products row(s) for the granted product(s) of that order.
+- Set their status to a non-active value (e.g. 'refunded'/'revoked') so resolveEntitlements
+  (which filters status='active') drops them. Do NOT hard-delete — keep the row for history,
+  timestamp it, store reason + sourceOrderNumber.
+- Effective access = union of remaining active products, so any OTHER active products the
+  member owns keep their entitlements. Only the refunded product's access is pulled.
+- Idempotent: already-revoked → success, no change.
+- Optional (queue, don't block): a GHL tag update reflecting the revocation, mirroring how
+  the grant queues GHL sync.
+
+### Returns
+{ revoked: string[], status: 'revoked' | 'already_revoked', userRef }
+
+### Acceptance Criteria
+- Granted-then-revoked member loses exactly the refunded product's entitlements; separately
+  owned active products keep theirs.
+- Re-calling for the same order is a no-op success.
+- Unauthenticated calls rejected. History row remains (status changed, not deleted).
+
+### Implementation Notes
+- Mirror the existing grant integration's auth + product-key resolution exactly, so grant
+  and revoke target the same entitlements.
+- The Machine calls this from its new revokeBtsProducts on a FULL refund only (partials won't call it).
