@@ -1,0 +1,80 @@
+## BTS Portal — Native NMI Billing, Tier 3b: Collect.js checkout page (FRONTEND)
+
+### What This Does
+The member-facing checkout for ONE native product: loads NMI Collect.js with the public tokenization
+key, captures the card in Collect.js's hosted iframe fields (so raw card data NEVER touches BTS's
+page or JS), tokenizes on submit, and posts the token to the Tier-3a endpoint
+(POST /api/billing/checkout) to complete the purchase. Frontend only — the charge/grant logic is
+Tier 3a (merged).
+
+### Files Created
+- [pages dir]/billing/checkout page component — the checkout screen.
+- [lib dir]/collectjs.ts — small helper to load + configure Collect.js with the fetched key.
+- [hooks dir] a checkout mutation hook (TanStack Query) calling POST /api/billing/checkout.
+
+### Files Modified
+- App router — add the checkout route (this task owns this route; single page, no parallel conflict).
+- (Only if no product-display read exists) add a minimal GET to show the item name + price; otherwise
+  reuse the existing product read. Do NOT add any new write/charge logic — Tier 3a owns that.
+
+### Schema Changes
+- None.
+
+### API Endpoints (consumed, not created)
+- GET /api/billing/tokenization-key (Tier 1) → the PUBLIC Collect.js key.
+- POST /api/billing/checkout (Tier 3a) → body { productId, paymentToken, idempotencyKey }.
+
+### Frontend
+- Route: a checkout page parameterized by the product (id or slug), e.g. /checkout/:productId. Directly
+  reachable for testing with a native product id. (Entry CTAs from specific surfaces — First Movers
+  Club promo, wallet top-up — come with those features later; this tier just needs the working page +
+  route.)
+- On mount: fetch the product (show name + price from price_cents, formatted to dollars) and fetch the
+  tokenization key; then load Collect.js configured in FIELDS mode (separate hosted iframe inputs for
+  card number, expiry, CVV) using that key. If the key endpoint 503s (unset), show a clear "checkout
+  unavailable" state — not a broken form.
+- Submit flow:
+   1. Disable the button, call Collect.js to tokenize. Collect.js returns a one-time payment token.
+      (The token is single-use — re-tokenize on every attempt.)
+   2. POST { productId, paymentToken, idempotencyKey } to /api/billing/checkout.
+- IDEMPOTENCY KEY rule (money-safety — implement exactly):
+   - Generate a uuid idempotencyKey when a fresh purchase attempt begins (on mount / first submit).
+   - REUSE the same key if a submit fails with NO response (network/timeout) and the user retries —
+     so the server replays its result instead of risking a second charge.
+   - Generate a NEW key only after a definitive DECLINE (402) or after a successful purchase (a new
+     intent). Never reuse a key across a decline (the server would replay the failure, not charge the
+     new card).
+- Result handling (map the Tier-3a responses precisely):
+   - 200 paid → success screen: order number + what was unlocked (grantedEntitlements). 
+   - paid + reconciliation/grantPending state → treat as PAYMENT SUCCEEDED: show "Payment received —
+     finalizing your access, this can take a moment." Do NOT show a failure; the money moved.
+   - 402 declined → clear "card was declined" message, let the user re-enter and retry (fresh token +
+     fresh key). 
+   - 409 in_progress → "this is already processing" — block re-submit, don't fire a second charge.
+   - 400 → surface the validation message (e.g. not a purchasable item).
+   - No response / 5xx → "We couldn't confirm your payment. Check your billing history before trying
+     again." Do NOT auto-retry (a silent retry could double-charge). 
+- Optional nicety (only if cheap): if the member already owns the product, show an "already owned"
+  state instead of the form.
+
+### Dependencies
+- Depends on: Tier 1 (key endpoint) + Tier 3a (checkout endpoint) — both merged.
+
+### Acceptance Criteria
+- With a sandbox card, a member completes a purchase: the page tokenizes via Collect.js, the endpoint
+  charges, and the success screen shows the order number + unlocked access; the member's entitlements
+  reflect it.
+- Raw card data is entered ONLY in Collect.js's hosted iframe fields — confirm BTS's own JS never reads
+  the PAN/CVV (no card values pass through app state).
+- A declined sandbox card shows a clean retryable error and does NOT leave the button stuck.
+- A double-click does not produce two charges (the in_progress/idempotency handling prevents it).
+- The reconciliation/grantPending response renders as "payment received, finalizing access" — never as
+  a failure.
+- Clean tsc (green) + architect review. Report files + the route added. Do NOT create follow-up tasks.
+
+### Implementation Notes
+- PCI posture: card capture stays inside Collect.js iframes — that's the whole reason the server only
+  ever gets a token. Do not build a custom card input.
+- Show prices from price_cents formatted to dollars; the client never sends or trusts an amount.
+- This is the first member-facing money screen — favor clear, honest states over cleverness, especially
+  the "we couldn't confirm" and "payment received, finalizing" cases.

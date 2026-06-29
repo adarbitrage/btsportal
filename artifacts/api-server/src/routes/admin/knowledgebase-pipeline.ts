@@ -3,7 +3,7 @@ import { Router, Request, Response } from "express";
 import fs from "fs";
 import path from "path";
 import { db } from "@workspace/db";
-import { kbStagingDocsTable } from "@workspace/db/schema";
+import { kbStagingDocsTable, blitzLessonsTable } from "@workspace/db/schema";
 import { eq, count, and, sql } from "drizzle-orm";
 import { requirePermission } from "../../middleware/rbac.js";
 import { execSync, execFile } from "child_process";
@@ -655,10 +655,9 @@ router.post("/process-blitz", async (req: Request, res: Response) => {
 router.get("/blitz-status", async (_req: Request, res: Response) => {
   try {
     const blitzDocs = await db
-      .select({ status: kbStagingDocsTable.status, cnt: count() })
-      .from(kbStagingDocsTable)
-      .where(eq(kbStagingDocsTable.source, "blitz"))
-      .groupBy(kbStagingDocsTable.status);
+      .select({ status: blitzLessonsTable.status, cnt: count() })
+      .from(blitzLessonsTable)
+      .groupBy(blitzLessonsTable.status);
 
     const total = blitzDocs.reduce((s, r) => s + r.cnt, 0);
 
@@ -782,15 +781,14 @@ async function processBlitzBackground(
         if (cleaned.toLowerCase().includes(tool)) toolsMentioned.push(tool);
       }
 
-      await db.insert(kbStagingDocsTable).values({
+      await db.insert(blitzLessonsTable).values({
         title: doc.title,
         category: doc.category,
         content: doc.content,
         tags: doc.topics + (toolsMentioned.length > 0 ? ", " + toolsMentioned.join(", ") : ""),
         sourceVideoTitle: video.title,
         sourceVideoId: video.id,
-        status: "needs_review",
-        source: "blitz",
+        status: "published",
         phase: lesson.phase,
         module: lesson.module,
         lessonId: lesson.lessonId,
@@ -820,16 +818,8 @@ async function processBlitzBackground(
     `[Blitz Pipeline] Complete. Processed: ${blitzProcessingStatus.processed}, Errors: ${blitzProcessingStatus.errors}`,
   );
 
-  if (blitzProcessingStatus.processed > 0) {
-    console.log(`[Blitz Pipeline] Auto-triaging ${blitzProcessingStatus.processed} new docs…`);
-    const newDocs = await db
-      .select()
-      .from(kbStagingDocsTable)
-      .where(eq(kbStagingDocsTable.status, "needs_review"));
-    runTriageBackground(newDocs).catch((err) =>
-      console.error("[Blitz Pipeline] Triage error:", err),
-    );
-  }
+  // Blitz lessons live in their own `blitz_lessons` table and are NOT AI
+  // knowledge-base content, so there is intentionally no auto-triage step here.
 }
 
 router.post("/process-blitz-retry", async (req: Request, res: Response) => {
@@ -843,9 +833,8 @@ router.post("/process-blitz-retry", async (req: Request, res: Response) => {
     if (!apiKey) { res.status(400).json({ error: "VIDALYTICS_API_KEY not configured" }); return; }
 
     const existingDocs = await db
-      .select({ lessonId: kbStagingDocsTable.lessonId })
-      .from(kbStagingDocsTable)
-      .where(eq(kbStagingDocsTable.source, "blitz"));
+      .select({ lessonId: blitzLessonsTable.lessonId })
+      .from(blitzLessonsTable);
 
     const existingLessonIds = new Set(existingDocs.map(d => d.lessonId).filter(Boolean));
 
@@ -1015,15 +1004,14 @@ OUTPUT FORMAT:
       const content = json.choices[0]?.message?.content || "";
       const topicsMatch = content.match(/\*\*Topics:\*\*\s*(.+)/);
 
-      await db.insert(kbStagingDocsTable).values({
+      await db.insert(blitzLessonsTable).values({
         title: doc.title,
         category: doc.lessonType === "conceptual" ? "curriculum" : "strategy",
         content,
         tags: topicsMatch ? topicsMatch[1].trim() : "",
         sourceVideoTitle: null,
         sourceVideoId: null,
-        status: "needs_review",
-        source: "blitz",
+        status: "published",
         phase: doc.phase,
         module: doc.module,
         lessonId: null,
@@ -1385,11 +1373,10 @@ router.post("/seed-blitz", async (_req: Request, res: Response) => {
   try {
     const existing = await db
       .select({ cnt: count() })
-      .from(kbStagingDocsTable)
-      .where(eq(kbStagingDocsTable.source, "blitz"));
-    
+      .from(blitzLessonsTable);
+
     if (existing[0].cnt > 0) {
-      res.json({ message: `Blitz docs already exist (${existing[0].cnt}). Skipping seed.`, seeded: 0 });
+      res.json({ message: `Blitz lessons already exist (${existing[0].cnt}). Skipping seed.`, seeded: 0 });
       return;
     }
 
@@ -1403,17 +1390,16 @@ router.post("/seed-blitz", async (_req: Request, res: Response) => {
     let inserted = 0;
 
     for (const doc of docs) {
-      await db.insert(kbStagingDocsTable).values({
+      await db.insert(blitzLessonsTable).values({
         title: doc.title,
         category: doc.category,
         content: doc.content,
         tags: doc.tags || "",
         sourceVideoTitle: doc.source_video_title,
         sourceVideoId: doc.source_video_id,
-        status: doc.status || "needs_review",
+        status: doc.status && doc.status !== "pending_review" ? doc.status : "published",
         adminNotes: doc.admin_notes,
         editedContent: doc.edited_content,
-        source: doc.source,
         phase: doc.phase,
         module: doc.module,
         lessonId: doc.lesson_id,

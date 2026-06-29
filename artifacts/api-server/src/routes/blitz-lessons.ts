@@ -1,6 +1,6 @@
 import { Router, type Request, type Response } from "express";
 import { db } from "@workspace/db";
-import { kbStagingDocsTable } from "@workspace/db/schema";
+import { blitzLessonsTable } from "@workspace/db/schema";
 import { and, eq, ne, asc } from "drizzle-orm";
 
 const router = Router();
@@ -9,27 +9,22 @@ router.get("/blitz/lessons", async (_req: Request, res: Response) => {
   try {
     const rows = await db
       .select({
-        id: kbStagingDocsTable.id,
-        title: kbStagingDocsTable.title,
-        category: kbStagingDocsTable.category,
-        tags: kbStagingDocsTable.tags,
-        sourceVideoTitle: kbStagingDocsTable.sourceVideoTitle,
-        phase: kbStagingDocsTable.phase,
-        module: kbStagingDocsTable.module,
-        lessonId: kbStagingDocsTable.lessonId,
-        lessonType: kbStagingDocsTable.lessonType,
-        networkPath: kbStagingDocsTable.networkPath,
-        publisherPath: kbStagingDocsTable.publisherPath,
-        blitzOrder: kbStagingDocsTable.blitzOrder,
+        id: blitzLessonsTable.id,
+        title: blitzLessonsTable.title,
+        category: blitzLessonsTable.category,
+        tags: blitzLessonsTable.tags,
+        sourceVideoTitle: blitzLessonsTable.sourceVideoTitle,
+        phase: blitzLessonsTable.phase,
+        module: blitzLessonsTable.module,
+        lessonId: blitzLessonsTable.lessonId,
+        lessonType: blitzLessonsTable.lessonType,
+        networkPath: blitzLessonsTable.networkPath,
+        publisherPath: blitzLessonsTable.publisherPath,
+        blitzOrder: blitzLessonsTable.blitzOrder,
       })
-      .from(kbStagingDocsTable)
-      .where(
-        and(
-          eq(kbStagingDocsTable.source, "blitz"),
-          ne(kbStagingDocsTable.status, "rejected"),
-        ),
-      )
-      .orderBy(asc(kbStagingDocsTable.blitzOrder), asc(kbStagingDocsTable.id));
+      .from(blitzLessonsTable)
+      .where(ne(blitzLessonsTable.status, "rejected"))
+      .orderBy(asc(blitzLessonsTable.blitzOrder), asc(blitzLessonsTable.id));
 
     res.json({ lessons: rows });
   } catch (err) {
@@ -48,12 +43,11 @@ router.get("/blitz/lessons/:id", async (req: Request, res: Response) => {
 
     const [row] = await db
       .select()
-      .from(kbStagingDocsTable)
+      .from(blitzLessonsTable)
       .where(
         and(
-          eq(kbStagingDocsTable.id, id),
-          eq(kbStagingDocsTable.source, "blitz"),
-          ne(kbStagingDocsTable.status, "rejected"),
+          eq(blitzLessonsTable.id, id),
+          ne(blitzLessonsTable.status, "rejected"),
         ),
       )
       .limit(1);

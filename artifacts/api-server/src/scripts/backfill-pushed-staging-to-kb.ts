@@ -1,6 +1,10 @@
 /**
  * One-shot backfill: copies kb_staging_docs rows that are status='pushed'
- * (sources: blitz, coaching_call) into knowledgebase_docs as upserts on title.
+ * (source: coaching_call) into knowledgebase_docs as upserts on title.
+ *
+ * NOTE: Blitz is fully decoupled — its lessons live in the dedicated
+ * `blitz_lessons` table and never in kb_staging_docs — so 'blitz' is
+ * intentionally NOT a backfill source here.
  *
  * Safe to re-run: uses ON CONFLICT (title) DO UPDATE.
  * Only operates on the database the env points to. To run against prod, set
@@ -14,7 +18,7 @@ import { kbStagingDocsTable, knowledgebaseDocsTable } from "@workspace/db/schema
 import { and, eq, inArray, sql } from "drizzle-orm";
 import { scrubPrivateContent } from "../lib/content-privacy-filter";
 
-const SOURCES = ["blitz", "coaching_call"] as const;
+const SOURCES = ["coaching_call"] as const;
 
 async function main() {
   console.log("[backfill] reading pushed staging docs...");

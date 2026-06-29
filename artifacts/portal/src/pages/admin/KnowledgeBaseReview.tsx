@@ -122,7 +122,6 @@ interface StatusCounts {
 }
 
 interface SourceCounts {
-  blitz: number;
   coaching_call: number;
   upload: number;
   unlabeled: number;
@@ -227,7 +226,7 @@ function RiskChips({ flags, needsExpert }: { flags: RiskFlag[] | null; needsExpe
 export default function KnowledgeBaseReview() {
   const [docs, setDocs] = useState<StagingDoc[]>([]);
   const [statusCounts, setStatusCounts] = useState<StatusCounts>({});
-  const [sourceCounts, setSourceCounts] = useState<SourceCounts>({ blitz: 0, coaching_call: 0, upload: 0, unlabeled: 0 });
+  const [sourceCounts, setSourceCounts] = useState<SourceCounts>({ coaching_call: 0, upload: 0, unlabeled: 0 });
   const [docTypeCounts, setDocTypeCounts] = useState<StatusCounts>({});
   const [shelfCounts, setShelfCounts] = useState<ShelfCount[]>([]);
   const [loading, setLoading] = useState(true);
@@ -287,7 +286,7 @@ export default function KnowledgeBaseReview() {
       const data = await res.json();
       setDocs(data.documents);
       setStatusCounts(data.statusCounts || {});
-      setSourceCounts(data.sourceCounts || { blitz: 0, coaching_call: 0, upload: 0, unlabeled: 0 });
+      setSourceCounts(data.sourceCounts || { coaching_call: 0, upload: 0, unlabeled: 0 });
       setDocTypeCounts(data.docTypeCounts || {});
       setShelfCounts(data.shelfCounts || []);
       setTotalPages(data.pagination?.totalPages || 1);
@@ -1066,7 +1065,6 @@ export default function KnowledgeBaseReview() {
           <span className="text-sm text-gray-500">Origin:</span>
           {[
             ["all", "All"],
-            ["blitz", `Blitz (${sourceCounts.blitz})`],
             ["coaching_call", `Coaching (${sourceCounts.coaching_call})`],
             ["upload", `Uploaded (${sourceCounts.upload})`],
             ["unlabeled", `Unlabeled (${sourceCounts.unlabeled})`],

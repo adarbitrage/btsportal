@@ -1,8 +1,8 @@
 import { writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { db } from "@workspace/db";
-import { kbStagingDocsTable } from "@workspace/db/schema";
-import { and, eq, ne, asc } from "drizzle-orm";
+import { blitzLessonsTable } from "@workspace/db/schema";
+import { ne, asc } from "drizzle-orm";
 
 /**
  * One-off snapshot generator for the FROZEN Blitz archive lesson library.
@@ -24,14 +24,9 @@ const OUT = resolve(
 async function main() {
   const rows = await db
     .select()
-    .from(kbStagingDocsTable)
-    .where(
-      and(
-        eq(kbStagingDocsTable.source, "blitz"),
-        ne(kbStagingDocsTable.status, "rejected"),
-      ),
-    )
-    .orderBy(asc(kbStagingDocsTable.blitzOrder), asc(kbStagingDocsTable.id));
+    .from(blitzLessonsTable)
+    .where(ne(blitzLessonsTable.status, "rejected"))
+    .orderBy(asc(blitzLessonsTable.blitzOrder), asc(blitzLessonsTable.id));
 
   const lessons = rows.map((r) => ({
     id: r.id,

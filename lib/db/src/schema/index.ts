@@ -62,6 +62,7 @@ export * from "./admin-notes";
 export * from "./conversations";
 export * from "./messages";
 export * from "./kb-staging";
+export * from "./blitz-lessons";
 export * from "./course-progress";
 export * from "./blitz-events";
 export * from "./member-app-instances";
