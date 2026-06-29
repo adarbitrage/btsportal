@@ -780,6 +780,43 @@ export function reloadKnowledgeBaseCache() {
   return adminFetch<{ success: boolean; message: string }>("/admin/chat/knowledgebase/reload", { method: "POST" });
 }
 
+// ── Live AI Documents (AI Knowledgebase — phase-1 clean corpus) ──────────────
+export interface AiLiveDocument {
+  id: number;
+  title: string;
+  slug: string | null;
+  category: string;
+  content: string;
+  chunkCount: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export function fetchAiLiveDocuments(params?: { category?: string; search?: string }) {
+  const qs = new URLSearchParams();
+  if (params?.category) qs.set("category", params.category);
+  if (params?.search) qs.set("search", params.search);
+  return adminFetch<AiLiveDocument[]>(`/admin/ai-live-documents?${qs.toString()}`);
+}
+
+export function createAiLiveDocument(data: { title: string; category: string; content: string; slug?: string }) {
+  return adminFetch<AiLiveDocument>("/admin/ai-live-documents", {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+}
+
+export function updateAiLiveDocument(id: number, data: { title?: string; category?: string; content?: string; slug?: string }) {
+  return adminFetch<AiLiveDocument>(`/admin/ai-live-documents/${id}`, {
+    method: "PUT",
+    body: JSON.stringify(data),
+  });
+}
+
+export function deleteAiLiveDocument(id: number) {
+  return adminFetch<{ success: boolean }>(`/admin/ai-live-documents/${id}`, { method: "DELETE" });
+}
+
 export function requestKbUploadUrl(params: { name: string; size: number; contentType: string }) {
   return adminFetch<{ uploadURL: string; objectPath: string }>("/storage/uploads/request-url", {
     method: "POST",

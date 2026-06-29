@@ -572,8 +572,8 @@ export default function Knowledgebase() {
       <div className="space-y-6">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-bold text-foreground">Knowledgebase Management</h1>
-            <p className="text-muted-foreground mt-1">Manage RAG knowledge documents for the AI chat assistant.</p>
+            <h1 className="text-2xl font-bold text-foreground">Knowledge Base</h1>
+            <p className="text-muted-foreground mt-1">Manage the knowledge base documents.</p>
           </div>
           <div className="flex items-center gap-2 flex-wrap">
             <Button

@@ -80,6 +80,7 @@ import SystemPrompts from "@/pages/admin/SystemPrompts";
 import Knowledgebase from "@/pages/admin/Knowledgebase";
 import ContentGaps from "@/pages/admin/ContentGaps";
 import KnowledgeBaseReview from "@/pages/admin/KnowledgeBaseReview";
+import LiveAIDocuments from "@/pages/admin/LiveAIDocuments";
 import KnowledgeBaseArchive from "@/pages/admin/KnowledgeBaseArchive";
 import RateLimits from "@/pages/admin/RateLimits";
 import WinsWall from "@/pages/wins/WinsWall";
@@ -580,6 +581,7 @@ function Router() {
       <Route path="/admin/chat/knowledgebase/archivebackup">{() => <AdminRoute component={KnowledgeBaseArchive} permission="chat:manage" />}</Route>
       <Route path="/admin/chat/knowledgebase/review">{() => <AdminRoute component={KnowledgeBaseReview} permission="chat:manage" />}</Route>
       <Route path="/admin/chat/knowledgebase">{() => <AdminRoute component={Knowledgebase} permission="chat:manage" />}</Route>
+      <Route path="/admin/ai-knowledgebase/live-documents">{() => <AdminRoute component={LiveAIDocuments} permission="chat:manage" />}</Route>
       <Route path="/admin/chat/content-gaps">{() => <AdminRoute component={ContentGaps} permission="chat:manage" />}</Route>
       <Route path="/admin/chat/rate-limits">{() => <AdminRoute component={RateLimits} permission="chat:manage" />}</Route>
       <Route path="/admin/coaching/sessions">{() => <AdminRoute component={PrivateCoaching} permission="coaching:view" />}</Route>
