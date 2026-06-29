@@ -88,3 +88,4 @@ export * from "./content-access-map";
 export * from "./content-gap-questions";
 export * from "./bts-orders";
 export * from "./checkout-idempotency";
+export * from "./payment-methods";

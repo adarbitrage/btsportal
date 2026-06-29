@@ -126,6 +126,17 @@ export async function createVaultFromToken(
   return { ...result, customerVaultId };
 }
 
+export interface DeleteVaultParams {
+  customerVaultId: string;
+}
+
+export async function deleteVaultCustomer(params: DeleteVaultParams): Promise<NmiResult> {
+  return nmiPost({
+    customer_vault: "delete_customer",
+    customer_vault_id: params.customerVaultId,
+  });
+}
+
 export interface RefundParams {
   transactionId: string;
   amountCents?: number;

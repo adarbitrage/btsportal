@@ -1,7 +1,7 @@
 import { db, productsTable, usersTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import { randomUUID } from "crypto";
-import { chargeCardToken } from "./charge-service.js";
+import { chargeCardToken, chargeStoredVault } from "./charge-service.js";
 import {
   claimIdempotencyKey,
   completeIdempotencyKey,
@@ -12,12 +12,14 @@ import {
 } from "../../storage/billing-orders-store.js";
 import { logAuditEvent } from "../audit-log.js";
 import { insertUserProductGrant } from "../external-grant-product.js";
+import { getPaymentMethodForUser } from "../../storage/payment-methods-store.js";
 
 export interface CheckoutParams {
   userId: number;
   productId: number;
-  paymentToken: string;
   idempotencyKey: string;
+  paymentToken?: string;
+  paymentMethodId?: number;
 }
 
 export type CheckoutOutcome =
@@ -38,6 +40,7 @@ export type CheckoutOutcome =
   | { type: "conflict" }
   | { type: "invalid_product"; message: string }
   | { type: "user_not_found" }
+  | { type: "payment_method_not_found" }
   | {
       type: "replay_paid";
       orderNumber: string;
@@ -63,9 +66,13 @@ export type CheckoutOutcome =
  * "paid_reconciliation_needed" outcome is returned and idempotency is
  * completed so replay never re-charges.  Idempotency completion failures
  * are logged prominently rather than silently swallowed.
+ *
+ * Accepts either a fresh paymentToken (Collect.js token) or a paymentMethodId
+ * (saved card via NMI Customer Vault). Exactly one must be supplied — the
+ * caller (route handler) is responsible for enforcing this before calling.
  */
 export async function processCheckout(params: CheckoutParams): Promise<CheckoutOutcome> {
-  const { userId, productId, paymentToken, idempotencyKey } = params;
+  const { userId, productId, idempotencyKey } = params;
 
   const [product] = await db
     .select()
@@ -100,6 +107,9 @@ export async function processCheckout(params: CheckoutParams): Promise<CheckoutO
   const firstName = nameParts[0] ?? undefined;
   const lastName = nameParts.length > 1 ? nameParts.slice(1).join(" ") : undefined;
 
+  // ── Idempotency claim — must happen before ownership/vault lookup ──────────
+  // Replays return the stored prior outcome regardless of whether the payment
+  // method still exists, preserving Tier-3a money-safety semantics.
   const claim = await claimIdempotencyKey(idempotencyKey, userId, productId);
 
   if (claim.type === "in_progress") {
@@ -111,7 +121,6 @@ export async function processCheckout(params: CheckoutParams): Promise<CheckoutO
   if (claim.type === "replay") {
     const r = claim.result as Record<string, unknown>;
     if (claim.wasSuccess) {
-      // Distinguish between a clean paid replay and a reconciliation-needed replay
       if ((r.outcomeType as string) === "paid_reconciliation_needed") {
         return {
           type: "replay_reconciliation_needed",
@@ -131,6 +140,18 @@ export async function processCheckout(params: CheckoutParams): Promise<CheckoutO
         message: (r.message as string) ?? "Card declined",
       };
     }
+  }
+
+  // ── Fresh attempt: resolve saved-card vault_id (ownership enforced) ────────
+  // Fetching by (id, userId) treats a non-owned id as not-found (404 — never
+  // chargeable). Only reached on fresh attempts, never on replays.
+  let resolvedVaultId: string | undefined;
+  if (params.paymentMethodId !== undefined) {
+    const method = await getPaymentMethodForUser(params.paymentMethodId, userId);
+    if (!method) {
+      return { type: "payment_method_not_found" };
+    }
+    resolvedVaultId = method.vaultId;
   }
 
   const orderNumber = `NMI-${Date.now()}-${randomUUID().slice(0, 8).toUpperCase()}`;
@@ -153,18 +174,28 @@ export async function processCheckout(params: CheckoutParams): Promise<CheckoutO
     ],
   });
 
-  let chargeResult: Awaited<ReturnType<typeof chargeCardToken>>;
+  // ── Charge: token path or vault path ──────────────────────────────────────
+  type ChargeResult = Awaited<ReturnType<typeof chargeCardToken>>;
+  let chargeResult: ChargeResult;
   try {
-    chargeResult = await chargeCardToken({
-      amountCents: product.priceCents,
-      paymentToken,
-      orderId: orderNumber,
-      email: user.email,
-      firstName,
-      lastName,
-    });
+    if (resolvedVaultId !== undefined) {
+      chargeResult = await chargeStoredVault({
+        amountCents: product.priceCents,
+        customerVaultId: resolvedVaultId,
+        orderId: orderNumber,
+        email: user.email,
+      });
+    } else {
+      chargeResult = await chargeCardToken({
+        amountCents: product.priceCents,
+        paymentToken: params.paymentToken!,
+        orderId: orderNumber,
+        email: user.email,
+        firstName,
+        lastName,
+      });
+    }
   } catch (err) {
-    // Pre-charge: no money moved. Best-effort status update + idempotency.
     await updateOrderStatus(order.id, {
       status: "failed",
       metadata: { gatewayError: String(err) },
@@ -184,7 +215,6 @@ export async function processCheckout(params: CheckoutParams): Promise<CheckoutO
   }
 
   if (!chargeResult.success) {
-    // Declined: no money moved. Best-effort status update + idempotency.
     await updateOrderStatus(order.id, {
       status: "failed",
       metadata: { gatewayResponseText: chargeResult.responseText },
@@ -211,9 +241,6 @@ export async function processCheckout(params: CheckoutParams): Promise<CheckoutO
       gatewayTransactionId: chargeResult.transactionId ?? null,
     });
   } catch (persistErr) {
-    // DB update failed after a real charge. Complete idempotency with the paid
-    // result so replays never re-charge, then surface a distinct outcome so the
-    // caller knows reconciliation is needed.
     const reconResult: Record<string, unknown> = {
       outcomeType: "paid_reconciliation_needed",
       status: "paid_reconciliation_needed",
@@ -292,24 +319,14 @@ export async function processCheckout(params: CheckoutParams): Promise<CheckoutO
   };
 }
 
-/**
- * Complete an idempotency key, logging a prominent error if the write fails
- * rather than silently swallowing it.  A failed complete leaves the key
- * in_progress, which causes future retries to 409 instead of replaying — ops
- * must manually clear the row if this fires.
- */
 async function safeCompleteIdempotencyKey(
-  idempotencyKey: string,
-  orderId: number,
+  key: string,
+  orderId: number | null,
   result: Record<string, unknown>,
 ): Promise<void> {
   try {
-    await completeIdempotencyKey(idempotencyKey, orderId, result);
+    await completeIdempotencyKey(key, orderId, result);
   } catch (err) {
-    console.error(
-      `[Checkout] ALERT: Failed to complete idempotency key "${idempotencyKey}" for order ${orderId}. ` +
-      `Key will remain in_progress — future retries will 409. Manual cleanup required.`,
-      err,
-    );
+    console.error(`[Checkout] WARNING: Failed to complete idempotency key "${key}". Duplicate charges may occur on retry.`, err);
   }
 }
