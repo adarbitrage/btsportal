@@ -1,0 +1,83 @@
+## BTS Portal — Native NMI Billing, Tier 1: NMI gateway engine + tokenization key (NO money moves)
+
+### What This Does
+Stands up BTS's OWN NMI payment engine — a gateway client that can charge a card token, charge a
+stored vault id, refund, void, and query settlement status against BTS's NMI merchant account — plus
+an endpoint that hands the browser the NMI tokenization (public) key for Collect.js. Export-only:
+nothing calls it yet. No checkout, no schema, no money this tier.
+
+### Files Created
+- [server payments dir]/nmi-gateway.ts — the NMI gateway client.
+- [server payments dir]/charge-service.ts — thin wrapper the later checkout tiers call (routes never
+  talk to the gateway directly).
+- [billing route file] — the tokenization-key endpoint (this tier owns a new billing router).
+
+### Files Modified
+- config/env validation — register the two ENV vars below (optional, so the app still boots unset).
+- routes index — register the new billing router (one line).
+
+### Schema Changes
+- None.
+
+### Environment Variables (new)
+- BTS_NMI_SECURITY_KEY — PRIVATE NMI security key for BTS's merchant account. Server-side only;
+  authenticates every charge/refund/void/query. NEVER sent to the browser.
+- BTS_NMI_TOKENIZATION_KEY — PUBLIC NMI Collect.js tokenization key. Safe to expose to the browser.
+Both optional in config for now; the endpoint below handles the unset case explicitly.
+
+### NMI gateway client — required methods + exact API contract
+NMI's Payment API is form-urlencoded POSTs. Implement against these:
+- Endpoint: POST https://secure.nmi.com/api/transact.php, Content-Type
+  application/x-www-form-urlencoded, with security_key=<BTS_NMI_SECURITY_KEY> on EVERY call.
+- Response is URL-encoded key/value (parse with URLSearchParams): response (1=approved, 2=declined,
+  3=error), responsetext, transactionid, authcode, response_code.
+
+Methods:
+1. chargeWithToken({ amountCents, paymentToken, orderId, email, firstName?, lastName? })
+   → type=sale, payment_token, amount=<amountCents/100 .toFixed(2)>, orderid, email, first_name, last_name.
+2. chargeWithVault({ amountCents, customerVaultId, orderId, email })
+   → type=sale, customer_vault_id, amount, orderid, email.
+3. createVaultFromToken({ paymentToken, email, firstName?, lastName? })
+   → customer_vault=add_customer, payment_token, email → returns the new customer_vault_id.
+     (Method exists now; fully exercised in Tier 4.)
+4. refund({ transactionId, amountCents? })
+   → type=refund, transactionid, and amount ONLY if amountCents provided (omit = full; lower = partial).
+5. void({ transactionId }) → type=void, transactionid.
+6. queryTransaction({ orderId }) → POST https://secure.nmi.com/api/query.php with security_key +
+   order_id. Parse the returned XML; surface the <condition> value ("pendingsettlement" = unsettled,
+   voidable; a settled/"complete" condition = refundable). Used later to choose void vs refund.
+7. getTokenizationKey() → returns BTS_NMI_TOKENIZATION_KEY.
+
+Uniform result shape: { success: boolean, transactionId?: string, responseText: string,
+raw: Record<string,string> }. For refund/void, transactionId = the refund/void leg's transactionid.
+
+CRITICAL: a DECLINE (response=2) or error (response=3) must return success=false — it must NOT throw.
+Only a transport/network failure (non-2xx HTTP, timeout) throws. Callers handle declines as data.
+
+### API Endpoints
+- GET /api/billing/tokenization-key → { tokenizationKey } (the PUBLIC Collect.js key). Auth:
+  authenticated member (requireAuth). If BTS_NMI_TOKENIZATION_KEY is unset, return 503 with a clear
+  message (a missing key should be obvious, not a silent empty value). The security key is NEVER
+  returned here.
+
+### Frontend
+- None this tier. (Collect.js card capture arrives in Tier 3; this endpoint feeds it the key.)
+
+### Dependencies
+- None — fully independent. Export-only; nothing calls the gateway or charge-service yet.
+
+### Acceptance Criteria
+- Gateway client compiles and exposes all 7 methods with the result shape above.
+- A standalone sandbox test (NMI demo/sandbox credentials) shows a token sale, a refund, and a void
+  each returning a structured result; a forced decline returns success=false WITHOUT throwing.
+- GET /api/billing/tokenization-key returns the public key for an authed member, and 503 when the env
+  var is unset.
+- No schema changes; no other app surface wired; no funnel/entitlement/webhook behavior touched.
+
+### Implementation Notes
+- This is BTS's OWN NMI integration against BTS's own merchant account — separate from how external
+  systems (YSE/The Machine) charge. There is no existing payment code in this portal to reuse.
+- Keep the security key strictly server-side. The browser only ever gets the tokenization (public) key.
+- Carry amounts in cents through your own code; convert to a 2-dp dollar string only at the NMI boundary.
+- Run a clean tsc (must pass green) and an architect review on the diff before finalizing. Report files
+  created/modified and confirm export-only with no money path wired. Do not create follow-up tasks.
