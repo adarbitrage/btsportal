@@ -184,7 +184,15 @@ export async function migrateBlitzLessons() {
   }
 }
 
+// Coaching-call transcript seeding into kb_staging_docs (the AI Document Review
+// queue) is intentionally paused while the AI Source Knowledge intake process is
+// being mapped out — the review page must stay empty until then. Re-enable by
+// setting SEED_COACHING_CALL_DOCS=true (or removing this gate).
+const SEED_COACHING_CALL_DOCS = process.env.SEED_COACHING_CALL_DOCS === "true";
+
 export async function seedBlitzDocs() {
   await migrateBlitzLessons();
-  await seedFromFile("coaching_call", "Coaching Seed", "coaching-seed.json");
+  if (SEED_COACHING_CALL_DOCS) {
+    await seedFromFile("coaching_call", "Coaching Seed", "coaching-seed.json");
+  }
 }

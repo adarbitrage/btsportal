@@ -1067,7 +1067,7 @@ export default function KnowledgeBaseReview() {
               {sourcesLoading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <ShieldCheck className="w-4 h-4 mr-2" />}
               Sources
             </Button>
-            <Button variant="outline" onClick={importCurated} disabled={importing}>
+            <Button variant="outline" onClick={importCurated} disabled title="Temporarily disabled while the document-review intake is being mapped out">
               {importing ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <FileText className="w-4 h-4 mr-2" />}
               Import Curated
             </Button>
@@ -1078,18 +1078,18 @@ export default function KnowledgeBaseReview() {
               </Button>
             )}
             {(docTypeCounts.existing_doc || 0) > 0 && (
-              <Button onClick={loadGuidedQueue} variant="outline" className="border-amber-300 text-amber-700 hover:bg-amber-50">
+              <Button onClick={loadGuidedQueue} variant="outline" disabled title="Temporarily disabled while the document-review intake is being mapped out" className="border-amber-300 text-amber-700 hover:bg-amber-50">
                 <Layers className="w-4 h-4 mr-2" />
                 Re-verify Track
               </Button>
             )}
-            <Button onClick={runTriage} disabled={triaging} className="bg-violet-600 hover:bg-violet-700">
+            <Button onClick={runTriage} disabled title="Temporarily disabled while the document-review intake is being mapped out" className="bg-violet-600 hover:bg-violet-700">
               {triaging ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Sparkles className="w-4 h-4 mr-2" />}
               {triaging ? "Analyzing…" : "Run AI Analysis"}
             </Button>
             <Tooltip>
               <TooltipTrigger asChild>
-                <Button onClick={runPipeline} disabled={processing} variant="outline">
+                <Button onClick={runPipeline} disabled title="Temporarily disabled while the document-review intake is being mapped out" variant="outline">
                   {processing ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Play className="w-4 h-4 mr-2" />}
                   Run Pipeline
                 </Button>
