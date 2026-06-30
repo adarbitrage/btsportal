@@ -22,3 +22,16 @@ is the benign class. The baseline exists to catch the *other* class (`onlyInMigr
 (schema ⊆ live DB) and `migration-drift.test.ts` (push-vs-SQL baseline). Passing the
 first does NOT imply the second; always run the whole `db-drift` suite after any
 schema change, not just live-schema-drift.
+
+**Companion-.sql tables produce NO baseline entry:** when you add a new table WITH a
+committed idempotent `CREATE TABLE IF NOT EXISTS` companion in `lib/db/drizzle/` (the
+correct additive-table pattern), it appears in BOTH the push DB and the migrate DB, so
+there is zero drift — `expected-drift.json` does NOT gain your table name and the diff
+stays unchanged. Don't expect to see the new table in the baseline; a clean (unchanged)
+baseline + passing drift tests IS the success signal. Only schema-only tables (no .sql)
+show up as `onlyInPush`.
+
+**Vitest hangs from bash here** unless you pass `--pool=threads --no-file-parallelism`;
+regenerate with `UPDATE_DRIFT_BASELINE=1 pnpm --filter @workspace/db exec vitest run
+src/migration-drift.test.ts --pool=threads --no-file-parallelism` (the env var is
+`UPDATE_DRIFT_BASELINE=1`, not `l=1`).

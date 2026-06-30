@@ -227,6 +227,18 @@ if [ -n "$DATABASE_URL" ]; then
   #     TABLE/INDEX IF NOT EXISTS).
   psql "$DATABASE_URL" -v ON_ERROR_STOP=1 \
     -f lib/db/drizzle/0082_ai_source_documents.sql >/dev/null
+
+  # 19. Transcript Cleaner holding store (Task #1468).
+  #     New, empty, additive table where raw uploaded/imported transcripts sit
+  #     while they are AI-cleaned + admin-reviewed, before being filed into
+  #     ai_source_documents. Deliberately separate from kb_staging_docs (raw
+  #     source, not curated truth). Applying it explicitly here keeps the
+  #     live-schema-drift gate below green so the conditional push stays skipped
+  #     on the common merge instead of triggering a slow whole-DB
+  #     `drizzle-kit push --force` just to create one table (same pattern as
+  #     steps 7/10/11/15/18). Idempotent (CREATE TABLE/INDEX IF NOT EXISTS).
+  psql "$DATABASE_URL" -v ON_ERROR_STOP=1 \
+    -f lib/db/drizzle/0083_transcript_cleaner_documents.sql >/dev/null
 fi
 
 # Schema sync — CONDITIONAL push.

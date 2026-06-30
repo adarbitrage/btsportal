@@ -2156,3 +2156,135 @@ export function useAdminGenerateQuestions() {
       ),
   });
 }
+
+// ── Transcript Cleaner (Task #1468) ─────────────────────────────────────────
+// Raw transcripts are intaken, AI-cleaned, reviewed/refined, then filed into
+// the AI Source Knowledge library. Distinct from the curated Document Review
+// pipeline — these are raw source, never citable truth.
+
+export interface TranscriptCleanerFlag {
+  type: string;
+  text?: string;
+  reason: string;
+  confidence?: string;
+}
+
+export interface TranscriptCleanerChatTurn {
+  role: "user" | "assistant";
+  content: string;
+}
+
+export interface TranscriptCleanerDocument {
+  id: number;
+  title: string;
+  suggestedTitle: string | null;
+  proposedTitle: string | null;
+  titleNeedsInput: boolean;
+  transcriptType: string | null;
+  originalContent: string;
+  cleanedContent: string | null;
+  authorityRole: string | null;
+  authorityConfidence: string | null;
+  authorityEvidence: string | null;
+  flags: TranscriptCleanerFlag[];
+  chatHistory: TranscriptCleanerChatTurn[];
+  status: string;
+  sourceName: string | null;
+  provenanceNote: string | null;
+  filedSourceDocId: number | null;
+  filedAt: string | null;
+  errorMessage: string | null;
+  createdAt: string | null;
+  updatedAt: string | null;
+}
+
+export interface TranscriptCleanerIntakeItem {
+  content: string;
+  title?: string;
+  transcriptType?: string;
+  sourceName?: string;
+  proposedTitle?: string;
+  provenanceNote?: string;
+}
+
+export function listTranscriptCleanerDocuments(status?: string) {
+  const qs = status ? `?status=${encodeURIComponent(status)}` : "";
+  return adminFetch<{ documents: TranscriptCleanerDocument[]; counts: Record<string, number> }>(
+    `/admin/transcript-cleaner/documents${qs}`,
+  );
+}
+
+export function getTranscriptCleanerDocument(id: number) {
+  return adminFetch<TranscriptCleanerDocument>(`/admin/transcript-cleaner/documents/${id}`);
+}
+
+export function createTranscriptCleanerDocument(item: TranscriptCleanerIntakeItem) {
+  return adminFetch<TranscriptCleanerDocument>("/admin/transcript-cleaner/documents", {
+    method: "POST",
+    body: JSON.stringify(item),
+  });
+}
+
+export function createTranscriptCleanerDocumentsBatch(items: TranscriptCleanerIntakeItem[]) {
+  return adminFetch<{ results: Array<{ ok: boolean; id?: number; sourceName?: string; error?: string }> }>(
+    "/admin/transcript-cleaner/documents/batch",
+    { method: "POST", body: JSON.stringify({ items }) },
+  );
+}
+
+export function updateTranscriptCleanerDocument(
+  id: number,
+  patch: Partial<{
+    title: string;
+    transcriptType: string;
+    cleanedContent: string;
+    authorityRole: string;
+    authorityConfidence: string;
+    authorityEvidence: string;
+    titleNeedsInput: boolean;
+    flags: TranscriptCleanerFlag[];
+    provenanceNote: string;
+  }>,
+) {
+  return adminFetch<TranscriptCleanerDocument>(`/admin/transcript-cleaner/documents/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify(patch),
+  });
+}
+
+export function deleteTranscriptCleanerDocument(id: number) {
+  return adminFetch<{ ok: boolean }>(`/admin/transcript-cleaner/documents/${id}`, { method: "DELETE" });
+}
+
+export function cleanTranscriptCleanerDocument(id: number) {
+  return adminFetch<TranscriptCleanerDocument>(`/admin/transcript-cleaner/documents/${id}/clean`, {
+    method: "POST",
+  });
+}
+
+export function cleanTranscriptCleanerBatch(ids: number[]) {
+  return adminFetch<{ results: Array<{ id: number; ok: boolean; error?: string }> }>(
+    "/admin/transcript-cleaner/clean-batch",
+    { method: "POST", body: JSON.stringify({ ids }) },
+  );
+}
+
+export function refineTranscriptCleanerDocument(id: number, instruction: string) {
+  return adminFetch<TranscriptCleanerDocument>(`/admin/transcript-cleaner/documents/${id}/refine`, {
+    method: "POST",
+    body: JSON.stringify({ instruction }),
+  });
+}
+
+export function fileTranscriptCleanerDocument(id: number) {
+  return adminFetch<TranscriptCleanerDocument>(`/admin/transcript-cleaner/documents/${id}/file`, {
+    method: "POST",
+  });
+}
+
+export function fileTranscriptCleanerBatch(ids: number[]) {
+  return adminFetch<{ results: Array<{ id: number; ok: boolean; error?: string; sourceDocId?: number }> }>(
+    "/admin/transcript-cleaner/file-batch",
+    { method: "POST", body: JSON.stringify({ ids }) },
+  );
+}
