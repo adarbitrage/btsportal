@@ -360,6 +360,50 @@ export type AuthorityRole = (typeof AUTHORITY_ROLES)[number];
 
 export const DEFAULT_AUTHORITY_ROLE: AuthorityRole = "internal";
 
+// ───────────────────────────────────────────────────────────────────────────
+// Source folders — the AI Source Knowledge library organisation.
+// ───────────────────────────────────────────────────────────────────────────
+
+/**
+ * The raw-source layer (ai_source_documents) is organised into seven folders
+ * by source type: five transcript/video types and two document types. Each
+ * folder declares its coarse kind and a default authority role (mirroring the
+ * source-screening vocabulary) so an import can pre-fill sensible roles. This
+ * is the single source of truth for the folder vocabulary, mirrored verbatim
+ * by the admin AI Source Knowledge page.
+ */
+export interface SourceFolder {
+  slug: string;
+  label: string;
+  /** Coarse kind: transcript-derived, video-derived, or a document. */
+  kind: "transcript" | "video" | "document";
+  defaultAuthorityRole: AuthorityRole;
+}
+
+export const SOURCE_FOLDERS: readonly SourceFolder[] = [
+  { slug: "group_coaching",  label: "Group Coaching",   kind: "transcript", defaultAuthorityRole: "strategic_coach" },
+  { slug: "private_coaching", label: "Private Coaching", kind: "transcript", defaultAuthorityRole: "strategic_coach" },
+  { slug: "one_on_one_va",   label: "1-on-1 VA",        kind: "transcript", defaultAuthorityRole: "va" },
+  { slug: "blitz_video",     label: "Blitz Video",      kind: "video",      defaultAuthorityRole: "curriculum" },
+  { slug: "other_video",     label: "Other Video",      kind: "video",      defaultAuthorityRole: "curriculum" },
+  { slug: "reference_docs",  label: "Reference Docs",   kind: "document",   defaultAuthorityRole: "internal" },
+  { slug: "other_docs",      label: "Other Docs",       kind: "document",   defaultAuthorityRole: "internal" },
+] as const;
+
+export const SOURCE_FOLDER_SLUGS: readonly string[] = SOURCE_FOLDERS.map((f) => f.slug);
+
+const SOURCE_FOLDER_BY_SLUG: ReadonlyMap<string, SourceFolder> = new Map(
+  SOURCE_FOLDERS.map((f) => [f.slug, f]),
+);
+
+export function isSourceFolder(value: unknown): value is string {
+  return typeof value === "string" && SOURCE_FOLDER_BY_SLUG.has(value);
+}
+
+export function resolveSourceFolder(slug: string | null | undefined): SourceFolder | null {
+  return slug ? SOURCE_FOLDER_BY_SLUG.get(slug) ?? null : null;
+}
+
 /**
  * Map a live `coaches.type` value to an authority role. The roster is the
  * source of truth (Task #2 runs the name→type join over real sources); this is

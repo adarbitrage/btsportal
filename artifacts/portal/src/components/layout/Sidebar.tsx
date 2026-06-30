@@ -309,6 +309,7 @@ export const ADMIN_CHILDREN: NavNode[] = [
     defaultOpen: false,
     children: [
       { kind: "leaf", href: "/admin/ai-knowledgebase/live-documents", label: "Live AI Documents", icon: Sparkles, requiredPermission: "chat:manage" },
+      { kind: "leaf", href: "/admin/ai-knowledgebase/source-knowledge", label: "AI Source Knowledge", icon: Library, requiredPermission: "chat:manage" },
       { kind: "leaf", href: "/admin/chat/knowledgebase/review", label: "Document Review", icon: Eye, requiredPermission: "chat:manage" },
       { kind: "leaf", href: "/admin/chat/knowledgebase/archivebackup", label: "Archive Backup", icon: Archive, requiredPermission: "chat:manage" },
       { kind: "leaf", href: "/admin/chat/content-gaps", label: "Content-Gap Radar", icon: Radar, requiredPermission: "chat:manage" },

@@ -817,6 +817,51 @@ export function deleteAiLiveDocument(id: number) {
   return adminFetch<{ success: boolean }>(`/admin/ai-live-documents/${id}`, { method: "DELETE" });
 }
 
+// ── AI Source Knowledge (the raw-source mining layer) ───────────────────────
+export interface AiSourceDocument {
+  id: number;
+  title: string;
+  content: string;
+  sourceType: string;
+  authorityRole: string;
+  sourceName: string | null;
+  sourceId: number | null;
+  provenanceNote: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface AiSourceDocumentsResponse {
+  documents: AiSourceDocument[];
+  counts: Record<string, number>;
+}
+
+export function fetchAiSourceDocuments(params?: { folder?: string; search?: string }) {
+  const qs = new URLSearchParams();
+  if (params?.folder) qs.set("folder", params.folder);
+  if (params?.search) qs.set("search", params.search);
+  return adminFetch<AiSourceDocumentsResponse>(`/admin/ai-source-documents?${qs.toString()}`);
+}
+
+export function fetchAiSourceDocument(id: number) {
+  return adminFetch<AiSourceDocument>(`/admin/ai-source-documents/${id}`);
+}
+
+export function createAiSourceDocument(data: {
+  title: string;
+  content: string;
+  sourceType: string;
+  authorityRole?: string;
+  sourceName?: string;
+  sourceId?: number;
+  provenanceNote?: string;
+}) {
+  return adminFetch<AiSourceDocument>("/admin/ai-source-documents", {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+}
+
 export function requestKbUploadUrl(params: { name: string; size: number; contentType: string }) {
   return adminFetch<{ uploadURL: string; objectPath: string }>("/storage/uploads/request-url", {
     method: "POST",
