@@ -60,6 +60,16 @@ export const transcriptCleanerDocumentsTable = pgTable("transcript_cleaner_docum
   sourceName: text("source_name"),
   // Provenance: free-form note carried onto the filed source doc.
   provenanceNote: text("provenance_note"),
+  // For multi-video lessons (e.g. Blitz captions auto-recognized on upload),
+  // the video's 1-based order within its lesson, so the sequence is preserved.
+  // Null for transcripts that have no in-lesson ordering.
+  inLessonOrder: integer("in_lesson_order"),
+  // The source Vidalytics video id, captured (and safety-net cleaned) from a
+  // recognized Blitz caption filename. Stored as real, queryable data — the
+  // single key that links this transcript to EVERY Blitz lesson the video
+  // appears in (the placements are derived live from the Blitz guide, so they
+  // adapt when the guide changes). Null for non-Blitz transcripts.
+  vidalyticsId: text("vidalytics_id"),
   // Soft link to ai_source_documents.id once filed (no hard FK).
   filedSourceDocId: integer("filed_source_doc_id"),
   filedAt: timestamp("filed_at", { withTimezone: true }),

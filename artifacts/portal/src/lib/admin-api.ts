@@ -2191,6 +2191,7 @@ export interface TranscriptCleanerDocument {
   status: string;
   sourceName: string | null;
   provenanceNote: string | null;
+  inLessonOrder: number | null;
   filedSourceDocId: number | null;
   filedAt: string | null;
   errorMessage: string | null;

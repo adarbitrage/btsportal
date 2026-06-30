@@ -234,24 +234,34 @@ export default function TranscriptCleaner() {
               then file the finished transcript into AI Source Knowledge.
             </p>
           </div>
-          <div className="flex items-center gap-2">
-            <input
-              ref={fileInputRef}
-              type="file"
-              multiple
-              accept=".txt,.vtt,.srt,.md,.csv,.json,text/plain"
-              className="hidden"
-              onChange={(e) => handleFiles(e.target.files)}
-            />
-            <Button variant="outline" onClick={() => setShowImport(true)}>
-              <Download className="w-4 h-4 mr-1" /> Import triaged transcripts
-            </Button>
-            <Button variant="outline" onClick={() => fileInputRef.current?.click()} disabled={batchCreateMutation.isPending}>
-              <Upload className="w-4 h-4 mr-1" /> Upload files
-            </Button>
-            <Button onClick={() => setShowPaste(true)}>
-              <Plus className="w-4 h-4 mr-1" /> Paste transcript
-            </Button>
+          <div className="flex flex-col items-end gap-1.5">
+            <div className="flex items-center gap-2">
+              <input
+                ref={fileInputRef}
+                type="file"
+                multiple
+                accept=".txt,.vtt,.srt,.md,.csv,.json,text/plain"
+                className="hidden"
+                onChange={(e) => handleFiles(e.target.files)}
+              />
+              <Button variant="outline" onClick={() => setShowImport(true)}>
+                <Download className="w-4 h-4 mr-1" /> Import triaged transcripts
+              </Button>
+              <Button variant="outline" onClick={() => fileInputRef.current?.click()} disabled={batchCreateMutation.isPending}>
+                <Upload className="w-4 h-4 mr-1" /> Upload files
+              </Button>
+              <Button onClick={() => setShowPaste(true)}>
+                <Plus className="w-4 h-4 mr-1" /> Paste transcript
+              </Button>
+            </div>
+            <p className="text-xs text-muted-foreground max-w-md text-right leading-snug">
+              Blitz captions: name files{" "}
+              <code className="rounded bg-muted px-1 py-0.5 text-[11px]">
+                blitz-lesson&#123;NN&#125;-&#123;vv&#125;-&#123;slug&#125;__&#123;vidalyticsId&#125;.vtt
+              </code>{" "}
+              (e.g. <code className="rounded bg-muted px-1 py-0.5 text-[11px]">blitz-lesson11-01-clone-flexy-website__sJ7NhNU9POi7DpXV.vtt</code>)
+              to auto-fill the title, set type to Blitz Video, capture the Vidalytics ID, and preserve in-lesson order.
+            </p>
           </div>
         </div>
 

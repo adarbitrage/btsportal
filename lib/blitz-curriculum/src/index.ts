@@ -156,3 +156,16 @@ export function blitzLessonIdFromCourseId(courseId: string): number {
     ? Number(courseId.slice(BLITZ_COURSE_ID_PREFIX.length))
     : 0;
 }
+
+// Canonical Blitz guide body HTML (single source rendered by the portal and
+// parsed by the backend) + the dynamic video -> lessons map derived from it.
+export { BLITZ_BODY_HTML } from "./blitz-body-html";
+export {
+  getBlitzVideoMap,
+  getKnownVidalyticsIds,
+  getBlitzLessonsForVideo,
+  getBlitzVideoInfo,
+  type BlitzVideoMap,
+  type BlitzVideoInfo,
+  type BlitzVideoPlacement,
+} from "./blitz-video-map";

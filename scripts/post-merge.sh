@@ -239,6 +239,26 @@ if [ -n "$DATABASE_URL" ]; then
   #     steps 7/10/11/15/18). Idempotent (CREATE TABLE/INDEX IF NOT EXISTS).
   psql "$DATABASE_URL" -v ON_ERROR_STOP=1 \
     -f lib/db/drizzle/0083_transcript_cleaner_documents.sql >/dev/null
+
+  # 20. Transcript Cleaner: in_lesson_order column (Task #1520).
+  #     Additive, nullable column that preserves the 1-based order of a video
+  #     within its lesson when Blitz caption filenames are auto-recognized on
+  #     upload. Applying it explicitly here keeps the live-schema-drift gate
+  #     below green so the conditional push stays skipped on the common merge
+  #     (same pattern as steps 7/10/11/15/18/19). Idempotent (ADD COLUMN IF NOT
+  #     EXISTS), so on a fresh DB / re-run it is a harmless no-op.
+  psql "$DATABASE_URL" -v ON_ERROR_STOP=1 \
+    -f lib/db/drizzle/0084_transcript_cleaner_in_lesson_order.sql >/dev/null
+
+  # 21. Transcript Cleaner: vidalytics_id column (Task #1520).
+  #     Additive, nullable column that stores the source Vidalytics video id
+  #     captured from a recognized Blitz caption filename — the real key that
+  #     links a captioned transcript to every Blitz lesson the video appears in.
+  #     Applying it explicitly here keeps the live-schema-drift gate below green
+  #     so the conditional push stays skipped on the common merge (same pattern
+  #     as step 20). Idempotent (ADD COLUMN IF NOT EXISTS).
+  psql "$DATABASE_URL" -v ON_ERROR_STOP=1 \
+    -f lib/db/drizzle/0085_transcript_cleaner_vidalytics_id.sql >/dev/null
 fi
 
 # Schema sync — CONDITIONAL push.

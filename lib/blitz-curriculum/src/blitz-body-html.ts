@@ -1,0 +1,1192 @@
+// AUTO-CONTENT: the canonical Blitz guide body HTML.
+// Single source of truth shared by the portal (rendered on /blitz) AND the
+// backend (parsed to derive the video -> lessons map). Hand-maintained; edit the
+// markup here and both the page and the derived map adapt automatically.
+// NOTE: this is the home of the literal formerly inlined in portal Blitz.tsx.
+
+export const BLITZ_BODY_HTML = `<div class="version-banner">
+  <div class="vb-left">
+    <span class="vb-tag">v4.0</span>
+    <span>Caterpillar Edition</span>
+    <span style="color:#64748b;">|</span>
+    <span>Released: April 21, 2026</span>
+  </div>
+  <button class="print-btn" onclick="window.print()">🖨 Print / Save PDF</button>
+</div>
+
+<div class="page-header">
+  <h1>The Blitz™</h1>
+  <p class="tagline">Your step-by-step guide to launching your first profitable affiliate marketing campaign.</p>
+  <div class="pub-badge">📡 &nbsp;<strong>Traffic Source: Caterpillar</strong> &nbsp;·&nbsp; Native Advertising Platform</div>
+  </div>
+
+<div class="container">
+
+<!-- WELCOME -->
+<span id="s1" style="display:block;position:relative;top:-80px;visibility:hidden;"></span><div class="module" id="welcome" data-section="s1">
+  <div class="module-header welcome-header"><div class="wh-top"><span class="mod-badge intro">1 — Introduction</span><div class="phase-jump"><a class="phase-pill build" href="#s3">Phase 1 — Build<svg class="pp-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14"/><path d="m19 12-7 7-7-7"/></svg></a><a class="phase-pill test" href="#s11">Phase 2 — Test<svg class="pp-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14"/><path d="m19 12-7 7-7-7"/></svg></a><a class="phase-pill scale" href="#s17">Phase 3 — Scale<svg class="pp-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14"/><path d="m19 12-7 7-7-7"/></svg></a></div></div><h2>Welcome to The Blitz™</h2></div>
+  <div class="module-intro">The Blitz™ is a proven, step-by-step system for launching profitable affiliate marketing campaigns. This guide walks you through everything — from choosing your offer and building your creative assets, to launching your campaign and testing until you find a profitable combination worth scaling. Follow the process, trust the data, and the results will follow.</div>
+  <div class="video-slot" data-vidalytics-id="x_8mSUUqDIhXNyQP" data-status="ready"><div class="play-icon"></div><div><div class="vt">Watch This First: What Is Affiliate Arbitrage?</div><div class="vd">A short overview of how this business model works — start here before anything else</div></div></div>
+  <div class="callout-box">
+    <div class="pe-label">💡 What is Affiliate Arbitrage?</div>
+    Here's the basic idea: you promote someone else's product using paid ads. When someone clicks your ad, visits a landing page you've created, and then buys the product — you earn a commission. The "arbitrage" part means you're trying to spend less on ads than you make in commissions. Your goal is to find the right combination of ad, landing page, and audience that makes that happen consistently.
+  </div>
+</div>
+
+
+<!-- GLOSSARY -->
+<div class="module" id="glossary" data-section="s1">
+  <div class="module-header"><h2>Key Terminology — Affiliate Marketing Reference Guide</h2></div>
+  <p>This section is a reference resource for common terms and terminology used in affiliate marketing and throughout The Blitz™. You don't need to read this from top to bottom — bookmark it and come back whenever you encounter an unfamiliar term in the guide or in a video.</p>
+  <div class="glossary">
+    <div class="gloss-item"><div class="gloss-term">Affiliate Network</div><div class="gloss-def">A marketplace where companies list products they want promoted. You sign up, pick a product, and get a unique tracking link. When someone buys through your link, you get paid. In The Blitz™: Media Mavens and ClickBank.</div></div>
+    <div class="gloss-item"><div class="gloss-term">Commission / CPA</div><div class="gloss-def"><strong>Commission</strong> is the money you receive when someone buys the product you are promoting — it's your payout per sale. <strong>CPA (Cost Per Acquisition)</strong> is what it costs you in ad spend to generate one sale. Example: if you spend $50 in ads to produce one sale and earn a $80 commission on that sale, your CPA is $50 and your commission is $80.</div></div>
+    <div class="gloss-item"><div class="gloss-term">Landing Page</div><div class="gloss-def">The web page someone sees after clicking your ad. Its job is to warm them up and get them interested enough to click through to the product's sales page. You create and control this page.</div></div>
+    <div class="gloss-item"><div class="gloss-term">Advertorial</div><div class="gloss-def">A type of landing page that reads like an article or editorial — it tells a story or shares information rather than being an obvious ad. Used in Media Mavens campaigns. Many Media Mavens products include a pre-made advertorial you can use right away.</div></div>
+    <div class="gloss-item"><div class="gloss-term">Jump Page / Bridge Page</div><div class="gloss-def">A short landing page designed to send visitors directly to a product's video sales letter (VSL). It typically contains a headline, a hero shot image, a short paragraph about the product that creates curiosity and builds interest, and a button that sends the visitor to the VSL. Used in ClickBank campaigns.</div></div>
+    <div class="gloss-item"><div class="gloss-term">VSL (Video Sales Letter)</div><div class="gloss-def">A video that sells the product. The product owner creates it; your job is to get people to watch it. Many ClickBank products use a VSL as their main selling tool.</div></div>
+    <div class="gloss-item"><div class="gloss-term">Native Ad</div><div class="gloss-def">An ad that blends into surrounding content — it looks like a recommended article rather than a traditional advertisement. On Caterpillar, you upload your headline (as plain text) and image (as a file) separately. The platform assembles the ad automatically.</div></div>
+    <div class="gloss-item"><div class="gloss-term">Traffic Source / Publisher</div><div class="gloss-def">The advertising platform that shows your ads to potential buyers. In this guide you're using Caterpillar — a native advertising platform. Grasshopper and Crane (banner ad platforms) are covered in separate Supplemental Guides.</div></div>
+    <div class="gloss-item"><div class="gloss-term">Hero Shot</div><div class="gloss-def">The main image on your landing page — the first big visual a visitor sees. It sets the emotional tone and needs to connect with your headline.</div></div>
+    <div class="gloss-item"><div class="gloss-term">Split Testing (A/B Testing)</div><div class="gloss-def">Showing different versions of your ads or landing pages to different visitors to see which performs better. Example: testing 10 different headlines to find the one that gets the most clicks.</div></div>
+    <div class="gloss-item"><div class="gloss-term">CTR (Click-Through Rate)</div><div class="gloss-def">The percentage of people who click your ad or landing page button. Ad CTR = people who clicked the ad. Landing Page CTR = people who clicked through to the product page.</div></div>
+    <div class="gloss-item"><div class="gloss-term">ROAS (Return on Ad Spend)</div><div class="gloss-def">How much you made back for every dollar spent on ads. Example: spend $1,000, earn $600 in commissions = 60% ROAS. Goal is eventually 100%+ (profitable).</div></div>
+    <div class="gloss-item"><div class="gloss-term">DIYTrax</div><div class="gloss-def">Your campaign tracking dashboard. It connects your ads, landing pages, and affiliate links, and records which combinations generate sales. Think of it as your campaign's control center.</div></div>
+    <div class="gloss-item"><div class="gloss-term">Placement</div><div class="gloss-def">The specific format and shape of your ad. On Caterpillar, placements are things like "16:9 static image," "9:16 animated GIF," or "16:9 video." You test different placements in Round 3 once you've identified your top performing visual creative in Round 2.</div></div>
+    <div class="gloss-item"><div class="gloss-term">Compliance</div><div class="gloss-def">A review process where your ads and landing pages are checked against the affiliate network's and publisher's rules. You must submit your creative assets for compliance approval before going live.</div></div>
+    <div class="gloss-item"><div class="gloss-term">Flexy™</div><div class="gloss-def">The website builder used to create and host your landing pages. You clone a pre-built template and customize it with your own headlines, images, and copy — no coding required. For Media Mavens users, Flexy™ hosts the single page that holds the MetricMover™ embed code. For ClickBank users, Flexy™ hosts the customized jump page along with the page that holds the MetricMover™ embed code.</div></div>
+    <div class="gloss-item"><div class="gloss-term">FreeAdCopy™</div><div class="gloss-def">An AI copywriting tool provided by BTS for generating ad headlines and other marketing copy. Used to brainstorm and create ad headline variations for your Caterpillar campaigns. You can find it listed as the <strong>AI Ad Copy Generator</strong> under the Resources tab in the BTS member portal.</div></div>
+    <div class="gloss-item"><div class="gloss-term">AffAngleArchitect</div><div class="gloss-def">A specialized AI bot on Poe.com, pre-configured to generate strong marketing angles for affiliate campaigns. Used to create landing page headline angles for all paths — Media Mavens advertorials and ClickBank jump pages.</div></div>
+    <div class="gloss-item"><div class="gloss-term">MetricMover™</div><div class="gloss-def">A split-testing tool used by every path in The Blitz™. It automatically rotates your 5 headlines × 5 hero shots (25 combinations) and tracks which combinations convert best.</div></div>
+    <div class="gloss-item"><div class="gloss-term">Sub-Campaign</div><div class="gloss-def">A grouping of ads within your main Caterpillar campaign. Caterpillar recommends a maximum of 3–5 ads per sub-campaign for best performance. For Round 1 with 10 headlines, you'll create two sub-campaigns of 5 ads each.</div></div>
+    <div class="gloss-item"><div class="gloss-term">IPN (Instant Payment Notification)</div><div class="gloss-def">A ClickBank-specific technical integration that sends sale notifications from ClickBank to DIYTrax automatically. Without IPN set up, DIYTrax cannot record ClickBank sales accurately. Only required for ClickBank users.</div></div>
+    <div class="gloss-item"><div class="gloss-term">CPC (Cost Per Click)</div><div class="gloss-def">The amount you pay each time someone clicks your ad. On Caterpillar, you set a CPC bid — the maximum you're willing to pay per click. When scaling, increasing your CPC bid can help you reach more of the available audience.</div></div>
+    <div class="gloss-item"><div class="gloss-term">Custom Value Method</div><div class="gloss-def">The preferred way to embed your DIYTrax tracking link into a Flexy™ landing page. A backup method is also available if needed. Both are covered in the Go Live video series.</div></div>
+    <div class="gloss-item"><div class="gloss-term">Master Publisher</div><div class="gloss-def">A scaling method that uses a dedicated email blast to a large subscriber list — much higher reach than native or banner ads. Only available after 14+ consecutive profitable days on your current publishers. Discuss with your coach before pursuing this.</div></div>
+    <div class="gloss-item"><div class="gloss-term">QA (Quality Assurance)</div><div class="gloss-def">A final check of your entire campaign setup before going live — confirming that every link works, every page displays correctly, and every tracking connection is functioning. The Go Live section includes a dedicated QA video (T8) for this purpose.</div></div>
+    <div class="gloss-item"><div class="gloss-term">Platform Names (Caterpillar, Grasshopper, Crane)</div><div class="gloss-def">These are the names used in this program to refer to specific paid advertising platforms. Caterpillar is a native advertising platform (ads that look like article recommendations). Grasshopper and Crane are banner advertising platforms covered in separate Supplemental Guides.</div></div>
+  </div>
+</div>
+
+<!-- MODULE 0 -->
+<span id="s2" style="display:block;position:relative;top:-80px;visibility:hidden;"></span><div class="module" id="module0" data-section="s2">
+  <div class="module-header"><span class="mod-badge intro">2 — Before You Start</span><h2>What You Need to Know — The Three Phases, Your Budget, and the Phase Gates</h2></div>
+  <div class="module-intro">Understanding how the system works before building it makes every step that follows clearer and faster. The three-phase structure, how your testing budget translates into data and eventually profit, the exit gates, and the support resources available to you are all covered here.</div>
+
+  <h3>The Three Phases</h3>
+  <p>Every Blitz™ campaign follows the same sequence.</p>
+  <div class="roadmap">
+    <div class="roadmap-phase p1"><div class="ph-num">Phase 1</div><div class="ph-title">BUILD</div><div class="ph-desc">Set up your offer, landing pages, ads, and tracking. Go live.</div></div>
+    <div class="roadmap-arrow">→</div>
+    <div class="roadmap-phase p2"><div class="ph-num">Phase 2</div><div class="ph-title">TEST</div><div class="ph-desc">Run multiple rounds of testing to find a profitable combination of ads and landing pages.</div></div>
+    <div class="roadmap-arrow">→</div>
+    <div class="roadmap-phase p3"><div class="ph-num">Phase 3</div><div class="ph-title">SCALE</div><div class="ph-desc">Spend more on what's proven. Expand to new placements.</div></div>
+  </div>
+  <div class="why-box"><div class="why-label">💬 Why this order?</div>Think of it like baking. You can't frost a cake before baking it, and you can't bake without a recipe. BUILD gives you the recipe. TEST finds out which version your audience likes. SCALE means baking it in larger and larger batches now that you know it works.</div>
+
+  <h3>Early Round Testing and Related Spending: Why Learning, Not Earning, Is the Real Goal</h3>
+  <p><strong>Your ad spend in the early rounds of testing is buying data, not revenue.</strong> Think of it like a scientist running experiments — each one costs money and teaches you something. Early experiments almost always show a low return, but they produce the information that makes later rounds far more successful.</p>
+  <div class="callout-box">
+    <div class="pe-label">💡 What does "buying data" mean in practice?</div>
+    When you spend $500 in Round 1, you're finding out which of your 10 ad headlines your audience responds to. That information is extremely valuable — without it, you'd be guessing in Round 2. The sales you make in Round 1 are a bonus. The real prize is knowing which headline wins so you can use it going forward.
+  </div>
+
+  <h3>Your Testing Budget — What to Expect</h3>
+  <div class="card">
+    <div class="card-title">Theoretical Budget Breakdown</div>
+    <p style="font-size:.93rem;margin-bottom:16px;">To better understand how your testing budget will be spent, please refer to the table below. You will be spending a minimum amount of money in each round of testing, and each round of testing typically will generate some revenue (commissions from sales) that will offset some of your ad spend budget. The goal is to continue testing until you get close to breakeven (revenues equal to ad spend) and eventually achieve profitability.</p>
+    <table style="margin:0;">
+      <thead>
+        <tr>
+          <th>Stage</th>
+          <th>Min. Ad Spend</th>
+          <th>Typical Commissions Earned</th>
+          <th>Estimated Net Cost</th>
+          <th>What You're Getting</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>Phase 2 — Test — Round 1</strong></td>
+          <td>$500</td>
+          <td>~$100 (20% ROAS)</td>
+          <td style="font-weight:700;color:var(--danger);">~$400 net cost</td>
+          <td>Your top performing headline identified</td>
+        </tr>
+        <tr>
+          <td><strong>Phase 2 — Test — Round 2</strong></td>
+          <td>$500</td>
+          <td>~$375 (75% ROAS)</td>
+          <td style="font-weight:700;color:var(--warning);">~$125 net cost</td>
+          <td>Your top performing visual creative identified</td>
+        </tr>
+        <tr>
+          <td><strong>Phase 2 — Test — Round 3</strong></td>
+          <td>$1,000</td>
+          <td>~$600 (60% ROAS)</td>
+          <td style="font-weight:700;color:var(--warning);">~$400 net cost</td>
+          <td>Your top performing placement format identified</td>
+        </tr>
+        <tr style="background:#f0fdf4;">
+          <td><strong>Phase 2 Total (Testing)</strong></td>
+          <td><strong>$2,000</strong></td>
+          <td><strong>~$1,075</strong></td>
+          <td style="font-weight:700;color:var(--warning);"><strong>~$925 net cost</strong></td>
+          <td>Continue testing until profitable ads and landing pages are identified</td>
+        </tr>
+        <tr style="background:#ecfdf5;border-top:2px solid #86efac;">
+          <td><strong>Phase 2 — Profitable</strong><br><span style="font-size:.82rem;font-weight:400;color:var(--muted);">Continue testing until here</span></td>
+          <td>Ongoing — varies</td>
+          <td>Greater than spend</td>
+          <td style="font-weight:700;color:var(--success);">Net profit begins<br><span style="font-size:.82rem;font-weight:400;">Previous losses start to be recouped</span></td>
+          <td>Campaign is now profitable — commissions earned exceed ad spend. Continue running to recoup earlier testing losses before moving to Phase 3.</td>
+        </tr>
+        <tr style="background:#faf5ff;">
+          <td><strong>Phase 3 — Scale</strong></td>
+          <td>$2,000–$5,000+</td>
+          <td>Greater than spend</td>
+          <td style="font-weight:700;color:var(--success);">Net profit</td>
+          <td>Profitable campaign generating positive returns — ad spend is now covered by commissions earned</td>
+        </tr>
+      </tbody>
+    </table>
+    <p style="margin-top:14px;margin-bottom:0;font-size:.93rem;color:var(--muted);">These are minimum figures based on typical performance. Some mentees complete testing in fewer rounds with better ROAS, reducing net cost further. Others require additional rounds. The key point: the commissions you earn during testing directly reduce your out-of-pocket cost, and once you enter Phase 3 your ad spend should be more than covered by what you earn.</p>
+    <div class="alert warning" style="margin-top:16px;margin-bottom:0;"><strong>Phase 2 Testing Continues Until Profitability Is Achieved</strong>The rounds outlined above represent the minimum testing sequence, but Phase 2 does not end after Round 3. If your campaign is not yet profitable, you continue split testing your ads and landing pages — refining headlines, visuals, and placements — until you find a combination that generates a positive return. You do not move to Phase 3 until Phase 2 testing has produced a profitable campaign. There is no fixed number of rounds — there is only the data, and what it tells you to do next.</div>
+  </div>
+
+  <div class="alert warning"><strong>The Test Phase Almost Always Takes Multiple Rounds</strong>Almost all mentees go through multiple rounds of testing during Phase 2 before reaching profitability. This is normal and expected — it is how the system works. Think of each round as an experiment that teaches you something. How quickly you progress depends mainly on how quickly you develop two skills: <strong>writing effective headlines</strong> and <strong>selecting the right images</strong>. The Creative Assets and Flexy™ Setup training help mentees learn and develop those skills. Mentees who master these crucial skills will move through training faster.</div>
+
+  <h3>Phase Gates — How You Know When to Advance</h3>
+  <p>At the end of each phase there's a gate — a set of criteria you must meet before moving forward. These protect your money by preventing you from scaling something that hasn't yet proven it can work.</p>
+  <div class="gate pass"><div class="gate-header">✓ Phase 1 → Phase 2 &nbsp;|&nbsp; Enter Test Phase</div>Marketing funnel double checked inside DIYTrax, campaign turned on and ads are live.</div>
+  <div class="gate pass"><div class="gate-header">✓ Phase 2 &nbsp;|&nbsp; Round 1 → Round 2</div>Spent $500+. Have at least 1 headline with metrics strong enough to move forward.</div>
+  <div class="gate pass"><div class="gate-header">✓ Phase 2 &nbsp;|&nbsp; Round 2 → Round 3</div>Spent $500+. Best visual creative returning approximately 75% ROAS. (Details in Phase 2.)</div>
+  <div class="gate pass"><div class="gate-header">✓ Phase 2 → Phase 3 &nbsp;|&nbsp; Enter Scale Phase</div>Testing rounds are complete and have produced a <strong>profitable campaign</strong>. You do not scale until your campaign is generating a positive return — scaling an unprofitable campaign only amplifies the losses.</div>
+
+  <h3>Your Support Team — You're Not Doing This Alone</h3>
+  <p>Help is available at every stage. A full breakdown of when and how to use each resource is in the Support section at the end of this guide.</p>
+  <div class="support-grid">
+    <div class="support-card"><div class="sc-type">📅 Coaching Calls — 6 days/week</div>Best for: strategic decisions, interpreting data at round transitions, deciding between Option A and B at any exit gate.</div>
+    <div class="support-card"><div class="sc-type">💬 BTS Community — 24/7</div>Best for: quick daily questions, troubleshooting tools, seeing how other mentees handled similar situations.</div>
+    <div class="support-card"><div class="sc-type">🛠 BTS Concierge™</div>Best for: technical blockages, or when you want a step handled so you can focus on strategy. Available for any step.</div>
+    <div class="support-card"><div class="sc-type">💬 Live Chat Support — Mon–Fri, 8AM–5PM CST</div>Best for: problems and technical support during business hours. Chat directly with the support team for fast, real-time help.</div>
+  </div>
+</div>
+
+<!-- MODULE 1: BUILD — OVERVIEW -->
+<span id="s3" style="display:block;position:relative;top:-80px;visibility:hidden;"></span><div class="module" id="module1-overview" data-section="s3">
+  <div class="module-header"><span class="mod-badge build">3 — Build — Overview</span><h2>Build Your Campaign Foundation</h2></div>
+  <div class="module-intro">Work through these steps in order. Do not skip ahead to technical setup before completing the conceptual training in the Creative Assets foundation lesson — understanding what makes a great headline and image directly shapes the assets you'll build.</div>
+
+  <h3>How The System Fits Together</h3>
+  <p>Before diving into the steps, here's a picture of how all the tools and pieces connect. This is the flow every campaign follows — from the ad a visitor sees, all the way through to you earning a commission.</p>
+  <div class="card">
+    <div class="card-title">Campaign Architecture — The Full Flow</div>
+    <p style="font-size:.93rem;margin-bottom:16px;">DIYTrax sits below as the unifying tracking layer, connected to every step via the arrows.</p>
+
+    <div style="overflow-x:auto;">
+      <table style="margin:0;min-width:580px;border-collapse:collapse;">
+        <!-- Flow headers -->
+        <thead>
+          <tr>
+            <th style="text-align:center;background:#1a2e4a;width:22%;padding:10px;">① Ad</th>
+            <th style="background:#1a2e4a;width:4%;border:none;"></th>
+            <th style="text-align:center;background:#1a2e4a;width:22%;padding:10px;">② Landing Page</th>
+            <th style="background:#1a2e4a;width:4%;border:none;"></th>
+            <th style="text-align:center;background:#1a2e4a;width:22%;padding:10px;">③ Offer Page</th>
+            <th style="background:#1a2e4a;width:4%;border:none;"></th>
+            <th style="text-align:center;background:#1a2e4a;width:22%;padding:10px;">④ Commission</th>
+          </tr>
+        </thead>
+        <tbody>
+          <!-- Flow content row -->
+          <tr style="text-align:center;vertical-align:top;">
+            <td style="background:#faf5ff;padding:16px 10px;border:1px solid var(--border);">
+              <strong>Caterpillar</strong><br>
+              <span style="font-size:.82rem;color:var(--muted);">Your native ad — headline and image shown to potential buyers</span>
+            </td>
+            <td style="text-align:center;vertical-align:middle;font-size:1.4rem;color:var(--muted);background:white;border:none;">→</td>
+            <td style="background:#fff7ed;padding:16px 10px;border:1px solid var(--border);">
+              <strong>Flexy™</strong><br>
+              <span style="font-size:.82rem;color:var(--muted);">Your landing page — pre-built advertorial (MM) or jump page (CB)</span>
+            </td>
+            <td style="text-align:center;vertical-align:middle;font-size:1.4rem;color:var(--muted);background:white;border:none;">→</td>
+            <td style="background:#f0fdf4;padding:16px 10px;border:1px solid var(--border);">
+              <strong>Affiliate Network</strong><br>
+              <span style="font-size:.82rem;color:var(--muted);">The product's sales page — Media Mavens or ClickBank</span>
+            </td>
+            <td style="text-align:center;vertical-align:middle;font-size:1.4rem;color:var(--muted);background:white;border:none;">→</td>
+            <td style="background:#f0fdf4;padding:16px 10px;border:1px solid var(--border);">
+              <strong>You Get Paid</strong><br>
+              <span style="font-size:.82rem;color:var(--muted);">A sale triggers a commission payment to your account</span>
+            </td>
+          </tr>
+
+          <!-- Downward arrows row -->
+          <tr style="text-align:center;">
+            <td style="padding:6px 0;font-size:1.5rem;color:#3b82f6;background:white;border:none;">↓</td>
+            <td style="background:white;border:none;"></td>
+            <td style="padding:6px 0;font-size:1.5rem;color:#3b82f6;background:white;border:none;">↓</td>
+            <td style="background:white;border:none;"></td>
+            <td style="padding:6px 0;font-size:1.5rem;color:#3b82f6;background:white;border:none;">↓</td>
+            <td style="background:white;border:none;"></td>
+            <td style="padding:6px 0;font-size:1.5rem;color:#3b82f6;background:white;border:none;">↓</td>
+          </tr>
+
+          <!-- DIYTrax label row -->
+          <tr>
+            <td colspan="7" style="background:#1e40af;color:white;text-align:center;padding:8px;font-weight:800;font-size:.82rem;letter-spacing:.5px;text-transform:uppercase;border-radius:6px 6px 0 0;">
+              📊 DIYTrax — Tracking Layer
+            </td>
+          </tr>
+
+          <!-- DIYTrax boxes row -->
+          <tr style="text-align:center;vertical-align:top;">
+            <td style="background:#eff6ff;padding:14px 10px;border:1px solid #bfdbfe;">
+              <div style="font-weight:700;font-size:.9rem;color:#1e40af;margin-bottom:4px;">Ad Clicks</div>
+              <div style="font-size:.8rem;color:var(--muted);">Records every click on your ads — which headline and image was clicked</div>
+            </td>
+            <td style="background:#eff6ff;border-top:1px solid #bfdbfe;border-bottom:1px solid #bfdbfe;"></td>
+            <td style="background:#eff6ff;padding:14px 10px;border:1px solid #bfdbfe;">
+              <div style="font-weight:700;font-size:.9rem;color:#1e40af;margin-bottom:4px;">LP Clicks</div>
+              <div style="font-size:.8rem;color:var(--muted);">Tracks which landing page was seen and whether the visitor clicked through to the offer</div>
+            </td>
+            <td style="background:#eff6ff;border-top:1px solid #bfdbfe;border-bottom:1px solid #bfdbfe;"></td>
+            <td style="background:#eff6ff;padding:14px 10px;border:1px solid #bfdbfe;">
+              <div style="font-weight:700;font-size:.9rem;color:#1e40af;margin-bottom:4px;">Offer Clicks</div>
+              <div style="font-size:.8rem;color:var(--muted);">Tracks clicks through to the product page with your affiliate link embedded</div>
+            </td>
+            <td style="background:#eff6ff;border-top:1px solid #bfdbfe;border-bottom:1px solid #bfdbfe;"></td>
+            <td style="background:#eff6ff;padding:14px 10px;border:1px solid #bfdbfe;">
+              <div style="font-weight:700;font-size:.9rem;color:#1e40af;margin-bottom:4px;">Conversions</div>
+              <div style="font-size:.8rem;color:var(--muted);">Matches each sale and commission back to the exact ad and landing page that produced it</div>
+            </td>
+          </tr>
+
+          <!-- DIYTrax footer -->
+          <tr>
+            <td colspan="7" style="background:#dbeafe;padding:10px 14px;font-size:.85rem;color:#1e40af;border-radius:0 0 6px 6px;border:1px solid #bfdbfe;border-top:none;">
+              Without DIYTrax you'd know you made sales — but you'd have no idea <em>which</em> ads and landing pages produced them. DIYTrax is what makes split testing possible.
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <hr class="divider">
+
+  <div class="card" style="border:2px solid var(--accent);margin-bottom:24px;">
+    <div class="card-title" style="color:var(--accent);">🔀 Which Path Are You On? — Find Out Before You Start</div>
+    <p style="margin-bottom:16px;">Your path through Module 1 depends on your network. Both paths end up using MetricMover™ for split testing — the difference is what you build first before getting there.</p>
+    <table style="margin:0;">
+      <thead><tr><th>Your Network</th><th>Your Path</th><th>What You'll Build</th></tr></thead>
+      <tbody>
+        <tr style="background:var(--mm-bg);">
+          <td><strong style="color:var(--mm-color);">Media Mavens</strong><br><span style="font-size:.85rem;color:var(--muted);">Products come with a pre-built advertorial</span></td>
+          <td><span class="path-tag tag-mm">MetricMover™ Path</span></td>
+          <td>5 landing page headlines + 5 hero shots → MetricMover™ creates 25 combinations automatically</td>
+        </tr>
+        <tr style="background:var(--cb-bg);">
+          <td><strong style="color:var(--cb-color);">ClickBank</strong><br><span style="font-size:.85rem;color:var(--muted);">No pre-built advertorial — build your own jump page</span></td>
+          <td><span class="path-tag tag-cb">Jump Page Path</span><br><br><span class="path-tag tag-mm" style="display:inline-block;margin-top:4px;">MetricMover™ Path</span></td>
+          <td>Select a jump page template in Flexy™ → add custom body copy for your chosen offer → then follow the MetricMover™ path for 5 headlines × 5 hero shots = 25 combinations</td>
+        </tr>
+      </tbody>
+    </table>
+    <p style="margin-top:14px;margin-bottom:0;font-size:.9rem;color:var(--muted);">Your network determines your path. If you're between networks, your coach can help you choose.</p>
+  </div>
+
+</div>
+
+<!-- CHOOSE YOUR PATH -->
+<span id="s4" style="display:block;position:relative;top:-80px;visibility:hidden;"></span><div class="module" id="path-select" data-section="s4">
+  <div class="module-header"><span class="mod-badge build">4 — Build — Network Selection</span><h2>Choose Your Affiliate Network</h2></div>
+  <div class="module-intro">This guide uses Caterpillar as the traffic source for all mentees. Your only decision here is which affiliate network to use — that determines what kind of landing page you'll build and which tools you'll use in the Build phase.</div>
+
+  <div class="why-box"><div class="why-label">💬 Our Recommendation</div><strong>Start with Media Mavens.</strong> It's our own in-house network, built specifically for this system. It offers higher commissions than comparable products on other networks, no chargebacks when customers return products, and pre-made advertorials for many products — meaning less work to get started. If Media Mavens doesn't have the product type you want, ClickBank is the next easiest entry point — a large public marketplace with instant signup and no approval required.</div>
+
+  <div class="network-grid">
+    <div class="net-card" style="border-color:var(--mm-border);background:var(--mm-bg);">
+      <div class="net-name"><span class="path-tag tag-mm">Media Mavens</span> &nbsp;<span style="background:#166534;color:white;font-size:.66rem;font-weight:800;padding:2px 8px;border-radius:10px;text-transform:uppercase;">⭐ Recommended</span></div>
+      <div class="net-desc">Our own in-house curated network — built for this system.
+        <ul>
+          <li><strong>Higher commissions</strong> than comparable products elsewhere</li>
+          <li><strong>No chargebacks</strong> — you keep your commission on returns</li>
+          <li><strong>Pre-made advertorials</strong> for many products — start testing faster</li>
+          <li>Works with Caterpillar, Grasshopper, and Crane</li>
+        </ul>
+      </div>
+    </div>
+    <div class="net-card" style="border-color:var(--cb-border);background:var(--cb-bg);">
+      <div class="net-name"><span class="path-tag tag-cb">ClickBank</span></div>
+      <div class="net-desc">A large public marketplace with thousands of products. Simple to sign up — no approval required.
+        <ul>
+          <li>You'll build your own jump pages from the product's VSL</li>
+          <li>Works with Caterpillar and Grasshopper</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <h3>Your Path in This Guide</h3>
+  <div class="card">
+    <p>Your path is your network choice + Caterpillar. Steps labeled <span class="path-tag tag-all">Everyone</span> always apply regardless of network. Look for your network's colored label for steps that are specific to you.</p>
+    <div class="path-grid">
+      <div class="path-cell" style="background:var(--mm-bg);border:1px solid var(--mm-border);"><span class="path-tag tag-mm">Media Mavens</span><br><span style="color:var(--muted);font-size:.76rem;">+ Caterpillar &nbsp;⭐</span></div>
+      <div class="path-cell" style="background:var(--cb-bg);border:1px solid var(--cb-border);"><span class="path-tag tag-cb">ClickBank</span><br><span style="color:var(--muted);font-size:.76rem;">+ Caterpillar</span></div>
+    </div>
+  </div>
+</div>
+
+<!-- MODULE 1: BUILD -->
+<span id="s5" style="display:block;position:relative;top:-80px;visibility:hidden;"></span><span id="s6" style="display:block;position:relative;top:-80px;visibility:hidden;"></span><span id="s6b" style="display:block;position:relative;top:-80px;visibility:hidden;"></span><span id="s6c" style="display:block;position:relative;top:-80px;visibility:hidden;"></span><span id="s6d" style="display:block;position:relative;top:-80px;visibility:hidden;"></span><span id="s7" style="display:block;position:relative;top:-80px;visibility:hidden;"></span><span id="s8" style="display:block;position:relative;top:-80px;visibility:hidden;"></span><span id="s9" style="display:block;position:relative;top:-80px;visibility:hidden;"></span><span id="s10" style="display:block;position:relative;top:-80px;visibility:hidden;"></span><div class="module" id="module1" data-section="s5 s6 s6b s6c s6d s7 s8 s9 s10">
+  <div id="module1-steps">
+  <div id="blitz-step1">
+  <div class="module-header"><span class="mod-badge build">5 — Build — Product Selection</span><h2 id="step1">Choose a Product to Promote <span class="path-tag tag-all">Everyone</span></h2></div>
+  <p>Your first job is to choose a product and get your unique affiliate tracking link. Follow the instructions for your network below.</p>
+
+  <div class="path-block mm">
+    <div class="path-block-label">✦ Media Mavens</div>
+    <p>Many Media Mavens products come with <strong>pre-made advertorials</strong> — ready-to-use landing pages. When browsing products, look for the pre-made advertorial indicator in the product listing. Starting with one of these products means you can skip writing your page from scratch and jump straight to customizing headlines and images.</p>
+    <div class="video-slot" data-vidalytics-id="6I7mIlw4eJSiKV0g" data-status="needs-rerecord"><div class="play-icon"></div><div><div class="vt">Logging Into Media Mavens For The First Time</div><div class="vd">How to navigate the platform after creating your account</div></div></div>
+    <div class="video-slot" data-vidalytics-id="Vo7HAtxS4VKOb71j" data-status="needs-rerecord"><div class="play-icon"></div><div><div class="vt">Choosing Your Media Mavens Product To Promote</div><div class="vd">How to evaluate products — look for ones with a pre-made advertorial available</div></div></div>
+    <div class="video-slot" data-vidalytics-id="VIDEO_ID_004" data-status="needs-rerecord"><div class="play-icon"></div><div><div class="vt">How To Get Your Media Mavens Affiliate Link</div><div class="vd">Where to find and copy your unique tracking link</div></div></div>
+  </div>
+
+  <div class="path-block cb">
+    <div class="path-block-label">✦ ClickBank</div>
+    <div class="video-slot" data-vidalytics-id="DRuqCGX8GUhmyezM" data-status="ready"><div class="play-icon"></div><div><div class="vt">Choosing Your ClickBank Product To Promote</div><div class="vd">How to browse the ClickBank marketplace and identify good candidates</div></div></div>
+    <p>After choosing your product, save your affiliate link. Note the product's sales page URL — you'll refer to it when writing your jump page body copy in the Landing Page Assets lesson.</p>
+  </div>
+
+  </div><!-- end blitz-step1 -->
+  <div id="blitz-step2">
+  <div id="step2-overview">
+  <div class="module-header"><span class="mod-badge build">6 — Build — Creative Assets</span><h2 id="step2">Understanding Creative Assets — The Foundation of Your Campaign <span class="path-tag tag-all">Everyone</span></h2></div>
+
+  <p>Before you can launch a campaign, you need to create two categories of creative assets — the materials that will actually appear in front of your audience and on your landing pages.</p>
+
+  <div class="card">
+    <div class="card-title">What Are Creative Assets?</div>
+    <table style="margin:0;">
+      <thead><tr><th>Asset</th><th>Where It's Used</th><th>Its Job</th></tr></thead>
+      <tbody>
+        <tr>
+          <td><strong>Ad Headlines</strong></td>
+          <td>Inside your Caterpillar native ads</td>
+          <td>Create enough curiosity and interest to earn a click</td>
+        </tr>
+        <tr>
+          <td><strong>Ad Image</strong></td>
+          <td>Inside your Caterpillar native ads</td>
+          <td>Stop the scroll and visually reinforce the headline's hook</td>
+        </tr>
+        <tr>
+          <td><strong>Landing Page Headlines</strong></td>
+          <td>At the top of your landing page</td>
+          <td>Carry the curiosity from the ad click forward and pull the visitor into reading the page</td>
+        </tr>
+        <tr>
+          <td><strong>Hero Shot Images</strong></td>
+          <td>At the top of your landing page</td>
+          <td>Create an emotional connection that makes the visitor want to keep reading</td>
+        </tr>
+      </tbody>
+    </table>
+    <p style="margin-top:12px;margin-bottom:0;font-size:.93rem;">All four work together as a connected experience. The ad headline and image earn the click. The landing page headline and hero shot take over from there and lead the visitor toward buying. A strong ad that leads to a weak landing page, or vice versa, breaks the chain.</p>
+  </div>
+
+  <hr class="divider">
+
+  <h3>The Foundation: Why People Click and Buy <span class="path-tag tag-all">Everyone</span></h3>
+
+  <p>Before writing a single headline or choosing a single image, you need to understand the psychology behind what makes someone click an ad and then stay engaged long enough to buy. This is the foundation everything else is built on.</p>
+
+  <div class="video-slot" data-vidalytics-id="eNS3tbunwpI40aV_" data-status="ready"><div class="play-icon"></div><div><div class="vt">Finding Your Edge With Ad Banner Psychology</div><div class="vd">Watch this first — it shapes how you approach everything that follows</div></div></div>
+
+  <div class="why-box">
+    <div class="why-label">💡 The Affiliate Funnel Is a Three-Part Story</div>
+    Your affiliate campaign tells a story across three steps. The <strong>ad</strong> is the beginning — it starts the story and creates enough curiosity to earn a click. The <strong>landing page (advertorial)</strong> is the middle — it deepens engagement and pre-sells the reader. The <strong>offer page</strong> is the end — it closes the sale. Everything you build in this step is about starting that story the right way.
+  </div>
+
+  <div class="callout-box">
+    <div class="pe-label">💡 The Two-Headline Concept — Understanding the Difference</div>
+    In affiliate marketing you'll be writing two types of headlines with two very different jobs — and your image plays a third, separate role. Understanding how these work together is the foundation of everything in this step.
+    <br><br>
+    <strong>Ad Headlines</strong> — These appear in your Caterpillar native ads alongside your ad image. Together, the image and headline have one job: stop the scroll and earn the click. The image creates the visual hook; the headline opens a curiosity gap. They start the story — they don't tell it. You'll begin with static images, which is where most mentees start. As you advance, animations become a powerful tool for improving click-through rate.
+    <br><br>
+    <strong>Landing Page Headlines</strong> — Once someone has clicked, your landing page headline takes over. Its job is to carry the story forward, deepen the reader's engagement, and pull them into the content far enough that they're motivated to buy. This is where conversions are won or lost.
+    <br><br>
+    All three elements — ad image, ad headline, and landing page headline — must feel like one connected, continuous experience. A great ad that leads to a mismatched landing page kills conversions. Get the click first with the image and ad headline, then earn the conversion with the landing page.
+  </div>
+
+  <div class="why-box">
+    <div class="why-label">💬 Rule: Keep the Loop Open</div>
+    Never close the curiosity gap in your ad. Do not name the product. Do not give the price. Do not answer the question your image or headline raises. Your ad is selling the click — not the product. The reader needs to feel they <em>must</em> click to find out what happens next. The moment you answer the question in the ad, you've given them a reason not to click.
+  </div>
+
+  <hr class="divider">
+
+  <h3>Understanding Angles — The Real Reason You're Testing Multiple Headlines and Images</h3>
+
+  <p>Before you write a single headline or choose a single image, you need to understand what you're actually testing — and why. The answer is <strong>angles</strong>.</p>
+
+  <div class="callout-box">
+    <div class="pe-label">💡 What is an angle?</div>
+    An angle is a specific point of view, emotional hook, or benefit framing used to present a product to a potential buyer. The same product can be angled in completely different ways depending on what resonates with the audience you're targeting.
+    <br><br>
+    For example, a weight-loss product could be angled as:
+    <ul style="margin-top:10px;margin-bottom:10px;">
+      <li><strong>"Science-backed method"</strong> — appeals to skeptics who want proof</li>
+      <li><strong>"Works even with a busy lifestyle"</strong> — appeals to people who've failed before due to time constraints</li>
+      <li><strong>"Designed specifically for people over 50"</strong> — speaks directly to a segment who feel most products aren't made for them</li>
+      <li><strong>"Doctors are surprised by these results"</strong> — creates curiosity and authority simultaneously</li>
+    </ul>
+    Each of these angles speaks to a fundamentally different type of buyer — and you genuinely don't know which one will resonate most with your audience until you test.
+  </div>
+
+  <div class="card">
+    <div class="card-title">The Impact of Each Ad Element — Where to Focus</div>
+    <p style="margin-bottom:14px;">Not all ad elements are created equal. Here's how much each one affects conversion rate:</p>
+    <table style="margin:0;">
+      <thead><tr><th>Element</th><th>Impact</th><th>What It Means</th></tr></thead>
+      <tbody>
+        <tr style="background:#ecfdf5;">
+          <td><strong style="color:#047857;">Ad Angle</strong></td>
+          <td><strong style="color:#047857;">70%</strong></td>
+          <td>The idea your ad represents — how all elements work together to start the story. This moves the needle more than anything else.</td>
+        </tr>
+        <tr>
+          <td><strong>Headline</strong></td>
+          <td><strong>15%</strong></td>
+          <td>The specific words that hook attention and create the curiosity gap.</td>
+        </tr>
+        <tr>
+          <td><strong>Image / Animation</strong></td>
+          <td><strong>10%</strong></td>
+          <td>The visual that stops the scroll. Animations outperform static images on Caterpillar for click-through rate.</td>
+        </tr>
+        <tr>
+          <td>Supporting Copy</td>
+          <td>5%</td>
+          <td>Additional text that deepens curiosity and keeps the loop open.</td>
+        </tr>
+      </tbody>
+    </table>
+    <p style="margin-top:14px;margin-bottom:0;font-size:.9rem;color:var(--muted);font-style:italic;">Get the angle right and everything else will fall into place. Your metrics are a mirror of your marketing — if your marketing is good, the numbers will reflect it.</p>
+  </div>
+
+  <div class="card">
+    <div class="card-title">Why Angles Drive Everything You'll Build in This Step</div>
+    <p style="margin-bottom:14px;">Every creative asset you create is an angle hypothesis — a bet on what will resonate with your audience. Here's how angles play out across all four asset types:</p>
+    <table style="margin:0;">
+      <thead><tr><th>Asset</th><th>What the Angle Looks Like</th><th>What You're Testing</th></tr></thead>
+      <tbody>
+        <tr>
+          <td><strong>Ad Headlines</strong></td>
+          <td>Each of your 10 headlines represents a different angle or emotional hook designed to create curiosity and earn a click</td>
+          <td>Which angle makes your target audience want to click</td>
+        </tr>
+        <tr>
+          <td><strong>Ad Image</strong></td>
+          <td>Your image reinforces a visual angle — emotion, aspiration, problem, authority — that supports the headline</td>
+          <td>Which visual angle stops the scroll and earns the click</td>
+        </tr>
+        <tr>
+          <td><strong>Landing Page Headlines</strong></td>
+          <td>Each of your 5 LP headlines continues the angle from the ad — carrying the curiosity forward and pulling the visitor into the page</td>
+          <td>Which angle continuation converts clickers into readers</td>
+        </tr>
+        <tr>
+          <td><strong>Hero Shot Images</strong></td>
+          <td>Each of your 5 hero shots represents a different visual angle — hope, pain, transformation, authority, aspiration</td>
+          <td>Which visual angle deepens engagement and motivates the visitor to read and buy</td>
+        </tr>
+      </tbody>
+    </table>
+    <p style="margin-top:14px;margin-bottom:0;font-size:.9rem;color:var(--muted);">The combination of these four asset types — across 10 ad headlines and 25 landing page combinations — is how you systematically find the angle that resonates. You are not guessing. You are running a structured experiment. The data from each round tells you what to keep, what to cut, and what to try next.</p>
+  </div>
+
+  <div class="why-box">
+    <div class="why-label">💬 The Ad-to-Landing Page Connection</div>
+    Your ad headline and your landing page headline must feel like they belong together — they should be two parts of the same conversation, not two separate messages. A visitor who clicks your ad based on a "busy lifestyle" angle and lands on a page leading with a "scientific breakthrough" angle will feel confused and leave. Matching your angle from ad to landing page — what marketers call "message match" — is one of the most important factors in campaign performance. As you write your headlines and select your images in Parts 2 and 3, always ask: does this ad angle connect naturally to this landing page angle?
+  </div>
+
+  </div><!-- end step2-overview -->
+  <div id="step2-native">
+  <div class="module-header"><span class="mod-badge build">7 — Build — Native Ad Assets</span><h2 id="part2-native">Create Your Native Ad Assets <span class="path-tag tag-all">Everyone</span></h2></div>
+
+  <p>Regardless of which affiliate network you're using, you'll need to create your native ad assets for Caterpillar. These are the headlines, description, and image that appear in your ads — their only job is to generate enough curiosity that someone clicks.</p>
+
+  <div class="callout-box">
+    <div class="pe-label">💡 How Caterpillar native ads work</div>
+    Caterpillar is a native advertising platform. Your ads look like recommended articles rather than obvious advertisements. You upload three things <strong>separately</strong>: your headlines (as plain text), one description (as plain text), and one image file. The platform assembles the ad automatically. You do NOT design a complete banner image.
+  </div>
+
+  <h3>Phase 2 — Test — Round 1 Targets</h3>
+  <div class="card">
+    <ul>
+      <li><strong>10 Headlines</strong> — each 90 characters or fewer (roughly the length of a tweet)</li>
+      <li><strong>1 Description</strong> — 90 characters or fewer, appears beneath the headline in the ad</li>
+      <li><strong>1 Image</strong> — 16:9 ratio (landscape), minimum 960×540px, recommended 1280×720px or larger</li>
+    </ul>
+    <p style="margin-bottom:0; font-size:.87rem; color:var(--muted);">Know your targets before opening any creative tool. Build with these specifications in mind from the start.</p>
+  </div>
+
+  <div class="card" style="border:2px solid var(--accent);">
+    <div class="card-title" style="color:var(--accent);">📐 Quick Reference — Image Specs</div>
+    <table style="margin:0;">
+      <thead><tr><th>Item</th><th>Spec / Limit</th><th>Notes</th></tr></thead>
+      <tbody>
+        <tr><td><strong>Ad Headlines</strong></td><td>Max 90 characters</td><td>10 required for Round 1</td></tr>
+        <tr><td><strong>Ad Description</strong></td><td>Max 90 characters</td><td>1 required</td></tr>
+        <tr><td><strong>Ad Image (Round 1)</strong></td><td>16:9 ratio, min 960×540px</td><td>Recommended: 1280×720px or larger</td></tr>
+        <tr><td><strong>Max GIF File Size</strong></td><td>5MB</td><td>Use GIFSTER to compress if over limit</td></tr>
+        <tr><td><strong>Ads per Sub-Campaign</strong></td><td>3–5 maximum</td><td>Split 10 headlines into 2 sub-campaigns of 5</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3>Ad Headlines</h3>
+  <div class="why-box">
+    <div class="why-label">💬 What makes a great ad headline?</div>
+    Great ad headlines are usually curiosity-driven, specific, or challenge a common assumption. They don't give everything away — they open a loop in the reader's mind that can only be closed by clicking. Examples of the kind of angles that work: "Doctors Can't Explain Why This Works So Well," "The One Thing Most People Get Wrong About Sleep," "This 60-Second Trick Is Changing How People Think About Energy." Notice how none of them sell the product outright — they create a question the reader wants answered.
+  </div>
+
+  <div class="video-slot" data-vidalytics-id="CJGyuckAA4qEKIDb" data-status="ready"><div class="play-icon"></div><div><div class="vt">How to Generate Effective Ad Headlines Using FreeAdCopy™</div><div class="vd">Watch before writing your ad headlines — covers how to use the tool and what to look for</div></div></div>
+  <div class="video-slot" data-vidalytics-id="1HySXYGJDBpvQPus" data-status="ready"><div class="play-icon"></div><div><div class="vt">How to Generate a Description for Your Ad Headlines</div><div class="vd">Write the supporting copy that pairs with each headline</div></div></div>
+  <div class="video-slot" data-vidalytics-id="pQ6rdVd7F5HJyM5z" data-status="ready"><div class="play-icon"></div><div><div class="vt">How to Shorten Your Ad Headline Title and Insert Dynamic Macros</div><div class="vd">Trim long headlines to fit Caterpillar's character limits and use macros like {city} and {state} to personalize ads</div></div></div>
+
+  <div class="card"><div class="card-title">Optional: Dynamic Macros — Make Ads Feel Personal</div>
+    <p style="font-size:.87rem; margin-bottom:8px;">Caterpillar lets you insert placeholder codes that auto-fill viewer-specific info, making ads feel personalized. Example: <code>{city}</code> is replaced by the viewer's actual city. You can ask Claude to help incorporate these naturally into your headlines.</p>
+    <div style="font-family:monospace;font-size:.81rem;background:#1e2533;color:#93c5fd;border-radius:6px;padding:10px 14px;">{state} &nbsp;{city} &nbsp;{year} &nbsp;{month} &nbsp;{day_of_week} &nbsp;{date} &nbsp;{os}</div>
+  </div>
+
+  <h3>Ad Image</h3>
+  <div class="why-box">
+    <div class="why-label">💬 What makes a great Caterpillar ad image?</div>
+    Your ad image has one job: stop the scroll. A person browsing a news site sees dozens of content recommendations — your image needs to be the one that makes them pause. Here's what tends to work:
+    <ul style="margin-top:10px;">
+      <li><strong>Emotional resonance</strong> — images that trigger curiosity, surprise, concern, or aspiration outperform "neutral" imagery. Ask yourself: does this image make me feel something?</li>
+      <li><strong>Human faces</strong> — particularly faces showing emotion, draw the eye naturally and often outperform product or abstract shots</li>
+      <li><strong>Visual contrast</strong> — bold colors or strong light-vs-dark contrast stand out against the typical muted tones of news content around your ad</li>
+      <li><strong>Relevance to the headline</strong> — the image and headline should feel like they belong together. A reader who clicks should feel the ad delivered on what the image and headline promised</li>
+      <li><strong>Avoid generic stock photo aesthetics</strong> — overly polished, obviously staged images tend to underperform. More authentic or unexpected visuals typically get better click-through rates</li>
+    </ul>
+    Remember: in Round 1 you're testing with one image. You don't need it to be perfect — you need it to be a strong starting point. Round 2 is specifically for testing different visual approaches against each other.
+  </div>
+
+  <div class="video-slot" data-vidalytics-id="KdXJA4N4m_Z_aW7Y" data-status="ready"><div class="play-icon"></div><div><div class="vt">Using AI to Generate Ad Images</div><div class="vd">Leverging AI to generate image ideas and images</div></div></div>
+
+  <div class="video-slot" data-vidalytics-id="ZdlXsm7JlZq8wfkh" data-status="ready"><div class="play-icon"></div><div><div class="vt">How to use Mid-Journey to create images</div><div class="vd">Use any AI image generator — match the image theme to your headlines</div></div></div>
+
+  <div class="video-slot" data-vidalytics-id="EC_PTyt0Q22CX9lR" data-status="ready"><div class="play-icon"></div><div><div class="vt">Prepare Headlines and Image for Compliance</div><div class="vd">Get your headlines and image ready to submit for compliance review</div></div></div>
+
+  <div class="alert warning"><strong>Submit for Compliance Before Proceeding</strong>Once your 10 headlines, 1 description, and 1 image are ready, submit for compliance review. You may continue with Flexy™ setup while awaiting approval, but do not go live until compliance is confirmed.</div>
+
+  </div><!-- end step2-native -->
+  <div id="step2-mm">
+  <div class="module-header"><span class="mod-badge build">8 — Build — Landing Page Assets (Media Mavens)</span><h2 id="part3-lp">Create Your Landing Page Assets — Media Mavens <span class="path-tag tag-mm">Media Mavens</span></h2></div>
+
+  <div class="alert" style="background:#fff7ed;border-left:4px solid #f59e0b;padding:12px 14px;margin:8px 0 14px;font-size:.93rem;">
+    <strong>Promoting a ClickBank offer?</strong> Skip this lesson and jump straight to the <em>Landing Page Assets — ClickBank</em> lesson instead.
+  </div>
+
+  <div class="module-intro">
+    A landing page is the web page a visitor sees after clicking your ad. Its job is to take someone who was just curious enough to click and turn them into someone who is engaged enough to buy.
+  </div>
+
+  <p>This is where the two paths diverge — but not as dramatically as before. <strong>Media Mavens</strong> products come with a pre-built advertorial body copy. <strong>ClickBank</strong> requires you to write your own short body copy for a jump page template. In both cases, you'll then create 5 landing page headlines and 5 hero shots, and use MetricMover™ to generate 25 combinations. This lesson covers the <strong>Media Mavens</strong> path.</p>
+
+  <!-- ── MEDIA MAVENS PATH ── -->
+  <div class="path-block mm">
+    <div class="path-block-label">✦ Media Mavens</div>
+
+    <div class="callout-box">
+      <div class="pe-label">💡 How this path works</div>
+      All Media Mavens products come with a <strong>pre-built advertorial</strong> — the body copy is already written for you. Your job is to find the most effective <strong>headline and hero shot</strong> to place at the top of that pre-built page. You'll create 5 headline variations and 5 hero shot image options. The MetricMover™ App then combines these into <strong>25 unique landing pages</strong> — same body copy on every page, but a different headline and image at the top of each one. DIYTrax rotates visitors through all 25 and tracks which combinations generate the most sales.
+    </div>
+
+    <p><strong>Your target: 5 landing page headlines × 5 hero shot images = 25 combinations tested simultaneously.</strong></p>
+
+    <div class="callout-box">
+      <div class="pe-label">💡 Why 25 combinations — and why does it take multiple rounds?</div>
+      Instead of guessing which headline and image pair works best, you test all 25 at the same time. The <strong>MetricMover™ App</strong> creates 25 unique landing pages, and <strong>DIYTrax</strong> rotates visitors through them automatically — tracking which combinations generate the most sales.
+      <br><br>
+      <strong>Important: it will most likely take multiple rounds before a clear winner emerges.</strong> Here's why — each ad click goes to a different landing page in rotation. So 25 clicks on your ads results in only 1 click per landing page. That's not enough data to declare a winner. It generally takes multiple rounds to accumulate enough clicks across all 25 pages to see a definitive winner emerge — and that's completely normal. The data from each round builds on the last, weaker pages fall away, and your best-performing combinations rise to the top.
+    </div>
+
+    <h4>Writing Your 5 Landing Page Headlines</h4>
+    <p>Remember: landing page headlines have a different job than your ad headlines. Where ad headlines create curiosity to earn the click, landing page headlines need to <strong>carry that curiosity forward</strong> and pull the reader into the advertorial. Start by generating your headline angles using the AffAngleArchitect bot, then use the Copy Blocks framework to make them even stronger.</p>
+
+    <div class="video-slot" data-vidalytics-id="W7ErW0djTSt_xAzc" data-status="ready"><div class="play-icon"></div><div><div class="vt">How to Generate Landing Page Headline Angles Using Affiliate Angle Architect</div><div class="vd">Watch before generating your headlines — use the AffAngleArchitect bot on Poe.com</div></div></div>
+
+    <p style="margin:10px 0 14px;"><strong>Open the bot:</strong> <a href="https://poe.com/AffAngleArchitect" target="_blank" rel="noopener noreferrer">poe.com/AffAngleArchitect</a></p>
+
+    <div class="callout-box"><div class="pe-label">💡 What is Poe.com?</div>Poe is a platform that gives you access to AI chatbots, including specialized bots built for specific tasks ($20/mo for 1 million credits). The AffAngleArchitect bot is pre-configured specifically to generate strong marketing angles for affiliate campaigns — much more targeted than a general AI tool.</div>
+
+    <div class="video-slot" data-vidalytics-id="1WIZNgTE_2_rdG_c" data-status="ready"><div class="play-icon"></div><div><div class="vt">How to Generate Landing Page Headline Angles Using Affiliate CMO</div><div class="vd">Alternative method — use the Affiliate CMO bot to generate headline angles</div></div></div>
+
+    <p>After you have generated your landing page headlines, learn how to make them even stronger by using Copy Blocks:</p>
+
+    <div class="video-slot" data-vidalytics-id="dB_cld8YbF67vSSc" data-status="ready"><div class="play-icon"></div><div><div class="vt">How to Write Strong Landing Page Headlines Using "Copy Blocks"</div><div class="vd">The framework for assembling headlines that engage and convert — watch before writing</div></div></div>
+
+    <div class="card"><div class="card-title">Follow-Along Resources</div><ul>
+      <li><strong><a href="https://docs.google.com/document/d/1WIMgVI1uBDQ-quaewhRtNQx7aV7buSxLIVl-hHkfEMs/edit?tab=t.0" target="_blank" rel="noopener noreferrer">Copy Blocks Mini Tutorial (Google Doc)</a></strong> — exercises to complete while watching. File → Make a copy to get your own version. Pause at each exercise before scrolling to reveal the answer.</li>
+      <li><strong><a href="https://docs.google.com/document/d/1Q822qgrEJaG-O1HOcz8G5-DMOaJ39FSPFHwegdotAPM/edit?tab=t.0#heading=h.u2iwak40dl0w" target="_blank" rel="noopener noreferrer">Copy Blocks Essential Understanding (Google Doc)</a></strong> — a deeper reference guide with many more examples. Read this after completing the video exercises.</li>
+    </ul>
+    <p style="margin-bottom:0;font-size:.9rem;color:var(--muted);"><em>Credit for the Copy Blocks concept: Luke Iha and Mario Castelli at Copy Coders.</em></p>
+    </div>
+
+
+    <h4>Generating Your 5 Hero Shot Images</h4>
+    <p>Just like with headlines, your 5 hero shots should each represent a distinct angle or emotional approach — not just 5 variations of the same idea. Think of each image as its own hypothesis: one might convey hope and transformation, another might focus on pain and frustration, a third might lean into credibility or scientific authority. Each angle attracts a different type of reader, and you won't know which resonates most until you test them.</p>
+    <p>A strong hero shot does two things simultaneously: it reinforces the specific headline it's paired with, and it creates an emotional connection that makes the reader want to keep scrolling. A mismatch between headline and image — even a subtle one — can kill engagement before the reader gets to the first sentence of the advertorial. Think of each headline and hero shot as a pair, not two independent elements.</p>
+    <p>Below are two unique methods for generating hero shots. Adam's method for generating GIFs can be very effective, since image motion can enhance or further develop a message, but it is slightly more advanced and complicated, and is not necessary for your first campaign. The choice is yours.</p>
+
+    <div class="video-slot" data-vidalytics-id="KdXJA4N4m_Z_aW7Y" data-status="ready">
+      <div class="play-icon"></div>
+      <div>
+        <div class="vt">Using AI to Generate Hero Shots</div>
+        <div class="vd">Leverging AI to generate image ideas and images</div>
+      </div>
+    </div>
+
+    <div class="video-slot" data-vidalytics-id="qRtg_65vvMi60o1d" data-status="ready"><div class="play-icon"></div><div><div class="vt">How to Select Strong Hero Shots for Landing Pages</div><div class="vd">Adam's advanced framework — includes how to generate animated GIFs using the Gifster app</div></div></div>
+
+    <div class="callout-box"><div class="pe-label">💡 About Adam's Hero Shot Video</div>Adam's video is excellent and goes deep — but it also covers creating animated GIFs using the <strong>Gifster app</strong>, which is more advanced. Start with the AI video first. Once you're comfortable with the basics, return to Adam's video to learn the GIF creation process.</div>
+
+    <p><strong>Other ways to generate or source hero shot images:</strong></p>
+    <ul>
+      <li>AI tools such as ChatGPT, Claude, Nano Banana, Kling, and others can also be used to generate images</li>
+      <li>Images can also be found using ScrapeBot™, CropBot™, Gifster™, as well as Google and Bing image search</li>
+      <li>There are also many free and licensed stock photo sites available</li>
+    </ul>
+    <p>There is no right or wrong tool — as long as you understand the purpose of the hero shot image, use whatever works best for you.</p>
+
+    <div class="alert warning"><strong>Compliance Required Before Building</strong>Submit your 5 headlines and 5 hero shots for compliance review before building pages. Wait for approval before proceeding to Flexy™ setup.</div>
+    <div class="video-slot" data-vidalytics-id="EC_PTyt0Q22CX9lR" data-status="ready"><div class="play-icon"></div><div><div class="vt">Prepare Headlines and Image for Compliance</div><div class="vd">Get your headlines and image ready to submit for compliance review</div></div></div>
+  </div>
+
+  </div><!-- end step2-mm -->
+  <div id="step2-cb">
+  <div class="module-header"><span class="mod-badge build">9 — Build — Landing Page Assets (ClickBank)</span><h2>Create Your Landing Page Assets — ClickBank <span class="path-tag tag-cb">ClickBank</span></h2></div>
+
+  <p>This lesson covers the <strong>ClickBank</strong> path. You'll write your own short body copy for a jump page template, then create 5 landing page headlines and 5 hero shots, and use MetricMover™ to generate 25 combinations.</p>
+
+  <!-- ── CLICKBANK PATH ── -->
+  <div class="path-block cb">
+    <div class="path-block-label">✦ ClickBank</div>
+
+    <div class="callout-box">
+      <div class="pe-label">💡 How this path works</div>
+      For ClickBank products, you'll start with a jump page template in Flexy™ and customize the body copy to reflect your specific offer. The body copy is a short paragraph (or a few) that creates curiosity about the product and motivates the visitor to click through to the VSL. Once your body copy is written, the process is identical to the Media Mavens path — you create 5 landing page headlines and 5 hero shots, and MetricMover™ generates all 25 combinations for testing.
+    </div>
+
+    <p><strong>Your target: 1 jump page with custom body copy + 5 headlines × 5 hero shots = 25 MetricMover™ combinations.</strong></p>
+
+    <h4>Get Your VSL Transcript</h4>
+    <p>For ClickBank products, the VSL (Video Sales Letter) is your advertorial — it contains the angles, hooks, and copy that you'll use to write your jump page body copy. You need to download the VSL and get a transcript from it before using the Bridge Page Copy Bot.</p>
+
+    <div class="video-slot" data-vidalytics-id="MdyXqshujFu9X4_R" data-status="ready"><div class="play-icon"></div><div><div class="vt">Install Video DownloadHelper in Firefox</div><div class="vd">A free browser extension that lets you download videos from websites — install this first</div></div></div>
+    <div class="video-slot" data-vidalytics-id="YStBLA01f5f6beyS" data-status="ready"><div class="play-icon"></div><div><div class="vt">Download Your VSL</div><div class="vd">How to save the product's Video Sales Letter to your computer using DownloadHelper</div></div></div>
+    <div class="video-slot" data-vidalytics-id="4wsEaqFN77BMkfI0" data-status="ready"><div class="play-icon"></div><div><div class="vt">How to Get a Transcript of Your VSL Using Temi</div><div class="vd">Convert the video to text — clean it up for accuracy before passing it to the Copy Bot</div></div></div>
+
+    <h4>Write Your Jump Page Body Copy</h4>
+    <p>With your VSL transcript in hand, use the Bridge Page Copy Bot to generate your jump page body copy. Paste the transcript into the bot — it will extract the key angles, hooks, and benefit statements and turn them into short, curiosity-building body copy for your jump page.</p>
+
+    <div class="video-slot" data-vidalytics-id="dMggcz7XVVhJz461" data-status="ready"><div class="play-icon"></div><div><div class="vt">How to Generate Jump Page Body Copy — Bridge Page Copy Bot</div><div class="vd">Use the Bridge Page Copy Bot to generate compelling body copy for your jump page</div></div></div>
+    <div class="video-slot" data-vidalytics-id="SZTE9m7CzKj724QW" data-status="ready"><div class="play-icon"></div><div><div class="vt">Bridge Page Copy Bot Intro — Call Recording</div><div class="vd">Full introduction to the bot and how to get the best results</div></div></div>
+    <div class="video-slot" data-vidalytics-id="7jzp7vZ2tk3gNzKC" data-status="ready"><div class="play-icon"></div><div><div class="vt">Choose Jump Page Base To Clone</div><div class="vd">Pick the right jump page template to clone for your offer before you start</div></div></div>
+    <div class="video-slot" data-vidalytics-id="d8rYm60FrwIIlnal" data-status="ready"><div class="play-icon"></div><div><div class="vt">Create Your Landing Page Base Copy</div><div class="vd">Use the Bridge Page Copy Bot output to draft the base copy for your landing page</div></div></div>
+
+    <h4>Generate 5 Landing Page Headlines</h4>
+    <p>Follow the same process as the Media Mavens path — use AffAngleArchitect and Copy Blocks to generate 5 strong landing page headlines that carry the curiosity from your ad click forward and pull the visitor into the page.</p>
+
+    <div class="video-slot" data-vidalytics-id="W7ErW0djTSt_xAzc" data-status="ready"><div class="play-icon"></div><div><div class="vt">How to Generate Landing Page Headline Angles Using Affiliate Angle Architect</div><div class="vd">Watch before generating your headlines — use the AffAngleArchitect bot on Poe.com</div></div></div>
+
+    <p style="margin:10px 0 14px;"><strong>Open the bot:</strong> <a href="https://poe.com/AffAngleArchitect" target="_blank" rel="noopener noreferrer">poe.com/AffAngleArchitect</a></p>
+
+    <div class="video-slot" data-vidalytics-id="1WIZNgTE_2_rdG_c" data-status="ready"><div class="play-icon"></div><div><div class="vt">How to Generate Landing Page Headline Angles Using Affiliate CMO</div><div class="vd">Alternative method — use the Affiliate CMO bot to generate headline angles</div></div></div>
+
+    <div class="video-slot" data-vidalytics-id="dB_cld8YbF67vSSc" data-status="ready"><div class="play-icon"></div><div><div class="vt">How to Write Strong Landing Page Headlines Using "Copy Blocks"</div><div class="vd">The framework for assembling headlines that engage and convert</div></div></div>
+    <div class="card"><div class="card-title">Follow-Along Resources</div><ul>
+      <li><strong><a href="https://docs.google.com/document/d/1WIMgVI1uBDQ-quaewhRtNQx7aV7buSxLIVl-hHkfEMs/edit?tab=t.0" target="_blank" rel="noopener noreferrer">Copy Blocks Mini Tutorial (Google Doc)</a></strong> — exercises to complete while watching. File → Make a copy to get your own version.</li>
+      <li><strong><a href="https://docs.google.com/document/d/1Q822qgrEJaG-O1HOcz8G5-DMOaJ39FSPFHwegdotAPM/edit?tab=t.0#heading=h.u2iwak40dl0w" target="_blank" rel="noopener noreferrer">Copy Blocks Essential Understanding (Google Doc)</a></strong> — a deeper reference guide. Read after the video exercises.</li>
+    </ul>
+    <p style="margin-bottom:0;font-size:.9rem;color:var(--muted);"><em>Credit for the Copy Blocks concept: Luke Iha and Mario Castelli at Copy Coders.</em></p>
+    </div>
+
+    <h4>Source 5 Hero Shot Images</h4>
+    <p>Follow the same hero shot process as the Media Mavens path — each image should represent a different visual angle or emotional approach. They will be combined with your 5 headlines in MetricMover™ to create 25 unique jump page combinations.</p>
+
+    <div class="video-slot" data-vidalytics-id="KdXJA4N4m_Z_aW7Y" data-status="ready"><div class="play-icon"></div><div><div class="vt">Using AI to Generate Hero Shots</div><div class="vd">Leverging AI to generate image ideas and images</div></div></div>
+    <div class="video-slot" data-vidalytics-id="qRtg_65vvMi60o1d" data-status="ready"><div class="play-icon"></div><div><div class="vt">How to Select Strong Hero Shots for Landing Pages</div><div class="vd">Adam's advanced framework — includes animated GIF creation using the Gifster app</div></div></div>
+
+    <p><strong>Other ways to generate or source hero shot images:</strong></p>
+    <ul>
+      <li>AI tools such as ChatGPT, Claude, Nano Banana, Kling, and others</li>
+      <li>ScrapeBot™, CropBot™, Gifster™, Google and Bing image search</li>
+      <li>Free and licensed stock photo sites</li>
+    </ul>
+    <p>There is no right or wrong tool — as long as you understand the purpose of the hero shot image, use whatever works best for you.</p>
+
+    <div class="alert warning"><strong>Compliance Required Before Building</strong>Submit your body copy, 5 headlines, and 5 hero shots for compliance review before proceeding to Flexy™ setup. Wait for approval before building pages in Flexy™.</div>
+    <div class="video-slot" data-vidalytics-id="EC_PTyt0Q22CX9lR" data-status="ready"><div class="play-icon"></div><div><div class="vt">Prepare Headlines and Image for Compliance</div><div class="vd">Get your headlines and image ready to submit for compliance review</div></div></div>
+  </div>
+
+  </div><!-- end step2-cb -->
+  </div><!-- end blitz-step2 -->
+  </div><!-- end module1-steps -->
+
+</div><!-- end module1 -->
+
+<!-- COMPLIANCE EXPLAINED -->
+<div class="module" id="compliance" data-section="s7">
+  <div class="module-header"><span class="mod-badge build">10 — Build — Compliance</span><h2>Submit Your Assets for Compliance Review</h2></div>
+  <div class="module-intro">Compliance is a required step before your campaign can go live. It is not optional and it cannot be skipped. This section explains what it is, how it works, and what to do if something is rejected — so you're not caught off guard when you reach that step.</div>
+
+  <h3>What Is Compliance?</h3>
+  <p>Before your ads and landing pages can run, your headlines and images are reviewed by <strong>BTS</strong> to make sure they comply with the advertising standards of the publisher (Caterpillar). This review process is called compliance.</p>
+  <p>The purpose is to protect the platforms and their users from misleading claims, prohibited content, and poor-quality ads. Every affiliate marketer goes through this — it's a standard part of the process, not a reflection on you personally.</p>
+
+  <h3>What Gets Reviewed</h3>
+  <div class="card">
+    <table style="margin:0;">
+      <thead><tr><th>What You Submit</th><th>What They Check For</th></tr></thead>
+      <tbody>
+        <tr><td><strong>Ad headlines and description</strong></td><td>No false claims, no prohibited trigger words, no misleading promises</td></tr>
+        <tr><td><strong>Ad image</strong></td><td>No prohibited imagery, appropriate content, meets size requirements</td></tr>
+        <tr><td><strong>Landing page copy and headlines</strong></td><td>Claims must be supportable, no misleading before/after, no prohibited health claims</td></tr>
+        <tr><td><strong>Hero shot images</strong></td><td>Appropriate content, no prohibited imagery</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3>How Long Does It Take?</h3>
+  <p>Compliance review typically takes <strong>24–48 hours</strong> for most submissions. Plan for this in your timeline — submit your assets well before you intend to go live so the review doesn't hold up your launch. Do not proceed to setting up MetricMover™ or building pages in Flexy™ until compliance has been approved. All paths — Media Mavens and ClickBank — require one Flexy™ page to hold the MetricMover™ embed code, which is set up in the Flexy™ Setup section after approval.</p>
+
+  <h3>What Happens If Something Is Rejected?</h3>
+  <div class="callout-box">
+    <div class="pe-label">💡 Rejection is common — here's what to do</div>
+    Rejection doesn't mean your campaign is dead — it means something in your submitted assets needs to be adjusted. Common reasons include: a headline that makes an unverifiable claim, an image that uses prohibited content, or body copy with language that doesn't meet the platform's standards.
+    <br><br>
+    When something is rejected, you will receive feedback indicating what needs to change. Make the required edits and resubmit. Most rejections are resolved in one or two revision cycles.
+    <br><br>
+    If you're unsure what changes are needed or whether your revised assets will pass, bring your materials to a coaching call before resubmitting.
+  </div>
+
+  <div class="alert info"><strong>When to Submit</strong>Submit your assets for compliance as early as possible — ideally as soon as they're ready, while you continue working on other setup steps. That way, approval arrives by the time you're ready to go live and doesn't delay your launch.</div>
+
+  <div class="video-slot" data-vidalytics-id="GKjF_nobrZchpjrX" data-status="ready"><div class="play-icon"></div><div><div class="vt">Submit Headlines and Images to Compliance</div><div class="vd">Watch how to submit your headlines and images for compliance review</div></div></div>
+</div>
+
+<div class="module" id="blitz-step3" data-section="s8">
+  <div class="module-header"><span class="mod-badge build">11 — Build — Landing Pages</span><h2 id="step4">Setting Up Your Website in Flexy™ <span class="path-tag tag-all">Everyone</span></h2></div>
+
+  <div class="callout-box">
+    <div class="pe-label">💡 What is Flexy™?</div>
+    Flexy™ is the website builder used to create and host your landing pages. Think of it like a drag-and-drop page editor — you don't need to know how to code, and you don't need to build anything from a blank page. Instead, you start by cloning (copying) a pre-built template and then customizing it with your own headlines, images, and content.
+    <br><br>
+    <strong>How you use Flexy™ depends on which path you're on:</strong>
+    <br><br>
+    <strong>Media Mavens:</strong> Your pre-built advertorial is imported into MetricMover™, which takes your 5 headlines and 5 hero shots and creates 25 variations of that advertorial page. Those 25 variations are then imported into DIYTrax, our tracking software, which handles the split testing by rotating visitors between them. You'll create one landing page in Flexy™ to host the MetricMover™ embed code.
+    <br><br>
+    <strong>ClickBank:</strong> You'll clone a jump page template in Flexy™ and customize the body copy for your offer. Then, just like the Media Mavens path, you'll use MetricMover™ to generate 25 combinations from your 5 headlines and 5 hero shots. One Flexy™ page is created to hold the MetricMover™ embed code.
+    <br><br>
+    Either way, the first thing everyone does is the same: clone the Flexy™ website template and connect a domain. Then your path determines what you do next.
+  </div>
+
+  <h3>Universal Setup — Everyone Does This First</h3>
+
+  <div class="video-slot" data-vidalytics-id="sJ7NhNU9POi7DpXV" data-status="ready"><div class="play-icon"></div><div><div class="vt">Clone Flexy™ Website</div><div class="vd">Copy the pre-built website template into your account</div></div></div>
+  <div class="video-slot" data-vidalytics-id="5VyC6P2vM5TCUbWu" data-status="ready"><div class="play-icon"></div><div><div class="vt">Add Domain To Flexy™</div><div class="vd">Connect a web address to your site — purchase a domain first if you don't have one</div></div></div>
+  <div class="video-slot" data-vidalytics-id="6PHV5xuSKZesS3Ew" data-status="ready"><div class="play-icon"></div><div><div class="vt">Connect Domain To Website</div><div class="vd">The technical step that links your domain to your Flexy™ site</div></div></div>
+  <div class="video-slot" data-vidalytics-id="aXOaPoKhmckiyMXL" data-status="ready"><div class="play-icon"></div><div><div class="vt">Clone Page Into Any Website</div><div class="vd">How to duplicate individual pages within your site</div></div></div>
+
+  <div class="alert info"><strong>Stuck on Flexy™?</strong> Contact BTS Concierge™ for done-for-you technical setup, or bring your question to a coaching call.</div>
+
+</div><!-- end blitz-step3 (Setting Up Your Website in Flexy) -->
+
+<div class="module" id="blitz-step4" data-section="s9">
+  <div class="module-header"><span class="mod-badge build">12 — Build — DIYTrax Setup</span><h2 id="step5">Set Up DIYTrax <span class="path-tag tag-all">Everyone</span></h2></div>
+  <div class="callout-box"><div class="pe-label">💡 What is DIYTrax?</div>DIYTrax is your campaign tracking dashboard — the "brain" that connects your ads, landing pages, and affiliate links and records which combinations generate sales. The setup sequence below must be completed in order before your campaign can go live. If you need a full overview of how DIYTrax fits into the campaign, refer to the Campaign Architecture diagram in Module 1.</div>
+
+  <div class="card">
+    <div class="card-title">Setup Sequence — Follow In This Order</div>
+    <ol class="step-list">
+      <li><div class="step-num">1</div><div class="step-body"><strong>Create Campaign Placeholder</strong> — generates the tracking link you'll embed on your landing pages
+        <div class="video-slot" data-vidalytics-id="HnhCtlX2CkufU78S" data-status="ready" style="margin-top:10px;"><div class="play-icon"></div><div><div class="vt">Create Your DIYTrax Campaign</div><div class="vd">Generates the tracking link you'll embed on your landing pages</div></div></div>
+      </div></li>
+      <li><div class="step-num">2</div><div class="step-body"><strong>Add DIYTrax LP Offer Link to Your Landing Pages</strong> — use the Custom Value method first; there's a backup method if needed
+        <div class="video-slot" data-vidalytics-id="4_P5mpduG6ivR2lK" data-status="ready" style="margin-top:10px;"><div class="play-icon"></div><div><div class="vt">Add DIYTrax LP Offer Link in Flexy Custom Value</div><div class="vd">Preferred method — use this first; a backup method is available if needed</div></div></div>
+      </div></li>
+      <li><div class="step-num">3</div><div class="step-body"><strong>Add Landing Page Variants to DIYTrax</strong> — so it can rotate between them and track each
+        <div class="video-slot" data-vidalytics-id="Zu2NIbJiBtjch_oC" data-status="ready" style="margin-top:10px;"><div class="play-icon"></div><div><div class="vt">Adding Landing Pages to DIYTrax</div><div class="vd">This is completed via the MetricMover™ CSV import — covered in the MetricMover™ section</div></div></div>
+      </div></li>
+      <li><div class="step-num">4</div><div class="step-body"><strong>Place Affiliate Link in DIYTrax Campaign Offer Pages</strong> — tells DIYTrax where to send buyers
+        <div class="video-slot" data-vidalytics-id="cXC3nBW8pfTYOl_7" data-status="ready" style="margin-top:10px;"><div class="play-icon"></div><div><div class="vt">Place Affiliate Link in DIYTrax Campaign Offer Pages</div><div class="vd">Add your affiliate link so DIYTrax knows where to send buyers</div></div></div>
+      </div></li>
+      <li><div class="step-num">5</div><div class="step-body"><strong><span class="path-tag tag-cb">ClickBank only</span> Set Up IPN Integration</strong> — connects ClickBank's sale notifications to DIYTrax so sales are recorded accurately
+        <div class="video-slot" data-vidalytics-id="Zel8U5NlHPNnz8JT" data-status="ready" style="margin-top:10px;"><div class="play-icon"></div><div><div class="vt">DIYTrax ClickBank IPN Integration <span class="path-tag tag-cb" style="margin-left:6px;">ClickBank only</span></div><div class="vd">Connects ClickBank's sale notifications to DIYTrax so sales are recorded accurately</div></div></div>
+      </div></li>
+    </ol>
+  </div>
+
+</div><!-- end blitz-step4 -->
+<span id="s8b" style="display:block;position:relative;top:-80px;visibility:hidden;"></span>
+<div class="module" id="blitz-step3b" data-section="s8b">
+  <div class="module-header"><span class="mod-badge build">13 — Build — Using MetricMover™</span><h2 id="step4-metricmover">Using MetricMover™ <span class="path-tag tag-all">Everyone</span></h2></div>
+
+  <p>With your Flexy™ website set up, you'll now use MetricMover™ to turn your 5 headlines and 5 hero shots into 25 trackable landing page combinations. The MetricMover™ process is identical for every path — follow MM1–MM5 below.</p>
+
+  <div class="callout-box"><div class="pe-label">💡 What does MetricMover™ do?</div>MetricMover™ takes your 5 headlines and 5 hero shots and automatically generates all 25 landing page combinations. When you complete your MetricMover™ project it will generate a zip file which contains files that will be used in Flexy™ and DIYTrax to show and track your landing pages.</div>
+  <div class="callout-box" style="margin-bottom:16px;">
+    <div class="pe-label">💡 What Do These 5 Steps Actually Accomplish?</div>
+    The MM1–MM5 video series walks you through one complete task: taking your 5 landing page headlines and 5 hero shot images and turning them into 25 live, trackable landing page combinations that rotate automatically for every visitor.
+  </div>
+  <div class="video-slot" data-vidalytics-id="wREZ_HuqvAkFHDK4" data-status="ready"><div class="play-icon"></div><div><div class="vt">MM1 — Set Up Your MetricMover™ Project</div><div class="vd">How to create your project and import your Flexy™ base page to get started</div></div></div>
+  <div class="video-slot" data-vidalytics-id="Tlzhth6bB0Y_oB99" data-status="ready"><div class="play-icon"></div><div><div class="vt">MM2 — Create Your 5 Landing Page Headline Variants</div><div class="vd">How to add and save your headline variations in MetricMover™</div></div></div>
+  <div class="video-slot" data-vidalytics-id="39w17ZXwwCO1hiMH" data-status="ready"><div class="play-icon"></div><div><div class="vt">MM3 — Create Your 5 Hero Shot Image Variants</div><div class="vd">Upload your images to Flexy™, grab the links, and set up image variations in MetricMover™</div></div></div>
+  <div class="video-slot" data-vidalytics-id="OqC9PNC63sdKpRgS" data-status="ready"><div class="play-icon"></div><div><div class="vt">MM4 — Build Your MetricMover™ Landing Page in Flexy™</div><div class="vd">How to create a blank MM page, generate the variant code, and embed it using the custom code element</div></div></div>
+  <div class="video-slot" data-vidalytics-id="zGwUsZj7isZ8xpO_" data-status="ready"><div class="play-icon"></div><div><div class="vt">MM5 — Upload Your Landing Page Variants to DIYTrax</div><div class="vd">Import the tracksimport CSV, update your SEO settings, and verify all 25 variants are loading correctly</div></div></div>
+
+  <div class="alert info"><strong>ClickBank path:</strong> The jump page cloning and customization work (CF1–CF6) is covered in <strong>Create Your Landing Page Assets — ClickBank</strong>, which you'll complete before reaching this section.</div>
+
+  <div class="alert info"><strong>Stuck on MetricMover™?</strong> Contact BTS Concierge™ for done-for-you technical setup, or bring your question to a coaching call.</div>
+
+</div><!-- end blitz-step3b (Using MetricMover) -->
+<div class="module" id="blitz-step5" data-section="s10">
+  <div class="module-header"><span class="mod-badge build">14 — Build — Go Live</span><h2 id="step6">Configure Caterpillar Traffic and Go Live <span class="path-tag tag-all">Everyone</span></h2></div>
+  <p>The final step before your campaign is running. You'll connect Caterpillar to DIYTrax, upload your ads, fund your account, run a final check, and launch.</p>
+
+  <div class="video-slot" data-vidalytics-id="Vf88dRj1aX14ApL8" data-status="ready"><div class="play-icon"></div><div><div class="vt">Building Your Ads, Funding Your Account, and Going Live</div><div class="vd">Connect Caterpillar to DIYTrax, upload your ads, fund your account, run a final check, and launch</div></div></div>
+
+  <div class="card">
+    <div class="card-title">Ad Status Reference</div>
+    <table style="margin:0;">
+      <thead><tr><th>Status</th><th>What It Means</th><th>What To Do</th></tr></thead>
+      <tbody>
+        <tr><td><strong>Pending</strong></td><td>Under review by publisher</td><td>Wait — review usually takes under 24 hours</td></tr>
+        <tr><td><strong>Active</strong></td><td>Ad is live and running</td><td>Nothing — this is the goal!</td></tr>
+        <tr><td><strong>Inactive</strong></td><td>Ad is turned off</td><td>Check if you turned it off, or if there's an account issue</td></tr>
+        <tr><td><strong>Rejected</strong></td><td>Ad was rejected at the publisher level</td><td>Contact BTS Support and notify them of the rejection</td></tr>
+        <tr><td><strong>Warning</strong></td><td>Account or payment issue at publisher level</td><td>Separate from your DIYTrax balance — contact support</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="card" style="border:2px solid #86efac;">
+    <div class="card-title" style="color:var(--success);">✅ Pre-Launch Checklist — Confirm All Before Going Live</div>
+    <p style="font-size:.95rem;margin-bottom:14px;">Work through this list before flipping your campaign to active. A missed step here can mean your entire budget runs with nothing tracked or no way to earn commissions.</p>
+    <ul class="checklist">
+      <li>Affiliate link is saved and correct for your chosen product</li>
+      <li>DIYTrax Campaign Placeholder created and tracking link is live</li>
+      <li><span class="path-tag tag-cb">ClickBank</span> IPN integration is connected and tested</li>
+      <li>DIYTrax offer link is embedded in your landing pages (Custom Value method)</li>
+      <li>All landing page variants are loaded into your DIYTrax campaign</li>
+      <li>Affiliate link is placed in DIYTrax Campaign Offer Pages</li>
+      <li>All 10 ad headlines and 1 description are entered in Caterpillar</li>
+      <li>Ad image is uploaded and meets the 16:9 ratio requirement</li>
+      <li>All creatives have passed compliance review</li>
+      <li>Traffic source is funded with at least $500</li>
+      <li>Campaign is split into 2 Sub-Campaigns of 5 headlines each</li>
+      <li>Final QA check completed (T8 video)</li>
+    </ul>
+    <p style="font-size:.9rem;margin-bottom:0;color:var(--muted);"><em>If any item above is incomplete, resolve it before going live. Contact BTS Concierge™ or bring it to a coaching call if you're blocked.</em></p>
+  </div>
+
+  <div class="alert success"><strong>🎉 Your campaign is now live!</strong>Now move to Phase 2. Do NOT make any changes to your campaign until you've spent at least $25 per ad or $500 total. Making changes too early — before you have enough data — is the most common beginner mistake.</div>
+
+</div><!-- end blitz-step5 -->
+
+<!-- MODULE 2: TEST -->
+<span id="s11" style="display:block;position:relative;top:-80px;visibility:hidden;"></span><div class="module" id="module2-overview" data-section="s11">
+  <div class="module-header"><span class="mod-badge test">15 — Test — Getting Started</span><h2>Find Your Winners Through Data</h2></div>
+  <div class="module-intro">The Test phase is where your campaign gets smarter. Almost all mentees go through <strong>multiple rounds of testing</strong> before reaching profitability — that's not failure, it's the process. Each round produces data that makes the next round better. Stay patient, follow the milestones, and trust the system.</div>
+
+  <h3>Daily Monitoring Routine <span class="path-tag tag-all">Everyone</span></h3>
+  <div class="card">
+    <p><strong>Once per day</strong> — check these three things in this order of importance:</p>
+    <ol><li><strong>Conversions</strong> — how many sales today?</li><li><strong>Ad CTR</strong> — which ads are getting clicks?</li><li><strong>Landing Page CTR</strong> — which pages are converting clicks into product visits?</li></ol>
+    <p style="margin-bottom:0;">Update your P&amp;L Tracker™ daily. Don't panic over a single bad day — focus on trends over multiple days.</p>
+  </div>
+  <div class="video-slot" data-vidalytics-id="VIDEO_ID_063" data-status="needs-rerecord"><div class="play-icon"></div><div><div class="vt">How to Set Up Your P&amp;L Tracker</div><div class="vd">Set this up right after Round 1 launches so you have a clean record from the start</div></div></div>
+
+</div><!-- end module2-overview -->
+<span id="s12" style="display:block;position:relative;top:-80px;visibility:hidden;"></span><div class="module" id="blitz-round1" data-section="s12">
+  <div class="module-header"><span class="mod-badge test">16 — Test — Round 1</span><h2 id="round1">Find Your Winning Headline</h2></div>
+  <p>Round 1 has one primary goal: identify the headline that your audience responds to most. Everything else — images, formats, placements — is tested in later rounds using your top performing headline as the foundation.</p>
+
+  <div class="card">
+    <p><strong>The question you're answering:</strong> Which of my 10 ad headlines gets the most people to click through?</p>
+    <p><strong>What's running:</strong> 10 headlines + 1 description + 1 image, while 25 landing page combinations rotate in the background</p>
+    <p style="margin:0;"><strong>Minimum spend before deciding:</strong> $500 total</p>
+  </div>
+
+  <h3>When to Cut Underperforming Ads</h3>
+  <div class="milestone">
+    <div class="ms-item"><div class="ms-amount">$25 per ad</div><div class="ms-do">Cut any ad with 33+ ad clicks but zero landing page clicks — it's a clear loser with enough data</div></div>
+    <div class="ms-item"><div class="ms-amount">$500 total</div><div class="ms-do">Enough data to decide. Identify your 1 best headline. Proceed to the Round 1 Exit Gate.</div></div>
+  </div>
+
+  <div class="alert warning"><strong>The Patience Rule</strong>Do not cut ads or make landing page decisions before the spend milestones above. Data at $10 in spend is unreliable. A headline that looks weak at $10 may be your winner at $30. Wait for the thresholds.</div>
+
+  <div class="video-slot" data-vidalytics-id="CcD81oUVcZ1KpyeL" data-status="ready"><div class="play-icon"></div><div><div class="vt">Round 1: When to Make an Ad Inactive</div><div class="vd">Visual walkthrough of the decision-making process</div></div></div>
+  <h3>Phase 2 — Test — Round 1 Exit Gate</h3>
+  <div class="gate pass"><div class="gate-header">✅ Pass: Spent $500+ and have 1 headline with metrics strong enough to move forward</div><p style="font-size:.9rem;margin:0;">Proceed to Round 2.</p></div>
+  <div class="gate fail">
+    <div class="gate-header">❌ Fail: No clear winner after $500 spent</div>
+    <p style="font-size:.9rem;margin:0;margin-bottom:8px;">Choose one option:</p>
+    <ul style="margin:0;font-size:.9rem;">
+      <li><strong>Option A — New Headlines, Same Offer:</strong> Generate 10 new headlines, spend another $500 testing them. Use this if you believe in the product but think your messaging missed.</li>
+      <li><strong>Option B — New Offer:</strong> Choose a different product and restart from Step 1. Use this if the offer itself didn't connect with any audience.</li>
+    </ul>
+    <p style="font-size:.89rem;margin-top:8px;margin-bottom:0;"><em>Unsure which to choose? Bring your data to a coaching call for a recommendation.</em></p>
+  </div>
+
+  <h3>Phase 2 — Test — Round 1 Typical Outcome</h3>
+  <div class="card">
+    <table>
+      <thead><tr><th>Metric</th><th>Typical Result</th></tr></thead>
+      <tbody>
+        <tr><td>Total spent</td><td>~$500</td></tr>
+        <tr><td>Total returned</td><td>~$100</td></tr>
+        <tr><td>Net result</td><td>~−$400</td></tr>
+        <tr><td>What you have</td><td><strong>1 proven headline + landing page performance data — the foundation for Round 2</strong></td></tr>
+      </tbody>
+    </table>
+    <div class="alert success" style="margin-bottom:0;"><strong>Remember</strong>This loss is not a failure. It's the cost of identifying your top performing headline. Round 2, built on that data, will perform significantly better.</div>
+  </div>
+
+  <h3>🎁 Phase 2 — Earn $1,000 in Ad Credits After Round 1</h3>
+  <div class="card"><p>Record a 2–5 minute video about your BTS experience and email the link to <strong>support@buildtestscale.com</strong> with subject line <em>"Blitz Testimonial — [Your Name]"</em>. $1,000 in DIYTrax ad credits added within 24 hours. Any camera is fine — upload to YouTube, Vimeo, or Google Drive. One per mentee.</p></div>
+
+</div><!-- end blitz-round1 -->
+<span id="s13" style="display:block;position:relative;top:-80px;visibility:hidden;"></span><div class="module" id="blitz-between-r1-r2" data-section="s13">
+  <div class="module-header"><span class="mod-badge test">17 — Test — Between Rounds 1 and 2</span><h2 id="between-r1-r2">Prepare Additional Static Images While Round 1 Runs</h2></div>
+  <p>Start preparing Round 2 assets as soon as Round 1 is live — you don't need to wait for Round 1 to finish. Round 2 tests static images only, all in 16:9 format.</p>
+
+  <div class="card">
+    <div class="card-title">Round 2 — Static Image Prep (All Networks)</div>
+    <p>Round 2 tests <strong>static images only</strong> — all in 16:9 format, all paired with your Round 1 top performing headline. Take your original Round 1 image and create 9 new static images to compete against it. These should represent different visual angles, emotional tones, and approaches — variety gives you the best chance of finding a strong performer.</p>
+    <div class="callout-box">
+      <div class="pe-label">💡 What kinds of new visuals should you create?</div>
+      Think about different angles your audience might respond to — different emotions, different scenarios, different visual styles. If your Round 1 image was a lifestyle photo, try a graphic design approach. If it showed a person, try showing a result or a product. Variety gives you the best chance of finding a strong winner.
+    </div>
+    <p><strong>Tip:</strong> Use Grok Imagine, Midjourney, Claude, or other AI image tools to generate your new static images quickly. Save all images as 16:9 format (minimum 960×540px).</p>
+  </div>
+
+  <h3>Phase 2 — Test — Round 2 Landing Page Prep</h3>
+  <div class="path-block mm">
+    <div class="path-block-label">✦ Media Mavens</div>
+    <p><strong>5 new headlines:</strong> If Round 1 winners performed well, create close variations. If they underperformed, use <a href="https://poe.com/AffAngleArchitect" target="_blank" rel="noopener noreferrer">AffAngleArchitect</a> or FreeAdCopy™ to generate completely new angles.</p>
+    <p><strong>5 new hero shots:</strong> Same logic — keep close variations of what worked, replace what didn't. Set up a new MetricMover project for these 25 new combinations.</p>
+  </div>
+  <div class="path-block cb">
+    <div class="path-block-label">✦ ClickBank</div>
+    <p>Review Round 1 landing page data. Which pages generated the most sales? Which had the highest LP CTR? Build your next set of variants based on what worked — improve winners, drop losers.</p>
+  </div>
+
+</div><!-- end blitz-between-r1-r2 -->
+<span id="s14" style="display:block;position:relative;top:-80px;visibility:hidden;"></span><div class="module" id="blitz-round2" data-section="s14">
+  <div class="module-header"><span class="mod-badge test">18 — Test — Round 2</span><h2 id="round2">Find Your Winning Visual Creative</h2></div>
+  <p><strong>The question:</strong> Which specific image, GIF, or video converts best with your proven headline?</p>
+  <p><strong>What's running:</strong> 10 ads — your original Round 1 image plus 9 new visual creatives — all in 16:9 format, all using your Round 1 winning headline + description.</p>
+  <p><strong>Minimum spend: $500</strong></p>
+
+  <div class="gate pass">
+    <div class="gate-header">✅ Round 2 Pass: Best visual creative returning approximately 75% ROAS</div>
+    <p style="font-size:.9rem;margin:0;margin-bottom:6px;">Example: ~$375 earned on $500 spent → Proceed to Round 3.</p>
+    <p style="font-size:.88rem;margin:0;font-style:italic;">Next: you'll take your top performing creative and test it across all 6 placement formats in Round 3.</p>
+  </div>
+  <div class="gate fail">
+    <div class="gate-header">❌ Round 2 Fail: Best visual below 75% ROAS</div>
+    <p style="font-size:.9rem;margin:0;margin-bottom:6px;">Find your weakest link and test it in isolation:</p>
+    <ul style="margin:0;font-size:.9rem;">
+      <li>Ad headline — does it grab attention?</li>
+      <li>Ad description — does it support the headline?</li>
+      <li>Ad visual — is the image/video the right emotional match?</li>
+      <li>Advertorial headline — does it carry through the ad's promise?</li>
+      <li>Advertorial hero shot — does the image reinforce the message?</li>
+      <li>Advertorial opening paragraph — does it pull readers in?</li>
+    </ul>
+    <p style="font-size:.89rem;margin-top:8px;margin-bottom:0;"><em>Attend a coaching call if you're unsure where your weakness is.</em></p>
+  </div>
+
+</div><!-- end blitz-round2 -->
+<span id="s15" style="display:block;position:relative;top:-80px;visibility:hidden;"></span><div class="module" id="blitz-between-r2-r3" data-section="s15">
+  <div class="module-header"><span class="mod-badge test">19 — Test — Between Rounds 2 and 3</span><h2 id="between-r2-r3">Prep Your Round 3 Placement Format Assets</h2></div>
+  <p>Once your Round 2 winning visual creative is identified, prepare the 5 additional placement format versions before launching Round 3.</p>
+
+  <div class="card">
+    <div class="card-title">Round 3 Format Asset Prep</div>
+    <p>Take your Round 2 winning image or video and convert it into these 5 additional placement formats:</p>
+    <ul><li>Static Image — 9:16 (portrait)</li><li>Animated GIF — 16:9</li><li>Animated GIF — 9:16</li><li>Video — 16:9</li><li>Video — 9:16</li></ul>
+    <p><strong>Tip:</strong> Use Grok Imagine to animate your static image into GIFs and videos automatically.</p>
+    <div class="video-slot" data-vidalytics-id="Aw3ZkkzV0uvK3yS6" data-status="ready"><div class="play-icon"></div><div><div class="vt">V1 — How to Use Cropbot to Crop Your Image to 9:16</div><div class="vd">Convert your 16:9 Round 2 winner into portrait format</div></div></div>
+    <div class="video-slot" data-vidalytics-id="it1FL38NSt95Rygp" data-status="ready"><div class="play-icon"></div><div><div class="vt">V2 — How to Create Videos From Your Base Image</div><div class="vd">Animate your static image into video format</div></div></div>
+    <div class="video-slot" data-vidalytics-id="ZxiG7Yyrbu2T1CWx" data-status="ready"><div class="play-icon"></div><div><div class="vt">V3 — How to Trim Video Length Using Adobe Express</div><div class="vd">Cut videos to the right length before converting to GIF</div></div></div>
+    <div class="video-slot" data-vidalytics-id="V_w3Mcr3ldyC0EA9" data-status="ready"><div class="play-icon"></div><div><div class="vt">V4 — How to Convert Videos to GIFs Using Adobe Express</div><div class="vd">Create animated GIFs from your video files</div></div></div>
+    <div class="video-slot" data-vidalytics-id="abn8q5U_MMI85KvK" data-status="ready"><div class="play-icon"></div><div><div class="vt">V5 — How to Reduce GIF File Size Under 5MB Using GIFSTER</div><div class="vd">Compress your GIFs so they meet Caterpillar's file size requirements</div></div></div>
+    <div class="video-slot" data-vidalytics-id="uRjbZx71u3BMvrY8" data-status="ready"><div class="play-icon"></div><div><div class="vt">V6 — How to Convert Videos to GIFs Using EZgif</div><div class="vd">Alternative GIF creation method using EZgif</div></div></div>
+  </div>
+
+</div><!-- end blitz-between-r2-r3 -->
+<span id="s16" style="display:block;position:relative;top:-80px;visibility:hidden;"></span><div class="module" id="blitz-round3" data-section="s16">
+  <div class="module-header"><span class="mod-badge test">20 — Test — Round 3</span><h2 id="round3">Find Your Winning Placement Format</h2></div>
+  <p><strong>The question:</strong> Which of the 6 placement formats (shape and medium) performs best with your top performing headline and visual creative?</p>
+  <p><strong>What's running:</strong> 6 ads — your Round 2 winning creative converted into all 6 formats — split into two sub-campaigns (16:9 formats in one, 9:16 formats in the other). All use your Round 1 winning headline + description.</p>
+  <p><strong>Minimum spend: $1,000</strong></p>
+
+  <div class="gate pass"><div class="gate-header">✅ Round 3 Pass: Best placement returning approximately 60% ROAS</div><p style="font-size:.9rem;margin:0;">Earning ~$600 on $1,000 spent means you are closing in on a profitable combination. Continue to refine and iterate based on your top performing ads and landing pages — keep testing until you find the winning combination that produces a positive return.</p></div>
+  <div class="gate fail"><div class="gate-header">❌ Round 3 Fail: Best placement below 60% ROAS</div><p style="font-size:.9rem;margin:0;">Take your top performing placement and run a focused headline + description test: 5 headlines × 2 descriptions = 10 ads. Spend at least 1× CPA per ad before cutting. Your top performing visual is solid — the messaging may need refinement.</p></div>
+
+  <div class="video-slot" data-vidalytics-id="uIwXbmT4lFLLU88o" data-status="ready"><div class="play-icon"></div><div><div class="vt">How to Create Ads and Launch Caterpillar Round 3 — Testing 6 Placements</div><div class="vd">Walk-through of the 6-placement format test setup</div></div></div>
+
+  <div class="alert danger">
+    <strong>⚠ Important Update — Subcampaign Structure for Round 3</strong>
+    You MUST create a separate subcampaign for each placement format. Based on feedback from the publisher, the required structure is:
+    <ul style="margin-top:10px;margin-bottom:0;">
+      <li>Subcampaign 1 — 1 × 16:9 Static Image</li>
+      <li>Subcampaign 2 — 1 × 9:16 Static Image</li>
+      <li>Subcampaign 3 — 1 × 16:9 GIF</li>
+      <li>Subcampaign 4 — 1 × 9:16 GIF</li>
+      <li>Subcampaign 5 — 1 × 16:9 Video</li>
+      <li>Subcampaign 6 — 1 × 9:16 Video</li>
+    </ul>
+  </div>
+
+</div><!-- end blitz-round3 -->
+
+<!-- MODULE 3: SCALE -->
+<span id="s17" style="display:block;position:relative;top:-80px;visibility:hidden;"></span><div class="module" id="module3-overview" data-section="s17">
+  <div class="module-header"><span class="mod-badge scale">21 — Scale — Method 1</span><h2>Multiply Your Profits</h2></div>
+  <div class="module-intro">Scaling is about spending more on what's already proven to work. You are not introducing new ideas at this stage. Save experimentation for new campaigns — scaling is for proven winners only.</div>
+
+  <div class="alert danger"><strong>Prerequisites — All Must Be Met Before Scaling (Phase 3)</strong>Phase 2 Rounds 1, 2, and 3 complete. Top performing visual creative identified (Round 2). Top performing placement format identified (Round 3). Campaign is profitable.</div>
+
+  <div class="method-grid">
+    <div class="method-card"><div class="mc-num">Method 1</div><h4>Increase Budget on Winners</h4><p>Increase daily budget and CPC bids on profitable placements. Remove all non-profitable ads first. Scale 2×, then 5×, then 10× as performance holds. If profiting $50/day at $100 spend → test $200/day, then $500/day.</p></div>
+    <div class="method-card"><div class="mc-num">Method 2</div><h4>Test New Placements</h4><p>Take your proven ads and landing pages to new placements. Budget $1,500 minimum per new placement on Grasshopper or Crane. Use only proven creative — no new experiments here.</p></div>
+    <div class="method-card"><div class="mc-num">Method 3</div><h4>Graduate to Master Publisher</h4><p>Dedicated email blast to a large subscriber list. Much larger reach, higher risk. Only after 14+ consecutive days of profitability on current publishers.</p></div>
+  </div>
+
+</div><!-- end module3-overview -->
+<span id="s18" style="display:block;position:relative;top:-80px;visibility:hidden;"></span><div class="module" id="blitz-scale-m2" data-section="s18">
+  <div class="module-header"><span class="mod-badge scale">22 — Scale — Method 2</span><h2>Scaling to New Placements</h2></div>
+  <div class="card">
+    <table>
+      <thead><tr><th>Publisher</th><th>Ad Type</th><th>Networks</th><th>Min. per New Placement</th><th>Guide</th></tr></thead>
+      <tbody>
+        <tr style="background:#faf5ff;"><td><span class="path-tag tag-cat">Caterpillar</span></td><td>Native: image/GIF/video in 16:9 and 9:16</td><td>All</td><td>Already active — increase budget</td><td>This guide ✓</td></tr>
+        <tr><td><span style="display:inline-block;font-size:.7rem;font-weight:700;letter-spacing:.5px;text-transform:uppercase;padding:2px 8px;border-radius:4px;background:#ecfdf5;color:#065f46;border:1px solid #6ee7b7;">Grasshopper</span></td><td>Banner ads — 970×250, 300×250, 970×550</td><td>MM, CB</td><td>$1,500</td><td><span style="color:var(--muted);font-style:italic;">Coming soon</span></td></tr>
+        <tr><td><span style="display:inline-block;font-size:.7rem;font-weight:700;letter-spacing:.5px;text-transform:uppercase;padding:2px 8px;border-radius:4px;background:#e8f0fe;color:#1e3a5f;border:1px solid #93c5fd;">Crane</span></td><td>Banner ads — 970×250, 1536×864, 900×750, 1242×699 (static only)</td><td>MM only</td><td>$1,500</td><td><span style="color:var(--muted);font-style:italic;">Coming soon</span></td></tr>
+        <tr><td><strong>Master</strong></td><td>Dedicated email</td><td>All (with requirements)</td><td>Discuss with coach</td><td>Coaching call</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+</div><!-- end blitz-scale-m2 -->
+<span id="s19" style="display:block;position:relative;top:-80px;visibility:hidden;"></span><div class="module" id="blitz-scale-m3" data-section="s19">
+  <div class="module-header"><span class="mod-badge scale">23 — Scale — Method 3</span><h2>Master Publisher Requirements</h2></div>
+  <ul class="checklist">
+    <li>14+ consecutive days of profitable campaigns on Caterpillar, Grasshopper, or Crane</li>
+    <li>Top performing headline + image combination clearly identified</li>
+    <li>Top performing landing page clearly identified</li>
+    <li>Dedicated budget set aside for this test</li>
+  </ul>
+
+  <h3>How to Read Your Data While Scaling</h3>
+  <p>Scaling isn't just increasing budget — it's a monitored process. As you increase spend, watch for these signals:</p>
+
+  <div class="card">
+    <table>
+      <thead><tr><th>What You See</th><th>What It Means</th><th>What to Do</th></tr></thead>
+      <tbody>
+        <tr><td>ROAS stays stable as budget increases</td><td>Campaign is scaling cleanly — the audience is large enough to absorb more spend</td><td>Continue scaling. Try 5× then 10× budget.</td></tr>
+        <tr><td>ROAS drops as budget increases</td><td>You're starting to saturate the available audience — fewer high-quality matches left</td><td>Hold current budget. Look to expand to a new placement or publisher instead.</td></tr>
+        <tr><td>ROAS drops suddenly without a budget change</td><td>Ad fatigue — the same audience has seen your ad too many times</td><td>Refresh your ad creative or introduce a new headline variation.</td></tr>
+        <tr><td>Performance varies significantly day to day</td><td>Normal fluctuation — don't react to single days</td><td>Evaluate on weekly averages, not daily numbers.</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3>When to Stop Scaling a Placement</h3>
+  <p>Know when a placement has given you everything it can. Stop aggressively scaling when:</p>
+  <ul>
+    <li>ROAS has declined for 5+ consecutive days despite no changes to budget or creative</li>
+    <li>You've increased budget 3× or more and performance hasn't improved proportionally</li>
+    <li>Click volume is dropping while budget remains constant (audience saturation)</li>
+  </ul>
+  <p>This doesn't mean the campaign is dead — it means it's time to expand to a new placement or publisher rather than pushing more into the current one.</p>
+
+  <h3>Sample Scaling Timeline</h3>
+  <div class="card"><table>
+    <thead><tr><th>Week</th><th>Activity</th></tr></thead>
+    <tbody>
+      <tr><td><strong>Week 1</strong></td><td>Complete testing rounds. Identify top performing ads and landing pages.</td></tr>
+      <tr><td><strong>Week 2</strong></td><td>Increase daily budget 2× on top performing placement. Monitor ROAS daily. If stable, increase to 5×.</td></tr>
+      <tr><td><strong>Week 3</strong></td><td>Test proven creatives on a new publisher/placement (Method 2) — $1,500 minimum per new placement.</td></tr>
+      <tr><td><strong>Week 4+</strong></td><td>With 14+ days of documented profitability, discuss Master publisher with your coach. Continue expanding to additional placements as budget allows.</td></tr>
+    </tbody>
+  </table></div>
+
+</div><!-- end blitz-scale-m3 -->
+
+<!-- STUCK -->
+<span id="full" style="display:block;position:relative;top:-80px;visibility:hidden;"></span><div class="module" id="stuck" data-section="full">
+  <div class="module-header"><h2>What To Do When You're Stuck</h2></div>
+  <div class="module-intro">Getting stuck is a normal part of the process — not a sign that something is wrong with you or the system. The key is knowing what kind of stuck you are, so you go to the right resource instead of spinning in place.</div>
+
+  <div class="card">
+    <div class="card-title">Diagnose Your Situation First</div>
+    <table>
+      <thead><tr><th>The Situation</th><th>What Kind of Problem Is It</th><th>Where to Go</th></tr></thead>
+      <tbody>
+        <tr><td>Something isn't working technically — a tool, a link, a setup step</td><td>Technical</td><td>🛠 Support team or BTS Concierge™ — same-day help</td></tr>
+        <tr><td>You don't know which option to choose (Option A vs B, which offer, which path)</td><td>Strategic</td><td>📅 Coaching call — bring your data and get a recommendation</td></tr>
+        <tr><td>You're not sure if what you're seeing in your campaign is normal</td><td>Interpretation</td><td>💬 BTS Community — post your numbers, others have been here</td></tr>
+        <tr><td>Round 1 is losing money and you're panicking</td><td>Mindset (normal process)</td><td>Re-read the "Before You Start" section on early round testing and spending. Then: 💬 Community for reassurance, 📅 coaching call if you need data guidance</td></tr>
+        <tr><td>You've been trying to figure something out for more than 30 minutes</td><td>Any of the above</td><td>Stop and ask for help. That's what the resources are for. Time spent stuck is wasted budget.</td></tr>
+        <tr><td>You want a step done for you so you can keep moving</td><td>Capacity</td><td>🛠 BTS Concierge™ — done-for-you at any step</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="alert warning">
+    <strong>The 30-Minute Rule</strong>
+    If you have been stuck on something for more than 30 minutes without progress, stop and ask for help. Struggling in silence costs you time, energy, and sometimes money. Every resource listed in this guide exists specifically to get you unstuck. Use them.
+  </div>
+</div>
+
+<!-- SUPPORT -->
+<div class="module" id="support" data-section="full">
+  <div class="module-header"><span class="mod-badge">Support</span><h2>You're Never Alone in This</h2></div>
+  <p>Four support channels are available to you at every stage of the program. Use the right one for your situation — the "What To Do When You're Stuck" section above helps you identify which applies.</p>
+  <div class="support-grid">
+    <div class="support-card"><div class="sc-type">📅 Coaching Calls — 6 days/week</div>Use when: you're at a decision point, you've completed a round and aren't sure if you pass the gate, or you want to discuss data with an expert before spending more.</div>
+    <div class="support-card"><div class="sc-type">💬 BTS Community — 24/7</div>Use when: you have a quick question that doesn't need a full coaching call, or you want to see how other mentees handled a similar situation.</div>
+    <div class="support-card"><div class="sc-type">🛠 BTS Concierge™</div>Use when: a technical issue is blocking your progress, or you want a step handled for you. Available for any step of the process.</div>
+    <div class="support-card"><div class="sc-type">💬 Live Chat Support — Mon–Fri, 8AM–5PM CST</div>Use when: you have a problem or technical issue during business hours and need fast, real-time help from the support team.</div>
+  </div>
+  <div class="alert info"><strong>One Last Reminder</strong>The biggest difference between mentees who succeed and those who don't isn't prior experience — it's whether they follow the process consistently and ask for help when stuck. Use your resources.</div>
+</div>
+</div><!-- end container -->
+<a href="#" class="back-to-top" id="backToTop" aria-label="Back to top">↑ Top</a>
+
+
+
+<!-- VIDALYTICS LIGHTBOX -->
+<div class="vd-lightbox-overlay" id="vdLightbox">
+  <div class="vd-lightbox-inner">
+    <button class="vd-lightbox-fullscreen" id="vdFullscreen" aria-label="Toggle fullscreen" title="Fullscreen (f)">⛶</button>
+    <button class="vd-lightbox-close" id="vdClose" aria-label="Close video">&times;</button>
+    <div class="vd-lightbox-video" id="vdVideoContainer"></div>
+  </div>
+</div>
+
+
+
+`;

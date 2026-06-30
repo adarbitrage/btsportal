@@ -16,6 +16,7 @@ import {
   loadRosterMap,
 } from "../../lib/transcript-cleaner";
 import { buildImportPlan, executeImport } from "../../lib/transcript-import";
+import { applyBlitzCaptionAutofill } from "../../lib/blitz-caption-filename";
 import type { TranscriptCleanerChatTurn } from "@workspace/db";
 
 /**
@@ -92,6 +93,8 @@ interface IntakeItem {
   sourceName?: string;
   proposedTitle?: string;
   provenanceNote?: string;
+  inLessonOrder?: number;
+  vidalyticsId?: string;
 }
 
 function validateTranscriptType(value: unknown): string | null | undefined {
@@ -108,7 +111,8 @@ router.post("/admin/transcript-cleaner/documents", requirePermission("chat:manag
     res.status(400).json({ error: "Transcript content is required" });
     return;
   }
-  const transcriptType = validateTranscriptType(body.transcriptType);
+  const item = applyBlitzCaptionAutofill(body);
+  const transcriptType = validateTranscriptType(item.transcriptType);
   if (transcriptType === undefined) {
     res.status(400).json({ error: "Unknown transcript type" });
     return;
@@ -117,12 +121,14 @@ router.post("/admin/transcript-cleaner/documents", requirePermission("chat:manag
   const [doc] = await db
     .insert(transcriptCleanerDocumentsTable)
     .values({
-      title: (body.title ?? "").trim(),
-      proposedTitle: body.proposedTitle?.trim() || null,
+      title: (item.title ?? "").trim(),
+      proposedTitle: item.proposedTitle?.trim() || null,
       transcriptType,
       originalContent: content,
-      sourceName: body.sourceName?.trim() || null,
-      provenanceNote: body.provenanceNote?.trim() || null,
+      sourceName: item.sourceName?.trim() || null,
+      provenanceNote: item.provenanceNote?.trim() || null,
+      inLessonOrder: typeof item.inLessonOrder === "number" ? item.inLessonOrder : null,
+      vidalyticsId: item.vidalyticsId?.trim() || null,
       status: "uploaded",
     })
     .returning();
@@ -141,15 +147,16 @@ router.post("/admin/transcript-cleaner/documents/batch", requirePermission("chat
   }
 
   const results: Array<{ ok: boolean; id?: number; sourceName?: string; error?: string }> = [];
-  for (const item of items) {
-    const content = typeof item.content === "string" ? item.content : "";
+  for (const rawItem of items) {
+    const content = typeof rawItem.content === "string" ? rawItem.content : "";
     if (!content.trim()) {
-      results.push({ ok: false, sourceName: item.sourceName, error: "Empty transcript" });
+      results.push({ ok: false, sourceName: rawItem.sourceName, error: "Empty transcript" });
       continue;
     }
+    const item = applyBlitzCaptionAutofill(rawItem);
     const transcriptType = validateTranscriptType(item.transcriptType);
     if (transcriptType === undefined) {
-      results.push({ ok: false, sourceName: item.sourceName, error: "Unknown transcript type" });
+      results.push({ ok: false, sourceName: rawItem.sourceName, error: "Unknown transcript type" });
       continue;
     }
     const [doc] = await db
@@ -161,6 +168,8 @@ router.post("/admin/transcript-cleaner/documents/batch", requirePermission("chat
         originalContent: content,
         sourceName: item.sourceName?.trim() || null,
         provenanceNote: item.provenanceNote?.trim() || null,
+        inLessonOrder: typeof item.inLessonOrder === "number" ? item.inLessonOrder : null,
+        vidalyticsId: item.vidalyticsId?.trim() || null,
         status: "uploaded",
       })
       .returning();
