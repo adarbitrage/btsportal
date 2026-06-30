@@ -1,5 +1,4 @@
-import { pgTable, text, serial, timestamp, index, uniqueIndex } from "drizzle-orm/pg-core";
-import { sql } from "drizzle-orm";
+import { pgTable, text, serial, timestamp, uniqueIndex } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 
@@ -9,6 +8,13 @@ import { z } from "zod/v4";
 // documents, kept distinct from the legacy dual-purpose `knowledgebase_docs`
 // from row one. No boot seeders write here and no retrieval path reads here yet;
 // migration + retrieval repointing is deferred to phase 2.
+//
+// NOTE: The GIN full-text expression index was removed in phase 1. drizzle-kit
+// ^0.31.9 generates a malformed `CREATE INDEX ... tsvector_ops` statement for
+// expression-based GIN indexes, which Postgres rejects. Since this table is
+// empty and not yet wired into retrieval, the index provided zero value. Search
+// falls back to a sequential scan (acceptable for an unused table). Re-add as a
+// stored generated tsvector column + plain GIN index in phase 2.
 export const aiLiveDocumentsTable = pgTable("ai_live_documents", {
   id: serial("id").primaryKey(),
   title: text("title").notNull(),
@@ -20,7 +26,6 @@ export const aiLiveDocumentsTable = pgTable("ai_live_documents", {
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 }, (table) => [
-  index("ai_live_documents_search_idx").using("gin", sql`(to_tsvector('english', ${table.title} || ' ' || ${table.content}))`),
   uniqueIndex("ai_live_documents_slug_uniq").on(table.slug),
 ]);
 
