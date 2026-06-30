@@ -5,6 +5,7 @@ import {
   Video,
   LifeBuoy,
   MessageCircle,
+  MessageCircleQuestion,
   Mic,
   LogOut,
   Settings,
@@ -315,16 +316,7 @@ export const ADMIN_CHILDREN: NavNode[] = [
       { kind: "leaf", href: "/admin/chat/knowledgebase/review", label: "Document Review", icon: Eye, requiredPermission: "chat:manage" },
       { kind: "leaf", href: "/admin/chat/knowledgebase/archivebackup", label: "Archive Backup", icon: Archive, requiredPermission: "chat:manage" },
       { kind: "leaf", href: "/admin/chat/content-gaps", label: "Content-Gap Radar", icon: Radar, requiredPermission: "chat:manage" },
-    ],
-  },
-  {
-    kind: "folder",
-    storageKey: "admin-ai-assistant",
-    label: "AI Assistant",
-    icon: MessageCircle,
-    defaultOpen: false,
-    children: [
-      { kind: "leaf", href: "/admin/assistant/groups", label: "Card Library", icon: Library, requiredPermission: "content:manage" },
+      { kind: "leaf", href: "/admin/assistant/groups", label: "Card Library", icon: MessageCircleQuestion, requiredPermission: "content:manage" },
     ],
   },
   {
