@@ -1,0 +1,71 @@
+## BTS Portal — Native NMI Billing, Tier 4b: saved-cards UI + saved-card option on checkout (FRONTEND)
+
+### What This Does
+The member-facing surface for saved cards (Tier 4a backend is merged + verified): a place to add a
+card (Collect.js → tokenize → POST), see saved cards (masked), set a default, and remove one — plus a
+"use a saved card" choice on the existing checkout page so a member can pay with a stored card instead
+of re-entering one. Frontend only — all vault/charge logic is Tier 4a.
+
+### Files Created
+- [pages dir]/billing/payment-methods page component — manage saved cards.
+- [hooks dir] TanStack Query hooks for: list (GET /api/billing/payment-methods), add (POST), set-default
+  (POST :id/default), remove (DELETE :id).
+- (Reuse the Tier-3b collectjs helper — do NOT duplicate it.)
+
+### Files Modified
+- App router — add the payment-methods route (this task owns that route).
+- the existing checkout page (Tier 3b) — add a saved-card selector (see below). This task owns the
+  checkout-page edit; no other parallel task should touch it.
+- nav/account menu — add a "Payment Methods" link (single addition).
+
+### Schema / API
+- No schema. Consumes only the Tier-4a endpoints (list / add / set-default / delete) and the existing
+  GET /api/billing/tokenization-key for the add-card form.
+
+### Frontend — saved-cards page
+- Lists the member's saved cards showing ONLY masked data: brand, •••• last4, exp. Mark the default.
+  (The API never returns the vault id; the UI only ever has the masked fields + the payment_methods id.)
+- "Add a card": loads Collect.js in FIELDS mode (hosted iframes, same PCI posture as Tier 3b — raw card
+  data never touches app JS), tokenizes on submit, POSTs { paymentToken, setDefault? }. On success,
+  refresh the list. Handle the Tier-4a responses: 402 VAULT_ERROR → "that card couldn't be saved, check
+  the details"; 502 GATEWAY_ERROR → "couldn't reach the card processor, try again"; never show a raw
+  500. Re-tokenize on every attempt (tokens are single-use).
+- Set default: calls the endpoint, reflects the new default. Remove: confirm first, then DELETE; on the
+  Tier-4a 502 (vault delete failed) show "couldn't remove that card right now," and keep it listed
+  (the row is still there by design).
+- Empty state when no cards saved.
+
+### Frontend — checkout page (Tier 3b) changes
+- If the member has >= 1 saved card, show a chooser: "Pay with a saved card" (default selection = their
+  default card) OR "Use a new card" (reveals the existing Collect.js fields).
+- Saved-card path: POST /api/billing/checkout with { productId, paymentMethodId, idempotencyKey } —
+  NO token, NO Collect.js tokenization step. (Exactly one of token/paymentMethodId — the backend
+  rejects both/neither; the UI must send only one.)
+- New-card path: unchanged from Tier 3b (tokenize → send paymentToken).
+- IDEMPOTENCY KEY: same rule as Tier 3b — one key per purchase attempt; REUSE on a no-response retry;
+  NEW key only after a definitive decline (402) or a success. The key rule is independent of which
+  payment source is chosen.
+- All the Tier-3b response handling stays exactly as-is (paid / reconciliation-finalizing / 402 declined
+  / 409 in_progress / 400 / no-response warning). A declined saved-card charge is a normal 402 → clean
+  retryable message, let them pick another card or enter a new one.
+- If the member has no saved cards, checkout looks exactly like Tier 3b (new-card only).
+
+### Dependencies
+- Depends on: Tier 4a (merged + verified) + Tier 3b (checkout page). Reuses the Tier-3b Collect.js helper.
+
+### Acceptance Criteria
+- A member adds a card via Collect.js; it appears masked in the list; raw card data never passes through
+  app state (entered only in the hosted iframes).
+- Set-default and remove work and reflect immediately; removing shows the correct state, and a vault-
+  delete failure keeps the card listed with a clear message.
+- On checkout with a saved card selected, the purchase completes WITHOUT re-entering card data and grants
+  access identically to a new-card purchase; the request sends paymentMethodId only (no token).
+- A member with no saved cards sees the unchanged Tier-3b checkout.
+- A declined saved-card charge shows a clean retryable error and lets the member choose another card.
+- Clean tsc (green) + architect review. Report files + the route/nav added. Do NOT create follow-up tasks.
+
+### Implementation Notes
+- PCI posture is unchanged: card entry only ever happens inside Collect.js hosted iframes; the saved-card
+  path sends no card data at all (just an id the server resolves to a vault id internally).
+- Reuse, don't duplicate, the Tier-3b Collect.js helper and the existing checkout response-handling.
+- Masked display only — the UI never has or needs the vault id.

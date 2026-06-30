@@ -1,0 +1,34 @@
+## BTS Portal — Tier 4a (saved cards / NMI vault): post-merge verification (READ-ONLY, no code changes)
+
+Tier 4a is now MERGED into main, so the code is inspectable. Read the ACTUAL shipped implementation
+(not the task description) and verify each property below by reading the real code, then report
+findings only — change nothing, create no tasks, no code in the reply.
+
+1. NO RAW CARD DATA STORED. Open the payment_methods schema/migration and confirm the columns are
+   only: the NMI vault id, masked display fields (last4, brand, exp month/year), is_default,
+   timestamps, user_id. Confirm there is NO column anywhere that holds a full card number (PAN) or
+   CVV, and that the add-card handler does not persist either. Quote the actual column list.
+
+2. OWNERSHIP ENFORCED ON EVERY ENDPOINT. For each of: list, set-default, delete, AND charging via a
+   saved card at checkout — confirm the code looks up the payment method scoped to the authenticated
+   user and returns 404 (never charges / never touches the NMI gateway) when the id belongs to a
+   different user. Confirm an EXPLICIT cross-user test exists AND passes (name the test). This is the
+   single most important check — a member must never be able to view or charge another member's saved
+   card.
+
+3. CHECKOUT DUAL-SOURCE SAFETY. Confirm POST /api/billing/checkout now accepts EXACTLY ONE of
+   paymentToken or paymentMethodId (rejects both/neither with 400), and that the saved-card path reads
+   the vault id server-side and charges via the vault while reusing the SAME server-authoritative price,
+   the SAME idempotency claim/complete, the SAME decline→402 handling, and the SAME single
+   entitlement-grant path as a token purchase — i.e. the flow was extended, not forked. Confirm the
+   amount still cannot come from the client.
+
+4. VAULT ID NEVER LEAVES THE SERVER. Confirm no route/response returns the vault id to the client —
+   GET payment-methods and every other endpoint return only the masked fields + the payment_methods id.
+
+5. BUILD HEALTH ON THE MERGED CODE. Confirm a full tsc passes green on main, and report the architect
+   review result for this work. Note any failures and whether they're in the Tier-4a files or
+   pre-existing/unrelated.
+
+Bottom line up front: does the SHIPPED code satisfy all five, or is anything missing/weak? Report
+findings only.
