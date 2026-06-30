@@ -29,6 +29,7 @@ import {
   Send,
   FolderInput,
   Loader2,
+  Download,
 } from "lucide-react";
 import {
   listTranscriptCleanerDocuments,
@@ -42,7 +43,10 @@ import {
   refineTranscriptCleanerDocument,
   fileTranscriptCleanerDocument,
   fileTranscriptCleanerBatch,
+  previewTranscriptImport,
+  runTranscriptImport,
   type TranscriptCleanerDocument,
+  type TranscriptImportPlan,
 } from "@/lib/admin-api";
 import { format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
@@ -90,6 +94,7 @@ export default function TranscriptCleaner() {
   const [tab, setTab] = useState<Tab>("intake");
   const [selected, setSelected] = useState<Set<number>>(new Set());
   const [reviewId, setReviewId] = useState<number | null>(null);
+  const [showImport, setShowImport] = useState(false);
 
   // Paste-intake form.
   const [showPaste, setShowPaste] = useState(false);
@@ -243,6 +248,9 @@ export default function TranscriptCleaner() {
               className="hidden"
               onChange={(e) => handleFiles(e.target.files)}
             />
+            <Button variant="outline" onClick={() => setShowImport(true)}>
+              <Download className="w-4 h-4 mr-1" /> Import triaged transcripts
+            </Button>
             <Button variant="outline" onClick={() => fileInputRef.current?.click()} disabled={batchCreateMutation.isPending}>
               <Upload className="w-4 h-4 mr-1" /> Upload files
             </Button>
@@ -451,7 +459,150 @@ export default function TranscriptCleaner() {
       {reviewId !== null && (
         <ReviewDialog docId={reviewId} onClose={() => setReviewId(null)} onChanged={invalidate} />
       )}
+
+      {/* Triaged-import dialog */}
+      {showImport && (
+        <ImportDialog onClose={() => setShowImport(false)} onImported={invalidate} />
+      )}
     </AppLayout>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Gated import of triaged transcripts (Task #1484): preview the approved triage
+// manifest, then confirm to load the keepers into intake.
+// ─────────────────────────────────────────────────────────────────────────────
+
+const IMPORT_ACTION_LABEL: Record<string, string> = {
+  import: "Will import",
+  skip_excluded: "Skipped — excluded",
+  skip_already_imported: "Skipped — already imported",
+  skip_unknown_folder: "Skipped — unknown folder",
+  skip_missing_sources: "Skipped — missing source",
+  skip_empty_content: "Skipped — empty content",
+};
+
+function ImportDialog({ onClose, onImported }: { onClose: () => void; onImported: () => void }) {
+  const { toast } = useToast();
+  const [result, setResult] = useState<TranscriptImportPlan | null>(null);
+  const [imported, setImported] = useState(false);
+
+  const { data: plan, isLoading, error } = useQuery({
+    queryKey: ["transcript-import-preview"],
+    queryFn: previewTranscriptImport,
+    refetchOnWindowFocus: false,
+  });
+
+  const runMutation = useMutation({
+    mutationFn: runTranscriptImport,
+    onSuccess: (res) => {
+      setResult(res);
+      setImported(true);
+      onImported();
+      toast({ title: `Imported ${res.summary.imported} transcript${res.summary.imported === 1 ? "" : "s"}` });
+    },
+    onError: (e: Error) => toast({ title: "Import failed", description: e.message, variant: "destructive" }),
+  });
+
+  const view = result ?? plan ?? null;
+  const summary = view?.summary;
+  const skipped = view?.entries.filter((e) => e.action !== "import") ?? [];
+
+  return (
+    <Dialog open onOpenChange={(o) => { if (!o) onClose(); }}>
+      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>Import triaged transcripts</DialogTitle>
+          <DialogDescription>
+            Loads the approved keepers from the triage manifest into Intake — multi-part recordings are
+            stitched into one transcript and titled from the approved name. Nothing is cleaned or filed.
+          </DialogDescription>
+        </DialogHeader>
+
+        {isLoading ? (
+          <div className="p-8 text-center text-muted-foreground flex items-center justify-center gap-2">
+            <Loader2 className="w-4 h-4 animate-spin" /> Reading manifest…
+          </div>
+        ) : error ? (
+          <div className="p-6 text-center text-sm text-destructive">
+            {(error as Error).message || "Could not read the triage manifest."}
+          </div>
+        ) : summary ? (
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              <Stat label={imported ? "Imported" : "To import"} value={imported ? summary.imported : summary.toImport} highlight />
+              <Stat label="Stitched (multi-part)" value={summary.stitched} />
+              <Stat label="Renamed" value={summary.renamed} />
+              <Stat label="Duplicate parts dropped" value={summary.duplicatePartsDropped} />
+              <Stat label="Already imported" value={summary.alreadyImported} />
+              <Stat label="Excluded" value={summary.excluded} />
+              <Stat label="Missing sources" value={summary.missingSources} />
+              <Stat label="Unknown folder / empty" value={summary.unknownFolder + summary.emptyContent} />
+            </div>
+
+            {Object.keys(summary.byFolder).length > 0 && (
+              <div className="flex flex-wrap gap-1.5">
+                {Object.entries(summary.byFolder).map(([slug, n]) => (
+                  <Badge key={slug} variant="outline">{typeLabel(slug)}: {n}</Badge>
+                ))}
+              </div>
+            )}
+
+            {skipped.length > 0 && (
+              <div className="border rounded-md max-h-56 overflow-y-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Group</TableHead>
+                      <TableHead>Disposition</TableHead>
+                      <TableHead>Reason</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {skipped.map((e) => (
+                      <TableRow key={e.groupId}>
+                        <TableCell className="font-medium whitespace-nowrap">
+                          {e.groupId}
+                          <div className="text-xs text-muted-foreground truncate max-w-[200px]">{e.originalTitle}</div>
+                        </TableCell>
+                        <TableCell className="text-xs whitespace-nowrap">{IMPORT_ACTION_LABEL[e.action] ?? e.action}</TableCell>
+                        <TableCell className="text-xs text-muted-foreground">{e.reason}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            )}
+          </div>
+        ) : null}
+
+        <DialogFooter>
+          {imported ? (
+            <Button onClick={onClose}>Done</Button>
+          ) : (
+            <>
+              <Button variant="outline" onClick={onClose}>Cancel</Button>
+              <Button
+                onClick={() => runMutation.mutate()}
+                disabled={runMutation.isPending || isLoading || !!error || !summary || summary.toImport === 0}
+              >
+                {runMutation.isPending ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : <Download className="w-4 h-4 mr-1" />}
+                Import {summary?.toImport ?? 0} transcript{(summary?.toImport ?? 0) === 1 ? "" : "s"}
+              </Button>
+            </>
+          )}
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function Stat({ label, value, highlight }: { label: string; value: number; highlight?: boolean }) {
+  return (
+    <div className={`rounded-md border p-3 ${highlight ? "border-primary/40 bg-primary/5" : ""}`}>
+      <div className={`text-2xl font-bold ${highlight ? "text-primary" : "text-foreground"}`}>{value}</div>
+      <div className="text-xs text-muted-foreground mt-0.5">{label}</div>
+    </div>
   );
 }
 

@@ -404,6 +404,20 @@ export function resolveSourceFolder(slug: string | null | undefined): SourceFold
   return slug ? SOURCE_FOLDER_BY_SLUG.get(slug) ?? null : null;
 }
 
+const SOURCE_FOLDER_BY_LABEL: ReadonlyMap<string, SourceFolder> = new Map(
+  SOURCE_FOLDERS.map((f) => [f.label.trim().toLowerCase(), f]),
+);
+
+/**
+ * Resolve a folder by its human label (e.g. the "folder" value carried in the
+ * transcript triage manifest — "Group Coaching", "1-on-1 VA", …) to its
+ * registry entry. SOURCE_FOLDERS is the single source of truth for the
+ * label→slug mapping; case/whitespace insensitive.
+ */
+export function resolveSourceFolderByLabel(label: string | null | undefined): SourceFolder | null {
+  return label ? SOURCE_FOLDER_BY_LABEL.get(label.trim().toLowerCase()) ?? null : null;
+}
+
 /**
  * Map a live `coaches.type` value to an authority role. The roster is the
  * source of truth (Task #2 runs the name→type join over real sources); this is

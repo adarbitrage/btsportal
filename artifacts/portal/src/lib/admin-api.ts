@@ -2288,3 +2288,64 @@ export function fileTranscriptCleanerBatch(ids: number[]) {
     { method: "POST", body: JSON.stringify({ ids }) },
   );
 }
+
+// ── Gated triage import (Task #1484) ─────────────────────────────────────────
+
+export type TranscriptImportAction =
+  | "import"
+  | "skip_excluded"
+  | "skip_already_imported"
+  | "skip_unknown_folder"
+  | "skip_missing_sources"
+  | "skip_empty_content";
+
+export interface TranscriptImportEntry {
+  groupId: string;
+  originalTitle: string;
+  proposedTitle: string | null;
+  titleRenamed: boolean;
+  folder: string | null;
+  transcriptType: string | null;
+  authorityRole: string | null;
+  partCount: number;
+  duplicatePartsDropped: number;
+  action: TranscriptImportAction;
+  reason?: string;
+  documentId?: number;
+}
+
+export interface TranscriptImportSummary {
+  manifestTask: number;
+  generatedAt: string | null;
+  groupsTotal: number;
+  toImport: number;
+  imported: number;
+  stitched: number;
+  singlePart: number;
+  renamed: number;
+  partsStitched: number;
+  duplicatePartsDropped: number;
+  alreadyImported: number;
+  excluded: number;
+  unknownFolder: number;
+  missingSources: number;
+  emptyContent: number;
+  byFolder: Record<string, number>;
+  byAuthority: Record<string, number>;
+}
+
+export interface TranscriptImportPlan {
+  entries: TranscriptImportEntry[];
+  summary: TranscriptImportSummary;
+}
+
+export function previewTranscriptImport() {
+  return adminFetch<TranscriptImportPlan>("/admin/transcript-cleaner/import/preview");
+}
+
+export function runTranscriptImport() {
+  return adminFetch<TranscriptImportPlan>("/admin/transcript-cleaner/import", {
+    method: "POST",
+    body: JSON.stringify({ confirm: true }),
+  });
+}
