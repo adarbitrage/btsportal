@@ -303,7 +303,7 @@ function deriveRefreshUrl(requestUrl: string): string | null {
   return `${requestUrl.slice(0, idx)}${API_PATH_SEGMENT}auth/refresh`;
 }
 
-async function refreshAccessToken(refreshUrl: string): Promise<boolean> {
+export async function refreshAccessToken(refreshUrl: string): Promise<boolean> {
   if (!refreshInFlight) {
     refreshInFlight = (async () => {
       try {

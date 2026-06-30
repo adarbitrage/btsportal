@@ -1,4 +1,5 @@
 import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from "react";
+import { refreshAccessToken } from "@workspace/api-client-react";
 
 interface User {
   id: number;
@@ -55,6 +56,15 @@ export const AuthContext = createContext<AuthContextType | null>(null);
 
 const API_BASE = `${import.meta.env.BASE_URL}api`;
 
+// Auth-endpoint paths must never trigger the auto-refresh recovery, for two
+// reasons: (1) AuthProvider.refreshAuth already orchestrates its own explicit
+// /auth/me → /auth/refresh → /auth/me sequence and auto-refreshing inside that
+// would change boot behavior; (2) a failed /auth/refresh returning 401 must NOT
+// retry or it would loop (refresh→401→refresh…).
+function isAuthPath(path: string): boolean {
+  return /^\/auth(\/|$)/.test(path);
+}
+
 export async function authFetch(path: string, options?: RequestInit) {
   // Guard against the doubled-prefix footgun: `API_BASE` already ends in
   // `/api`, so callers must pass paths WITHOUT a leading `/api` (e.g.
@@ -67,14 +77,32 @@ export async function authFetch(path: string, options?: RequestInit) {
     );
   }
 
-  const res = await fetch(`${API_BASE}${path}`, {
-    ...options,
-    credentials: "include",
-    headers: {
-      "Content-Type": "application/json",
-      ...options?.headers,
-    },
-  });
+  const sendRequest = () =>
+    fetch(`${API_BASE}${path}`, {
+      ...options,
+      credentials: "include",
+      headers: {
+        "Content-Type": "application/json",
+        ...options?.headers,
+      },
+    });
+
+  let res = await sendRequest();
+
+  // An expired access token surfaces as a 401. Recover transparently by
+  // refreshing once (single-flight shared with customFetch) and replaying the
+  // request, so admin pages survive token expiry without a manual reload.
+  // Auth paths are skipped to prevent loops and preserve the boot auth flow.
+  // On refresh failure the original 401 is returned and the caller's existing
+  // logout / redirect-to-login behavior fires as normal.
+  if (res.status === 401 && !isAuthPath(path)) {
+    const refreshUrl = `${API_BASE}/auth/refresh`;
+    const refreshed = await refreshAccessToken(refreshUrl);
+    if (refreshed) {
+      res = await sendRequest();
+    }
+  }
+
   return res;
 }
 
