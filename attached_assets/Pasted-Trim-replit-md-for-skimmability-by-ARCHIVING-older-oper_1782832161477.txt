@@ -1,0 +1,17 @@
+Trim replit.md for skimmability by ARCHIVING older operational-decision entries, not deleting them. The file has grown large enough to slow down orientation. This is a reorganization, not a content purge — every entry must survive somewhere.
+
+Approach:
+1. Move older/episodic operational-decision log entries OUT of replit.md and INTO the archive doc the file already points to (docs/archived-operational-decisions.md — confirm the exact filename it references; create it if it doesn't exist yet). "Older" = entries that are a dated record of a past one-off decision/rollout that is now DONE, where nothing about current development depends on re-reading them. Keep the archive in reverse-chronological order with the same entry format, and at the top of replit.md's (now shorter) operational-decisions section, leave a one-line pointer to the archive.
+
+2. KEEP in replit.md (do NOT archive) anything that is a STANDING constraint or rule a future agent must know to avoid breaking things — load-bearing context, not history. Specifically preserve:
+   - The dev==prod / single Neon DB caution and the create-not-destructive migration discipline (incl. the migration-file lexicographic-ordering gotcha: alter- prefixes sort after add- table-creation files).
+   - The known pre-existing format:check failures on the three unrelated files (so they're not mistaken for regressions).
+   - The "pre-existing migration-drift / relation-already-exists noise" note.
+   - Any money-safety / billing patterns still in force (NMI gateway = decline-as-data; checkout/refund idempotency = peek-then-claim + never auto-retry a charge; server-authoritative pricing; per-subscription pinned card; the per-period vs per-attempt idempotency-key rule for renewals/dunning).
+   - The ops-API / Customer Ops wiring facts that are still live (KNOWN_OPS_SECRET_REFS allowlist contains MACHINE_OPS_API_KEY + BTS_OPS_API_KEY; the BTS workspace has scoped "funnel" and unscoped "bts" ops sources; offer_key scoping on orders).
+   - Any standing user preferences/working-style rules and the "do not create follow-up tasks" rule.
+   - Project structure, env-var list, and anything describing how the system currently works (as opposed to a log of how a past change was rolled out).
+
+3. When unsure whether an entry is "historical" or "load-bearing," KEEP it in replit.md — bias toward preserving context over aggressive trimming. The goal is a leaner, still-complete operating doc, with the long tail of done-and-dusted rollout logs moved to the archive.
+
+Do not change any code, schema, or behavior — this is a docs-only reorganization. Report: what moved to the archive (a brief list of the entry titles/dates), the before/after size of replit.md, and confirm every preserved load-bearing item above is still present. Do NOT create follow-up tasks.
