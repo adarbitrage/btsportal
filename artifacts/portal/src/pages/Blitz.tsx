@@ -1803,8 +1803,19 @@ export default function Blitz() {
   const prevPager = prevId ? PHASE_PAGER_CLASSES[lessonPhase(prevId)] : null;
   const nextPager = nextId ? PHASE_PAGER_CLASSES[lessonPhase(nextId)] : null;
 
+  // Bumped every time a content node attaches. The section filter below stores
+  // the content node in `contentEl` state purely to (re)trigger its layout
+  // effect, but React bails out of `setContentEl(node)` when the same node
+  // object is re-attached (Object.is-equal). That happens on a remount that
+  // reuses the host DOM node — so the tick guarantees the effect re-runs (and
+  // re-establishes its filter + MutationObserver) against the current node.
+  // (The primary defense against React silently rebuilding the body's innerHTML
+  // is the MutationObserver inside the filter effect; this tick covers the
+  // remount-reuse case where the ref re-fires with the same node.)
+  const [mountTick, setMountTick] = useState(0);
   const setRef = useCallback((el: HTMLDivElement | null) => {
     setContentEl(el);
+    if (el) setMountTick((t) => t + 1);
   }, []);
 
   // ── VIEW TRACKING ─────────────────────────────────────────────────────────
@@ -1891,88 +1902,130 @@ export default function Blitz() {
   }, [lessonId, lesson, contentEl]);
   // ── END VIEW TRACKING ─────────────────────────────────────────────────────
 
-  // Filter modules by section. Runs synchronously before paint to avoid flash of full content.
+  // Filter modules by section. Runs synchronously before paint to avoid flash
+  // of full content.
+  //
+  // Why the MutationObserver below is required: the guide body is injected via
+  // `dangerouslySetInnerHTML` with a constant string. React owns that subtree,
+  // and when an unrelated async re-render commits (most notably the
+  // content-access guard's query resolving ~100-600ms after mount), React
+  // re-applies the innerHTML — silently replacing every module with a fresh,
+  // *unfiltered* copy. It does this WITHOUT recreating the host node (so the
+  // ref callback never re-fires and `contentEl`/`mountTick` don't change) and
+  // WITHOUT re-running this effect. The result was the reported bug: a
+  // single-lesson URL briefly filtering correctly, then snapping back to the
+  // full guide. So we re-apply the filter every time React rebuilds the body.
   useLayoutEffect(() => {
     if (!contentEl) return;
-    const modules = contentEl.querySelectorAll<HTMLElement>(".module[data-section]");
-    if (!isSectionView || !lesson) {
-      modules.forEach((m) => { m.style.display = ""; });
-      contentEl
-        .querySelectorAll<HTMLElement>("hr.divider")
-        .forEach((d) => { d.style.display = ""; });
-      return;
-    }
-    const wanted = lesson.section;
-    modules.forEach((m) => {
-      const sections = (m.getAttribute("data-section") || "").split(/\s+/).filter(Boolean);
-      m.style.display = sections.includes(wanted) ? "" : "none";
-    });
+    const root = contentEl;
 
-    // Module1 wraps two logical sub-sections (step 1 + step 2) under a single
-    // data-section, so apply explicit per-section overrides to control its
-    // outer + inner visibility. (The overview is now its own top-level module
-    // and is handled by the generic data-section pass above.)
-    const m1 = contentEl.querySelector<HTMLElement>("#module1");
-    const m1Steps = contentEl.querySelector<HTMLElement>("#module1-steps");
-    const m1Step1 = contentEl.querySelector<HTMLElement>("#blitz-step1");
-    const m1Step2 = contentEl.querySelector<HTMLElement>("#blitz-step2");
-    const s2Overview = contentEl.querySelector<HTMLElement>("#step2-overview");
-    const s2Native = contentEl.querySelector<HTMLElement>("#step2-native");
-    const s2MM = contentEl.querySelector<HTMLElement>("#step2-mm");
-    const s2CB = contentEl.querySelector<HTMLElement>("#step2-cb");
-    const ovr = MODULE1_OVERRIDES[wanted];
-    if (ovr) {
-      if (m1) m1.style.display = ovr.showModule1 ? "" : "none";
-      if (m1Steps) {
-        m1Steps.style.display = ovr.showStep1 || ovr.showStep2 ? "" : "none";
+    const applyFilter = () => {
+      const modules = root.querySelectorAll<HTMLElement>(".module[data-section]");
+      if (!isSectionView || !lesson) {
+        modules.forEach((m) => { m.style.display = ""; });
+        root
+          .querySelectorAll<HTMLElement>("hr.divider")
+          .forEach((d) => { d.style.display = ""; });
+        return;
       }
-      if (m1Step1) m1Step1.style.display = ovr.showStep1 ? "" : "none";
-      if (m1Step2) m1Step2.style.display = ovr.showStep2 ? "" : "none";
-      if (s2Overview) s2Overview.style.display = ovr.step2Parts.overview ? "" : "none";
-      if (s2Native) s2Native.style.display = ovr.step2Parts.native ? "" : "none";
-      if (s2MM) s2MM.style.display = ovr.step2Parts.mm ? "" : "none";
-      if (s2CB) s2CB.style.display = ovr.step2Parts.cb ? "" : "none";
-    } else {
-      // Lesson section unrelated to module1 — restore inner defaults so a
-      // later switch back into module1 starts from a clean slate.
-      if (m1Steps) m1Steps.style.display = "";
-      if (m1Step1) m1Step1.style.display = "";
-      if (m1Step2) m1Step2.style.display = "";
-      if (s2Overview) s2Overview.style.display = "";
-      if (s2Native) s2Native.style.display = "";
-      if (s2MM) s2MM.style.display = "";
-      if (s2CB) s2CB.style.display = "";
-    }
+      const wanted = lesson.section;
+      modules.forEach((m) => {
+        const sections = (m.getAttribute("data-section") || "").split(/\s+/).filter(Boolean);
+        m.style.display = sections.includes(wanted) ? "" : "none";
+      });
 
-    // Trailing dividers: an <hr class="divider"> with no visible content
-    // after it renders as a redundant grey bar stacked on top of the
-    // pager's own top border. Reset all, then hide only the trailing ones.
-    const dividers = Array.from(
-      contentEl.querySelectorAll<HTMLElement>("hr.divider"),
-    );
-    dividers.forEach((d) => {
-      d.style.display = "";
-    });
-    const isShown = (el: HTMLElement) =>
-      !!(el.offsetWidth || el.offsetHeight || el.getClientRects().length);
-    const contentEls = Array.from(
-      contentEl.querySelectorAll<HTMLElement>(
-        "p,h1,h2,h3,h4,h5,h6,ul,ol,table,figure,blockquote,img,.card,.callout-box,.why-box,.alert,.path-block,.video-slot,.checklist,.module-intro",
-      ),
-    );
-    dividers.forEach((d) => {
-      const hasVisibleAfter = contentEls.some(
-        (el) =>
-          Boolean(
-            d.compareDocumentPosition(el) & Node.DOCUMENT_POSITION_FOLLOWING,
-          ) && isShown(el),
+      // Module1 wraps two logical sub-sections (step 1 + step 2) under a single
+      // data-section, so apply explicit per-section overrides to control its
+      // outer + inner visibility. (The overview is now its own top-level module
+      // and is handled by the generic data-section pass above.)
+      const m1 = root.querySelector<HTMLElement>("#module1");
+      const m1Steps = root.querySelector<HTMLElement>("#module1-steps");
+      const m1Step1 = root.querySelector<HTMLElement>("#blitz-step1");
+      const m1Step2 = root.querySelector<HTMLElement>("#blitz-step2");
+      const s2Overview = root.querySelector<HTMLElement>("#step2-overview");
+      const s2Native = root.querySelector<HTMLElement>("#step2-native");
+      const s2MM = root.querySelector<HTMLElement>("#step2-mm");
+      const s2CB = root.querySelector<HTMLElement>("#step2-cb");
+      const ovr = MODULE1_OVERRIDES[wanted];
+      if (ovr) {
+        if (m1) m1.style.display = ovr.showModule1 ? "" : "none";
+        if (m1Steps) {
+          m1Steps.style.display = ovr.showStep1 || ovr.showStep2 ? "" : "none";
+        }
+        if (m1Step1) m1Step1.style.display = ovr.showStep1 ? "" : "none";
+        if (m1Step2) m1Step2.style.display = ovr.showStep2 ? "" : "none";
+        if (s2Overview) s2Overview.style.display = ovr.step2Parts.overview ? "" : "none";
+        if (s2Native) s2Native.style.display = ovr.step2Parts.native ? "" : "none";
+        if (s2MM) s2MM.style.display = ovr.step2Parts.mm ? "" : "none";
+        if (s2CB) s2CB.style.display = ovr.step2Parts.cb ? "" : "none";
+      } else {
+        // Lesson section unrelated to module1 — restore inner defaults so a
+        // later switch back into module1 starts from a clean slate.
+        if (m1Steps) m1Steps.style.display = "";
+        if (m1Step1) m1Step1.style.display = "";
+        if (m1Step2) m1Step2.style.display = "";
+        if (s2Overview) s2Overview.style.display = "";
+        if (s2Native) s2Native.style.display = "";
+        if (s2MM) s2MM.style.display = "";
+        if (s2CB) s2CB.style.display = "";
+      }
+
+      // Trailing dividers: an <hr class="divider"> with no visible content
+      // after it renders as a redundant grey bar stacked on top of the
+      // pager's own top border. Reset all, then hide only the trailing ones.
+      const dividers = Array.from(
+        root.querySelectorAll<HTMLElement>("hr.divider"),
       );
-      if (!hasVisibleAfter) d.style.display = "none";
-    });
+      dividers.forEach((d) => {
+        d.style.display = "";
+      });
+      const isShown = (el: HTMLElement) =>
+        !!(el.offsetWidth || el.offsetHeight || el.getClientRects().length);
+      const contentEls = Array.from(
+        root.querySelectorAll<HTMLElement>(
+          "p,h1,h2,h3,h4,h5,h6,ul,ol,table,figure,blockquote,img,.card,.callout-box,.why-box,.alert,.path-block,.video-slot,.checklist,.module-intro",
+        ),
+      );
+      dividers.forEach((d) => {
+        const hasVisibleAfter = contentEls.some(
+          (el) =>
+            Boolean(
+              d.compareDocumentPosition(el) & Node.DOCUMENT_POSITION_FOLLOWING,
+            ) && isShown(el),
+        );
+        if (!hasVisibleAfter) d.style.display = "none";
+      });
+    };
 
-    // Scroll to top on section switch.
-    window.scrollTo({ top: 0, behavior: "auto" });
-  }, [contentEl, isSectionView, lesson]);
+    applyFilter();
+
+    // Scroll to top on section switch (only on the initial filter pass, not on
+    // every re-apply, so a background rebuild doesn't yank the user's scroll).
+    if (isSectionView) window.scrollTo({ top: 0, behavior: "auto" });
+
+    // Re-apply whenever React rebuilds the body (see header comment). The filter
+    // only mutates inline `style` attributes, which never trigger this
+    // childList observer, so there is no feedback loop; we re-run only when the
+    // module/container nodes themselves are added or removed.
+    const containsModuleNode = (list: NodeList) =>
+      Array.from(list).some(
+        (n) =>
+          n.nodeType === 1 &&
+          ((n as HTMLElement).classList?.contains("module") ||
+            (n as HTMLElement).classList?.contains("container") ||
+            !!(n as HTMLElement).querySelector?.(".module[data-section]")),
+      );
+    const observer = new MutationObserver((records) => {
+      const rebuilt = records.some(
+        (r) =>
+          r.type === "childList" &&
+          (containsModuleNode(r.addedNodes) || containsModuleNode(r.removedNodes)),
+      );
+      if (rebuilt) applyFilter();
+    });
+    observer.observe(root, { childList: true, subtree: true });
+    return () => observer.disconnect();
+  }, [contentEl, mountTick, isSectionView, lesson]);
 
   // Wire up the Vidalytics video lightbox. The source HTML uses inline
   // onclick="blitzOpenVideo(id)" handlers, but the build script strips the
