@@ -192,3 +192,21 @@ id = "foDxDmM2J9jrzNVsngyv9"
 uri = "file://artifacts/api-server/src/knowledge-base/coaching-transcripts-split/e-comm-weekly-check-in-1.txt"
 type = "text"
 title = "E-Comm Weekly Check In (1) — cleaned call transcript"
+
+[[outputs]]
+id = "uvVcHOFV3GYvlzRXqWE0j"
+uri = "file://docs/transcript-triage/triage-report.md"
+type = "text"
+title = "Triage Report (read this first)"
+
+[[outputs]]
+id = "Zpl9SyTNSYwvzs9ekQs4S"
+uri = "file://docs/transcript-triage/manifest.json"
+type = "unspecified"
+title = "Manifest (edit to approve/propose changes)"
+
+[[outputs]]
+id = "F3GNDteuzoVSMpoF48bo3"
+uri = "file://docs/transcript-triage/findings-report.md"
+type = "text"
+title = "Structure Findings + Cleaner Spec"
