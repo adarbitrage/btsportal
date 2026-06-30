@@ -12,7 +12,7 @@ CREATE TABLE IF NOT EXISTS ai_live_documents (
 );
 
 CREATE INDEX IF NOT EXISTS ai_live_documents_search_idx
-  ON ai_live_documents USING gin (to_tsvector('english', title || ' ' || content));
+  ON ai_live_documents USING gin ((to_tsvector('english', title || ' ' || content)));
 
 CREATE UNIQUE INDEX IF NOT EXISTS ai_live_documents_slug_uniq
   ON ai_live_documents (slug);

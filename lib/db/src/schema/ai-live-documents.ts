@@ -20,7 +20,7 @@ export const aiLiveDocumentsTable = pgTable("ai_live_documents", {
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 }, (table) => [
-  index("ai_live_documents_search_idx").using("gin", sql`to_tsvector('english', ${table.title} || ' ' || ${table.content})`),
+  index("ai_live_documents_search_idx").using("gin", sql`(to_tsvector('english', ${table.title} || ' ' || ${table.content}))`),
   uniqueIndex("ai_live_documents_slug_uniq").on(table.slug),
 ]);
 

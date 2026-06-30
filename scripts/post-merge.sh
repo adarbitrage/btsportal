@@ -207,6 +207,16 @@ if [ -n "$DATABASE_URL" ]; then
   #     push stays skipped on the common merge.
   psql "$DATABASE_URL" -v ON_ERROR_STOP=1 \
     -f lib/db/drizzle/0077_subscriptions.sql >/dev/null
+
+  # 17. AI Live Documents scaffold (phase-1 empty corpus table).
+  #     A pure additive table with a GIN full-text index. The GIN index uses a
+  #     parenthesized expression — `((to_tsvector(...)))` — which is required by
+  #     the drizzle-kit version in use (^0.31.9 appends `tsvector_ops` and needs
+  #     the expression wrapped in parens to produce valid SQL). Applying here
+  #     keeps the live-schema-drift gate green so the conditional push stays
+  #     skipped on the common merge. Idempotent (CREATE TABLE/INDEX IF NOT EXISTS).
+  psql "$DATABASE_URL" -v ON_ERROR_STOP=1 \
+    -f lib/db/drizzle/0077_ai_live_documents.sql >/dev/null
 fi
 
 # Schema sync — CONDITIONAL push.
