@@ -112,11 +112,15 @@ export function detectRosterAuthority(
   for (const [name, type] of roster) {
     if (seen.has(name)) continue;
     const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-    // Speaker-label context ONLY: line start, optional "Coach "/"VA " prefix,
-    // the name, then a label delimiter. Deliberately no whole-text fallback —
-    // an inline mention must not be promoted to deterministic authority.
-    const labelRe = new RegExp(`(^|\\n)\\s*(coach\\s+|va\\s+)?${escaped}\\b\\s*[:\\-–]`, "i");
-    if (labelRe.test(rawText)) {
+    // Speaker-label context: at a line start the name may use any delimiter
+    // (":"/"-"/"–"), optionally prefixed with "Coach "/"VA ". MANY transcripts
+    // are stored as a single newline-free line, so labels appear mid-text; there
+    // we require the COLON delimiter (a strong speaker-label signal) preceded by
+    // a word boundary, since a bare mid-sentence dash is too ambiguous. A plain
+    // inline mention (no delimiter) is NOT promoted to deterministic authority.
+    const lineStartRe = new RegExp(`(^|\\n)\\s*(coach\\s+|va\\s+)?${escaped}\\b\\s*[:\\-–]`, "i");
+    const inlineColonRe = new RegExp(`(?:^|[^a-z])(?:coach\\s+|va\\s+)?${escaped}\\b\\s*:`, "i");
+    if (lineStartRe.test(rawText) || inlineColonRe.test(rawText)) {
       labelMatched.push({ name, role: authorityRoleFromCoachType(type) });
       seen.add(name);
     } else if (containsWholeWord(rawText, name)) {

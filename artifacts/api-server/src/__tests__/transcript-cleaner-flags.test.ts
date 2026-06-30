@@ -8,6 +8,7 @@ import {
   normalizeIsoDate,
   memberNameFromSourceName,
   titleFollowsGrammar,
+  detectRosterAuthority,
 } from "../lib/transcript-cleaner";
 import { resolveSourceFolder } from "../lib/kb-taxonomy";
 
@@ -406,5 +407,37 @@ describe("assembleTranscriptTitle (type-specific grammar, Task #1518)", () => {
         isoDate: null,
       }),
     ).toEqual({ title: "", titleNeedsInput: true });
+  });
+});
+
+describe("detectRosterAuthority (inline speaker labels)", () => {
+  const roster = new Map<string, string>([
+    ["bruce", "strategic_coach"],
+    ["sasha", "strategic_coach"],
+  ]);
+
+  it("detects a colon label that appears INLINE in a single newline-free line", () => {
+    // The real export shape: the whole transcript is one line, so "Bruce:" never
+    // sits at a line start. The colon still marks it as the speaker/authority.
+    const text =
+      "Cheryl L Rodriguez Bruce: Hey, Cheryl. Cheryl Blair: Hi, Bruce, how are you? Bruce: Good.";
+    const hit = detectRosterAuthority(text, roster);
+    expect(hit.labelMatched).toEqual([{ name: "bruce", role: "strategic_coach" }]);
+  });
+
+  it("still detects a classic line-start label", () => {
+    const hit = detectRosterAuthority("Bruce: hello\nMember 1: hi", roster);
+    expect(hit.labelMatched.map((m) => m.name)).toEqual(["bruce"]);
+  });
+
+  it("does NOT promote a bare mid-sentence mention (no delimiter) to authority", () => {
+    const hit = detectRosterAuthority("The member said they spoke with Bruce last week.", roster);
+    expect(hit.labelMatched).toEqual([]);
+    expect(hit.inlineOnly).toContain("bruce");
+  });
+
+  it("does not match a name embedded in a larger word", () => {
+    const hit = detectRosterAuthority("This is abruce: not a label", roster);
+    expect(hit.labelMatched).toEqual([]);
   });
 });
