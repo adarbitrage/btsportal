@@ -121,15 +121,21 @@ interface StatusCounts {
   [key: string]: number;
 }
 
-interface SourceCounts {
-  coaching_call: number;
-  upload: number;
-  unlabeled: number;
-}
-
 interface ShelfCount {
   homeRoot: string;
   count: number;
+}
+
+interface TagCount {
+  tag: string;
+  count: number;
+}
+
+interface RiskCounts {
+  blocking: number;
+  flagged: number;
+  needs_expert: number;
+  stale: number;
 }
 
 interface TriageStatus {
@@ -151,11 +157,21 @@ interface TranscriptSource {
 // ── Constants ──────────────────────────────────────────────────────────────────
 
 const STATUS_COLORS: Record<string, string> = {
+  pending_review: "bg-slate-100 text-slate-700",
   needs_review: "bg-amber-100 text-amber-800",
   approved: "bg-green-100 text-green-800",
   published: "bg-blue-100 text-blue-800",
   rejected: "bg-red-100 text-red-800",
   merged: "bg-purple-100 text-purple-800",
+};
+
+const STATUS_LABEL: Record<string, string> = {
+  pending_review: "new",
+  needs_review: "needs review",
+  approved: "ready to publish",
+  published: "live",
+  rejected: "rejected",
+  merged: "merged",
 };
 
 const SEVERITY_STYLES: Record<FlagSeverity, { chip: string; banner: string; label: string }> = {
@@ -175,11 +191,63 @@ const CATEGORIES = [
   { value: "platform_guide", label: "Platform Guide" },
 ];
 
+// Canonical doc classes (mirror api-server kb-taxonomy.ts DOC_CLASSES /
+// CITABLE_DOC_CLASSES). "reference" was UI-only drift and has been removed.
 const DOC_CLASS_OPTIONS = [
   { value: "curated", label: "Curated (citable)" },
   { value: "overview", label: "Overview (citable)" },
-  { value: "reference", label: "Reference (non-citable)" },
-  { value: "transcript", label: "Transcript (non-citable)" },
+  { value: "transcript", label: "Transcript (training-only, non-citable)" },
+];
+
+// Canonical home roots ("shelves") — mirror kb-taxonomy.ts HOME_ROOTS. These are
+// the only valid shelf values; the editor picks from them rather than free text.
+const HOME_ROOTS = [
+  { value: "process", label: "Process" },
+  { value: "concepts", label: "Concepts & Skills" },
+  { value: "operations", label: "Operations" },
+];
+const HOME_ROOT_LABEL: Record<string, string> = Object.fromEntries(
+  HOME_ROOTS.map((r) => [r.value, r.label]),
+);
+const shelfLabel = (v: string | null | undefined) =>
+  v ? HOME_ROOT_LABEL[v] ?? v : "";
+
+// Origin facet — keyed off the clean origin_type column (6 canonical values).
+const ORIGIN_OPTIONS = [
+  { value: "strategy_coaching_call", label: "Strategy Call" },
+  { value: "va_call", label: "VA Call" },
+  { value: "training_video", label: "Training Video" },
+  { value: "curated_upload", label: "Curated Upload" },
+  { value: "ai_synthesized", label: "AI Synthesized" },
+  { value: "manual_entry", label: "Manual Entry" },
+];
+const ORIGIN_LABEL: Record<string, string> = {
+  ...Object.fromEntries(ORIGIN_OPTIONS.map((o) => [o.value, o.label])),
+  unlabeled: "Unlabeled",
+};
+
+const AUTHORITY_LABEL: Record<string, string> = {
+  strategic_coach: "Strategic Coach",
+  va: "VA",
+  curriculum: "Curriculum",
+  internal: "Internal",
+};
+
+// docType → plain-language label. study_material is reserved but never written;
+// surfaced only if data ever carries it.
+const DOC_TYPE_LABEL: Record<string, string> = {
+  truth_draft: "New Drafts (mined)",
+  existing_doc: "Re-verify (existing)",
+  study_material: "Study Material",
+};
+
+// Primary status tabs. "merged" is demoted to the All view only.
+const STATUS_TABS: [string, string][] = [
+  ["pending_review", "New / Untriaged"],
+  ["needs_review", "Needs Review"],
+  ["approved", "Ready to Publish"],
+  ["published", "Live"],
+  ["rejected", "Rejected"],
 ];
 
 function maxSeverity(flags: RiskFlag[] | null): FlagSeverity | null {
@@ -226,8 +294,11 @@ function RiskChips({ flags, needsExpert }: { flags: RiskFlag[] | null; needsExpe
 export default function KnowledgeBaseReview() {
   const [docs, setDocs] = useState<StagingDoc[]>([]);
   const [statusCounts, setStatusCounts] = useState<StatusCounts>({});
-  const [sourceCounts, setSourceCounts] = useState<SourceCounts>({ coaching_call: 0, upload: 0, unlabeled: 0 });
+  const [originCounts, setOriginCounts] = useState<StatusCounts>({});
   const [docTypeCounts, setDocTypeCounts] = useState<StatusCounts>({});
+  const [docClassCounts, setDocClassCounts] = useState<StatusCounts>({});
+  const [riskCounts, setRiskCounts] = useState<RiskCounts>({ blocking: 0, flagged: 0, needs_expert: 0, stale: 0 });
+  const [tagCounts, setTagCounts] = useState<TagCount[]>([]);
   const [shelfCounts, setShelfCounts] = useState<ShelfCount[]>([]);
   const [loading, setLoading] = useState(true);
   const [processing, setProcessing] = useState(false);
@@ -235,9 +306,13 @@ export default function KnowledgeBaseReview() {
   const [triaging, setTriaging] = useState(false);
   const [importing, setImporting] = useState(false);
   const [statusFilter, setStatusFilter] = useState("needs_review");
-  const [sourceFilter, setSourceFilter] = useState("all");
+  const [originFilter, setOriginFilter] = useState("all");
   const [docTypeFilter, setDocTypeFilter] = useState("all");
   const [shelfFilter, setShelfFilter] = useState("all");
+  const [docClassFilter, setDocClassFilter] = useState("all");
+  const [tagFilter, setTagFilter] = useState("all");
+  const [riskFilter, setRiskFilter] = useState("all"); // all | flagged | blocking | needs_expert
+  const [staleOnly, setStaleOnly] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
@@ -275,9 +350,13 @@ export default function KnowledgeBaseReview() {
       const params = new URLSearchParams();
       if (statusFilter && statusFilter !== "all") params.set("status", statusFilter);
       if (searchQuery) params.set("search", searchQuery);
-      if (sourceFilter && sourceFilter !== "all") params.set("source", sourceFilter);
+      if (originFilter && originFilter !== "all") params.set("originType", originFilter);
       if (docTypeFilter && docTypeFilter !== "all") params.set("docType", docTypeFilter);
       if (shelfFilter && shelfFilter !== "all") params.set("homeRoot", shelfFilter);
+      if (docClassFilter && docClassFilter !== "all") params.set("docClass", docClassFilter);
+      if (tagFilter && tagFilter !== "all") params.set("tag", tagFilter);
+      if (riskFilter && riskFilter !== "all") params.set("risk", riskFilter);
+      if (staleOnly) params.set("stale", "true");
       params.set("page", page.toString());
       params.set("limit", "20");
 
@@ -286,8 +365,11 @@ export default function KnowledgeBaseReview() {
       const data = await res.json();
       setDocs(data.documents);
       setStatusCounts(data.statusCounts || {});
-      setSourceCounts(data.sourceCounts || { coaching_call: 0, upload: 0, unlabeled: 0 });
+      setOriginCounts(data.originCounts || {});
       setDocTypeCounts(data.docTypeCounts || {});
+      setDocClassCounts(data.docClassCounts || {});
+      setRiskCounts(data.riskCounts || { blocking: 0, flagged: 0, needs_expert: 0, stale: 0 });
+      setTagCounts(data.tagCounts || []);
       setShelfCounts(data.shelfCounts || []);
       setTotalPages(data.pagination?.totalPages || 1);
       setTotal(data.pagination?.total || 0);
@@ -296,7 +378,7 @@ export default function KnowledgeBaseReview() {
     } finally {
       setLoading(false);
     }
-  }, [statusFilter, sourceFilter, docTypeFilter, shelfFilter, searchQuery, page, toast]);
+  }, [statusFilter, originFilter, docTypeFilter, shelfFilter, docClassFilter, tagFilter, riskFilter, staleOnly, searchQuery, page, toast]);
 
   const fetchTriageStatus = useCallback(async () => {
     try {
@@ -404,7 +486,7 @@ export default function KnowledgeBaseReview() {
       const res = await authFetch("/admin/knowledgebase/staging/run-triage", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ includeStatuses: ["needs_review"] }),
+        body: JSON.stringify({ includeStatuses: ["pending_review", "needs_review"] }),
       });
       const data = await res.json();
       toast({ title: data.message });
@@ -607,6 +689,9 @@ export default function KnowledgeBaseReview() {
   };
 
   const totalCount = Object.values(statusCounts).reduce((s, c) => s + c, 0);
+  const pageNeedsReview = docs.filter((d) => d.status === "needs_review");
+  const pageSafeCount = pageNeedsReview.filter((d) => !isBlocking(d)).length;
+  const pageBlockedCount = pageNeedsReview.length - pageSafeCount;
 
   // ── Guided / rapid re-verify mode ─────────────────────────────────────────────
   if (guidedMode) {
@@ -796,8 +881,14 @@ export default function KnowledgeBaseReview() {
                     </div>
                     <div className="grid grid-cols-2 gap-3">
                       <div>
-                        <Label className="text-xs">Home root (shelf)</Label>
-                        <Input value={editHomeRoot} onChange={(e) => setEditHomeRoot(e.target.value)} placeholder="e.g. blitz" />
+                        <Label className="text-xs">Shelf (home root)</Label>
+                        <Select value={editHomeRoot || "none"} onValueChange={(v) => setEditHomeRoot(v === "none" ? "" : v)}>
+                          <SelectTrigger className="h-9"><SelectValue placeholder="Pick a shelf" /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="none">— Unassigned —</SelectItem>
+                            {HOME_ROOTS.map((r) => (<SelectItem key={r.value} value={r.value}>{r.label}</SelectItem>))}
+                          </SelectContent>
+                        </Select>
                       </div>
                       <div>
                         <Label className="text-xs">Node</Label>
@@ -846,19 +937,43 @@ export default function KnowledgeBaseReview() {
                   </div>
 
                   {/* Provenance panel */}
-                  <div className="rounded-lg border bg-gray-50 p-3 text-sm space-y-1">
-                    <div className="flex items-center gap-2 font-medium text-gray-700 mb-1">
-                      <Link2 className="w-4 h-4" />Provenance
+                  <div className="rounded-lg border bg-gray-50 p-3 text-sm space-y-2">
+                    <div className="flex items-center gap-2 font-medium text-gray-700">
+                      <Link2 className="w-4 h-4" />Provenance &amp; Authority
                     </div>
-                    <p className="text-gray-600"><span className="text-gray-400">Origin:</span> {selectedDoc.originType || selectedDoc.source || "—"}</p>
-                    <p className="text-gray-600"><span className="text-gray-400">Authority:</span> {selectedDoc.authorityRole || "—"}</p>
+                    <div className="grid grid-cols-2 gap-x-4 gap-y-1">
+                      <p className="text-gray-600">
+                        <span className="text-gray-400">Origin:</span>{" "}
+                        {selectedDoc.originType ? ORIGIN_LABEL[selectedDoc.originType] ?? selectedDoc.originType : selectedDoc.source || "—"}
+                      </p>
+                      <p className="text-gray-600">
+                        <span className="text-gray-400">Authority:</span>{" "}
+                        {selectedDoc.authorityRole ? AUTHORITY_LABEL[selectedDoc.authorityRole] ?? selectedDoc.authorityRole : "—"}
+                      </p>
+                      <p className="text-gray-600">
+                        <span className="text-gray-400">Shelf:</span> {shelfLabel(selectedDoc.homeRoot) || "—"}
+                      </p>
+                      <p className="text-gray-600">
+                        <span className="text-gray-400">Class:</span> {selectedDoc.docClassTarget || "—"}
+                      </p>
+                    </div>
                     {selectedDoc.sourceVideoTitle && (
                       <p className="text-gray-600"><span className="text-gray-400">Source:</span> {selectedDoc.sourceVideoTitle}</p>
                     )}
-                    <p className="text-gray-600">
-                      <span className="text-gray-400">Corroboration:</span>{" "}
-                      {selectedDoc.corroborationCount > 0 ? `${selectedDoc.corroborationCount} other source(s)` : "single source"}
-                    </p>
+                    {/* Corroboration — emphasized */}
+                    <div className={`flex items-center gap-2 rounded-md px-2.5 py-1.5 text-xs font-medium ${
+                      selectedDoc.conflictData ? "bg-red-50 text-red-700"
+                        : selectedDoc.corroborationCount > 0 ? "bg-green-50 text-green-700"
+                        : "bg-amber-50 text-amber-700"
+                    }`}>
+                      {selectedDoc.conflictData ? (
+                        <><AlertTriangle className="w-3.5 h-3.5" />Conflicts with another source — adjudicate before publishing</>
+                      ) : selectedDoc.corroborationCount > 0 ? (
+                        <><CheckCircle className="w-3.5 h-3.5" />Corroborated by {selectedDoc.corroborationCount} other source(s)</>
+                      ) : (
+                        <><AlertTriangle className="w-3.5 h-3.5" />Single source — no corroboration</>
+                      )}
+                    </div>
                     {selectedDoc.staleReferences && selectedDoc.staleReferences.length > 0 && (
                       <p className="text-amber-700">
                         <span className="text-amber-500">Legacy refs:</span> {selectedDoc.staleReferences.join(", ")}
@@ -1011,13 +1126,7 @@ export default function KnowledgeBaseReview() {
           >
             All ({totalCount})
           </button>
-          {[
-            ["needs_review", "Needs Review"],
-            ["approved", "Approved"],
-            ["published", "Published"],
-            ["rejected", "Rejected"],
-            ["merged", "Merged"],
-          ].map(([key, label]) => (
+          {STATUS_TABS.map(([key, label]) => (
             <button
               key={key}
               onClick={() => { setStatusFilter(key); setPage(1); }}
@@ -1026,15 +1135,51 @@ export default function KnowledgeBaseReview() {
               {label} ({statusCounts[key] || 0})
             </button>
           ))}
+          {(statusCounts.merged || 0) > 0 && (
+            <button
+              onClick={() => { setStatusFilter("merged"); setPage(1); }}
+              className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${statusFilter === "merged" ? "bg-gray-900 text-white" : "bg-gray-50 text-gray-400 hover:bg-gray-200"}`}
+            >
+              Merged ({statusCounts.merged})
+            </button>
+          )}
         </div>
 
-        {/* Doc-type + shelf facets (primary) */}
+        {/* Risk-first triage row */}
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="text-sm text-gray-500">Risk:</span>
+          {[
+            ["all", "All"],
+            ["flagged", `Flagged (${riskCounts.flagged})`],
+            ["blocking", `Blocking (${riskCounts.blocking})`],
+            ["needs_expert", `Needs Expert (${riskCounts.needs_expert})`],
+          ].map(([key, label]) => (
+            <button
+              key={key}
+              onClick={() => { setRiskFilter(key); setPage(1); }}
+              className={`px-2.5 py-1 rounded-md text-xs font-medium transition-colors ${riskFilter === key ? "bg-red-600 text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200"}`}
+            >
+              {label}
+            </button>
+          ))}
+          <button
+            onClick={() => { setStaleOnly((v) => !v); setPage(1); }}
+            className={`px-2.5 py-1 rounded-md text-xs font-medium transition-colors ${staleOnly ? "bg-amber-600 text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200"}`}
+          >
+            Stale refs ({riskCounts.stale})
+          </button>
+        </div>
+
+        {/* Doc-type + doc-class + shelf facets (primary) */}
         <div className="flex items-center gap-2 flex-wrap">
           <span className="text-sm text-gray-500">Type:</span>
           {[
-            ["all", `All`],
-            ["truth_draft", `Truth Drafts (${docTypeCounts.truth_draft || 0})`],
-            ["existing_doc", `Existing Docs (${docTypeCounts.existing_doc || 0})`],
+            ["all", "All"],
+            ["truth_draft", `${DOC_TYPE_LABEL.truth_draft} (${docTypeCounts.truth_draft || 0})`],
+            ["existing_doc", `${DOC_TYPE_LABEL.existing_doc} (${docTypeCounts.existing_doc || 0})`],
+            ...Object.keys(docTypeCounts)
+              .filter((k) => k && k !== "truth_draft" && k !== "existing_doc")
+              .map((k) => [k, `${DOC_TYPE_LABEL[k] ?? k} (${docTypeCounts[k]})`]),
           ].map(([key, label]) => (
             <button
               key={key}
@@ -1044,39 +1189,68 @@ export default function KnowledgeBaseReview() {
               {label}
             </button>
           ))}
-          {shelfCounts.length > 0 && (
+          <span className="text-sm text-gray-500 ml-3">Class:</span>
+          {[
+            ["all", "All"],
+            ["citable", `Citable (${docClassCounts.citable || 0})`],
+            ["non_citable", `Non-citable (${docClassCounts.non_citable || 0})`],
+          ].map(([key, label]) => (
+            <button
+              key={key}
+              onClick={() => { setDocClassFilter(key); setPage(1); }}
+              className={`px-2.5 py-1 rounded-md text-xs font-medium transition-colors ${docClassFilter === key ? "bg-emerald-600 text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200"}`}
+            >
+              {label}
+            </button>
+          ))}
+          <span className="text-sm text-gray-500 ml-3">Shelf:</span>
+          <Select value={shelfFilter} onValueChange={(v) => { setShelfFilter(v); setPage(1); }}>
+            <SelectTrigger className="h-7 w-[180px] text-xs"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All shelves</SelectItem>
+              {HOME_ROOTS.map((r) => {
+                const cnt = shelfCounts.find((s) => s.homeRoot === r.value)?.count ?? 0;
+                return <SelectItem key={r.value} value={r.value}>{r.label} ({cnt})</SelectItem>;
+              })}
+              {shelfCounts
+                .filter((s) => !HOME_ROOT_LABEL[s.homeRoot])
+                .map((s) => (
+                  <SelectItem key={s.homeRoot} value={s.homeRoot}>{s.homeRoot} ({s.count})</SelectItem>
+                ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        {/* Origin + tag facets (secondary) */}
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="text-sm text-gray-500">Origin:</span>
+          {[
+            ["all", "All"],
+            ...ORIGIN_OPTIONS.map((o) => [o.value, `${o.label} (${originCounts[o.value] || 0})`] as [string, string]),
+            ["unlabeled", `Unlabeled (${originCounts.unlabeled || 0})`],
+          ].map(([key, label]) => (
+            <button
+              key={key}
+              onClick={() => { setOriginFilter(key); setPage(1); }}
+              className={`px-2.5 py-1 rounded-md text-xs font-medium transition-colors ${originFilter === key ? "bg-[#1a56db] text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200"}`}
+            >
+              {label}
+            </button>
+          ))}
+          {tagCounts.length > 0 && (
             <>
-              <span className="text-sm text-gray-500 ml-3">Shelf:</span>
-              <Select value={shelfFilter} onValueChange={(v) => { setShelfFilter(v); setPage(1); }}>
-                <SelectTrigger className="h-7 w-[180px] text-xs"><SelectValue /></SelectTrigger>
+              <span className="text-sm text-gray-500 ml-3">Tag:</span>
+              <Select value={tagFilter} onValueChange={(v) => { setTagFilter(v); setPage(1); }}>
+                <SelectTrigger className="h-7 w-[200px] text-xs"><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">All shelves</SelectItem>
-                  {shelfCounts.map((s) => (
-                    <SelectItem key={s.homeRoot} value={s.homeRoot}>{s.homeRoot} ({s.count})</SelectItem>
+                  <SelectItem value="all">All tags</SelectItem>
+                  {tagCounts.map((t) => (
+                    <SelectItem key={t.tag} value={t.tag}>{t.tag} ({t.count})</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </>
           )}
-        </div>
-
-        {/* Origin facet (secondary) */}
-        <div className="flex items-center gap-2 flex-wrap">
-          <span className="text-sm text-gray-500">Origin:</span>
-          {[
-            ["all", "All"],
-            ["coaching_call", `Coaching (${sourceCounts.coaching_call})`],
-            ["upload", `Uploaded (${sourceCounts.upload})`],
-            ["unlabeled", `Unlabeled (${sourceCounts.unlabeled})`],
-          ].map(([key, label]) => (
-            <button
-              key={key}
-              onClick={() => { setSourceFilter(key); setPage(1); }}
-              className={`px-2.5 py-1 rounded-md text-xs font-medium transition-colors ${sourceFilter === key ? "bg-[#1a56db] text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200"}`}
-            >
-              {label}
-            </button>
-          ))}
         </div>
 
         <div className="flex items-center gap-3">
@@ -1098,13 +1272,14 @@ export default function KnowledgeBaseReview() {
           {statusFilter === "needs_review" && docs.length > 0 && (
             <Tooltip>
               <TooltipTrigger asChild>
-                <Button onClick={bulkApprove} variant="outline" className="border-green-300 text-green-700">
+                <Button onClick={bulkApprove} variant="outline" className="border-green-300 text-green-700" disabled={pageSafeCount === 0}>
                   <CheckCircle className="w-4 h-4 mr-2" />
-                  Confirm Safe on Page
+                  Confirm Safe on Page ({pageSafeCount})
                 </Button>
               </TooltipTrigger>
               <TooltipContent className="max-w-xs">
-                Approves only docs with no conflict or high-stakes flags. Flagged docs must be opened and adjudicated one at a time.
+                Approves the {pageSafeCount} safe doc(s) on this page.
+                {pageBlockedCount > 0 && ` ${pageBlockedCount} flagged doc(s) are held back — open and adjudicate them one at a time.`}
               </TooltipContent>
             </Tooltip>
           )}
@@ -1149,14 +1324,24 @@ export default function KnowledgeBaseReview() {
                           <div className="flex items-center gap-2 flex-wrap">
                             <h3 className="font-semibold text-gray-900 truncate">{doc.aiCleanedTitle || doc.title}</h3>
                             <Badge variant="outline" className={STATUS_COLORS[doc.status] || ""}>
-                              {doc.status.replace(/_/g, " ")}
+                              {STATUS_LABEL[doc.status] || doc.status.replace(/_/g, " ")}
                             </Badge>
                             <Badge variant="outline" className="text-[10px] bg-gray-50 text-gray-600 border-gray-200">
-                              {doc.docType === "existing_doc" ? "Existing" : "Draft"}
+                              {DOC_TYPE_LABEL[doc.docType] ?? doc.docType}
                             </Badge>
+                            {doc.authorityRole && (
+                              <Badge variant="outline" className="text-[10px] bg-violet-50 text-violet-700 border-violet-200">
+                                {AUTHORITY_LABEL[doc.authorityRole] ?? doc.authorityRole}
+                              </Badge>
+                            )}
                             {doc.homeRoot && (
                               <Badge variant="outline" className="text-[10px] bg-sky-50 text-sky-700 border-sky-200">
-                                <FolderTree className="w-2.5 h-2.5 mr-1" />{doc.homeRoot}
+                                <FolderTree className="w-2.5 h-2.5 mr-1" />{shelfLabel(doc.homeRoot)}
+                              </Badge>
+                            )}
+                            {doc.originType && (
+                              <Badge variant="outline" className="text-[10px] bg-gray-50 text-gray-500 border-gray-200">
+                                {ORIGIN_LABEL[doc.originType] ?? doc.originType}
                               </Badge>
                             )}
                           </div>

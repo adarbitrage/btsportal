@@ -19,19 +19,53 @@ export { runTriageBackground } from "../../lib/kb-triage.js";
 const router = Router();
 router.use(requirePermission("chat:manage"));
 
+// Blocking-risk predicate (conflict / high-stakes / parked for an expert).
+// Single source of truth for both the list filter and the blocking count.
+const BLOCKING_SQL = sql`(
+  ${kbStagingDocsTable.needsExpert} = true
+  OR ${kbStagingDocsTable.riskFlags} @> '[{"type":"conflict"}]'::jsonb
+  OR ${kbStagingDocsTable.riskFlags} @> '[{"type":"high_stakes"}]'::jsonb
+)`;
+
+const FLAGGED_SQL = sql`(
+  ${kbStagingDocsTable.needsExpert} = true
+  OR jsonb_array_length(${kbStagingDocsTable.riskFlags}) > 0
+)`;
+
+const STALE_SQL = sql`(
+  ${kbStagingDocsTable.staleReferences} IS NOT NULL
+  AND jsonb_array_length(${kbStagingDocsTable.staleReferences}) > 0
+)`;
+
+// Highest risk floats to the top of the triage queue (foundation §8.9).
+const SEVERITY_RANK_SQL = sql`CASE
+  WHEN ${kbStagingDocsTable.needsExpert} = true THEN 4
+  WHEN ${kbStagingDocsTable.riskFlags} @> '[{"severity":"critical"}]'::jsonb THEN 4
+  WHEN ${kbStagingDocsTable.riskFlags} @> '[{"severity":"high"}]'::jsonb THEN 3
+  WHEN ${kbStagingDocsTable.riskFlags} @> '[{"severity":"medium"}]'::jsonb THEN 2
+  WHEN ${kbStagingDocsTable.riskFlags} @> '[{"severity":"low"}]'::jsonb THEN 1
+  ELSE 0
+END`;
+
 router.get("/", async (req: Request, res: Response) => {
   try {
     const status = (req.query.status as string) || undefined;
     const search = (req.query.search as string) || undefined;
-    const sourceFilter = (req.query.source as string) || undefined;
+    // Origin now keys off the clean `origin_type` column (the legacy `source`
+    // column is no longer a filter facet).
+    const originFilter = (req.query.originType as string) || undefined;
     const docTypeFilter = (req.query.docType as string) || undefined;
     const homeRootFilter = (req.query.homeRoot as string) || undefined;
+    const docClassFilter = (req.query.docClass as string) || undefined;
+    const tagFilter = (req.query.tag as string) || undefined;
+    const riskFilter = (req.query.risk as string) || undefined; // flagged | blocking | needs_expert
+    const staleOnly = req.query.stale === "true" || req.query.stale === "1";
     const page = parseInt((req.query.page as string) || "1");
     const limit = Math.min(parseInt((req.query.limit as string) || "20"), 100);
     const offset = (page - 1) * limit;
 
     let where = sql`1=1`;
-    if (status) {
+    if (status && status !== "all") {
       where = sql`${where} AND ${kbStagingDocsTable.status} = ${status}`;
     }
     if (docTypeFilter && docTypeFilter !== "all") {
@@ -43,12 +77,34 @@ router.get("/", async (req: Request, res: Response) => {
     if (search) {
       where = sql`${where} AND to_tsvector('english', ${kbStagingDocsTable.title} || ' ' || ${kbStagingDocsTable.content}) @@ plainto_tsquery('english', ${search})`;
     }
-    if (sourceFilter === "coaching_call") {
-      where = sql`${where} AND ${kbStagingDocsTable.source} = 'coaching_call'`;
-    } else if (sourceFilter === "upload") {
-      where = sql`${where} AND ${kbStagingDocsTable.source} = 'upload'`;
-    } else if (sourceFilter === "unlabeled") {
-      where = sql`${where} AND (${kbStagingDocsTable.source} IS NULL OR ${kbStagingDocsTable.source} NOT IN ('coaching_call','upload'))`;
+    if (originFilter && originFilter !== "all") {
+      if (originFilter === "unlabeled") {
+        where = sql`${where} AND (${kbStagingDocsTable.originType} IS NULL OR ${kbStagingDocsTable.originType} = '')`;
+      } else {
+        where = sql`${where} AND ${kbStagingDocsTable.originType} = ${originFilter}`;
+      }
+    }
+    if (docClassFilter && docClassFilter !== "all") {
+      if (docClassFilter === "citable") {
+        where = sql`${where} AND ${kbStagingDocsTable.docClassTarget} IN ('curated','overview')`;
+      } else if (docClassFilter === "non_citable") {
+        where = sql`${where} AND (${kbStagingDocsTable.docClassTarget} IS NULL OR ${kbStagingDocsTable.docClassTarget} NOT IN ('curated','overview'))`;
+      } else {
+        where = sql`${where} AND ${kbStagingDocsTable.docClassTarget} = ${docClassFilter}`;
+      }
+    }
+    if (tagFilter && tagFilter !== "all") {
+      where = sql`${where} AND ${kbStagingDocsTable.taxonomyTags} @> ${JSON.stringify([tagFilter])}::jsonb`;
+    }
+    if (riskFilter === "needs_expert") {
+      where = sql`${where} AND ${kbStagingDocsTable.needsExpert} = true`;
+    } else if (riskFilter === "blocking") {
+      where = sql`${where} AND ${BLOCKING_SQL}`;
+    } else if (riskFilter === "flagged") {
+      where = sql`${where} AND ${FLAGGED_SQL}`;
+    }
+    if (staleOnly) {
+      where = sql`${where} AND ${STALE_SQL}`;
     }
 
     const [docs, total] = await Promise.all([
@@ -56,7 +112,7 @@ router.get("/", async (req: Request, res: Response) => {
         .select()
         .from(kbStagingDocsTable)
         .where(where)
-        .orderBy(desc(kbStagingDocsTable.createdAt))
+        .orderBy(desc(SEVERITY_RANK_SQL), desc(kbStagingDocsTable.createdAt))
         .limit(limit)
         .offset(offset),
       db
@@ -65,31 +121,57 @@ router.get("/", async (req: Request, res: Response) => {
         .where(where),
     ]);
 
-    const statusCounts = await db
-      .select({
-        status: kbStagingDocsTable.status,
-        cnt: count(),
-      })
-      .from(kbStagingDocsTable)
-      .groupBy(kbStagingDocsTable.status);
+    const [
+      statusCounts,
+      originCounts,
+      docTypeCounts,
+      shelfCounts,
+      docClassCounts,
+      riskAgg,
+      tagRows,
+    ] = await Promise.all([
+      db
+        .select({ status: kbStagingDocsTable.status, cnt: count() })
+        .from(kbStagingDocsTable)
+        .groupBy(kbStagingDocsTable.status),
+      db
+        .select({ originType: kbStagingDocsTable.originType, cnt: count() })
+        .from(kbStagingDocsTable)
+        .groupBy(kbStagingDocsTable.originType),
+      db
+        .select({ docType: kbStagingDocsTable.docType, cnt: count() })
+        .from(kbStagingDocsTable)
+        .groupBy(kbStagingDocsTable.docType),
+      db
+        .select({ homeRoot: kbStagingDocsTable.homeRoot, cnt: count() })
+        .from(kbStagingDocsTable)
+        .groupBy(kbStagingDocsTable.homeRoot),
+      db
+        .select({ docClassTarget: kbStagingDocsTable.docClassTarget, cnt: count() })
+        .from(kbStagingDocsTable)
+        .groupBy(kbStagingDocsTable.docClassTarget),
+      db.execute(sql`
+        SELECT
+          count(*) FILTER (WHERE ${BLOCKING_SQL})::int AS blocking,
+          count(*) FILTER (WHERE ${FLAGGED_SQL})::int AS flagged,
+          count(*) FILTER (WHERE ${kbStagingDocsTable.needsExpert} = true)::int AS needs_expert,
+          count(*) FILTER (WHERE ${STALE_SQL})::int AS stale
+        FROM ${kbStagingDocsTable}
+      `),
+      db.execute(sql`
+        SELECT tag, count(*)::int AS cnt
+        FROM ${kbStagingDocsTable}, jsonb_array_elements_text(${kbStagingDocsTable.taxonomyTags}) AS tag
+        GROUP BY tag
+        ORDER BY cnt DESC, tag ASC
+      `),
+    ]);
 
-    const sourceCounts = await db
-      .select({
-        source: kbStagingDocsTable.source,
-        cnt: count(),
-      })
-      .from(kbStagingDocsTable)
-      .groupBy(kbStagingDocsTable.source);
+    const citableCount = docClassCounts
+      .filter((d) => d.docClassTarget && CITABLE_DOC_CLASSES.includes(d.docClassTarget as never))
+      .reduce((s, d) => s + d.cnt, 0);
+    const totalAll = docClassCounts.reduce((s, d) => s + d.cnt, 0);
 
-    const docTypeCounts = await db
-      .select({ docType: kbStagingDocsTable.docType, cnt: count() })
-      .from(kbStagingDocsTable)
-      .groupBy(kbStagingDocsTable.docType);
-
-    const shelfCounts = await db
-      .select({ homeRoot: kbStagingDocsTable.homeRoot, cnt: count() })
-      .from(kbStagingDocsTable)
-      .groupBy(kbStagingDocsTable.homeRoot);
+    const riskRow = (riskAgg.rows?.[0] ?? {}) as Record<string, unknown>;
 
     res.json({
       documents: docs,
@@ -99,19 +181,37 @@ router.get("/", async (req: Request, res: Response) => {
         total: total[0].cnt,
         totalPages: Math.ceil(total[0].cnt / limit),
       },
-      statusCounts: Object.fromEntries(
-        statusCounts.map((s) => [s.status, s.cnt]),
-      ),
-      sourceCounts: {
-        coaching_call: sourceCounts.find((s) => s.source === "coaching_call")?.cnt ?? 0,
-        upload: sourceCounts.find((s) => s.source === "upload")?.cnt ?? 0,
-        unlabeled: sourceCounts
-          .filter((s) => !s.source || !["coaching_call", "upload"].includes(s.source ?? ""))
-          .reduce((sum, s) => sum + s.cnt, 0),
+      statusCounts: Object.fromEntries(statusCounts.map((s) => [s.status, s.cnt])),
+      originCounts: {
+        ...Object.fromEntries(
+          originCounts
+            .filter((o) => o.originType)
+            .map((o) => [o.originType as string, o.cnt]),
+        ),
+        unlabeled: originCounts
+          .filter((o) => !o.originType)
+          .reduce((sum, o) => sum + o.cnt, 0),
       },
-      docTypeCounts: Object.fromEntries(
-        docTypeCounts.map((d) => [d.docType, d.cnt]),
-      ),
+      docTypeCounts: Object.fromEntries(docTypeCounts.map((d) => [d.docType, d.cnt])),
+      docClassCounts: {
+        citable: citableCount,
+        non_citable: totalAll - citableCount,
+        ...Object.fromEntries(
+          docClassCounts
+            .filter((d) => d.docClassTarget)
+            .map((d) => [d.docClassTarget as string, d.cnt]),
+        ),
+      },
+      riskCounts: {
+        blocking: Number(riskRow.blocking ?? 0),
+        flagged: Number(riskRow.flagged ?? 0),
+        needs_expert: Number(riskRow.needs_expert ?? 0),
+        stale: Number(riskRow.stale ?? 0),
+      },
+      tagCounts: (tagRows.rows as Record<string, unknown>[]).map((r) => ({
+        tag: String(r.tag),
+        count: Number(r.cnt ?? 0),
+      })),
       shelfCounts: shelfCounts
         .filter((s) => s.homeRoot)
         .map((s) => ({ homeRoot: s.homeRoot as string, count: s.cnt }))
@@ -140,7 +240,7 @@ router.post("/run-triage", async (req: Request, res: Response) => {
       includeStatuses?: string[];
     };
 
-    const statuses = includeStatuses ?? ["needs_review"];
+    const statuses = includeStatuses ?? ["pending_review", "needs_review"];
 
     let targetDocs: (typeof kbStagingDocsTable.$inferSelect)[];
 
@@ -263,8 +363,20 @@ router.get("/:id", async (req: Request, res: Response) => {
 router.patch("/:id", async (req: Request, res: Response) => {
   try {
     const id = parseInt(getParam(req.params.id));
-    const { status, adminNotes, editedContent, title, category, tags } =
-      req.body;
+    const {
+      status,
+      adminNotes,
+      editedContent,
+      title,
+      category,
+      tags,
+      homeRoot,
+      node,
+      docClassTarget,
+      ceiling,
+      handoff,
+      needsExpert,
+    } = req.body;
 
     const updates: Record<string, unknown> = {};
     if (status) updates.status = status;
@@ -273,6 +385,14 @@ router.patch("/:id", async (req: Request, res: Response) => {
     if (title) updates.title = title;
     if (category) updates.category = category;
     if (tags !== undefined) updates.tags = tags;
+    // Taxonomy fields the editor sends — previously dropped on the floor, so
+    // reviewer edits to shelf / node / doc-class never persisted.
+    if (homeRoot !== undefined) updates.homeRoot = homeRoot || null;
+    if (node !== undefined) updates.node = node || null;
+    if (docClassTarget !== undefined) updates.docClassTarget = docClassTarget || null;
+    if (ceiling !== undefined) updates.ceiling = ceiling || null;
+    if (handoff !== undefined) updates.handoff = handoff || null;
+    if (needsExpert !== undefined) updates.needsExpert = needsExpert;
 
     if (status === "approved" || status === "rejected" || status === "needs_review") {
       updates.reviewedBy = (req as unknown as { userId: number }).userId;
