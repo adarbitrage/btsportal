@@ -1,0 +1,122 @@
+## BTS Portal — Native NMI Billing, Tier 6.1: subscriptions schema + recurring subscribe (BACKEND, money tier)
+
+### What This Does
+Adds the subscription data model and the path that STARTS a recurring subscription: validate a
+recurring product, ensure a vaulted (saved) card and PIN it to the subscription, run the INITIAL charge,
+and on success create the subscription + grant access. Also adds cancel + read endpoints and the
+delete-card guard. NO scheduled/recurring charges and NO dunning execution this tier — that's the
+rebiller (6.2). The schema here must fully support what 6.2 will do. Reuse the EXISTING checkout
+money-safety (peek-then-claim idempotency from 6.0, server-authoritative price, decline→402,
+paid_reconciliation_needed, single shared grant path) — do not duplicate or fork it.
+
+### Files Created
+- [schema dir]/subscriptions.ts — subscriptions table.
+- [store dir]/subscriptions-store.ts — typed CRUD (user-scoped).
+- [server billing dir]/subscription-service.ts — subscribe + cancel orchestration (reuses the
+  checkout charge/idempotency/grant core).
+- migration(s) for the schema below.
+- tests (subscribe success, declined initial charge → no subscription, duplicate-active-sub 409,
+  cancel sets period-end, delete-card-funding-a-sub guard).
+
+### Files Modified
+- the billing router — ADD the subscribe / cancel / list endpoints (sequential tier; fine to touch).
+- checkout-service.ts — extract (do NOT duplicate) a shared internal core
+  "claim → pending order → charge → on-success record+grant / decline→402 / post-charge→reconciliation"
+  that BOTH one-time checkout and subscribe call. One-time behavior must remain identical (verify its
+  tests still pass).
+- routes/billing.ts DELETE payment-method — add the active-subscription guard (below).
+- bts_orders schema — ADD a nullable subscription_id (FK→subscriptions) so initial/renewal orders link
+  to their subscription. (Additive.)
+- schema barrel — export the new table.
+
+### Schema Changes
+1) NEW subscriptions:
+   - id (pk), user_id (FK users, indexed, NOT NULL),
+   - product_id (FK products, NOT NULL),
+   - payment_method_id (FK payment_methods, ON DELETE RESTRICT, NOT NULL) — the PINNED vaulted card,
+   - status TEXT NOT NULL default 'active' CHECK in ('active','past_due','canceled','unpaid'),
+   - interval TEXT NOT NULL CHECK in ('monthly','yearly'),
+   - amount_cents INTEGER NOT NULL — SNAPSHOT of the product price at subscribe time (a later product
+     price change must NOT silently change an existing subscriber's charge),
+   - currency TEXT default 'USD',
+   - current_period_start TIMESTAMP NOT NULL, current_period_end TIMESTAMP NOT NULL,
+   - next_charge_at TIMESTAMP (nullable) — INDEXED (the 6.2 rebiller queries due subs); null when
+     canceled/unpaid,
+   - retry_count INTEGER NOT NULL default 0,            -- dunning attempts this cycle (6.2 writes)
+   - last_charge_attempt_at TIMESTAMP (nullable), last_failure_reason TEXT (nullable),
+   - cancel_at_period_end BOOLEAN NOT NULL default false, canceled_at TIMESTAMP (nullable),
+   - created_at, updated_at,
+   - INDEX (user_id), INDEX (status), INDEX (next_charge_at).
+2) bts_orders: ADD subscription_id (nullable, FK→subscriptions). Additive.
+Apply migrations to live Neon, idempotent/create-not-destructive (watch the "relation already exists"
+noise).
+
+### API Endpoints (all requireAuth, all user-scoped)
+- POST /api/billing/subscribe — Body { productId, idempotencyKey (required), paymentToken? OR
+  paymentMethodId? } (exactly one card source; reject both/neither → 400).
+   1. Load product; reject if not found / not is_native_nmi / billing_type != 'recurring' / no
+      recurring_interval → 400. amount = product.price_cents (server-authoritative).
+   2. Resolve + PIN the card: paymentMethodId → confirm ownership (404 if not owned); paymentToken →
+      createVaultFromToken → insert a payment_methods row (masked fields only; first-card default per
+      6.0). Result: an owned, vaulted payment_methods row = the pinned card.
+   3. Duplicate guard: if the user already has an active OR past_due subscription for this productId →
+      409 (already subscribed).
+   4. Reuse the shared checkout core (peek-then-claim on idempotencyKey AFTER validation): create a
+      bts_orders row (order_type='recurring_initial'), charge the pinned card via chargeWithVault for
+      `amount`.
+      - DECLINE → order 'failed', complete idempotency with failure, return 402, NO subscription
+        created, NO grant.
+      - SUCCESS → order 'paid' + gateway_transaction_id; THEN create the subscription
+        (status='active', amount_cents=amount snapshot, interval, current_period_start=now,
+        current_period_end=now+interval, next_charge_at=current_period_end, retry_count=0); set
+        order.subscription_id; grant entitlements via the single shared grant path; complete
+        idempotency. Return { subscriptionId, orderNumber, status:'active', nextChargeAt,
+        grantedEntitlements }.
+      - POST-CHARGE error (money moved, sub/grant not finalized) → paid_reconciliation_needed, surface
+        it (do NOT auto-retry the charge). Note: reconciliation for a subscribe also means "subscription
+        may not be created yet" — record enough to finish later.
+- POST /api/billing/subscriptions/:id/cancel — must belong to the user (else 404). Set
+  cancel_at_period_end=true, canceled_at=now. Do NOT revoke access now and do NOT change next_charge_at
+  destructively — access continues to current_period_end; the 6.2 rebiller, at period end, will revoke
+  + set status='canceled' instead of charging. Return the updated subscription.
+- GET /api/billing/subscriptions — the current user's subscriptions (status, product, amount, interval,
+  current_period_end, next_charge_at, cancel_at_period_end). Never expose the vault id.
+- DELETE /api/billing/payment-methods/:id (MODIFY): before deleting, if this card is pinned to any
+  active OR past_due subscription → 409 "this card funds an active subscription; cancel it or change its
+  card first" — do NOT delete and do NOT call the vault. (Realizes the Tier-4a active-subscription TODO.)
+
+### Behavior the 6.2 rebiller will implement — schema/fields above must support it (do NOT build now)
+- Renewal: when now >= next_charge_at and NOT cancel_at_period_end → charge amount_cents via the pinned
+  card with a DETERMINISTIC per-period idempotency key (e.g. "sub_{id}_period_{current_period_end ISO}")
+  so a period can never be double-charged even if the cron runs twice; on success advance the period +
+  next_charge_at, reset retry_count, grant; create a bts_orders row (order_type='recurring_renewal',
+  subscription_id set).
+- Dunning on a failed renewal: retry on due, +3 days, +7 days (3 attempts/cycle); access stays active
+  (status='past_due') through the window; final failure → revoke entitlements + status='unpaid'; email
+  on first and final failure.
+- Cancel-at-period-end reached → revoke entitlements + status='canceled', next_charge_at=null, no charge.
+
+### Dependencies
+- Depends on: Tier 4a (vault) + 6.0 (hardened saved-card path) — merged. Owns subscriptions table.
+
+### Acceptance Criteria
+- A recurring subscribe with a sandbox card: charges the initial period via the vault, creates an
+  active subscription (period + next_charge_at set, amount snapshotted), grants access, and links the
+  initial order; a fresh token gets vaulted+pinned, a saved card gets pinned.
+- A DECLINED initial charge returns 402, creates NO subscription, grants nothing, throws nothing.
+- Duplicate active subscription to the same product → 409. Subscribe amount is server-authoritative
+  (client can't supply it). Idempotency replay returns the prior result, never a second charge.
+- Cancel sets cancel_at_period_end + canceled_at, does NOT revoke access immediately, leaves the period
+  intact.
+- Deleting a card that funds an active/past_due subscription → 409, no vault call, card kept.
+- One-time checkout behavior is UNCHANGED (its existing tests still pass after the core extraction).
+- Clean tsc (green) + architect review. Report schema/files. Do NOT create follow-up tasks.
+
+### Implementation Notes
+- PIN the card on the subscription (charge the pinned card, not "whatever's default"). amount_cents is
+  a snapshot; renewals charge the snapshot (entitlements follow the current product).
+- Reuse the hardened checkout core wholesale — subscribe differs only in: recurring-product validation,
+  pin-a-vaulted-card, order_type, and the on-success subscription creation. Don't reimplement
+  money-safety.
+- These subscriptions are INERT until 6.2's rebiller is merged (initial charge happens; no renewals yet)
+  — so do not sell/enable recurring products in production until 6.2 ships, or subs won't renew.
