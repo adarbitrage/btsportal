@@ -86,6 +86,7 @@ export * from "./voice-calls";
 export * from "./voice-daily-usage";
 export * from "./content-access-map";
 export * from "./content-gap-questions";
+export * from "./subscriptions";
 export * from "./bts-orders";
 export * from "./checkout-idempotency";
 export * from "./payment-methods";

@@ -15,6 +15,13 @@ export interface CreateOrderInput {
   totalCents: number;
   currency?: string;
   orderType: "one_time" | "recurring_initial" | "recurring_renewal" | "wallet_topup";
+  /**
+   * Optional subscription this order belongs to. Set at insert time so even a
+   * DECLINED recurring_renewal order carries its subscription_id (the initial
+   * subscribe path leaves this undefined and links post-creation, because the
+   * subscription row does not exist yet when the order is created).
+   */
+  subscriptionId?: number | null;
   metadata?: Record<string, unknown> | null;
   lineItems: CreateOrderLineItem[];
 }
@@ -60,6 +67,7 @@ export async function createOrder(input: CreateOrderInput): Promise<OrderWithIte
         totalCents: input.totalCents,
         currency: input.currency ?? "USD",
         orderType: input.orderType,
+        subscriptionId: input.subscriptionId ?? null,
         metadata: input.metadata ?? null,
         status: "pending",
       })

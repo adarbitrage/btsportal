@@ -1,10 +1,13 @@
 {
   "tables": {
-    "onlyInPush": [],
+    "onlyInPush": [
+      "subscriptions"
+    ],
     "onlyInMigrations": []
   },
   "columns": {
     "onlyInPush": [
+      "bts_orders.subscription_id | int4 | NULL",
       "chat_messages.admin_notes | text | NULL",
       "chat_messages.flagged | bool | NOT NULL",
       "chat_system_prompts.version | int4 | NOT NULL",
@@ -30,6 +33,24 @@
       "session_pack_bookings.recording_url | text | NULL",
       "session_pack_bookings.summary_url | text | NULL",
       "session_pack_bookings.transcript_url | text | NULL",
+      "subscriptions.amount_cents | int4 | NOT NULL",
+      "subscriptions.cancel_at_period_end | bool | NOT NULL",
+      "subscriptions.canceled_at | timestamptz | NULL",
+      "subscriptions.created_at | timestamptz | NOT NULL",
+      "subscriptions.currency | text | NOT NULL",
+      "subscriptions.current_period_end | timestamptz | NOT NULL",
+      "subscriptions.current_period_start | timestamptz | NOT NULL",
+      "subscriptions.id | int4 | NOT NULL",
+      "subscriptions.interval | text | NOT NULL",
+      "subscriptions.last_charge_attempt_at | timestamptz | NULL",
+      "subscriptions.last_failure_reason | text | NULL",
+      "subscriptions.next_charge_at | timestamptz | NULL",
+      "subscriptions.payment_method_id | int4 | NOT NULL",
+      "subscriptions.product_id | int4 | NOT NULL",
+      "subscriptions.retry_count | int4 | NOT NULL",
+      "subscriptions.status | text | NOT NULL",
+      "subscriptions.updated_at | timestamptz | NOT NULL",
+      "subscriptions.user_id | int4 | NOT NULL",
       "tickets.delivery_last_attempt_at | timestamptz | NULL",
       "tickets.delivery_last_error | text | NULL",
       "tickets.delivery_status | text | NOT NULL",
@@ -56,12 +77,24 @@
     ]
   },
   "constraints": {
-    "onlyInPush": [],
+    "onlyInPush": [
+      "bts_orders | f | FOREIGN KEY (subscription_id) REFERENCES subscriptions(id)",
+      "subscriptions | c | CHECK ((\"interval\" = ANY (ARRAY['monthly'::text, 'yearly'::text])))",
+      "subscriptions | c | CHECK ((status = ANY (ARRAY['active'::text, 'past_due'::text, 'canceled'::text, 'unpaid'::text])))",
+      "subscriptions | f | FOREIGN KEY (payment_method_id) REFERENCES payment_methods(id) ON DELETE RESTRICT",
+      "subscriptions | f | FOREIGN KEY (product_id) REFERENCES products(id)",
+      "subscriptions | f | FOREIGN KEY (user_id) REFERENCES users(id)",
+      "subscriptions | p | PRIMARY KEY (id)"
+    ],
     "onlyInMigrations": []
   },
   "indexes": {
     "onlyInPush": [
-      "kb_triage_audit_log | CREATE INDEX <name> ON public.kb_triage_audit_log USING btree (created_at)"
+      "kb_triage_audit_log | CREATE INDEX <name> ON public.kb_triage_audit_log USING btree (created_at)",
+      "subscriptions | CREATE INDEX <name> ON public.subscriptions USING btree (next_charge_at)",
+      "subscriptions | CREATE INDEX <name> ON public.subscriptions USING btree (status)",
+      "subscriptions | CREATE INDEX <name> ON public.subscriptions USING btree (user_id)",
+      "subscriptions | CREATE UNIQUE INDEX <name> ON public.subscriptions USING btree (id)"
     ],
     "onlyInMigrations": [
       "kb_triage_audit_log | CREATE INDEX <name> ON public.kb_triage_audit_log USING btree (created_at DESC)"

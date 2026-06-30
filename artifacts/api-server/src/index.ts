@@ -5,6 +5,7 @@ import { startCommunicationWorkers, stopCommunicationWorkers } from "./lib/commu
 import { startSequenceEngine, shutdownSequenceEngine } from "./lib/sequence-engine";
 import { startScheduledComms, shutdownScheduledComms } from "./lib/scheduled-comms";
 import { startRevenuePipeline, shutdownRevenuePipeline } from "./lib/revenue-pipeline";
+import { startRenewalCharger, shutdownRenewalCharger } from "./lib/renewal-charger";
 import { startQueueFallbackAlerter, stopQueueFallbackAlerter } from "./lib/queue-fallback-alerter";
 import { startSignupChallengeAlerter, stopSignupChallengeAlerter } from "./lib/signup-challenge-alerter";
 import { startAuthRateLimitAlerter, stopAuthRateLimitAlerter } from "./lib/auth-rate-limit-alerter";
@@ -111,6 +112,9 @@ if (process.env.REDIS_URL) {
   startRevenuePipeline().catch((err) => {
     console.warn("[Revenue Pipeline] Could not start:", err);
   });
+  startRenewalCharger().catch((err) => {
+    console.warn("[Renewal Charger] Could not start:", err);
+  });
 }
 
 startQueueFallbackAlerter();
@@ -167,6 +171,7 @@ async function gracefulShutdown(signal: string) {
   await shutdownSequenceEngine();
   await shutdownScheduledComms();
   await shutdownRevenuePipeline();
+  await shutdownRenewalCharger();
   stopQueueFallbackAlerter();
   stopSignupChallengeAlerter();
   stopAuthRateLimitAlerter();

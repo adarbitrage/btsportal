@@ -3,6 +3,7 @@ import { eq } from "drizzle-orm";
 import { db, productsTable } from "@workspace/db";
 import { getPublicTokenizationKey, storeCardToken, removeVaultCustomer } from "../lib/payments/charge-service.js";
 import { processCheckout } from "../lib/payments/checkout-service.js";
+import { processSubscribe, processCancel, listUserSubscriptions } from "../lib/payments/subscription-service.js";
 import { sendError, ErrorCodes } from "../lib/api-errors.js";
 import {
   insertPaymentMethod,
@@ -11,6 +12,7 @@ import {
   setDefaultPaymentMethod,
   deletePaymentMethodRow,
 } from "../storage/payment-methods-store.js";
+import { isPaymentMethodPinnedToActiveSubscription } from "../storage/subscriptions-store.js";
 
 const router = Router();
 
@@ -215,12 +217,10 @@ router.post("/billing/payment-methods/:id/default", async (req, res): Promise<vo
 
 /**
  * DELETE /api/billing/payment-methods/:id
- * Remove a saved card. Deletes from NMI vault first; if that fails the row is
- * NOT removed and the error is surfaced to the caller.
+ * Remove a saved card. Before deleting, guards against cards that fund an
+ * active or past_due subscription (→ 409). Deletes from NMI vault first;
+ * if that fails the row is NOT removed and the error is surfaced to the caller.
  * Returns 404 if the card does not belong to the authenticated user.
- *
- * TODO (Tier 6): Before deleting, check whether this card is attached to an
- * active recurring subscription and block the removal if so.
  */
 router.delete("/billing/payment-methods/:id", async (req, res): Promise<void> => {
   if (!req.userId) {
@@ -237,6 +237,19 @@ router.delete("/billing/payment-methods/:id", async (req, res): Promise<void> =>
   const method = await getPaymentMethodForUser(id, req.userId);
   if (!method) {
     sendError(res, 404, "NOT_FOUND", "Payment method not found");
+    return;
+  }
+
+  // Guard: if this card funds an active/past_due subscription, block removal.
+  // Do this BEFORE any vault call so the vault is never touched in this case.
+  const isPinned = await isPaymentMethodPinnedToActiveSubscription(id);
+  if (isPinned) {
+    sendError(
+      res,
+      409,
+      "CARD_FUNDS_ACTIVE_SUBSCRIPTION",
+      "This card funds an active subscription; cancel it or change its card first",
+    );
     return;
   }
 
@@ -373,6 +386,207 @@ router.post("/billing/checkout", async (req, res): Promise<void> => {
       sendError(res, 500, "INTERNAL_ERROR", "Unexpected checkout outcome");
     }
   }
+});
+
+// ── Subscriptions ─────────────────────────────────────────────────────────────
+
+/**
+ * POST /api/billing/subscribe
+ * Start a recurring subscription. Validates the product is recurring + native NMI,
+ * vaults/pins a card, guards against duplicate subs, charges the initial period,
+ * creates the subscription row, grants entitlements.
+ *
+ * Body: { productId, idempotencyKey, paymentToken? | paymentMethodId? }
+ * Exactly one card source must be supplied. Amount is server-authoritative.
+ */
+router.post("/billing/subscribe", async (req, res): Promise<void> => {
+  if (!req.userId) {
+    sendError(res, 401, ErrorCodes.AUTHENTICATION_REQUIRED, "Authentication required");
+    return;
+  }
+
+  const body = req.body as Record<string, unknown>;
+  const productId = typeof body.productId === "number" ? body.productId : null;
+  const idempotencyKey = typeof body.idempotencyKey === "string" ? body.idempotencyKey.trim() : "";
+
+  const rawToken = typeof body.paymentToken === "string" ? body.paymentToken.trim() : "";
+  const rawMethodId = body.paymentMethodId;
+
+  const hasToken = rawToken.length > 0;
+  const hasMethodId = rawMethodId !== undefined && rawMethodId !== null;
+
+  if (!productId || !Number.isInteger(productId) || productId <= 0) {
+    sendError(res, 400, "INVALID_REQUEST", "productId must be a positive integer");
+    return;
+  }
+  if (!idempotencyKey || idempotencyKey.length > 256) {
+    sendError(res, 400, "INVALID_REQUEST", "idempotencyKey is required and must be at most 256 characters");
+    return;
+  }
+  if (!hasToken && !hasMethodId) {
+    sendError(res, 400, "INVALID_REQUEST", "Provide either paymentToken or paymentMethodId");
+    return;
+  }
+  if (hasToken && hasMethodId) {
+    sendError(res, 400, "INVALID_REQUEST", "Provide either paymentToken or paymentMethodId, not both");
+    return;
+  }
+
+  let paymentMethodId: number | undefined;
+  if (hasMethodId) {
+    const parsed = Number(rawMethodId);
+    if (!Number.isInteger(parsed) || parsed <= 0) {
+      sendError(res, 400, "INVALID_REQUEST", "paymentMethodId must be a positive integer");
+      return;
+    }
+    paymentMethodId = parsed;
+  }
+
+  const outcome = await processSubscribe({
+    userId: req.userId,
+    productId,
+    idempotencyKey,
+    ...(hasToken ? { paymentToken: rawToken } : {}),
+    ...(paymentMethodId !== undefined ? { paymentMethodId } : {}),
+  });
+
+  switch (outcome.type) {
+    case "subscribed":
+      res.json({
+        subscriptionId: outcome.subscriptionId,
+        orderNumber: outcome.orderNumber,
+        status: "active",
+        nextChargeAt: outcome.nextChargeAt,
+        ...(outcome.grantedEntitlements !== undefined
+          ? { grantedEntitlements: outcome.grantedEntitlements }
+          : {}),
+        ...(outcome.grantPending ? { grantPending: true } : {}),
+      });
+      return;
+
+    case "replay_subscribed":
+      res.json({
+        subscriptionId: outcome.subscriptionId,
+        orderNumber: outcome.orderNumber,
+        status: "active",
+        ...(outcome.nextChargeAt !== undefined ? { nextChargeAt: outcome.nextChargeAt } : {}),
+        ...(outcome.grantedEntitlements !== undefined
+          ? { grantedEntitlements: outcome.grantedEntitlements }
+          : {}),
+        ...(outcome.grantPending ? { grantPending: true } : {}),
+      });
+      return;
+
+    case "paid_reconciliation_needed":
+    case "replay_reconciliation_needed":
+      res.status(202).json({
+        orderNumber: outcome.orderNumber,
+        status: "active",
+        reconciling: true,
+      });
+      return;
+
+    case "declined":
+    case "replay_declined":
+      res.status(402).json({ error: outcome.message });
+      return;
+
+    case "in_progress":
+      sendError(res, 409, "IDEMPOTENCY_IN_PROGRESS", "This payment is already being processed. Please wait and retry.");
+      return;
+
+    case "conflict":
+      sendError(res, 409, "IDEMPOTENCY_CONFLICT", "This idempotency key was used with a different product. Use a unique key per checkout.");
+      return;
+
+    case "duplicate_subscription":
+      sendError(res, 409, "DUPLICATE_SUBSCRIPTION", "You already have an active subscription to this product");
+      return;
+
+    case "invalid_product":
+      sendError(res, 400, "INVALID_PRODUCT", outcome.message);
+      return;
+
+    case "user_not_found":
+      sendError(res, 400, "USER_NOT_FOUND", "Authenticated user not found");
+      return;
+
+    case "payment_method_not_found":
+      sendError(res, 404, "NOT_FOUND", "Payment method not found");
+      return;
+
+    case "vault_error":
+      sendError(res, 502, "VAULT_ERROR", outcome.message);
+      return;
+
+    default: {
+      const _exhaustive: never = outcome;
+      sendError(res, 500, "INTERNAL_ERROR", "Unexpected subscribe outcome");
+    }
+  }
+});
+
+/**
+ * GET /api/billing/subscriptions
+ * List the current user's subscriptions. Never exposes vault_id.
+ */
+router.get("/billing/subscriptions", async (req, res): Promise<void> => {
+  if (!req.userId) {
+    sendError(res, 401, ErrorCodes.AUTHENTICATION_REQUIRED, "Authentication required");
+    return;
+  }
+
+  const subs = await listUserSubscriptions(req.userId);
+
+  res.json({
+    subscriptions: subs.map((s) => ({
+      id: s.id,
+      status: s.status,
+      interval: s.interval,
+      amountCents: s.amountCents,
+      currency: s.currency,
+      currentPeriodEnd: s.currentPeriodEnd,
+      nextChargeAt: s.nextChargeAt,
+      cancelAtPeriodEnd: s.cancelAtPeriodEnd,
+      canceledAt: s.canceledAt,
+      createdAt: s.createdAt,
+      product: s.product,
+    })),
+  });
+});
+
+/**
+ * POST /api/billing/subscriptions/:id/cancel
+ * Set cancel_at_period_end=true. Does NOT revoke access immediately; access
+ * runs to current_period_end. Returns 404 if the subscription is not owned
+ * by the authenticated user.
+ */
+router.post("/billing/subscriptions/:id/cancel", async (req, res): Promise<void> => {
+  if (!req.userId) {
+    sendError(res, 401, ErrorCodes.AUTHENTICATION_REQUIRED, "Authentication required");
+    return;
+  }
+
+  const id = parseInt(req.params.id ?? "", 10);
+  if (!Number.isFinite(id) || id <= 0) {
+    sendError(res, 400, "INVALID_REQUEST", "Invalid subscription id");
+    return;
+  }
+
+  const updated = await processCancel(id, req.userId);
+  if (!updated) {
+    sendError(res, 404, "NOT_FOUND", "Subscription not found");
+    return;
+  }
+
+  res.json({
+    id: updated.id,
+    status: updated.status,
+    cancelAtPeriodEnd: updated.cancelAtPeriodEnd,
+    canceledAt: updated.canceledAt,
+    currentPeriodEnd: updated.currentPeriodEnd,
+    nextChargeAt: updated.nextChargeAt,
+  });
 });
 
 export default router;

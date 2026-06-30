@@ -1,0 +1,107 @@
+## BTS Portal — Native NMI Billing, Tier 6.2a: recurring renewal charger (UNATTENDED — highest risk)
+
+### What This Does
+An hourly job that charges DUE recurring subscriptions on their pinned card and advances the period.
+HAPPY-PATH RENEWALS ONLY: a successful charge advances the period, extends access, and records a
+renewal order. A FAILED charge does the MINIMUM — mark the subscription past_due, record the failure,
+and STOP. No retry scheduling, no dunning, no revocation this tier (that is 6.2b). The charger MUST be
+safe to run repeatedly: running it twice over the same due period charges that period exactly once.
+Reuse the existing checkout money-safety primitives (the checkout_idempotency table + peek-then-claim,
+chargeWithVault, the shared order/charge core) — do NOT fork them.
+
+### Files Created
+- [server billing dir]/renewal-charger.ts — the charger logic as a directly-callable function
+  (processDueRenewals({ now?, maxPerRun? })) PLUS the hourly scheduler registration.
+- tests (renewal success advances period + records order + extends access; DOUBLE-RUN safety; per-run
+  cap; declined renewal → past_due + no advance + not re-charged; cancel_at_period_end is skipped).
+
+### Files Modified
+- the queue/scheduler bootstrap — register an HOURLY repeatable job (use the existing BullMQ/Upstash
+  infrastructure) that calls processDueRenewals(). The job wrapper is thin; all logic lives in the
+  testable function.
+- (No schema changes — 6.1's subscriptions table already has every field this needs.)
+
+### Schema Changes
+- None. (Uses subscriptions: status, next_charge_at, current_period_start/end, amount_cents,
+  payment_method_id, retry_count, last_charge_attempt_at, last_failure_reason; and bts_orders with
+  order_type='recurring_renewal' + subscription_id; and the existing checkout_idempotency table.)
+
+### The charger — processDueRenewals({ now = Date.now(), maxPerRun })
+1. SELECT due subscriptions: status='active' AND next_charge_at <= now AND cancel_at_period_end=false,
+   ORDER BY next_charge_at ASC, LIMIT maxPerRun (the per-run cap — oldest-due first so nothing starves
+   across runs). Optionally SELECT ... FOR UPDATE SKIP LOCKED for overlap safety, but the idempotency
+   key below is the hard guarantee.
+   - status='active' ONLY: once a sub goes past_due it is NOT touched again here — 6.2b owns retries.
+     This prevents the charger from hammering a failing card every hour.
+   - cancel_at_period_end=true subs are SKIPPED entirely (not charged); their end-of-period revoke is
+     6.2b's job. Skipping (not revoking) is the safe under-action here.
+2. For EACH due subscription, the per-period charge — THE double-charge guard:
+   - DETERMINISTIC idempotency key = `sub_{subscriptionId}_period_{current_period_end as ISO}`. This key
+     is fixed for a given subscription+period, so two runs produce the SAME key.
+   - peek-then-claim that key in checkout_idempotency (same mechanism as checkout): if it's already
+     completed → REPLAY the stored result, do NOT charge again, do NOT advance again. If in_progress →
+     skip (another run/worker has it). If not_found → claim and proceed.
+   - Create a bts_orders row (order_type='recurring_renewal', subscription_id set, total_cents =
+     subscription.amount_cents — the SNAPSHOT, never re-read from the product), then charge via
+     gateway.chargeWithVault({ amountCents: subscription.amount_cents, customerVaultId: <the pinned
+     card's vault id, resolved server-side from payment_method_id>, orderId: order.order_number, email }).
+3. ON SUCCESS:
+   - order → 'paid' + gateway_transaction_id.
+   - Advance the period ATOMICALLY: current_period_start = old current_period_end;
+     current_period_end = old end + interval; next_charge_at = new current_period_end; retry_count = 0;
+     last_charge_attempt_at = now; clear last_failure_reason.
+   - EXTEND ACCESS through the new current_period_end (a member who keeps paying must never lose access
+     — extend the subscription's granted entitlement expiry to the new period end via the existing
+     grant/user_products path; do not create a duplicate grant).
+   - Complete the idempotency key with the success result.
+4. ON DECLINE (gateway success=false):
+   - order → 'failed'; store the decline reason.
+   - subscription → status='past_due'; last_charge_attempt_at = now; last_failure_reason set. Do NOT
+     advance the period, do NOT change next_charge_at, do NOT revoke access (access stays on — dunning
+     in 6.2b decides the retry cadence and the eventual cut).
+   - Complete the idempotency key with a failure result (so a re-run replays the failure, never
+     re-charges).
+   - This is a normal outcome — it must NOT throw or abort the rest of the batch.
+5. POST-CHARGE ERROR (charge succeeded but the advance/record step then failed): mark a reconciliation
+   state on the order (same posture as the one-time paid_reconciliation_needed) — money moved, period
+   may not have advanced; record enough to finish later; do NOT auto-retry the charge. Continue the batch.
+6. BATCH ISOLATION: one subscription throwing must not abort the others — wrap each subscription's
+   processing so a single failure is logged and the loop continues. Return a summary
+   (processed/succeeded/declined/errored counts) for logging.
+
+### Per-run cap
+- maxPerRun defaults to a sensible value (e.g. 200) and is configurable via env. It is a RUNAWAY GUARD:
+  if anything ever goes wrong, one tick can touch at most maxPerRun cards, not the entire base. Oldest-
+  due-first ordering means the remainder is picked up on the next hourly run.
+
+### Dependencies
+- Depends on: Tier 6.1 (subscriptions + pinned card + shared checkout core) — merged. No new schema.
+
+### Acceptance Criteria
+- A due active subscription is charged once via the vault, the period advances by one interval,
+  next_charge_at moves forward, a recurring_renewal order is recorded with the transaction id, and the
+  member's access is extended through the new period end.
+- ★ DOUBLE-RUN SAFETY (the critical test): calling processDueRenewals twice over the same due
+  subscription results in EXACTLY ONE gateway charge, ONE renewal order for that period, and ONE period
+  advance — the second run replays the completed idempotency key and charges nothing.
+- PER-RUN CAP: with more due subscriptions than maxPerRun, exactly maxPerRun are processed in one run
+  (oldest-due first); the rest remain due for the next run.
+- DECLINED renewal: subscription becomes past_due, the period does NOT advance, access is NOT revoked,
+  the failure is recorded, nothing throws — and a second immediate run does NOT re-charge it (it's no
+  longer 'active', and the period key is already completed-as-failure).
+- cancel_at_period_end subscriptions are skipped (not charged).
+- Amount charged is always subscription.amount_cents (the snapshot) — never re-read from the product.
+- Clean tsc (green). Report files + the hourly job registration. Do NOT create follow-up tasks.
+
+### Implementation Notes
+- The deterministic per-period key is the hard double-charge guarantee — it must be derived from
+  subscription id + current_period_end so it's identical across runs for the same period and DIFFERENT
+  for the next period.
+- Keep the charger logic in a pure, directly-callable function so tests can invoke it deterministically
+  (the hourly scheduler is just a thin wrapper that calls it). The double-run test calls the function
+  twice.
+- Reuse chargeWithVault + the checkout_idempotency peek-then-claim + the order/charge core from 6.1;
+  the renewal-specific parts are: the deterministic key, charging the pinned card, the period-advance +
+  access-extend on success, and the past_due-on-decline.
+- past_due is a terminal state for THIS charger — it never re-touches a past_due sub. 6.2b owns all
+  retry/dunning/revoke behavior.

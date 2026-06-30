@@ -11,7 +11,7 @@ import {
   commissionRatesTable,
   referralLinksTable,
 } from "@workspace/db";
-import { eq, and, inArray, sql } from "drizzle-orm";
+import { eq, and, inArray, sql, isNotNull, lt } from "drizzle-orm";
 import { queueGHLSync } from "./ghl-queue";
 import { CommunicationService } from "./communication-service";
 import { ensureAffiliateProfile } from "./commissions";
@@ -198,6 +198,95 @@ export async function insertUserProductGrant(params: {
     const e = err as { code?: string; cause?: { code?: string } };
     if (e.code === "23505" || e.cause?.code === "23505") {
       return { alreadyGranted: true };
+    }
+    throw err;
+  }
+}
+
+/**
+ * Extend a member's active access to a product out to `newExpiresAt` after a
+ * successful recurring renewal charge. Used by the renewal charger; mirrors the
+ * partial-unique (user_id, product_id) WHERE status='active' invariant.
+ *
+ * Rules:
+ *  - Only ever pushes an expiry FORWARD. The UPDATE is gated on
+ *    `expires_at IS NOT NULL AND expires_at < newExpiresAt`, so a lifetime
+ *    grant (expires_at NULL) or an already-further-out expiry is never shrunk.
+ *  - If no active grant exists, inserts one with the exact `newExpiresAt`.
+ *  - Handles the race where the active grant is inserted concurrently (the
+ *    partial-unique index throws 23505) by re-running the non-shrinking update.
+ *
+ * Returns which branch executed (useful for tests / logging).
+ */
+export async function extendActiveGrantExpiry(params: {
+  userId: number;
+  productId: number;
+  newExpiresAt: Date;
+  externalSource: string;
+  externalOrderId: string;
+}): Promise<{ extended: boolean; created: boolean; untouched: boolean }> {
+  const { userId, productId, newExpiresAt, externalSource, externalOrderId } = params;
+
+  const nonShrinkingUpdate = () =>
+    db
+      .update(userProductsTable)
+      .set({ expiresAt: newExpiresAt })
+      .where(
+        and(
+          eq(userProductsTable.userId, userId),
+          eq(userProductsTable.productId, productId),
+          eq(userProductsTable.status, "active"),
+          isNotNull(userProductsTable.expiresAt),
+          lt(userProductsTable.expiresAt, newExpiresAt),
+        ),
+      )
+      .returning({ id: userProductsTable.id });
+
+  const updated = await nonShrinkingUpdate();
+  if (updated.length > 0) {
+    return { extended: true, created: false, untouched: false };
+  }
+
+  // No row was pushed forward. Either an active grant exists but is lifetime
+  // (NULL) / already further out — leave it untouched — or there is no active
+  // grant at all, in which case we create one.
+  const [existing] = await db
+    .select({ id: userProductsTable.id })
+    .from(userProductsTable)
+    .where(
+      and(
+        eq(userProductsTable.userId, userId),
+        eq(userProductsTable.productId, productId),
+        eq(userProductsTable.status, "active"),
+      ),
+    )
+    .limit(1);
+
+  if (existing) {
+    return { extended: false, created: false, untouched: true };
+  }
+
+  try {
+    await db.insert(userProductsTable).values({
+      userId,
+      productId,
+      status: "active",
+      externalSource,
+      externalOrderId,
+      expiresAt: newExpiresAt,
+    });
+    return { extended: false, created: true, untouched: false };
+  } catch (err: unknown) {
+    const e = err as { code?: string; cause?: { code?: string } };
+    if (e.code === "23505" || e.cause?.code === "23505") {
+      // Lost the race — an active grant now exists. Re-run the non-shrinking
+      // update so we still push the expiry forward where appropriate.
+      const retried = await nonShrinkingUpdate();
+      return {
+        extended: retried.length > 0,
+        created: false,
+        untouched: retried.length === 0,
+      };
     }
     throw err;
   }

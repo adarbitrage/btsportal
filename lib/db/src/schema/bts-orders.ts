@@ -4,6 +4,7 @@ import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 import { usersTable } from "./users";
 import { productsTable } from "./products";
+import { subscriptionsTable } from "./subscriptions";
 
 export const btsOrdersTable = pgTable(
   "bts_orders",
@@ -17,6 +18,7 @@ export const btsOrdersTable = pgTable(
     status: text("status").notNull().default("pending"),
     gatewayTransactionId: text("gateway_transaction_id"),
     orderType: text("order_type").notNull(),
+    subscriptionId: integer("subscription_id").references(() => subscriptionsTable.id),
     metadata: jsonb("metadata"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),

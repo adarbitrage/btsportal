@@ -1,19 +1,7 @@
 import { db, productsTable, usersTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
-import { randomUUID } from "crypto";
-import { chargeCardToken, chargeStoredVault } from "./charge-service.js";
-import {
-  peekIdempotencyKey,
-  claimIdempotencyKey,
-  completeIdempotencyKey,
-} from "./checkout-idempotency.js";
-import {
-  createOrder,
-  updateOrderStatus,
-} from "../../storage/billing-orders-store.js";
-import { logAuditEvent } from "../audit-log.js";
-import { insertUserProductGrant } from "../external-grant-product.js";
 import { getPaymentMethodForUser } from "../../storage/payment-methods-store.js";
+import { runCheckoutCore } from "./checkout-core.js";
 
 export interface CheckoutParams {
   userId: number;
@@ -56,17 +44,13 @@ export type CheckoutOutcome =
   | { type: "replay_declined"; message: string };
 
 /**
- * Orchestrate a one-time native NMI checkout:
- *   validate → idempotency claim → create pending order → charge →
- *   on success: update order paid (authoritative — failure returns a distinct
- *   outcome) + grant entitlements via insertUserProductGrant (single source of
- *   truth shared with ThriveCart webhook) → complete idempotency key → return
- *   on decline: update order failed → complete idempotency key → return 402
+ * Orchestrate a one-time native NMI checkout.
  *
- * Money-safe: if the post-charge order-status write fails, a distinct
- * "paid_reconciliation_needed" outcome is returned and idempotency is
- * completed so replay never re-charges.  Idempotency completion failures
- * are logged prominently rather than silently swallowed.
+ * Delegates to the shared checkout core after product/user validation and
+ * saved-card ownership resolution. One-time behavior is identical to the
+ * previous implementation — the only change is that the charge+idempotency
+ * logic now lives in checkout-core.ts so that the recurring subscribe path
+ * can reuse it without duplication.
  *
  * Accepts either a fresh paymentToken (Collect.js token) or a paymentMethodId
  * (saved card via NMI Customer Vault). Exactly one must be supplied — the
@@ -108,266 +92,89 @@ export async function processCheckout(params: CheckoutParams): Promise<CheckoutO
   const firstName = nameParts[0] ?? undefined;
   const lastName = nameParts.length > 1 ? nameParts.slice(1).join(" ") : undefined;
 
-  // ── Idempotency peek — read-only, happens BEFORE saved-card ownership lookup ─
-  // This ensures that an already-completed key replays its stored outcome even if
-  // the saved card was deleted after the original purchase. Only genuinely fresh
-  // attempts (not_found) proceed to ownership validation and the write-side claim.
+  // ── Idempotency peek happens inside the core, but saved-card ownership must
+  // be checked AFTER the peek (so a replay can replay even if the card was
+  // deleted). The core does the peek internally, so we replicate the pre-peek
+  // guard here: only do the ownership lookup for fresh attempts.
+  // To preserve the existing "peek before ownership check" ordering, we use
+  // the same peekIdempotencyKey + then ownership + then core (which will
+  // peek again internally — the second peek is cheap and always returns
+  // the same result since no writes happened between them).
+  // ──
+  // In practice: if the peek says "not_found", we do the ownership check.
+  // If the peek says anything else, the core will handle it (replay/in_progress/conflict).
+  // We import peek here so the ownership skip works correctly.
+  const { peekIdempotencyKey } = await import("./checkout-idempotency.js");
   const peek = await peekIdempotencyKey(idempotencyKey, userId, productId);
 
-  if (peek.type === "in_progress") {
-    return { type: "in_progress" };
-  }
-  if (peek.type === "conflict") {
-    return { type: "conflict" };
-  }
-  if (peek.type === "replay") {
-    const r = peek.result as Record<string, unknown>;
-    if (peek.wasSuccess) {
-      if ((r.outcomeType as string) === "paid_reconciliation_needed") {
-        return {
-          type: "replay_reconciliation_needed",
-          orderNumber: r.orderNumber as string,
-        };
-      }
-      return {
-        type: "replay_paid",
-        orderNumber: r.orderNumber as string,
-        status: "paid",
-        grantedEntitlements: r.grantedEntitlements as string[] | undefined,
-        ...(r.grantPending ? { grantPending: true as const } : {}),
-      };
-    } else {
-      return {
-        type: "replay_declined",
-        message: (r.message as string) ?? "Card declined",
-      };
-    }
-  }
-
-  // ── Fresh attempt: resolve saved-card vault_id (ownership enforced) ────────
-  // Fetching by (id, userId) treats a non-owned id as not-found (404 — never
-  // chargeable). Only reached on fresh attempts (peek returned "not_found"),
-  // never on replays — so a 404 here never strands the idempotency key.
   let resolvedVaultId: string | undefined;
-  if (params.paymentMethodId !== undefined) {
+  if (peek.type === "not_found" && params.paymentMethodId !== undefined) {
     const method = await getPaymentMethodForUser(params.paymentMethodId, userId);
     if (!method) {
       return { type: "payment_method_not_found" };
     }
     resolvedVaultId = method.vaultId;
+  } else if (peek.type === "not_found" && params.paymentToken === undefined) {
+    return { type: "payment_method_not_found" };
   }
 
-  // ── Idempotency claim — write-side, immediately before order + charge ──────
-  // All validation is done; claim now so the key wraps order-creation + the
-  // gateway charge, ensuring a key can never charge twice. Because the peek
-  // already handled replay/in_progress/conflict paths above, this INSERT will
-  // virtually always succeed. The claim handles the edge case where a concurrent
-  // request raced between peek and claim.
-  const claim = await claimIdempotencyKey(idempotencyKey, userId, productId);
-
-  if (claim.type === "in_progress") {
-    return { type: "in_progress" };
-  }
-  if (claim.type === "conflict") {
-    return { type: "conflict" };
-  }
-  if (claim.type === "replay") {
-    const r = claim.result as Record<string, unknown>;
-    if (claim.wasSuccess) {
-      if ((r.outcomeType as string) === "paid_reconciliation_needed") {
-        return {
-          type: "replay_reconciliation_needed",
-          orderNumber: r.orderNumber as string,
-        };
-      }
-      return {
-        type: "replay_paid",
-        orderNumber: r.orderNumber as string,
-        status: "paid",
-        grantedEntitlements: r.grantedEntitlements as string[] | undefined,
-        ...(r.grantPending ? { grantPending: true as const } : {}),
-      };
-    } else {
-      return {
-        type: "replay_declined",
-        message: (r.message as string) ?? "Card declined",
-      };
-    }
-  }
-
-  const orderNumber = `NMI-${Date.now()}-${randomUUID().slice(0, 8).toUpperCase()}`;
   const orderType = product.itemType === "wallet_topup" ? "wallet_topup" as const : "one_time" as const;
+  const entitlementKeys = Array.isArray(product.entitlementKeys)
+    ? (product.entitlementKeys as string[])
+    : [];
 
-  const order = await createOrder({
-    orderNumber,
+  const coreResult = await runCheckoutCore({
     userId,
+    productId,
     email: user.email,
-    totalCents: product.priceCents,
+    firstName,
+    lastName,
+    idempotencyKey,
+    amountCents: product.priceCents,
     currency: product.currency ?? "USD",
     orderType,
-    lineItems: [
-      {
-        productId: product.id,
-        description: product.name,
-        unitPriceCents: product.priceCents,
-        quantity: 1,
-      },
-    ],
+    grantEntitlements: product.itemType !== "wallet_topup",
+    entitlementKeys,
+    durationDays: product.durationDays ?? null,
+    lineItemDescription: product.name,
+    ...(resolvedVaultId !== undefined ? { resolvedVaultId } : {}),
+    ...(params.paymentToken !== undefined ? { paymentToken: params.paymentToken } : {}),
   });
 
-  // ── Charge: token path or vault path ──────────────────────────────────────
-  type ChargeResult = Awaited<ReturnType<typeof chargeCardToken>>;
-  let chargeResult: ChargeResult;
-  try {
-    if (resolvedVaultId !== undefined) {
-      chargeResult = await chargeStoredVault({
-        amountCents: product.priceCents,
-        customerVaultId: resolvedVaultId,
-        orderId: orderNumber,
-        email: user.email,
-      });
-    } else {
-      chargeResult = await chargeCardToken({
-        amountCents: product.priceCents,
-        paymentToken: params.paymentToken!,
-        orderId: orderNumber,
-        email: user.email,
-        firstName,
-        lastName,
-      });
-    }
-  } catch (err) {
-    await updateOrderStatus(order.id, {
-      status: "failed",
-      metadata: { gatewayError: String(err) },
-    }).catch((e) => console.error(`[Checkout] Failed to mark order ${orderNumber} failed after gateway error:`, e));
-    await safeCompleteIdempotencyKey(idempotencyKey, order.id, {
-      outcomeType: "declined", status: "failed", message: "Gateway error", orderNumber,
-    });
-    logAuditEvent({
-      actorId: userId,
-      actionType: "billing.checkout.gateway_error",
-      entityType: "bts_order",
-      entityId: String(order.id),
-      description: `Checkout gateway error for order ${orderNumber}`,
-      metadata: { productId, orderNumber, error: String(err) },
-    });
-    return { type: "declined", message: "Payment gateway error — please try again" };
-  }
-
-  if (!chargeResult.success) {
-    await updateOrderStatus(order.id, {
-      status: "failed",
-      metadata: { gatewayResponseText: chargeResult.responseText },
-    }).catch((e) => console.error(`[Checkout] Failed to mark order ${orderNumber} failed after decline:`, e));
-    await safeCompleteIdempotencyKey(idempotencyKey, order.id, {
-      outcomeType: "declined", status: "failed", message: chargeResult.responseText, orderNumber,
-    });
-    logAuditEvent({
-      actorId: userId,
-      actionType: "billing.checkout.declined",
-      entityType: "bts_order",
-      entityId: String(order.id),
-      description: `Card declined for order ${orderNumber}: ${chargeResult.responseText}`,
-      metadata: { productId, orderNumber, responseText: chargeResult.responseText },
-    });
-    return { type: "declined", message: "Your card was declined. Please check your card details and try again." };
-  }
-
-  // ── CHARGE SUCCEEDED — money moved. Every subsequent write is authoritative. ──
-
-  try {
-    await updateOrderStatus(order.id, {
-      status: "paid",
-      gatewayTransactionId: chargeResult.transactionId ?? null,
-    });
-  } catch (persistErr) {
-    const reconResult: Record<string, unknown> = {
-      outcomeType: "paid_reconciliation_needed",
-      status: "paid_reconciliation_needed",
-      orderNumber,
-      transactionId: chargeResult.transactionId,
-    };
-    await safeCompleteIdempotencyKey(idempotencyKey, order.id, reconResult);
-    console.error(
-      `[Checkout] ALERT: Order ${orderNumber} charged (txn=${chargeResult.transactionId}) but DB status update failed. ` +
-      `Order row remains pending. Manual reconciliation required.`,
-      persistErr,
-    );
-    return {
-      type: "paid_reconciliation_needed",
-      orderNumber,
-      transactionId: chargeResult.transactionId,
-    };
-  }
-
-  let grantedEntitlements: string[] | undefined;
-  let grantPending = false;
-
-  if (product.itemType !== "wallet_topup") {
-    try {
-      const entitlementKeys = Array.isArray(product.entitlementKeys)
-        ? (product.entitlementKeys as string[])
-        : [];
-      await insertUserProductGrant({
-        userId,
-        productId: product.id,
-        externalSource: "nmi",
-        externalOrderId: orderNumber,
-        durationDays: product.durationDays ?? null,
-      });
-      grantedEntitlements = entitlementKeys;
-    } catch (err) {
-      grantPending = true;
-      await updateOrderStatus(order.id, {
+  // Map core outcomes to the CheckoutOutcome type (drop the `extra` field
+  // that one-time checkout never needs).
+  switch (coreResult.type) {
+    case "paid":
+      return {
+        type: "paid",
+        orderNumber: coreResult.orderNumber,
         status: "paid",
-        gatewayTransactionId: chargeResult.transactionId ?? null,
-        metadata: { grantError: String(err), grantPending: true },
-      }).catch(() => {});
-      console.error(
-        `[Checkout] ALERT: Grant failed for order ${orderNumber} (userId=${userId} productId=${product.id}). ` +
-        `Charge succeeded (txn=${chargeResult.transactionId}). Manual grant required.`,
-        err,
-      );
+        grantedEntitlements: coreResult.grantedEntitlements,
+        ...(coreResult.grantPending ? { grantPending: true as const } : {}),
+      };
+    case "paid_reconciliation_needed":
+      return coreResult;
+    case "declined":
+      return coreResult;
+    case "in_progress":
+      return coreResult;
+    case "conflict":
+      return coreResult;
+    case "replay_paid":
+      return {
+        type: "replay_paid",
+        orderNumber: coreResult.orderNumber,
+        status: "paid",
+        grantedEntitlements: coreResult.grantedEntitlements,
+        ...(coreResult.grantPending ? { grantPending: true as const } : {}),
+      };
+    case "replay_reconciliation_needed":
+      return coreResult;
+    case "replay_declined":
+      return coreResult;
+    default: {
+      const _exhaustive: never = coreResult;
+      throw new Error("Unexpected core outcome");
     }
-  }
-
-  const successResult: Record<string, unknown> = {
-    outcomeType: "paid",
-    status: "paid",
-    orderNumber,
-    transactionId: chargeResult.transactionId,
-    grantedEntitlements,
-    grantPending,
-  };
-  await safeCompleteIdempotencyKey(idempotencyKey, order.id, successResult);
-
-  logAuditEvent({
-    actorId: userId,
-    actionType: "billing.checkout.paid",
-    entityType: "bts_order",
-    entityId: String(order.id),
-    description: `Checkout paid for order ${orderNumber} (product: ${product.name})`,
-    metadata: { productId, orderNumber, transactionId: chargeResult.transactionId, grantPending },
-  });
-
-  return {
-    type: "paid",
-    orderNumber,
-    status: "paid",
-    grantedEntitlements,
-    ...(grantPending ? { grantPending: true as const } : {}),
-  };
-}
-
-async function safeCompleteIdempotencyKey(
-  key: string,
-  orderId: number | null,
-  result: Record<string, unknown>,
-): Promise<void> {
-  try {
-    await completeIdempotencyKey(key, orderId, result);
-  } catch (err) {
-    console.error(`[Checkout] WARNING: Failed to complete idempotency key "${key}". Duplicate charges may occur on retry.`, err);
   }
 }
