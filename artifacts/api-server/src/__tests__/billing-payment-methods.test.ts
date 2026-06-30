@@ -330,6 +330,26 @@ describe("POST /api/billing/payment-methods — save a card", () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
+  it("returns 400 when paymentToken is a PAN separated by dots", async () => {
+    const res = await request(app)
+      .post("/api/billing/payment-methods")
+      .set("Cookie", authCookie)
+      .send({ paymentToken: "4111.1111.1111.1111", last4: "1111", brand: "Visa", expMonth: 12, expYear: 2030 });
+    expect(res.status).toBe(400);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("returns 400 when paymentToken is a PAN separated by Unicode space separators", async () => {
+    // U+2002 EN SPACE is a Unicode general-category Separator
+    const token = "4111\u20021111\u20021111\u20021111";
+    const res = await request(app)
+      .post("/api/billing/payment-methods")
+      .set("Cookie", authCookie)
+      .send({ paymentToken: token, last4: "1111", brand: "Visa", expMonth: 12, expYear: 2030 });
+    expect(res.status).toBe(400);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
   it("returns 400 when brand is not a known card network", async () => {
     const res = await request(app)
       .post("/api/billing/payment-methods")
@@ -621,6 +641,85 @@ describe("POST /api/billing/checkout — idempotency replay after card deletion"
     expect(res.body.orderNumber).toBe("NMI-REPLAY-DEL-001");
     expect(res.body.status).toBe("paid");
     expect(fetchMock).not.toHaveBeenCalled();
+  });
+});
+
+// ── 5c. Concurrent set-default cannot leave two defaults ──────────────────────
+
+describe("payment_methods — at-most-one-default DB guarantee", () => {
+  it("DB partial unique index prevents two is_default=true rows for the same user", async () => {
+    // Insert a row directly with is_default=true
+    const [row1] = await db
+      .insert(paymentMethodsTable)
+      .values({
+        userId: otherUserId,
+        vaultId: `VAULT_DUP1_${randomUUID().slice(0, 6)}`,
+        last4: "1111",
+        brand: "Visa",
+        expMonth: 12,
+        expYear: 2030,
+        isDefault: true,
+      })
+      .returning({ id: paymentMethodsTable.id });
+    seededPaymentMethodIds.push(row1.id);
+
+    // A second insert with is_default=true for the same user must be rejected
+    await expect(
+      db.insert(paymentMethodsTable).values({
+        userId: otherUserId,
+        vaultId: `VAULT_DUP2_${randomUUID().slice(0, 6)}`,
+        last4: "2222",
+        brand: "Mastercard",
+        expMonth: 6,
+        expYear: 2028,
+        isDefault: true,
+      }),
+    ).rejects.toThrow();
+
+    // Confirm exactly one default exists for otherUserId
+    const defaults = await db
+      .select({ id: paymentMethodsTable.id })
+      .from(paymentMethodsTable)
+      .where(
+        and(
+          eq(paymentMethodsTable.userId, otherUserId),
+          eq(paymentMethodsTable.isDefault, true),
+        ),
+      );
+    expect(defaults).toHaveLength(1);
+    expect(defaults[0].id).toBe(row1.id);
+  });
+
+  it("setDefaultPaymentMethod leaves exactly one default even when called twice in sequence", async () => {
+    await db.delete(paymentMethodsTable).where(eq(paymentMethodsTable.userId, testUserId));
+
+    const id1 = await saveTestCard(`VAULT_SEQDEF1_${randomUUID().slice(0, 6)}`);
+    const id2 = await saveTestCard(`VAULT_SEQDEF2_${randomUUID().slice(0, 6)}`);
+
+    // Set id2 as default
+    const r1 = await request(app)
+      .post(`/api/billing/payment-methods/${id2}/default`)
+      .set("Cookie", authCookie);
+    expect(r1.status).toBe(200);
+
+    // Set id1 as default
+    const r2 = await request(app)
+      .post(`/api/billing/payment-methods/${id1}/default`)
+      .set("Cookie", authCookie);
+    expect(r2.status).toBe(200);
+
+    // Exactly one default must exist
+    const defaults = await db
+      .select({ id: paymentMethodsTable.id })
+      .from(paymentMethodsTable)
+      .where(
+        and(
+          eq(paymentMethodsTable.userId, testUserId),
+          eq(paymentMethodsTable.isDefault, true),
+        ),
+      );
+    expect(defaults).toHaveLength(1);
+    expect(defaults[0].id).toBe(id1);
   });
 });
 

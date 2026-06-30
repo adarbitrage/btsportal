@@ -6,7 +6,9 @@ import {
   boolean,
   timestamp,
   index,
+  uniqueIndex,
 } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
 import { usersTable } from "./users";
 
 export const paymentMethodsTable = pgTable(
@@ -27,6 +29,9 @@ export const paymentMethodsTable = pgTable(
   },
   (table) => ({
     userIdIdx: index("payment_methods_user_id_idx").on(table.userId),
+    oneDefaultPerUser: uniqueIndex("payment_methods_one_default_per_user")
+      .on(table.userId)
+      .where(sql`is_default = true`),
   }),
 );
 

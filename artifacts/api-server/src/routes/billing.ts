@@ -14,10 +14,19 @@ import {
 
 const router = Router();
 
-const DIGIT_RUN_PATTERN = /\d[\s-]?\d[\s-]?\d[\s-]?\d[\s-]?\d[\s-]?\d[\s-]?\d[\s-]?\d[\s-]?\d[\s-]?\d[\s-]?\d[\s-]?\d/;
+/**
+ * Strip separator characters — spaces, hyphens, dots, and Unicode general-
+ * category "Separator" characters — from a token string before PAN detection.
+ * This prevents a 16-digit card number broken up with dots or Unicode spaces
+ * (e.g. "4111.1111.1111.1111" or "4111\u20021111\u20021111\u20021111") from
+ * slipping past the digit-run check.  The PAN is never persisted regardless.
+ */
+function stripSeparators(value: string): string {
+  return value.replace(/[\s\-.\p{Z}]/gu, "");
+}
 
 function containsPan(value: string): boolean {
-  return DIGIT_RUN_PATTERN.test(value);
+  return /\d{12,}/.test(stripSeparators(value));
 }
 
 const KNOWN_BRANDS = new Set([

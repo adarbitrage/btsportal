@@ -498,6 +498,82 @@ describe("POST /api/billing/checkout — idempotency in_progress", () => {
   });
 });
 
+describe("POST /api/billing/checkout — paymentMethodId validation does not strand idempotency key", () => {
+  it("returns 404 for a missing paymentMethodId and does NOT consume the idempotency key — corrected retry succeeds", async () => {
+    const iKey = `${TEST_TAG}-strand-${randomUUID()}`;
+    seededIdempotencyKeys.push(iKey);
+
+    // First call: non-existent paymentMethodId → 404
+    const r1 = await request(app)
+      .post("/api/billing/checkout")
+      .set("Cookie", authCookie)
+      .send({ productId: nmiProductId, paymentMethodId: 999999999, idempotencyKey: iKey });
+
+    expect(r1.status).toBe(404);
+    expect(fetchMock).not.toHaveBeenCalled();
+
+    // The idempotency key must NOT have been written to the DB
+    const [row] = await db
+      .select()
+      .from(checkoutIdempotencyTable)
+      .where(eq(checkoutIdempotencyTable.idempotencyKey, iKey))
+      .limit(1);
+    expect(row).toBeUndefined();
+
+    // Retry with same key + valid paymentToken → must succeed (key not stranded)
+    fetchMock.mockResolvedValueOnce(nmiApprovedResponse("TXN_STRAND_RETRY_001"));
+    const r2 = await request(app)
+      .post("/api/billing/checkout")
+      .set("Cookie", authCookie)
+      .send({ productId: nmiProductId, paymentToken: "tok_retry_ok", idempotencyKey: iKey });
+
+    expect(r2.status).toBe(200);
+    expect(r2.body.status).toBe("paid");
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+
+    const order = await db
+      .select()
+      .from(btsOrdersTable)
+      .where(eq(btsOrdersTable.orderNumber, r2.body.orderNumber))
+      .limit(1);
+    if (order.length > 0) seededOrderIds.push(order[0].id);
+  });
+
+  it("completed idempotency key replays even if the paymentMethodId no longer exists", async () => {
+    const iKey = `${TEST_TAG}-replay-nodpm-${randomUUID()}`;
+    seededIdempotencyKeys.push(iKey);
+
+    // Pre-seed a completed key as if a previous purchase succeeded
+    await db.insert(checkoutIdempotencyTable).values({
+      idempotencyKey: iKey,
+      userId: testUserId,
+      productId: nmiProductId,
+      status: "completed",
+      orderId: null,
+      result: {
+        outcomeType: "paid",
+        status: "paid",
+        orderNumber: "NMI-REPLAY-NOPMD-001",
+        transactionId: "TXN_REPLAY_NOPMD",
+        grantedEntitlements: ["content:frontend"],
+        grantPending: false,
+      },
+      completedAt: new Date(),
+    });
+
+    // Replay with a paymentMethodId that does not exist — must still replay cleanly
+    const res = await request(app)
+      .post("/api/billing/checkout")
+      .set("Cookie", authCookie)
+      .send({ productId: nmiProductId, paymentMethodId: 999999999, idempotencyKey: iKey });
+
+    expect(res.status).toBe(200);
+    expect(res.body.orderNumber).toBe("NMI-REPLAY-NOPMD-001");
+    expect(res.body.status).toBe("paid");
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+});
+
 describe("POST /api/billing/checkout — validation", () => {
   it("returns 400 when the product is not is_native_nmi", async () => {
     const iKey = `${TEST_TAG}-nonnmi-${randomUUID()}`;

@@ -3,6 +3,7 @@ import { eq } from "drizzle-orm";
 import { randomUUID } from "crypto";
 import { chargeCardToken, chargeStoredVault } from "./charge-service.js";
 import {
+  peekIdempotencyKey,
   claimIdempotencyKey,
   completeIdempotencyKey,
 } from "./checkout-idempotency.js";
@@ -107,9 +108,61 @@ export async function processCheckout(params: CheckoutParams): Promise<CheckoutO
   const firstName = nameParts[0] ?? undefined;
   const lastName = nameParts.length > 1 ? nameParts.slice(1).join(" ") : undefined;
 
-  // ── Idempotency claim — must happen before ownership/vault lookup ──────────
-  // Replays return the stored prior outcome regardless of whether the payment
-  // method still exists, preserving Tier-3a money-safety semantics.
+  // ── Idempotency peek — read-only, happens BEFORE saved-card ownership lookup ─
+  // This ensures that an already-completed key replays its stored outcome even if
+  // the saved card was deleted after the original purchase. Only genuinely fresh
+  // attempts (not_found) proceed to ownership validation and the write-side claim.
+  const peek = await peekIdempotencyKey(idempotencyKey, userId, productId);
+
+  if (peek.type === "in_progress") {
+    return { type: "in_progress" };
+  }
+  if (peek.type === "conflict") {
+    return { type: "conflict" };
+  }
+  if (peek.type === "replay") {
+    const r = peek.result as Record<string, unknown>;
+    if (peek.wasSuccess) {
+      if ((r.outcomeType as string) === "paid_reconciliation_needed") {
+        return {
+          type: "replay_reconciliation_needed",
+          orderNumber: r.orderNumber as string,
+        };
+      }
+      return {
+        type: "replay_paid",
+        orderNumber: r.orderNumber as string,
+        status: "paid",
+        grantedEntitlements: r.grantedEntitlements as string[] | undefined,
+        ...(r.grantPending ? { grantPending: true as const } : {}),
+      };
+    } else {
+      return {
+        type: "replay_declined",
+        message: (r.message as string) ?? "Card declined",
+      };
+    }
+  }
+
+  // ── Fresh attempt: resolve saved-card vault_id (ownership enforced) ────────
+  // Fetching by (id, userId) treats a non-owned id as not-found (404 — never
+  // chargeable). Only reached on fresh attempts (peek returned "not_found"),
+  // never on replays — so a 404 here never strands the idempotency key.
+  let resolvedVaultId: string | undefined;
+  if (params.paymentMethodId !== undefined) {
+    const method = await getPaymentMethodForUser(params.paymentMethodId, userId);
+    if (!method) {
+      return { type: "payment_method_not_found" };
+    }
+    resolvedVaultId = method.vaultId;
+  }
+
+  // ── Idempotency claim — write-side, immediately before order + charge ──────
+  // All validation is done; claim now so the key wraps order-creation + the
+  // gateway charge, ensuring a key can never charge twice. Because the peek
+  // already handled replay/in_progress/conflict paths above, this INSERT will
+  // virtually always succeed. The claim handles the edge case where a concurrent
+  // request raced between peek and claim.
   const claim = await claimIdempotencyKey(idempotencyKey, userId, productId);
 
   if (claim.type === "in_progress") {
@@ -140,18 +193,6 @@ export async function processCheckout(params: CheckoutParams): Promise<CheckoutO
         message: (r.message as string) ?? "Card declined",
       };
     }
-  }
-
-  // ── Fresh attempt: resolve saved-card vault_id (ownership enforced) ────────
-  // Fetching by (id, userId) treats a non-owned id as not-found (404 — never
-  // chargeable). Only reached on fresh attempts, never on replays.
-  let resolvedVaultId: string | undefined;
-  if (params.paymentMethodId !== undefined) {
-    const method = await getPaymentMethodForUser(params.paymentMethodId, userId);
-    if (!method) {
-      return { type: "payment_method_not_found" };
-    }
-    resolvedVaultId = method.vaultId;
   }
 
   const orderNumber = `NMI-${Date.now()}-${randomUUID().slice(0, 8).toUpperCase()}`;
