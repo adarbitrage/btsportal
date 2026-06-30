@@ -38,6 +38,14 @@ export const subscriptionsTable = pgTable(
     lastFailureReason: text("last_failure_reason"),
     cancelAtPeriodEnd: boolean("cancel_at_period_end").notNull().default(false),
     canceledAt: timestamp("canceled_at", { withTimezone: true }),
+    /**
+     * Tier 6.2b: dunning — when the next past_due retry should be attempted.
+     * Null when the subscription is active, canceled, or unpaid. Set to
+     * now+3d on the first decline (attempt #1) and advanced to now+4d (→ +7d
+     * from original failure) after the second decline (attempt #2). Cleared
+     * on recovery or final failure.
+     */
+    nextRetryAt: timestamp("next_retry_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
@@ -45,6 +53,7 @@ export const subscriptionsTable = pgTable(
     userIdIdx: index("subscriptions_user_id_idx").on(table.userId),
     statusIdx: index("subscriptions_status_idx").on(table.status),
     nextChargeAtIdx: index("subscriptions_next_charge_at_idx").on(table.nextChargeAt),
+    nextRetryAtIdx: index("subscriptions_next_retry_at_idx").on(table.nextRetryAt),
     statusCheck: check(
       "subscriptions_status_check",
       sql`${table.status} IN ('active', 'past_due', 'canceled', 'unpaid')`,

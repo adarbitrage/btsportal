@@ -1,5 +1,5 @@
-import { db, subscriptionsTable, productsTable, btsOrdersTable } from "@workspace/db";
-import { eq, and, inArray, lte, asc } from "drizzle-orm";
+import { db, subscriptionsTable, productsTable, btsOrdersTable, userProductsTable } from "@workspace/db";
+import { eq, and, inArray, lte, asc, isNotNull, sql } from "drizzle-orm";
 
 export interface CreateSubscriptionInput {
   userId: number;
@@ -26,6 +26,7 @@ export interface SubscriptionRow {
   currentPeriodEnd: Date;
   nextChargeAt: Date | null;
   retryCount: number;
+  nextRetryAt: Date | null;
   lastChargeAttemptAt: Date | null;
   lastFailureReason: string | null;
   cancelAtPeriodEnd: boolean;
@@ -56,6 +57,7 @@ function toRow(r: typeof subscriptionsTable.$inferSelect): SubscriptionRow {
     currentPeriodEnd: r.currentPeriodEnd,
     nextChargeAt: r.nextChargeAt,
     retryCount: r.retryCount,
+    nextRetryAt: r.nextRetryAt,
     lastChargeAttemptAt: r.lastChargeAttemptAt,
     lastFailureReason: r.lastFailureReason,
     cancelAtPeriodEnd: r.cancelAtPeriodEnd,
@@ -203,12 +205,71 @@ export async function listDueSubscriptions(
 }
 
 /**
+ * List past_due subscriptions whose next retry is due: status='past_due',
+ * next_retry_at <= now, and NOT scheduled for cancel-at-period-end
+ * finalization (cancel_at_period_end=false OR current_period_end > now).
+ *
+ * Subs with cancel_at_period_end=true whose period has ended are handled by
+ * Phase 2b (finalizeOneCancellation) — they must never be retried/charged
+ * first. Double-guarded by running Phase 2b before Phase 2a.
+ *
+ * Ordered oldest-retry-first, capped at `limit`.
+ */
+export async function listDuePastDueRetries(
+  now: Date,
+  limit: number,
+): Promise<SubscriptionRow[]> {
+  const rows = await db
+    .select()
+    .from(subscriptionsTable)
+    .where(
+      and(
+        eq(subscriptionsTable.status, "past_due"),
+        isNotNull(subscriptionsTable.nextRetryAt),
+        lte(subscriptionsTable.nextRetryAt, now),
+        // Exclude rows that should be cancel-finalized instead of retried:
+        // those with cancel_at_period_end=true AND current_period_end <= now.
+        sql`NOT (${subscriptionsTable.cancelAtPeriodEnd} = true AND ${subscriptionsTable.currentPeriodEnd} <= ${now})`,
+      ),
+    )
+    .orderBy(asc(subscriptionsTable.nextRetryAt))
+    .limit(limit);
+  return rows.map(toRow);
+}
+
+/**
+ * List subscriptions that should be finalized as canceled: cancel_at_period_end=true,
+ * status in ('active','past_due'), and current_period_end <= now.
+ * Used by Phase 2b of processDueRenewals.
+ */
+export async function listDueForCancellation(
+  now: Date,
+  limit: number,
+): Promise<SubscriptionRow[]> {
+  const rows = await db
+    .select()
+    .from(subscriptionsTable)
+    .where(
+      and(
+        eq(subscriptionsTable.cancelAtPeriodEnd, true),
+        inArray(subscriptionsTable.status, ["active", "past_due"]),
+        lte(subscriptionsTable.currentPeriodEnd, now),
+      ),
+    )
+    .orderBy(asc(subscriptionsTable.currentPeriodEnd))
+    .limit(limit);
+  return rows.map(toRow);
+}
+
+/**
  * Advance a subscription to its next billing period after a successful renewal
  * charge. The new period starts where the old one ended (periods stay
  * contiguous regardless of when the charge actually ran) and next_charge_at
- * moves to the new period end. Resets retry_count and clears the last failure
- * reason. Called ONLY from inside the checkout core's onOrderPaid callback, so
- * the per-period idempotency key guarantees it runs at most once per period.
+ * moves to the new period end. Resets retry_count, clears next_retry_at and
+ * the last failure reason, and ensures status='active' (used both for normal
+ * renewal and for dunning recovery from past_due). Called ONLY from inside the
+ * checkout core's onOrderPaid callback, so the per-period idempotency key
+ * guarantees it runs at most once per period.
  */
 export async function advanceSubscriptionPeriod(
   id: number,
@@ -217,10 +278,12 @@ export async function advanceSubscriptionPeriod(
   const [row] = await db
     .update(subscriptionsTable)
     .set({
+      status: "active",
       currentPeriodStart: params.newPeriodStart,
       currentPeriodEnd: params.newPeriodEnd,
       nextChargeAt: params.newPeriodEnd,
       retryCount: 0,
+      nextRetryAt: null,
       lastChargeAttemptAt: params.attemptedAt,
       lastFailureReason: null,
       updatedAt: new Date(),
@@ -231,20 +294,50 @@ export async function advanceSubscriptionPeriod(
 }
 
 /**
- * Mark a subscription past_due after a declined renewal charge. Records the
- * attempt timestamp and the raw failure reason and STOPS — no retry, dunning,
- * or access revocation (that is 6.2b). Idempotent: re-running on an already
- * past_due sub simply refreshes the reason/timestamp. The period is NOT
- * advanced, so next_charge_at stays in the past for 6.2b to pick up.
+ * Mark a subscription past_due after a declined renewal charge and arm the
+ * dunning retry schedule. Sets retry_count=1 and next_retry_at=now+3d so
+ * Phase 2a picks up the first retry attempt. Idempotent: re-running on an
+ * already past_due sub (detected by retry_count > 0) refreshes only the
+ * reason/timestamp, not the retry schedule, to avoid re-arming.
+ * The period is NOT advanced, so next_charge_at stays in the past for 6.2b to
+ * pick up.
  */
 export async function markSubscriptionPastDue(
   id: number,
   params: { reason: string; attemptedAt: Date },
 ): Promise<SubscriptionRow | null> {
+  const THREE_DAYS_MS = 3 * 24 * 60 * 60 * 1000;
+  const nextRetryAt = new Date(params.attemptedAt.getTime() + THREE_DAYS_MS);
+
+  // Use a conditional update so re-running on an already past_due sub (retry_count > 0)
+  // only updates the failure metadata — it does NOT reset next_retry_at or retry_count.
+  const [alreadyPastDue] = await db
+    .select({ id: subscriptionsTable.id, retryCount: subscriptionsTable.retryCount })
+    .from(subscriptionsTable)
+    .where(and(eq(subscriptionsTable.id, id), eq(subscriptionsTable.status, "past_due")))
+    .limit(1);
+
+  if (alreadyPastDue) {
+    // Already past_due — refresh metadata only; do not re-arm the schedule.
+    const [row] = await db
+      .update(subscriptionsTable)
+      .set({
+        lastChargeAttemptAt: params.attemptedAt,
+        lastFailureReason: params.reason,
+        updatedAt: new Date(),
+      })
+      .where(eq(subscriptionsTable.id, id))
+      .returning();
+    return row ? toRow(row) : null;
+  }
+
+  // First decline — arm the retry schedule.
   const [row] = await db
     .update(subscriptionsTable)
     .set({
       status: "past_due",
+      retryCount: 1,
+      nextRetryAt,
       lastChargeAttemptAt: params.attemptedAt,
       lastFailureReason: params.reason,
       updatedAt: new Date(),
@@ -252,6 +345,99 @@ export async function markSubscriptionPastDue(
     .where(eq(subscriptionsTable.id, id))
     .returning();
   return row ? toRow(row) : null;
+}
+
+/**
+ * Advance the dunning retry schedule after a declined retry attempt.
+ * Increments retry_count and schedules the next retry so the cadence from the
+ * original failure is maintained: +3d (attempt #2) → +7d (attempt #3 = final).
+ * The caller passes the new retry_count after incrementing.
+ */
+export async function advanceDunningSchedule(
+  id: number,
+  params: { newRetryCount: number; nextRetryAt: Date; reason: string; attemptedAt: Date },
+): Promise<SubscriptionRow | null> {
+  const [row] = await db
+    .update(subscriptionsTable)
+    .set({
+      retryCount: params.newRetryCount,
+      nextRetryAt: params.nextRetryAt,
+      lastChargeAttemptAt: params.attemptedAt,
+      lastFailureReason: params.reason,
+      updatedAt: new Date(),
+    })
+    .where(eq(subscriptionsTable.id, id))
+    .returning();
+  return row ? toRow(row) : null;
+}
+
+/**
+ * Mark a subscription unpaid after the final dunning attempt fails. Clears
+ * next_retry_at. Access revocation must be done separately (caller's
+ * responsibility so this remains a pure state transition).
+ */
+export async function markSubscriptionUnpaid(
+  id: number,
+  params: { reason: string; attemptedAt: Date },
+): Promise<SubscriptionRow | null> {
+  const [row] = await db
+    .update(subscriptionsTable)
+    .set({
+      status: "unpaid",
+      nextRetryAt: null,
+      lastChargeAttemptAt: params.attemptedAt,
+      lastFailureReason: params.reason,
+      updatedAt: new Date(),
+    })
+    .where(eq(subscriptionsTable.id, id))
+    .returning();
+  return row ? toRow(row) : null;
+}
+
+/**
+ * Finalize a cancel_at_period_end subscription at period end: sets
+ * status='canceled', clears next_charge_at and next_retry_at, preserves
+ * canceled_at. Access revocation must be done separately.
+ */
+export async function finalizeSubscriptionCanceled(
+  id: number,
+): Promise<SubscriptionRow | null> {
+  const [row] = await db
+    .update(subscriptionsTable)
+    .set({
+      status: "canceled",
+      nextChargeAt: null,
+      nextRetryAt: null,
+      updatedAt: new Date(),
+    })
+    .where(eq(subscriptionsTable.id, id))
+    .returning();
+  return row ? toRow(row) : null;
+}
+
+/**
+ * Revoke the active user_products grant for a specific (userId, productId)
+ * pair — used when a subscription ends (final dunning failure or
+ * cancel-at-period-end finalization). Only touches the single active grant for
+ * THIS subscription's product; other products the member owns are unaffected.
+ * Idempotent: if the grant is already cancelled, this is a no-op.
+ */
+export async function revokeSubscriptionGrant(
+  userId: number,
+  productId: number,
+): Promise<{ revoked: boolean }> {
+  const updated = await db
+    .update(userProductsTable)
+    .set({ status: "cancelled", cancelledAt: new Date() })
+    .where(
+      and(
+        eq(userProductsTable.userId, userId),
+        eq(userProductsTable.productId, productId),
+        eq(userProductsTable.status, "active"),
+      ),
+    )
+    .returning({ id: userProductsTable.id });
+  return { revoked: updated.length > 0 };
 }
 
 /**

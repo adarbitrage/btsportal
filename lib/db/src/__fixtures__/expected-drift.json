@@ -45,6 +45,7 @@
       "subscriptions.last_charge_attempt_at | timestamptz | NULL",
       "subscriptions.last_failure_reason | text | NULL",
       "subscriptions.next_charge_at | timestamptz | NULL",
+      "subscriptions.next_retry_at | timestamptz | NULL",
       "subscriptions.payment_method_id | int4 | NOT NULL",
       "subscriptions.product_id | int4 | NOT NULL",
       "subscriptions.retry_count | int4 | NOT NULL",
@@ -92,6 +93,7 @@
     "onlyInPush": [
       "kb_triage_audit_log | CREATE INDEX <name> ON public.kb_triage_audit_log USING btree (created_at)",
       "subscriptions | CREATE INDEX <name> ON public.subscriptions USING btree (next_charge_at)",
+      "subscriptions | CREATE INDEX <name> ON public.subscriptions USING btree (next_retry_at)",
       "subscriptions | CREATE INDEX <name> ON public.subscriptions USING btree (status)",
       "subscriptions | CREATE INDEX <name> ON public.subscriptions USING btree (user_id)",
       "subscriptions | CREATE UNIQUE INDEX <name> ON public.subscriptions USING btree (id)"

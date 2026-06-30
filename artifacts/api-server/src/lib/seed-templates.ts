@@ -242,6 +242,22 @@ const transactionalEmailTemplates = [
     variables: ["member_name", "product_name", "grace_date", "portal_url", "support_email", "current_year"],
   },
   {
+    slug: "payment_failed_final",
+    name: "Payment Failed — Access Ended",
+    subject: "Your access to {{product_name}} has ended",
+    htmlBody: wrapHtml("Access Ended", `
+<h2 style="color:#dc2626;margin-top:0;">Access Has Ended</h2>
+<p>Hi {{member_name}},</p>
+<p>We were unable to process your payment for <strong>{{product_name}}</strong> after multiple attempts, and your access has now ended.</p>
+<p>To restore your access, please update your payment information and resubscribe.</p>
+<p><a href="{{portal_url}}/settings/billing" style="display:inline-block;background:#dc2626;color:#ffffff;padding:12px 24px;border-radius:6px;text-decoration:none;font-weight:bold;">Restore Access</a></p>
+<p>If you need help or believe this was an error, contact us at {{support_email}}.</p>
+<p>The BTS Team</p>`),
+    textBody: "Hi {{member_name}},\n\nWe were unable to process your payment for {{product_name}} after multiple attempts. Your access has ended.\n\nTo restore access, update your payment info at {{portal_url}}/settings/billing\n\nContact {{support_email}} with questions.\n\nThe BTS Team",
+    category: "transactional",
+    variables: ["member_name", "product_name", "portal_url", "support_email", "current_year"],
+  },
+  {
     slug: "payment_recovered",
     name: "Payment Recovered",
     subject: "Payment successful — {{product_name}} access restored",
@@ -909,6 +925,7 @@ export const REQUIRED_TEMPLATE_SLUGS = [
   "session_recording_ready",
   "concierge_task_created",
   "compliance_review_created",
+  "payment_failed_final",
 ] as const;
 
 /**
