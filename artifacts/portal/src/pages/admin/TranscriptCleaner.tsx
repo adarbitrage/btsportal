@@ -30,6 +30,7 @@ import {
   FolderInput,
   Loader2,
   Download,
+  Eye,
 } from "lucide-react";
 import {
   listTranscriptCleanerDocuments,
@@ -93,6 +94,7 @@ export default function TranscriptCleaner() {
   const [tab, setTab] = useState<Tab>("intake");
   const [selected, setSelected] = useState<Set<number>>(new Set());
   const [reviewId, setReviewId] = useState<number | null>(null);
+  const [viewId, setViewId] = useState<number | null>(null);
   const [showImport, setShowImport] = useState(false);
 
   // Paste-intake form.
@@ -377,6 +379,11 @@ export default function TranscriptCleaner() {
                               Review
                             </Button>
                           ) : null}
+                          {tab === "intake" && doc.status !== "cleaning" && (
+                            <Button size="sm" variant="ghost" className="ml-1" title="View transcript" onClick={() => setViewId(doc.id)}>
+                              <Eye className="w-3.5 h-3.5" />
+                            </Button>
+                          )}
                           {(doc.status === "uploaded" || doc.status === "error" || doc.status === "cleaned") && (
                             <Button size="sm" variant="ghost" className="ml-1 text-destructive" onClick={() => deleteMutation.mutate(doc.id)}>
                               <Trash2 className="w-3.5 h-3.5" />
@@ -443,6 +450,11 @@ export default function TranscriptCleaner() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* View dialog */}
+      {viewId !== null && (
+        <ViewDialog docId={viewId} onClose={() => setViewId(null)} />
+      )}
 
       {/* Review dialog */}
       {reviewId !== null && (
@@ -592,6 +604,58 @@ function Stat({ label, value, highlight }: { label: string; value: number; highl
       <div className={`text-2xl font-bold ${highlight ? "text-primary" : "text-foreground"}`}>{value}</div>
       <div className="text-xs text-muted-foreground mt-0.5">{label}</div>
     </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// View dialog: read-only popup of the intake transcript text. No editing or
+// re-cleaning — that stays in the Review dialog.
+// ─────────────────────────────────────────────────────────────────────────────
+
+function ViewDialog({ docId, onClose }: { docId: number; onClose: () => void }) {
+  const { data: doc, isLoading } = useQuery({
+    queryKey: ["transcript-cleaner-doc", docId],
+    queryFn: () => getTranscriptCleanerDocument(docId),
+  });
+
+  const title = doc?.title || doc?.suggestedTitle || doc?.sourceName || `Transcript #${docId}`;
+  const originalText = doc?.originalContent ?? "";
+  const cleanedText = doc?.cleanedContent ?? "";
+
+  return (
+    <Dialog open onOpenChange={(o) => { if (!o) onClose(); }}>
+      <DialogContent className="max-w-3xl max-h-[90vh] flex flex-col">
+        <DialogHeader>
+          <DialogTitle className="truncate pr-6">{title}</DialogTitle>
+          <DialogDescription>Read-only view of the transcript text.</DialogDescription>
+        </DialogHeader>
+
+        {isLoading ? (
+          <div className="p-8 text-center text-muted-foreground flex items-center justify-center gap-2">
+            <Loader2 className="w-4 h-4 animate-spin" /> Loading transcript…
+          </div>
+        ) : !doc ? (
+          <div className="p-6 text-center text-sm text-destructive">Could not load this transcript.</div>
+        ) : (
+          <div className="space-y-4 overflow-y-auto">
+            {cleanedText && (
+              <div>
+                <div className="text-sm font-medium mb-1">Cleaned</div>
+                <pre className="whitespace-pre-wrap break-words font-mono text-xs bg-muted rounded-md p-3 border">{cleanedText}</pre>
+              </div>
+            )}
+            <div>
+              <div className="text-sm font-medium mb-1">Original</div>
+              <pre className="whitespace-pre-wrap break-words font-mono text-xs bg-muted rounded-md p-3 border">{originalText || "(empty)"}</pre>
+            </div>
+          </div>
+        )}
+
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose}>Close</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 
