@@ -1,0 +1,17 @@
+Task: Permanently delete the 119 legacy coaching_call summaries from the AI Document Review queue, and make the deletion stick.
+
+Context: These are 119 legacy AI-generated coaching-call summaries (source=coaching_call, status=pending_review) living in the kb_staging_docs table, surfaced on the admin "Document Review" page. They are a re-seeded, code-shipped queue. My new transcript-cleaner + import pipeline has now reprocessed the raw transcripts into the new AI Knowledgebase, so these legacy summaries are redundant and should go. Do NOT rush — verify each precondition before deleting, because other work may have landed on main since this was scoped.
+
+Before deleting, re-confirm all of the following (don't trust prior notes — re-check live):
+
+Nothing live/member-facing or AI-facing reads them. Confirm the AI assistant retrieval (chat + voice, lib/kb-retrieval.ts) still reads only knowledgebase_docs and never kb_staging_docs. Confirm only admin tooling (Document Review + the AI mining/triage/pipeline tools) touches the staging table. Flag anything new.
+The backup still exists. Confirm the kb_staging_archive table still contains a complete copy of all current coaching_call rows from kb_staging_docs. Do an exact content match (not just title), since there are duplicate titles. If any live row is NOT backed up, stop and tell me.
+Reconciliation against the new pipeline. Confirm the source calls behind these 119 are represented in the new AI Knowledgebase / raw-transcript corpus. List any "orphans" (summaries whose underlying call isn't covered by the new pipeline) and pause for my decision before deleting those.
+The re-seeder. Find the boot hook that re-seeds coaching_call rows (currently seedFromFile("coaching_call", …) in blitz-seed.ts, sourced from coaching-seed.json). Re-locate it — it may have moved.
+Then do the work:
+
+Guard/disable the coaching seeder so a deletion is not re-asserted on the next boot (use an env-flag kill-switch pattern like the existing ALLOW_BLITZ_REGEN, defaulting to OFF). Otherwise the 119 come right back on restart.
+Delete the 119 coaching_call rows from kb_staging_docs (only after 1–3 pass). Leave the kb_staging_archive backup untouched.
+Verify deletion sticks across a restart (restart the API workflow and confirm they don't repopulate).
+Do NOT touch the coaching-call scheduling system (coaching-call-* files, weekly Q&A occurrences) — that's unrelated despite the similar name.
+Run a code review (architect) when done and report what you verified, what you deleted, and the seeder change.
