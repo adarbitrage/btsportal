@@ -41,7 +41,16 @@ import {
 import type { TranscriptCleanerFlag, TranscriptCleanerChatTurn } from "@workspace/db";
 
 const MODEL = "claude-sonnet-4-6";
-const MAX_TOKENS = 8192;
+// Output cap for a single clean/refine pass. Raised from 8192 so the largest
+// stitched multi-part transcripts (the biggest is an 11-part call ≈ 7.6k tokens
+// of input, with cleaned output of comparable size) clean in one pass without
+// the model's JSON reply being truncated mid-value.
+const MAX_TOKENS = 16384;
+// How many times to re-request when the model returns unparseable JSON. The
+// failure is non-deterministic (an occasional escaping slip), so a fresh
+// generation almost always succeeds; truncation (stop_reason="max_tokens") is
+// NOT retried because it would deterministically truncate again.
+const MAX_JSON_ATTEMPTS = 3;
 
 // ───────────────────────────────────────────────────────────────────────────
 // Roster — the live coach / VA name→type map for deterministic authority swaps.
@@ -173,8 +182,8 @@ export interface RefineTranscriptResult {
 const isAuthorityRole = (v: unknown): v is AuthorityRole =>
   typeof v === "string" && (AUTHORITY_ROLES as readonly string[]).includes(v);
 
-/** Pull the first JSON object out of an AI text response (tolerates ``` fences). */
-function extractJson(text: string): any {
+/** Slice the outermost JSON object out of an AI response (tolerates ``` fences). */
+function sliceJsonCandidate(text: string): string {
   const fenced = text.match(/```(?:json)?\s*([\s\S]*?)```/i);
   const candidate = fenced ? fenced[1] : text;
   const start = candidate.indexOf("{");
@@ -182,7 +191,61 @@ function extractJson(text: string): any {
   if (start === -1 || end === -1 || end < start) {
     throw new Error("AI response did not contain a JSON object");
   }
-  return JSON.parse(candidate.slice(start, end + 1));
+  return candidate.slice(start, end + 1);
+}
+
+/**
+ * Pull the first JSON object out of an AI text response. Tolerant of two common
+ * LLM slips: ``` fences (handled by {@link sliceJsonCandidate}) and trailing
+ * commas before a closing `}`/`]`. Anything beyond that (a genuinely malformed
+ * or truncated reply) throws, and the caller's retry loop re-requests a fresh
+ * generation rather than guessing at a repair.
+ */
+function extractJson(text: string): any {
+  const candidate = sliceJsonCandidate(text);
+  try {
+    return JSON.parse(candidate);
+  } catch {
+    // Strip trailing commas (e.g. `"a": 1, }`) and retry once.
+    return JSON.parse(candidate.replace(/,(\s*[}\]])/g, "$1"));
+  }
+}
+
+/**
+ * Make one structured-JSON request to the model and parse the reply, retrying
+ * the whole call when the JSON comes back unparseable. The parse failure is
+ * non-deterministic (an occasional escaping slip in an otherwise-fine reply), so
+ * a fresh generation almost always succeeds. A truncated reply
+ * (stop_reason="max_tokens") is surfaced immediately with a clear message
+ * instead of being retried, because it would just truncate again.
+ */
+async function requestCleanerJson(args: { system: string; userMessage: string }): Promise<any> {
+  const anthropic = getAnthropicClient();
+  let lastError: unknown;
+  for (let attempt = 1; attempt <= MAX_JSON_ATTEMPTS; attempt++) {
+    const response = await anthropic.messages.create({
+      model: MODEL,
+      max_tokens: MAX_TOKENS,
+      system: args.system,
+      messages: [{ role: "user", content: args.userMessage }],
+    });
+    if (response.stop_reason === "max_tokens") {
+      throw new Error(
+        "AI response hit the output token limit before completing — the transcript is too large to clean in a single pass.",
+      );
+    }
+    const text = response.content[0]?.type === "text" ? response.content[0].text : "";
+    try {
+      return extractJson(text);
+    } catch (err) {
+      lastError = err;
+    }
+  }
+  throw new Error(
+    `AI returned unparseable JSON after ${MAX_JSON_ATTEMPTS} attempts: ${
+      lastError instanceof Error ? lastError.message : String(lastError)
+    }`,
+  );
 }
 
 function expectedSpeakers(folder: SourceFolder | null): string {
@@ -284,16 +347,7 @@ export async function cleanTranscript(args: {
     .filter((l) => l !== null)
     .join("\n");
 
-  const anthropic = getAnthropicClient();
-  const response = await anthropic.messages.create({
-    model: MODEL,
-    max_tokens: MAX_TOKENS,
-    system: CLEAN_SYSTEM_PROMPT,
-    messages: [{ role: "user", content: userMessage }],
-  });
-
-  const text = response.content[0]?.type === "text" ? response.content[0].text : "";
-  const parsed = extractJson(text);
+  const parsed = await requestCleanerJson({ system: CLEAN_SYSTEM_PROMPT, userMessage });
 
   const cleanedContent = typeof parsed.cleanedTranscript === "string" ? parsed.cleanedTranscript.trim() : rawText;
   const flags: TranscriptCleanerFlag[] = Array.isArray(parsed.flags)
@@ -416,16 +470,7 @@ export async function refineTranscript(args: {
     .filter((l) => l !== null)
     .join("\n");
 
-  const anthropic = getAnthropicClient();
-  const response = await anthropic.messages.create({
-    model: MODEL,
-    max_tokens: MAX_TOKENS,
-    system: REFINE_SYSTEM_PROMPT,
-    messages: [{ role: "user", content: userMessage }],
-  });
-
-  const text = response.content[0]?.type === "text" ? response.content[0].text : "";
-  const parsed = extractJson(text);
+  const parsed = await requestCleanerJson({ system: REFINE_SYSTEM_PROMPT, userMessage });
 
   const cleanedContent = typeof parsed.cleanedTranscript === "string" ? parsed.cleanedTranscript.trim() : currentCleaned;
   const flags: TranscriptCleanerFlag[] = Array.isArray(parsed.flags)
