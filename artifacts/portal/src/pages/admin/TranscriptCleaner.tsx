@@ -38,7 +38,6 @@ import {
   createTranscriptCleanerDocumentsBatch,
   updateTranscriptCleanerDocument,
   deleteTranscriptCleanerDocument,
-  cleanTranscriptCleanerDocument,
   cleanTranscriptCleanerBatch,
   refineTranscriptCleanerDocument,
   fileTranscriptCleanerDocument,
@@ -146,12 +145,6 @@ export default function TranscriptCleaner() {
       });
     },
     onError: (e: Error) => toast({ title: "Upload failed", description: e.message, variant: "destructive" }),
-  });
-
-  const cleanMutation = useMutation({
-    mutationFn: cleanTranscriptCleanerDocument,
-    onSuccess: () => { invalidate(); toast({ title: "Transcript cleaned" }); },
-    onError: (e: Error) => toast({ title: "Cleaning failed", description: e.message, variant: "destructive" }),
   });
 
   const cleanBatchMutation = useMutation({
@@ -377,17 +370,13 @@ export default function TranscriptCleaner() {
                           {doc.updatedAt ? format(new Date(doc.updatedAt), "MMM d, HH:mm") : "—"}
                         </TableCell>
                         <TableCell className="text-right whitespace-nowrap">
-                          {doc.status === "uploaded" || doc.status === "error" ? (
-                            <Button size="sm" variant="outline" onClick={() => cleanMutation.mutate(doc.id)} disabled={cleanMutation.isPending}>
-                              <Sparkles className="w-3.5 h-3.5 mr-1" /> Clean
-                            </Button>
-                          ) : doc.status === "cleaning" ? (
+                          {doc.status === "cleaning" ? (
                             <span className="text-xs text-muted-foreground flex items-center justify-end gap-1"><Loader2 className="w-3.5 h-3.5 animate-spin" /> Cleaning</span>
-                          ) : (
+                          ) : doc.status !== "uploaded" && doc.status !== "error" ? (
                             <Button size="sm" variant="outline" onClick={() => setReviewId(doc.id)}>
                               Review
                             </Button>
-                          )}
+                          ) : null}
                           {(doc.status === "uploaded" || doc.status === "error" || doc.status === "cleaned") && (
                             <Button size="sm" variant="ghost" className="ml-1 text-destructive" onClick={() => deleteMutation.mutate(doc.id)}>
                               <Trash2 className="w-3.5 h-3.5" />
