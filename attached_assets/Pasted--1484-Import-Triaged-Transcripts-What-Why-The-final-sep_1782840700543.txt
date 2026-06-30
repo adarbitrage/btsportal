@@ -1,0 +1,31 @@
+#1484 - Import Triaged Transcripts
+What & Why
+The final, separately-gated step that actually moves data. After the triage manifest (plan #1483) is approved and the Transcript Cleaner (plan #1468) is built and refined, this task imports the approved keeper transcripts from the legacy knowledgebase_docs table into the cleaner's document list — stitching each approved multi-part set into a single combined transcript on the way in, and dropping the duplicate variants. It runs only on explicit admin approval (this is the one moment messy real data flows into the new system). It does not clean (the cleaner does that) and does not file to Source Knowledge (that happens after cleaning, in the cleaner).
+
+Done looks like
+Reads plan #1483's approved manifest (keeper IDs, folder type, multi-part groupings, duplicates to drop, and the proposedTitle for each keeper).
+For each grouping, stitches the constituent parts (Part 1–5) into one combined transcript in the correct order; single-part keepers pass through as-is; flagged duplicates are skipped.
+Titles each combined document from the manifest's proposedTitle — NOT from the raw … (Part N) chunk titles. Most are the de-suffixed series name; generic/misnamed recordings (titleRenamed: true, e.g. Untitled document → Live Coaching Call — Michael (session A), Zoom Meeting → 1-on-1 VA Setup Call — Mikha (member Brenda)) get their approved new title. This is required — the rename only happens if the import reads proposedTitle.
+Loads the resulting transcripts into the Transcript Cleaner's list, pre-tagged with their transcript type, ready for cleaning.
+Excluded docs (internal meetings, junk) are never imported.
+The import is gated behind an explicit admin trigger/confirmation — nothing imports automatically.
+Produces an import summary reporting what was imported, stitched, and skipped (with reasons).
+Out of scope
+Classifying or deciding keepers (plan #1483 already did this, human-approved).
+Cleaning transcripts (plan #1468 does that after import).
+Filing into Source Knowledge (happens post-clean, inside the cleaner).
+Prerequisites / ordering
+Runs after plan #1482 (Source Knowledge library), plan #1483 (approved manifest), and plan #1468 (Transcript Cleaner) are all merged — and only after explicit admin approval to begin the import. This is intentionally the last piece so the cleaner's behavior can be refined against the triage findings before real data flows in.
+
+Steps
+Load + validate the approved manifest from plan #1483 (keeper IDs, folder type, part orderings, duplicate drops, and proposedTitle per keeper).
+Stitch multi-part groupings into single ordered transcripts; pass single-part keepers; skip duplicates and excluded docs.
+Title from proposedTitle — name each combined document using the manifest's proposedTitle, not the raw (Part N) chunk title; this is how the generic/misnamed calls get their corrected names.
+Load into the cleaner — push the prepared transcripts into the cleaner's list, tagged with transcript type, behind an explicit admin trigger.
+Import summary — report imported / stitched / renamed / skipped with reasons.
+Relevant files
+lib/db/src/schema/knowledgebase-docs.ts
+artifacts/api-server/src/routes/admin/knowledgebase-sources.ts
+docs/transcript-triage/manifest.json
+docs/transcript-triage/triage-report.md
+docs/transcript-triage/findings-report.md

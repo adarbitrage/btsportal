@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Card, CardContent } from "@/components/ui/card";
@@ -478,6 +478,54 @@ function ReviewDialog({ docId, onClose, onChanged }: { docId: number; onClose: (
   const typeValue = type ?? doc?.transcriptType ?? "";
   const roleValue = role ?? doc?.authorityRole ?? "";
 
+  // ── Inline flag highlighting ──────────────────────────────────────────────
+  // Each review flag can carry a `text` snippet; anchor it inside the panes so
+  // the admin can jump straight to the uncertain spot instead of eyeballing it.
+  const [activeFlag, setActiveFlag] = useState<number | null>(null);
+  const markRefs = useRef<Map<string, HTMLElement>>(new Map());
+  const activeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const cleanedText = doc?.cleanedContent ?? "";
+  const originalText = doc?.originalContent ?? "";
+
+  const flagsWithText = useMemo(
+    () =>
+      (doc?.flags ?? [])
+        .map((f, index) => ({ index, text: (f.text ?? "").trim() }))
+        .filter((f) => f.text.length > 0),
+    [doc?.flags],
+  );
+
+  // Which flags can actually be anchored to a spot in either pane. Flags whose
+  // snippet matches nothing stay in the list but are not clickable.
+  const locatableSet = useMemo(() => {
+    const s = new Set<number>();
+    const lowerCleaned = cleanedText.toLowerCase();
+    const lowerOriginal = originalText.toLowerCase();
+    for (const f of flagsWithText) {
+      const needle = f.text.toLowerCase();
+      if (lowerCleaned.includes(needle) || lowerOriginal.includes(needle)) s.add(f.index);
+    }
+    return s;
+  }, [flagsWithText, cleanedText, originalText]);
+
+  const registerMark = (key: string, el: HTMLElement | null) => {
+    if (el) markRefs.current.set(key, el);
+    else markRefs.current.delete(key);
+  };
+
+  const handleFlagClick = (index: number) => {
+    if (!locatableSet.has(index)) return;
+    const el = markRefs.current.get(`cleaned-${index}`) ?? markRefs.current.get(`original-${index}`);
+    if (!el) return;
+    el.scrollIntoView({ block: "center", behavior: "smooth" });
+    setActiveFlag(index);
+    if (activeTimer.current) clearTimeout(activeTimer.current);
+    activeTimer.current = setTimeout(() => setActiveFlag(null), 2500);
+  };
+
+  useEffect(() => () => { if (activeTimer.current) clearTimeout(activeTimer.current); }, []);
+
   const refresh = () => {
     queryClient.invalidateQueries({ queryKey: ["transcript-cleaner-doc", docId] });
     onChanged();
@@ -601,12 +649,33 @@ function ReviewDialog({ docId, onClose, onChanged }: { docId: number; onClose: (
                   <AlertTriangle className="w-3.5 h-3.5" /> {doc.flags.length} item{doc.flags.length === 1 ? "" : "s"} flagged for review
                 </p>
                 <ul className="space-y-1">
-                  {doc.flags.map((f, i) => (
-                    <li key={i} className="text-xs text-amber-800 dark:text-amber-300">
-                      <span className="font-medium">{f.type.replace(/_/g, " ")}:</span> {f.reason}
-                      {f.text && <span className="block text-amber-700/80 italic truncate">“{f.text}”</span>}
-                    </li>
-                  ))}
+                  {doc.flags.map((f, i) => {
+                    const locatable = locatableSet.has(i);
+                    const body = (
+                      <>
+                        <span className="font-medium">{f.type.replace(/_/g, " ")}:</span> {f.reason}
+                        {f.text && <span className="block text-amber-700/80 italic truncate">“{f.text}”</span>}
+                      </>
+                    );
+                    return (
+                      <li key={i} className="text-xs text-amber-800 dark:text-amber-300">
+                        {locatable ? (
+                          <button
+                            type="button"
+                            onClick={() => handleFlagClick(i)}
+                            className={`w-full text-left rounded-sm px-1 -mx-1 hover:bg-amber-100/80 dark:hover:bg-amber-900/30 transition-colors ${
+                              activeFlag === i ? "bg-amber-100 dark:bg-amber-900/40 ring-1 ring-amber-400" : ""
+                            }`}
+                            title="Jump to this spot in the transcript"
+                          >
+                            {body}
+                          </button>
+                        ) : (
+                          <div>{body}</div>
+                        )}
+                      </li>
+                    );
+                  })}
                 </ul>
               </div>
             )}
@@ -616,13 +685,29 @@ function ReviewDialog({ docId, onClose, onChanged }: { docId: number; onClose: (
               <div>
                 <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">Original (preserved)</p>
                 <pre className="whitespace-pre-wrap break-words text-xs font-mono bg-muted/40 rounded-md p-3 h-[340px] overflow-y-auto">
-                  {doc.originalContent}
+                  <HighlightedText
+                    text={originalText}
+                    flags={flagsWithText}
+                    pane="original"
+                    activeFlag={activeFlag}
+                    registerMark={registerMark}
+                  />
                 </pre>
               </div>
               <div>
                 <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">Cleaned</p>
                 <pre className="whitespace-pre-wrap break-words text-xs font-mono bg-muted/20 border rounded-md p-3 h-[340px] overflow-y-auto">
-                  {doc.cleanedContent ?? "(not cleaned yet)"}
+                  {cleanedText ? (
+                    <HighlightedText
+                      text={cleanedText}
+                      flags={flagsWithText}
+                      pane="cleaned"
+                      activeFlag={activeFlag}
+                      registerMark={registerMark}
+                    />
+                  ) : (
+                    "(not cleaned yet)"
+                  )}
                 </pre>
               </div>
             </div>
@@ -678,5 +763,89 @@ function ReviewDialog({ docId, onClose, onChanged }: { docId: number; onClose: (
         </DialogFooter>
       </DialogContent>
     </Dialog>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Inline highlight rendering for the review panes.
+// ─────────────────────────────────────────────────────────────────────────────
+
+type HighlightSegment = { text: string; flagIndex: number | null };
+
+/**
+ * Split `text` into plain + flagged segments by case-insensitively matching each
+ * flag's snippet (first occurrence). Overlapping matches are dropped so the
+ * earliest-anchored flag wins, and unmatched flags simply produce no segment —
+ * the review list keeps showing them, nothing breaks.
+ */
+function computeHighlightSegments(
+  text: string,
+  flags: { index: number; text: string }[],
+): HighlightSegment[] {
+  if (!text || flags.length === 0) return [{ text, flagIndex: null }];
+  const lower = text.toLowerCase();
+  const matches: { start: number; end: number; flagIndex: number }[] = [];
+  for (const f of flags) {
+    const needle = f.text.toLowerCase();
+    if (!needle) continue;
+    const at = lower.indexOf(needle);
+    if (at === -1) continue;
+    matches.push({ start: at, end: at + f.text.length, flagIndex: f.index });
+  }
+  if (matches.length === 0) return [{ text, flagIndex: null }];
+  matches.sort((a, b) => a.start - b.start || b.end - a.end);
+  const kept: typeof matches = [];
+  let lastEnd = 0;
+  for (const m of matches) {
+    if (m.start >= lastEnd) {
+      kept.push(m);
+      lastEnd = m.end;
+    }
+  }
+  const segs: HighlightSegment[] = [];
+  let cursor = 0;
+  for (const m of kept) {
+    if (m.start > cursor) segs.push({ text: text.slice(cursor, m.start), flagIndex: null });
+    segs.push({ text: text.slice(m.start, m.end), flagIndex: m.flagIndex });
+    cursor = m.end;
+  }
+  if (cursor < text.length) segs.push({ text: text.slice(cursor), flagIndex: null });
+  return segs;
+}
+
+function HighlightedText({
+  text,
+  flags,
+  pane,
+  activeFlag,
+  registerMark,
+}: {
+  text: string;
+  flags: { index: number; text: string }[];
+  pane: "original" | "cleaned";
+  activeFlag: number | null;
+  registerMark: (key: string, el: HTMLElement | null) => void;
+}) {
+  const segments = useMemo(() => computeHighlightSegments(text, flags), [text, flags]);
+  return (
+    <>
+      {segments.map((seg, i) =>
+        seg.flagIndex === null ? (
+          <span key={i}>{seg.text}</span>
+        ) : (
+          <mark
+            key={i}
+            ref={(el) => registerMark(`${pane}-${seg.flagIndex}`, el)}
+            className={`rounded-sm px-0.5 text-foreground ${
+              activeFlag === seg.flagIndex
+                ? "bg-amber-400/80 ring-2 ring-amber-500"
+                : "bg-amber-200/70 dark:bg-amber-500/30"
+            }`}
+          >
+            {seg.text}
+          </mark>
+        ),
+      )}
+    </>
   );
 }
