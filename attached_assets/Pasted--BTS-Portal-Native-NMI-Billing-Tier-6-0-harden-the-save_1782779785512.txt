@@ -1,0 +1,64 @@
+## BTS Portal — Native NMI Billing, Tier 6.0: harden the saved-card path before the rebiller (PREREQUISITE)
+
+### What This Does
+Closes the three hardening items the Tier-4a architect review flagged, BEFORE the unattended recurring
+rebiller (later sub-tiers) starts charging saved cards on a schedule. Two directly affect the rebiller:
+the default card must be unambiguous (the rebiller charges "the default card"), and the saved-card
+charge path must not strand an idempotency key. Backend/data only — no new features, no behavior change
+on the happy path.
+
+### Files Created
+- migration for the partial unique index below.
+- a test covering: concurrent/duplicate-default handling, the idempotency-key-not-stranded-on-404 case,
+  and the PAN-guard normalization.
+
+### Files Modified
+- payment_methods schema file — add the partial unique index (additive).
+- the payment-methods store — make "set default" and "first-card insert" atomic (one transaction:
+  lock the user's rows, clear any existing default, set the new one) so two defaults can't coexist.
+- checkout-service.ts — reorder so ALL pre-charge validation (load product, confirm native/one-time,
+  resolve the payment source INCLUDING saved-card ownership) happens BEFORE claiming the idempotency
+  key; claim only immediately before creating the pending order + charging.
+- routes/billing.ts (add-card PAN guard) — normalize the token (strip ALL non-digit separators incl.
+  dots/unicode) before the digit-run check.
+
+### Schema Changes
+- payment_methods: add a PARTIAL UNIQUE INDEX on (user_id) WHERE is_default = true.
+  IMPORTANT: before creating it, DEDUPE existing data — if any user currently has >1 row with
+  is_default=true, keep the most-recently-updated as the default and clear the others, or the index
+  creation fails on existing rows. Make the migration idempotent (IF NOT EXISTS) and safe to re-run.
+
+### Fixes (precise)
+1) Default-card integrity: the partial unique index guarantees at most one default per user at the DB
+   level. In the store, wrap set-default and first-card-save in a transaction that clears the prior
+   default and sets the new one atomically (row-lock the user's rows) so concurrent calls can't race
+   two defaults.
+2) Idempotency key not stranded: today the key is claimed BEFORE the saved-card ownership lookup, so a
+   missing/foreign paymentMethodId returns 404 with the key left 'in_progress', blocking a corrected
+   retry. Fix by moving the claim to AFTER all validation, immediately before order-creation/charge. A
+   4xx validation failure then never consumes a key; a completed key still replays. Do NOT weaken
+   double-charge protection — the claim must still wrap order-creation + the gateway charge so the same
+   key can never charge twice.
+3) PAN guard normalization: remove all non-digit characters (not just spaces/hyphens) before the 12+
+   digit-run check, so a separated PAN can't slip past. (The PAN is never persisted regardless — only
+   last4 — so this is hardening, not a hole.)
+
+### Dependencies
+- Depends on: Tier 4a (merged + verified). Sequenced BEFORE the rebiller sub-tiers (it touches
+  checkout-service, which they build on).
+
+### Acceptance Criteria
+- Partial unique index exists; existing data deduped so no user has two defaults; migration applies
+  idempotently (watch the known "relation already exists" noise) and is safe to re-run.
+- Setting a new default atomically clears the old; a concurrent double set-default cannot leave two
+  defaults (test it).
+- A checkout with a missing/foreign paymentMethodId returns 404 WITHOUT stranding the idempotency key
+  (a corrected retry proceeds / the key is cleanly replayable), and NO path loses double-charge
+  protection. Test this.
+- The PAN guard catches a 16-digit run separated by dots/unicode, not just spaces/hyphens.
+- Clean tsc (green) + architect review. Report files/migration. Do NOT create follow-up tasks.
+
+### Implementation Notes
+- Hardening on the EXISTING saved-card path — preserve the current money-safety EXACTLY
+  (server-authoritative price, decline→402, paid_reconciliation_needed, single grant path). Only the
+  POSITION of the idempotency claim relative to validation changes.
