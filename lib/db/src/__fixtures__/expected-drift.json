@@ -99,7 +99,8 @@
       "subscriptions | CREATE UNIQUE INDEX <name> ON public.subscriptions USING btree (id)"
     ],
     "onlyInMigrations": [
-      "kb_triage_audit_log | CREATE INDEX <name> ON public.kb_triage_audit_log USING btree (created_at DESC)"
+      "kb_triage_audit_log | CREATE INDEX <name> ON public.kb_triage_audit_log USING btree (created_at DESC)",
+      "refund_idempotency | CREATE INDEX <name> ON public.refund_idempotency USING btree (order_number)"
     ]
   }
 }
