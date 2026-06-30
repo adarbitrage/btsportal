@@ -29,7 +29,7 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { getAnthropicClient } from "@workspace/integrations-anthropic-ai";
-import { db, coachesTable } from "@workspace/db";
+import { db, coachesTable, mediaMavensProductsTable } from "@workspace/db";
 import {
   resolveSourceFolder,
   authorityRoleFromCoachType,
@@ -157,6 +157,78 @@ export function loadGlossaryTerms(): string[] {
 }
 
 // ───────────────────────────────────────────────────────────────────────────
+// Extra canonical-spelling references — BTS-ecosystem proper nouns that are NOT
+// in the glossary but recur across calls, so the cleaner can auto-correct their
+// spelling instead of flagging them: Media Mavens product names (live from the
+// DB) and known traffic sources.
+// ───────────────────────────────────────────────────────────────────────────
+
+/**
+ * Native/ad traffic sources used across BTS campaigns. Supplied to the cleaner
+ * as canonical spellings so mistranscriptions ("Catapiller") normalise to the
+ * right form. Spelling references only — never used to invent content.
+ */
+const KNOWN_TRAFFIC_SOURCES = [
+  "Caterpillar",
+  "MediaGo",
+  "LiveIntent",
+  "Taboola",
+  "Outbrain",
+  "Revcontent",
+  "NewsBreak",
+  "Zemanta",
+] as const;
+
+let MEDIA_MAVENS_NAMES_CACHE: string[] | null = null;
+
+/**
+ * Load the live Media Mavens product names (e.g. "Barkchester") so the cleaner
+ * normalises their spelling instead of flagging them as unknown terms. Cached
+ * per-process; returns [] (never throws) if the table is unavailable.
+ */
+export async function loadMediaMavensProductNames(): Promise<string[]> {
+  if (MEDIA_MAVENS_NAMES_CACHE) return MEDIA_MAVENS_NAMES_CACHE;
+  try {
+    const rows = await db
+      .select({ name: mediaMavensProductsTable.name })
+      .from(mediaMavensProductsTable);
+    const seen = new Set<string>();
+    const names: string[] = [];
+    for (const r of rows) {
+      const name = (r.name ?? "").trim();
+      if (!name) continue;
+      const key = name.toLowerCase();
+      if (seen.has(key)) continue;
+      seen.add(key);
+      names.push(name);
+    }
+    MEDIA_MAVENS_NAMES_CACHE = names;
+  } catch {
+    MEDIA_MAVENS_NAMES_CACHE = [];
+  }
+  return MEDIA_MAVENS_NAMES_CACHE;
+}
+
+/**
+ * Merge all canonical-spelling references — glossary terms, Media Mavens product
+ * names, and known traffic sources — into one de-duplicated list the cleaner
+ * normalises spelling toward.
+ */
+export async function loadCanonicalTerms(): Promise<string[]> {
+  const glossary = loadGlossaryTerms();
+  const products = await loadMediaMavensProductNames();
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const term of [...glossary, ...products, ...KNOWN_TRAFFIC_SOURCES]) {
+    const key = term.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(term);
+  }
+  return out;
+}
+
+// ───────────────────────────────────────────────────────────────────────────
 // Result shapes.
 // ───────────────────────────────────────────────────────────────────────────
 
@@ -269,6 +341,47 @@ function callTypeLabel(folder: SourceFolder | null): string {
 }
 
 // ───────────────────────────────────────────────────────────────────────────
+// Flag contract — the cleaner emits ONLY these two review-flag types. The model
+// is instructed to stay within them, but it can drift (e.g. invent an
+// "uncertain_term" flag for an unfamiliar proper noun) — and that invented
+// flagging is exactly the noise we are suppressing. So we normalise every
+// model-emitted flag to the allowlist and DROP anything that does not map.
+// ───────────────────────────────────────────────────────────────────────────
+
+const ALLOWED_FLAG_TYPES = ["garbled_content", "uncertain_authority"] as const;
+type AllowedFlagType = (typeof ALLOWED_FLAG_TYPES)[number];
+
+function normalizeFlagType(raw: unknown): AllowedFlagType | null {
+  const t = String(raw ?? "").toLowerCase();
+  if (t.includes("garbl")) return "garbled_content";
+  if (t.includes("auth") || t.includes("attribut") || t.includes("speaker")) {
+    return "uncertain_authority";
+  }
+  return null;
+}
+
+/**
+ * Parse the model's `flags` array into the two-type contract: coerce near-miss
+ * type names, drop off-contract/invented types (noise), and default the rest.
+ */
+export function mapModelFlags(rawFlags: unknown): TranscriptCleanerFlag[] {
+  if (!Array.isArray(rawFlags)) return [];
+  const out: TranscriptCleanerFlag[] = [];
+  for (const f of rawFlags) {
+    if (!f || typeof f !== "object") continue;
+    const type = normalizeFlagType((f as any).type);
+    if (!type) continue;
+    out.push({
+      type,
+      text: (f as any).text ? String((f as any).text) : undefined,
+      reason: String((f as any).reason ?? "Flagged for review"),
+      confidence: (f as any).confidence ? String((f as any).confidence) : "low",
+    });
+  }
+  return out;
+}
+
+// ───────────────────────────────────────────────────────────────────────────
 // Cleanup engine.
 // ───────────────────────────────────────────────────────────────────────────
 
@@ -277,11 +390,18 @@ const CLEAN_SYSTEM_PROMPT = [
   "coaching membership (BTS). You clean RAW call/video transcripts that come from",
   "many different transcription tools, so you must NOT assume any particular shape.",
   "",
+  "PURPOSE — read carefully, it governs how aggressively you flag: the cleaned",
+  "transcript becomes an 'AI source-knowledge' document that a SEPARATE downstream",
+  "process later mines to build the live AI knowledge base. Your bar is therefore",
+  "'good enough to mine for knowledge', NOT publication-perfect prose. Fix what you",
+  "can and only flag what a human genuinely must resolve (see FLAGGING).",
+  "",
   "Your job, returning STRICT JSON only:",
   "1. Reattribute mislabelled segments to the correct person while PRESERVING each",
   "   distinct speaker. Transcription tools often split one real person across two",
   "   labels (Speaker 3 / Speaker 4) or bleed one person's words into another's",
-  "   label — merge/reassign those. Never invent or drop a real speaker.",
+  "   label — merge/reassign those. Never invent or drop a real speaker. Merging",
+  "   consecutive same-speaker labels is routine cleanup — just do it, never flag it.",
   "2. Identify the SOURCE OF AUTHORITY — the coach/VA doing the teaching/answering/",
   "   directing, as opposed to the member(s) asking questions or describing their",
   "   situation. Label that speaker with their authority role title (e.g. 'Coach'",
@@ -290,25 +410,45 @@ const CLEAN_SYSTEM_PROMPT = [
   "   conversational role (who teaches/answers vs who asks). No knowledge of BTS",
   "   training concepts is needed; the teacher/answerer pattern is the signal and",
   "   may only resolve by mid-call. Report your confidence + the evidence.",
-  "3. Fix spelling and normalise BTS product/process names to the supplied glossary",
-  "   spellings. Do not otherwise reword what people said.",
+  "3. AUTO-CORRECT SPELLING — do this silently, do NOT flag it:",
+  "   - Normalise any term that matches the supplied canonical list to its EXACT",
+  "     canonical spelling (e.g. 'DIY trax' -> 'DIYTrax').",
+  "   - Members operate in MANY different niches and constantly use their OWN brand,",
+  "     product, campaign, offer and traffic-source names (e.g. 'Barkchester',",
+  "     'Caterpillar'). Unfamiliar proper nouns are EXPECTED and legitimate — fix",
+  "     obvious mistranscriptions, pick the single most likely spelling, and use it",
+  "     CONSISTENTLY throughout. NEVER flag a proper noun just because you don't",
+  "     recognise it. Do not otherwise reword what people said.",
   "4. Strip useless cruft: standalone timestamps, transcription-tool artefacts,",
   "   excess blank space. Keep the actual dialogue intact.",
-  "5. Mark low-confidence spots (uncertain attribution, ambiguous speaker, garbled",
-  "   text) as review flags instead of guessing.",
-  "6. Propose a descriptive title: <authority> — <call type> — <date/time>",
+  "5. Propose a descriptive title: <authority> — <call type> — <date/time>",
   "   (e.g. 'Coach Sasha — Private Coaching — 2025-01-14 2pm'). Take the date/time",
   "   from the content/source if present; if it cannot be determined, omit it and",
-  "   set titleNeedsInput=true.",
+  "   set titleNeedsInput=true. A missing date is NOT a review flag.",
+  "",
+  "FLAGGING — flag SPARINGLY. Because the transcript only needs to be good enough",
+  "to mine, raise a flag ONLY when a human must intervene, which means EXACTLY one",
+  "of these two situations:",
+  "   - 'garbled_content': a SUBSTANTIVE passage (real teaching/answer content) is",
+  "     so garbled its meaning cannot be recovered. Ignore short filler, greetings,",
+  "     back-channel ('yeah', 'I took it') and trivial utterances — never flag them.",
+  "   - 'uncertain_authority': you genuinely cannot tell who the teaching authority",
+  "     is, so the downstream could mis-weight the content.",
+  "   Do NOT flag: unfamiliar proper nouns / brand / product / campaign / traffic",
+  "   names, spelling you have already normalised, short or trivial utterances,",
+  "   routine same-speaker merges, punctuation, formatting, or anything cosmetic.",
+  "   When in doubt, DO NOT flag — fix it or leave it as-is.",
   "",
   "DEGRADE GRACEFULLY: if the transcript has no timestamps, no speaker names, only",
   "numbered/unlabelled speakers, or is a single undelimited block, clean what you",
-  "can and flag what is genuinely ambiguous — do not error or fabricate structure.",
+  "can and flag only per the narrow FLAGGING rule above — do not error or fabricate",
+  "structure.",
   "",
   "Return ONLY a JSON object with keys: cleanedTranscript (string), authority",
   "({ label, confidence: 'high'|'low', evidence, detectedName }), suggestedTitle",
   "(string), detectedDateTime (string|null), titleNeedsInput (boolean), flags",
-  "(array of { type, text, reason, confidence }).",
+  "(array of { type: 'garbled_content'|'uncertain_authority', text, reason,",
+  "confidence }).",
 ].join("\n");
 
 export async function cleanTranscript(args: {
@@ -321,7 +461,7 @@ export async function cleanTranscript(args: {
   const { rawText, transcriptType, sourceName, proposedTitle, roster } = args;
   const folder = resolveSourceFolder(transcriptType ?? null);
   const rosterHit = detectRosterAuthority(rawText, roster);
-  const glossaryTerms = loadGlossaryTerms();
+  const canonicalTerms = await loadCanonicalTerms();
 
   const userMessage = [
     `Transcript type: ${folder ? folder.label : "(untagged — infer the call type)"}`,
@@ -333,8 +473,8 @@ export async function cleanTranscript(args: {
       : rosterHit.inlineOnly.length > 0
         ? `Roster names mentioned inline but NOT as speaker labels: ${rosterHit.inlineOnly.join(", ")}. Do NOT assume these people are the authority — they may just be talked about. Infer the authority from conversational role and report your confidence.`
         : "No known roster names detected — infer the authority from conversational role and report your confidence.",
-    glossaryTerms.length > 0
-      ? `Canonical BTS terms (normalise spelling to these exact forms when referenced): ${glossaryTerms.join(", ")}`
+    canonicalTerms.length > 0
+      ? `Canonical BTS / Media Mavens / traffic-source terms — normalise spelling to these EXACT forms when referenced. Any OTHER proper noun is a member's own niche term: correct obvious typos, keep it consistent, and do NOT flag it. Terms: ${canonicalTerms.join(", ")}`
       : null,
     "",
     "RAW TRANSCRIPT:",
@@ -350,16 +490,7 @@ export async function cleanTranscript(args: {
   const parsed = await requestCleanerJson({ system: CLEAN_SYSTEM_PROMPT, userMessage });
 
   const cleanedContent = typeof parsed.cleanedTranscript === "string" ? parsed.cleanedTranscript.trim() : rawText;
-  const flags: TranscriptCleanerFlag[] = Array.isArray(parsed.flags)
-    ? parsed.flags
-        .filter((f: any) => f && typeof f === "object")
-        .map((f: any) => ({
-          type: String(f.type ?? "general"),
-          text: f.text ? String(f.text) : undefined,
-          reason: String(f.reason ?? "Flagged for review"),
-          confidence: f.confidence ? String(f.confidence) : "low",
-        }))
-    : [];
+  const flags = mapModelFlags(parsed.flags);
 
   // Authority resolution. A deterministic, high-confidence swap is only safe
   // when the roster names that appear as SPEAKER LABELS resolve to a single,
@@ -392,7 +523,7 @@ export async function cleanTranscript(args: {
 
   if (authorityConfidence === "low") {
     flags.push({
-      type: "low_confidence_attribution",
+      type: "uncertain_authority",
       reason: `Authority mapping is low-confidence — confirm or override. ${authorityEvidence}`,
       confidence: "low",
     });
@@ -402,14 +533,6 @@ export async function cleanTranscript(args: {
   const suggestedTitle = typeof parsed.suggestedTitle === "string" && parsed.suggestedTitle.trim()
     ? parsed.suggestedTitle.trim()
     : `${callTypeLabel(folder)}${sourceName ? ` — ${sourceName}` : ""}`;
-
-  if (titleNeedsInput) {
-    flags.push({
-      type: "title_date",
-      reason: "The date/time could not be determined from the content — supply it in the title.",
-      confidence: "low",
-    });
-  }
 
   return {
     cleanedContent,
@@ -435,7 +558,11 @@ const REFINE_SYSTEM_PROMPT = [
   "",
   "Return STRICT JSON only with keys: cleanedTranscript (string, the full updated",
   "transcript), flags (array of { type, text, reason, confidence } — the refreshed",
-  "review flags), authority (OPTIONAL — include ONLY if the instruction changed the",
+  "review flags; flag SPARINGLY, only 'garbled_content' (a substantive passage",
+  "whose meaning cannot be recovered) or 'uncertain_authority'; never flag",
+  "unfamiliar proper nouns / brand / product / campaign / traffic names,",
+  "already-normalised spelling, short/trivial utterances, or cosmetic issues),",
+  "authority (OPTIONAL — include ONLY if the instruction changed the",
   `authority mapping: { role: one of ${AUTHORITY_ROLES.join("/")}, confidence:`,
   "'high'|'low', evidence }), message (a one-sentence summary of what you changed).",
 ].join("\n");
@@ -473,16 +600,7 @@ export async function refineTranscript(args: {
   const parsed = await requestCleanerJson({ system: REFINE_SYSTEM_PROMPT, userMessage });
 
   const cleanedContent = typeof parsed.cleanedTranscript === "string" ? parsed.cleanedTranscript.trim() : currentCleaned;
-  const flags: TranscriptCleanerFlag[] = Array.isArray(parsed.flags)
-    ? parsed.flags
-        .filter((f: any) => f && typeof f === "object")
-        .map((f: any) => ({
-          type: String(f.type ?? "general"),
-          text: f.text ? String(f.text) : undefined,
-          reason: String(f.reason ?? "Flagged for review"),
-          confidence: f.confidence ? String(f.confidence) : "low",
-        }))
-    : [];
+  const flags = mapModelFlags(parsed.flags);
 
   const aiAuthority = parsed.authority ?? null;
   const result: RefineTranscriptResult = {
