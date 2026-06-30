@@ -1,0 +1,107 @@
+## BTS Portal — Native NMI Billing, Tier 7: Customer Ops API (refund BTS-native orders from TicketDesk)
+
+### What This Does
+Exposes the SAME 4-endpoint Customer Ops contract TicketDesk already speaks (orders-by-email, refund,
+customer, access) for BTS-NATIVE orders — one-time purchases AND subscriptions — behind a shared-secret
+gate. A refund reverses the NMI charge (using the gateway's refund/void from Tier 1), revokes that
+order's entitlements, and — if the order funded a subscription — CANCELS the subscription so it stops
+renewing. Then TicketDesk's BTS property adds this as its second source. This is the money tier:
+idempotent, decline-safe, ownership-correct, architect-reviewed (same bar as the vault/charger).
+
+### Files Created
+- [server billing dir]/ops-api.ts — the 4 ops endpoints under a new /api/ops router.
+- [server middleware]/ops-service-auth.ts — shared-secret (OPS_API_KEY) gate; fails CLOSED if the env
+  var is unset; constant-time compare. (Mirror The Machine's ops-service-auth exactly in spirit.)
+- [server billing dir]/ops-refund-service.ts — the refund orchestration (charge reversal + revoke +
+  subscription cancel).
+- a refund_idempotency table + store (request-level idempotency for the ops refund).
+- tests (refund one-time, refund subscription→cancels sub, partial refund, idempotent double-refund,
+  already-refunded, ownership/scoping, auth fails closed).
+
+### Files Modified
+- routes index — register the /api/ops router behind ops-service-auth.
+- config/env — register OPS_API_KEY (optional; the gate fails closed when unset).
+- bts_orders — ensure a refund can record refund metadata (refund_transaction_id / void_transaction_id /
+  refunded_at in metadata jsonb; add a status path 'refunded'/'partial_refunded' if not already present
+  from Tier 2).
+
+### Environment Variables
+- OPS_API_KEY — shared secret TicketDesk presents as a bearer token. Server-side only. The gate returns
+  401 when it's unset or mismatched (fails closed — no open money endpoints).
+
+### Schema Changes
+- NEW refund_idempotency: id, idempotency_key TEXT UNIQUE NOT NULL, order_number TEXT, amount_cents
+  INTEGER (nullable), status TEXT CHECK in ('in_progress','completed'), result JSONB (nullable),
+  created_at, completed_at (nullable). (This tier owns this table.)
+- bts_orders: confirm a 'refunded' / 'partial_refunded' status and metadata fields exist (additive if not).
+
+### API Endpoints — all under /api/ops, all behind ops-service-auth (NOT member auth)
+1. GET /api/ops/customers/:email/orders
+   - All BTS-native orders for that email (bts_orders by email): per order { order_number, created_at,
+     product/description, amount_cents (total), currency, gateway, gateway_transaction_id, status,
+     order_type (one_time|recurring_initial|recurring_renewal|wallet_topup), subscription_id (if any),
+     refundable_amount_cents }. refundable = (status in ('refunded') ? 0 : total_cents). Read-only.
+2. POST /api/ops/orders/:orderNumber/refund   — the money endpoint
+   Body { amountCents?, reason, idempotencyKey (required), actor (required), approver? }.
+   a. Load the order by order_number (404 if none). Read the NMI gateway_transaction_id.
+   b. AMOUNT VALIDATION: amountCents omitted/equal-to-total = full; a smaller value = partial; reject
+      NaN/≤0/fractional/over-total (400). (NaN<total is false — reject explicitly.)
+   c. REQUEST IDEMPOTENCY: claim idempotencyKey in refund_idempotency (claim→complete). Completed →
+      replay stored result, NO second reversal. in_progress → 409. Conflict (different order/amount on
+      same key) → 409.
+   d. Already-refunded order → return the prior result, no second gateway hit.
+   e. REVERSE THE CHARGE via the Tier-1 gateway: full refund → query settlement; if pendingsettlement →
+      void, else refund (full); partial → refund(amountCents). Decline/error from the gateway → record
+      failure, complete idempotency with failure, return a structured failure (do NOT change order
+      status, do NOT revoke). Store refund_transaction_id vs void_transaction_id distinctly in metadata.
+   f. ON SUCCESS:
+      - order.status = 'refunded' (full) or 'partial_refunded' (partial); store refund/void txn id +
+        refunded_at.
+      - SIDE EFFECTS — FULL refund only (skip for partial):
+         * Revoke THIS order's entitlements (the single-grant revoke path — only this order's grant,
+           never other products the member owns).
+         * IF the order has a subscription_id (it funded a subscription — recurring_initial or
+           recurring_renewal): CANCEL that subscription outright — status='canceled', next_charge_at=null,
+           next_retry_at=null, canceled_at=now, and revoke the subscription's entitlement grant. This
+           STOPS all future renewals (the hourly charger only touches 'active'/'past_due', never
+           'canceled'). This is the confirmed policy: a refunded subscription is canceled, not just
+           one-period-refunded.
+         * Each side effect best-effort: a failure is logged but does NOT roll back the completed refund
+           (the money already moved); reflect side-effect outcomes in the result.
+      - Write an audit row (action='refund'|'void', order_number, email, amount, actor, approver,
+        gateway_result, outcome, reason) via the existing audit/log pattern (non-throwing).
+      - Complete idempotency with the success result. Return { outcome, action, newStatus,
+        gatewayTransactionId, partial, revoked?, subscriptionCanceled? }.
+3. GET /api/ops/customers/:email
+   - Aggregate: { email, name, orders summary, subscriptions: [{id, product, status, amount, interval,
+     current_period_end}] }. Read-only.
+4. POST /api/ops/orders/:orderNumber/access   — manual grant/revoke (order-scoped)
+   Body { action:'grant'|'revoke', reason, actor }. Revoke → revoke this order's grant; grant → re-grant.
+   Audit row. (Order-scoped, same discipline as the refund revoke.)
+
+### Dependencies
+- Depends on: Tier 1 (gateway refund/void), Tier 2 (bts_orders), Tier 6.1 (subscriptions). Owns the
+  refund_idempotency table + ops router.
+
+### Acceptance Criteria
+- A one-time order refunds: NMI charge reversed (void if unsettled else refund), order→refunded, that
+  order's access revoked; a partial refund reverses the partial amount and PRESERVES access.
+- ★ A SUBSCRIPTION order refunds → the charge is reversed AND the subscription is CANCELED (status
+  canceled, next_charge_at/next_retry_at null, access revoked) so the hourly charger never renews it
+  again. Verify with a test that the canceled sub is not picked up by processDueRenewals.
+- Idempotent: same idempotencyKey twice = one reversal, second replays. Already-refunded order = no
+  second gateway hit. Amount validation rejects NaN/≤0/fractional/over-total.
+- Revoke is per-order/per-subscription — a refund never touches entitlements from OTHER products the
+  member owns (test it).
+- ops-service-auth: no/!wrong OPS_API_KEY → 401 (fails closed); these endpoints are NOT reachable with a
+  member session — only the service secret.
+- Clean tsc (green) + architect review. Report files/schema. Do NOT create follow-up tasks.
+
+### Implementation Notes
+- This mirrors The Machine's ops API contract EXACTLY so TicketDesk's existing ops-client (and its
+  multi-source BTS property) can call BTS with no TicketDesk-side code change beyond config. Keep the
+  endpoint shapes/field names aligned with what TicketDesk already consumes.
+- Carry the refund-engine money-safety wholesale: request idempotency, decline-as-data, void-vs-refund
+  by settlement, partial preserves access, best-effort side effects after the money moves.
+- The subscription-cancel-on-refund is the BTS-specific addition vs The Machine's ops API — everything
+  else is the same contract.
