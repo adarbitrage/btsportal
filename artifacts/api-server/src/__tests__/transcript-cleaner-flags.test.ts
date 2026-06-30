@@ -1,5 +1,10 @@
 import { describe, it, expect } from "vitest";
-import { mapModelFlags, applyRefineEdits } from "../lib/transcript-cleaner";
+import {
+  mapModelFlags,
+  applyRefineEdits,
+  splitTranscriptForCleaning,
+  dedupeFlags,
+} from "../lib/transcript-cleaner";
 
 describe("transcript cleaner flag contract", () => {
   it("keeps the two contract flag types", () => {
@@ -107,5 +112,74 @@ describe("refine find/replace edits", () => {
     expect(applyRefineEdits(transcript, [{ find: "", replace: "x" }])).toBeNull();
     expect(applyRefineEdits(transcript, [{ find: "Coach:" }])).toBeNull();
     expect(applyRefineEdits(transcript, [null])).toBeNull();
+  });
+});
+
+describe("splitTranscriptForCleaning (big-file chunking)", () => {
+  it("returns the whole text as one chunk when at/under the threshold", () => {
+    const small = "Coach: hi\nMember 1: hello";
+    expect(splitTranscriptForCleaning(small)).toEqual([small]);
+  });
+
+  it("splits a SINGLE newline-free line (the real export shape) into multiple chunks", () => {
+    // The stored transcripts are one giant line with zero newlines — a
+    // line-only splitter would never break these. Build a 1-line, ~3k-char
+    // transcript and split with a small target.
+    const sentence = "The coach explains the funnel step in detail here. ";
+    const text = sentence.repeat(60).trim(); // ~3000 chars, no newlines
+    const chunks = splitTranscriptForCleaning(text, { threshold: 500, target: 600 });
+    expect(chunks.length).toBeGreaterThan(1);
+    // Loss-less by construction: slices concatenate back to the original.
+    expect(chunks.join("")).toBe(text);
+    // Every chunk respects the target bound.
+    for (const chunk of chunks) expect(chunk.length).toBeLessThanOrEqual(600);
+  });
+
+  it("prefers newline > sentence > space boundaries when slicing", () => {
+    const para = "First paragraph sentence one. Second sentence two.\n";
+    const text = para.repeat(40); // mixed newlines, sentences, spaces
+    const chunks = splitTranscriptForCleaning(text, { threshold: 200, target: 250 });
+    expect(chunks.length).toBeGreaterThan(1);
+    expect(chunks.join("")).toBe(text);
+    // Most cuts should land just after a boundary char, not mid-word.
+    for (const chunk of chunks.slice(0, -1)) {
+      const last = chunk[chunk.length - 1];
+      expect(["\n", " "]).toContain(last);
+    }
+  });
+
+  it("hard-cuts a boundary-free blob at the target rather than overflowing", () => {
+    const text = "x".repeat(1000); // no spaces or newlines anywhere
+    const chunks = splitTranscriptForCleaning(text, { threshold: 100, target: 150 });
+    expect(chunks.length).toBeGreaterThan(1);
+    expect(chunks.join("")).toBe(text);
+    for (const chunk of chunks) expect(chunk.length).toBeLessThanOrEqual(150);
+  });
+
+  it("always makes forward progress (no empty/zero-length chunks)", () => {
+    const text = "word ".repeat(500);
+    const chunks = splitTranscriptForCleaning(text, { threshold: 100, target: 120 });
+    for (const chunk of chunks) expect(chunk.length).toBeGreaterThan(0);
+    expect(chunks.join("")).toBe(text);
+  });
+});
+
+describe("dedupeFlags (chunk stitch)", () => {
+  it("removes exact-duplicate flags but keeps distinct ones", () => {
+    const deduped = dedupeFlags([
+      { type: "garbled_content", text: "abc", reason: "unrecoverable", confidence: "low" },
+      { type: "garbled_content", text: "abc", reason: "unrecoverable", confidence: "low" },
+      { type: "uncertain_authority", reason: "who teaches?", confidence: "low" },
+    ]);
+    expect(deduped).toHaveLength(2);
+    expect(deduped.map((f) => f.type)).toEqual(["garbled_content", "uncertain_authority"]);
+  });
+
+  it("treats different text/reason as distinct", () => {
+    const deduped = dedupeFlags([
+      { type: "garbled_content", text: "abc", reason: "r1", confidence: "low" },
+      { type: "garbled_content", text: "abc", reason: "r2", confidence: "low" },
+    ]);
+    expect(deduped).toHaveLength(2);
   });
 });

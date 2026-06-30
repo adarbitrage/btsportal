@@ -52,6 +52,17 @@ const MAX_TOKENS = 16384;
 // NOT retried because it would deterministically truncate again.
 const MAX_JSON_ATTEMPTS = 3;
 
+// Above this raw-character size, the single-pass clean is split into multiple
+// passes ("chunks") that are cleaned separately and stitched back together. The
+// clean step re-emits the WHOLE transcript, so a single very large file (the
+// biggest existing source is ~30k chars) saturates the output window / request
+// timeout. Each chunk is sized well under the size we know cleans quickly in a
+// single pass, so a 30k-char file becomes ~3 fast passes instead of one that
+// times out. Files at/under the threshold take the original single-pass path
+// unchanged.
+const CLEAN_CHUNK_CHAR_THRESHOLD = 18000;
+const CLEAN_CHUNK_TARGET_CHARS = 14000;
+
 // ───────────────────────────────────────────────────────────────────────────
 // Roster — the live coach / VA name→type map for deterministic authority swaps.
 // ───────────────────────────────────────────────────────────────────────────
@@ -451,19 +462,117 @@ const CLEAN_SYSTEM_PROMPT = [
   "confidence }).",
 ].join("\n");
 
-export async function cleanTranscript(args: {
-  rawText: string;
-  transcriptType?: string | null;
+/**
+ * Split a raw transcript into sequential, size-bounded chunks for the clean
+ * step. Returns the whole text as a single chunk when it is at/under the
+ * threshold (the common case — the clean is then byte-for-byte the original
+ * single pass). Above the threshold it slices on the cleanest available
+ * boundary near each target offset (paragraph/newline > sentence end > word
+ * space), so it works even when the entire transcript is one newline-free line
+ * (the usual shape of the stored exports). Splitting is pure substring slicing:
+ * chunks.join("") === text, so no dialogue is added, dropped, or reworded.
+ */
+export function splitTranscriptForCleaning(
+  text: string,
+  opts?: { threshold?: number; target?: number },
+): string[] {
+  // Guard the invariants that keep the slice loop progressing: a positive target
+  // (so each cut advances) and a threshold no smaller than the target.
+  const target = Math.max(1, opts?.target ?? CLEAN_CHUNK_TARGET_CHARS);
+  const threshold = Math.max(target, opts?.threshold ?? CLEAN_CHUNK_CHAR_THRESHOLD);
+  if (text.length <= threshold) return [text];
+
+  // Pure substring slicing: every chunk is text.slice(pos, cut), so the chunks
+  // always concatenate back to the original verbatim (chunks.join("") === text)
+  // — no dialogue is added, dropped, or reworded. We pick each cut by scanning
+  // backward from the target offset for the cleanest available boundary
+  // (paragraph/newline > sentence end > word space), falling back to a hard cut
+  // at the target only when the window has no boundary at all. This works even
+  // when the whole transcript is a single newline-free line (common here).
+  const chunks: string[] = [];
+  let pos = 0;
+  while (pos < text.length) {
+    if (text.length - pos <= target) {
+      chunks.push(text.slice(pos));
+      break;
+    }
+    const hardEnd = pos + target;
+    // Never cut before the halfway mark, so chunks stay reasonably balanced.
+    const windowStart = pos + Math.floor(target / 2);
+    const window = text.slice(windowStart, hardEnd);
+    const rel =
+      lastBoundary(window, ["\n"]) ??
+      lastBoundary(window, [". ", "? ", "! ", ".\n", "?\n", "!\n"]) ??
+      lastBoundary(window, [" "]);
+    const cut = rel != null ? windowStart + rel : hardEnd;
+    chunks.push(text.slice(pos, cut));
+    pos = cut;
+  }
+  return chunks;
+}
+
+/**
+ * Index in `s` just AFTER the latest occurrence of any of `tokens`, or null when
+ * none are present. Used to land a chunk cut immediately past a boundary so the
+ * slices still concatenate to the original text.
+ */
+function lastBoundary(s: string, tokens: string[]): number | null {
+  let best = -1;
+  for (const tok of tokens) {
+    const idx = s.lastIndexOf(tok);
+    if (idx >= 0) best = Math.max(best, idx + tok.length);
+  }
+  return best >= 0 ? best : null;
+}
+
+/**
+ * Drop exact-duplicate flags (same type + text + reason) produced when the
+ * per-chunk flag lists are unioned. A single-pass clean almost never emits
+ * duplicates, so this is effectively a no-op there.
+ */
+export function dedupeFlags(flags: TranscriptCleanerFlag[]): TranscriptCleanerFlag[] {
+  const seen = new Set<string>();
+  const out: TranscriptCleanerFlag[] = [];
+  for (const f of flags) {
+    const key = `${f.type}::${f.text ?? ""}::${f.reason ?? ""}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(f);
+  }
+  return out;
+}
+
+/**
+ * Build the per-chunk user message. For a single-chunk clean (chunkCount === 1)
+ * the output is identical to the original single-pass prompt; for a multi-chunk
+ * clean it adds the PART i/N framing and (for parts after the first) the
+ * authority/label convention established by part 1, so speakers stay consistent
+ * across the split.
+ */
+function buildCleanUserMessage(args: {
+  chunkText: string;
+  folder: SourceFolder | null;
+  rosterHit: ReturnType<typeof detectRosterAuthority>;
+  canonicalTerms: string[];
   sourceName?: string | null;
   proposedTitle?: string | null;
-  roster: ReadonlyMap<string, string>;
-}): Promise<CleanTranscriptResult> {
-  const { rawText, transcriptType, sourceName, proposedTitle, roster } = args;
-  const folder = resolveSourceFolder(transcriptType ?? null);
-  const rosterHit = detectRosterAuthority(rawText, roster);
-  const canonicalTerms = await loadCanonicalTerms();
-
-  const userMessage = [
+  chunkIndex: number;
+  chunkCount: number;
+  authorityHint: string | null;
+}): string {
+  const {
+    chunkText,
+    folder,
+    rosterHit,
+    canonicalTerms,
+    sourceName,
+    proposedTitle,
+    chunkIndex,
+    chunkCount,
+    authorityHint,
+  } = args;
+  const multi = chunkCount > 1;
+  const lines: (string | null)[] = [
     `Transcript type: ${folder ? folder.label : "(untagged — infer the call type)"}`,
     `Expected speakers: ${expectedSpeakers(folder)}`,
     sourceName ? `Source / original filename: ${sourceName}` : null,
@@ -476,21 +585,105 @@ export async function cleanTranscript(args: {
     canonicalTerms.length > 0
       ? `Canonical BTS / Media Mavens / traffic-source terms — normalise spelling to these EXACT forms when referenced. Any OTHER proper noun is a member's own niche term: correct obvious typos, keep it consistent, and do NOT flag it. Terms: ${canonicalTerms.join(", ")}`
       : null,
+  ];
+
+  if (multi) {
+    lines.push(
+      "",
+      `This transcript was split for size — you are cleaning PART ${chunkIndex + 1} of ${chunkCount}. Clean ONLY the text in this part and reproduce ALL of its dialogue; never summarise, drop, or merge turns across the split. Keep speaker labels consistent with the rest of the call.`,
+    );
+    if (chunkIndex > 0) {
+      lines.push(
+        authorityHint
+          ? `The teaching authority for this call was already identified in part 1 as "${authorityHint}". Use that SAME label for them here, and label members consistently (Member 1, Member 2, ...).`
+          : "The teaching authority was already identified in part 1 — reuse the same authority/member labelling here.",
+        "Title and authority were already decided from part 1; you may return empty strings for suggestedTitle / detectedDateTime and an empty authority object in this part.",
+      );
+    }
+  }
+
+  lines.push(
     "",
-    "RAW TRANSCRIPT:",
+    multi ? `RAW TRANSCRIPT (PART ${chunkIndex + 1} of ${chunkCount}):` : "RAW TRANSCRIPT:",
     "<<<TRANSCRIPT",
-    rawText,
+    chunkText,
     "TRANSCRIPT",
     "",
     "Return the strict JSON object now.",
-  ]
-    .filter((l) => l !== null)
-    .join("\n");
+  );
 
-  const parsed = await requestCleanerJson({ system: CLEAN_SYSTEM_PROMPT, userMessage });
+  return lines.filter((l) => l !== null).join("\n");
+}
 
-  const cleanedContent = typeof parsed.cleanedTranscript === "string" ? parsed.cleanedTranscript.trim() : rawText;
-  const flags = mapModelFlags(parsed.flags);
+export async function cleanTranscript(args: {
+  rawText: string;
+  transcriptType?: string | null;
+  sourceName?: string | null;
+  proposedTitle?: string | null;
+  roster: ReadonlyMap<string, string>;
+}): Promise<CleanTranscriptResult> {
+  const { rawText, transcriptType, sourceName, proposedTitle, roster } = args;
+  const folder = resolveSourceFolder(transcriptType ?? null);
+  const rosterHit = detectRosterAuthority(rawText, roster);
+  const canonicalTerms = await loadCanonicalTerms();
+
+  const chunks = splitTranscriptForCleaning(rawText);
+
+  // Part 1 is cleaned first because it establishes the title, the AI authority
+  // inference, and the speaker-label convention the remaining parts must match.
+  // Given that convention the remaining parts are independent of each other, so
+  // they are cleaned in parallel to keep wall-clock down on big files.
+  const firstParsed = await requestCleanerJson({
+    system: CLEAN_SYSTEM_PROMPT,
+    userMessage: buildCleanUserMessage({
+      chunkText: chunks[0],
+      folder,
+      rosterHit,
+      canonicalTerms,
+      sourceName,
+      proposedTitle,
+      chunkIndex: 0,
+      chunkCount: chunks.length,
+      authorityHint: null,
+    }),
+  });
+  const authorityHint =
+    firstParsed.authority &&
+    typeof firstParsed.authority.label === "string" &&
+    firstParsed.authority.label.trim()
+      ? firstParsed.authority.label.trim()
+      : null;
+
+  const restParsed = await Promise.all(
+    chunks.slice(1).map((chunkText, i) =>
+      requestCleanerJson({
+        system: CLEAN_SYSTEM_PROMPT,
+        userMessage: buildCleanUserMessage({
+          chunkText,
+          folder,
+          rosterHit,
+          canonicalTerms,
+          sourceName,
+          proposedTitle,
+          chunkIndex: i + 1,
+          chunkCount: chunks.length,
+          authorityHint,
+        }),
+      }),
+    ),
+  );
+
+  const allParsed = [firstParsed, ...restParsed];
+  const cleanedContent = allParsed
+    .map((p, i) => {
+      // Fall back to the original chunk if the model returns an empty/whitespace
+      // cleaned value — never silently drop a chunk's content.
+      const cleaned = typeof p.cleanedTranscript === "string" ? p.cleanedTranscript.trim() : "";
+      return cleaned.length > 0 ? cleaned : chunks[i].trim();
+    })
+    .filter((s) => s.length > 0)
+    .join("\n\n");
+  const flags = dedupeFlags(allParsed.flatMap((p) => mapModelFlags(p.flags)));
 
   // Authority resolution. A deterministic, high-confidence swap is only safe
   // when the roster names that appear as SPEAKER LABELS resolve to a single,
@@ -503,7 +696,7 @@ export async function cleanTranscript(args: {
   let authorityRole: AuthorityRole;
   let authorityConfidence: "high" | "low";
   let authorityEvidence: string;
-  const aiAuthority = parsed.authority ?? {};
+  const aiAuthority = firstParsed.authority ?? {};
   const labelRoles = Array.from(new Set(rosterHit.labelMatched.map((m) => m.role)));
   if (labelRoles.length === 1) {
     authorityRole = labelRoles[0];
@@ -529,9 +722,9 @@ export async function cleanTranscript(args: {
     });
   }
 
-  const titleNeedsInput = parsed.titleNeedsInput === true || !parsed.detectedDateTime;
-  const suggestedTitle = typeof parsed.suggestedTitle === "string" && parsed.suggestedTitle.trim()
-    ? parsed.suggestedTitle.trim()
+  const titleNeedsInput = firstParsed.titleNeedsInput === true || !firstParsed.detectedDateTime;
+  const suggestedTitle = typeof firstParsed.suggestedTitle === "string" && firstParsed.suggestedTitle.trim()
+    ? firstParsed.suggestedTitle.trim()
     : `${callTypeLabel(folder)}${sourceName ? ` — ${sourceName}` : ""}`;
 
   return {
