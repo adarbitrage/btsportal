@@ -389,6 +389,7 @@ router.post("/admin/transcript-cleaner/documents/:id/refine", requirePermission(
       instruction,
       transcriptType: doc.transcriptType,
       chatHistory: doc.chatHistory,
+      activeFlags: doc.flags,
     });
 
     const newHistory: TranscriptCleanerChatTurn[] = [

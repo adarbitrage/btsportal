@@ -549,7 +549,40 @@ export async function cleanTranscript(args: {
 // Refinement chat.
 // ───────────────────────────────────────────────────────────────────────────
 
-const REFINE_SYSTEM_PROMPT = [
+// Fast path: the model returns a tiny set of literal find/replace edits instead
+// of re-emitting the whole transcript. Output cost (the latency bottleneck) drops
+// from "the entire document" to "a few snippets", so a one-line fix is near-instant.
+const REFINE_PATCH_SYSTEM_PROMPT = [
+  "You are refining an already-cleaned call transcript based on an admin's",
+  "instruction (e.g. 'fix the garbled line', 'Speaker 4 from 12:30 on is the",
+  "member', 'merge the two coach labels'). The admin is usually resolving a review",
+  "flag, so the exact text to change is typically quoted in the open flags below.",
+  "",
+  "Return your change as a SMALL set of literal find/replace edits — NOT the whole",
+  "transcript. Preserve every distinct speaker and the authority labelling",
+  "convention (authority role title vs Member N).",
+  "",
+  "Return STRICT JSON only with keys:",
+  "- edits: array of { find, replace, all? }. `find` MUST be an EXACT, VERBATIM",
+  "  substring copied character-for-character from the current transcript",
+  "  (including punctuation and capitalisation), long enough to occur EXACTLY",
+  "  ONCE — include surrounding words for uniqueness. `replace` is the replacement",
+  '  text (use "" to delete). Set `all: true` ONLY when every occurrence of a',
+  "  repeated label/string must change (e.g. relabelling a speaker); otherwise omit",
+  "  it and target one unique span. Use [] only if no textual change is needed.",
+  "- flags: the refreshed review flags AFTER your edit (array of { type:",
+  "  'garbled_content'|'uncertain_authority', text, reason, confidence }). Drop any",
+  "  flag your edit resolves. Flag SPARINGLY; never flag unfamiliar proper nouns /",
+  "  brand / product / campaign / traffic names, already-normalised spelling,",
+  "  short/trivial utterances, or cosmetic issues.",
+  "- authority: OPTIONAL — include ONLY if the instruction changed the authority",
+  `  mapping: { role: one of ${AUTHORITY_ROLES.join("/")}, confidence: 'high'|'low', evidence }.`,
+  "- message: a one-sentence summary of what you changed.",
+].join("\n");
+
+// Fallback: full rewrite. Used when the find/replace edits can't be applied
+// unambiguously (structural / multi-spot change, or a mis-copied anchor).
+const REFINE_FULL_SYSTEM_PROMPT = [
   "You are refining an already-cleaned call transcript based on an admin's",
   "instruction (e.g. 'Speaker 4 from 12:30 on is the member', 'Speaker 2 is the",
   "authority', 'merge the two coach labels'). Apply the change faithfully while",
@@ -567,47 +600,42 @@ const REFINE_SYSTEM_PROMPT = [
   "'high'|'low', evidence }), message (a one-sentence summary of what you changed).",
 ].join("\n");
 
-export async function refineTranscript(args: {
-  currentCleaned: string;
-  instruction: string;
-  transcriptType?: string | null;
-  chatHistory?: TranscriptCleanerChatTurn[];
-}): Promise<RefineTranscriptResult> {
-  const { currentCleaned, instruction, transcriptType, chatHistory } = args;
-  const folder = resolveSourceFolder(transcriptType ?? null);
+/**
+ * Apply the model's literal find/replace edits to the current transcript.
+ * An empty array is a valid no-op (the model judged no textual change is needed)
+ * and returns the transcript unchanged — no full-rewrite fallback needed. Returns
+ * `null` only when an edit can't be applied unambiguously — non-array input,
+ * missing/empty fields, zero matches, or (for a non-`all` edit) more than one
+ * match. A null return tells the caller to fall back to a full rewrite, so a
+ * mis-copied anchor degrades to today's behaviour rather than corrupting or
+ * mis-placing the edit. Matching is fully literal (split/join), so `$` sequences
+ * in `replace` are never interpreted as patterns.
+ */
+export function applyRefineEdits(current: string, rawEdits: unknown): string | null {
+  if (!Array.isArray(rawEdits)) return null;
+  let working = current;
+  for (const raw of rawEdits) {
+    if (!raw || typeof raw !== "object") return null;
+    const find = (raw as { find?: unknown }).find;
+    const replace = (raw as { replace?: unknown }).replace;
+    if (typeof find !== "string" || find.length === 0) return null;
+    if (typeof replace !== "string") return null;
+    const all = (raw as { all?: unknown }).all === true;
+    const occurrences = working.split(find).length - 1;
+    if (all ? occurrences < 1 : occurrences !== 1) return null;
+    working = working.split(find).join(replace);
+  }
+  return working;
+}
 
-  const priorTurns = (chatHistory ?? [])
-    .slice(-6)
-    .map((t) => `${t.role === "user" ? "Admin" : "Assistant"}: ${t.content}`)
-    .join("\n");
-
-  const userMessage = [
-    `Transcript type: ${folder ? folder.label : "(untagged)"}`,
-    priorTurns ? `Earlier refinement conversation:\n${priorTurns}` : null,
-    "",
-    "CURRENT CLEANED TRANSCRIPT:",
-    "<<<TRANSCRIPT",
-    currentCleaned,
-    "TRANSCRIPT",
-    "",
-    `Admin instruction: ${instruction}`,
-    "",
-    "Return the strict JSON object now.",
-  ]
-    .filter((l) => l !== null)
-    .join("\n");
-
-  const parsed = await requestCleanerJson({ system: REFINE_SYSTEM_PROMPT, userMessage });
-
-  const cleanedContent = typeof parsed.cleanedTranscript === "string" ? parsed.cleanedTranscript.trim() : currentCleaned;
-  const flags = mapModelFlags(parsed.flags);
-
-  const aiAuthority = parsed.authority ?? null;
+/** Build the shared refine result (flags + authority + message) for either path. */
+function buildRefineResult(parsed: any, cleanedContent: string): RefineTranscriptResult {
   const result: RefineTranscriptResult = {
     cleanedContent,
-    flags,
+    flags: mapModelFlags(parsed.flags),
     assistantMessage: typeof parsed.message === "string" ? parsed.message : "Transcript updated.",
   };
+  const aiAuthority = parsed.authority ?? null;
   if (aiAuthority && typeof aiAuthority === "object") {
     if (aiAuthority.confidence === "high" || aiAuthority.confidence === "low") {
       result.authorityConfidence = aiAuthority.confidence;
@@ -626,4 +654,62 @@ export async function refineTranscript(args: {
     result.authorityRole = parsed.authorityRole;
   }
   return result;
+}
+
+export async function refineTranscript(args: {
+  currentCleaned: string;
+  instruction: string;
+  transcriptType?: string | null;
+  chatHistory?: TranscriptCleanerChatTurn[];
+  activeFlags?: TranscriptCleanerFlag[] | null;
+}): Promise<RefineTranscriptResult> {
+  const { currentCleaned, instruction, transcriptType, chatHistory, activeFlags } = args;
+  const folder = resolveSourceFolder(transcriptType ?? null);
+
+  const priorTurns = (chatHistory ?? [])
+    .slice(-6)
+    .map((t) => `${t.role === "user" ? "Admin" : "Assistant"}: ${t.content}`)
+    .join("\n");
+
+  // The open flags carry the verbatim snippet they're complaining about — the
+  // ideal find-anchor for the model, since refine is mostly flag resolution.
+  const flagContext = (activeFlags ?? [])
+    .filter((f): f is TranscriptCleanerFlag => !!f && typeof f.text === "string" && f.text.trim().length > 0)
+    .map((f, i) => `${i + 1}. [${f.type}] "${f.text}"${f.reason ? ` — ${f.reason}` : ""}`)
+    .join("\n");
+
+  const sharedContext = [
+    `Transcript type: ${folder ? folder.label : "(untagged)"}`,
+    priorTurns ? `Earlier refinement conversation:\n${priorTurns}` : null,
+    flagContext
+      ? `Open review flags (the quoted text is verbatim from the transcript — use it as your find anchor):\n${flagContext}`
+      : null,
+    "",
+    "CURRENT CLEANED TRANSCRIPT:",
+    "<<<TRANSCRIPT",
+    currentCleaned,
+    "TRANSCRIPT",
+    "",
+    `Admin instruction: ${instruction}`,
+  ].filter((l) => l !== null);
+
+  // Fast path: request targeted find/replace edits and apply them locally.
+  const patchParsed = await requestCleanerJson({
+    system: REFINE_PATCH_SYSTEM_PROMPT,
+    userMessage: [...sharedContext, "", "Return the strict JSON object with `edits` now."].join("\n"),
+  });
+  const patched = applyRefineEdits(currentCleaned, patchParsed.edits);
+  if (patched !== null) {
+    return buildRefineResult(patchParsed, patched.trim());
+  }
+
+  // Fallback: the edits couldn't be applied unambiguously (structural / multi-spot
+  // change, or a mis-copied anchor) — regenerate the full transcript instead.
+  const fullParsed = await requestCleanerJson({
+    system: REFINE_FULL_SYSTEM_PROMPT,
+    userMessage: [...sharedContext, "", "Return the strict JSON object now."].join("\n"),
+  });
+  const cleanedContent =
+    typeof fullParsed.cleanedTranscript === "string" ? fullParsed.cleanedTranscript.trim() : currentCleaned;
+  return buildRefineResult(fullParsed, cleanedContent);
 }
