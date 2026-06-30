@@ -63,6 +63,7 @@ import {
   BookOpen,
   LayoutGrid,
   Radar,
+  CreditCard,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useGetCurrentMember, type MemberProfile } from "@workspace/api-client-react";
@@ -196,6 +197,7 @@ export const MEMBER_NAV: NavNode[] = [
   },
   { kind: "leaf", href: "/account", label: "Account", icon: UserCircle },
   { kind: "leaf", href: "/account/products", label: "My Products", icon: Package, hiddenForRoles: ["coach"] },
+  { kind: "leaf", href: "/payment-methods", label: "Payment Methods", icon: CreditCard, hiddenForRoles: ["coach"] },
 ];
 
 export const ADMIN_CHILDREN: NavNode[] = [

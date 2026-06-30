@@ -9,6 +9,8 @@ import {
   AlertTriangle,
   ShieldCheck,
   Clock,
+  Star,
+  Plus,
 } from "lucide-react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Button } from "@/components/ui/button";
@@ -20,6 +22,7 @@ import {
   getGetMemberProductsQueryKey,
 } from "@workspace/api-client-react";
 import { initCollectJs, formatCentsAsDollars, type CollectJsHandle } from "@/lib/collect-js";
+import { usePaymentMethods, type SavedCard } from "@/hooks/use-payment-methods";
 
 interface CheckoutProduct {
   id: number;
@@ -50,6 +53,8 @@ type CheckoutState =
   | { phase: "success"; orderNumber: string; grantedEntitlements?: string[]; finalizing: boolean }
   | { phase: "unconfirmed" };
 
+type PaymentSource = "saved" | "new";
+
 function generateUUID(): string {
   if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
     return crypto.randomUUID();
@@ -66,6 +71,19 @@ const FIELD_IDS = {
   cvv: "collect-cvv",
 };
 
+function cardBrandLabel(brand: string): string {
+  const map: Record<string, string> = {
+    visa: "Visa",
+    mastercard: "Mastercard",
+    amex: "American Express",
+    discover: "Discover",
+    dinersclub: "Diners Club",
+    jcb: "JCB",
+    unionpay: "UnionPay",
+  };
+  return map[brand?.toLowerCase()] ?? brand ?? "Card";
+}
+
 export default function Checkout() {
   const params = useParams<{ productId: string }>();
   const productId = parseInt(params.productId ?? "", 10);
@@ -76,6 +94,10 @@ export default function Checkout() {
   const [collectJsReady, setCollectJsReady] = useState(false);
   const collectJsHandleRef = useRef<CollectJsHandle | null>(null);
   const idempotencyKeyRef = useRef<string>(generateUUID());
+
+  const [paymentSource, setPaymentSource] = useState<PaymentSource>("new");
+  const [selectedCardId, setSelectedCardId] = useState<number | null>(null);
+  const paymentSourceInitializedRef = useRef(false);
 
   const validProductId = Number.isInteger(productId) && productId > 0;
 
@@ -99,10 +121,15 @@ export default function Checkout() {
     retry: false,
   });
 
+  const savedCardsQuery = usePaymentMethods();
+  const savedCards: SavedCard[] = savedCardsQuery.data ?? [];
+  const hasSavedCards = savedCards.length > 0;
+
   const checkoutMutation = useMutation<
     CheckoutResponse,
     unknown,
-    { productId: number; paymentToken: string; idempotencyKey: string }
+    | { productId: number; paymentToken: string; idempotencyKey: string }
+    | { productId: number; paymentMethodId: number; idempotencyKey: string }
   >({
     mutationFn: (body) =>
       customFetch<CheckoutResponse>("/api/billing/checkout", {
@@ -135,7 +162,12 @@ export default function Checkout() {
       return;
     }
 
-    if (tokenKeyQuery.isError) {
+    // Tokenization key is only required for the new-card path. If the key
+    // fetch fails but the user has saved cards they can still pay — defer the
+    // unavailable state until we know whether the member has saved cards.
+    const savedCardsResolved = !savedCardsQuery.isLoading;
+    const hasSavedCardsNow = (savedCardsQuery.data ?? []).length > 0;
+    if (tokenKeyQuery.isError && savedCardsResolved && !hasSavedCardsNow) {
       setState({
         phase: "unavailable",
         reason: "Checkout is currently unavailable. Please try again later or contact support.",
@@ -143,12 +175,18 @@ export default function Checkout() {
       return;
     }
 
-    if (productQuery.isLoading || tokenKeyQuery.isLoading || memberQuery.isLoading) {
+    if (
+      productQuery.isLoading ||
+      tokenKeyQuery.isLoading ||
+      memberQuery.isLoading ||
+      savedCardsQuery.isLoading
+    ) {
       setState({ phase: "loading" });
       return;
     }
 
-    if (!product || !tokenizationKey) return;
+    if (!product) return;
+    if (!tokenizationKey && !hasSavedCardsNow) return;
 
     if (productOwnedCheck()) {
       setState({ phase: "already_owned" });
@@ -164,17 +202,36 @@ export default function Checkout() {
     tokenKeyQuery.isError,
     tokenKeyQuery.isLoading,
     memberQuery.isLoading,
+    savedCardsQuery.isLoading,
+    savedCardsQuery.data,
     product,
     tokenizationKey,
     productOwnedCheck,
   ]);
 
   useEffect(() => {
-    if (state.phase !== "ready" || !tokenizationKey) return;
+    if (paymentSourceInitializedRef.current) return;
+    if (savedCardsQuery.isLoading) return;
+    paymentSourceInitializedRef.current = true;
+    if (!hasSavedCards) return;
+    const defaultCard = savedCards.find((c) => c.isDefault) ?? savedCards[0];
+    if (defaultCard) {
+      setSelectedCardId(defaultCard.id);
+    }
+    setPaymentSource("saved");
+  }, [hasSavedCards, savedCards, savedCardsQuery.isLoading]);
+
+  const collectJsInitKey = `${state.phase}-${paymentSource}-${tokenizationKey}-${savedCardsQuery.isLoading}`;
+  useEffect(() => {
+    if ((state.phase !== "ready" && state.phase !== "declined") || !tokenizationKey) return;
+    if (paymentSource === "saved") return;
+    if (savedCardsQuery.isLoading) return;
 
     let cancelled = false;
 
     setCollectJsReady(false);
+    collectJsHandleRef.current = null;
+
     initCollectJs(tokenizationKey, {
       ccnumber: `#${FIELD_IDS.ccnumber}`,
       ccexp: `#${FIELD_IDS.ccexp}`,
@@ -198,32 +255,42 @@ export default function Checkout() {
     return () => {
       cancelled = true;
     };
-  }, [state.phase, tokenizationKey]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [collectJsInitKey]);
 
   const handleSubmit = useCallback(async () => {
     if (state.phase !== "ready" && state.phase !== "declined") return;
-    if (!product || !collectJsHandleRef.current) return;
+    if (!product) return;
 
     setState({ phase: "submitting" });
-
-    let paymentToken: string;
-    try {
-      paymentToken = await collectJsHandleRef.current.tokenize();
-    } catch (err: unknown) {
-      const msg =
-        err instanceof Error ? err.message : "Card tokenization failed. Please try again.";
-      setState({ phase: "declined", message: msg });
-      return;
-    }
 
     const currentKey = idempotencyKeyRef.current;
 
     try {
-      const result = await checkoutMutation.mutateAsync({
-        productId: product.id,
-        paymentToken,
-        idempotencyKey: currentKey,
-      });
+      let body:
+        | { productId: number; paymentToken: string; idempotencyKey: string }
+        | { productId: number; paymentMethodId: number; idempotencyKey: string };
+
+      if (paymentSource === "saved" && selectedCardId !== null) {
+        body = { productId: product.id, paymentMethodId: selectedCardId, idempotencyKey: currentKey };
+      } else {
+        if (!collectJsHandleRef.current) {
+          setState({ phase: "declined", message: "Card form not ready. Please try again." });
+          return;
+        }
+        let tokenResult: { token: string };
+        try {
+          tokenResult = await collectJsHandleRef.current.tokenize();
+        } catch (err: unknown) {
+          const msg =
+            err instanceof Error ? err.message : "Card tokenization failed. Please try again.";
+          setState({ phase: "declined", message: msg });
+          return;
+        }
+        body = { productId: product.id, paymentToken: tokenResult.token, idempotencyKey: currentKey };
+      }
+
+      const result = await checkoutMutation.mutateAsync(body);
 
       idempotencyKeyRef.current = generateUUID();
 
@@ -265,8 +332,6 @@ export default function Checkout() {
           setState({ phase: "in_progress" });
           return;
         }
-        // 409 conflict (key used with different product) — no charge was
-        // attempted; preserve the key so a retry can replay the original intent.
         const msg =
           typeof rawError === "object" && rawError !== null
             ? (rawError.message ?? "A conflict occurred. Please try again.")
@@ -283,14 +348,13 @@ export default function Checkout() {
             : typeof rawError === "object" && rawError !== null
               ? (rawError.message ?? "Invalid request.")
               : "Invalid request.";
-        // Validation error — no charge attempted, key is still valid.
         setState({ phase: "unavailable", reason: msg });
         return;
       }
 
       setState({ phase: "unconfirmed" });
     }
-  }, [state.phase, product, checkoutMutation, queryClient]);
+  }, [state.phase, product, paymentSource, selectedCardId, checkoutMutation, queryClient]);
 
 
   if (!validProductId) {
@@ -308,6 +372,13 @@ export default function Checkout() {
       </AppLayout>
     );
   }
+
+  const isActiveCheckout =
+    state.phase === "ready" || state.phase === "submitting" || state.phase === "declined";
+
+  const canSubmit =
+    state.phase !== "submitting" &&
+    (paymentSource === "saved" ? selectedCardId !== null : collectJsReady);
 
   return (
     <AppLayout>
@@ -449,19 +520,13 @@ export default function Checkout() {
           </Card>
         )}
 
-        {(state.phase === "ready" ||
-          state.phase === "submitting" ||
-          state.phase === "declined") && (
+        {isActiveCheckout && (
           <Card>
             <CardHeader className="pb-3 border-b border-border/50">
               <div className="flex items-center gap-2">
                 <ShieldCheck className="w-5 h-5 text-primary" />
-                <span className="font-semibold text-foreground">Secure card payment</span>
+                <span className="font-semibold text-foreground">Secure payment</span>
               </div>
-              <p className="text-xs text-muted-foreground mt-1">
-                Your card details are entered directly into NMI's secure hosted fields — they
-                never touch BTS's servers.
-              </p>
             </CardHeader>
             <CardContent className="pt-5 space-y-4">
               {state.phase === "declined" && (
@@ -470,44 +535,143 @@ export default function Checkout() {
                   role="alert"
                 >
                   <AlertTriangle className="w-4 h-4 text-destructive shrink-0 mt-0.5" />
-                  <span>{state.message}</span>
+                  <div className="space-y-1">
+                    <span>{state.message}</span>
+                    {hasSavedCards && (
+                      <p className="text-muted-foreground">
+                        You can try a different card below.
+                      </p>
+                    )}
+                  </div>
                 </div>
               )}
 
-              <div className="space-y-3">
-                <div>
-                  <label className="block text-sm font-medium text-foreground mb-1.5">
-                    Card number
-                  </label>
-                  <div
-                    id={FIELD_IDS.ccnumber}
-                    className="h-10 rounded-md border border-input bg-background px-3 flex items-center text-sm"
-                    style={{ minHeight: "40px" }}
-                  />
-                </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-sm font-medium text-foreground mb-1.5">
-                      Expiry
-                    </label>
-                    <div
-                      id={FIELD_IDS.ccexp}
-                      className="h-10 rounded-md border border-input bg-background px-3 flex items-center text-sm"
-                      style={{ minHeight: "40px" }}
-                    />
+              {hasSavedCards && (
+                <div className="space-y-3">
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setPaymentSource("saved")}
+                      className={`flex-1 flex items-center gap-2 rounded-lg border px-3 py-2.5 text-sm font-medium transition-colors ${
+                        paymentSource === "saved"
+                          ? "border-primary bg-primary/5 text-primary"
+                          : "border-border text-muted-foreground hover:border-primary/40 hover:text-foreground"
+                      }`}
+                      disabled={state.phase === "submitting"}
+                    >
+                      <CreditCard className="w-4 h-4 shrink-0" />
+                      Pay with saved card
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setPaymentSource("new")}
+                      className={`flex-1 flex items-center gap-2 rounded-lg border px-3 py-2.5 text-sm font-medium transition-colors ${
+                        paymentSource === "new"
+                          ? "border-primary bg-primary/5 text-primary"
+                          : "border-border text-muted-foreground hover:border-primary/40 hover:text-foreground"
+                      }`}
+                      disabled={state.phase === "submitting"}
+                    >
+                      <Plus className="w-4 h-4 shrink-0" />
+                      Use a new card
+                    </button>
                   </div>
-                  <div>
-                    <label className="block text-sm font-medium text-foreground mb-1.5">
-                      CVV
-                    </label>
-                    <div
-                      id={FIELD_IDS.cvv}
-                      className="h-10 rounded-md border border-input bg-background px-3 flex items-center text-sm"
-                      style={{ minHeight: "40px" }}
-                    />
-                  </div>
+
+                  {paymentSource === "saved" && (
+                    <div className="space-y-2">
+                      {savedCards.map((card) => (
+                        <label
+                          key={card.id}
+                          className={`flex items-center gap-3 rounded-lg border px-3 py-2.5 cursor-pointer transition-colors ${
+                            selectedCardId === card.id
+                              ? "border-primary bg-primary/5"
+                              : "border-border hover:border-primary/30"
+                          }`}
+                        >
+                          <input
+                            type="radio"
+                            name="saved-card"
+                            value={card.id}
+                            checked={selectedCardId === card.id}
+                            onChange={() => setSelectedCardId(card.id)}
+                            className="shrink-0"
+                            disabled={state.phase === "submitting"}
+                          />
+                          <CreditCard className="w-4 h-4 text-muted-foreground shrink-0" />
+                          <span className="flex-1 text-sm text-foreground">
+                            {cardBrandLabel(card.brand)} •••• {card.last4}
+                            <span className="text-muted-foreground ml-2 text-xs">
+                              exp {String(card.expMonth).padStart(2, "0")}/{card.expYear}
+                            </span>
+                          </span>
+                          {card.isDefault && (
+                            <span className="flex items-center gap-1 text-xs text-primary shrink-0">
+                              <Star className="w-3 h-3" />
+                              Default
+                            </span>
+                          )}
+                        </label>
+                      ))}
+                      <Link href="/payment-methods">
+                        <span className="text-xs text-primary hover:underline cursor-pointer">
+                          Manage saved cards
+                        </span>
+                      </Link>
+                    </div>
+                  )}
                 </div>
-              </div>
+              )}
+
+              {(!hasSavedCards || paymentSource === "new") && (
+                <>
+                  {tokenKeyQuery.isError && (
+                    <p className="text-sm text-destructive bg-destructive/10 rounded-lg px-3 py-2.5">
+                      New card entry is temporarily unavailable. Please use a saved card or try again
+                      later.
+                    </p>
+                  )}
+                  {!hasSavedCards && (
+                    <p className="text-xs text-muted-foreground">
+                      Your card details are entered directly into NMI's secure hosted fields — they
+                      never touch BTS's servers.
+                    </p>
+                  )}
+                  <div className="space-y-3">
+                    <div>
+                      <label className="block text-sm font-medium text-foreground mb-1.5">
+                        Card number
+                      </label>
+                      <div
+                        id={FIELD_IDS.ccnumber}
+                        className="h-10 rounded-md border border-input bg-background px-3 flex items-center text-sm"
+                        style={{ minHeight: "40px" }}
+                      />
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-sm font-medium text-foreground mb-1.5">
+                          Expiry
+                        </label>
+                        <div
+                          id={FIELD_IDS.ccexp}
+                          className="h-10 rounded-md border border-input bg-background px-3 flex items-center text-sm"
+                          style={{ minHeight: "40px" }}
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-foreground mb-1.5">
+                          CVV
+                        </label>
+                        <div
+                          id={FIELD_IDS.cvv}
+                          className="h-10 rounded-md border border-input bg-background px-3 flex items-center text-sm"
+                          style={{ minHeight: "40px" }}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </>
+              )}
 
               <div className="pt-1 space-y-2">
                 {product?.priceCents != null && (
@@ -520,7 +684,7 @@ export default function Checkout() {
                 )}
                 <Button
                   className="w-full"
-                  disabled={state.phase === "submitting" || !collectJsReady}
+                  disabled={!canSubmit}
                   onClick={handleSubmit}
                   data-testid="checkout-submit"
                 >
@@ -529,7 +693,7 @@ export default function Checkout() {
                       <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                       Processing…
                     </>
-                  ) : !collectJsReady ? (
+                  ) : paymentSource === "new" && !collectJsReady ? (
                     <>
                       <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                       Loading secure form…

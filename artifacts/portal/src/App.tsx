@@ -163,6 +163,7 @@ import AdminAssistantQuestions from "@/pages/admin/AdminAssistantQuestions";
 import Account from "@/pages/Account";
 import Plans from "@/pages/Plans";
 import Checkout from "@/pages/Checkout";
+import PaymentMethods from "@/pages/PaymentMethods";
 import MyProducts from "@/pages/MyProducts";
 import CoachDashboard from "@/pages/coaching/CoachDashboard";
 import PackCoachDashboard from "@/pages/coaching/PackCoachDashboard";
@@ -532,6 +533,7 @@ function Router() {
       <Route path="/coaching">{() => <EntitlementRoute component={Coaching} entitlement="coaching:group" />}</Route>
       <Route path="/account">{() => <ProtectedRoute component={Account} />}</Route>
       <Route path="/account/products">{() => <ProtectedRoute component={MyProducts} />}</Route>
+      <Route path="/payment-methods">{() => <ProtectedRoute component={PaymentMethods} />}</Route>
       <Route path="/plans">{() => <ProtectedRoute component={Plans} />}</Route>
       <Route path="/checkout/:productId">{() => <ProtectedRoute component={Checkout} />}</Route>
       <Route path="/support">{() => <ProtectedRoute component={Support} />}</Route>
