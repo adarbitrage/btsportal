@@ -1,0 +1,109 @@
+## BTS Portal — Native NMI Billing, Tier 6.2b: dunning state machine (recurring — final piece)
+
+### What This Does
+Gives a past_due subscription a defined fate. Adds a SECOND PHASE to the existing hourly renewal job:
+after Phase 1 (6.2a) charges active-due subs, Phase 2 processes past_due subs whose retry time has
+arrived, AND finalizes canceled subs at period end. Retry schedule: due / +3d / +7d (3 attempts/cycle);
+access stays ON through the window (grace); final failure → revoke + unpaid; cancel-at-period-end →
+revoke at period end. Emails on first and final failure via the existing central comms service. Reuse
+the 6.2a charge primitives (deterministic per-period idempotency key, chargeWithVault, the shared core)
+— do NOT fork them. Same verification bar as 6.2a: real test run + architect review on shipped code.
+
+### Files Created
+- (extend renewal-charger.ts rather than create a parallel job — see Files Modified)
+- tests (retry success recovers + resumes normal billing; +3d/+7d cadence; access survives grace; final
+  failure revokes + emails; cancel-at-period-end revoke at period end; double-run safety on the retry).
+
+### Files Modified
+- renewal-charger.ts (6.2a) — add Phase 2 to processDueRenewals: after the active-due loop, run a
+  past_due-retry loop and a cancel-at-period-end finalize loop (same per-run cap applies across the whole
+  run; same batch-isolation so one sub can't abort the rest).
+- the subscriptions schema — ADD next_retry_at TIMESTAMP (nullable, INDEXED). (Additive; the only schema
+  change. retry_count already exists from 6.1.)
+- migration for that column.
+
+### Schema Changes
+- subscriptions: ADD next_retry_at TIMESTAMP NULL, indexed. Set when a charge first fails (the +3d/+7d
+  schedule is computed from it); null when active/canceled/unpaid. Apply to live Neon, idempotent.
+
+### The retry schedule — set this when a renewal FIRST fails (in 6.2a's decline path, extended here)
+When an active renewal charge declines (currently 6.2a sets past_due): also set retry_count=1,
+next_retry_at = now + 3 days, email "first payment failure" (see emails). So attempt #1 = the original
+due-date charge; the +3d and +7d are retries #2 and #3.
+
+### Phase 2a — past_due retry loop (in processDueRenewals, after the active-due loop)
+SELECT subscriptions WHERE status='past_due' AND next_retry_at <= now, ORDER BY next_retry_at ASC,
+within the SAME maxPerRun budget for the run. For each:
+- Charge using the SAME deterministic per-period key as 6.2a: `sub_{id}_period_{current_period_end ISO}`
+  — so a retry that lands in the same period as the original failed attempt CANNOT double-charge it
+  (peek-then-claim: a prior completed-as-failure key for this period means the gateway is re-hit only
+  because we WANT a real retry — see note). 
+  IMPORTANT KEY NOTE: a retry must actually attempt the card again, but must never double-charge a
+  SUCCESS. Implement as: the period key guards SUCCESS (if the period was ever charged successfully, the
+  sub would have advanced and left past_due, so we wouldn't be here). For retries, derive an
+  attempt-scoped key `sub_{id}_period_{periodEnd}_retry_{retry_count}` for the claim so each distinct
+  retry attempt is its own idempotent unit, while a re-run of the SAME hourly tick replays that attempt
+  rather than charging twice. (This is the crux: per-attempt idempotency, not per-period, for the retry
+  path — but a successful retry still advances the period and exits dunning.)
+- ON SUCCESS: treat exactly like a successful renewal (advance period, next_charge_at = new period end,
+  retry_count=0, next_retry_at=null, status='active', extend access, record a recurring_renewal order).
+  The member is fully recovered — no "final" email.
+- ON DECLINE:
+  - retry_count < 3 → increment retry_count, set next_retry_at = now + (retry_count==2 ? 4 days : ...) so
+    the cadence is due → +3d → +7d from the original failure (i.e. attempt #2 at +3d, attempt #3 at +7d).
+    Keep status='past_due'. Access STAYS ON. No email on the middle retry.
+  - retry_count == 3 (final attempt just failed) → status='unpaid', next_retry_at=null; REVOKE this
+    subscription's entitlements (via the existing grant/user_products path — revoke only THIS sub's
+    grant, not other products the member owns); email "final payment failure / access ended".
+- Per-attempt idempotency completion + batch isolation + reconciliation-on-post-charge-error: same as
+  6.2a.
+
+### Phase 2b — cancel-at-period-end finalize loop
+SELECT subscriptions WHERE cancel_at_period_end=true AND status IN ('active','past_due') AND
+current_period_end <= now. For each: status='canceled', next_charge_at=null, next_retry_at=null,
+canceled_at preserved; REVOKE this subscription's entitlements (access ran to period end, now it ends).
+No charge, no email (the member already chose to cancel). (This is the "charger skips it, something must
+finalize it" case from 6.2a.)
+
+### Emails (via the existing central comms service — queue, don't send directly)
+- FIRST failure (when a renewal first declines): "your payment didn't go through, we'll retry, access
+  continues" — reassuring, not alarming.
+- FINAL failure (3rd attempt failed, access revoked): "we couldn't process your payment, access has
+  ended, here's how to restore it."
+- NONE on the middle (+3d) retry, and none on a successful recovery. (Optional: a recovery confirmation
+  is fine if cheap, but not required.)
+- Use the member's email; reuse whatever template/queue mechanism transactional billing mail already
+  uses. Do not block the charge loop on email sending (queue and continue).
+
+### Dependencies
+- Depends on: Tier 6.2a (renewal charger + its decline→past_due path) — merged. Only new schema is
+  next_retry_at.
+
+### Acceptance Criteria
+- ★ RETRY RECOVERY: a past_due sub whose retry succeeds advances its period, returns to 'active',
+  retry_count→0, next_retry_at→null, access intact/extended — and resumes normal hourly renewal next
+  cycle.
+- ★ CADENCE: a sub that keeps failing is retried at +3d then +7d (attempts #2 and #3), access stays ON
+  the whole window, and only the 3rd failure flips it to 'unpaid' + revokes access.
+- ★ DOUBLE-RUN SAFETY ON RETRY: running the hourly job twice while a retry is due produces exactly ONE
+  gateway charge for that attempt (per-attempt key replays on the second run).
+- FINAL-FAILURE REVOKE: on the 3rd failure, only THIS subscription's entitlements are revoked (other
+  owned products unaffected), and the "final" email is queued.
+- CANCEL FINALIZE: a cancel_at_period_end sub is set 'canceled' + access revoked exactly at
+  current_period_end (not before), with no charge.
+- FIRST-failure email queued on the initial decline; no email on the middle retry or on recovery.
+- The 6.2a happy path (active renewals) is UNCHANGED and its tests still pass; the per-run cap now spans
+  Phase 1 + Phase 2 collectively.
+- Clean tsc (green). Report files/schema. Do NOT create follow-up tasks.
+
+### Implementation Notes
+- The per-ATTEMPT idempotency key for retries is the subtle part: per-period guards a successful charge
+  (a success exits dunning), but each retry attempt needs its own idempotent unit so a re-run of the
+  same tick doesn't double-charge that attempt while still allowing the NEXT scheduled attempt to charge.
+  Derive it from sub id + period + retry_count.
+- Revoke is per-subscription: revoking a sub's grant must not touch entitlements the member holds from
+  OTHER products/subscriptions (use the same single-order/single-grant revoke discipline as the refund
+  system).
+- past_due → active on recovery, past_due → unpaid on final failure, (active|past_due) → canceled at
+  period end. These are the only transitions this tier introduces.
+- Reuse 6.2a's batch isolation, per-run cap, and reconciliation-on-post-charge-error wholesale.
