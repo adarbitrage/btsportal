@@ -4,7 +4,12 @@ import {
   applyRefineEdits,
   splitTranscriptForCleaning,
   dedupeFlags,
+  assembleTranscriptTitle,
+  normalizeIsoDate,
+  memberNameFromSourceName,
+  titleFollowsGrammar,
 } from "../lib/transcript-cleaner";
+import { resolveSourceFolder } from "../lib/kb-taxonomy";
 
 describe("transcript cleaner flag contract", () => {
   it("keeps the two contract flag types", () => {
@@ -181,5 +186,225 @@ describe("dedupeFlags (chunk stitch)", () => {
       { type: "garbled_content", text: "abc", reason: "r2", confidence: "low" },
     ]);
     expect(deduped).toHaveLength(2);
+  });
+});
+
+describe("normalizeIsoDate", () => {
+  it("accepts a real ISO date and round-trips it", () => {
+    expect(normalizeIsoDate("2025-01-14")).toBe("2025-01-14");
+    expect(normalizeIsoDate("recorded 2024-12-31 evening")).toBe("2024-12-31");
+  });
+
+  it("rejects impossible / malformed dates (never fabricates)", () => {
+    expect(normalizeIsoDate("2025-13-01")).toBeNull(); // month 13
+    expect(normalizeIsoDate("2025-02-30")).toBeNull(); // Feb 30
+    expect(normalizeIsoDate("01/14/2025")).toBeNull(); // not ISO
+    expect(normalizeIsoDate("")).toBeNull();
+    expect(normalizeIsoDate(null)).toBeNull();
+    expect(normalizeIsoDate(undefined)).toBeNull();
+    expect(normalizeIsoDate(20250114)).toBeNull();
+  });
+});
+
+describe("memberNameFromSourceName", () => {
+  it("strips meeting-export suffixes", () => {
+    expect(memberNameFromSourceName("Adam Field Meeting Information")).toBe("Adam Field");
+    expect(memberNameFromSourceName("Jane Doe Meeting Notes")).toBe("Jane Doe");
+  });
+
+  it("strips trailing dash descriptors and duplicate-import markers", () => {
+    expect(memberNameFromSourceName("Donald Hayes - Mitolyn")).toBe("Donald Hayes");
+    expect(memberNameFromSourceName("Donald Hayes - Mitolyn(1)")).toBe("Donald Hayes");
+  });
+
+  it("leaves a bare name untouched", () => {
+    expect(memberNameFromSourceName("Cheryl L Rodriguez")).toBe("Cheryl L Rodriguez");
+    expect(memberNameFromSourceName(null)).toBe("");
+    expect(memberNameFromSourceName(undefined)).toBe("");
+  });
+});
+
+describe("titleFollowsGrammar", () => {
+  it("recognises a conforming title", () => {
+    expect(titleFollowsGrammar("Private Coaching — Adam Field (Coach Sasha)")).toBe(true);
+    expect(titleFollowsGrammar("1-on-1 VA — Donald Hayes (VA John)")).toBe(true);
+    expect(titleFollowsGrammar("Doc — Refund Policy")).toBe(true);
+  });
+
+  it("rejects a non-conforming / empty title", () => {
+    expect(titleFollowsGrammar("Cheryl L Rodriguez")).toBe(false);
+    expect(titleFollowsGrammar("")).toBe(false);
+    expect(titleFollowsGrammar(null)).toBe(false);
+  });
+
+  it("is slug-aware: a 1-on-1 title missing its (Coach …) authority is rejected", () => {
+    const pc = resolveSourceFolder("private_coaching");
+    const va = resolveSourceFolder("one_on_one_va");
+    // Authority-less 1-on-1 titles look prefix-valid but fail the slug grammar.
+    expect(titleFollowsGrammar("Private Coaching — Cheryl L Rodriguez", pc)).toBe(false);
+    expect(titleFollowsGrammar("1-on-1 VA — Donald Hayes", va)).toBe(false);
+    // Fully-formed titles pass under their slug.
+    expect(
+      titleFollowsGrammar("Private Coaching — Adam Field (Coach Sasha) — 2025-01-14", pc),
+    ).toBe(true);
+    expect(titleFollowsGrammar("1-on-1 VA — Donald Hayes (VA John)", va)).toBe(true);
+    // A title under the WRONG slug is rejected.
+    expect(titleFollowsGrammar("Doc — Refund Policy", pc)).toBe(false);
+  });
+});
+
+describe("assembleTranscriptTitle (type-specific grammar, Task #1518)", () => {
+  const folder = (slug: string) => resolveSourceFolder(slug);
+
+  it("private coaching: member (Coach) with optional date", () => {
+    expect(
+      assembleTranscriptTitle({
+        folder: folder("private_coaching"),
+        authorityRole: "strategic_coach",
+        authorityName: "bruce",
+        primarySubject: "Cheryl L Rodriguez",
+        sourceName: "Cheryl L Rodriguez",
+        isoDate: null,
+      }),
+    ).toEqual({ title: "Private Coaching — Cheryl L Rodriguez (Coach Bruce)", titleNeedsInput: false });
+
+    expect(
+      assembleTranscriptTitle({
+        folder: folder("private_coaching"),
+        authorityRole: "strategic_coach",
+        authorityName: "Sasha",
+        primarySubject: "Adam Field",
+        sourceName: null,
+        isoDate: "2025-01-14",
+      }),
+    ).toEqual({ title: "Private Coaching — Adam Field (Coach Sasha) — 2025-01-14", titleNeedsInput: false });
+  });
+
+  it("1-on-1 VA: member (VA) and falls back to the source filename for the member", () => {
+    expect(
+      assembleTranscriptTitle({
+        folder: folder("one_on_one_va"),
+        authorityRole: "va",
+        authorityName: "John",
+        primarySubject: null,
+        sourceName: "Donald Hayes - Mitolyn",
+        isoDate: null,
+      }),
+    ).toEqual({ title: "1-on-1 VA — Donald Hayes (VA John)", titleNeedsInput: false });
+  });
+
+  it("1-on-1 with an unrecoverable member → blank title + titleNeedsInput", () => {
+    expect(
+      assembleTranscriptTitle({
+        folder: folder("private_coaching"),
+        authorityRole: "strategic_coach",
+        authorityName: "Bruce",
+        primarySubject: null,
+        sourceName: null,
+        isoDate: null,
+      }),
+    ).toEqual({ title: "", titleNeedsInput: true });
+  });
+
+  it("1-on-1 with an unrecoverable authority → blank title + titleNeedsInput (never authority-less)", () => {
+    expect(
+      assembleTranscriptTitle({
+        folder: folder("private_coaching"),
+        authorityRole: "strategic_coach",
+        authorityName: null,
+        primarySubject: "Cheryl L Rodriguez",
+        sourceName: "Cheryl L Rodriguez",
+        isoDate: null,
+      }),
+    ).toEqual({ title: "", titleNeedsInput: true });
+  });
+
+  it("group coaching: coach only, no member subject", () => {
+    expect(
+      assembleTranscriptTitle({
+        folder: folder("group_coaching"),
+        authorityRole: "strategic_coach",
+        authorityName: "Michael",
+        primarySubject: null,
+        sourceName: "Live Coaching Call - Michael",
+        isoDate: "2025-02-03",
+      }),
+    ).toEqual({ title: "Group Coaching — Coach Michael — 2025-02-03", titleNeedsInput: false });
+  });
+
+  it("group coaching with no coach name → blank + titleNeedsInput", () => {
+    expect(
+      assembleTranscriptTitle({
+        folder: folder("group_coaching"),
+        authorityRole: "strategic_coach",
+        authorityName: null,
+        primarySubject: null,
+        sourceName: "Live Coaching Call",
+        isoDate: null,
+      }),
+    ).toEqual({ title: "", titleNeedsInput: true });
+  });
+
+  it("blitz video: topic only, never a date", () => {
+    expect(
+      assembleTranscriptTitle({
+        folder: folder("blitz_video"),
+        authorityRole: "curriculum",
+        authorityName: null,
+        primarySubject: "Setting Up DIYTrax",
+        sourceName: null,
+        isoDate: "2025-01-14",
+      }),
+    ).toEqual({ title: "Blitz Video — Setting Up DIYTrax", titleNeedsInput: false });
+  });
+
+  it("other video: topic with optional date", () => {
+    expect(
+      assembleTranscriptTitle({
+        folder: folder("other_video"),
+        authorityRole: "internal",
+        authorityName: null,
+        primarySubject: "Platform Walkthrough",
+        sourceName: null,
+        isoDate: "2025-03-09",
+      }),
+    ).toEqual({ title: "Other Video — Platform Walkthrough — 2025-03-09", titleNeedsInput: false });
+  });
+
+  it("reference / other docs: 'Reference' & 'Doc' prefixes, never a date", () => {
+    expect(
+      assembleTranscriptTitle({
+        folder: folder("reference_docs"),
+        authorityRole: "internal",
+        authorityName: null,
+        primarySubject: "Commission Structure",
+        sourceName: null,
+        isoDate: "2025-03-09",
+      }),
+    ).toEqual({ title: "Reference — Commission Structure", titleNeedsInput: false });
+
+    expect(
+      assembleTranscriptTitle({
+        folder: folder("other_docs"),
+        authorityRole: "internal",
+        authorityName: null,
+        primarySubject: "Refund Policy",
+        sourceName: null,
+        isoDate: null,
+      }),
+    ).toEqual({ title: "Doc — Refund Policy", titleNeedsInput: false });
+  });
+
+  it("video/doc with no topic → blank + titleNeedsInput", () => {
+    expect(
+      assembleTranscriptTitle({
+        folder: folder("other_docs"),
+        authorityRole: "internal",
+        authorityName: null,
+        primarySubject: null,
+        sourceName: null,
+        isoDate: null,
+      }),
+    ).toEqual({ title: "", titleNeedsInput: true });
   });
 });

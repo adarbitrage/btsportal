@@ -36,6 +36,7 @@ import { seedMediaMavens } from "./lib/seed-media-mavens";
 import { seedModerationWordlist } from "./lib/seed-moderation-wordlist";
 import { seedAssistantCards } from "./lib/seed-assistant-cards";
 import { seedCoachRoster, generateWeeklyQaCalls } from "./lib/coaching-roster";
+import { retitleCleanedHoldingDocs } from "./lib/transcript-cleaner";
 import { subscribeWordlistInvalidations } from "./lib/moderation/wordlist";
 // seedYseProducts is intentionally NOT imported/run here — it must complete
 // BEFORE the server starts accepting traffic (the /api/integrations/machine-purchase
@@ -107,7 +108,10 @@ seedModerationWordlist().catch(err => console.error("[Seed] Failed to seed moder
 seedAssistantCards().catch(err => console.error("[Seed] Failed to seed assistant cards:", err));
 seedCoachRoster()
   .then(() => generateWeeklyQaCalls())
-  .catch(err => console.error("[Seed] Failed to seed coaching roster / weekly calls:", err));
+  // Backfill depends on the coach roster for authority detection, so run it only
+  // after the roster is seeded — otherwise a fresh boot can miss coach names.
+  .then(() => retitleCleanedHoldingDocs())
+  .catch(err => console.error("[Seed] Failed to seed coaching roster / weekly calls / re-title transcripts:", err));
 subscribeWordlistInvalidations();
 
 (async () => {

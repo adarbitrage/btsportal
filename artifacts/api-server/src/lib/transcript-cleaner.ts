@@ -29,7 +29,8 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { getAnthropicClient } from "@workspace/integrations-anthropic-ai";
-import { db, coachesTable, mediaMavensProductsTable } from "@workspace/db";
+import { db, coachesTable, mediaMavensProductsTable, transcriptCleanerDocumentsTable } from "@workspace/db";
+import { eq } from "drizzle-orm";
 import {
   resolveSourceFolder,
   authorityRoleFromCoachType,
@@ -352,6 +353,200 @@ function callTypeLabel(folder: SourceFolder | null): string {
 }
 
 // ───────────────────────────────────────────────────────────────────────────
+// Auto-naming — the type-specific title grammar (Task #1518).
+//
+//   {Call Type} — {Primary Subject} ({Authority})[ — {YYYY-MM-DD}]
+//
+// where the PRIMARY SUBJECT flips based on call type: the member for 1-on-1
+// calls, a topic/module for videos/docs, and nothing (coach-only) for group
+// coaching. The date is appended in ISO form ONLY when confidently determined —
+// it is NEVER fabricated. The title is assembled deterministically here from the
+// building blocks the model extracts; the model does NOT compose the final title.
+// ───────────────────────────────────────────────────────────────────────────
+
+/**
+ * Human title prefix per SOURCE_FOLDERS slug. Deliberately NOT the raw folder
+ * label for two slugs: "Reference Docs" → "Reference", "Other Docs" → "Doc".
+ */
+const TITLE_PREFIX_BY_SLUG: Readonly<Record<string, string>> = {
+  group_coaching: "Group Coaching",
+  private_coaching: "Private Coaching",
+  one_on_one_va: "1-on-1 VA",
+  blitz_video: "Blitz Video",
+  other_video: "Other Video",
+  reference_docs: "Reference",
+  other_docs: "Doc",
+};
+
+/** Slugs whose grammar appends the optional ISO date. */
+const SLUGS_WITH_DATE: ReadonlySet<string> = new Set([
+  "private_coaching",
+  "one_on_one_va",
+  "group_coaching",
+  "other_video",
+]);
+
+/** Slugs whose primary subject is the MEMBER (the non-authority participant). */
+const MEMBER_SUBJECT_SLUGS: ReadonlySet<string> = new Set([
+  "private_coaching",
+  "one_on_one_va",
+]);
+
+const TITLE_PREFIXES: readonly string[] = Object.values(TITLE_PREFIX_BY_SLUG);
+
+/**
+ * Slug-aware structural validators — a title only "follows the grammar" when it
+ * matches its call type's full shape, not merely a known prefix. This keeps the
+ * backfill from treating a malformed/partial title (e.g. missing the required
+ * `(Coach …)` authority on a 1-on-1) as compliant and then sticking with it.
+ */
+const ISO_DATE_TAIL = String.raw`(?: — \d{4}-\d{2}-\d{2})?`;
+const TITLE_GRAMMAR_BY_SLUG: Readonly<Record<string, RegExp>> = {
+  private_coaching: new RegExp(
+    String.raw`^Private Coaching — .+ \((?:Coach|VA) .+\)${ISO_DATE_TAIL}$`,
+  ),
+  one_on_one_va: new RegExp(
+    String.raw`^1-on-1 VA — .+ \((?:Coach|VA) .+\)${ISO_DATE_TAIL}$`,
+  ),
+  group_coaching: new RegExp(
+    String.raw`^Group Coaching — (?:Coach|VA) .+${ISO_DATE_TAIL}$`,
+  ),
+  blitz_video: /^Blitz Video — .+$/,
+  other_video: new RegExp(String.raw`^Other Video — .+?${ISO_DATE_TAIL}$`),
+  reference_docs: /^Reference — .+$/,
+  other_docs: /^Doc — .+$/,
+};
+
+/**
+ * Render the authority as `Coach {First}` / `VA {First}` — first names only, per
+ * the coach-name privacy convention. VA role → "VA", everything else → "Coach".
+ * Returns null when there is no usable name.
+ */
+function renderAuthorityName(role: AuthorityRole, name: string | null | undefined): string | null {
+  const first = (name ?? "").trim().split(/\s+/)[0];
+  if (!first) return null;
+  const display = first.charAt(0).toUpperCase() + first.slice(1);
+  return `${role === "va" ? "VA" : "Coach"} ${display}`;
+}
+
+/**
+ * Validate + normalise a candidate date to ISO `YYYY-MM-DD`. Accepts any string
+ * containing an ISO date and returns it only when it is a REAL calendar date;
+ * otherwise null. Never invents a date — a non-string or non-date is null.
+ */
+export function normalizeIsoDate(raw: unknown): string | null {
+  if (typeof raw !== "string") return null;
+  const m = raw.trim().match(/(\d{4})-(\d{2})-(\d{2})/);
+  if (!m) return null;
+  const [, y, mo, d] = m;
+  const year = Number(y);
+  const month = Number(mo);
+  const day = Number(d);
+  const dt = new Date(Date.UTC(year, month - 1, day));
+  if (
+    dt.getUTCFullYear() !== year ||
+    dt.getUTCMonth() !== month - 1 ||
+    dt.getUTCDate() !== day
+  ) {
+    return null;
+  }
+  return `${y}-${mo}-${d}`;
+}
+
+/** First confidently-present ISO date in free text (used by the backfill). */
+function detectIsoDateInText(text: string): string | null {
+  const m = text.match(/\b\d{4}-\d{2}-\d{2}\b/);
+  return m ? normalizeIsoDate(m[0]) : null;
+}
+
+/**
+ * Reduce a source/original filename to a bare member name: drop duplicate-import
+ * suffixes ("(1)"), trailing descriptors after a dash ("Donald Hayes - Mitolyn"
+ * → "Donald Hayes"), and common meeting-export suffixes ("Adam Field Meeting
+ * Information" → "Adam Field"). Used as the member fallback when the model does
+ * not return one.
+ */
+export function memberNameFromSourceName(sourceName: string | null | undefined): string {
+  if (!sourceName) return "";
+  let s = sourceName.trim();
+  s = s.replace(/\s*\(\d+\)\s*$/, "");
+  s = s.replace(/\s*[-–—]\s+.*$/, "");
+  s = s.replace(/\s+meeting\s+(information|notes|recording|recap)\s*$/i, "");
+  s = s.replace(/\s+meeting\s*$/i, "");
+  return s.trim();
+}
+
+/**
+ * True when a title already follows the new grammar. When the call-type `folder`
+ * is known, the title must match that slug's full structure (e.g. a 1-on-1 title
+ * must carry its `(Coach …)` authority); without a folder we fall back to a
+ * known-prefix check.
+ */
+export function titleFollowsGrammar(
+  title: string | null | undefined,
+  folder?: SourceFolder | null,
+): boolean {
+  const t = (title ?? "").trim();
+  if (!t) return false;
+  const slug = folder?.slug;
+  const grammar = slug ? TITLE_GRAMMAR_BY_SLUG[slug] : undefined;
+  if (grammar) return grammar.test(t);
+  return TITLE_PREFIXES.some((p) => t.startsWith(`${p} — `));
+}
+
+export interface TranscriptTitleParts {
+  folder: SourceFolder | null;
+  authorityRole: AuthorityRole;
+  /** Resolved coach/VA name (any case); first name is used in the title. */
+  authorityName: string | null;
+  /** Member name (1-on-1) or topic/module (video/doc); null for group coaching. */
+  primarySubject: string | null;
+  /** Source/original filename — member fallback for 1-on-1 types. */
+  sourceName?: string | null;
+  /** Confidently-determined ISO date, or null. */
+  isoDate: string | null;
+}
+
+/**
+ * Assemble the working title from the type-specific grammar. Returns
+ * `titleNeedsInput: true` with an empty title when the REQUIRED primary subject
+ * (member for 1-on-1 types; coach for group coaching; topic for video/doc) can't
+ * be determined — the admin then fills it in. The date is appended only for the
+ * slugs whose grammar carries one, and only when present (never fabricated).
+ */
+export function assembleTranscriptTitle(
+  parts: TranscriptTitleParts,
+): { title: string; titleNeedsInput: boolean } {
+  const slug = parts.folder?.slug;
+  const prefix = (slug && TITLE_PREFIX_BY_SLUG[slug]) ?? callTypeLabel(parts.folder);
+  const datePart =
+    parts.isoDate && slug && SLUGS_WITH_DATE.has(slug) ? ` — ${parts.isoDate}` : "";
+  const blank = { title: "", titleNeedsInput: true };
+
+  if (slug && MEMBER_SUBJECT_SLUGS.has(slug)) {
+    const member =
+      parts.primarySubject?.trim() || memberNameFromSourceName(parts.sourceName);
+    const authority = renderAuthorityName(parts.authorityRole, parts.authorityName);
+    // The 1-on-1 grammar REQUIRES both the member and the authority — e.g.
+    // "Private Coaching — {Member} (Coach {First})". If either is unrecoverable,
+    // blank the title and flag it; never emit a partial, authority-less title.
+    if (!member || !authority) return blank;
+    return { title: `${prefix} — ${member} (${authority})${datePart}`, titleNeedsInput: false };
+  }
+
+  if (slug === "group_coaching") {
+    const authority = renderAuthorityName(parts.authorityRole, parts.authorityName);
+    if (!authority) return blank;
+    return { title: `${prefix} — ${authority}${datePart}`, titleNeedsInput: false };
+  }
+
+  // Video / document types (and untagged fallback): the subject is a topic/module.
+  const topic = parts.primarySubject?.trim();
+  if (!topic) return blank;
+  return { title: `${prefix} — ${topic}${datePart}`, titleNeedsInput: false };
+}
+
+// ───────────────────────────────────────────────────────────────────────────
 // Flag contract — the cleaner emits ONLY these two review-flag types. The model
 // is instructed to stay within them, but it can drift (e.g. invent an
 // "uncertain_term" flag for an unfamiliar proper noun) — and that invented
@@ -432,10 +627,19 @@ const CLEAN_SYSTEM_PROMPT = [
   "     recognise it. Do not otherwise reword what people said.",
   "4. Strip useless cruft: standalone timestamps, transcription-tool artefacts,",
   "   excess blank space. Keep the actual dialogue intact.",
-  "5. Propose a descriptive title: <authority> — <call type> — <date/time>",
-  "   (e.g. 'Coach Sasha — Private Coaching — 2025-01-14 2pm'). Take the date/time",
-  "   from the content/source if present; if it cannot be determined, omit it and",
-  "   set titleNeedsInput=true. A missing date is NOT a review flag.",
+  "5. EXTRACT TITLE BUILDING BLOCKS — do NOT compose the final title yourself; it",
+  "   is assembled downstream from these fields:",
+  "   - primarySubject: this FLIPS by call type. For a 1-on-1 call (private",
+  "     coaching or 1-on-1 VA) it is the MEMBER's real name — the non-authority",
+  "     participant — recovered from the source / original filename FIRST, then the",
+  "     transcript body; use their real name, never 'Member 1'. For a video or a",
+  "     document it is a concise topic / module title (e.g. 'Reading DIYTrax",
+  "     Stats'). For a GROUP coaching call there is no single subject — return",
+  "     null. Return null whenever you genuinely cannot determine it.",
+  "   - authority.detectedName: the coach/VA authority's name (first name is fine).",
+  "   - detectedDate: the call/recording date as ISO 'YYYY-MM-DD', and ONLY when",
+  "     you can confidently determine it from the content/source. Otherwise null.",
+  "     NEVER invent, guess, or approximate a date. A missing date is NOT a flag.",
   "",
   "FLAGGING — flag SPARINGLY. Because the transcript only needs to be good enough",
   "to mine, raise a flag ONLY when a human must intervene, which means EXACTLY one",
@@ -456,10 +660,9 @@ const CLEAN_SYSTEM_PROMPT = [
   "structure.",
   "",
   "Return ONLY a JSON object with keys: cleanedTranscript (string), authority",
-  "({ label, confidence: 'high'|'low', evidence, detectedName }), suggestedTitle",
-  "(string), detectedDateTime (string|null), titleNeedsInput (boolean), flags",
-  "(array of { type: 'garbled_content'|'uncertain_authority', text, reason,",
-  "confidence }).",
+  "({ label, confidence: 'high'|'low', evidence, detectedName }), primarySubject",
+  "(string|null), detectedDate (string|null, ISO 'YYYY-MM-DD'), flags (array of",
+  "{ type: 'garbled_content'|'uncertain_authority', text, reason, confidence }).",
 ].join("\n");
 
 /**
@@ -597,7 +800,7 @@ function buildCleanUserMessage(args: {
         authorityHint
           ? `The teaching authority for this call was already identified in part 1 as "${authorityHint}". Use that SAME label for them here, and label members consistently (Member 1, Member 2, ...).`
           : "The teaching authority was already identified in part 1 — reuse the same authority/member labelling here.",
-        "Title and authority were already decided from part 1; you may return empty strings for suggestedTitle / detectedDateTime and an empty authority object in this part.",
+        "Title building blocks and authority were already decided from part 1; you may return null for primarySubject / detectedDate and an empty authority object in this part.",
       );
     }
   }
@@ -722,10 +925,31 @@ export async function cleanTranscript(args: {
     });
   }
 
-  const titleNeedsInput = firstParsed.titleNeedsInput === true || !firstParsed.detectedDateTime;
-  const suggestedTitle = typeof firstParsed.suggestedTitle === "string" && firstParsed.suggestedTitle.trim()
-    ? firstParsed.suggestedTitle.trim()
-    : `${callTypeLabel(folder)}${sourceName ? ` — ${sourceName}` : ""}`;
+  // Auto-naming (Task #1518): assemble the title deterministically from the
+  // building blocks the model extracted, picking the grammar by call type. The
+  // authority name prefers a deterministic roster label match, then the model's
+  // detected name. The member (1-on-1 types) prefers the model's primary subject,
+  // then a cleaned source filename. The date is appended only when present.
+  const rosterAuthorityName = rosterHit.labelMatched[0]?.name ?? null;
+  const aiDetectedName =
+    typeof aiAuthority.detectedName === "string" && aiAuthority.detectedName.trim()
+      ? aiAuthority.detectedName.trim()
+      : null;
+  const authorityName = rosterAuthorityName ?? aiDetectedName;
+  const primarySubject =
+    typeof firstParsed.primarySubject === "string" && firstParsed.primarySubject.trim()
+      ? firstParsed.primarySubject.trim()
+      : null;
+  const isoDate = normalizeIsoDate(firstParsed.detectedDate);
+
+  const { title: suggestedTitle, titleNeedsInput } = assembleTranscriptTitle({
+    folder,
+    authorityRole,
+    authorityName,
+    primarySubject,
+    sourceName,
+    isoDate,
+  });
 
   return {
     cleanedContent,
@@ -736,6 +960,76 @@ export async function cleanTranscript(args: {
     titleNeedsInput,
     flags,
   };
+}
+
+/**
+ * Re-title the cleaned-but-unfiled transcripts in the holding store to the new
+ * grammar (Task #1518). A deterministic, idempotent data repair: it re-derives
+ * each title from stored data (no AI call), so it is safe to run on every boot.
+ *
+ * - Only touches docs with status `cleaned` (skips `uploaded` — they pick up the
+ *   new naming when cleaned — and `filed` — out of scope).
+ * - Skips docs whose title already follows the grammar (so it's a no-op after the
+ *   first run and never clobbers an admin-corrected / conforming title).
+ * - Authority name is detected from the cleaned body via the roster; the member
+ *   falls back to the cleaned source filename; the date is taken only when an
+ *   explicit ISO date is present in the body (never fabricated).
+ * - Never blanks an existing title: if assembly can't produce one, the doc is
+ *   left untouched for the admin to handle.
+ *
+ * Returns the number of docs updated.
+ */
+export async function retitleCleanedHoldingDocs(): Promise<number> {
+  const roster = await loadRosterMap();
+  const docs = await db
+    .select()
+    .from(transcriptCleanerDocumentsTable)
+    .where(eq(transcriptCleanerDocumentsTable.status, "cleaned"));
+
+  let updated = 0;
+  for (const doc of docs) {
+    const folder = resolveSourceFolder(doc.transcriptType);
+    if (titleFollowsGrammar(doc.title, folder)) continue;
+
+    // Never clobber an admin-customized title. The admin title editor writes only
+    // `title` (not suggestedTitle), so a non-empty title that matches NEITHER the
+    // imported proposedTitle NOR the last auto-generated suggestedTitle was
+    // hand-edited and must be preserved; an empty title is always safe to fill.
+    const currentTitle = (doc.title ?? "").trim();
+    const proposed = (doc.proposedTitle ?? "").trim();
+    const suggested = (doc.suggestedTitle ?? "").trim();
+    if (currentTitle && currentTitle !== proposed && currentTitle !== suggested) {
+      continue;
+    }
+
+    const role: AuthorityRole = isAuthorityRole(doc.authorityRole)
+      ? doc.authorityRole
+      : folder?.defaultAuthorityRole ?? DEFAULT_AUTHORITY_ROLE;
+    // Raw originalContent retains real speaker labels (e.g. "Bruce:"); the cleaned
+    // body is frequently anonymized to "Coach"/"Member N", so prefer the original
+    // for roster/authority detection and fall back to cleaned only if absent.
+    const authorityBody = doc.originalContent || doc.cleanedContent || "";
+    const dateBody = doc.cleanedContent || doc.originalContent || "";
+    const rosterHit = detectRosterAuthority(authorityBody, roster);
+
+    const { title, titleNeedsInput } = assembleTranscriptTitle({
+      folder,
+      authorityRole: role,
+      authorityName: rosterHit.labelMatched[0]?.name ?? null,
+      primarySubject: null,
+      sourceName: doc.sourceName,
+      isoDate: detectIsoDateInText(dateBody),
+    });
+    // Never blank out an existing title during a backfill; leave it for the admin.
+    if (!title || title === doc.title) continue;
+
+    await db
+      .update(transcriptCleanerDocumentsTable)
+      .set({ title, suggestedTitle: title, titleNeedsInput })
+      .where(eq(transcriptCleanerDocumentsTable.id, doc.id));
+    updated++;
+  }
+  return updated;
 }
 
 // ───────────────────────────────────────────────────────────────────────────
