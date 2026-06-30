@@ -784,34 +784,47 @@ function ReviewDialog({ docId, onClose, onChanged }: { docId: number; onClose: (
 
             {/* Flags */}
             {doc.flags && doc.flags.length > 0 && (
-              <div className="rounded-md border border-amber-300 bg-amber-50 dark:bg-amber-950/20 p-3 space-y-1.5">
-                <p className="text-xs font-semibold text-amber-700 dark:text-amber-400 uppercase tracking-wide flex items-center gap-1">
-                  <AlertTriangle className="w-3.5 h-3.5" /> {doc.flags.length} item{doc.flags.length === 1 ? "" : "s"} flagged for review
+              <div className="rounded-lg border border-amber-300 dark:border-amber-700/50 bg-amber-50/60 dark:bg-amber-950/20 p-3 space-y-2">
+                <p className="text-xs font-semibold text-amber-800 dark:text-amber-300 uppercase tracking-wide flex items-center gap-1.5">
+                  <AlertTriangle className="w-3.5 h-3.5 shrink-0" /> {doc.flags.length} item{doc.flags.length === 1 ? "" : "s"} flagged for review
                 </p>
-                <ul className="space-y-1">
+                <ul className="space-y-1.5">
                   {doc.flags.map((f, i) => {
                     const locatable = locatableSet.has(i);
                     const body = (
-                      <>
-                        <span className="font-medium">{f.type.replace(/_/g, " ")}:</span> {f.reason}
-                        {f.text && <span className="block text-amber-700/80 italic truncate">“{f.text}”</span>}
-                      </>
+                      <div className="space-y-1">
+                        <div className="flex items-start gap-2">
+                          <span className="inline-block shrink-0 rounded bg-amber-100 dark:bg-amber-900/50 text-amber-900 dark:text-amber-200 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide">
+                            {f.type.replace(/_/g, " ")}
+                          </span>
+                          <span className="text-foreground leading-snug">{f.reason}</span>
+                        </div>
+                        {f.text && (
+                          <p className="text-muted-foreground italic border-l-2 border-amber-400 dark:border-amber-600 pl-2 break-words">
+                            “{f.text}”
+                          </p>
+                        )}
+                      </div>
                     );
                     return (
-                      <li key={i} className="text-xs text-amber-800 dark:text-amber-300">
+                      <li key={i} className="text-xs">
                         {locatable ? (
                           <button
                             type="button"
                             onClick={() => handleFlagClick(i)}
-                            className={`w-full text-left rounded-sm px-1 -mx-1 hover:bg-amber-100/80 dark:hover:bg-amber-900/30 transition-colors ${
-                              activeFlag === i ? "bg-amber-100 dark:bg-amber-900/40 ring-1 ring-amber-400" : ""
+                            className={`block w-full text-left rounded-md border px-2.5 py-2 transition-colors ${
+                              activeFlag === i
+                                ? "border-amber-400 bg-amber-100/70 dark:bg-amber-900/40 ring-1 ring-amber-400"
+                                : "border-amber-200/70 dark:border-amber-800/40 bg-card dark:bg-background/40 hover:border-amber-300 hover:bg-amber-50 dark:hover:bg-amber-900/20"
                             }`}
                             title="Jump to this spot in the transcript"
                           >
                             {body}
                           </button>
                         ) : (
-                          <div>{body}</div>
+                          <div className="rounded-md border border-amber-200/70 dark:border-amber-800/40 bg-card dark:bg-background/40 px-2.5 py-2">
+                            {body}
+                          </div>
                         )}
                       </li>
                     );
