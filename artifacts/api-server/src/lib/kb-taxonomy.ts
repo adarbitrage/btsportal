@@ -244,12 +244,31 @@ export const CONCEPT_TAGS: readonly string[] = [
   "placement",
 ] as const;
 
-/** Tool / software tags — the named platforms in the Blitz workflow. */
+/**
+ * Tool / software tags — the named platforms across the current BTS product
+ * inventory: in-house software, the partner tools on the Tools page, the ad
+ * publishers (source-protected code names), and the affiliate networks.
+ * Retired products (NoEscape, LeiaPix/Immersity, MediaGo, LiveIntent, and the
+ * native networks Taboola/Outbrain/Revcontent/MGID) are deliberately excluded.
+ */
 export const TOOL_TAGS: readonly string[] = [
+  // In-house software.
   "flexy",
   "diytrax",
   "metricmover",
+  "gifster",
+  "pixelpress",
+  "scrapebot",
+  "cropbot",
+  // Partner tools (Tools page).
+  "affiliate-cmo",
+  "freeadcopy",
+  "anstrex",
+  // Ad publishers (source-protected code names).
   "caterpillar",
+  "grasshopper",
+  "crane",
+  // Affiliate networks.
   "media-mavens",
   "clickbank",
 ] as const;
@@ -279,11 +298,23 @@ const TAG_SET: ReadonlySet<string> = new Set(ALL_TAGS);
  * Every key MUST be a member of {@link ALL_TAGS}; guarded by a unit test.
  */
 export const TAG_TRIGGERS: Readonly<Record<string, readonly string[]>> = {
-  // Tool / software tags.
+  // Tool / software tags — in-house software.
   flexy: ["flexy"],
   diytrax: ["diytrax", "diy trax", "diy tracks"],
   metricmover: ["metricmover", "metric mover"],
+  gifster: ["gifster", "gif ster"],
+  pixelpress: ["pixelpress", "pixel press"],
+  scrapebot: ["scrapebot", "scrape bot"],
+  cropbot: ["cropbot", "crop bot"],
+  // Partner tools (Tools page).
+  "affiliate-cmo": ["affiliate cmo", "affiliatecmo"],
+  freeadcopy: ["freeadcopy", "free ad copy"],
+  anstrex: ["anstrex"],
+  // Ad publishers (source-protected code names).
   caterpillar: ["caterpillar"],
+  grasshopper: ["grasshopper", "grass hopper"],
+  crane: ["crane"],
+  // Affiliate networks.
   "media-mavens": ["media mavens", "mediamavens", "media maven"],
   clickbank: ["clickbank", "click bank"],
   // Concept tags.

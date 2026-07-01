@@ -63,6 +63,7 @@ import {
   stopTicketDeskDeliveryProbe,
 } from "./lib/ticketdesk-delivery-probe";
 import { seedBlitzDocs } from "./lib/blitz-seed";
+import { seedCoreTrainingSources } from "./lib/seed-core-training-sources";
 import { bootstrapCriticalPrerequisites } from "./lib/bootstrap-critical-prerequisites";
 import { purgeSeedCommunityPosts } from "./lib/seed-post-cleanup";
 import { seedCommunityStarterPosts } from "./lib/seed-community-starter-posts";
@@ -156,9 +157,17 @@ let server: ReturnType<typeof app.listen> | null = null;
   });
   server = app.listen(port, () => {
     console.log(`Server listening on port ${port}`);
-    seedBlitzDocs().catch((err) => {
-      console.error("[Blitz Seed] Startup seed failed:", err);
-    });
+    seedBlitzDocs()
+      .catch((err) => {
+        console.error("[Blitz Seed] Startup seed failed:", err);
+      })
+      .finally(() => {
+        // After Blitz lessons are guaranteed present, mine core training into
+        // the AI Source Knowledge corpus (idempotent; non-citable source).
+        seedCoreTrainingSources().catch((err) => {
+          console.error("[CoreTrainingSources] Startup seed failed:", err);
+        });
+      });
   });
 })();
 
