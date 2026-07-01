@@ -141,6 +141,32 @@ interface NodeCount {
   count: number;
 }
 
+// Synthesis Engine Part 2 (Task #1534): depth-aware coverage view.
+interface NodeCoverage {
+  slug: string;
+  label: string;
+  root: string;
+  importance: "high" | "normal";
+  sourceCount: number;
+  newSourceCount: number;
+  isAffected: boolean;
+  lastSynthesizedAt: string | null;
+  lastSynthesizedSourceCount: number | null;
+  liveDocCount: number;
+  liveDocTiers: string[];
+  expectedTier: "overview" | "curated";
+  depthGap: boolean;
+  depthGapReason: string | null;
+}
+
+interface SynthesisCoverage {
+  nodes: NodeCoverage[];
+  depthGapCount: number;
+  affectedCount: number;
+}
+
+type SynthScope = "all" | "shelf" | "covered" | "incremental" | "nodes";
+
 interface TagCount {
   tag: string;
   count: number;
@@ -316,6 +342,11 @@ export default function KnowledgeBaseReview() {
   const [tagCounts, setTagCounts] = useState<TagCount[]>([]);
   const [shelfCounts, setShelfCounts] = useState<ShelfCount[]>([]);
   const [nodeCounts, setNodeCounts] = useState<NodeCount[]>([]);
+  const [coverage, setCoverage] = useState<SynthesisCoverage | null>(null);
+  const [coverageLoading, setCoverageLoading] = useState(false);
+  const [showCoverage, setShowCoverage] = useState(false);
+  const [synthScope, setSynthScope] = useState<SynthScope>("all");
+  const [synthRoot, setSynthRoot] = useState("process");
   const [loading, setLoading] = useState(true);
   const [processing, setProcessing] = useState(false);
   const [pushing, setPushing] = useState(false);
@@ -505,14 +536,43 @@ export default function KnowledgeBaseReview() {
   const runSynthesis = async () => {
     setProcessing(true);
     try {
-      const res = await authFetch("/admin/knowledgebase/pipeline/synthesize", { method: "POST" });
+      const body: Record<string, unknown> = { scope: synthScope };
+      if (synthScope === "shelf") body.root = synthRoot;
+      const res = await authFetch("/admin/knowledgebase/pipeline/synthesize", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
       const data = await res.json();
+      if (!res.ok) {
+        toast({ title: data.error ?? "Failed to start synthesis", variant: "destructive" });
+        return;
+      }
       toast({ title: data.message ?? "Synthesizing…", description: "New truth-doc drafts land in the review queue." });
     } catch {
       toast({ title: "Failed to start synthesis", variant: "destructive" });
     } finally {
       setProcessing(false);
     }
+  };
+
+  const fetchCoverage = useCallback(async () => {
+    setCoverageLoading(true);
+    try {
+      const res = await authFetch("/admin/knowledgebase/pipeline/synthesis-coverage");
+      const data = await res.json();
+      if (res.ok) setCoverage(data as SynthesisCoverage);
+    } catch {
+      toast({ title: "Failed to load coverage", variant: "destructive" });
+    } finally {
+      setCoverageLoading(false);
+    }
+  }, []);
+
+  const toggleCoverage = () => {
+    const next = !showCoverage;
+    setShowCoverage(next);
+    if (next) fetchCoverage();
   };
 
   const runTriage = async () => {
@@ -1210,19 +1270,131 @@ export default function KnowledgeBaseReview() {
                 Classifies every screened source document into the taxonomy node(s) it informs. Run this before synthesizing.
               </TooltipContent>
             </Tooltip>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button onClick={runSynthesis} disabled={processing} variant="outline">
-                  {processing ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Play className="w-4 h-4 mr-2" />}
-                  Synthesize
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent className="max-w-xs">
-                Consolidates each taxonomy node's linked sources into ONE truth-doc draft with multi-source provenance and a corroboration count (needs review). Nothing goes live until a human approves and publishes.
-              </TooltipContent>
-            </Tooltip>
+            <div className="flex items-center gap-1">
+              <Select value={synthScope} onValueChange={(v) => setSynthScope(v as SynthScope)}>
+                <SelectTrigger className="h-9 w-[150px] text-xs"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All nodes</SelectItem>
+                  <SelectItem value="shelf">One shelf…</SelectItem>
+                  <SelectItem value="covered">Covered only</SelectItem>
+                  <SelectItem value="incremental">Incremental (new)</SelectItem>
+                </SelectContent>
+              </Select>
+              {synthScope === "shelf" && (
+                <Select value={synthRoot} onValueChange={setSynthRoot}>
+                  <SelectTrigger className="h-9 w-[130px] text-xs"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {HOME_ROOTS.map((r) => (<SelectItem key={r.value} value={r.value}>{r.label}</SelectItem>))}
+                  </SelectContent>
+                </Select>
+              )}
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button onClick={runSynthesis} disabled={processing} variant="outline">
+                    {processing ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Play className="w-4 h-4 mr-2" />}
+                    Synthesize
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent className="max-w-xs">
+                  Consolidates a node's linked sources into ONE truth-doc draft with multi-source provenance and a corroboration count (needs review). Scope controls which nodes run: all, one shelf, only nodes with sources, or just those with newly-classified material (incremental). Nothing goes live until a human approves and publishes.
+                </TooltipContent>
+              </Tooltip>
+            </div>
+            <Button onClick={toggleCoverage} variant="outline">
+              <Layers className="w-4 h-4 mr-2" />
+              {showCoverage ? "Hide Coverage" : "Coverage"}
+            </Button>
           </div>
         </div>
+
+        {showCoverage && (
+          <Card className="border-slate-200">
+            <CardContent className="py-4 px-4 space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <span className="font-semibold text-sm text-gray-900">Depth-Aware Coverage</span>
+                  {coverage && (
+                    <>
+                      <span className="text-xs text-gray-500">{coverage.nodes.length} nodes</span>
+                      {coverage.affectedCount > 0 && (
+                        <span className="text-xs px-2 py-0.5 rounded-full bg-blue-100 text-blue-700">
+                          {coverage.affectedCount} with new sources
+                        </span>
+                      )}
+                      {coverage.depthGapCount > 0 && (
+                        <span className="text-xs px-2 py-0.5 rounded-full bg-amber-100 text-amber-700">
+                          {coverage.depthGapCount} depth gap{coverage.depthGapCount === 1 ? "" : "s"} (advisory)
+                        </span>
+                      )}
+                    </>
+                  )}
+                </div>
+                <Button onClick={fetchCoverage} variant="ghost" size="sm" disabled={coverageLoading}>
+                  {coverageLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : "Refresh"}
+                </Button>
+              </div>
+              {coverageLoading && !coverage ? (
+                <div className="text-sm text-gray-500 py-4 text-center">Loading coverage…</div>
+              ) : coverage ? (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-xs">
+                    <thead>
+                      <tr className="text-left text-gray-500 border-b">
+                        <th className="py-1.5 pr-3 font-medium">Node</th>
+                        <th className="py-1.5 px-2 font-medium">Shelf</th>
+                        <th className="py-1.5 px-2 font-medium text-right">Sources</th>
+                        <th className="py-1.5 px-2 font-medium text-right">New</th>
+                        <th className="py-1.5 px-2 font-medium">Live docs</th>
+                        <th className="py-1.5 px-2 font-medium">Target tier</th>
+                        <th className="py-1.5 px-2 font-medium">Last synthesized</th>
+                        <th className="py-1.5 pl-2 font-medium">Flags</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {coverage.nodes.map((n) => (
+                        <tr key={n.slug} className="border-b border-gray-100 hover:bg-gray-50">
+                          <td className="py-1.5 pr-3">
+                            <span className="font-medium text-gray-900">{n.label}</span>
+                            {n.importance === "high" && (
+                              <span className="ml-1.5 text-[10px] px-1 py-0.5 rounded bg-purple-100 text-purple-700 align-middle">high</span>
+                            )}
+                          </td>
+                          <td className="py-1.5 px-2 text-gray-600">{n.root}</td>
+                          <td className="py-1.5 px-2 text-right tabular-nums">{n.sourceCount}</td>
+                          <td className="py-1.5 px-2 text-right tabular-nums">
+                            {n.newSourceCount > 0 ? <span className="text-blue-600 font-medium">{n.newSourceCount}</span> : <span className="text-gray-300">0</span>}
+                          </td>
+                          <td className="py-1.5 px-2 text-gray-600">
+                            {n.liveDocCount > 0 ? `${n.liveDocCount} (${n.liveDocTiers.join(", ")})` : <span className="text-gray-300">none</span>}
+                          </td>
+                          <td className="py-1.5 px-2 text-gray-600">{n.expectedTier}</td>
+                          <td className="py-1.5 px-2 text-gray-500">
+                            {n.lastSynthesizedAt ? new Date(n.lastSynthesizedAt).toLocaleDateString() : <span className="text-gray-300">never</span>}
+                          </td>
+                          <td className="py-1.5 pl-2">
+                            <div className="flex gap-1 flex-wrap">
+                              {n.isAffected && (
+                                <span className="text-[10px] px-1.5 py-0.5 rounded bg-blue-100 text-blue-700">new sources</span>
+                              )}
+                              {n.depthGap && (
+                                <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-100 text-amber-700" title={n.depthGapReason ?? undefined}>depth gap</span>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                  <p className="text-[11px] text-gray-400 mt-2">
+                    Depth-gap flags are advisory only — they highlight high-demand topics with enough source material but no published doc at the target depth. They never block publishing.
+                  </p>
+                </div>
+              ) : (
+                <div className="text-sm text-gray-500 py-4 text-center">No coverage data.</div>
+              )}
+            </CardContent>
+          </Card>
+        )}
 
         {/* Analysis status banner */}
         {triageStatus && (triageStatus.running || triageStatus.needsReview > 0) && (

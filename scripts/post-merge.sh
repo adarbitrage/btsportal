@@ -299,6 +299,23 @@ if [ -n "$DATABASE_URL" ]; then
   #     (ADD COLUMN IF NOT EXISTS).
   psql "$DATABASE_URL" -v ON_ERROR_STOP=1 \
     -f lib/db/drizzle/0089_kb_staging_synthesis_sources.sql >/dev/null
+
+  # 26. Synthesis Engine Part 2 — per-source "incorporated" marker (Task #1534).
+  #     Additive nullable column `ai_source_documents.incorporated_at` marking the
+  #     last time a source was folded into a node synthesis (NULL = never). Drives
+  #     incremental runs. Applying it here keeps the live-schema-drift gate green
+  #     so the conditional push stays skipped. Idempotent (ADD COLUMN IF NOT EXISTS).
+  psql "$DATABASE_URL" -v ON_ERROR_STOP=1 \
+    -f lib/db/drizzle/0090_ai_source_documents_incorporated_at.sql >/dev/null
+
+  # 27. Synthesis Engine Part 2 — durable per-node synthesis state (Task #1534).
+  #     New additive table `kb_node_synthesis_state` recording, per taxonomy node,
+  #     when it was last synthesized and from which source docs — the marker that
+  #     makes incremental re-synthesis of only affected nodes possible. Applying it
+  #     here keeps the live-schema-drift gate green so the conditional push stays
+  #     skipped. Idempotent (CREATE TABLE/INDEX IF NOT EXISTS).
+  psql "$DATABASE_URL" -v ON_ERROR_STOP=1 \
+    -f lib/db/drizzle/0091_kb_node_synthesis_state.sql >/dev/null
 fi
 
 # Schema sync — CONDITIONAL push.

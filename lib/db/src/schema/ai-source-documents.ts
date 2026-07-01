@@ -42,6 +42,10 @@ export const aiSourceDocumentsTable = pgTable("ai_source_documents", {
   sourceId: integer("source_id"),
   // Provenance: free-form note explaining where this came from / how it was mined.
   provenanceNote: text("provenance_note"),
+  // Synthesis Engine Part 2 (Task #1534): the last time this source was folded
+  // into a node synthesis. NULL = never incorporated (a brand-new source the
+  // incremental run should classify + route to its affected nodes).
+  incorporatedAt: timestamp("incorporated_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 }, (table) => [

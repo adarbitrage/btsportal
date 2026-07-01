@@ -336,3 +336,44 @@ export async function getNodeLinkCounts(): Promise<Record<string, number>> {
     .groupBy(kbSourceNodeLinksTable.node);
   return rows.reduce((acc, r) => ({ ...acc, [r.node]: r.cnt }), {} as Record<string, number>);
 }
+
+/**
+ * The source-doc ids currently linked to each node, keyed by node slug. This is
+ * the live "what material belongs to this node right now" set the Synthesis
+ * Engine (Part 2) compares against the durable per-node synthesis state to
+ * detect nodes affected by newly-classified sources.
+ */
+export async function getNodeCurrentSourceIds(): Promise<Map<string, number[]>> {
+  const rows = await db
+    .select({
+      node: kbSourceNodeLinksTable.node,
+      ids: sql<number[]>`array_agg(${kbSourceNodeLinksTable.sourceDocId})`,
+    })
+    .from(kbSourceNodeLinksTable)
+    .groupBy(kbSourceNodeLinksTable.node);
+  const map = new Map<string, number[]>();
+  for (const r of rows) map.set(r.node, (r.ids ?? []).filter((id): id is number => typeof id === "number"));
+  return map;
+}
+
+/**
+ * Per-node counts of linked sources split by whether they have ever been folded
+ * into a synthesis (`ai_source_documents.incorporated_at`). `newCount` is the
+ * number of linked sources that are brand new (never incorporated anywhere).
+ */
+export async function getNodeSourceIncorporationCounts(): Promise<
+  Map<string, { total: number; newCount: number }>
+> {
+  const rows = await db
+    .select({
+      node: kbSourceNodeLinksTable.node,
+      total: sql<number>`count(*)::int`,
+      newCount: sql<number>`count(*) FILTER (WHERE ${aiSourceDocumentsTable.incorporatedAt} IS NULL)::int`,
+    })
+    .from(kbSourceNodeLinksTable)
+    .innerJoin(aiSourceDocumentsTable, eq(kbSourceNodeLinksTable.sourceDocId, aiSourceDocumentsTable.id))
+    .groupBy(kbSourceNodeLinksTable.node);
+  const map = new Map<string, { total: number; newCount: number }>();
+  for (const r of rows) map.set(r.node, { total: r.total, newCount: r.newCount });
+  return map;
+}

@@ -30,12 +30,16 @@ import {
 } from "../../lib/kb-topic-index.js";
 import {
   synthesizeNode,
-  synthesizeAllNodesBackground,
+  synthesizeNodesBackground,
   getSynthesisState,
   isSynthesisRunning,
   isValidSynthesisNode,
+  resolveSynthesisScope,
+  getAffectedNodes,
+  getSynthesisCoverage,
+  type SynthesisScope,
 } from "../../lib/kb-synthesis.js";
-import { ALL_NODES } from "../../lib/kb-taxonomy.js";
+import { ALL_NODES, HOME_ROOT_SLUGS } from "../../lib/kb-taxonomy.js";
 
 const execFileAsync = promisify(execFile);
 const _require = createRequire(import.meta.url);
@@ -1651,15 +1655,52 @@ router.get("/synthesis-status", (_req: Request, res: Response) => {
   res.json(getSynthesisState());
 });
 
-/** Synthesize ALL nodes that have linked sources. Background; triages new drafts. */
-router.post("/synthesize", async (_req: Request, res: Response) => {
+/**
+ * Selective synthesis (Part 2). Body: { scope, root?, nodes?, minSources? }.
+ *   scope: "all" | "shelf" | "covered" | "incremental" | "nodes"
+ * Resolves to a concrete node list, then synthesizes just those in the
+ * background and triages the new drafts. Defaults to "all" for back-compat.
+ */
+router.post("/synthesize", async (req: Request, res: Response) => {
   try {
     if (isSynthesisRunning()) {
       res.json({ message: "Synthesis already running", running: true, state: getSynthesisState() });
       return;
     }
-    res.json({ message: "Synthesizing all nodes in background.", running: true });
-    synthesizeAllNodesBackground()
+    const rawScope = typeof req.body?.scope === "string" ? req.body.scope : "all";
+    const validScopes: SynthesisScope[] = ["all", "shelf", "covered", "incremental", "nodes"];
+    if (!validScopes.includes(rawScope as SynthesisScope)) {
+      res.status(400).json({ error: `Unknown scope: ${rawScope}` });
+      return;
+    }
+    const scope = rawScope as SynthesisScope;
+    const root = typeof req.body?.root === "string" ? req.body.root : null;
+    if (scope === "shelf" && (!root || !HOME_ROOT_SLUGS.includes(root))) {
+      res.status(400).json({ error: `Scope "shelf" requires a valid root (one of: ${HOME_ROOT_SLUGS.join(", ")})` });
+      return;
+    }
+    const nodes = Array.isArray(req.body?.nodes)
+      ? req.body.nodes.filter((n: unknown): n is string => typeof n === "string")
+      : [];
+    if (scope === "nodes" && nodes.length === 0) {
+      res.status(400).json({ error: `Scope "nodes" requires a non-empty nodes array` });
+      return;
+    }
+    const minSources = Number.isFinite(req.body?.minSources) ? Number(req.body.minSources) : undefined;
+
+    const targetNodes = await resolveSynthesisScope({ scope, root, nodes, minSources });
+    if (targetNodes.length === 0) {
+      res.json({ message: "No nodes matched the requested scope; nothing to synthesize.", running: false, targetNodes: [] });
+      return;
+    }
+
+    res.json({
+      message: `Synthesizing ${targetNodes.length} node(s) (scope: ${scope}) in background.`,
+      running: true,
+      scope,
+      targetNodes,
+    });
+    synthesizeNodesBackground(targetNodes)
       .then(async (createdIds) => {
         if (createdIds.length === 0) return;
         const drafts = await db
@@ -1669,6 +1710,26 @@ router.post("/synthesize", async (_req: Request, res: Response) => {
         await runTriageBackground(drafts);
       })
       .catch((err) => console.error("[Synthesis] Unhandled background error:", err));
+  } catch (err: unknown) {
+    res.status(500).json({ error: err instanceof Error ? err.message : "Unknown error" });
+  }
+});
+
+/** Depth-aware coverage view: per-node source depth, live docs, advisory depth gaps. */
+router.get("/synthesis-coverage", async (_req: Request, res: Response) => {
+  try {
+    const coverage = await getSynthesisCoverage();
+    res.json({ ...coverage, running: isSynthesisRunning(), state: getSynthesisState() });
+  } catch (err: unknown) {
+    res.status(500).json({ error: err instanceof Error ? err.message : "Unknown error" });
+  }
+});
+
+/** Nodes affected by newly-classified sources since their last synthesis. */
+router.get("/synthesis-affected", async (_req: Request, res: Response) => {
+  try {
+    const affected = await getAffectedNodes();
+    res.json({ affected, count: affected.length });
   } catch (err: unknown) {
     res.status(500).json({ error: err instanceof Error ? err.message : "Unknown error" });
   }

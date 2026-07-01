@@ -1,13 +1,27 @@
 import { db } from "@workspace/db";
-import { kbStagingDocsTable } from "@workspace/db/schema";
+import {
+  kbStagingDocsTable,
+  aiSourceDocumentsTable,
+  aiLiveDocumentsTable,
+  kbNodeSynthesisStateTable,
+} from "@workspace/db/schema";
+import { sql, inArray, eq } from "drizzle-orm";
 import {
   ALL_NODES,
   isNode,
   AUTHORITY_ROLES,
+  nodeImportance,
   type AuthorityRole,
+  type NodeImportance,
   type TaxonomyNode,
 } from "./kb-taxonomy.js";
-import { getNodeSourceLinks, type NodeSource } from "./kb-topic-index.js";
+import {
+  getNodeSourceLinks,
+  getNodeLinkCounts,
+  getNodeCurrentSourceIds,
+  getNodeSourceIncorporationCounts,
+  type NodeSource,
+} from "./kb-topic-index.js";
 
 /**
  * Synthesis Engine (Task #1533, Part 1).
@@ -398,6 +412,46 @@ export async function synthesizeNode(nodeSlug: string): Promise<SynthesizeResult
     }
   }
 
+  // ── Durable synthesis state (Part 2) ──────────────────────────────────────
+  // Record what this run consumed so incremental runs can tell, later, whether
+  // new material has landed for this node. We record the FULL set of currently
+  // linked source ids (not just the top-N consolidated) as the "considered" set,
+  // so any newly-linked source flags the node next time — and stamp the sources
+  // that materially contributed as incorporated. Best-effort: a bookkeeping
+  // failure must not fail the (already-created) draft.
+  const linkedIds = linked.map((l) => l.source.id);
+  const contributingIds = contributing.map((s) => s.id);
+  try {
+    if (contributingIds.length > 0) {
+      await db
+        .update(aiSourceDocumentsTable)
+        .set({ incorporatedAt: new Date() })
+        .where(inArray(aiSourceDocumentsTable.id, contributingIds));
+    }
+    await db
+      .insert(kbNodeSynthesisStateTable)
+      .values({
+        node: node.slug,
+        homeRoot: node.root,
+        lastSynthesizedAt: new Date(),
+        sourceDocIds: linkedIds,
+        sourceCount: linkedIds.length,
+        lastDraftId: draft?.id ?? null,
+      })
+      .onConflictDoUpdate({
+        target: kbNodeSynthesisStateTable.node,
+        set: {
+          homeRoot: node.root,
+          lastSynthesizedAt: new Date(),
+          sourceDocIds: linkedIds,
+          sourceCount: linkedIds.length,
+          lastDraftId: draft?.id ?? null,
+        },
+      });
+  } catch (err) {
+    console.error(`[Synthesis] failed to persist synthesis state for node ${node.slug}:`, err instanceof Error ? err.message : err);
+  }
+
   return { node: node.slug, draftId: draft?.id ?? null, atomicDraftIds, sourceCount: usable.length };
 }
 
@@ -407,10 +461,22 @@ export async function synthesizeNode(nodeSlug: string): Promise<SynthesizeResult
  * caller can kick off triage on exactly the new drafts.
  */
 export async function synthesizeAllNodesBackground(): Promise<number[]> {
+  return synthesizeNodesBackground(ALL_NODES.map((n) => n.slug));
+}
+
+/**
+ * Synthesize a SPECIFIC set of nodes in the background (selective / incremental
+ * runs, Part 2). Unknown slugs are dropped. Create-only, so re-synthesizing a
+ * subset never touches other nodes' pending drafts. Fire-and-forget; progress is
+ * exposed via {@link getSynthesisState}. Returns the created draft ids so the
+ * caller can triage exactly the new drafts.
+ */
+export async function synthesizeNodesBackground(nodeSlugs: string[]): Promise<number[]> {
   if (_state.running) return [];
+  const slugs = [...new Set(nodeSlugs)].filter((s) => isNode(s));
   _state = {
     running: true,
-    totalNodes: ALL_NODES.length,
+    totalNodes: slugs.length,
     processedNodes: 0,
     createdDrafts: 0,
     currentNode: null,
@@ -421,14 +487,14 @@ export async function synthesizeAllNodesBackground(): Promise<number[]> {
 
   const created: number[] = [];
   try {
-    for (const node of ALL_NODES) {
-      _state.currentNode = node.slug;
+    for (const slug of slugs) {
+      _state.currentNode = slug;
       try {
-        const result = await synthesizeNode(node.slug);
+        const result = await synthesizeNode(slug);
         if (result.draftId) created.push(result.draftId);
         created.push(...result.atomicDraftIds);
       } catch (err) {
-        console.error(`[Synthesis] Failed to synthesize node ${node.slug}:`, err instanceof Error ? err.message : err);
+        console.error(`[Synthesis] Failed to synthesize node ${slug}:`, err instanceof Error ? err.message : err);
       }
       _state.processedNodes += 1;
     }
@@ -441,6 +507,225 @@ export async function synthesizeAllNodesBackground(): Promise<number[]> {
     _state.finishedAt = new Date().toISOString();
   }
   return created;
+}
+
+// ── Selective scope resolution (Part 2) ──────────────────────────────────────
+
+export type SynthesisScope = "all" | "shelf" | "covered" | "incremental" | "nodes";
+
+export interface ResolveScopeOpts {
+  scope: SynthesisScope;
+  root?: string | null;
+  nodes?: string[];
+  minSources?: number;
+}
+
+/** Minimum linked sources a node needs to count as "covered" for a bulk run. */
+export const COVERED_MIN_SOURCES = 1;
+
+/**
+ * Resolve a requested synthesis scope into the concrete list of node slugs to
+ * run. `synthesizeNode` itself skips nodes with no usable material, so this only
+ * needs to produce the candidate set:
+ *  - "all"         → every node.
+ *  - "shelf"       → every node in `root`.
+ *  - "covered"     → nodes with >= minSources (default COVERED_MIN_SOURCES) links.
+ *  - "incremental" → nodes affected by newly-linked sources since last synthesis.
+ *  - "nodes"       → the explicit `nodes` list (unknown slugs dropped downstream).
+ */
+export async function resolveSynthesisScope(opts: ResolveScopeOpts): Promise<string[]> {
+  switch (opts.scope) {
+    case "all":
+      return ALL_NODES.map((n) => n.slug);
+    case "shelf": {
+      const root = (opts.root ?? "").trim();
+      return ALL_NODES.filter((n) => n.root === root).map((n) => n.slug);
+    }
+    case "covered": {
+      const min = Math.max(1, opts.minSources ?? COVERED_MIN_SOURCES);
+      const counts = await getNodeLinkCounts();
+      return ALL_NODES.filter((n) => (counts[n.slug] ?? 0) >= min).map((n) => n.slug);
+    }
+    case "incremental":
+      return getAffectedNodes();
+    case "nodes":
+      return [...new Set(opts.nodes ?? [])].filter((s) => isNode(s));
+    default:
+      return [];
+  }
+}
+
+// ── Incremental detection (Part 2) ───────────────────────────────────────────
+
+/** The durable synthesis state keyed by node → recorded source-id set. */
+async function getSynthesisStateSets(): Promise<Map<string, Set<number>>> {
+  const rows = await db
+    .select({ node: kbNodeSynthesisStateTable.node, ids: kbNodeSynthesisStateTable.sourceDocIds })
+    .from(kbNodeSynthesisStateTable);
+  const map = new Map<string, Set<number>>();
+  for (const r of rows) map.set(r.node, new Set((r.ids ?? []) as number[]));
+  return map;
+}
+
+/**
+ * Nodes affected by newly-classified sources — i.e. a node is affected when it
+ * has linked sources now AND either it was never synthesized, or its current
+ * linked-source set contains an id that was not present at the last synthesis.
+ * This is the engine behind real incremental runs: re-synthesize only these.
+ */
+export async function getAffectedNodes(): Promise<string[]> {
+  const [current, states] = await Promise.all([getNodeCurrentSourceIds(), getSynthesisStateSets()]);
+  const affected: string[] = [];
+  for (const node of ALL_NODES) {
+    const ids = current.get(node.slug) ?? [];
+    if (ids.length === 0) continue;
+    const prev = states.get(node.slug);
+    if (!prev || ids.some((id) => !prev.has(id))) affected.push(node.slug);
+  }
+  return affected;
+}
+
+// ── Depth-aware coverage view (Part 2) ───────────────────────────────────────
+
+/** The published depth tier a node's root targets (exported for the coverage view). */
+export function expectedDepthTier(node: TaxonomyNode): { docClassTarget: "overview" | "curated"; ceiling: string } {
+  return depthTierFor(node);
+}
+
+/**
+ * Minimum linked sources before a high-importance node's missing depth tier is
+ * worth an advisory flag. Below this we have too little material to justify a
+ * deeper doc, so staying quiet avoids noise.
+ */
+export const DEPTH_GAP_MIN_SOURCES = 3;
+
+export interface NodeCoverage {
+  slug: string;
+  label: string;
+  root: string;
+  importance: NodeImportance;
+  /** Sources currently linked to this node (topic index). */
+  sourceCount: number;
+  /** Of those, how many are brand new (never incorporated into any synthesis). */
+  newSourceCount: number;
+  /** Whether new/changed sources have landed since the last synthesis. */
+  isAffected: boolean;
+  /** Last synthesis time (ISO) or null if never synthesized. */
+  lastSynthesizedAt: string | null;
+  /** Source count fed into the last synthesis (null if never). */
+  lastSynthesizedSourceCount: number | null;
+  /** Citable live docs published at this node. */
+  liveDocCount: number;
+  /** Distinct citable doc_class tiers present among this node's live docs. */
+  liveDocTiers: string[];
+  /** The depth tier this node's root targets ('overview' | 'curated'). */
+  expectedTier: "overview" | "curated";
+  /** ADVISORY only — never a publish blocker. True when importance is high, the
+   *  node has >= DEPTH_GAP_MIN_SOURCES sources, and the expected tier isn't published. */
+  depthGap: boolean;
+  depthGapReason: string | null;
+}
+
+/**
+ * The depth-aware coverage view: per node, how much source material exists, how
+ * new it is, whether a synthesis is stale, which citable live docs exist and at
+ * what depth, plus a calibrated (importance + source-count gated) ADVISORY
+ * depth-gap flag. Never gates publishing — it only informs the reviewer.
+ */
+export async function getSynthesisCoverage(): Promise<{
+  nodes: NodeCoverage[];
+  depthGapCount: number;
+  affectedCount: number;
+}> {
+  const [counts, incorp, current, states, liveRows] = await Promise.all([
+    getNodeLinkCounts(),
+    getNodeSourceIncorporationCounts(),
+    getNodeCurrentSourceIds(),
+    getSynthesisStateSets(),
+    db
+      .select({
+        node: aiLiveDocumentsTable.node,
+        docClass: aiLiveDocumentsTable.docClass,
+        cnt: sql<number>`count(*)::int`,
+      })
+      .from(aiLiveDocumentsTable)
+      // Citable = curated/overview class, human-verified, member-facing.
+      .where(sql`${aiLiveDocumentsTable.docClass} IN ('curated','overview')
+        AND ${aiLiveDocumentsTable.lastVerified} IS NOT NULL
+        AND ${aiLiveDocumentsTable.audience} <> 'admin'
+        AND ${aiLiveDocumentsTable.node} IS NOT NULL`)
+      .groupBy(aiLiveDocumentsTable.node, aiLiveDocumentsTable.docClass),
+  ]);
+
+  // Fold live-doc rows into per-node { count, tiers }.
+  const liveByNode = new Map<string, { count: number; tiers: Set<string> }>();
+  for (const r of liveRows) {
+    if (!r.node) continue;
+    const entry = liveByNode.get(r.node) ?? { count: 0, tiers: new Set<string>() };
+    entry.count += r.cnt;
+    if (r.docClass) entry.tiers.add(r.docClass);
+    liveByNode.set(r.node, entry);
+  }
+
+  const stateRows = await db
+    .select({
+      node: kbNodeSynthesisStateTable.node,
+      lastSynthesizedAt: kbNodeSynthesisStateTable.lastSynthesizedAt,
+      sourceCount: kbNodeSynthesisStateTable.sourceCount,
+    })
+    .from(kbNodeSynthesisStateTable);
+  const stateMeta = new Map(stateRows.map((r) => [r.node, r]));
+
+  let depthGapCount = 0;
+  let affectedCount = 0;
+  const nodes: NodeCoverage[] = ALL_NODES.map((n) => {
+    const sourceCount = counts[n.slug] ?? 0;
+    const newSourceCount = incorp.get(n.slug)?.newCount ?? 0;
+    const ids = current.get(n.slug) ?? [];
+    const prev = states.get(n.slug);
+    const isAffected = ids.length > 0 && (!prev || ids.some((id) => !prev.has(id)));
+    if (isAffected) affectedCount += 1;
+
+    const live = liveByNode.get(n.slug);
+    const liveDocCount = live?.count ?? 0;
+    const liveDocTiers = live ? [...live.tiers] : [];
+    const tier = depthTierFor(n);
+    const importance = nodeImportance(n.slug);
+
+    let depthGap = false;
+    let depthGapReason: string | null = null;
+    if (
+      importance === "high" &&
+      sourceCount >= DEPTH_GAP_MIN_SOURCES &&
+      !liveDocTiers.includes(tier.docClassTarget)
+    ) {
+      depthGap = true;
+      depthGapReason = liveDocCount === 0
+        ? `High-demand topic with ${sourceCount} sources but no published doc yet.`
+        : `High-demand topic with ${sourceCount} sources but no published ${tier.docClassTarget} doc yet.`;
+      depthGapCount += 1;
+    }
+
+    const meta = stateMeta.get(n.slug);
+    return {
+      slug: n.slug,
+      label: n.label,
+      root: n.root,
+      importance,
+      sourceCount,
+      newSourceCount,
+      isAffected,
+      lastSynthesizedAt: meta?.lastSynthesizedAt ? meta.lastSynthesizedAt.toISOString() : null,
+      lastSynthesizedSourceCount: meta?.sourceCount ?? null,
+      liveDocCount,
+      liveDocTiers,
+      expectedTier: tier.docClassTarget,
+      depthGap,
+      depthGapReason,
+    };
+  });
+
+  return { nodes, depthGapCount, affectedCount };
 }
 
 /** Guard used by routes to validate a node slug param. */

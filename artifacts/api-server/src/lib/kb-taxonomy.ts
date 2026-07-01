@@ -142,6 +142,50 @@ const NODE_BY_SLUG: ReadonlyMap<string, TaxonomyNode> = new Map(
 );
 
 // ───────────────────────────────────────────────────────────────────────────
+// Node importance — the depth-gap calibration signal (Synthesis Engine Part 2).
+// ───────────────────────────────────────────────────────────────────────────
+
+/**
+ * The highest-demand / highest-stakes nodes. Synthesis Engine Part 2 uses this
+ * (together with a per-node source-count threshold) to decide when to raise an
+ * ADVISORY "depth gap" flag in the coverage view — i.e. "this node matters and
+ * has enough source material to justify a deeper doc, but the expected depth
+ * tier isn't published yet." It is deliberately a curated SUBSET, not every
+ * node: flagging everything would make the advisory noise. The flag is never a
+ * publish blocker — it only nudges a human reviewer's attention.
+ *
+ * Chosen as the nodes a member hits first / most, where money is spent or made,
+ * plus the Operations "how to get help" hub (the handoff surface):
+ *  - Process:    foundations (entry), network-and-offer (first decision),
+ *                testing (spend), scaling (profit).
+ *  - Concepts:   angles + headlines-and-copy (top creative demand),
+ *                testing-methodology, metrics-and-economics.
+ *  - Operations: billing-and-refunds (money/policy), coaching-access,
+ *                getting-help, navigation (the help/handoff surface).
+ */
+export const HIGH_IMPORTANCE_NODES: ReadonlySet<string> = new Set([
+  "foundations",
+  "network-and-offer",
+  "testing",
+  "scaling",
+  "angles",
+  "headlines-and-copy",
+  "testing-methodology",
+  "metrics-and-economics",
+  "billing-and-refunds",
+  "coaching-access",
+  "getting-help",
+  "navigation",
+]);
+
+export type NodeImportance = "high" | "normal";
+
+/** A node's importance tier — 'high' for the curated high-demand set, else 'normal'. */
+export function nodeImportance(slug: string): NodeImportance {
+  return HIGH_IMPORTANCE_NODES.has(slug) ? "high" : "normal";
+}
+
+// ───────────────────────────────────────────────────────────────────────────
 // Ceiling + handoff — the depth-ceiling / handoff mechanism (foundation §3.6).
 // ───────────────────────────────────────────────────────────────────────────
 
