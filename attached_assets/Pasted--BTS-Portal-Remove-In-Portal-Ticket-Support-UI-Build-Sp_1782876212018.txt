@@ -1,0 +1,97 @@
+# BTS Portal — Remove In-Portal Ticket/Support UI (Build Spec)
+
+## Goal
+All ticketing lives in TicketDesk (a separate app). Remove every **portal-owned
+ticket/support UI surface** from the BTS portal — member-facing and admin-facing —
+so mentees and staff aren't confused. The BTS portal keeps **forwarding** support/
+voice/chat data to TicketDesk; only the in-portal UI goes.
+
+## KEEP — do not touch (hard protect list)
+These are NOT in scope. Do not remove, disable, or edit them:
+- **AI "BTS Assistant" bubble** — `ChatWidget.tsx` (gated on `chat:ai`). Internal AI,
+  unrelated to tickets. Keep entirely, EXCEPT remove its "create ticket from chat"
+  action (see Remove list).
+- **Embedded TicketDesk live-chat widget** — `index.html:10-13`
+  (`tickets.buildtestscale.com/widget.js`). This is the real TicketDesk chat line.
+  Keep.
+- **Entire api-server → TicketDesk forwarding integration.** Do NOT edit any of:
+  `lib/ticketdesk-client.ts`, `lib/ticketdesk-queue.ts`, `lib/ticketdesk-poller.ts`,
+  `lib/support-config/*`, `routes/tickets.ts` (incl. `POST /tickets` and the
+  `/webhooks/ticketdesk` inbound webhook), `routes/voice.ts` voice escalation, and
+  the delivery-tracking/backfill/retry backend. The portal UI and this plumbing are
+  decoupled — removing the UI must leave all of this running.
+- **Resource Vault / Collections** — `/admin/resources`, `/admin/collections`,
+  `/admin/vault/analytics` (`Resources`, `Collections`, `VaultAnalytics`). In active
+  use. They currently render inside the "Support Management" admin shell that's being
+  removed, so they must be **re-homed** (kept working, moved to their own admin nav
+  group), NOT deleted.
+- **Concierge / VA Calls / Compliance** — `/concierge`, `/va-calls`, `/compliance`.
+  Real member products (they share the internal ticket schema but are not support
+  tickets). Keep untouched, including their nav.
+
+## REMOVE — portal-owned ticket/support UI
+
+### Member-facing (highest priority — mentee clarity)
+- Sidebar "Support" leaf → `Sidebar.tsx:153` (`/support`, LifeBuoy).
+- Pages + routes: `/support` (`Support.tsx`), `/support/contact` (`GeneralSupport.tsx`),
+  `/support/tickets/:id` (`TicketDetail.tsx`), `/support/tickets/:id/rate`
+  (`SatisfactionSurveyPage`). Routes at `App.tsx:543-546`.
+- Dashboard **"TICKETS OPEN" stat card** → `Dashboard.tsx:109-112`.
+- Empty-state "Contact a super admin" link → `/support` at `Sidebar.tsx:768-773`.
+- The AI ChatWidget's **"create ticket from chat"** action only →
+  `ChatWidget.tsx:70-92`. Keep the rest of the widget working.
+
+### Admin-facing — the "Support Management" ticket panel
+- Pages + routes: `/admin/tickets` (`AdminTicketQueue`), `/admin/tickets/:id`
+  (`AdminTicketDetail`), `/admin/routing-rules` (`RoutingRules`),
+  `/admin/canned-responses` (`CannedResponses`), `/admin/agent-performance`
+  (`AgentPerformance`), `/admin/analytics` (`SupportAnalytics`). Routes
+  `App.tsx:559-564`; imports `App.tsx:99-104`.
+- Admin nav entries → `Sidebar.tsx:233-237` and `AdminLayout.tsx:28-32`, and the
+  admin **"Support" group header** (`Sidebar.tsx:228-237`).
+
+## Files Modified (summary)
+- `Sidebar.tsx` — remove the member "Support" leaf, the super-admin `/support`
+  link, and the admin "Support" ticket group; **re-home Resource Vault/Collections
+  nav** into their own group so they don't disappear with the removed shell.
+- `App.tsx` — remove the ticket routes + imports listed above; keep Resource Vault/
+  Collections routes and Concierge/VA/Compliance routes.
+- `AdminLayout.tsx` — remove the ticket nav items; keep Resource Vault/Collections
+  items (re-labelled/re-grouped so the shell no longer reads "Support Management" if
+  that heading only existed for tickets).
+- `Dashboard.tsx` — remove the "TICKETS OPEN" card.
+- `ChatWidget.tsx` — remove only the create-ticket action; keep the AI widget.
+- Delete the now-unused page components (`Support.tsx`, `GeneralSupport.tsx`,
+  `TicketDetail.tsx`, `AdminTicketQueue.tsx`, `AdminTicketDetail.tsx`,
+  `RoutingRules.tsx`, `CannedResponses.tsx`, `AgentPerformance.tsx`,
+  `SupportAnalytics.tsx`) only after confirming nothing else imports them.
+
+## Do NOT
+- Do NOT remove or edit any api-server file — the forwarding to TicketDesk must keep
+  running. (`POST /tickets` still exists server-side; it simply won't be called from
+  a removed portal form, which is intended.)
+- Do NOT remove the embedded `widget.js` in `index.html`.
+- Do NOT remove the AI assistant, Resource Vault/Collections, or Concierge/VA/
+  Compliance.
+- Note: removing the admin panel also removes the manual "Retry failed delivery"
+  button. This is accepted — backend auto-retry + backfill continue. No action needed.
+
+## Acceptance
+- No mentee-visible "Support"/tickets nav, `/support` pages, or "TICKETS OPEN" card
+  remains; the AI assistant bubble and the TicketDesk chat widget still load.
+- No admin ticket panel (Ticket Queue, Routing Rules, Canned Responses, Agent
+  Performance, Support Analytics) or its nav remains.
+- **Resource Vault / Collections still reachable and working**, under their own nav
+  (not orphaned).
+- **Concierge / VA Calls / Compliance still reachable and working.**
+- The TicketDesk forwarding still runs: creating a voice escalation still POSTs to
+  TicketDesk, inbound TicketDesk webhooks still land, delivery/backfill jobs still
+  run — verify no api-server file changed.
+- Typecheck passes; no dangling imports to deleted components.
+
+## Verification to report back
+- Confirm zero api-server files were modified (git diff scoped to `artifacts/portal`
+  only, plus nav/route files — nothing under `artifacts/api-server`).
+- Confirm Resource Vault/Collections and Concierge/VA/Compliance routes still
+  resolve and their nav still shows.
+- Confirm the embedded TicketDesk widget and AI assistant still render.
