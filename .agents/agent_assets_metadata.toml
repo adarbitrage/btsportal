@@ -210,3 +210,9 @@ id = "F3GNDteuzoVSMpoF48bo3"
 uri = "file://docs/transcript-triage/findings-report.md"
 type = "text"
 title = "Structure Findings + Cleaner Spec"
+
+[[outputs]]
+id = "G1AN_2vs7GGNS0TJA3bfY"
+uri = "file://exports/BTS_12Month_Mentorship_Agreement_Preview.pdf"
+type = "pdf"
+title = "BTS 12-Month Mentorship Mentee Agreement"
