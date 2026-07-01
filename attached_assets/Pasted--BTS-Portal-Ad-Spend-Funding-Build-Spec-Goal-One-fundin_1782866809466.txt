@@ -1,0 +1,59 @@
+# BTS Portal — Ad-Spend Funding (Build Spec)
+
+## Goal
+One funding page. Member enters a deposit amount ($1,000–$10,000), pays via the
+native NMI checkout, and the confirmed charge is credited to their ad-spend balance.
+The balance ledger does not exist yet, so this build creates it; your developer's
+draw-down debits the same ledger.
+
+## The ledger (the shared contract with your developer)
+Two tables. Transactions are the source of truth; balance is their sum.
+
+- `ad_spend_transactions` — one row per money movement:
+  `id`, `user_id`, `amount_cents` (positive = credit, negative = debit), `type`
+  (`funding` | `spend`), `source` (e.g. `nmi`), `nmi_transaction_id` (nullable, for
+  funding rows — **unique**, for idempotency), `created_at`, optional `note`.
+- Current balance = `SUM(amount_cents)` for the member. Expose it as a single
+  read (`GET /api/ad-spend/balance`).
+
+Funding writes `type='funding'` credit rows. Draw-down (your dev) writes
+`type='spend'` debit rows. One table, two writers.
+
+## Funding flow
+1. **Page** (`/ad-spend/fund` or similar): member enters an amount; validate
+   $1,000–$10,000 client-side; on submit, charge via the existing NMI checkout for
+   that amount.
+2. **Charge**: use the native NMI billing system already built — one-time charge of
+   the requested amount.
+3. **Credit on confirmation**: when NMI confirms the charge, insert a `funding`
+   credit row for the **amount NMI reports as charged** (not the requested amount),
+   keyed by `nmi_transaction_id`.
+4. **Display**: member sees their current balance (the SUM) on the funding page.
+
+## Hard rules
+- **Enforce $1,000–$10,000 server-side** in the charge/credit handler, not just the
+  page. Reject out-of-bounds amounts even if a manipulated request reaches the
+  server. This gates real money.
+- **Credit = NMI-confirmed charged amount**, never the requested amount. Request
+  drives the charge; the confirmed charge drives the credit.
+- **Idempotent**: dedup on `nmi_transaction_id` so a repeated confirmation/webhook
+  never double-credits.
+- **Not an entitlement product.** This grants no entitlement keys, gets no rank in
+  the level engine, and never appears in the content-access map's product columns.
+  Funding ad spend must not gate content or change a member's level. (Model it as a
+  funding flow, not a `products` row. If a catalog/reporting record is wanted later,
+  add a product of `type='funding'` that grants nothing.)
+
+## Acceptance
+- Depositing $2,500 charges $2,500 via NMI and adds a $2,500 credit; balance
+  reflects it.
+- A request for $500 or $50,000 is rejected server-side.
+- A member's level and content access are unchanged after funding.
+- Replaying the NMI confirmation for one transaction credits once, not twice.
+- Balance = sum of all funding credits minus draw-down debits (once your dev writes
+  spend rows).
+
+## Handoff
+The ledger schema above is the contract. Your developer builds the draw-down to
+insert `type='spend'` debit rows against `ad_spend_transactions` and reads balance
+the same way. Nothing else on the funding side depends on their work.
