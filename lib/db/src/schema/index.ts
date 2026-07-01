@@ -64,6 +64,7 @@ export * from "./messages";
 export * from "./kb-staging";
 export * from "./blitz-lessons";
 export * from "./ai-live-documents";
+export * from "./ai-live-document-versions";
 export * from "./course-progress";
 export * from "./blitz-events";
 export * from "./member-app-instances";

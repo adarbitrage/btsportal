@@ -5,7 +5,7 @@ import {
   aiLiveDocumentsTable,
   kbNodeSynthesisStateTable,
 } from "@workspace/db/schema";
-import { sql, inArray, eq } from "drizzle-orm";
+import { sql, inArray, eq, desc } from "drizzle-orm";
 import {
   ALL_NODES,
   isNode,
@@ -288,9 +288,91 @@ export interface SynthesizeResult {
   skippedReason?: string;
 }
 
+// ── Update-vs-create resolution (Part 3, Task #1535) ─────────────────────────
+//
+// When a node already has a PUBLISHED, citable Live AI Document, a fresh
+// synthesis of that node must propose a REVISION of that doc — routed through the
+// same human gate — instead of creating an orphan duplicate. These helpers find
+// the live doc a draft should supersede.
+
+interface LiveDocMatch {
+  id: number;
+  title: string;
+  content: string;
+}
+
+// The MAIN consolidated truth-doc for a node: citable, non-atomic (atomic "What
+// is …?" definition docs are matched separately by exact title), most-recently
+// updated. Null when the node has no published doc yet (→ create-new).
+async function findLiveDocForNode(nodeSlug: string): Promise<LiveDocMatch | null> {
+  const rows = await db
+    .select({
+      id: aiLiveDocumentsTable.id,
+      title: aiLiveDocumentsTable.title,
+      content: aiLiveDocumentsTable.content,
+    })
+    .from(aiLiveDocumentsTable)
+    .where(sql`
+      ${aiLiveDocumentsTable.node} = ${nodeSlug}
+      AND ${aiLiveDocumentsTable.docClass} IN ('curated','overview')
+      AND ${aiLiveDocumentsTable.lastVerified} IS NOT NULL
+      AND ${aiLiveDocumentsTable.audience} <> 'admin'
+      AND ${aiLiveDocumentsTable.title} NOT ILIKE 'What is %'
+    `)
+    .orderBy(desc(aiLiveDocumentsTable.updatedAt))
+    .limit(1);
+  return rows[0] ?? null;
+}
+
+// Exact-title match for an atomic definition doc ("What is X?").
+async function findLiveDocByTitle(title: string): Promise<LiveDocMatch | null> {
+  const rows = await db
+    .select({
+      id: aiLiveDocumentsTable.id,
+      title: aiLiveDocumentsTable.title,
+      content: aiLiveDocumentsTable.content,
+    })
+    .from(aiLiveDocumentsTable)
+    .where(sql`
+      ${aiLiveDocumentsTable.title} = ${title}
+      AND ${aiLiveDocumentsTable.docClass} IN ('curated','overview')
+      AND ${aiLiveDocumentsTable.lastVerified} IS NOT NULL
+      AND ${aiLiveDocumentsTable.audience} <> 'admin'
+    `)
+    .limit(1);
+  return rows[0] ?? null;
+}
+
+// Best-effort human-readable diff of what a revision adds/changes vs the current
+// published version. Falls back to a source-based summary when the LLM is
+// unavailable so the reviewer always sees *why* this is a proposed update.
+async function summarizeRevision(
+  node: TaxonomyNode,
+  priorContent: string,
+  newContent: string,
+  newSourceNames: string[],
+): Promise<string> {
+  const fallback =
+    newSourceNames.length > 0
+      ? `Incorporates ${newSourceNames.length} new source(s): ${newSourceNames.slice(0, 5).join("; ")}${newSourceNames.length > 5 ? "; …" : ""}.`
+      : "Revised consolidation reflecting the latest source material for this topic.";
+  try {
+    const system = `You compare a CURRENTLY PUBLISHED knowledge document with a PROPOSED REVISION of it and summarize, in 2-5 short markdown bullet points, what the revision ADDS, CHANGES or CORRECTS. Focus on substance a reviewer must check. Bullets only, no preamble. If nothing material changed, output exactly "- No material change; refreshed consolidation."`;
+    const user = `TOPIC: "${node.label}"\n\n=== CURRENTLY PUBLISHED ===\n${priorContent.slice(0, 6000)}\n\n=== PROPOSED REVISION ===\n${newContent.slice(0, 6000)}`;
+    const out = await callLLM(system, user, 700);
+    return out?.trim() || fallback;
+  } catch (err) {
+    console.error(`[Synthesis] revision diff failed for node ${node.slug}:`, err instanceof Error ? err.message : err);
+    return fallback;
+  }
+}
+
 /**
- * Synthesize ONE node into a single truth-doc draft. Create-only. Returns the
- * created draft id (or a skip reason when the node has no linked sources).
+ * Synthesize ONE node into a single truth-doc draft. When the node already has a
+ * published Live AI Document, the draft is authored as a REVISION of it (update
+ * kind, target link, diff summary) so the human gate can supersede the current
+ * version instead of publishing an orphan duplicate. Returns the created draft
+ * id (or a skip reason when the node has no linked sources).
  */
 export async function synthesizeNode(nodeSlug: string): Promise<SynthesizeResult> {
   const node = ALL_NODES.find((n) => n.slug === nodeSlug);
@@ -300,6 +382,17 @@ export async function synthesizeNode(nodeSlug: string): Promise<SynthesizeResult
   if (linked.length === 0) {
     return { node: node.slug, draftId: null, atomicDraftIds: [], sourceCount: 0, skippedReason: "no linked sources" };
   }
+
+  // Which source docs were already synthesized for this node last time — used to
+  // flag genuinely-NEW material as the provenance behind a proposed revision.
+  const priorState = await db
+    .select({ sourceDocIds: kbNodeSynthesisStateTable.sourceDocIds })
+    .from(kbNodeSynthesisStateTable)
+    .where(eq(kbNodeSynthesisStateTable.node, node.slug))
+    .limit(1);
+  const priorSourceIds = new Set<number>(
+    Array.isArray(priorState[0]?.sourceDocIds) ? (priorState[0]!.sourceDocIds as number[]) : [],
+  );
 
   const top = linked.slice(0, MAX_SOURCES_PER_NODE);
   const tier = depthTierFor(node);
@@ -333,7 +426,26 @@ export async function synthesizeNode(nodeSlug: string): Promise<SynthesizeResult
     sourceName: e.source.sourceName ?? null,
     transcriptSourceId: e.source.sourceId ?? null,
     relevance: e.relevance,
+    isNew: !priorSourceIds.has(e.source.id),
   }));
+
+  // New-material provenance: the sources that weren't part of the last synthesis.
+  const newSourceNames = usable
+    .filter((e) => !priorSourceIds.has(e.source.id))
+    .map((e) => e.source.sourceName?.trim() || e.source.title)
+    .filter((n): n is string => !!n);
+
+  // Resolve whether this node already has a published Live AI Document. If so the
+  // draft is a REVISION of it: keep the published title stable, link the target,
+  // and author a diff summary so the reviewer sees what changed. Otherwise it is
+  // a brand-new doc (create path, unchanged).
+  const existingLive = await findLiveDocForNode(node.slug);
+  const mainTitle = existingLive ? existingLive.title : title;
+  const mainUpdateKind = existingLive ? "update" : "new";
+  const mainTargetLiveDocId = existingLive?.id ?? null;
+  const mainUpdateSummary = existingLive
+    ? await summarizeRevision(node, existingLive.content, body, newSourceNames)
+    : null;
 
   const sourcesSummary = contributing
     .map((s) => s.sourceName?.trim() || s.title)
@@ -344,7 +456,7 @@ export async function synthesizeNode(nodeSlug: string): Promise<SynthesizeResult
   const [draft] = await db
     .insert(kbStagingDocsTable)
     .values({
-      title,
+      title: mainTitle,
       content: body,
       category: node.root,
       homeRoot: node.root,
@@ -358,6 +470,9 @@ export async function synthesizeNode(nodeSlug: string): Promise<SynthesizeResult
       corroborationCount: usable.length,
       synthesisSources,
       sourceVideoTitle: sourcesSummary || null,
+      updateKind: mainUpdateKind,
+      targetLiveDocId: mainTargetLiveDocId,
+      updateSummary: mainUpdateSummary,
       aiSuggestedTaxonomy: {
         homeRoot: node.root,
         node: node.slug,
@@ -378,6 +493,9 @@ export async function synthesizeNode(nodeSlug: string): Promise<SynthesizeResult
     const defTitle = `What is ${def.term}?`;
     const defBody = def.definition + relatedTopicsMarkdown(node);
     try {
+      // An atomic term doc may already be published — revise it (by exact title)
+      // rather than spawning a duplicate.
+      const existingDef = await findLiveDocByTitle(defTitle);
       const [defDraft] = await db
         .insert(kbStagingDocsTable)
         .values({
@@ -395,6 +513,11 @@ export async function synthesizeNode(nodeSlug: string): Promise<SynthesizeResult
           corroborationCount: usable.length,
           synthesisSources,
           sourceVideoTitle: sourcesSummary || null,
+          updateKind: existingDef ? "update" : "new",
+          targetLiveDocId: existingDef?.id ?? null,
+          updateSummary: existingDef
+            ? await summarizeRevision(node, existingDef.content, defBody, newSourceNames)
+            : null,
           aiSuggestedTaxonomy: {
             homeRoot: node.root,
             node: node.slug,

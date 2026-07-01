@@ -96,9 +96,24 @@ export const kbStagingDocsTable = pgTable("kb_staging_docs", {
     sourceName: string | null;
     transcriptSourceId: number | null;
     relevance: number | null;
+    // Part 3: true when this source is NEW material (not present at the node's
+    // last synthesis) — the provenance that drove a proposed revision.
+    isNew?: boolean | null;
   }[]>(),
   // Reviewer parked this draft for a subject-matter expert (could not adjudicate).
   needsExpert: boolean("needs_expert").notNull().default(false),
+
+  // ── Synthesis Engine Part 3: update-vs-create (Task #1535) ─────────────────
+  // When synthesis overlaps a topic node that ALREADY has a published Live AI
+  // Document, the draft is a REVISION of that doc rather than a brand-new one.
+  //   updateKind      — 'new' (default/create, also NULL) | 'update' (supersede).
+  //   targetLiveDocId — the ai_live_documents row this revision supersedes
+  //                     (soft link; push falls back to create if it's gone).
+  //   updateSummary   — human-readable diff: what the new source material adds /
+  //                     changes vs the currently-published version.
+  updateKind: text("update_kind"),
+  targetLiveDocId: integer("target_live_doc_id"),
+  updateSummary: text("update_summary"),
 
   // Upload-specific fields (added alongside the KB upload feature)
   audience: text("audience").notNull().default("member"),

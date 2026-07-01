@@ -86,6 +86,7 @@ interface SynthSource {
   sourceName?: string | null;
   transcriptSourceId?: number | null;
   relevance?: number | null;
+  isNew?: boolean | null;
 }
 
 interface StagingDoc {
@@ -125,6 +126,12 @@ interface StagingDoc {
   needsExpert: boolean;
   aiCleanedTitle: string | null;
   aiSummary: string | null;
+  // Synthesis Engine Part 3: New-vs-Update. `updateKind` is 'update' when this
+  // draft is a proposed REVISION of an existing published Live AI Document
+  // (`targetLiveDocId`), with `updateSummary` describing what changed.
+  updateKind: string | null;
+  targetLiveDocId: number | null;
+  updateSummary: string | null;
 }
 
 interface StatusCounts {
@@ -338,6 +345,7 @@ export default function KnowledgeBaseReview() {
   const [originCounts, setOriginCounts] = useState<StatusCounts>({});
   const [docTypeCounts, setDocTypeCounts] = useState<StatusCounts>({});
   const [docClassCounts, setDocClassCounts] = useState<StatusCounts>({});
+  const [updateKindCounts, setUpdateKindCounts] = useState<{ new: number; update: number }>({ new: 0, update: 0 });
   const [riskCounts, setRiskCounts] = useState<RiskCounts>({ blocking: 0, flagged: 0, needs_expert: 0, stale: 0 });
   const [tagCounts, setTagCounts] = useState<TagCount[]>([]);
   const [shelfCounts, setShelfCounts] = useState<ShelfCount[]>([]);
@@ -358,6 +366,7 @@ export default function KnowledgeBaseReview() {
   const [shelfFilter, setShelfFilter] = useState("all");
   const [nodeFilter, setNodeFilter] = useState("all");
   const [docClassFilter, setDocClassFilter] = useState("all");
+  const [updateKindFilter, setUpdateKindFilter] = useState("all");
   const [tagFilter, setTagFilter] = useState("all");
   const [riskFilter, setRiskFilter] = useState("all"); // all | flagged | blocking | needs_expert
   const [staleOnly, setStaleOnly] = useState(false);
@@ -403,6 +412,7 @@ export default function KnowledgeBaseReview() {
       if (shelfFilter && shelfFilter !== "all") params.set("homeRoot", shelfFilter);
       if (nodeFilter && nodeFilter !== "all") params.set("node", nodeFilter);
       if (docClassFilter && docClassFilter !== "all") params.set("docClass", docClassFilter);
+      if (updateKindFilter && updateKindFilter !== "all") params.set("updateKind", updateKindFilter);
       if (tagFilter && tagFilter !== "all") params.set("tag", tagFilter);
       if (riskFilter && riskFilter !== "all") params.set("risk", riskFilter);
       if (staleOnly) params.set("stale", "true");
@@ -417,6 +427,7 @@ export default function KnowledgeBaseReview() {
       setOriginCounts(data.originCounts || {});
       setDocTypeCounts(data.docTypeCounts || {});
       setDocClassCounts(data.docClassCounts || {});
+      setUpdateKindCounts(data.updateKindCounts || { new: 0, update: 0 });
       setRiskCounts(data.riskCounts || { blocking: 0, flagged: 0, needs_expert: 0, stale: 0 });
       setTagCounts(data.tagCounts || []);
       setShelfCounts(data.shelfCounts || []);
@@ -428,7 +439,7 @@ export default function KnowledgeBaseReview() {
     } finally {
       setLoading(false);
     }
-  }, [statusFilter, docTypeFilter, shelfFilter, nodeFilter, docClassFilter, tagFilter, riskFilter, staleOnly, searchQuery, page, toast]);
+  }, [statusFilter, docTypeFilter, shelfFilter, nodeFilter, docClassFilter, updateKindFilter, tagFilter, riskFilter, staleOnly, searchQuery, page, toast]);
 
   const fetchTriageStatus = useCallback(async () => {
     try {
@@ -1063,6 +1074,39 @@ export default function KnowledgeBaseReview() {
                     ))}
                   </div>
 
+                  {/* New-vs-Update panel (Synthesis Engine Part 3). A proposed
+                      revision supersedes an existing published Live AI Document —
+                      the reviewer sees the diff + which live doc it replaces before
+                      approving (the same human gate; no silent second copy). */}
+                  {selectedDoc.updateKind === "update" ? (
+                    <div className="rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm space-y-2">
+                      <div className="flex items-center gap-2 font-medium text-amber-800">
+                        <GitCompare className="w-4 h-4" />
+                        Proposed update to an existing published doc
+                        {selectedDoc.targetLiveDocId ? (
+                          <span className="text-amber-700 font-normal">
+                            — supersedes live doc #{selectedDoc.targetLiveDocId}
+                          </span>
+                        ) : null}
+                      </div>
+                      {selectedDoc.updateSummary ? (
+                        <div className="rounded-md border border-amber-200 bg-white p-2">
+                          <p className="text-gray-500 text-xs font-medium mb-1">What changed vs the current version:</p>
+                          <div className="whitespace-pre-wrap text-gray-700 text-xs">{selectedDoc.updateSummary}</div>
+                        </div>
+                      ) : null}
+                      <p className="text-amber-700 text-xs">
+                        On approval this revision replaces the published version in place; the prior version is
+                        archived to history and last-verified is re-stamped.
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-2.5 text-xs text-emerald-800 flex items-center gap-2">
+                      <FileText className="w-4 h-4" />
+                      New document — no existing published doc for this topic.
+                    </div>
+                  )}
+
                   {/* Provenance panel */}
                   <div className="rounded-lg border bg-gray-50 p-3 text-sm space-y-2">
                     <div className="flex items-center gap-2 font-medium text-gray-700">
@@ -1497,6 +1541,20 @@ export default function KnowledgeBaseReview() {
               {label}
             </button>
           ))}
+          <span className="text-sm text-gray-500 ml-3">Change:</span>
+          {[
+            ["all", "All"],
+            ["new", `New (${updateKindCounts.new || 0})`],
+            ["update", `Update (${updateKindCounts.update || 0})`],
+          ].map(([key, label]) => (
+            <button
+              key={key}
+              onClick={() => { setUpdateKindFilter(key); setPage(1); }}
+              className={`px-2.5 py-1 rounded-md text-xs font-medium transition-colors ${updateKindFilter === key ? "bg-amber-600 text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200"}`}
+            >
+              {label}
+            </button>
+          ))}
           <span className="text-sm text-gray-500 ml-3">Shelf:</span>
           <Select value={shelfFilter} onValueChange={(v) => { setShelfFilter(v); setPage(1); }}>
             <SelectTrigger className="h-7 w-[160px] text-xs"><SelectValue /></SelectTrigger>
@@ -1620,6 +1678,15 @@ export default function KnowledgeBaseReview() {
                             <Badge variant="outline" className="text-[10px] bg-gray-50 text-gray-600 border-gray-200">
                               {DOC_TYPE_LABEL[doc.docType] ?? doc.docType}
                             </Badge>
+                            {doc.updateKind === "update" ? (
+                              <Badge variant="outline" className="text-[10px] bg-amber-50 text-amber-700 border-amber-300">
+                                Update{doc.targetLiveDocId ? ` → #${doc.targetLiveDocId}` : ""}
+                              </Badge>
+                            ) : (
+                              <Badge variant="outline" className="text-[10px] bg-emerald-50 text-emerald-700 border-emerald-200">
+                                New
+                              </Badge>
+                            )}
                             {doc.authorityRole && (
                               <Badge variant="outline" className="text-[10px] bg-violet-50 text-violet-700 border-violet-200">
                                 {AUTHORITY_LABEL[doc.authorityRole] ?? doc.authorityRole}

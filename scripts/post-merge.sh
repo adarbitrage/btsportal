@@ -316,6 +316,24 @@ if [ -n "$DATABASE_URL" ]; then
   #     skipped. Idempotent (CREATE TABLE/INDEX IF NOT EXISTS).
   psql "$DATABASE_URL" -v ON_ERROR_STOP=1 \
     -f lib/db/drizzle/0091_kb_node_synthesis_state.sql >/dev/null
+
+  # 28. Synthesis Engine Part 3 — update-vs-create link (Task #1535).
+  #     Additive nullable columns on kb_staging_docs (update_kind,
+  #     target_live_doc_id, update_summary) that mark a synthesis draft as a
+  #     REVISION of an existing published Live AI Document rather than a new one.
+  #     Applying it here keeps the live-schema-drift gate green so the conditional
+  #     push stays skipped. Idempotent (ADD COLUMN IF NOT EXISTS).
+  psql "$DATABASE_URL" -v ON_ERROR_STOP=1 \
+    -f lib/db/drizzle/0092_kb_staging_update_link.sql >/dev/null
+
+  # 29. Synthesis Engine Part 3 — Live AI Document version history (Task #1535).
+  #     New additive table `ai_live_document_versions` that snapshots the prior
+  #     published content of a Live AI Document before an approved revision
+  #     supersedes it (preserving version + provenance history). Applying it here
+  #     keeps the live-schema-drift gate green so the conditional push stays
+  #     skipped. Idempotent (CREATE TABLE/INDEX IF NOT EXISTS).
+  psql "$DATABASE_URL" -v ON_ERROR_STOP=1 \
+    -f lib/db/drizzle/0093_ai_live_document_versions.sql >/dev/null
 fi
 
 # Schema sync — CONDITIONAL push.

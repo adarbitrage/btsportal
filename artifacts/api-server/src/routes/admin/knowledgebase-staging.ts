@@ -1,7 +1,7 @@
 import { getParam } from "../../lib/params";
 import { Router, Request, Response } from "express";
 import { db } from "@workspace/db";
-import { kbStagingDocsTable, knowledgebaseDocsTable, aiLiveDocumentsTable, kbDocProvenanceTable, kbTriageAuditLogTable, aiSourceDocumentsTable } from "@workspace/db/schema";
+import { kbStagingDocsTable, knowledgebaseDocsTable, aiLiveDocumentsTable, aiLiveDocumentVersionsTable, kbDocProvenanceTable, kbTriageAuditLogTable, aiSourceDocumentsTable } from "@workspace/db/schema";
 import { eq, desc, sql, count, and, ne, isNotNull, inArray } from "drizzle-orm";
 import { requirePermission } from "../../middleware/rbac.js";
 import { scrubPrivateContent } from "../../lib/content-privacy-filter";
@@ -61,6 +61,9 @@ router.get("/", async (req: Request, res: Response) => {
     // Node is now the PRIMARY drill-down (Shelf → Node) for the Synthesis queue.
     const nodeFilter = (req.query.node as string) || undefined;
     const tagFilter = (req.query.tag as string) || undefined;
+    // New-vs-Update facet (Synthesis Engine Part 3): 'new' | 'update'. A NULL
+    // update_kind is treated as 'new' (the default create path).
+    const updateKindFilter = (req.query.updateKind as string) || undefined;
     const riskFilter = (req.query.risk as string) || undefined; // flagged | blocking | needs_expert
     const staleOnly = req.query.stale === "true" || req.query.stale === "1";
     const page = parseInt((req.query.page as string) || "1");
@@ -102,6 +105,14 @@ router.get("/", async (req: Request, res: Response) => {
     if (tagFilter && tagFilter !== "all") {
       where = sql`${where} AND ${kbStagingDocsTable.taxonomyTags} @> ${JSON.stringify([tagFilter])}::jsonb`;
     }
+    if (updateKindFilter && updateKindFilter !== "all") {
+      if (updateKindFilter === "update") {
+        where = sql`${where} AND ${kbStagingDocsTable.updateKind} = 'update'`;
+      } else {
+        // 'new' == the create path: NULL or explicit 'new'.
+        where = sql`${where} AND (${kbStagingDocsTable.updateKind} IS NULL OR ${kbStagingDocsTable.updateKind} = 'new')`;
+      }
+    }
     if (riskFilter === "needs_expert") {
       where = sql`${where} AND ${kbStagingDocsTable.needsExpert} = true`;
     } else if (riskFilter === "blocking") {
@@ -136,6 +147,7 @@ router.get("/", async (req: Request, res: Response) => {
       riskAgg,
       tagRows,
       nodeCountRows,
+      updateKindAgg,
     ] = await Promise.all([
       db
         .select({ status: kbStagingDocsTable.status, cnt: count() })
@@ -175,7 +187,15 @@ router.get("/", async (req: Request, res: Response) => {
         .select({ node: kbStagingDocsTable.node, cnt: count() })
         .from(kbStagingDocsTable)
         .groupBy(kbStagingDocsTable.node),
+      db.execute(sql`
+        SELECT
+          count(*) FILTER (WHERE ${kbStagingDocsTable.updateKind} = 'update')::int AS update_count,
+          count(*) FILTER (WHERE ${kbStagingDocsTable.updateKind} IS NULL OR ${kbStagingDocsTable.updateKind} = 'new')::int AS new_count
+        FROM ${kbStagingDocsTable}
+      `),
     ]);
+
+    const updateKindRow = (updateKindAgg.rows?.[0] ?? {}) as Record<string, unknown>;
 
     const citableCount = docClassCounts
       .filter((d) => d.docClassTarget && CITABLE_DOC_CLASSES.includes(d.docClassTarget as never))
@@ -231,6 +251,10 @@ router.get("/", async (req: Request, res: Response) => {
         .filter((n) => n.node)
         .map((n) => ({ node: n.node as string, count: n.cnt }))
         .sort((a, b) => b.count - a.count),
+      updateKindCounts: {
+        new: Number(updateKindRow.new_count ?? 0),
+        update: Number(updateKindRow.update_count ?? 0),
+      },
     });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : "Unknown error";
@@ -627,40 +651,109 @@ router.post("/push-approved", async (_req: Request, res: Response) => {
           : "curated";
         const tags = Array.isArray(doc.taxonomyTags) ? doc.taxonomyTags : [];
 
-        const [live] = await tx
-          .insert(aiLiveDocumentsTable)
-          .values({
-            title: scrubPrivateContent(doc.title),
-            category: doc.category,
-            content,
-            audience: doc.audience ?? "member",
-            docClass,
-            homeRoot: doc.homeRoot,
-            node: doc.node,
-            tags,
-            blitzSection: doc.blitzSection,
-            ceiling: doc.ceiling,
-            handoff: doc.handoff,
-            lastVerified: sql`NOW()`,
-          })
-          .onConflictDoUpdate({
-            target: aiLiveDocumentsTable.title,
-            set: {
-              category: sql`EXCLUDED.category`,
-              content: sql`EXCLUDED.content`,
-              audience: sql`EXCLUDED.audience`,
-              docClass: sql`EXCLUDED.doc_class`,
-              homeRoot: sql`EXCLUDED.home_root`,
-              node: sql`EXCLUDED.node`,
-              tags: sql`EXCLUDED.tags`,
-              blitzSection: sql`EXCLUDED.blitz_section`,
-              ceiling: sql`EXCLUDED.ceiling`,
-              handoff: sql`EXCLUDED.handoff`,
+        // ── Update path (Synthesis Engine Part 3) ─────────────────────────────
+        // A draft that targets an existing published Live AI Document supersedes
+        // it IN PLACE: snapshot the prior published version (content + provenance)
+        // into ai_live_document_versions, then overwrite the SAME row and re-stamp
+        // last_verified. No orphan duplicate; version history preserved; the
+        // assistant keeps citing the one live row. If the target has since been
+        // deleted, we fall through to the create/upsert path.
+        let live: { id: number } | undefined;
+        if (doc.updateKind === "update" && doc.targetLiveDocId) {
+          const [target] = await tx
+            .select()
+            .from(aiLiveDocumentsTable)
+            .where(eq(aiLiveDocumentsTable.id, doc.targetLiveDocId));
+
+          if (target) {
+            const [{ cnt: priorVersions }] = await tx
+              .select({ cnt: count() })
+              .from(aiLiveDocumentVersionsTable)
+              .where(eq(aiLiveDocumentVersionsTable.docId, target.id));
+
+            const priorProvenance = await tx
+              .select({
+                sourceId: kbDocProvenanceTable.sourceId,
+                chunkRef: kbDocProvenanceTable.chunkRef,
+                relation: kbDocProvenanceTable.relation,
+              })
+              .from(kbDocProvenanceTable)
+              .where(eq(kbDocProvenanceTable.docId, target.id));
+
+            await tx.insert(aiLiveDocumentVersionsTable).values({
+              docId: target.id,
+              versionNumber: priorVersions + 1,
+              title: target.title,
+              content: target.content,
+              docClass: target.docClass,
+              homeRoot: target.homeRoot,
+              node: target.node,
+              lastVerified: target.lastVerified,
+              provenance: priorProvenance,
+              supersededByStagingDocId: doc.id,
+            });
+
+            await tx
+              .update(aiLiveDocumentsTable)
+              .set({
+                title: scrubPrivateContent(doc.title),
+                category: doc.category,
+                content,
+                audience: doc.audience ?? "member",
+                docClass,
+                homeRoot: doc.homeRoot,
+                node: doc.node,
+                tags,
+                blitzSection: doc.blitzSection,
+                ceiling: doc.ceiling,
+                handoff: doc.handoff,
+                lastVerified: sql`NOW()`,
+                updatedAt: sql`NOW()`,
+              })
+              .where(eq(aiLiveDocumentsTable.id, target.id));
+
+            live = { id: target.id };
+          }
+        }
+
+        // Create / upsert path (new docs, or an update whose target vanished).
+        if (!live) {
+          const [inserted] = await tx
+            .insert(aiLiveDocumentsTable)
+            .values({
+              title: scrubPrivateContent(doc.title),
+              category: doc.category,
+              content,
+              audience: doc.audience ?? "member",
+              docClass,
+              homeRoot: doc.homeRoot,
+              node: doc.node,
+              tags,
+              blitzSection: doc.blitzSection,
+              ceiling: doc.ceiling,
+              handoff: doc.handoff,
               lastVerified: sql`NOW()`,
-              updatedAt: sql`NOW()`,
-            },
-          })
-          .returning({ id: aiLiveDocumentsTable.id });
+            })
+            .onConflictDoUpdate({
+              target: aiLiveDocumentsTable.title,
+              set: {
+                category: sql`EXCLUDED.category`,
+                content: sql`EXCLUDED.content`,
+                audience: sql`EXCLUDED.audience`,
+                docClass: sql`EXCLUDED.doc_class`,
+                homeRoot: sql`EXCLUDED.home_root`,
+                node: sql`EXCLUDED.node`,
+                tags: sql`EXCLUDED.tags`,
+                blitzSection: sql`EXCLUDED.blitz_section`,
+                ceiling: sql`EXCLUDED.ceiling`,
+                handoff: sql`EXCLUDED.handoff`,
+                lastVerified: sql`NOW()`,
+                updatedAt: sql`NOW()`,
+              },
+            })
+            .returning({ id: aiLiveDocumentsTable.id });
+          live = inserted;
+        }
 
         // Provenance: trace the published claim back to its screened source(s).
         // We refresh it on each push so re-publishing keeps an accurate set.
