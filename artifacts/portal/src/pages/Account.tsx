@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/lib/auth";
+import { TICKETDESK_URL } from "@/config/support";
 import { formatDeviceLabel } from "@/lib/device-label";
 import { User, Lock, Bell, Mail, Clock, AlertTriangle, X, Monitor, Loader2 } from "lucide-react";
 import {
@@ -532,13 +533,15 @@ export default function Account() {
                           })}
                         </span>
                         . If you weren't expecting this,{" "}
-                        <Link
-                          href={`/support/contact?topic=email-admin-cancelled&attemptId=${member.lastAdminCancelledEmailChange.attemptId}`}
+                        <a
+                          href={TICKETDESK_URL}
+                          target="_blank"
+                          rel="noopener noreferrer"
                           data-testid="link-admin-cancelled-contact-support"
                           className="font-medium text-blue-900 underline hover:no-underline"
                         >
                           contact support
-                        </Link>
+                        </a>
                         .
                       </p>
                     </div>

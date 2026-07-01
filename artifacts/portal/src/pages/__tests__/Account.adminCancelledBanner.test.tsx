@@ -169,7 +169,7 @@ describe("Account — admin-cancelled email-change banner timestamp", () => {
     });
   });
 
-  it("renders a 'Contact support' link inside the banner pointing at the pre-filled support form", async () => {
+  it("renders a 'Contact support' link inside the banner pointing at the TicketDesk support site", async () => {
     useGetCurrentMember.mockReturnValue({
       data: {
         ...baseMember,
@@ -192,12 +192,13 @@ describe("Account — admin-cancelled email-change banner timestamp", () => {
     // on this security-sensitive notice without hunting for the support page.
     const banner = screen.getByTestId("email-admin-cancelled-banner");
     expect(banner).toContainElement(link);
-    // Pre-filling the support form via a topic param keeps the click count to
-    // one — without it, members would land on a blank form and have to retype
-    // the context themselves.
-    expect(link.getAttribute("href")).toMatch(
-      /^\/support\/contact\?topic=email-admin-cancelled(?:&|$)/,
-    );
+    // Link points to the external TicketDesk support site (TICKETDESK_URL).
+    // Note: the prior ?topic=email-admin-cancelled query param that prefilled
+    // context is no longer encoded here — TicketDesk has no equivalent
+    // query contract. Members will need to describe the issue themselves.
+    expect(link.getAttribute("href")).toMatch(/^https?:\/\//);
+    expect(link.getAttribute("target")).toBe("_blank");
+    expect(link.getAttribute("rel")).toContain("noopener");
     expect(link).toHaveTextContent(/contact support/i);
   });
 

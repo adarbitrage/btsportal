@@ -8,6 +8,7 @@ import { useLocation, Link } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { useState } from "react";
+import { TICKETDESK_URL } from "@/config/support";
 
 function getFirstMission(slug: string): { title: string; description: string } {
   switch (slug) {
@@ -101,7 +102,7 @@ export default function OnboardingQuickStart() {
     {
       title: "Support Center",
       description: "Get help from our support team",
-      href: "/support",
+      href: TICKETDESK_URL,
       icon: "🎧",
       show: true,
     },
@@ -139,21 +140,33 @@ export default function OnboardingQuickStart() {
         <div>
           <h3 className="text-sm font-bold text-muted-foreground uppercase tracking-wider mb-3">Quick Links</h3>
           <div className="grid gap-3 sm:grid-cols-2">
-            {visibleLinks.map((link) => (
-              <Card key={link.href} className="hover:shadow-md transition-shadow group">
-                <CardContent className="p-4">
-                  <div className="flex items-start gap-3">
-                    <span className="text-2xl">{link.icon}</span>
-                    <div>
-                      <p className="font-semibold text-foreground text-sm">
-                        {link.title}
-                      </p>
-                      <p className="text-xs text-muted-foreground mt-0.5">{link.description}</p>
+            {visibleLinks.map((link) => {
+              const isExternal = link.href.startsWith("http");
+              const card = (
+                <Card key={link.href} className="hover:shadow-md transition-shadow group">
+                  <CardContent className="p-4">
+                    <div className="flex items-start gap-3">
+                      <span className="text-2xl">{link.icon}</span>
+                      <div>
+                        <p className="font-semibold text-foreground text-sm">
+                          {link.title}
+                        </p>
+                        <p className="text-xs text-muted-foreground mt-0.5">{link.description}</p>
+                      </div>
                     </div>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
+                  </CardContent>
+                </Card>
+              );
+              return isExternal ? (
+                <a key={link.href} href={link.href} target="_blank" rel="noopener noreferrer" className="block">
+                  {card}
+                </a>
+              ) : (
+                <Link key={link.href} href={link.href} className="block">
+                  {card}
+                </Link>
+              );
+            })}
           </div>
           <p className="text-xs text-center text-muted-foreground">
             These sections will be available from your dashboard after completing setup.

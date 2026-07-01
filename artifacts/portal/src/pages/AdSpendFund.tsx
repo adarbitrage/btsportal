@@ -18,6 +18,7 @@ import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { customFetch } from "@workspace/api-client-react";
+import { TICKETDESK_URL } from "@/config/support";
 import { initCollectJs, type CollectJsHandle } from "@/lib/collect-js";
 import { usePaymentMethods, type SavedCard } from "@/hooks/use-payment-methods";
 
@@ -339,9 +340,9 @@ export default function AdSpendFund() {
               <AlertTriangle className="w-8 h-8 text-destructive mx-auto" />
               <p className="font-medium text-foreground">Funding unavailable</p>
               <p className="text-sm text-muted-foreground">{state.message}</p>
-              <Link href="/support/contact">
+              <a href={TICKETDESK_URL} target="_blank" rel="noopener noreferrer">
                 <Button variant="outline" size="sm">Contact support</Button>
-              </Link>
+              </a>
             </CardContent>
           </Card>
         )}
