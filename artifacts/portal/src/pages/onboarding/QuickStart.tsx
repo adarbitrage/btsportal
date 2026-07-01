@@ -8,7 +8,7 @@ import { useLocation, Link } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { useState } from "react";
-import { TICKETDESK_URL } from "@/config/support";
+import { supportLinkProps } from "@/config/support";
 
 function getFirstMission(slug: string): { title: string; description: string } {
   switch (slug) {
@@ -102,7 +102,7 @@ export default function OnboardingQuickStart() {
     {
       title: "Support Center",
       description: "Get help from our support team",
-      href: TICKETDESK_URL,
+      href: supportLinkProps.href,
       icon: "🎧",
       show: true,
     },

@@ -13,7 +13,7 @@ import {
   ArrowUpRight,
 } from "lucide-react";
 import { AppLayout } from "@/components/layout/AppLayout";
-import { TICKETDESK_URL } from "@/config/support";
+import { supportLinkProps } from "@/config/support";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -214,9 +214,7 @@ export default function Plans() {
           >
             We couldn't load the upgrade plans right now. Please refresh, or{" "}
             <a
-              href={TICKETDESK_URL}
-              target="_blank"
-              rel="noopener noreferrer"
+              {...supportLinkProps}
               className="text-primary font-medium hover:underline"
             >
               reach out to support
@@ -365,9 +363,7 @@ export default function Plans() {
           <p className="text-sm text-muted-foreground">
             Have a question about which plan is right for you?{" "}
             <a
-              href={TICKETDESK_URL}
-              target="_blank"
-              rel="noopener noreferrer"
+              {...supportLinkProps}
               className="text-primary font-medium hover:underline"
               data-testid="plans-contact-support"
             >

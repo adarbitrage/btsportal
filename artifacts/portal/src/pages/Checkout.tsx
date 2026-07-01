@@ -16,7 +16,7 @@ import { AppLayout } from "@/components/layout/AppLayout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { customFetch } from "@workspace/api-client-react";
-import { TICKETDESK_URL } from "@/config/support";
+import { supportLinkProps } from "@/config/support";
 import {
   getGetCurrentMemberQueryKey,
   getGetMemberEntitlementsQueryKey,
@@ -424,7 +424,7 @@ export default function Checkout() {
                     View plans
                   </Button>
                 </Link>
-                <a href={TICKETDESK_URL} target="_blank" rel="noopener noreferrer">
+                <a {...supportLinkProps}>
                   <Button variant="outline" size="sm">
                     Contact support
                   </Button>
@@ -511,7 +511,7 @@ export default function Checkout() {
                     View billing history
                   </Button>
                 </Link>
-                <a href={TICKETDESK_URL} target="_blank" rel="noopener noreferrer">
+                <a {...supportLinkProps}>
                   <Button variant="outline" size="sm">
                     Contact support
                   </Button>

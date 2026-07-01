@@ -23,7 +23,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { formatDuration } from "@/lib/utils";
 import { Link } from "wouter";
-import { TICKETDESK_URL } from "@/config/support";
+import { supportLinkProps } from "@/config/support";
 
 const entitlementLabels: Record<string, string> = {
   "content:frontend": "Front-End Content",
@@ -196,7 +196,7 @@ export default function Training() {
                     <div className="text-center py-4">
                       <Lock className="w-8 h-8 text-muted-foreground/30 mx-auto mb-2" />
                       <p className="text-sm text-muted-foreground mb-4">{track.totalLessons} lessons available after upgrading</p>
-                      <a href={TICKETDESK_URL} target="_blank" rel="noopener noreferrer">
+                      <a {...supportLinkProps}>
                         <Button variant="outline">Contact Support to Upgrade</Button>
                       </a>
                     </div>

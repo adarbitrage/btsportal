@@ -50,7 +50,7 @@ afterEach(() => {
 });
 
 describe("AuditLog expanded-row entity jump link", () => {
-  it("renders a 'View ticket' link for ticket rows with a numeric entityId", async () => {
+  it("does not render a jump link for ticket rows (admin ticket detail page removed)", async () => {
     getAuditLog.mockResolvedValue({
       logs: [makeLog({ id: 7, entityType: "ticket", entityId: "1234" })],
       cursors: { next: null, prev: null },
@@ -63,9 +63,10 @@ describe("AuditLog expanded-row entity jump link", () => {
     const row = await screen.findByTestId("audit-row-7");
     fireEvent.click(row.querySelector(".cursor-pointer") as HTMLElement);
 
-    const link = await screen.findByTestId("audit-entity-link-7");
-    expect(link).toHaveTextContent("View ticket");
-    expect(link.getAttribute("href")).toBe("/admin/tickets/1234");
+    await waitFor(() => {
+      expect(row).toHaveTextContent("Entity ID:");
+    });
+    expect(screen.queryByTestId("audit-entity-link-7")).toBeNull();
   });
 
   it("renders a 'View member' link for user rows with a numeric entityId", async () => {

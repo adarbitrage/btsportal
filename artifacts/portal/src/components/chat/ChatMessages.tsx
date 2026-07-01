@@ -6,7 +6,6 @@ import type { ChatMessage } from "@/lib/chat-api";
 interface ChatMessagesProps {
   messages: ChatMessage[];
   isStreaming: boolean;
-  onCreateTicket?: (subject: string, description: string) => void;
   compact?: boolean;
 }
 
@@ -25,7 +24,7 @@ function TypingIndicator() {
   );
 }
 
-export function ChatMessages({ messages, isStreaming, onCreateTicket, compact }: ChatMessagesProps) {
+export function ChatMessages({ messages, isStreaming, compact }: ChatMessagesProps) {
   const bottomRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -70,7 +69,7 @@ export function ChatMessages({ messages, isStreaming, onCreateTicket, compact }:
             }`}
           >
             {msg.role === "assistant" ? (
-              <ChatMarkdown content={msg.content} onCreateTicket={onCreateTicket} />
+              <ChatMarkdown content={msg.content} />
             ) : (
               <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
             )}

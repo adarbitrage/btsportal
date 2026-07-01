@@ -31,6 +31,21 @@ export const TICKETDESK_URL =
   resolveEnvVar("VITE_TICKETDESK_URL") ?? DEFAULT_TICKETDESK_URL;
 
 /**
+ * Spread onto any `<a>` tag that should open the TicketDesk support site in a
+ * new tab.  Consolidating href + target + rel here means every "Contact
+ * support" link in the portal automatically stays in sync when the destination
+ * changes — no site hard-codes the triple inline.
+ *
+ * @example
+ *   <a {...supportLinkProps}>Contact support</a>
+ */
+export const supportLinkProps = {
+  href: TICKETDESK_URL,
+  target: "_blank" as const,
+  rel: "noopener noreferrer",
+} as const;
+
+/**
  * Customer-facing toll-free number for the AI voice support line.
  *
  * Override via `VITE_SUPPORT_PHONE_NUMBER` (e.g. "+18005551234").
