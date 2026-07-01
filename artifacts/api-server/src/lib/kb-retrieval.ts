@@ -192,7 +192,7 @@ function buildBoostedOrderBy(synonymOr: string, detectedTags: readonly string[])
   // 3. Synonym/alias relevance (when the member used a casual phrasing).
   if (synonymOr) {
     parts.push(
-      sql`ts_rank(to_tsvector('english', title || ' ' || content), to_tsquery('english', ${synonymOr})) DESC`,
+      sql`ts_rank(search_vector, to_tsquery('english', ${synonymOr})) DESC`,
     );
   }
 
@@ -255,7 +255,7 @@ export async function retrieveSurfaceAware(
     try {
       const navRows = await db.execute(sql`
         SELECT ${ROW_COLUMNS}, 0::float4 AS rank
-        FROM knowledgebase_docs
+        FROM ai_live_documents
         WHERE home_root = 'operations' AND node = 'navigation'
           AND audience <> 'admin' AND ${citableDocFilter()}
         LIMIT 1`);
@@ -288,9 +288,9 @@ export async function retrieveSurfaceAware(
 
   const primary = await db.execute(sql`
     SELECT ${ROW_COLUMNS},
-      ts_rank(to_tsvector('english', title || ' ' || content), ${primaryTsquery}) AS rank
-    FROM knowledgebase_docs
-    WHERE to_tsvector('english', title || ' ' || content) @@ ${primaryTsquery}
+      ts_rank(search_vector, ${primaryTsquery}) AS rank
+    FROM ai_live_documents
+    WHERE search_vector @@ ${primaryTsquery}
       AND category = ANY(${categoriesArray}::text[])
       AND audience <> 'admin'
       AND ${citableDocFilter()}
@@ -315,9 +315,9 @@ export async function retrieveSurfaceAware(
     if (orQuery) {
       const fallback = await db.execute(sql`
         SELECT ${ROW_COLUMNS},
-          ts_rank(to_tsvector('english', title || ' ' || content), to_tsquery('english', ${orQuery})) AS rank
-        FROM knowledgebase_docs
-        WHERE to_tsvector('english', title || ' ' || content) @@ to_tsquery('english', ${orQuery})
+          ts_rank(search_vector, to_tsquery('english', ${orQuery})) AS rank
+        FROM ai_live_documents
+        WHERE search_vector @@ to_tsquery('english', ${orQuery})
           AND category = ANY(${categoriesArray}::text[])
           AND audience <> 'admin'
           AND ${citableDocFilter()}

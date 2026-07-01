@@ -7,7 +7,7 @@ import {
   db,
   usersTable,
   kbStagingDocsTable,
-  knowledgebaseDocsTable,
+  aiLiveDocumentsTable,
 } from "@workspace/db";
 import { eq, inArray } from "drizzle-orm";
 
@@ -78,7 +78,7 @@ afterAll(async () => {
     await db.delete(kbStagingDocsTable).where(inArray(kbStagingDocsTable.id, seededStagingIds));
   }
   if (seededTitles.length > 0) {
-    await db.delete(knowledgebaseDocsTable).where(inArray(knowledgebaseDocsTable.title, seededTitles));
+    await db.delete(aiLiveDocumentsTable).where(inArray(aiLiveDocumentsTable.title, seededTitles));
   }
   if (seededUserIds.length > 0) {
     await db.delete(usersTable).where(inArray(usersTable.id, seededUserIds));
@@ -86,7 +86,7 @@ afterAll(async () => {
 });
 
 describe("POST /admin/knowledgebase/staging/push-approved", () => {
-  it("inserts approved staging rows into knowledgebase_docs and marks staging status as pushed", async () => {
+  it("inserts approved staging rows into ai_live_documents and marks staging status as published", async () => {
     const titleA = `${TEST_TAG}-doc-a`;
     const titleB = `${TEST_TAG}-doc-b`;
     const stagingIdA = await seedStaging({
@@ -119,17 +119,17 @@ describe("POST /admin/knowledgebase/staging/push-approved", () => {
       .select()
       .from(kbStagingDocsTable)
       .where(eq(kbStagingDocsTable.id, stagingIdB));
-    expect(stagedA.status).toBe("pushed");
-    expect(stagedB.status).toBe("pushed");
+    expect(stagedA.status).toBe("published");
+    expect(stagedB.status).toBe("published");
 
     const [liveA] = await db
       .select()
-      .from(knowledgebaseDocsTable)
-      .where(eq(knowledgebaseDocsTable.title, titleA));
+      .from(aiLiveDocumentsTable)
+      .where(eq(aiLiveDocumentsTable.title, titleA));
     const [liveB] = await db
       .select()
-      .from(knowledgebaseDocsTable)
-      .where(eq(knowledgebaseDocsTable.title, titleB));
+      .from(aiLiveDocumentsTable)
+      .where(eq(aiLiveDocumentsTable.title, titleB));
     expect(liveA).toBeDefined();
     expect(liveA.category).toBe("curriculum");
     expect(liveA.content).toContain("DIYTrax");
@@ -153,8 +153,8 @@ describe("POST /admin/knowledgebase/staging/push-approved", () => {
 
     const [liveAfterFirst] = await db
       .select()
-      .from(knowledgebaseDocsTable)
-      .where(eq(knowledgebaseDocsTable.title, title));
+      .from(aiLiveDocumentsTable)
+      .where(eq(aiLiveDocumentsTable.title, title));
     expect(liveAfterFirst.content).toBe("first version");
     const idAfterFirst = liveAfterFirst.id;
 
@@ -171,17 +171,17 @@ describe("POST /admin/knowledgebase/staging/push-approved", () => {
 
     const [liveAfterSecond] = await db
       .select()
-      .from(knowledgebaseDocsTable)
-      .where(eq(knowledgebaseDocsTable.title, title));
+      .from(aiLiveDocumentsTable)
+      .where(eq(aiLiveDocumentsTable.title, title));
     expect(liveAfterSecond.id).toBe(idAfterFirst); // same row, upserted
     expect(liveAfterSecond.content).toBe("second version with updated guidance");
     expect(liveAfterSecond.category).toBe("platform_guide");
 
-    // Both staging rows are now "pushed"
+    // Both staging rows are now "published"
     const stagedRows = await db
       .select()
       .from(kbStagingDocsTable)
       .where(inArray(kbStagingDocsTable.id, [firstStagingId, secondStagingId]));
-    expect(stagedRows.every((r) => r.status === "pushed")).toBe(true);
+    expect(stagedRows.every((r) => r.status === "published")).toBe(true);
   });
 });

@@ -2,6 +2,7 @@ import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
 import { searchKnowledgebaseForVoice } from "../routes/voice";
+import { syncCitableDocsToLiveDocuments } from "../lib/bootstrap-critical-prerequisites";
 
 // Privacy guard for the voice assistant's PRIMARY retrieval path.
 //
@@ -24,6 +25,11 @@ const VERIFIED_TITLE = `Voice Exclusion Verified ${TOKEN}`;
 async function cleanup() {
   await db.execute(
     sql`DELETE FROM knowledgebase_docs WHERE title LIKE ${"%" + TOKEN + "%"}`,
+  );
+  // The assistant now retrieves from ai_live_documents (Task #1531); the citable
+  // sync mirrors verified docs there, so clean both tables to keep runs isolated.
+  await db.execute(
+    sql`DELETE FROM ai_live_documents WHERE title LIKE ${"%" + TOKEN + "%"}`,
   );
 }
 
@@ -49,6 +55,12 @@ describe("voice assistant retrieval honors the citable gate (primary path)", () 
       INSERT INTO knowledgebase_docs (title, category, content, audience, doc_class, last_verified)
       VALUES (${VERIFIED_TITLE}, 'operations', ${"A human-verified answer about " + TOKEN + " that is safe to cite."}, 'member', 'curated', NOW())
     `);
+
+    // Task #1531 cutover: the voice assistant retrieves from ai_live_documents.
+    // Mirror the citable set exactly as boot does. Only the verified curated doc
+    // qualifies (transcript + unverified are excluded by the sync filter), which
+    // still exercises the citable gate on the retrieval side for the survivor.
+    await syncCitableDocsToLiveDocuments();
   });
 
   afterAll(async () => {

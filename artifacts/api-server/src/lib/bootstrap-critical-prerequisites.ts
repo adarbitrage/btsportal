@@ -100,6 +100,21 @@ export async function bootstrapCriticalPrerequisites(): Promise<PrerequisiteResu
     missing.push("knowledgebaseSourceColumnsMigration");
   }
 
+  // 0a-4. Bring ai_live_documents to parity with knowledgebase_docs and repoint
+  //       the kb_doc_provenance FK onto it (Task #1531). Every assistant
+  //       retrieval path (chat, voice, RAG retriever) and the staging push now
+  //       read/write ai_live_documents; this idempotent DDL adds the parity
+  //       columns, the STORED generated search_vector + GIN index, the title
+  //       unique index, and swaps the provenance FK BEFORE any of those paths
+  //       run, avoiding "column does not exist" on environments where the schema
+  //       push hasn't run yet.
+  try {
+    await runAiLiveDocumentsParityMigration();
+  } catch (err) {
+    console.error("[Bootstrap] runAiLiveDocumentsParityMigration() threw:", err);
+    missing.push("aiLiveDocumentsParityMigration");
+  }
+
   // 0b. Backfill undelivered tickets — runs in the background after the HTTP
   //     server starts so it doesn't delay boot.  The backfill is idempotent
   //     (delivery_last_attempt_at IS NULL guard) and only touches tickets
@@ -325,6 +340,22 @@ export async function bootstrapCriticalPrerequisites(): Promise<PrerequisiteResu
     missing.push("reclassifyKnowledgebaseDocClasses");
   }
 
+  // 10. Mirror the human-verified citable set from the legacy knowledgebase_docs
+  //     table into ai_live_documents (Task #1531). The assistant now retrieves
+  //     from ai_live_documents; the boot seeders (steps 8-8d) still author the
+  //     citable truth into the legacy table because the member-facing Knowledge
+  //     Base (/kb/search, browse, counts, bookmarks) reads it directly. This
+  //     sync bridges the two: it runs AFTER the seeders + reclassify so it copies
+  //     the settled citable set, preserving last_verified verbatim (the aging
+  //     clock) so mirrored docs stay citable without being re-stamped. Idempotent
+  //     upsert keyed on title. Must run so retrieval sees content on boot.
+  try {
+    await syncCitableDocsToLiveDocuments();
+  } catch (err) {
+    console.error("[Bootstrap] syncCitableDocsToLiveDocuments() threw:", err);
+    missing.push("syncCitableDocsToLiveDocuments");
+  }
+
   if (missing.length === 0) {
     console.log("[Bootstrap] All critical prerequisites OK");
   }
@@ -454,6 +485,123 @@ async function runKnowledgebaseSourceColumnsMigration(): Promise<void> {
     sql`ALTER TABLE knowledgebase_docs
         ADD COLUMN IF NOT EXISTS source_label text`,
   );
+}
+
+async function runAiLiveDocumentsParityMigration(): Promise<void> {
+  // Parity columns (mirror knowledgebase_docs).
+  await db.execute(sql`ALTER TABLE ai_live_documents ADD COLUMN IF NOT EXISTS audience text NOT NULL DEFAULT 'member'`);
+  await db.execute(sql`ALTER TABLE ai_live_documents ADD COLUMN IF NOT EXISTS source_path text`);
+  await db.execute(sql`ALTER TABLE ai_live_documents ADD COLUMN IF NOT EXISTS source_label text`);
+  await db.execute(sql`ALTER TABLE ai_live_documents ADD COLUMN IF NOT EXISTS doc_class text`);
+  await db.execute(sql`ALTER TABLE ai_live_documents ADD COLUMN IF NOT EXISTS home_root text`);
+  await db.execute(sql`ALTER TABLE ai_live_documents ADD COLUMN IF NOT EXISTS node text`);
+  await db.execute(sql`ALTER TABLE ai_live_documents ADD COLUMN IF NOT EXISTS tags jsonb NOT NULL DEFAULT '[]'::jsonb`);
+  await db.execute(sql`ALTER TABLE ai_live_documents ADD COLUMN IF NOT EXISTS blitz_section integer`);
+  await db.execute(sql`ALTER TABLE ai_live_documents ADD COLUMN IF NOT EXISTS ceiling text`);
+  await db.execute(sql`ALTER TABLE ai_live_documents ADD COLUMN IF NOT EXISTS handoff text`);
+  await db.execute(sql`ALTER TABLE ai_live_documents ADD COLUMN IF NOT EXISTS last_verified timestamp with time zone`);
+  // STORED generated full-text vector — the exact expression every retrieval
+  // query uses inline, so it is byte-for-byte equivalent to the previous form.
+  await db.execute(
+    sql`ALTER TABLE ai_live_documents ADD COLUMN IF NOT EXISTS search_vector tsvector GENERATED ALWAYS AS (to_tsvector('english', title || ' ' || content)) STORED`,
+  );
+  // Title unique so the staging push + citable sync can upsert on title.
+  await db.execute(sql`CREATE UNIQUE INDEX IF NOT EXISTS ai_live_documents_title_uniq ON ai_live_documents (title)`);
+  await db.execute(sql`CREATE INDEX IF NOT EXISTS ai_live_documents_doc_class_idx ON ai_live_documents (doc_class)`);
+  await db.execute(sql`CREATE INDEX IF NOT EXISTS ai_live_documents_home_root_idx ON ai_live_documents (home_root)`);
+  await db.execute(sql`CREATE INDEX IF NOT EXISTS ai_live_documents_search_idx ON ai_live_documents USING gin (search_vector)`);
+  // Repoint the provenance FK onto ai_live_documents. Drop the legacy FK first.
+  await db.execute(sql`ALTER TABLE kb_doc_provenance DROP CONSTRAINT IF EXISTS kb_doc_provenance_doc_id_knowledgebase_docs_id_fk`);
+  // Data-safe repoint: pre-existing provenance rows reference knowledgebase_docs
+  // ids. Remap to the mirrored ai_live twin by title (the mirror upserts on
+  // title), then drop any that still cannot resolve, so ADD CONSTRAINT never
+  // fails validation on prod data. Pre-cutover this table is empty (the staging
+  // publish that writes provenance is new here), so this is a no-op today and a
+  // safety net for replays / any future prod state.
+  await db.execute(sql`
+    UPDATE kb_doc_provenance p
+    SET doc_id = al.id
+    FROM knowledgebase_docs k
+    JOIN ai_live_documents al ON al.title = k.title
+    WHERE p.doc_id = k.id
+      AND NOT EXISTS (SELECT 1 FROM ai_live_documents a2 WHERE a2.id = p.doc_id)`);
+  await db.execute(sql`
+    DELETE FROM kb_doc_provenance p
+    WHERE NOT EXISTS (SELECT 1 FROM ai_live_documents a WHERE a.id = p.doc_id)`);
+  await db.execute(sql`DO $$ BEGIN
+    ALTER TABLE kb_doc_provenance
+      ADD CONSTRAINT kb_doc_provenance_doc_id_ai_live_documents_id_fk
+      FOREIGN KEY (doc_id) REFERENCES ai_live_documents(id)
+      ON DELETE cascade ON UPDATE no action;
+  EXCEPTION WHEN duplicate_object THEN NULL; END $$`);
+}
+
+/**
+ * Reconcile the human-verified citable set (doc_class IN curated/overview AND
+ * last_verified IS NOT NULL) from the legacy `knowledgebase_docs` table into
+ * `ai_live_documents`, which the assistant now retrieves from.
+ *
+ * This is AUTHORITATIVE over the legacy-mirrored subset, not append-only:
+ *  1. UPSERT — every currently-citable legacy doc is inserted/updated by title
+ *     (both tables enforce a unique title). `last_verified` and the
+ *     created/updated timestamps are copied VERBATIM so the mirror never resets
+ *     the aging clock.
+ *  2. PRUNE — any previously-mirrored row whose legacy source is no longer
+ *     citable (verification cleared, doc_class demoted) OR was deleted from the
+ *     legacy table is removed, so a revocation in legacy propagates and the
+ *     citable filter stops retrieving a stale doc.
+ *
+ * Rows published DIRECTLY into `ai_live_documents` by the staging push are
+ * preserved: the push writes a `kb_doc_provenance` row for every published doc
+ * (relation='source'), whereas this mirror never writes provenance. So the
+ * presence of a provenance row is the discriminator that keeps push-approved
+ * docs from being pruned. Both steps run in one transaction so retrieval never
+ * observes a partially-reconciled corpus.
+ */
+export async function syncCitableDocsToLiveDocuments(): Promise<void> {
+  await db.transaction(async (tx) => {
+    await tx.execute(sql`
+      INSERT INTO ai_live_documents
+        (title, slug, category, content, audience, source_path, source_label,
+         doc_class, home_root, node, tags, blitz_section, ceiling, handoff,
+         last_verified, created_at, updated_at)
+      SELECT
+        k.title, k.slug, k.category, k.content, k.audience, k.source_path, k.source_label,
+        k.doc_class, k.home_root, k.node, k.tags, k.blitz_section, k.ceiling, k.handoff,
+        k.last_verified, k.created_at, k.updated_at
+      FROM knowledgebase_docs k
+      WHERE k.doc_class IN ('curated', 'overview') AND k.last_verified IS NOT NULL
+      ON CONFLICT (title) DO UPDATE SET
+        slug = EXCLUDED.slug,
+        category = EXCLUDED.category,
+        content = EXCLUDED.content,
+        audience = EXCLUDED.audience,
+        source_path = EXCLUDED.source_path,
+        source_label = EXCLUDED.source_label,
+        doc_class = EXCLUDED.doc_class,
+        home_root = EXCLUDED.home_root,
+        node = EXCLUDED.node,
+        tags = EXCLUDED.tags,
+        blitz_section = EXCLUDED.blitz_section,
+        ceiling = EXCLUDED.ceiling,
+        handoff = EXCLUDED.handoff,
+        last_verified = EXCLUDED.last_verified,
+        updated_at = EXCLUDED.updated_at`);
+
+    // Prune stale mirror rows: not published-direct (no provenance row) AND no
+    // longer backed by a currently-citable legacy doc of the same title.
+    await tx.execute(sql`
+      DELETE FROM ai_live_documents al
+      WHERE NOT EXISTS (
+              SELECT 1 FROM kb_doc_provenance p WHERE p.doc_id = al.id
+            )
+        AND NOT EXISTS (
+              SELECT 1 FROM knowledgebase_docs k
+              WHERE k.title = al.title
+                AND k.doc_class IN ('curated', 'overview')
+                AND k.last_verified IS NOT NULL
+            )`);
+  });
 }
 
 async function runTicketDeliveryColumnMigration(): Promise<void> {

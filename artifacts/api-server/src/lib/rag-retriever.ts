@@ -34,9 +34,9 @@ export async function retrieveFromKB(
     const idsArray = `{${kbDocIds.join(",")}}`;
     results = await db.execute(
       sql`SELECT id, title, content, category,
-          ts_rank(to_tsvector('english', title || ' ' || content), plainto_tsquery('english', ${query})) as rank
-        FROM knowledgebase_docs
-        WHERE to_tsvector('english', title || ' ' || content) @@ plainto_tsquery('english', ${query})
+          ts_rank(search_vector, plainto_tsquery('english', ${query})) as rank
+        FROM ai_live_documents
+        WHERE search_vector @@ plainto_tsquery('english', ${query})
           AND id = ANY(${idsArray}::int[])
           AND audience <> 'admin'
           AND ${citableDocFilter()}
@@ -47,9 +47,9 @@ export async function retrieveFromKB(
     const categoriesArray = `{${categories.join(",")}}`;
     results = await db.execute(
       sql`SELECT id, title, content, category,
-          ts_rank(to_tsvector('english', title || ' ' || content), plainto_tsquery('english', ${query})) as rank
-        FROM knowledgebase_docs
-        WHERE to_tsvector('english', title || ' ' || content) @@ plainto_tsquery('english', ${query})
+          ts_rank(search_vector, plainto_tsquery('english', ${query})) as rank
+        FROM ai_live_documents
+        WHERE search_vector @@ plainto_tsquery('english', ${query})
           AND category = ANY(${categoriesArray}::text[])
           AND audience <> 'admin'
           AND ${citableDocFilter()}
@@ -59,9 +59,9 @@ export async function retrieveFromKB(
   } else {
     results = await db.execute(
       sql`SELECT id, title, content, category,
-          ts_rank(to_tsvector('english', title || ' ' || content), plainto_tsquery('english', ${query})) as rank
-        FROM knowledgebase_docs
-        WHERE to_tsvector('english', title || ' ' || content) @@ plainto_tsquery('english', ${query})
+          ts_rank(search_vector, plainto_tsquery('english', ${query})) as rank
+        FROM ai_live_documents
+        WHERE search_vector @@ plainto_tsquery('english', ${query})
           AND audience <> 'admin'
           AND ${citableDocFilter()}
         ORDER BY rank DESC

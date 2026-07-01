@@ -1,7 +1,7 @@
 import { getParam } from "../../lib/params";
 import { Router, Request, Response } from "express";
 import { db } from "@workspace/db";
-import { kbStagingDocsTable, knowledgebaseDocsTable, kbDocProvenanceTable, kbTriageAuditLogTable } from "@workspace/db/schema";
+import { kbStagingDocsTable, knowledgebaseDocsTable, aiLiveDocumentsTable, kbDocProvenanceTable, kbTriageAuditLogTable } from "@workspace/db/schema";
 import { eq, desc, sql, count, and, ne, isNotNull } from "drizzle-orm";
 import { requirePermission } from "../../middleware/rbac.js";
 import { scrubPrivateContent } from "../../lib/content-privacy-filter";
@@ -590,7 +590,7 @@ router.post("/push-approved", async (_req: Request, res: Response) => {
     if (newlyApproved.length === 0) {
       const [{ cnt: totalInLiveKb }] = await db
         .select({ cnt: count() })
-        .from(knowledgebaseDocsTable);
+        .from(aiLiveDocumentsTable);
       res.json({
         message: "No approved documents to push",
         pushed: 0,
@@ -613,7 +613,7 @@ router.post("/push-approved", async (_req: Request, res: Response) => {
         const tags = Array.isArray(doc.taxonomyTags) ? doc.taxonomyTags : [];
 
         const [live] = await tx
-          .insert(knowledgebaseDocsTable)
+          .insert(aiLiveDocumentsTable)
           .values({
             title: scrubPrivateContent(doc.title),
             category: doc.category,
@@ -629,7 +629,7 @@ router.post("/push-approved", async (_req: Request, res: Response) => {
             lastVerified: sql`NOW()`,
           })
           .onConflictDoUpdate({
-            target: knowledgebaseDocsTable.title,
+            target: aiLiveDocumentsTable.title,
             set: {
               category: sql`EXCLUDED.category`,
               content: sql`EXCLUDED.content`,
@@ -645,7 +645,7 @@ router.post("/push-approved", async (_req: Request, res: Response) => {
               updatedAt: sql`NOW()`,
             },
           })
-          .returning({ id: knowledgebaseDocsTable.id });
+          .returning({ id: aiLiveDocumentsTable.id });
 
         // Provenance: trace the published claim back to its screened source. We
         // refresh it on each push so re-publishing keeps a single accurate row.
@@ -668,7 +668,7 @@ router.post("/push-approved", async (_req: Request, res: Response) => {
 
     const [{ cnt: totalInLiveKb }] = await db
       .select({ cnt: count() })
-      .from(knowledgebaseDocsTable);
+      .from(aiLiveDocumentsTable);
 
     res.json({
       message: `Pushed ${newlyApproved.length} documents to live knowledge base`,

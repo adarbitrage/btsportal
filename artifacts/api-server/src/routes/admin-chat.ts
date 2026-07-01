@@ -15,6 +15,27 @@ import { eq, and, desc, sql, asc, like, gte, lte, ilike } from "drizzle-orm";
 import { requirePermission } from "../middleware/rbac";
 import { scrubPrivateContent } from "../lib/content-privacy-filter";
 import { reloadKnowledgeBase } from "./openai/knowledge-base.js";
+import { syncCitableDocsToLiveDocuments } from "../lib/bootstrap-critical-prerequisites";
+
+// The assistant retrieves from `ai_live_documents`, but this admin CRUD edits the
+// legacy `knowledgebase_docs` table (still authoritative for /kb/search). The boot
+// sync only reconciles the citable mirror at startup, so an admin edit here would
+// otherwise not reach the assistant until the next restart. Re-run the
+// authoritative reconcile (upsert + prune) after each write so a create/update/
+// delete of a citable doc propagates to the assistant corpus immediately.
+// Best-effort: the legacy write has already committed and the boot sync is the
+// backstop, so a mirror hiccup must not fail the admin request.
+async function reconcileAssistantCorpusAfterKbWrite(): Promise<void> {
+  try {
+    await syncCitableDocsToLiveDocuments();
+  } catch (err) {
+    console.error(
+      "[admin-chat] Failed to reconcile ai_live_documents after KB write; " +
+        "assistant corpus will re-sync on next boot:",
+      err,
+    );
+  }
+}
 
 const router: IRouter = Router();
 
@@ -491,6 +512,8 @@ router.post("/admin/chat/knowledgebase", requirePermission("chat:manage"), async
     })
     .returning();
 
+  await reconcileAssistantCorpusAfterKbWrite();
+
   res.status(201).json({ ...doc, chunkCount: Math.ceil(doc.content.length / 500) });
 });
 
@@ -531,6 +554,8 @@ router.put("/admin/chat/knowledgebase/:id", requirePermission("chat:manage"), as
     .where(eq(knowledgebaseDocsTable.id, id))
     .returning();
 
+  await reconcileAssistantCorpusAfterKbWrite();
+
   res.json({ ...updated, chunkCount: Math.ceil(updated.content.length / 500) });
 });
 
@@ -548,6 +573,8 @@ router.delete("/admin/chat/knowledgebase/:id", requirePermission("chat:manage"),
   }
 
   await db.delete(knowledgebaseDocsTable).where(eq(knowledgebaseDocsTable.id, id));
+
+  await reconcileAssistantCorpusAfterKbWrite();
 
   res.json({ success: true });
 });

@@ -268,6 +268,18 @@ if [ -n "$DATABASE_URL" ]; then
   #     (CREATE TABLE/INDEX IF NOT EXISTS).
   psql "$DATABASE_URL" -v ON_ERROR_STOP=1 \
     -f lib/db/drizzle/0086_ad_spend_transactions.sql >/dev/null
+
+  # 23. AI Live Documents parity + provenance FK swap (Task #1531).
+  #     Brings ai_live_documents to full parity with legacy knowledgebase_docs
+  #     (audience/taxonomy/source/verification columns + a STORED generated
+  #     search_vector + plain GIN index + title unique) and repoints the
+  #     kb_doc_provenance FK from knowledgebase_docs onto ai_live_documents so
+  #     the staging push writes citable docs there. Applying it here keeps the
+  #     live-schema-drift gate below green so the conditional push stays skipped
+  #     (same pattern as steps 7/10/11/15/18-22). Idempotent (ADD COLUMN/INDEX
+  #     IF NOT EXISTS, DROP CONSTRAINT IF EXISTS + guarded ADD CONSTRAINT).
+  psql "$DATABASE_URL" -v ON_ERROR_STOP=1 \
+    -f lib/db/drizzle/0087_ai_live_documents_parity.sql >/dev/null
 fi
 
 # Schema sync — CONDITIONAL push.
