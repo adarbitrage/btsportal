@@ -65,8 +65,19 @@ export interface CheckoutCoreOptions {
    * Return extra key/value pairs to merge into the idempotency result and the
    * caller's returned outcome. May throw — if it does, the outcome becomes
    * `paid_reconciliation_needed` (money already moved).
+   *
+   * `chargeDetails` carries the NMI-confirmed transaction id and the amount
+   * NMI reported as charged (in cents, parsed from the echoed `amount` field).
+   * Both may be undefined if the gateway did not return them — callers that
+   * depend on them (e.g. the ad-spend ledger writer) should throw to surface
+   * a reconciliation-needed outcome rather than silently crediting the wrong
+   * amount.
    */
-  onOrderPaid?: (orderId: number, orderNumber: string) => Promise<Record<string, unknown>>;
+  onOrderPaid?: (
+    orderId: number,
+    orderNumber: string,
+    chargeDetails?: { transactionId?: string; confirmedAmountCents?: number },
+  ) => Promise<Record<string, unknown>>;
 }
 
 export type CheckoutCoreOutcome =
@@ -322,10 +333,27 @@ export async function runCheckoutCore(
   }
 
   // ── onOrderPaid callback (e.g. create subscription row) ───────────────────
+  // Parse the NMI-confirmed amount from the gateway echo field so callers
+  // can credit the exact amount NMI charged rather than the requested amount.
+  const confirmedAmountCents = (() => {
+    const raw = chargeResult.raw as Record<string, string> | undefined;
+    if (!raw) return undefined;
+    const amountStr = raw["amount"];
+    if (!amountStr) return undefined;
+    const parsed = parseFloat(amountStr);
+    if (!isFinite(parsed) || parsed <= 0) return undefined;
+    return Math.round(parsed * 100);
+  })();
+
+  const chargeDetails = {
+    transactionId: chargeResult.transactionId,
+    confirmedAmountCents,
+  };
+
   let callbackExtra: Record<string, unknown> = {};
   if (onOrderPaid) {
     try {
-      callbackExtra = await onOrderPaid(order.id, orderNumber);
+      callbackExtra = await onOrderPaid(order.id, orderNumber, chargeDetails);
     } catch (callbackErr) {
       const reconResult: Record<string, unknown> = {
         outcomeType: "paid_reconciliation_needed",

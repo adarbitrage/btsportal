@@ -66,6 +66,7 @@ import {
   Radar,
   Wand2,
   CreditCard,
+  Wallet,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useGetCurrentMember, type MemberProfile } from "@workspace/api-client-react";
@@ -194,6 +195,7 @@ export const MEMBER_NAV: NavNode[] = [
     children: [
       { kind: "leaf", href: "/self-promoting", label: "Promote BTS", icon: Megaphone, requiredEntitlement: "commissions:*" },
       { kind: "leaf", href: "/ad-credit", label: "$1K Ad Credit", icon: Gift },
+      { kind: "leaf", href: "/ad-spend/fund", label: "Fund Ad Spend", icon: Wallet },
       { kind: "leaf", href: "/coaching/recruitment", label: "Become a Coach", icon: UserPlus, hiddenForRoles: ["coach"] },
     ],
   },

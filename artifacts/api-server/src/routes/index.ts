@@ -87,6 +87,7 @@ import kbSearchRouter from "./kb-search";
 import contentAccessRouter from "./content-access";
 import adminContentGapsRouter from "./admin-content-gaps";
 import billingRouter from "./billing";
+import adSpendRouter from "./ad-spend";
 import opsRouter from "./ops";
 
 const router: IRouter = Router();
@@ -179,6 +180,7 @@ router.use(kbSearchRouter);
 router.use(contentAccessRouter);
 router.use(adminContentGapsRouter);
 router.use(billingRouter);
+router.use(adSpendRouter);
 router.use(opsRouter);
 
 export default router;

@@ -165,6 +165,7 @@ import AdminAssistantQuestions from "@/pages/admin/AdminAssistantQuestions";
 import Account from "@/pages/Account";
 import Plans from "@/pages/Plans";
 import Checkout from "@/pages/Checkout";
+import AdSpendFund from "@/pages/AdSpendFund";
 import PaymentMethods from "@/pages/PaymentMethods";
 import MyProducts from "@/pages/MyProducts";
 import CoachDashboard from "@/pages/coaching/CoachDashboard";
@@ -538,6 +539,7 @@ function Router() {
       <Route path="/payment-methods">{() => <ProtectedRoute component={PaymentMethods} />}</Route>
       <Route path="/plans">{() => <ProtectedRoute component={Plans} />}</Route>
       <Route path="/checkout/:productId">{() => <ProtectedRoute component={Checkout} />}</Route>
+      <Route path="/ad-spend/fund">{() => <ProtectedRoute component={AdSpendFund} />}</Route>
       <Route path="/support">{() => <ProtectedRoute component={Support} />}</Route>
       <Route path="/support/contact">{() => <ProtectedRoute component={GeneralSupport} />}</Route>
       <Route path="/support/tickets/:id">{() => <ProtectedRoute component={TicketDetail} />}</Route>

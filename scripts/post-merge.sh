@@ -259,6 +259,15 @@ if [ -n "$DATABASE_URL" ]; then
   #     as step 20). Idempotent (ADD COLUMN IF NOT EXISTS).
   psql "$DATABASE_URL" -v ON_ERROR_STOP=1 \
     -f lib/db/drizzle/0085_transcript_cleaner_vidalytics_id.sql >/dev/null
+
+  # 22. Ad-spend funding ledger (Task #1536).
+  #     New append-only table `ad_spend_transactions` with a user_id index and
+  #     a null-tolerant unique index on nmi_transaction_id (the idempotency key
+  #     for funding credits). Applying it here keeps the live-schema-drift gate
+  #     green so the conditional push stays skipped. Idempotent
+  #     (CREATE TABLE/INDEX IF NOT EXISTS).
+  psql "$DATABASE_URL" -v ON_ERROR_STOP=1 \
+    -f lib/db/drizzle/0086_ad_spend_transactions.sql >/dev/null
 fi
 
 # Schema sync — CONDITIONAL push.

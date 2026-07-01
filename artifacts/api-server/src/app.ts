@@ -99,6 +99,38 @@ app.use("/api", apiRequestLogger);
 app.use("/api", router);
 app.use("/api", apiErrorHandler);
 
+// Ensure the ad-spend funding anchor product exists (idempotent).
+// This wallet_topup product is required by the checkout-idempotency table
+// (product_id NOT NULL) and is used exclusively by the ad-spend funding flow.
+// It grants NO entitlements and has no price_cents (amount is variable).
+(async () => {
+  try {
+    const { db: database, productsTable: products } = await import("@workspace/db");
+    const { eq } = await import("drizzle-orm");
+    const slug = "ad-spend-funding";
+    const [existing] = await database.select({ id: products.id }).from(products).where(eq(products.slug, slug));
+    if (!existing) {
+      await database.insert(products).values({
+        slug,
+        name: "Ad-Spend Funding",
+        type: "frontend",
+        entitlementKeys: [],
+        itemType: "wallet_topup",
+        isNativeNmi: true,
+        billingType: "one_time",
+        priceCents: null,
+        currency: "USD",
+        sortOrder: 0,
+        highlights: [],
+        recommended: false,
+      });
+      console.log("[Startup] Seeded ad-spend-funding anchor product");
+    }
+  } catch (err) {
+    console.warn("[Startup] Ad-spend product seed skipped:", err);
+  }
+})();
+
 seedCannedResponses().catch(err => console.error("[Seed] Failed to seed canned responses:", err));
 ensureRequiredEmailTemplates().catch(err => console.error("[Seed] Failed to ensure required email templates:", err));
 ensureRequiredSmsTemplates().catch(err => console.error("[Seed] Failed to ensure required SMS templates:", err));
