@@ -967,6 +967,25 @@ export async function cleanTranscript(args: {
 }
 
 /**
+ * Recover documents left mid-clean by a server restart. Cleaning runs in an
+ * in-process background worker (see the clean-batch route), so a restart while a
+ * clean is in flight would otherwise leave those rows stuck in `cleaning`
+ * forever. Reset them back to `uploaded` so they reappear in intake and can be
+ * re-cleaned. Idempotent: a no-op when nothing is stuck.
+ */
+export async function resetStuckCleaningDocs(): Promise<number> {
+  const reset = await db
+    .update(transcriptCleanerDocumentsTable)
+    .set({ status: "uploaded", errorMessage: null })
+    .where(eq(transcriptCleanerDocumentsTable.status, "cleaning"))
+    .returning({ id: transcriptCleanerDocumentsTable.id });
+  if (reset.length > 0) {
+    console.log(`[TranscriptCleaner] Reset ${reset.length} stuck 'cleaning' doc(s) to 'uploaded' after restart`);
+  }
+  return reset.length;
+}
+
+/**
  * Re-title the cleaned-but-unfiled transcripts in the holding store to the new
  * grammar (Task #1518). A deterministic, idempotent data repair: it re-derives
  * each title from stored data (no AI call), so it is safe to run on every boot.

@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { db, transcriptCleanerDocumentsTable, aiSourceDocumentsTable } from "@workspace/db";
-import { eq, desc, inArray, sql } from "drizzle-orm";
+import { eq, desc, inArray, sql, and, ne } from "drizzle-orm";
 import { requirePermission } from "../../middleware/rbac";
 import { getParam } from "../../lib/params";
 import {
@@ -327,23 +327,97 @@ async function runClean(id: number): Promise<{ ok: boolean; error?: string }> {
   }
 }
 
-/** POST /admin/transcript-cleaner/documents/:id/clean — clean one transcript. */
+// ───────────────────────────────────────────────────────────────────────────
+// Background cleaning queue.
+//
+// A large transcript is chunked into several sequential AI passes and can run
+// for minutes — far longer than the browser/proxy request timeout. Awaiting the
+// clean inside the request made the UI show a false "failed" toast even though
+// the backend finished and marked the doc `cleaned`. So cleaning runs in the
+// background: the request marks the target docs `cleaning`, returns immediately
+// (202), and the page reflects real progress via its existing status polling.
+//
+// A single in-process worker drains the queue one document at a time to stay
+// within the Anthropic client's rate budget (matching the old sequential batch).
+//
+// The DB row itself is the atomic claim: enqueueing flips a doc to `cleaning`
+// only when it isn't ALREADY `cleaning`, in one conditional UPDATE...RETURNING.
+// Concurrent requests racing on the same doc serialize on that row update, so
+// exactly one claims it — repeated clicks or overlapping batches can never
+// double-enqueue or double-process the same file.
+// ───────────────────────────────────────────────────────────────────────────
+const cleanQueue: number[] = [];
+let workerRunning = false;
+
+async function drainCleanQueue(): Promise<void> {
+  if (workerRunning) return;
+  workerRunning = true;
+  try {
+    while (cleanQueue.length > 0) {
+      const id = cleanQueue.shift();
+      if (id === undefined) break;
+      try {
+        const r = await runClean(id);
+        if (!r.ok) {
+          console.error(`[TranscriptCleaner] Clean failed for doc ${id}: ${r.error}`);
+        }
+      } catch (err) {
+        // runClean writes any thrown error to the row itself; this is a
+        // last-resort guard so one bad doc never stalls the whole queue.
+        console.error(`[TranscriptCleaner] Unexpected clean error for doc ${id}:`, err);
+      }
+    }
+  } finally {
+    workerRunning = false;
+    // A doc enqueued in the tiny window between the loop exit and clearing the
+    // flag would otherwise wait forever — restart the drain if any slipped in.
+    if (cleanQueue.length > 0) void drainCleanQueue();
+  }
+}
+
+/**
+ * Atomically claim the given docs (flip to `cleaning` unless already cleaning)
+ * and enqueue them for background processing. Docs that don't exist or are
+ * already mid-clean are skipped. Returns the ids actually claimed.
+ */
+async function enqueueClean(ids: number[]): Promise<number[]> {
+  const unique = [...new Set(ids)];
+  if (unique.length === 0) return [];
+
+  // Single conditional claim: only docs not already `cleaning` are flipped, and
+  // RETURNING tells us exactly which ones we won. This is the race-safe gate —
+  // a second concurrent request finds them already `cleaning` and claims nothing.
+  const claimed = await db
+    .update(transcriptCleanerDocumentsTable)
+    .set({ status: "cleaning", errorMessage: null })
+    .where(
+      and(
+        inArray(transcriptCleanerDocumentsTable.id, unique),
+        ne(transcriptCleanerDocumentsTable.status, "cleaning"),
+      ),
+    )
+    .returning({ id: transcriptCleanerDocumentsTable.id });
+
+  const accepted = claimed.map((r) => r.id);
+  if (accepted.length === 0) return [];
+
+  cleanQueue.push(...accepted);
+  void drainCleanQueue();
+  return accepted;
+}
+
+/** POST /admin/transcript-cleaner/documents/:id/clean — queue one transcript. */
 router.post("/admin/transcript-cleaner/documents/:id/clean", requirePermission("chat:manage"), async (req, res): Promise<void> => {
   const id = parseId(getParam(req.params.id));
   if (id === null) {
     res.status(400).json({ error: "Invalid document ID" });
     return;
   }
-  const result = await runClean(id);
-  if (!result.ok) {
-    res.status(result.error === "Document not found" ? 404 : 500).json({ error: result.error });
-    return;
-  }
-  const [doc] = await db.select().from(transcriptCleanerDocumentsTable).where(eq(transcriptCleanerDocumentsTable.id, id));
-  res.json(doc);
+  const accepted = await enqueueClean([id]);
+  res.status(202).json({ accepted });
 });
 
-/** POST /admin/transcript-cleaner/clean-batch — clean many transcripts. */
+/** POST /admin/transcript-cleaner/clean-batch — queue many transcripts. */
 router.post("/admin/transcript-cleaner/clean-batch", requirePermission("chat:manage"), async (req, res): Promise<void> => {
   const ids = Array.isArray((req.body as { ids?: number[] }).ids)
     ? (req.body as { ids: number[] }).ids.filter((n) => Number.isFinite(n))
@@ -352,15 +426,8 @@ router.post("/admin/transcript-cleaner/clean-batch", requirePermission("chat:man
     res.status(400).json({ error: "No document IDs provided" });
     return;
   }
-
-  // Sequential to stay within the Anthropic client's rate budget; each file's
-  // success/failure is reported independently so one bad file never aborts the run.
-  const results: Array<{ id: number; ok: boolean; error?: string }> = [];
-  for (const id of ids) {
-    const r = await runClean(id);
-    results.push({ id, ok: r.ok, error: r.error });
-  }
-  res.json({ results });
+  const accepted = await enqueueClean(ids);
+  res.status(202).json({ accepted });
 });
 
 // ───────────────────────────────────────────────────────────────────────────

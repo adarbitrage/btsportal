@@ -2257,14 +2257,18 @@ export function deleteTranscriptCleanerDocument(id: number) {
   return adminFetch<{ ok: boolean }>(`/admin/transcript-cleaner/documents/${id}`, { method: "DELETE" });
 }
 
+// Cleaning is fire-and-forget: the server marks the accepted docs `cleaning` and
+// runs the AI passes in the background (a big transcript can outlive the request
+// timeout). The response only reports which ids were accepted; real progress and
+// per-doc errors surface via the list poll, not this call.
 export function cleanTranscriptCleanerDocument(id: number) {
-  return adminFetch<TranscriptCleanerDocument>(`/admin/transcript-cleaner/documents/${id}/clean`, {
+  return adminFetch<{ accepted: number[] }>(`/admin/transcript-cleaner/documents/${id}/clean`, {
     method: "POST",
   });
 }
 
 export function cleanTranscriptCleanerBatch(ids: number[]) {
-  return adminFetch<{ results: Array<{ id: number; ok: boolean; error?: string }> }>(
+  return adminFetch<{ accepted: number[] }>(
     "/admin/transcript-cleaner/clean-batch",
     { method: "POST", body: JSON.stringify({ ids }) },
   );

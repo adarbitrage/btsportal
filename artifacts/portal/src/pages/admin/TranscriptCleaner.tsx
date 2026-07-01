@@ -149,16 +149,23 @@ export default function TranscriptCleaner() {
     onError: (e: Error) => toast({ title: "Upload failed", description: e.message, variant: "destructive" }),
   });
 
+  // Cleaning is fire-and-forget: the server accepts the docs, flips them to
+  // `cleaning`, and runs the AI passes in the background (a big transcript can
+  // outlive the request timeout). So we only report that cleaning STARTED here —
+  // completion and per-doc errors surface via the list poll (every 2.5s while any
+  // doc is `cleaning`), never a success/failure toast on this immediate response.
   const cleanBatchMutation = useMutation({
     mutationFn: cleanTranscriptCleanerBatch,
     onSuccess: (res) => {
       invalidate();
       setSelected(new Set());
-      const ok = res.results.filter((r) => r.ok).length;
-      const failed = res.results.length - ok;
-      toast({ title: `Cleaned ${ok}`, description: failed > 0 ? `${failed} failed — see Intake.` : undefined });
+      const n = res.accepted.length;
+      toast({
+        title: n > 0 ? `Cleaning ${n} transcript${n === 1 ? "" : "s"}…` : "Nothing to clean",
+        description: n > 0 ? "This runs in the background — the list updates as each finishes." : "Selected transcripts are already cleaning.",
+      });
     },
-    onError: (e: Error) => toast({ title: "Batch clean failed", description: e.message, variant: "destructive" }),
+    onError: (e: Error) => toast({ title: "Couldn't start cleaning", description: e.message, variant: "destructive" }),
   });
 
   const deleteMutation = useMutation({
