@@ -1,8 +1,8 @@
 import { getParam } from "../../lib/params";
 import { Router, Request, Response } from "express";
 import { db } from "@workspace/db";
-import { kbStagingDocsTable, knowledgebaseDocsTable, aiLiveDocumentsTable, kbDocProvenanceTable, kbTriageAuditLogTable } from "@workspace/db/schema";
-import { eq, desc, sql, count, and, ne, isNotNull } from "drizzle-orm";
+import { kbStagingDocsTable, knowledgebaseDocsTable, aiLiveDocumentsTable, kbDocProvenanceTable, kbTriageAuditLogTable, aiSourceDocumentsTable } from "@workspace/db/schema";
+import { eq, desc, sql, count, and, ne, isNotNull, inArray } from "drizzle-orm";
 import { requirePermission } from "../../middleware/rbac.js";
 import { scrubPrivateContent } from "../../lib/content-privacy-filter";
 import {
@@ -13,6 +13,7 @@ import {
 import { CITABLE_DOC_CLASSES } from "../../lib/kb-taxonomy.js";
 import { detectLegacyRefs } from "../../lib/kb-mining.js";
 import { blocksBulkConfirm, type RiskFlag } from "../../lib/kb-flags.js";
+import { applyRefineEdits } from "../../lib/transcript-cleaner.js";
 
 export { runTriageBackground } from "../../lib/kb-triage.js";
 
@@ -57,6 +58,8 @@ router.get("/", async (req: Request, res: Response) => {
     const docTypeFilter = (req.query.docType as string) || undefined;
     const homeRootFilter = (req.query.homeRoot as string) || undefined;
     const docClassFilter = (req.query.docClass as string) || undefined;
+    // Node is now the PRIMARY drill-down (Shelf → Node) for the Synthesis queue.
+    const nodeFilter = (req.query.node as string) || undefined;
     const tagFilter = (req.query.tag as string) || undefined;
     const riskFilter = (req.query.risk as string) || undefined; // flagged | blocking | needs_expert
     const staleOnly = req.query.stale === "true" || req.query.stale === "1";
@@ -92,6 +95,9 @@ router.get("/", async (req: Request, res: Response) => {
       } else {
         where = sql`${where} AND ${kbStagingDocsTable.docClassTarget} = ${docClassFilter}`;
       }
+    }
+    if (nodeFilter && nodeFilter !== "all") {
+      where = sql`${where} AND ${kbStagingDocsTable.node} = ${nodeFilter}`;
     }
     if (tagFilter && tagFilter !== "all") {
       where = sql`${where} AND ${kbStagingDocsTable.taxonomyTags} @> ${JSON.stringify([tagFilter])}::jsonb`;
@@ -129,6 +135,7 @@ router.get("/", async (req: Request, res: Response) => {
       docClassCounts,
       riskAgg,
       tagRows,
+      nodeCountRows,
     ] = await Promise.all([
       db
         .select({ status: kbStagingDocsTable.status, cnt: count() })
@@ -164,6 +171,10 @@ router.get("/", async (req: Request, res: Response) => {
         GROUP BY tag
         ORDER BY cnt DESC, tag ASC
       `),
+      db
+        .select({ node: kbStagingDocsTable.node, cnt: count() })
+        .from(kbStagingDocsTable)
+        .groupBy(kbStagingDocsTable.node),
     ]);
 
     const citableCount = docClassCounts
@@ -215,6 +226,10 @@ router.get("/", async (req: Request, res: Response) => {
       shelfCounts: shelfCounts
         .filter((s) => s.homeRoot)
         .map((s) => ({ homeRoot: s.homeRoot as string, count: s.cnt }))
+        .sort((a, b) => b.count - a.count),
+      nodeCounts: nodeCountRows
+        .filter((n) => n.node)
+        .map((n) => ({ node: n.node as string, count: n.cnt }))
         .sort((a, b) => b.count - a.count),
     });
   } catch (err: unknown) {
@@ -647,16 +662,40 @@ router.post("/push-approved", async (_req: Request, res: Response) => {
           })
           .returning({ id: aiLiveDocumentsTable.id });
 
-        // Provenance: trace the published claim back to its screened source. We
-        // refresh it on each push so re-publishing keeps a single accurate row.
+        // Provenance: trace the published claim back to its screened source(s).
+        // We refresh it on each push so re-publishing keeps an accurate set.
+        //
+        // Synthesized truth-docs consolidate MANY sources, so we write one row
+        // per contributing source from synthesisSources (multi-source
+        // provenance). Legacy single-source drafts keep the one-row behavior.
         if (live) {
           await tx.delete(kbDocProvenanceTable).where(eq(kbDocProvenanceTable.docId, live.id));
-          await tx.insert(kbDocProvenanceTable).values({
-            docId: live.id,
-            sourceId: doc.sourceId ?? null,
-            chunkRef: doc.sourceVideoTitle ?? null,
-            relation: "source",
-          });
+
+          const synthSources = Array.isArray(doc.synthesisSources)
+            ? (doc.synthesisSources as Array<{
+                sourceName?: string | null;
+                transcriptSourceId?: number | null;
+                relevance?: number | null;
+              }>)
+            : [];
+
+          if (synthSources.length > 0) {
+            await tx.insert(kbDocProvenanceTable).values(
+              synthSources.map((s) => ({
+                docId: live.id,
+                sourceId: s.transcriptSourceId ?? null,
+                chunkRef: s.sourceName ?? null,
+                relation: "source",
+              })),
+            );
+          } else {
+            await tx.insert(kbDocProvenanceTable).values({
+              docId: live.id,
+              sourceId: doc.sourceId ?? null,
+              chunkRef: doc.sourceVideoTitle ?? null,
+              relation: "source",
+            });
+          }
         }
 
         await tx
@@ -824,6 +863,220 @@ Return ONLY the full revised document body (markdown). No preamble, no explanati
     });
 
     res.json({ document: updated, instruction: instruction.trim() });
+  } catch (err: unknown) {
+    res.status(500).json({ error: err instanceof Error ? err.message : "Unknown error" });
+  }
+});
+
+// ── Corpus-aware refine chat (Task #1533) ────────────────────────────────────
+//
+// A THREADED, patch-based refinement conversation for synthesized truth-doc
+// drafts. Unlike /redraft (single full-rewrite instruction), refine is aware of
+// the draft's multi-source provenance (synthesisSources) and prior turns, and
+// prefers surgical find/replace edits — a full rewrite is only the fallback when
+// the edits can't be applied unambiguously (LLM latency scales with output
+// tokens, so small patches keep the loop responsive). Result is parked in
+// editedContent; status stays needs_review (never auto-published). Each turn is
+// recorded in the audit log so the thread persists across sessions.
+router.post("/:id/refine", async (req: Request, res: Response) => {
+  try {
+    const id = parseInt(getParam(req.params.id));
+    const { instruction, history } = req.body as {
+      instruction?: string;
+      history?: Array<{ role: string; content: string }>;
+    };
+
+    if (!instruction || !instruction.trim()) {
+      res.status(400).json({ error: "An instruction is required" });
+      return;
+    }
+
+    const [doc] = await db.select().from(kbStagingDocsTable).where(eq(kbStagingDocsTable.id, id));
+    if (!doc) {
+      res.status(404).json({ error: "Document not found" });
+      return;
+    }
+
+    const current = doc.editedContent ?? doc.content;
+
+    // Corpus context: the sources this truth-doc consolidates, strongest first.
+    const synthSources = Array.isArray(doc.synthesisSources)
+      ? (doc.synthesisSources as Array<{
+          sourceDocId?: number | null;
+          sourceName?: string | null;
+          authorityRole?: string | null;
+          relevance?: number | null;
+        }>)
+      : [];
+
+    // Corpus lookback: pull the ACTUAL content of the contributing source
+    // documents so refine can reach back into the node's source material (not
+    // just reshuffle the existing draft text). Strongest sources first, budget-
+    // bounded so the loop stays responsive.
+    const topSourceIds = synthSources
+      .slice()
+      .sort((a, b) => (b.relevance ?? 0) - (a.relevance ?? 0))
+      .map((s) => s.sourceDocId)
+      .filter((v): v is number => typeof v === "number")
+      .slice(0, 6);
+
+    let sourceMaterial = "";
+    if (topSourceIds.length > 0) {
+      const sourceRows = await db
+        .select({
+          id: aiSourceDocumentsTable.id,
+          sourceName: aiSourceDocumentsTable.sourceName,
+          content: aiSourceDocumentsTable.content,
+        })
+        .from(aiSourceDocumentsTable)
+        .where(inArray(aiSourceDocumentsTable.id, topSourceIds));
+      const byId = new Map(sourceRows.map((r) => [r.id, r]));
+      const PER_SOURCE_CHARS = Math.floor(24000 / Math.max(topSourceIds.length, 1));
+      sourceMaterial = topSourceIds
+        .map((sid, i) => {
+          const row = byId.get(sid);
+          if (!row) return null;
+          return `[SOURCE ${i + 1}] ${row.sourceName ?? "unnamed"}\n${scrubPrivateContent(row.content).substring(0, PER_SOURCE_CHARS)}`;
+        })
+        .filter(Boolean)
+        .join("\n\n");
+    }
+
+    const sourceContext =
+      synthSources.length > 0
+        ? "This is a SYNTHESIZED truth document consolidating these sources (strongest first):\n" +
+          synthSources
+            .slice(0, 20)
+            .map(
+              (s, i) =>
+                `${i + 1}. ${s.sourceName ?? "unnamed source"}${s.authorityRole ? ` [${s.authorityRole}]` : ""}`,
+            )
+            .join("\n")
+        : "This draft was authored from a single source.";
+
+    const priorTurns = (history ?? [])
+      .slice(-6)
+      .map((t) => `${t.role === "user" ? "Reviewer" : "Assistant"}: ${t.content}`)
+      .join("\n");
+
+    const systemPrompt = `You are refining a BTS (Build Test Scale) knowledge-base truth document per a reviewer's instruction, in an ongoing conversation.
+${sourceContext}
+
+Prefer SURGICAL edits. Return ONLY JSON of the form:
+{"edits":[{"find":"exact text to replace","replace":"new text","all":false}],"message":"one sentence summary"}
+- "find" must be an EXACT substring of the current draft (copy it verbatim). Use "all":true only to replace every occurrence; otherwise "find" must match exactly once.
+- If the change is too broad for find/replace, instead return {"rewrite":"<full revised markdown body>","message":"..."}.
+- Apply ONLY the requested change; preserve correct facts, headings and structure otherwise.
+- You are given the ORIGINAL SOURCE MATERIAL this draft was consolidated from. When the reviewer asks to add, expand or correct content, PULL from that source material — do not invent facts and do not merely reshuffle the existing draft text.
+BRAND RULES: say "Build Test Scale" / "BTS" (never "TCE" or "Cherrington"); no coach surnames; support email is support@buildtestscale.com.`;
+
+    const userContent = `${priorTurns ? `CONVERSATION SO FAR:\n${priorTurns}\n\n` : ""}INSTRUCTION: ${instruction.trim()}\n\nTITLE: ${doc.title}\n\nCURRENT DRAFT:\n${current.substring(0, 12000)}${sourceMaterial ? `\n\n──────────\nORIGINAL SOURCE MATERIAL (for lookback; strongest first):\n${sourceMaterial}` : ""}`;
+
+    const resp = await fetch(
+      process.env.AI_INTEGRATIONS_OPENAI_BASE_URL + "/chat/completions",
+      {
+        method: "POST",
+        headers: {
+          Authorization: "Bearer " + process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model: "gpt-5",
+          messages: [
+            { role: "system", content: systemPrompt },
+            { role: "user", content: userContent },
+          ],
+          response_format: { type: "json_object" },
+          max_completion_tokens: 4000,
+        }),
+        signal: AbortSignal.timeout(90000),
+      },
+    );
+
+    if (!resp.ok) {
+      throw new Error("AI refine failed: " + resp.status);
+    }
+
+    const json = (await resp.json()) as { choices: Array<{ message: { content: string } }> };
+    const rawContent = (json.choices[0]?.message?.content ?? "").trim();
+    if (!rawContent) {
+      throw new Error("AI returned an empty refine response");
+    }
+
+    let parsed: { edits?: unknown; rewrite?: unknown; message?: unknown };
+    try {
+      parsed = JSON.parse(rawContent);
+    } catch {
+      throw new Error("AI returned malformed refine JSON");
+    }
+
+    // Patch-first: try the surgical edits. Fall back to a full rewrite only when
+    // the edits can't be applied unambiguously (mis-copied anchor, zero/many
+    // matches) or the model chose to rewrite.
+    let revised: string | null = null;
+    let mode: "patch" | "rewrite" = "patch";
+    if (Array.isArray(parsed.edits)) {
+      revised = applyRefineEdits(current, parsed.edits);
+    }
+    if (revised === null) {
+      mode = "rewrite";
+      if (typeof parsed.rewrite === "string" && parsed.rewrite.trim()) {
+        revised = parsed.rewrite.trim();
+      }
+    }
+    if (revised === null) {
+      throw new Error("Refine could not be applied — no valid edits or rewrite returned");
+    }
+
+    const assistantMessage =
+      typeof parsed.message === "string" && parsed.message.trim()
+        ? parsed.message.trim()
+        : "Draft updated.";
+
+    const userId = (req as unknown as { userId: number }).userId;
+
+    const [updated] = await db
+      .update(kbStagingDocsTable)
+      .set({ editedContent: revised, status: "needs_review" })
+      .where(eq(kbStagingDocsTable.id, id))
+      .returning();
+
+    await db.insert(kbTriageAuditLogTable).values({
+      stagingDocId: id,
+      eventType: "refined",
+      confidenceScore: null,
+      actorUserId: userId,
+      aiReasoning: `Refined (${mode}) per instruction: ${instruction.trim().substring(0, 300)} — ${assistantMessage.substring(0, 200)}`,
+      docTitle: doc.title,
+    });
+
+    res.json({ document: updated, mode, assistantMessage, instruction: instruction.trim() });
+  } catch (err: unknown) {
+    res.status(500).json({ error: err instanceof Error ? err.message : "Unknown error" });
+  }
+});
+
+/** Threaded refine history for a draft (audit-log-backed). */
+router.get("/:id/refine-thread", async (req: Request, res: Response) => {
+  try {
+    const id = parseInt(getParam(req.params.id));
+    const rows = await db
+      .select({
+        id: kbTriageAuditLogTable.id,
+        eventType: kbTriageAuditLogTable.eventType,
+        reasoning: kbTriageAuditLogTable.aiReasoning,
+        createdAt: kbTriageAuditLogTable.createdAt,
+      })
+      .from(kbTriageAuditLogTable)
+      .where(
+        and(
+          eq(kbTriageAuditLogTable.stagingDocId, id),
+          sql`${kbTriageAuditLogTable.eventType} IN ('refined','redrafted')`,
+        ),
+      )
+      .orderBy(desc(kbTriageAuditLogTable.createdAt))
+      .limit(50);
+    res.json({ thread: rows });
   } catch (err: unknown) {
     res.status(500).json({ error: err instanceof Error ? err.message : "Unknown error" });
   }

@@ -280,6 +280,25 @@ if [ -n "$DATABASE_URL" ]; then
   #     IF NOT EXISTS, DROP CONSTRAINT IF EXISTS + guarded ADD CONSTRAINT).
   psql "$DATABASE_URL" -v ON_ERROR_STOP=1 \
     -f lib/db/drizzle/0087_ai_live_documents_parity.sql >/dev/null
+
+  # 24. Synthesis Engine topic index (Task #1533).
+  #     New additive many-to-many table `kb_source_node_links` mapping
+  #     ai_source_documents onto taxonomy nodes with an LLM/lexical relevance
+  #     score. It is the topic layer synthesis reads to gather all material for a
+  #     node across the corpus. Applying it here keeps the live-schema-drift gate
+  #     green so the conditional push stays skipped. Idempotent
+  #     (CREATE TABLE/INDEX IF NOT EXISTS).
+  psql "$DATABASE_URL" -v ON_ERROR_STOP=1 \
+    -f lib/db/drizzle/0088_kb_source_node_links.sql >/dev/null
+
+  # 25. Synthesis Engine multi-source provenance (Task #1533).
+  #     Additive nullable jsonb column `kb_staging_docs.synthesis_sources`
+  #     holding the list of source documents a synthesized truth-doc draft was
+  #     consolidated from. Applying it here keeps the live-schema-drift gate
+  #     green so the conditional push stays skipped. Idempotent
+  #     (ADD COLUMN IF NOT EXISTS).
+  psql "$DATABASE_URL" -v ON_ERROR_STOP=1 \
+    -f lib/db/drizzle/0089_kb_staging_synthesis_sources.sql >/dev/null
 fi
 
 # Schema sync — CONDITIONAL push.

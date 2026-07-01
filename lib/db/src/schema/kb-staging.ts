@@ -84,6 +84,19 @@ export const kbStagingDocsTable = pgTable("kb_staging_docs", {
   // AI's suggested taxonomy (suggestion only; human confirms): { homeRoot, node,
   // tags:[], docClass, blitzSection, ceiling, handoff }.
   aiSuggestedTaxonomy: jsonb("ai_suggested_taxonomy"),
+  // Multi-source provenance for a Synthesis-Engine draft (Task #1533). Each
+  // contributing source: { sourceDocId, sourceType, authorityRole, sourceName,
+  // transcriptSourceId, relevance }. Null for single-origin / non-synthesized
+  // drafts (their origin lives in sourceId / sourceVideoTitle). Powers the
+  // review multi-source provenance panel and the per-source publish provenance.
+  synthesisSources: jsonb("synthesis_sources").$type<{
+    sourceDocId: number;
+    sourceType: string | null;
+    authorityRole: string | null;
+    sourceName: string | null;
+    transcriptSourceId: number | null;
+    relevance: number | null;
+  }[]>(),
   // Reviewer parked this draft for a subject-matter expert (could not adjudicate).
   needsExpert: boolean("needs_expert").notNull().default(false),
 

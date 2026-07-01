@@ -79,6 +79,15 @@ interface SuggestedTaxonomy {
   handoff?: string | null;
 }
 
+interface SynthSource {
+  sourceDocId?: number | null;
+  sourceType?: string | null;
+  authorityRole?: string | null;
+  sourceName?: string | null;
+  transcriptSourceId?: number | null;
+  relevance?: number | null;
+}
+
 interface StagingDoc {
   id: number;
   title: string;
@@ -109,6 +118,7 @@ interface StagingDoc {
   sourceId: number | null;
   riskFlags: RiskFlag[] | null;
   corroborationCount: number;
+  synthesisSources: SynthSource[] | null;
   conflictData: ConflictData | null;
   staleReferences: string[] | null;
   aiSuggestedTaxonomy: SuggestedTaxonomy | null;
@@ -123,6 +133,11 @@ interface StatusCounts {
 
 interface ShelfCount {
   homeRoot: string;
+  count: number;
+}
+
+interface NodeCount {
+  node: string;
   count: number;
 }
 
@@ -300,6 +315,7 @@ export default function KnowledgeBaseReview() {
   const [riskCounts, setRiskCounts] = useState<RiskCounts>({ blocking: 0, flagged: 0, needs_expert: 0, stale: 0 });
   const [tagCounts, setTagCounts] = useState<TagCount[]>([]);
   const [shelfCounts, setShelfCounts] = useState<ShelfCount[]>([]);
+  const [nodeCounts, setNodeCounts] = useState<NodeCount[]>([]);
   const [loading, setLoading] = useState(true);
   const [processing, setProcessing] = useState(false);
   const [pushing, setPushing] = useState(false);
@@ -309,6 +325,7 @@ export default function KnowledgeBaseReview() {
   const [originFilter, setOriginFilter] = useState("all");
   const [docTypeFilter, setDocTypeFilter] = useState("all");
   const [shelfFilter, setShelfFilter] = useState("all");
+  const [nodeFilter, setNodeFilter] = useState("all");
   const [docClassFilter, setDocClassFilter] = useState("all");
   const [tagFilter, setTagFilter] = useState("all");
   const [riskFilter, setRiskFilter] = useState("all"); // all | flagged | blocking | needs_expert
@@ -331,6 +348,7 @@ export default function KnowledgeBaseReview() {
   const [adminNotes, setAdminNotes] = useState("");
   const [instruction, setInstruction] = useState("");
   const [redrafting, setRedrafting] = useState(false);
+  const [refineThread, setRefineThread] = useState<Array<{ role: string; content: string }>>([]);
   const [mergeIds, setMergeIds] = useState<Set<number>>(new Set());
   const [merging, setMerging] = useState(false);
   const [guidedMode, setGuidedMode] = useState(false);
@@ -350,9 +368,9 @@ export default function KnowledgeBaseReview() {
       const params = new URLSearchParams();
       if (statusFilter && statusFilter !== "all") params.set("status", statusFilter);
       if (searchQuery) params.set("search", searchQuery);
-      if (originFilter && originFilter !== "all") params.set("originType", originFilter);
       if (docTypeFilter && docTypeFilter !== "all") params.set("docType", docTypeFilter);
       if (shelfFilter && shelfFilter !== "all") params.set("homeRoot", shelfFilter);
+      if (nodeFilter && nodeFilter !== "all") params.set("node", nodeFilter);
       if (docClassFilter && docClassFilter !== "all") params.set("docClass", docClassFilter);
       if (tagFilter && tagFilter !== "all") params.set("tag", tagFilter);
       if (riskFilter && riskFilter !== "all") params.set("risk", riskFilter);
@@ -371,6 +389,7 @@ export default function KnowledgeBaseReview() {
       setRiskCounts(data.riskCounts || { blocking: 0, flagged: 0, needs_expert: 0, stale: 0 });
       setTagCounts(data.tagCounts || []);
       setShelfCounts(data.shelfCounts || []);
+      setNodeCounts(data.nodeCounts || []);
       setTotalPages(data.pagination?.totalPages || 1);
       setTotal(data.pagination?.total || 0);
     } catch {
@@ -378,7 +397,7 @@ export default function KnowledgeBaseReview() {
     } finally {
       setLoading(false);
     }
-  }, [statusFilter, originFilter, docTypeFilter, shelfFilter, docClassFilter, tagFilter, riskFilter, staleOnly, searchQuery, page, toast]);
+  }, [statusFilter, docTypeFilter, shelfFilter, nodeFilter, docClassFilter, tagFilter, riskFilter, staleOnly, searchQuery, page, toast]);
 
   const fetchTriageStatus = useCallback(async () => {
     try {
@@ -467,14 +486,30 @@ export default function KnowledgeBaseReview() {
     setGuidedIndex((i) => Math.min(i, guidedDocs.length - 2));
   };
 
-  const runPipeline = async () => {
+  // Synthesis Engine (Task #1533): flat-file "process transcripts" mining is
+  // retired. The engine builds a topic index over the whole source corpus, then
+  // consolidates each taxonomy node into ONE truth-doc draft (needs review).
+  const buildTopicIndex = async () => {
     setProcessing(true);
     try {
-      const res = await authFetch("/admin/knowledgebase/pipeline/process-transcripts", { method: "POST" });
+      const res = await authFetch("/admin/knowledgebase/pipeline/build-topic-index", { method: "POST" });
       const data = await res.json();
-      toast({ title: data.message });
+      toast({ title: data.message ?? "Building topic index…" });
     } catch {
-      toast({ title: "Failed to start pipeline", variant: "destructive" });
+      toast({ title: "Failed to build topic index", variant: "destructive" });
+    } finally {
+      setProcessing(false);
+    }
+  };
+
+  const runSynthesis = async () => {
+    setProcessing(true);
+    try {
+      const res = await authFetch("/admin/knowledgebase/pipeline/synthesize", { method: "POST" });
+      const data = await res.json();
+      toast({ title: data.message ?? "Synthesizing…", description: "New truth-doc drafts land in the review queue." });
+    } catch {
+      toast({ title: "Failed to start synthesis", variant: "destructive" });
     } finally {
       setProcessing(false);
     }
@@ -598,6 +633,8 @@ export default function KnowledgeBaseReview() {
     setSelectedDoc(doc);
     setEditMode(false);
     setInstruction("");
+    setRefineThread([]);
+    loadRefineThread(doc.id);
     setEditContent(doc.editedContent || doc.content);
     setEditTitle(doc.aiCleanedTitle || doc.title);
     setEditCategory(doc.category);
@@ -628,24 +665,54 @@ export default function KnowledgeBaseReview() {
     setEditMode(false);
   };
 
-  const runRedraft = async () => {
-    if (!selectedDoc || !instruction.trim()) return;
-    setRedrafting(true);
+  const loadRefineThread = async (docId: number) => {
     try {
-      const res = await authFetch(`/admin/knowledgebase/staging/${selectedDoc.id}/redraft`, {
+      const res = await authFetch(`/admin/knowledgebase/staging/${docId}/refine-thread`);
+      if (!res.ok) return;
+      const data = await res.json();
+      const rows: Array<{ reasoning: string | null }> = data.thread || [];
+      const turns: Array<{ role: string; content: string }> = [];
+      // Persisted rows are newest-first; replay chronologically. Each row's
+      // reasoning packs "…per instruction: <instr> — <assistant summary>".
+      for (const r of rows.slice().reverse()) {
+        const reasoning = r.reasoning || "";
+        const m = reasoning.match(/per instruction:\s*([\s\S]*?)\s+—\s+([\s\S]*)$/);
+        if (m) {
+          turns.push({ role: "user", content: m[1].trim() });
+          turns.push({ role: "assistant", content: m[2].trim() });
+        } else if (reasoning) {
+          turns.push({ role: "assistant", content: reasoning });
+        }
+      }
+      setRefineThread(turns);
+    } catch {
+      /* thread is best-effort context; ignore load failures */
+    }
+  };
+
+  const runRefine = async () => {
+    if (!selectedDoc || !instruction.trim()) return;
+    const myInstruction = instruction.trim();
+    const priorHistory = refineThread;
+    setRedrafting(true);
+    setRefineThread((prev) => [...prev, { role: "user", content: myInstruction }]);
+    setInstruction("");
+    try {
+      const res = await authFetch(`/admin/knowledgebase/staging/${selectedDoc.id}/refine`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ instruction: instruction.trim() }),
+        body: JSON.stringify({ instruction: myInstruction, history: priorHistory }),
       });
-      if (!res.ok) throw new Error("Redraft failed");
+      if (!res.ok) throw new Error("Refine failed");
       const data = await res.json();
       setSelectedDoc(data.document);
       setEditContent(data.document.editedContent || data.document.content);
-      setInstruction("");
-      toast({ title: "AI redrafted the document", description: "Review the changes, then approve." });
+      setRefineThread((prev) => [...prev, { role: "assistant", content: data.assistantMessage || "Draft updated." }]);
       fetchDocs();
     } catch {
-      toast({ title: "Redraft failed", variant: "destructive" });
+      toast({ title: "Refine failed", variant: "destructive" });
+      setRefineThread((prev) => prev.slice(0, -1));
+      setInstruction(myInstruction);
     } finally {
       setRedrafting(false);
     }
@@ -957,9 +1024,33 @@ export default function KnowledgeBaseReview() {
                         <span className="text-gray-400">Class:</span> {selectedDoc.docClassTarget || "—"}
                       </p>
                     </div>
-                    {selectedDoc.sourceVideoTitle && (
+                    {/* Multi-source provenance — the sources this truth-doc consolidates */}
+                    {selectedDoc.synthesisSources && selectedDoc.synthesisSources.length > 0 ? (
+                      <div className="rounded-md border bg-white p-2">
+                        <p className="text-gray-500 text-xs font-medium mb-1">
+                          Consolidated from {selectedDoc.synthesisSources.length} source(s):
+                        </p>
+                        <ul className="space-y-0.5 max-h-40 overflow-auto">
+                          {selectedDoc.synthesisSources
+                            .slice()
+                            .sort((a, b) => (b.relevance ?? 0) - (a.relevance ?? 0))
+                            .map((s, i) => (
+                              <li key={`${s.sourceDocId ?? "s"}-${i}`} className="flex items-center gap-2 text-xs text-gray-600">
+                                <span className="text-gray-400 w-4 text-right">{i + 1}.</span>
+                                <span className="truncate">{s.sourceName ?? `Source #${s.sourceDocId ?? "?"}`}</span>
+                                {s.authorityRole && (
+                                  <Badge variant="outline" className="text-[10px] bg-blue-50 text-blue-700 border-blue-200">{s.authorityRole}</Badge>
+                                )}
+                                {typeof s.relevance === "number" && (
+                                  <span className="ml-auto text-gray-400">{Math.round(s.relevance * 100)}%</span>
+                                )}
+                              </li>
+                            ))}
+                        </ul>
+                      </div>
+                    ) : selectedDoc.sourceVideoTitle ? (
                       <p className="text-gray-600"><span className="text-gray-400">Source:</span> {selectedDoc.sourceVideoTitle}</p>
-                    )}
+                    ) : null}
                     {/* Corroboration — emphasized */}
                     <div className={`flex items-center gap-2 rounded-md px-2.5 py-1.5 text-xs font-medium ${
                       selectedDoc.conflictData ? "bg-red-50 text-red-700"
@@ -987,21 +1078,42 @@ export default function KnowledgeBaseReview() {
                     </pre>
                   </div>
 
-                  {/* Instruct-the-AI box */}
+                  {/* Refine chat — threaded, corpus-aware refinement */}
                   <div className="rounded-lg border border-violet-200 bg-violet-50/60 p-3 space-y-2">
                     <div className="flex items-center gap-2 text-sm font-medium text-violet-800">
-                      <Wand2 className="w-4 h-4" />Instruct the AI
+                      <Wand2 className="w-4 h-4" />Refine with AI
                     </div>
+                    {refineThread.length > 0 && (
+                      <div className="max-h-56 overflow-y-auto space-y-2 rounded-md bg-white/70 border border-violet-100 p-2">
+                        {refineThread.map((turn, i) => (
+                          <div
+                            key={i}
+                            className={turn.role === "user" ? "flex justify-end" : "flex justify-start"}
+                          >
+                            <div
+                              className={
+                                "max-w-[85%] rounded-lg px-3 py-1.5 text-sm " +
+                                (turn.role === "user"
+                                  ? "bg-violet-600 text-white"
+                                  : "bg-gray-100 text-gray-800")
+                              }
+                            >
+                              {turn.content}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                     <Textarea
                       value={instruction}
                       onChange={(e) => setInstruction(e.target.value)}
                       rows={2}
-                      placeholder='e.g. "Tighten the intro and remove the pricing claim"'
+                      placeholder='e.g. "Add the source detail on picking an angle" or "Tighten the intro"'
                     />
                     <div className="flex justify-end">
-                      <Button size="sm" onClick={runRedraft} disabled={redrafting || !instruction.trim()} className="bg-violet-600 hover:bg-violet-700">
+                      <Button size="sm" onClick={runRefine} disabled={redrafting || !instruction.trim()} className="bg-violet-600 hover:bg-violet-700">
                         {redrafting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Wand2 className="w-4 h-4 mr-2" />}
-                        Redraft
+                        Send
                       </Button>
                     </div>
                   </div>
@@ -1089,13 +1201,24 @@ export default function KnowledgeBaseReview() {
             </Button>
             <Tooltip>
               <TooltipTrigger asChild>
-                <Button onClick={runPipeline} disabled title="Temporarily disabled while the document-review intake is being mapped out" variant="outline">
-                  {processing ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Play className="w-4 h-4 mr-2" />}
-                  Run Pipeline
+                <Button onClick={buildTopicIndex} disabled={processing} variant="outline">
+                  {processing ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Layers className="w-4 h-4 mr-2" />}
+                  Build Topic Index
                 </Button>
               </TooltipTrigger>
               <TooltipContent className="max-w-xs">
-                Mines screened transcript sources into taxonomy-tagged truth drafts (needs review). Skips quarantined and already-mined sources. Nothing goes live until a human approves and publishes.
+                Classifies every screened source document into the taxonomy node(s) it informs. Run this before synthesizing.
+              </TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button onClick={runSynthesis} disabled={processing} variant="outline">
+                  {processing ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Play className="w-4 h-4 mr-2" />}
+                  Synthesize
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent className="max-w-xs">
+                Consolidates each taxonomy node's linked sources into ONE truth-doc draft with multi-source provenance and a corroboration count (needs review). Nothing goes live until a human approves and publishes.
               </TooltipContent>
             </Tooltip>
           </div>
@@ -1176,7 +1299,6 @@ export default function KnowledgeBaseReview() {
           {[
             ["all", "All"],
             ["truth_draft", `${DOC_TYPE_LABEL.truth_draft} (${docTypeCounts.truth_draft || 0})`],
-            ["existing_doc", `${DOC_TYPE_LABEL.existing_doc} (${docTypeCounts.existing_doc || 0})`],
             ...Object.keys(docTypeCounts)
               .filter((k) => k && k !== "truth_draft" && k !== "existing_doc")
               .map((k) => [k, `${DOC_TYPE_LABEL[k] ?? k} (${docTypeCounts[k]})`]),
@@ -1205,7 +1327,7 @@ export default function KnowledgeBaseReview() {
           ))}
           <span className="text-sm text-gray-500 ml-3">Shelf:</span>
           <Select value={shelfFilter} onValueChange={(v) => { setShelfFilter(v); setPage(1); }}>
-            <SelectTrigger className="h-7 w-[180px] text-xs"><SelectValue /></SelectTrigger>
+            <SelectTrigger className="h-7 w-[160px] text-xs"><SelectValue /></SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All shelves</SelectItem>
               {HOME_ROOTS.map((r) => {
@@ -1219,24 +1341,21 @@ export default function KnowledgeBaseReview() {
                 ))}
             </SelectContent>
           </Select>
+          {/* Node is the PRIMARY synthesis drill-down (Shelf → Node) */}
+          <span className="text-sm text-gray-500 ml-3">Node:</span>
+          <Select value={nodeFilter} onValueChange={(v) => { setNodeFilter(v); setPage(1); }}>
+            <SelectTrigger className="h-7 w-[220px] text-xs"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All nodes</SelectItem>
+              {nodeCounts.map((n) => (
+                <SelectItem key={n.node} value={n.node}>{n.node} ({n.count})</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
 
-        {/* Origin + tag facets (secondary) */}
+        {/* Tag facet (secondary) */}
         <div className="flex items-center gap-2 flex-wrap">
-          <span className="text-sm text-gray-500">Origin:</span>
-          {[
-            ["all", "All"],
-            ...ORIGIN_OPTIONS.map((o) => [o.value, `${o.label} (${originCounts[o.value] || 0})`] as [string, string]),
-            ["unlabeled", `Unlabeled (${originCounts.unlabeled || 0})`],
-          ].map(([key, label]) => (
-            <button
-              key={key}
-              onClick={() => { setOriginFilter(key); setPage(1); }}
-              className={`px-2.5 py-1 rounded-md text-xs font-medium transition-colors ${originFilter === key ? "bg-[#1a56db] text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200"}`}
-            >
-              {label}
-            </button>
-          ))}
           {tagCounts.length > 0 && (
             <>
               <span className="text-sm text-gray-500 ml-3">Tag:</span>

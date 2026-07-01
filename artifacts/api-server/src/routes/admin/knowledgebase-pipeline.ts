@@ -4,7 +4,7 @@ import fs from "fs";
 import path from "path";
 import { db } from "@workspace/db";
 import { kbStagingDocsTable, blitzLessonsTable } from "@workspace/db/schema";
-import { eq, count, and, sql } from "drizzle-orm";
+import { eq, count, and, sql, inArray } from "drizzle-orm";
 import { requirePermission } from "../../middleware/rbac.js";
 import { execSync, execFile } from "child_process";
 import { promisify } from "util";
@@ -22,6 +22,20 @@ import {
 } from "../../lib/kb-mining.js";
 import { ObjectStorageService } from "../../lib/objectStorage.js";
 import mammoth from "mammoth";
+import {
+  buildTopicIndexBackground,
+  getTopicIndexState,
+  isTopicIndexRunning,
+  getNodeLinkCounts,
+} from "../../lib/kb-topic-index.js";
+import {
+  synthesizeNode,
+  synthesizeAllNodesBackground,
+  getSynthesisState,
+  isSynthesisRunning,
+  isValidSynthesisNode,
+} from "../../lib/kb-synthesis.js";
+import { ALL_NODES } from "../../lib/kb-taxonomy.js";
 
 const execFileAsync = promisify(execFile);
 const _require = createRequire(import.meta.url);
@@ -182,108 +196,24 @@ OUTPUT FORMAT (return ONLY this, no other text):
   };
 }
 
-router.post("/process-transcripts", async (req: Request, res: Response) => {
-  try {
-    const existing = await db
-      .select({ cnt: count() })
-      .from(kbStagingDocsTable);
-    if (existing[0].cnt > 0) {
-      res.json({
-        message: "Staging table already has documents. Clear first or use process-single.",
-        existingCount: existing[0].cnt,
-      });
-      return;
-    }
+// ── RETIRED: flat-file transcript mining (Task #1533) ────────────────────────
+//
+// The "1 transcript → 1 draft" flat-file miners (video-transcripts.txt and the
+// coaching .docx pools) are retired. Knowledge is now consolidated per taxonomy
+// node ACROSS the whole ai_source_documents corpus by the Synthesis Engine:
+// build the topic index (POST /build-topic-index) then synthesize
+// (POST /synthesize or POST /synthesize/:node). These endpoints now 410 so no
+// flat-file content can be mined into the review queue.
+const RETIRED_MINING_MESSAGE =
+  "Flat-file transcript mining has been retired. Knowledge is now consolidated per taxonomy node by the Synthesis Engine — build the topic index (POST /admin/knowledgebase/pipeline/build-topic-index) then run synthesis (POST /admin/knowledgebase/pipeline/synthesize).";
 
-    const raw = fs.readFileSync(
-      path.join(KB_DIR, "video-transcripts.txt"),
-      "utf-8",
-    );
-    const sections = raw
-      .split(/\n---\n/)
-      .filter(
-        (s) => s.trim().length > 50 && /^Title:\s*.+/m.test(s),
-      );
+function retiredMining(_req: Request, res: Response): void {
+  res.status(410).json({ error: RETIRED_MINING_MESSAGE, retired: true });
+}
 
-    res.json({
-      message: `Starting pipeline for ${sections.length} transcripts. Processing in background.`,
-      count: sections.length,
-    });
+router.post("/process-transcripts", retiredMining);
 
-    processTranscriptsBackground(sections).catch((err) =>
-      console.error("[KB Pipeline] Background error:", err),
-    );
-  } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : "Unknown error";
-    res.status(500).json({ error: message });
-  }
-});
-
-router.post("/process-single/:index", async (req: Request, res: Response) => {
-  try {
-    const idx = parseInt(getParam(req.params.index));
-    const raw = fs.readFileSync(
-      path.join(KB_DIR, "video-transcripts.txt"),
-      "utf-8",
-    );
-    const sections = raw
-      .split(/\n---\n/)
-      .filter(
-        (s) => s.trim().length > 50 && /^Title:\s*.+/m.test(s),
-      );
-
-    if (idx < 0 || idx >= sections.length) {
-      res.status(400).json({ error: `Invalid index. Range: 0-${sections.length - 1}` });
-      return;
-    }
-
-    const section = sections[idx];
-    const videoTitle =
-      section.match(/^Title:\s*(.+)/m)?.[1]?.trim() || "Unknown";
-    const videoId =
-      section.match(/^Video ID:\s*(.+)/m)?.[1]?.trim() || "";
-    const transcriptBody = section
-      .replace(/^Title:.*\n/m, "")
-      .replace(/^Video ID:.*\n/m, "")
-      .trim();
-
-    // Source gate: only mine a human-cleared (training) source.
-    const sources = await loadMiningSources();
-    const decision = decideMining(`video:${videoTitle}`, sources, { force: true });
-    if (!decision.mine && decision.skipReason === "quarantined") {
-      res.status(409).json({ error: `Source quarantined — not eligible for mining: ${videoTitle}` });
-      return;
-    }
-
-    const cleaned = cleanTranscript(transcriptBody);
-    const doc = await extractDocument(cleaned, videoTitle);
-    const staleRefs = detectLegacyRefs(doc.content);
-
-    const [inserted] = await db
-      .insert(kbStagingDocsTable)
-      .values({
-        title: doc.title,
-        category: doc.category,
-        content: doc.content,
-        tags: doc.topics,
-        sourceVideoTitle: videoTitle,
-        sourceVideoId: videoId,
-        status: "needs_review",
-        sourceId: decision.source?.id ?? null,
-        authorityRole: decision.source?.authorityRole ?? "curriculum",
-        originType: originTypeForKind(decision.source?.sourceKind ?? "video"),
-        staleReferences: staleRefs.length > 0 ? staleRefs : null,
-      })
-      .returning();
-
-    if (decision.source) await markSourceMined(decision.source.id);
-
-    res.json({ success: true, document: inserted });
-  } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : "Unknown error";
-    res.status(500).json({ error: message });
-  }
-});
+router.post("/process-single/:index", retiredMining);
 
 router.get("/process-status", async (_req: Request, res: Response) => {
   try {
@@ -1180,116 +1110,11 @@ router.get("/coaching-status", (_req: Request, res: Response) => {
   res.json({ processing: coachingProcessingStatus });
 });
 
-router.post("/process-coaching-transcripts", async (_req: Request, res: Response) => {
-  if (coachingProcessingStatus.running) {
-    res.json({ message: "Already processing", status: coachingProcessingStatus });
-    return;
-  }
+// RETIRED (Task #1533): coaching .docx flat-file mining — superseded by the
+// Synthesis Engine (topic index → per-node synthesis). See retiredMining above.
+router.post("/process-coaching-transcripts", retiredMining);
 
-  const transcriptDirs = [
-    path.join(process.cwd(), "src/data/coaching-transcripts"),
-    path.join(process.cwd(), "artifacts/api-server/src/data/coaching-transcripts"),
-  ];
-  const transcriptDir = transcriptDirs.find((d) => fs.existsSync(d));
-
-  if (!transcriptDir) {
-    res.status(404).json({ error: "Coaching transcripts directory not found" });
-    return;
-  }
-
-  const coaches = fs.readdirSync(transcriptDir).filter((d) => {
-    const stat = fs.statSync(path.join(transcriptDir, d));
-    return stat.isDirectory();
-  });
-
-  const allFiles: { coach: string; filePath: string; filename: string }[] = [];
-  for (const coach of coaches) {
-    const coachDir = path.join(transcriptDir, coach);
-    const files = fs.readdirSync(coachDir).filter((f) => f.endsWith(".docx"));
-    for (const f of files) {
-      allFiles.push({ coach, filePath: path.join(coachDir, f), filename: f });
-    }
-  }
-
-  if (allFiles.length === 0) {
-    res.json({ message: "No .docx files found" });
-    return;
-  }
-
-  const existingCoaching = await db
-    .select({ cnt: count() })
-    .from(kbStagingDocsTable)
-    .where(eq(kbStagingDocsTable.source, "coaching_call"));
-
-  if (existingCoaching[0].cnt > 0) {
-    res.json({
-      message: `${existingCoaching[0].cnt} coaching call docs already in staging. Use /process-coaching-retry to process only new files.`,
-      existing: existingCoaching[0].cnt,
-    });
-    return;
-  }
-
-  coachingProcessingStatus = { running: true, total: allFiles.length, processed: 0, skipped: 0, errors: 0, currentFile: "" };
-  res.json({ message: `Processing ${allFiles.length} coaching transcripts`, total: allFiles.length });
-
-  processCoachingBatch(allFiles).catch((err) => {
-    console.error("[Coaching Pipeline] Fatal error:", err);
-    coachingProcessingStatus.running = false;
-  });
-});
-
-router.post("/process-coaching-retry", async (_req: Request, res: Response) => {
-  if (coachingProcessingStatus.running) {
-    res.json({ message: "Already processing", status: coachingProcessingStatus });
-    return;
-  }
-
-  const transcriptDirs = [
-    path.join(process.cwd(), "src/data/coaching-transcripts"),
-    path.join(process.cwd(), "artifacts/api-server/src/data/coaching-transcripts"),
-  ];
-  const transcriptDir = transcriptDirs.find((d) => fs.existsSync(d));
-
-  if (!transcriptDir) {
-    res.status(404).json({ error: "Coaching transcripts directory not found" });
-    return;
-  }
-
-  const coaches = fs.readdirSync(transcriptDir).filter((d) => {
-    const stat = fs.statSync(path.join(transcriptDir, d));
-    return stat.isDirectory();
-  });
-
-  const allFiles: { coach: string; filePath: string; filename: string }[] = [];
-  for (const coach of coaches) {
-    const coachDir = path.join(transcriptDir, coach);
-    const files = fs.readdirSync(coachDir).filter((f) => f.endsWith(".docx"));
-    for (const f of files) {
-      allFiles.push({ coach, filePath: path.join(coachDir, f), filename: f });
-    }
-  }
-
-  const existingIds = await db
-    .select({ videoId: kbStagingDocsTable.sourceVideoId })
-    .from(kbStagingDocsTable)
-    .where(eq(kbStagingDocsTable.source, "coaching_call"));
-
-  const existingSet = new Set(existingIds.map((t) => t.videoId));
-  const newFiles = allFiles.filter((f) => !existingSet.has(`${f.coach}/${f.filename}`));
-
-  if (newFiles.length === 0) {
-    res.json({ message: "All coaching transcripts already processed", total: allFiles.length, existing: existingSet.size });
-    return;
-  }
-
-  coachingProcessingStatus = { running: true, total: newFiles.length, processed: 0, skipped: 0, errors: 0, currentFile: "" };
-  res.json({ message: `Retrying ${newFiles.length} unprocessed coaching transcripts (${existingSet.size} already done)`, total: newFiles.length });
-
-  processCoachingBatch(newFiles).catch((err) => {
-    console.error("[Coaching Pipeline] Fatal error:", err);
-    coachingProcessingStatus.running = false;
-  });
-});
+router.post("/process-coaching-retry", retiredMining);
 
 async function processCoachingBatch(files: { coach: string; filePath: string; filename: string }[]) {
   const total = files.length;
@@ -1767,5 +1592,120 @@ async function processUploadInBackground(
       );
   }
 }
+
+// ── Synthesis Engine (Task #1533) ───────────────────────────────────────────
+//
+// The taxonomy-driven replacement for flat-file mining. Two phases:
+//   1. Topic index — classify every ai_source_documents row into the taxonomy
+//      node(s) it materially informs (LLM + lexical fallback).
+//   2. Synthesis — per node, consolidate all linked sources into ONE truth-doc
+//      draft (create-only, needs_review) with multi-source provenance +
+//      corroboration count, then run triage on the new drafts. Nothing
+//      auto-publishes — the human gate is unchanged.
+
+/** Build/refresh the topic index (source → node relevance links). Background. */
+router.post("/build-topic-index", async (req: Request, res: Response) => {
+  try {
+    if (isTopicIndexRunning()) {
+      res.json({ message: "Topic index build already running", running: true, state: getTopicIndexState() });
+      return;
+    }
+    const force = req.body?.force === true;
+    res.json({ message: `Building topic index (${force ? "full re-classify" : "incremental"}) in background.`, running: true });
+    buildTopicIndexBackground({ force }).catch((err) =>
+      console.error("[TopicIndex] Unhandled background error:", err),
+    );
+  } catch (err: unknown) {
+    res.status(500).json({ error: err instanceof Error ? err.message : "Unknown error" });
+  }
+});
+
+/** Topic-index progress + per-node source counts. */
+router.get("/topic-index-status", async (_req: Request, res: Response) => {
+  try {
+    const nodeCounts = await getNodeLinkCounts();
+    res.json({ ...getTopicIndexState(), nodeCounts });
+  } catch (err: unknown) {
+    res.status(500).json({ error: err instanceof Error ? err.message : "Unknown error" });
+  }
+});
+
+/** List taxonomy nodes with their linked-source counts (synthesis candidates). */
+router.get("/synthesis-nodes", async (_req: Request, res: Response) => {
+  try {
+    const nodeCounts = await getNodeLinkCounts();
+    const nodes = ALL_NODES.map((n) => ({
+      slug: n.slug,
+      label: n.label,
+      root: n.root,
+      sourceCount: nodeCounts[n.slug] ?? 0,
+    }));
+    res.json({ nodes, running: isSynthesisRunning(), state: getSynthesisState() });
+  } catch (err: unknown) {
+    res.status(500).json({ error: err instanceof Error ? err.message : "Unknown error" });
+  }
+});
+
+/** Synthesis progress. */
+router.get("/synthesis-status", (_req: Request, res: Response) => {
+  res.json(getSynthesisState());
+});
+
+/** Synthesize ALL nodes that have linked sources. Background; triages new drafts. */
+router.post("/synthesize", async (_req: Request, res: Response) => {
+  try {
+    if (isSynthesisRunning()) {
+      res.json({ message: "Synthesis already running", running: true, state: getSynthesisState() });
+      return;
+    }
+    res.json({ message: "Synthesizing all nodes in background.", running: true });
+    synthesizeAllNodesBackground()
+      .then(async (createdIds) => {
+        if (createdIds.length === 0) return;
+        const drafts = await db
+          .select()
+          .from(kbStagingDocsTable)
+          .where(sql`${kbStagingDocsTable.id} = ANY(${createdIds})`);
+        await runTriageBackground(drafts);
+      })
+      .catch((err) => console.error("[Synthesis] Unhandled background error:", err));
+  } catch (err: unknown) {
+    res.status(500).json({ error: err instanceof Error ? err.message : "Unknown error" });
+  }
+});
+
+/** Synthesize a SINGLE node (synchronous). Triages the new draft if created. */
+router.post("/synthesize/:node", async (req: Request, res: Response) => {
+  try {
+    const node = getParam(req.params.node);
+    if (!isValidSynthesisNode(node)) {
+      res.status(400).json({ error: `Unknown taxonomy node: ${node}` });
+      return;
+    }
+    if (isSynthesisRunning()) {
+      res.status(409).json({ error: "A synthesis run is already in progress" });
+      return;
+    }
+    const result = await synthesizeNode(node);
+    const newDraftIds = [
+      ...(result.draftId ? [result.draftId] : []),
+      ...result.atomicDraftIds,
+    ];
+    if (newDraftIds.length > 0) {
+      const drafts = await db
+        .select()
+        .from(kbStagingDocsTable)
+        .where(inArray(kbStagingDocsTable.id, newDraftIds));
+      if (drafts.length > 0) {
+        runTriageBackground(drafts).catch((err) =>
+          console.error("[Synthesis] Triage error:", err),
+        );
+      }
+    }
+    res.json(result);
+  } catch (err: unknown) {
+    res.status(500).json({ error: err instanceof Error ? err.message : "Unknown error" });
+  }
+});
 
 export default router;
