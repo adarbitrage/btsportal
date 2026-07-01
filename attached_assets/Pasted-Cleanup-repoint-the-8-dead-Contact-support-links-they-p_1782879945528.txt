@@ -1,0 +1,19 @@
+Cleanup: repoint the 8 dead "Contact support" links (they point at /support and /support/contact, which now 404) to open the embedded TicketDesk chat widget instead. Portal-only, no api-server edits.
+
+The 8 links:
+- AdSpendFund.tsx:342
+- Checkout.tsx:426 and Checkout.tsx:513
+- Plans.tsx:216 and Plans.tsx:365
+- Account.tsx:536
+- Training.tsx:198
+- onboarding/QuickStart.tsx:104
+
+FIRST, determine how to trigger the widget: the TicketDesk widget.js is already loaded in index.html (window.TicketDeskChat config + the script). Inspect what the loaded widget actually exposes on window (e.g. window.TicketDeskChat.open(), a show()/openChat() method, or similar). 
+- If it exposes a programmatic open method: convert each of the 8 links from a <Link href="/support..."> into a button/onClick that calls that method to open the chat widget in place. Create ONE small shared helper (e.g. openSupportChat()) that all 8 call, so there's a single source of truth — don't inline the widget call 8 times.
+- If it does NOT expose a usable open method: fall back to linking each to the TicketDesk support URL (https://tickets.buildtestscale.com) as a normal external link (target as appropriate). Tell me which path you took and why.
+
+Preserve intent: Account.tsx:536 currently carries a ?topic=email-admin-cancelled... query — if you switch it to the chat widget, that topic context is lost; note that in your report so I can decide whether it matters. The other 7 are generic "contact support."
+
+AFTER: grep artifacts/portal for any remaining reference to "/support", "/support/contact", or "/admin/tickets" as a frontend route/link — the result must be EMPTY (excluding the legitimate api-server-bound admin-panel-api.ts calls and getTicketDeliveryHealth). Show the grep output. Typecheck must pass.
+
+Optional dead-code hygiene (only if clean, low priority): remove the orphaned onCreateTicket prop plumbing in ChatMessages.tsx/ChatMarkdown.tsx and orphaned admin-ticket client methods in admin-panel-api.ts — but KEEP getTicketDeliveryHealth() (still used by SystemHealth.tsx). Skip if it's not clean.
