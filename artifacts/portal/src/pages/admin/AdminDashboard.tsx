@@ -4,7 +4,7 @@ import { AdminLayout } from "@/components/layout/AdminLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Users, Ticket, TrendingUp, AlertTriangle, Clock, Activity, ArrowRight, ShieldAlert, Package, Mic } from "lucide-react";
+import { Users, TrendingUp, AlertTriangle, Clock, Activity, ArrowRight, ShieldAlert, Package, Mic } from "lucide-react";
 import { adminPanelApi } from "@/lib/admin-panel-api";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
@@ -39,9 +39,7 @@ export default function AdminDashboard() {
   const statCards = kpis ? [
     { label: "Total Members", value: kpis.totalMembers, icon: Users, color: "text-blue-600", bg: "bg-blue-50" },
     { label: "New Members (30d)", value: kpis.newMembers30d, icon: TrendingUp, color: "text-green-600", bg: "bg-green-50" },
-    { label: "Open Tickets", value: kpis.openTickets, icon: Ticket, color: "text-orange-600", bg: "bg-orange-50" },
     { label: "Active Subscriptions", value: kpis.activeSubscriptions, icon: Package, color: "text-purple-600", bg: "bg-purple-50" },
-    { label: "SLA Breaches (30d)", value: kpis.slaBreaches30d, icon: ShieldAlert, color: "text-red-600", bg: "bg-red-50" },
   ] : [];
 
   return (
@@ -123,7 +121,6 @@ export default function AdminDashboard() {
                 <CardContent>
                   <div className="grid grid-cols-2 gap-3">
                     <Link href="/admin/members"><Button variant="outline" className="w-full justify-start gap-2"><Users className="w-4 h-4" />Members</Button></Link>
-                    <Link href="/admin/tickets"><Button variant="outline" className="w-full justify-start gap-2"><Ticket className="w-4 h-4" />Tickets</Button></Link>
                     <Link href="/admin/audit-log"><Button variant="outline" className="w-full justify-start gap-2"><Clock className="w-4 h-4" />Audit Log</Button></Link>
                     <Link href="/admin/system"><Button variant="outline" className="w-full justify-start gap-2"><Activity className="w-4 h-4" />System Health</Button></Link>
                     <Link href="/admin/voice"><Button variant="outline" className="w-full justify-start gap-2"><Mic className="w-4 h-4" />Voice Usage</Button></Link>

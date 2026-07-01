@@ -3,7 +3,6 @@ import { useState, useEffect, useLayoutEffect, useCallback, useRef } from "react
 import {
   LayoutDashboard,
   Video,
-  LifeBuoy,
   MessageCircle,
   MessageCircleQuestion,
   Mic,
@@ -16,13 +15,11 @@ import {
   Eye,
   Archive,
   BarChart3,
-  Ticket,
   Network,
   MessageSquare,
   Users2,
   CalendarDays,
   CalendarClock,
-  PieChart,
   DollarSign,
   Key,
   FileEdit,
@@ -150,7 +147,6 @@ export const MEMBER_NAV: NavNode[] = [
       { kind: "leaf", href: "/knowledge-base", label: "Knowledge Base", icon: BookOpen, contentPageKey: "knowledge-base" },
       { kind: "leaf", href: "/affiliate-networks", label: "Affiliate Networks", icon: Network, contentPageKey: "affiliate-networks" },
       { kind: "leaf", href: "/prime-corporate", label: "Prime Corporate", icon: Building2 },
-      { kind: "leaf", href: "/support", label: "Support", icon: LifeBuoy },
     ],
   },
   {
@@ -221,20 +217,6 @@ export const ADMIN_CHILDREN: NavNode[] = [
       { kind: "leaf", href: "/admin/resources", label: "Resource Vault", icon: FolderOpen, requiredPermission: "vault:view" },
       { kind: "leaf", href: "/admin/collections", label: "Collections", icon: Layers, requiredPermission: "vault:manage" },
       { kind: "leaf", href: "/admin/vault/analytics", label: "Vault Analytics", icon: BarChart3, requiredPermission: "vault:view" },
-    ],
-  },
-  {
-    kind: "folder",
-    storageKey: "admin-support",
-    label: "Support",
-    icon: LifeBuoy,
-    defaultOpen: false,
-    children: [
-      { kind: "leaf", href: "/admin/tickets", label: "Ticket Queue", icon: Ticket, requiredPermission: "tickets:view" },
-      { kind: "leaf", href: "/admin/routing-rules", label: "Routing Rules", icon: Network, requiredPermission: "tickets:manage" },
-      { kind: "leaf", href: "/admin/canned-responses", label: "Canned Responses", icon: MessageSquare, requiredPermission: "tickets:manage" },
-      { kind: "leaf", href: "/admin/agent-performance", label: "Agent Performance", icon: Users2, requiredPermission: "tickets:view" },
-      { kind: "leaf", href: "/admin/analytics", label: "Support Analytics", icon: PieChart, requiredPermission: "tickets:view" },
     ],
   },
   {
@@ -763,16 +745,7 @@ export function SidebarContent({ onNavClick }: { onNavClick?: () => void }) {
             </div>
             <div className="pl-1 border-l-2 border-primary/20 ml-1 bg-primary/[0.02] rounded-r-lg">
               <div className="px-3 py-2 text-xs text-muted-foreground italic leading-relaxed">
-                No admin sections available.{" "}
-                <Link
-                  href="/support"
-                  onClick={onNavClick}
-                  data-testid="admin-empty-state-support-link"
-                  className="not-italic font-medium text-primary hover:underline focus:outline-none focus-visible:underline cursor-pointer"
-                >
-                  Contact a super admin
-                </Link>
-                .
+                No admin sections available. Contact a super admin.
               </div>
             </div>
           </div>

@@ -1182,8 +1182,7 @@ export default function SystemHealth() {
                       {ticketDeliveryHealth.failed > 0 && <>{ticketDeliveryHealth.failed} failed after all retries. </>}
                       {ticketDeliveryHealth.skipped > 0 && <>{ticketDeliveryHealth.skipped} skipped (TicketDesk not configured). </>}
                       {ticketDeliveryHealth.pending > 0 && <>{ticketDeliveryHealth.pending} pending (may still be in queue). </>}
-                      Fallback notification emails have been sent to the support inbox.{" "}
-                      <Link to="/admin/tickets" className="underline font-medium">View ticket queue</Link>.
+                      Fallback notification emails have been sent to the support inbox.
                     </p>
                   </div>
                 </CardContent>

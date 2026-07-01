@@ -38,16 +38,12 @@ import Training from "@/pages/Training";
 import ModuleDetail from "@/pages/ModuleDetail";
 import LessonView from "@/pages/LessonView";
 import Coaching from "@/pages/Coaching";
-import Support from "@/pages/Support";
-import GeneralSupport from "@/pages/GeneralSupport";
-import TicketDetail from "@/pages/TicketDetail";
 import CommunityFeed from "@/pages/community/CommunityFeed";
 import DMInbox from "@/pages/dm/inbox";
 import DMThread from "@/pages/dm/thread";
 import MemberDirectory from "@/pages/community/MemberDirectory";
 import MemberProfile from "@/pages/community/MemberProfile";
 import PostDetail from "@/pages/community/PostDetail";
-import SatisfactionSurveyPage from "@/pages/SatisfactionSurveyPage";
 import Tools from "@/pages/Tools";
 import ToolDetail from "@/pages/ToolDetail";
 import Apps from "@/pages/Apps";
@@ -96,12 +92,6 @@ import OnboardingProfile from "@/pages/onboarding/Profile";
 import OnboardingOrientation from "@/pages/onboarding/Orientation";
 import OnboardingQuickStart from "@/pages/onboarding/QuickStart";
 import { ChatWidget } from "@/components/chat/ChatWidget";
-import AdminTicketQueue from "@/pages/admin/AdminTicketQueue";
-import AdminTicketDetail from "@/pages/admin/AdminTicketDetail";
-import RoutingRules from "@/pages/admin/RoutingRules";
-import CannedResponses from "@/pages/admin/CannedResponses";
-import AgentPerformance from "@/pages/admin/AgentPerformance";
-import SupportAnalytics from "@/pages/admin/SupportAnalytics";
 import CommunityCategories from "@/pages/admin/CommunityCategories";
 import CommunityModeration from "@/pages/admin/CommunityModeration";
 import CommunityAnalytics from "@/pages/admin/CommunityAnalytics";
@@ -540,10 +530,6 @@ function Router() {
       <Route path="/plans">{() => <ProtectedRoute component={Plans} />}</Route>
       <Route path="/checkout/:productId">{() => <ProtectedRoute component={Checkout} />}</Route>
       <Route path="/ad-spend/fund">{() => <ProtectedRoute component={AdSpendFund} />}</Route>
-      <Route path="/support">{() => <ProtectedRoute component={Support} />}</Route>
-      <Route path="/support/contact">{() => <ProtectedRoute component={GeneralSupport} />}</Route>
-      <Route path="/support/tickets/:id">{() => <ProtectedRoute component={TicketDetail} />}</Route>
-      <Route path="/support/tickets/:id/rate">{() => <ProtectedRoute component={SatisfactionSurveyPage} />}</Route>
       <Route path="/admin/ghl">{() => <AdminRoute component={GhlDashboard} permission="ghl:view" />}</Route>
       <Route path="/admin/ghl/contacts">{() => <AdminRoute component={GhlContacts} permission="ghl:view" />}</Route>
       <Route path="/admin/ghl/config">{() => <AdminRoute component={GhlConfig} permission="ghl:manage" />}</Route>
@@ -556,12 +542,6 @@ function Router() {
       <Route path="/affiliate-networks">{() => <ContentAccessRoute component={AffiliateNetworks} pageKey="affiliate-networks" />}</Route>
       <Route path="/media-mavens">{() => <ProtectedRoute component={MediaMavens} />}</Route>
       <Route path="/media-mavens/performance">{() => <ProtectedRoute component={MediaMavensPerformance} />}</Route>
-      <Route path="/admin/tickets">{() => <AdminRoute component={AdminTicketQueue} permission="tickets:view" />}</Route>
-      <Route path="/admin/tickets/:id">{() => <AdminRoute component={AdminTicketDetail} permission="tickets:view" />}</Route>
-      <Route path="/admin/routing-rules">{() => <AdminRoute component={RoutingRules} permission="tickets:manage" />}</Route>
-      <Route path="/admin/canned-responses">{() => <AdminRoute component={CannedResponses} permission="tickets:manage" />}</Route>
-      <Route path="/admin/agent-performance">{() => <AdminRoute component={AgentPerformance} permission="tickets:view" />}</Route>
-      <Route path="/admin/analytics">{() => <AdminRoute component={SupportAnalytics} permission="tickets:view" />}</Route>
       <Route path="/settings/api-keys">{() => <AdminRoute component={AdminApiKeys} permission="api_keys:view" />}</Route>
       <Route path="/admin/community/categories">{() => <AdminRoute component={CommunityCategories} permission="community:moderate" />}</Route>
       <Route path="/admin/community/moderation">{() => <AdminRoute component={CommunityModeration} permission="community:moderate" />}</Route>

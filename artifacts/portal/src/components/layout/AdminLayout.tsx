@@ -2,11 +2,6 @@ import { ReactNode, useCallback, useEffect, useLayoutEffect, useRef, useState } 
 import { Link, useLocation } from "wouter";
 import {
   LayoutDashboard,
-  Ticket,
-  Route,
-  MessageSquareText,
-  Users,
-  BarChart3,
   ArrowLeft,
   Vault,
   FolderOpen,
@@ -21,21 +16,20 @@ import { motion } from "framer-motion";
 import { AdminNotifications } from "@/components/admin/AdminNotifications";
 import { GlobalSearch } from "@/components/admin/GlobalSearch";
 
-type NavItem = { href: string; label: string; icon: typeof Ticket };
+type NavItem = { href: string; label: string; icon: typeof Vault };
 type NavGroup = { label: string; items: NavItem[] };
 
-const adminNav: NavItem[] = [
-  { href: "/admin/tickets", label: "Ticket Queue", icon: Ticket },
-  { href: "/admin/routing-rules", label: "Routing Rules", icon: Route },
-  { href: "/admin/canned-responses", label: "Canned Responses", icon: MessageSquareText },
-  { href: "/admin/agent-performance", label: "Agent Performance", icon: Users },
-  { href: "/admin/analytics", label: "Support Analytics", icon: BarChart3 },
-  { href: "/admin/resources", label: "Resource Vault", icon: Vault },
-  { href: "/admin/collections", label: "Collections", icon: FolderOpen },
-  { href: "/admin/vault/analytics", label: "Vault Analytics", icon: TrendingUp },
-];
+const adminNav: NavItem[] = [];
 
 const adminNavGroups: NavGroup[] = [
+  {
+    label: "Vault",
+    items: [
+      { href: "/admin/resources", label: "Resource Vault", icon: Vault },
+      { href: "/admin/collections", label: "Collections", icon: FolderOpen },
+      { href: "/admin/vault/analytics", label: "Vault Analytics", icon: TrendingUp },
+    ],
+  },
   {
     label: "Integrations",
     items: [
@@ -88,7 +82,7 @@ function AdminSidebarContent({ onNavClick }: { onNavClick?: () => void }) {
           </div>
           <div>
             <h1 className="font-bold text-sm tracking-tight text-foreground leading-tight">ADMIN PANEL</h1>
-            <p className="text-[10px] text-muted-foreground tracking-widest uppercase">Support Management</p>
+            <p className="text-[10px] text-muted-foreground tracking-widest uppercase">Vault Management</p>
           </div>
         </div>
       </div>

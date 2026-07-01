@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
-import { BookOpen, Clock, Flame, Ticket as TicketIcon, Calendar, PlayCircle, MessageSquare, Video, ShieldCheck, Wrench, FolderOpen, Heart, ChevronRight, Lock } from "lucide-react";
+import { BookOpen, Clock, Flame, Calendar, PlayCircle, MessageSquare, Video, ShieldCheck, Wrench, FolderOpen, Heart, ChevronRight, Lock } from "lucide-react";
 import { format } from "date-fns";
 import { Link, useLocation } from "wouter";
 import { WinsSummaryWidget } from "@/components/wins/WinsSummaryWidget";
@@ -49,7 +49,6 @@ export default function Dashboard() {
     );
   }
 
-  const ticketLimitText = dashboard.ticketLimit === -1 ? "Unlimited" : `${dashboard.ticketLimit}/month`;
   const recentTools = dashboard.recentTools;
 
   return (
@@ -104,12 +103,6 @@ export default function Dashboard() {
             subtext="Personal best: 14"
             icon={Flame}
             valueColor="text-primary"
-          />
-          <StatCard 
-            title="TICKETS OPEN" 
-            value={dashboard.openTickets.toString()} 
-            subtext={`Limit: ${ticketLimitText}`}
-            icon={TicketIcon}
           />
         </div>
 

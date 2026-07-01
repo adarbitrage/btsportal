@@ -258,12 +258,9 @@ describe("SidebarContent admin empty state (rendered)", () => {
 
     render(<SidebarContent />, { wrapper: makeWrapper() });
 
-    // The empty-state container and its "Contact a super admin" support link
-    // both render, with the link pointing at /support.
+    // The empty-state container renders with the plain text message (no link).
     expect(screen.getByTestId("admin-empty-state")).toBeInTheDocument();
-    const supportLink = screen.getByTestId("admin-empty-state-support-link");
-    expect(supportLink).toHaveAttribute("href", "/support");
-    expect(supportLink).toHaveTextContent("Contact a super admin");
+    expect(screen.queryByTestId("admin-empty-state-support-link")).toBeNull();
 
     // The normal Admin folder is NOT shown: its collapsible toggle button
     // (accessible name "Admin") only exists when the folder renders.

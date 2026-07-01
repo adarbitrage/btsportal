@@ -11,7 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { User, Package, Ticket, BookOpen, Video, DollarSign, Users, MessageSquare, StickyNote, ScrollText, ShieldCheck, ArrowLeft, Plus, X, Mail, KeyRound, Loader2, Lock, LockOpen, ExternalLink, Phone, Monitor, LogIn } from "lucide-react";
+import { User, Package, BookOpen, Video, DollarSign, Users, MessageSquare, StickyNote, ScrollText, ShieldCheck, ArrowLeft, Plus, X, Mail, KeyRound, Loader2, Lock, LockOpen, ExternalLink, Phone, Monitor, LogIn } from "lucide-react";
 import { adminPanelApi } from "@/lib/admin-panel-api";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
@@ -731,7 +731,7 @@ export default function MemberDetail() {
     return <AdminLayout><div className="p-8 text-center text-muted-foreground">Member not found</div></AdminLayout>;
   }
 
-  const { member, products, tickets, trainingProgress, coachingSessions, commissions, community, adminNotes, auditHistory, emailHistory = [], phoneHistory = [], activeSessions = [] } = data;
+  const { member, products, trainingProgress, coachingSessions, commissions, community, adminNotes, auditHistory, emailHistory = [], phoneHistory = [], activeSessions = [] } = data;
   // The server applies the status filter before pagination, so the loaded
   // rows AND `emailAttemptsTotal` already reflect only matching rows.
   const visibleAttempts = emailAttempts;
@@ -885,10 +885,9 @@ export default function MemberDetail() {
           )}
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <Card><CardContent className="p-4 text-center"><p className="text-2xl font-bold">{products.length}</p><p className="text-xs text-muted-foreground">Products</p></CardContent></Card>
           <Card><CardContent className="p-4 text-center"><p className="text-2xl font-bold">{trainingProgress.completedLessons}</p><p className="text-xs text-muted-foreground">Lessons Completed</p></CardContent></Card>
-          <Card><CardContent className="p-4 text-center"><p className="text-2xl font-bold">{tickets.length}</p><p className="text-xs text-muted-foreground">Tickets</p></CardContent></Card>
           <Card><CardContent className="p-4 text-center"><p className="text-2xl font-bold">{community.posts + community.comments}</p><p className="text-xs text-muted-foreground">Community Activity</p></CardContent></Card>
         </div>
 
@@ -1761,10 +1760,9 @@ export default function MemberDetail() {
           defaultValue="products"
           onValueChange={(v) => { if (v === "impersonation") void loadImpersonationHistory(); }}
         >
-          <TabsList className="grid w-full grid-cols-10 gap-1">
+          <TabsList className="grid w-full grid-cols-9 gap-1">
             <TabsTrigger value="products" className="text-xs"><Package className="w-3 h-3 mr-1" />Products</TabsTrigger>
             <TabsTrigger value="training" className="text-xs"><BookOpen className="w-3 h-3 mr-1" />Training</TabsTrigger>
-            <TabsTrigger value="tickets" className="text-xs"><Ticket className="w-3 h-3 mr-1" />Tickets</TabsTrigger>
             <TabsTrigger value="coaching" className="text-xs"><Video className="w-3 h-3 mr-1" />Coaching</TabsTrigger>
             <TabsTrigger value="commissions" className="text-xs"><DollarSign className="w-3 h-3 mr-1" />Commissions</TabsTrigger>
             <TabsTrigger value="community" className="text-xs"><Users className="w-3 h-3 mr-1" />Community</TabsTrigger>
@@ -1875,31 +1873,6 @@ export default function MemberDetail() {
               <CardContent>
                 <p className="text-sm"><strong>{trainingProgress.completedLessons}</strong> lessons completed</p>
                 <p className="text-sm text-muted-foreground mt-1">Current streak: {member.currentStreak} days</p>
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          <TabsContent value="tickets">
-            <Card>
-              <CardHeader><CardTitle className="text-base">Support Tickets</CardTitle></CardHeader>
-              <CardContent>
-                {tickets.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">No tickets</p>
-                ) : (
-                  <div className="space-y-2">
-                    {tickets.map((t: any) => (
-                      <Link key={t.id} href={`/admin/tickets/${t.id}`}>
-                        <div className="flex items-center justify-between p-3 rounded-lg bg-muted/50 hover:bg-muted transition-colors cursor-pointer">
-                          <div>
-                            <p className="text-sm font-medium">{t.subject}</p>
-                            <span className="text-xs text-muted-foreground">#{t.ticketNumber}</span>
-                          </div>
-                          <Badge variant={t.status === "open" ? "default" : "secondary"}>{t.status}</Badge>
-                        </div>
-                      </Link>
-                    ))}
-                  </div>
-                )}
               </CardContent>
             </Card>
           </TabsContent>

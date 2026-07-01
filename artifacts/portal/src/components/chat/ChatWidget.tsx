@@ -10,8 +10,6 @@ import {
   useChatStream,
   useChatMessages,
   useSavedPrompts,
-  useCreateTicketFromChat,
-  type ChatMessage,
 } from "@/lib/chat-api";
 import { useGetCurrentMember } from "@workspace/api-client-react";
 
@@ -23,7 +21,6 @@ export function ChatWidget() {
   const { data: member } = useGetCurrentMember();
   const { data: chatStatus } = useChatStatus();
   const { data: savedPrompts } = useSavedPrompts();
-  const createTicket = useCreateTicketFromChat();
 
   const entitlements = new Set(member?.entitlements ?? []);
   const hasChatAccess = entitlements.has("chat:ai");
@@ -66,30 +63,6 @@ export function ChatWidget() {
   const handleClose = useCallback(() => {
     setIsOpen(false);
   }, []);
-
-  const handleCreateTicket = useCallback(
-    (subject: string, description: string) => {
-      if (!sessionId) return;
-      createTicket.mutate(
-        { sessionId, subject, description },
-        {
-          onSuccess: (data: any) => {
-            const ticketMsg = `Support ticket #${data.ticketId} has been created. Our team will follow up with you shortly.`;
-            setMessages((prev: ChatMessage[]) => [
-              ...prev,
-              {
-                role: "assistant" as const,
-                content: ticketMsg,
-                sessionId: sessionId || "",
-                createdAt: new Date().toISOString(),
-              },
-            ]);
-          },
-        }
-      );
-    },
-    [sessionId, createTicket, setMessages]
-  );
 
   if (!hasChatAccess) return null;
 
@@ -161,7 +134,6 @@ export function ChatWidget() {
           <ChatMessages
             messages={messages}
             isStreaming={isStreaming}
-            onCreateTicket={handleCreateTicket}
             compact
           />
 

@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import { useLocation } from "wouter";
-import { Search, User, Ticket, MessageSquare, X } from "lucide-react";
+import { Search, User, MessageSquare, X } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { adminPanelApi } from "@/lib/admin-panel-api";
@@ -80,7 +80,7 @@ export function GlobalSearch() {
     setResults(null);
   };
 
-  const hasResults = results && (results.members?.length > 0 || results.tickets?.length > 0 || results.posts?.length > 0);
+  const hasResults = results && (results.members?.length > 0 || results.posts?.length > 0);
 
   return (
     <div ref={ref} className="relative w-full max-w-md">
@@ -92,7 +92,7 @@ export function GlobalSearch() {
           onChange={(e) => search(e.target.value)}
           onFocus={() => results && setOpen(true)}
           onKeyDown={handleKeyDown}
-          placeholder="Search members, tickets, posts..."
+          placeholder="Search members, posts..."
           className="pl-10 pr-16 h-9 bg-muted/50 border-0 focus:bg-white focus:border focus:border-border"
         />
         {query ? (
@@ -149,21 +149,6 @@ export function GlobalSearch() {
                     </button>
                     );
                   })}
-                </div>
-              )}
-              {results.tickets?.length > 0 && (
-                <div className="p-2">
-                  <p className="px-2 py-1 text-[10px] font-semibold text-muted-foreground uppercase">Tickets</p>
-                  {results.tickets.map((t: any) => (
-                    <button key={t.id} onClick={() => goTo(`/admin/tickets/${t.id}`)} className="w-full flex items-center gap-3 px-2 py-2 rounded hover:bg-muted/50 text-left transition-colors">
-                      <Ticket className="w-4 h-4 text-muted-foreground shrink-0" />
-                      <div className="min-w-0 flex-1">
-                        <p className="text-sm font-medium truncate">{t.subject}</p>
-                        <p className="text-xs text-muted-foreground">#{t.ticketNumber}</p>
-                      </div>
-                      <Badge variant={t.status === "open" ? "default" : "secondary"} className="text-[10px] shrink-0">{t.status}</Badge>
-                    </button>
-                  ))}
                 </div>
               )}
               {results.posts?.length > 0 && (

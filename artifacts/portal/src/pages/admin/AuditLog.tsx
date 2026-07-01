@@ -128,8 +128,6 @@ function entityLinkFor(
 ): { href: string; label: string } | null {
   if (!entityId || !/^\d+$/.test(entityId)) return null;
   switch (entityType) {
-    case "ticket":
-      return { href: `/admin/tickets/${entityId}`, label: "View ticket" };
     case "user":
       return { href: `/admin/members/${entityId}`, label: "View member" };
     default:
