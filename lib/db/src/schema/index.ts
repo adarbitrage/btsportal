@@ -95,5 +95,6 @@ export * from "./payment-methods";
 export * from "./ai-source-documents";
 export * from "./kb-source-node-links";
 export * from "./kb-node-synthesis-state";
+export * from "./kb-source-node-extracts";
 export * from "./transcript-cleaner";
 export * from "./ad-spend-transactions";

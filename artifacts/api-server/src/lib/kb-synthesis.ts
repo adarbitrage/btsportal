@@ -4,8 +4,17 @@ import {
   aiSourceDocumentsTable,
   aiLiveDocumentsTable,
   kbNodeSynthesisStateTable,
+  kbSourceNodeExtractsTable,
 } from "@workspace/db/schema";
-import { sql, inArray, eq, desc } from "drizzle-orm";
+import { sql, inArray, eq, and, desc } from "drizzle-orm";
+import {
+  contentWindows,
+  mergeWindowExtracts,
+  fingerprintContent,
+  isEmptyExtract,
+  partitionByBudget,
+  mapWithConcurrency,
+} from "./kb-source-windows.js";
 import {
   ALL_NODES,
   isNode,
@@ -37,13 +46,26 @@ import {
 
 type SourceDoc = NodeSource["source"];
 
-// How many sources (strongest relevance first) we consolidate per node. Bounds
-// the LLM context and keeps the job responsive on large nodes.
-const MAX_SOURCES_PER_NODE = 12;
-// Per-source node-relevant extract length (map phase output cap).
+// Full-source read (Task #1561): the map phase now walks the WHOLE of every
+// source in overlapping windows (no 6k truncation) and the reduce phase folds in
+// ALL linked sources (no top-N cap). Completeness is chosen over speed/cost for
+// the one-time bulk run; the per-source extract cache keeps incremental re-runs
+// cheap by only re-extracting sources whose content changed.
+//
+// Per-window map-phase output cap (each window's extract stays tight).
 const MAP_EXTRACT_CHARS = 1200;
-// Per-source content fed into the map phase.
-const MAP_INPUT_CHARS = 6000;
+// Per-window slice of source content fed into the map phase.
+const MAP_WINDOW_CHARS = 6000;
+const MAP_WINDOW_OVERLAP = 1000;
+// How many source documents to map (extract) concurrently. Windows within a
+// single source run sequentially, so this bounds the overall LLM fan-out.
+const MAP_SOURCE_CONCURRENCY = 4;
+// Reduce-phase budgeting. When a node's combined per-source extracts exceed the
+// char budget (or source count) for one consolidation call, they are folded in
+// batches and the partial consolidations are then consolidated again
+// (hierarchical reduce) so no linked source is ever silently dropped.
+const REDUCE_INPUT_BUDGET_CHARS = 60000;
+const REDUCE_MAX_SOURCES_PER_CALL = 40;
 
 export interface SynthesisProgress {
   running: boolean;
@@ -136,29 +158,97 @@ async function callLLM(system: string, user: string, maxTokens: number, jsonMode
   return (json.choices?.[0]?.message?.content ?? "").trim();
 }
 
-// Map phase: pull the node-relevant knowledge out of one source, discarding the
-// rest. Keeps the reduce phase focused and within budget.
-async function extractForNode(node: TaxonomyNode, source: SourceDoc): Promise<string> {
+// Map phase (one window): pull the node-relevant knowledge out of one slice of a
+// source, discarding the rest. Keeps each extraction focused and within budget.
+async function extractWindowForNode(node: TaxonomyNode, source: SourceDoc, window: string): Promise<string> {
   const system = `You extract ONLY the material relevant to a specific topic from a BTS (Build Test Scale) affiliate-marketing source document.
 TOPIC: "${node.label}".
 Return a tight bullet list of the concrete, usable facts / steps / guidance this source gives about that topic. Omit anything off-topic, pleasantries and filler. If the source says nothing usable about the topic, return exactly "NONE".
 No preamble. Under ${MAP_EXTRACT_CHARS} characters.`;
-  const user = `SOURCE TITLE: ${source.title}\n\nSOURCE CONTENT:\n${source.content.substring(0, MAP_INPUT_CHARS)}`;
-  try {
-    const out = await callLLM(system, user, 700);
-    return out;
-  } catch (err) {
-    console.error(`[Synthesis] map extract failed for source ${source.id}:`, err instanceof Error ? err.message : err);
-    // Fall back to a raw truncated excerpt so the source still contributes.
-    return source.content.substring(0, MAP_EXTRACT_CHARS);
+  const user = `SOURCE TITLE: ${source.title}\n\nSOURCE CONTENT:\n${window}`;
+  const out = await callLLM(system, user, 700);
+  return out;
+}
+
+// Map phase (whole source): walk EVERY window of the source and merge the
+// per-window extracts into one, so material past the old 6k cutoff is no longer
+// dropped. Returns the "NONE" marker when nothing usable was found. Windows run
+// sequentially within a source (the per-source fan-out is bounded by the caller).
+async function extractForNode(node: TaxonomyNode, source: SourceDoc): Promise<string> {
+  const windows = contentWindows(source.content, MAP_WINDOW_CHARS, MAP_WINDOW_OVERLAP);
+  const fragments: string[] = [];
+  for (const window of windows) {
+    try {
+      fragments.push(await extractWindowForNode(node, source, window));
+    } catch (err) {
+      console.error(`[Synthesis] map extract failed for source ${source.id} window:`, err instanceof Error ? err.message : err);
+      // Fall back to the raw window text so the source still contributes.
+      fragments.push(window.slice(0, MAP_EXTRACT_CHARS));
+    }
   }
+  return mergeWindowExtracts(fragments);
+}
+
+// Cached map phase: reuse the finished extract for a (source, node) when the
+// source content is unchanged (fingerprint match), otherwise re-extract and
+// upsert. This is what keeps incremental re-runs cheap now that the map phase
+// reads the whole source and the reduce folds in every linked source.
+async function getOrExtractForNode(node: TaxonomyNode, source: SourceDoc): Promise<string> {
+  const fingerprint = fingerprintContent(source.content ?? "");
+  try {
+    const cached = await db
+      .select({
+        extract: kbSourceNodeExtractsTable.extract,
+        contentFingerprint: kbSourceNodeExtractsTable.contentFingerprint,
+      })
+      .from(kbSourceNodeExtractsTable)
+      .where(
+        and(
+          eq(kbSourceNodeExtractsTable.sourceDocId, source.id),
+          eq(kbSourceNodeExtractsTable.node, node.slug),
+        ),
+      )
+      .limit(1);
+    if (cached[0] && cached[0].contentFingerprint === fingerprint) {
+      return cached[0].extract;
+    }
+  } catch (err) {
+    // A cache read failure must never block synthesis — fall through to extract.
+    console.error(`[Synthesis] extract-cache read failed for source ${source.id} / node ${node.slug}:`, err instanceof Error ? err.message : err);
+  }
+
+  const extract = await extractForNode(node, source);
+
+  try {
+    await db
+      .insert(kbSourceNodeExtractsTable)
+      .values({ sourceDocId: source.id, node: node.slug, contentFingerprint: fingerprint, extract })
+      .onConflictDoUpdate({
+        target: [kbSourceNodeExtractsTable.sourceDocId, kbSourceNodeExtractsTable.node],
+        set: { contentFingerprint: fingerprint, extract, updatedAt: new Date() },
+      });
+  } catch (err) {
+    // Persisting the cache is best-effort; the extract is still returned/used.
+    console.error(`[Synthesis] extract-cache write failed for source ${source.id} / node ${node.slug}:`, err instanceof Error ? err.message : err);
+  }
+  return extract;
+}
+
+// One consolidation input: a per-source (or per-batch, during hierarchical
+// reduce) extract plus the provenance the prompt renders. Structural so a
+// SourceDoc (which has these fields and more) is assignable, and so a synthetic
+// batch "source" can stand in during the hierarchical reduce.
+interface ConsolidateEntry {
+  source: { sourceType: string | null; authorityRole: string | null };
+  relevance: number;
+  extract: string;
 }
 
 // Reduce phase: consolidate the per-source extracts into ONE layered truth doc.
 async function consolidate(
   node: TaxonomyNode,
   tier: { docClassTarget: string; ceiling: string },
-  extracts: { source: SourceDoc; relevance: number; extract: string }[],
+  extracts: ConsolidateEntry[],
 ): Promise<{ title: string; body: string }> {
   const depthGuidance = tier.docClassTarget === "overview"
     ? `Write an OVERVIEW: a clear checklist/roadmap for this lifecycle stage — what to do, in order, with the key decision points. Operational depth.`
@@ -203,6 +293,42 @@ RULES:
   }
   const body = lines.slice(bodyStart).join("\n").trim() || out;
   return { title, body };
+}
+
+// Reduce phase (hierarchical): consolidate EVERY linked source's extract — no
+// top-N cap. When the combined extracts exceed the per-call budget (chars or
+// source count), fold them in batches and then consolidate the partial
+// consolidations again (recursively) so no source is ever silently dropped. The
+// title comes from the final (outermost) consolidation.
+async function consolidateAll(
+  node: TaxonomyNode,
+  tier: { docClassTarget: string; ceiling: string },
+  extracts: ConsolidateEntry[],
+): Promise<{ title: string; body: string }> {
+  const sizeOf = (e: ConsolidateEntry) => e.extract.length + 64;
+  const totalChars = extracts.reduce((n, e) => n + sizeOf(e), 0);
+  const fits = extracts.length <= REDUCE_MAX_SOURCES_PER_CALL && totalChars <= REDUCE_INPUT_BUDGET_CHARS;
+  if (fits) return consolidate(node, tier, extracts);
+
+  const batches = partitionByBudget(extracts, sizeOf, REDUCE_INPUT_BUDGET_CHARS, REDUCE_MAX_SOURCES_PER_CALL);
+  // A single oversized item can still yield one batch — consolidate it directly
+  // rather than recursing forever.
+  if (batches.length <= 1) return consolidate(node, tier, extracts);
+
+  const partials: ConsolidateEntry[] = [];
+  for (const batch of batches) {
+    const { body } = await consolidate(node, tier, batch);
+    partials.push({
+      source: {
+        sourceType: "consolidated-batch",
+        authorityRole: dominantAuthority(batch.map((e) => e.source as SourceDoc)),
+      },
+      relevance: 1,
+      extract: body,
+    });
+  }
+  // The partials may themselves exceed the budget — fold again.
+  return consolidateAll(node, tier, partials);
 }
 
 // ── Depth-ladder cross-linking ────────────────────────────────────────────────
@@ -394,27 +520,32 @@ export async function synthesizeNode(nodeSlug: string): Promise<SynthesizeResult
     Array.isArray(priorState[0]?.sourceDocIds) ? (priorState[0]!.sourceDocIds as number[]) : [],
   );
 
-  const top = linked.slice(0, MAX_SOURCES_PER_NODE);
   const tier = depthTierFor(node);
 
-  // Map: extract node-relevant material per source (concurrently).
-  const extracts = await Promise.all(
-    top.map(async (l) => ({
+  // Map: extract node-relevant material from EVERY linked source (no top-N cap),
+  // reading the whole source. The extract cache makes unchanged sources cheap on
+  // re-runs; concurrency is bounded per source (windows within a source are
+  // sequential).
+  const extracts = await mapWithConcurrency(
+    linked,
+    MAP_SOURCE_CONCURRENCY,
+    async (l) => ({
       source: l.source,
       relevance: l.link.relevance,
-      extract: await extractForNode(node, l.source),
-    })),
+      extract: await getOrExtractForNode(node, l.source),
+    }),
   );
 
   // Drop sources that had nothing usable for this node.
-  const usable = extracts.filter((e) => e.extract && e.extract.trim().toUpperCase() !== "NONE");
+  const usable = extracts.filter((e) => !isEmptyExtract(e.extract));
   if (usable.length === 0) {
     return { node: node.slug, draftId: null, atomicDraftIds: [], sourceCount: 0, skippedReason: "no usable material after extraction" };
   }
 
-  // Reduce: consolidate into one layered draft, then append the deterministic
+  // Reduce: consolidate ALL usable sources into one layered draft (hierarchically
+  // when they exceed a single call's budget), then append the deterministic
   // depth-ladder cross-link section so overview↔concept docs are always wired.
-  const { title, body: consolidated } = await consolidate(node, tier, usable);
+  const { title, body: consolidated } = await consolidateAll(node, tier, usable);
   const body = consolidated + relatedTopicsMarkdown(node);
 
   const contributing = usable.map((e) => e.source);

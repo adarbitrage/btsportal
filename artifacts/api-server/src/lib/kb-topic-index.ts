@@ -7,6 +7,20 @@ import {
   resolveHomeRoot,
   type TaxonomyNode,
 } from "./kb-taxonomy.js";
+import { contentWindows, mapWithConcurrency } from "./kb-source-windows.js";
+
+// Full-source read (Task #1561): classification walks the WHOLE document in
+// overlapping windows instead of a single truncated prefix, so topics discussed
+// past the old 9k cutoff still get linked.
+const CLASSIFY_WINDOW_CHARS = 9000;
+const CLASSIFY_WINDOW_OVERLAP = 1000;
+// Per-window cap on how many nodes one window can assign (mirrors the "at most 4"
+// prompt instruction). There is deliberately NO cap on the merged cross-window
+// total — a long source must link to EVERY topic it materially covers.
+const CLASSIFY_LINKS_PER_WINDOW = 4;
+// How many source-document windows to classify concurrently. Bounds LLM fan-out
+// now that every window (not just the first) is classified.
+const CLASSIFY_WINDOW_CONCURRENCY = 4;
 
 // Node slug → home-root, derived from the taxonomy registry.
 const NODE_ROOT_OF: ReadonlyMap<string, string> = new Map(ALL_NODES.map((n) => [n.slug, n.root]));
@@ -159,7 +173,23 @@ function nodeCatalog(): string {
   return lines.join("\n");
 }
 
-async function classifyWithLLM(doc: SourceDoc): Promise<NodeLink[]> {
+// De-dup a set of links on node, keeping the strongest relevance seen, sorted
+// strongest-first. Used to fold the per-window classifications of one source into
+// one link set. Deliberately UNCAPPED: the whole point of the full-source read is
+// that a source links to every topic it materially covers.
+export function mergeNodeLinks(links: NodeLink[]): NodeLink[] {
+  const byNode = new Map<string, NodeLink>();
+  for (const l of links) {
+    const prev = byNode.get(l.node);
+    if (!prev || l.relevance > prev.relevance) byNode.set(l.node, l);
+  }
+  return [...byNode.values()].sort((a, b) => b.relevance - a.relevance);
+}
+
+// Classify ONE window of a source document. Returns up to 4 node links for the
+// material present in this window (the per-call cap is unchanged — coverage
+// across the whole document comes from classifying every window and merging).
+async function classifyChunkWithLLM(doc: SourceDoc, chunk: string): Promise<NodeLink[]> {
   const base = process.env.AI_INTEGRATIONS_OPENAI_BASE_URL;
   const key = process.env.AI_INTEGRATIONS_OPENAI_API_KEY;
   if (!base || !key) return [];
@@ -170,7 +200,7 @@ Assign at most 4 nodes. Use ONLY node slugs from the catalog. relevance is 0..1 
 Return STRICT JSON only: {"nodes":[{"node":"<slug>","relevance":<0..1>,"rationale":"<short why>"}]}. If nothing fits, return {"nodes":[]}.`;
 
   const catalog = nodeCatalog();
-  const body = `TAXONOMY NODES:\n${catalog}\n\nSOURCE TITLE: ${doc.title}\nSOURCE TYPE: ${doc.sourceType}\n\nSOURCE CONTENT (truncated):\n${doc.content.substring(0, 9000)}`;
+  const body = `TAXONOMY NODES:\n${catalog}\n\nSOURCE TITLE: ${doc.title}\nSOURCE TYPE: ${doc.sourceType}\n\nSOURCE CONTENT (excerpt):\n${chunk}`;
 
   const resp = await fetch(base + "/chat/completions", {
     method: "POST",
@@ -214,13 +244,35 @@ Return STRICT JSON only: {"nodes":[{"node":"<slug>","relevance":<0..1>,"rational
       method: "llm",
     });
   }
-  // De-dup on node (keep the strongest relevance).
-  const byNode = new Map<string, NodeLink>();
-  for (const l of out) {
-    const prev = byNode.get(l.node);
-    if (!prev || l.relevance > prev.relevance) byNode.set(l.node, l);
-  }
-  return [...byNode.values()].slice(0, 4);
+  // Per-window de-dup on node (keep the strongest relevance), capped per window.
+  return mergeNodeLinks(out).slice(0, CLASSIFY_LINKS_PER_WINDOW);
+}
+
+// Classify the WHOLE source by walking overlapping windows and merging every
+// window's node links (dedupe, keep strongest relevance) so a source is linked
+// to every topic it covers — not just those in the first 9k chars.
+async function classifyWithLLM(doc: SourceDoc): Promise<NodeLink[]> {
+  const base = process.env.AI_INTEGRATIONS_OPENAI_BASE_URL;
+  const key = process.env.AI_INTEGRATIONS_OPENAI_API_KEY;
+  if (!base || !key) return [];
+
+  const windows = contentWindows(doc.content, CLASSIFY_WINDOW_CHARS, CLASSIFY_WINDOW_OVERLAP);
+  const perWindow = await mapWithConcurrency(
+    windows,
+    CLASSIFY_WINDOW_CONCURRENCY,
+    async (chunk, i) => {
+      // Fault-tolerant per window: a transient failure on one window must not
+      // discard the successfully-classified windows (which would collapse the
+      // whole source to the lexical fallback and lose coverage).
+      try {
+        return await classifyChunkWithLLM(doc, chunk);
+      } catch (err) {
+        console.error(`[TopicIndex] classify window ${i} failed for source ${doc.id}:`, err instanceof Error ? err.message : err);
+        return [] as NodeLink[];
+      }
+    },
+  );
+  return mergeNodeLinks(perWindow.flat());
 }
 
 /**

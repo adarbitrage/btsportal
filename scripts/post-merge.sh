@@ -334,6 +334,18 @@ if [ -n "$DATABASE_URL" ]; then
   #     skipped. Idempotent (CREATE TABLE/INDEX IF NOT EXISTS).
   psql "$DATABASE_URL" -v ON_ERROR_STOP=1 \
     -f lib/db/drizzle/0093_ai_live_document_versions.sql >/dev/null
+
+  # 30. Synthesis Engine full-source read (Task #1561) — per-source, per-node
+  #     MAP-phase extract cache. New additive table `kb_source_node_extracts`
+  #     that caches the finished node-relevant extract for each source so that,
+  #     now that the map phase reads the WHOLE of every source and the reduce
+  #     folds in ALL linked sources, incremental re-runs only re-extract sources
+  #     whose content actually changed. Applying it here keeps the
+  #     live-schema-drift gate green so the conditional push stays skipped
+  #     (same pattern as steps 7/10/11/15/18-24/27/29). Idempotent
+  #     (CREATE TABLE/INDEX IF NOT EXISTS).
+  psql "$DATABASE_URL" -v ON_ERROR_STOP=1 \
+    -f lib/db/drizzle/0094_kb_source_node_extracts.sql >/dev/null
 fi
 
 # Schema sync — CONDITIONAL push.
