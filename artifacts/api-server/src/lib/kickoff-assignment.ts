@@ -18,6 +18,7 @@ export interface SelectedKickoffCoach {
   photoUrl: string | null;
   bio: string | null;
   ghlCalendarId: string;
+  ghlLocationId: string;
 }
 
 export async function selectKickoffCoach(): Promise<SelectedKickoffCoach | null> {
@@ -28,6 +29,7 @@ export async function selectKickoffCoach(): Promise<SelectedKickoffCoach | null>
       photoUrl: kickoffCoachesTable.photoUrl,
       bio: kickoffCoachesTable.bio,
       ghlCalendarId: kickoffCoachesTable.ghlCalendarId,
+      ghlLocationId: kickoffCoachesTable.ghlLocationId,
       bookingCount: sql<number>`count(${callBookingsTable.id}) filter (where ${callBookingsTable.status} <> 'canceled')`,
     })
     .from(kickoffCoachesTable)
@@ -56,6 +58,7 @@ export async function selectKickoffCoach(): Promise<SelectedKickoffCoach | null>
     photoUrl: chosen.photoUrl,
     bio: chosen.bio,
     ghlCalendarId: chosen.ghlCalendarId as string,
+    ghlLocationId: chosen.ghlLocationId,
   };
 }
 
@@ -67,6 +70,7 @@ export async function loadKickoffCoachById(coachId: number): Promise<SelectedKic
       photoUrl: kickoffCoachesTable.photoUrl,
       bio: kickoffCoachesTable.bio,
       ghlCalendarId: kickoffCoachesTable.ghlCalendarId,
+      ghlLocationId: kickoffCoachesTable.ghlLocationId,
     })
     .from(kickoffCoachesTable)
     .where(and(eq(kickoffCoachesTable.id, coachId), eq(kickoffCoachesTable.isActive, true)));

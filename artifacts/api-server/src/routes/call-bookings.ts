@@ -142,7 +142,12 @@ router.get("/onboarding/kickoff/availability", async (req, res): Promise<void> =
   }
 
   try {
-    const slots = await getFreeSlots(coach.ghlCalendarId, range.startMs, range.endMs, COACHING_LOCATION_ID);
+    const slots = await getFreeSlots(
+      coach.ghlCalendarId,
+      range.startMs,
+      range.endMs,
+      coach.ghlLocationId ?? COACHING_LOCATION_ID,
+    );
     const cutoff = Date.now() + MIN_LEAD_TIME_MS;
     const usable = slots.filter((s) => new Date(s.startTime).getTime() >= cutoff);
     res.json({
@@ -219,8 +224,9 @@ router.post("/onboarding/kickoff/book", async (req, res): Promise<void> => {
     return;
   }
 
+  const coachLocationId = coach.ghlLocationId ?? COACHING_LOCATION_ID;
   const dayMs = scheduledAt.getTime();
-  const freeSlots = await getFreeSlots(coach.ghlCalendarId, dayMs - 60_000, dayMs + 60_000, COACHING_LOCATION_ID);
+  const freeSlots = await getFreeSlots(coach.ghlCalendarId, dayMs - 60_000, dayMs + 60_000, coachLocationId);
   const slotOpen = freeSlots.some((s) => new Date(s.startTime).getTime() === scheduledAt.getTime());
   if (!slotOpen) {
     res.status(409).json({ error: "That time slot is no longer available" });
@@ -258,7 +264,7 @@ router.post("/onboarding/kickoff/book", async (req, res): Promise<void> => {
       return;
     }
 
-    const recheck = await getFreeSlots(coach.ghlCalendarId, dayMs - 60_000, dayMs + 60_000, COACHING_LOCATION_ID);
+    const recheck = await getFreeSlots(coach.ghlCalendarId, dayMs - 60_000, dayMs + 60_000, coachLocationId);
     if (!recheck.some((s) => new Date(s.startTime).getTime() === scheduledAt.getTime())) {
       await client.query("ROLLBACK");
       res.status(409).json({ error: "That time slot is no longer available" });
@@ -268,7 +274,7 @@ router.post("/onboarding/kickoff/book", async (req, res): Promise<void> => {
     const contactId = await upsertContact({
       email: member.email,
       ...splitName(member.name),
-      locationId: COACHING_LOCATION_ID,
+      locationId: coachLocationId,
     });
     const title = `Kickoff Call with ${coach.displayName}`;
     const appointment = await createAppointment({
@@ -277,7 +283,7 @@ router.post("/onboarding/kickoff/book", async (req, res): Promise<void> => {
       startTime,
       endTime: endTimeIso,
       title,
-      locationId: COACHING_LOCATION_ID,
+      locationId: coachLocationId,
     });
     createdAppointmentId = appointment.id;
 
@@ -289,7 +295,7 @@ router.post("/onboarding/kickoff/book", async (req, res): Promise<void> => {
         staffId: coach.id,
         type: "kickoff",
         ghlCalendarId: coach.ghlCalendarId,
-        ghlLocationId: COACHING_LOCATION_ID,
+        ghlLocationId: coachLocationId,
         ghlAppointmentId: appointment.id,
         ghlContactId: contactId,
         scheduledAt,
@@ -308,7 +314,7 @@ router.post("/onboarding/kickoff/book", async (req, res): Promise<void> => {
     await client.query("ROLLBACK");
     if (createdAppointmentId) {
       try {
-        await cancelAppointment(createdAppointmentId, COACHING_LOCATION_ID);
+        await cancelAppointment(createdAppointmentId, coach.ghlLocationId ?? COACHING_LOCATION_ID);
       } catch (cancelErr) {
         console.error("[call-bookings] failed to roll back kickoff GHL appointment:", cancelErr);
       }
@@ -336,6 +342,7 @@ async function loadAssignedPartner(memberId: number) {
       isActive: partnersTable.isActive,
       maxDailyCalls: partnersTable.maxDailyCalls,
       ghlCalendarId: partnersTable.ghlCalendarId,
+      ghlLocationId: partnersTable.ghlLocationId,
     })
     .from(partnersTable)
     .where(eq(partnersTable.id, assignment.partnerId));
@@ -457,7 +464,12 @@ router.get("/onboarding/partner/availability", async (req, res): Promise<void> =
   }
 
   try {
-    const slots = await getFreeSlots(partner.ghlCalendarId, range.startMs, range.endMs, COACHING_LOCATION_ID);
+    const slots = await getFreeSlots(
+      partner.ghlCalendarId,
+      range.startMs,
+      range.endMs,
+      partner.ghlLocationId ?? COACHING_LOCATION_ID,
+    );
     const filtered = await filterPartnerSlots(userId, partner, slots, range.startMs, range.endMs);
     res.json({ partnerId: partner.id, slots: filtered });
   } catch (err) {
@@ -570,8 +582,9 @@ router.post("/onboarding/partner/book", async (req, res): Promise<void> => {
     return;
   }
 
+  const partnerLocationId = partner.ghlLocationId ?? COACHING_LOCATION_ID;
   const dayMs = scheduledAt.getTime();
-  const rawSlots = await getFreeSlots(partner.ghlCalendarId, dayMs - 60_000, dayMs + 24 * 60 * 60 * 1000, COACHING_LOCATION_ID);
+  const rawSlots = await getFreeSlots(partner.ghlCalendarId, dayMs - 60_000, dayMs + 24 * 60 * 60 * 1000, partnerLocationId);
   const filtered = await filterPartnerSlots(userId, partner, rawSlots, dayMs - 60_000, dayMs + 24 * 60 * 60 * 1000);
   const slotOpen = filtered.some((s) => new Date(s.startTime).getTime() === scheduledAt.getTime());
   if (!slotOpen) {
@@ -604,7 +617,7 @@ router.post("/onboarding/partner/book", async (req, res): Promise<void> => {
       res.status(409).json({ error: "Your first partner call can't be before your kickoff call." });
       return;
     }
-    const recheck = await getFreeSlots(partner.ghlCalendarId, dayMs - 60_000, dayMs + 60_000, COACHING_LOCATION_ID);
+    const recheck = await getFreeSlots(partner.ghlCalendarId, dayMs - 60_000, dayMs + 60_000, partnerLocationId);
     if (!recheck.some((s) => new Date(s.startTime).getTime() === scheduledAt.getTime())) {
       await client.query("ROLLBACK");
       res.status(409).json({ error: "That time slot is no longer available" });
@@ -614,7 +627,7 @@ router.post("/onboarding/partner/book", async (req, res): Promise<void> => {
     const contactId = await upsertContact({
       email: member.email,
       ...splitName(member.name),
-      locationId: COACHING_LOCATION_ID,
+      locationId: partnerLocationId,
     });
     const title = `Accountability Call with ${partner.displayName}`;
     const appointment = await createAppointment({
@@ -623,7 +636,7 @@ router.post("/onboarding/partner/book", async (req, res): Promise<void> => {
       startTime,
       endTime: endTimeIso,
       title,
-      locationId: COACHING_LOCATION_ID,
+      locationId: partnerLocationId,
     });
     createdAppointmentId = appointment.id;
 
@@ -635,7 +648,7 @@ router.post("/onboarding/partner/book", async (req, res): Promise<void> => {
         staffId: partner.id,
         type: "partner",
         ghlCalendarId: partner.ghlCalendarId,
-        ghlLocationId: COACHING_LOCATION_ID,
+        ghlLocationId: partnerLocationId,
         ghlAppointmentId: appointment.id,
         ghlContactId: contactId,
         scheduledAt,
@@ -654,7 +667,7 @@ router.post("/onboarding/partner/book", async (req, res): Promise<void> => {
     await client.query("ROLLBACK");
     if (createdAppointmentId) {
       try {
-        await cancelAppointment(createdAppointmentId, COACHING_LOCATION_ID);
+        await cancelAppointment(createdAppointmentId, partner.ghlLocationId ?? COACHING_LOCATION_ID);
       } catch (cancelErr) {
         console.error("[call-bookings] failed to roll back partner GHL appointment:", cancelErr);
       }
@@ -718,6 +731,7 @@ router.patch("/onboarding/partner/:id/reschedule", async (req, res): Promise<voi
     return;
   }
 
+  const partnerLocationId = partner.ghlLocationId ?? COACHING_LOCATION_ID;
   const dayMs = scheduledAt.getTime();
   const client = await pool.connect();
   let newAppointmentId: string | null = null;
@@ -737,7 +751,7 @@ router.patch("/onboarding/partner/:id/reschedule", async (req, res): Promise<voi
       res.status(409).json({ error: "This partner is fully booked that day. Please pick another day." });
       return;
     }
-    const recheck = await getFreeSlots(partner.ghlCalendarId, dayMs - 60_000, dayMs + 60_000, COACHING_LOCATION_ID);
+    const recheck = await getFreeSlots(partner.ghlCalendarId, dayMs - 60_000, dayMs + 60_000, partnerLocationId);
     if (!recheck.some((s) => new Date(s.startTime).getTime() === scheduledAt.getTime())) {
       await client.query("ROLLBACK");
       res.status(409).json({ error: "That time slot is no longer available" });
@@ -763,14 +777,14 @@ router.patch("/onboarding/partner/:id/reschedule", async (req, res): Promise<voi
     }
     const contactId =
       existing.ghlContactId ??
-      (await upsertContact({ email: member.email, ...splitName(member.name), locationId: COACHING_LOCATION_ID }));
+      (await upsertContact({ email: member.email, ...splitName(member.name), locationId: partnerLocationId }));
     const appointment = await createAppointment({
       calendarId: partner.ghlCalendarId,
       contactId,
       startTime,
       endTime: endTimeIso,
       title: `Accountability Call with ${partner.displayName}`,
-      locationId: COACHING_LOCATION_ID,
+      locationId: partnerLocationId,
     });
     newAppointmentId = appointment.id;
 
@@ -779,6 +793,7 @@ router.patch("/onboarding/partner/:id/reschedule", async (req, res): Promise<voi
       .set({
         scheduledAt,
         endAt,
+        ghlLocationId: partnerLocationId,
         ghlAppointmentId: appointment.id,
         meetingUrl: appointment.meetLink,
       })
@@ -791,7 +806,7 @@ router.patch("/onboarding/partner/:id/reschedule", async (req, res): Promise<voi
     await client.query("ROLLBACK");
     if (newAppointmentId) {
       try {
-        await cancelAppointment(newAppointmentId, COACHING_LOCATION_ID);
+        await cancelAppointment(newAppointmentId, partner.ghlLocationId ?? COACHING_LOCATION_ID);
       } catch (cancelErr) {
         console.error("[call-bookings] failed to roll back rescheduled partner appointment:", cancelErr);
       }

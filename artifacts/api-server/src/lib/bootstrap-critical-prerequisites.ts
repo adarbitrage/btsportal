@@ -38,6 +38,7 @@ import { seedToolTags } from "./kb-tool-tags";
 import { backfillUndeliveredTickets } from "./ticketdesk-queue";
 import { migrateOneOffCoachingCallsToTemplates } from "./coaching-call-migrate-oneoffs";
 import { migrateOnboardingStepsToSevenStepContract } from "./onboarding-advancement";
+import { seedCallBookingRoster } from "./seed-call-booking-roster";
 
 // Critical prerequisites for the /api/integrations/machine-purchase and
 // /api/integrations/grant-product endpoints. Both are awaited from index.ts
@@ -386,6 +387,17 @@ export async function bootstrapCriticalPrerequisites(): Promise<PrerequisiteResu
   } catch (err) {
     console.error("[Bootstrap] migrateOnboardingStepsToSevenStepContract() threw:", err);
     missing.push("migrateOnboardingStepsToSevenStepContract");
+  }
+
+  // 12. Seed the verified accountability-partner and kickoff-coach GHL
+  //     calendar roster (Task #1611). Idempotent (update-if-exists/insert-if-
+  //     missing keyed on displayName); reaches prod only on boot since the
+  //     agent cannot write prod directly.
+  try {
+    await seedCallBookingRoster();
+  } catch (err) {
+    console.error("[Bootstrap] seedCallBookingRoster() threw:", err);
+    missing.push("seedCallBookingRoster");
   }
 
   if (missing.length === 0) {

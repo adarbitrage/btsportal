@@ -10,7 +10,7 @@ import {
   partnerAssignmentsTable,
   callBookingsTable,
 } from "@workspace/db";
-import { and, eq, inArray } from "drizzle-orm";
+import { and, eq, inArray, ne } from "drizzle-orm";
 
 // Task #1591 Tier 2: native kickoff + partner call booking. This suite pins
 // the behaviors most likely to regress silently:
@@ -474,6 +474,209 @@ describe("partner call cancel/reschedule fail closed on GHL errors", () => {
       .where(eq(callBookingsTable.id, bookingId));
     expect(row.scheduledAt.getTime()).toBe(startTime.getTime());
     expect(row.ghlAppointmentId).toBe(originalAppointmentId);
+  });
+});
+
+describe("partner call cancel falls back to COACHING_LOCATION_ID when the stored booking has no location", () => {
+  it("uses COACHING_LOCATION_ID for the GHL cancel call when callBookings.ghlLocationId is null", async () => {
+    const memberId = await makeMember(6, true);
+    await assignPartner(memberId, kickoffPartnerId);
+
+    const startTime = gridAlignedFutureTime(43);
+    const booked = await request(app)
+      .post("/api/onboarding/partner/book")
+      .set("Cookie", authCookie(memberId))
+      .send({ startTime: startTime.toISOString() });
+    expect(booked.status).toBe(201);
+    const bookingId = booked.body.booking.id;
+    bookingIds.push(bookingId);
+
+    // Simulate a legacy/edge-case row that never captured a location (the
+    // column is nullable on call_bookings, unlike partners/kickoff_coaches
+    // which default to the coaching location).
+    await db.update(callBookingsTable).set({ ghlLocationId: null }).where(eq(callBookingsTable.id, bookingId));
+
+    const cancelSpy = vi.spyOn(ghlCoachingCalendar, "cancelAppointment");
+    const cancelRes = await request(app)
+      .patch(`/api/onboarding/partner/${bookingId}/cancel`)
+      .set("Cookie", authCookie(memberId));
+    expect(cancelRes.status).toBe(200);
+    expect(cancelSpy).toHaveBeenCalledWith(expect.any(String), "loc_test");
+  });
+});
+
+describe("per-row GHL location plumbing (Task #1611)", () => {
+  // These calendars live in a different GHL sub-account than the shared
+  // COACHING_LOCATION_ID ("loc_test" in this suite's mock) — every GHL call
+  // for a row that has its own ghlLocationId must use THAT location, never
+  // the coaching-location fallback, or a real token minted for the wrong
+  // location would 401 in production.
+  const CUSTOM_LOCATION_ID = "loc_bts_custom";
+  let customPartnerId = 0;
+  let customKickoffCoachId = 0;
+
+  beforeAll(async () => {
+    const [partner] = await db
+      .insert(partnersTable)
+      .values({
+        displayName: "Custom Location Partner",
+        ghlCalendarId: `${TEST_TAG}-custom-partner-cal`,
+        ghlLocationId: CUSTOM_LOCATION_ID,
+        isActive: true,
+        maxDailyCalls: 5,
+      })
+      .returning({ id: partnersTable.id });
+    customPartnerId = partner.id;
+
+    const [coach] = await db
+      .insert(kickoffCoachesTable)
+      .values({
+        displayName: "Custom Location Kickoff Coach",
+        ghlCalendarId: `${TEST_TAG}-custom-kickoff-cal`,
+        ghlLocationId: CUSTOM_LOCATION_ID,
+        isActive: true,
+      })
+      .returning({ id: kickoffCoachesTable.id });
+    customKickoffCoachId = coach.id;
+  });
+
+  afterAll(async () => {
+    // Assignments referencing these rows are cleaned up by the outer afterAll
+    // via assignmentIds, but that runs AFTER this nested afterAll — delete
+    // any assignment rows referencing them first so the FK doesn't block us.
+    await db.delete(partnerAssignmentsTable).where(eq(partnerAssignmentsTable.partnerId, customPartnerId));
+    await db.delete(partnersTable).where(eq(partnersTable.id, customPartnerId));
+    await db.delete(kickoffCoachesTable).where(eq(kickoffCoachesTable.id, customKickoffCoachId));
+  });
+
+  it("passes the partner's own ghlLocationId (not the coaching default) to getFreeSlots, upsertContact, and createAppointment on booking", async () => {
+    const memberId = await makeMember(6, true);
+    await assignPartner(memberId, customPartnerId);
+
+    const freeSlotsSpy = vi.spyOn(ghlCoachingCalendar, "getFreeSlots");
+    const upsertContactSpy = vi.spyOn(ghlCoachingCalendar, "upsertContact");
+    const createAppointmentSpy = vi.spyOn(ghlCoachingCalendar, "createAppointment");
+
+    const startTime = gridAlignedFutureTime(40);
+    const booked = await request(app)
+      .post("/api/onboarding/partner/book")
+      .set("Cookie", authCookie(memberId))
+      .send({ startTime: startTime.toISOString() });
+    expect(booked.status).toBe(201);
+    bookingIds.push(booked.body.booking.id);
+
+    // ghl_location_id is an internal-only column (excluded from
+    // MEMBER_CALL_BOOKING_COLUMNS) — verify it landed via a direct DB read.
+    const [storedBooking] = await db
+      .select({ ghlLocationId: callBookingsTable.ghlLocationId })
+      .from(callBookingsTable)
+      .where(eq(callBookingsTable.id, booked.body.booking.id));
+    expect(storedBooking.ghlLocationId).toBe(CUSTOM_LOCATION_ID);
+    for (const call of freeSlotsSpy.mock.calls) {
+      expect(call[3]).toBe(CUSTOM_LOCATION_ID);
+    }
+    expect(upsertContactSpy).toHaveBeenCalledWith(
+      expect.objectContaining({ locationId: CUSTOM_LOCATION_ID }),
+    );
+    expect(createAppointmentSpy).toHaveBeenCalledWith(
+      expect.objectContaining({ locationId: CUSTOM_LOCATION_ID }),
+    );
+  });
+
+  it("passes the kickoff coach's own ghlLocationId (not the coaching default) to getFreeSlots and createAppointment on booking", async () => {
+    // Force round-robin selection onto the custom-location coach by
+    // deactivating every OTHER active kickoff coach (both this suite's test
+    // fixture and the real seeded roster rows) for the duration of this test
+    // — selectKickoffCoach() picks the least-booked ACTIVE coach.
+    const otherActiveCoaches = await db
+      .select({ id: kickoffCoachesTable.id })
+      .from(kickoffCoachesTable)
+      .where(and(eq(kickoffCoachesTable.isActive, true), ne(kickoffCoachesTable.id, customKickoffCoachId)));
+    const otherActiveCoachIds = otherActiveCoaches.map((c) => c.id);
+    if (otherActiveCoachIds.length > 0) {
+      await db.update(kickoffCoachesTable).set({ isActive: false }).where(inArray(kickoffCoachesTable.id, otherActiveCoachIds));
+    }
+    try {
+      const memberId = await makeMember(4);
+      const freeSlotsSpy = vi.spyOn(ghlCoachingCalendar, "getFreeSlots");
+      const createAppointmentSpy = vi.spyOn(ghlCoachingCalendar, "createAppointment");
+
+      const startTime = gridAlignedFutureTime(41);
+      const booked = await request(app)
+        .post("/api/onboarding/kickoff/book")
+        .set("Cookie", authCookie(memberId))
+        .send({ startTime: startTime.toISOString() });
+      expect(booked.status).toBe(201);
+      bookingIds.push(booked.body.booking.id);
+
+      const [storedBooking] = await db
+        .select({ ghlLocationId: callBookingsTable.ghlLocationId })
+        .from(callBookingsTable)
+        .where(eq(callBookingsTable.id, booked.body.booking.id));
+      expect(storedBooking.ghlLocationId).toBe(CUSTOM_LOCATION_ID);
+      for (const call of freeSlotsSpy.mock.calls) {
+        expect(call[3]).toBe(CUSTOM_LOCATION_ID);
+      }
+      expect(createAppointmentSpy).toHaveBeenCalledWith(
+        expect.objectContaining({ locationId: CUSTOM_LOCATION_ID }),
+      );
+    } finally {
+      if (otherActiveCoachIds.length > 0) {
+        await db.update(kickoffCoachesTable).set({ isActive: true }).where(inArray(kickoffCoachesTable.id, otherActiveCoachIds));
+      }
+    }
+  });
+});
+
+describe("inactive partner/kickoff coach roster rows are excluded", () => {
+  it("excludes an inactive partner from availability lookup (loadAssignedPartner requires isActive)", async () => {
+    const [inactivePartner] = await db
+      .insert(partnersTable)
+      .values({
+        displayName: "Inactive Roster Partner",
+        ghlCalendarId: null,
+        isActive: false,
+        maxDailyCalls: 5,
+      })
+      .returning({ id: partnersTable.id });
+
+    try {
+      const memberId = await makeMember(6, true);
+      await assignPartner(memberId, inactivePartner.id);
+
+      const avail = await request(app)
+        .get("/api/onboarding/partner/availability")
+        .set("Cookie", authCookie(memberId));
+      expect(avail.status).toBe(404);
+    } finally {
+      await db.delete(partnerAssignmentsTable).where(eq(partnerAssignmentsTable.partnerId, inactivePartner.id));
+      await db.delete(partnersTable).where(eq(partnersTable.id, inactivePartner.id));
+    }
+  });
+
+  it("excludes an inactive kickoff coach from round-robin selection", async () => {
+    const [inactiveCoach] = await db
+      .insert(kickoffCoachesTable)
+      .values({
+        displayName: "Inactive Roster Kickoff Coach",
+        ghlCalendarId: `${TEST_TAG}-inactive-kickoff-cal`,
+        isActive: false,
+      })
+      .returning({ id: kickoffCoachesTable.id });
+
+    try {
+      const memberId = await makeMember(4);
+      const startTime = gridAlignedFutureTime(42);
+      const booked = await request(app)
+        .post("/api/onboarding/kickoff/book")
+        .set("Cookie", authCookie(memberId))
+        .send({ startTime: startTime.toISOString() });
+      expect(booked.status).toBe(201);
+      expect(booked.body.booking.staffId).not.toBe(inactiveCoach.id);
+      bookingIds.push(booked.body.booking.id);
+    } finally {
+      await db.delete(kickoffCoachesTable).where(eq(kickoffCoachesTable.id, inactiveCoach.id));
+    }
   });
 });
 

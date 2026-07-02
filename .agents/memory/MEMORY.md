@@ -130,3 +130,4 @@
 - [KB tool-tag DB vocabulary](kb-tool-tags-db-vocab.md) — TOOL tags DB-managed (kb_tool_tags + AI-proposal queue); concept+troubleshooting stay code; retrieval/triage read merged effective vocab via getEffectiveTag* (read at call-time, never a module const); protected caterpillar/grasshopper/crane; synthesis unaffected.
 - [Kickoff + partner call booking (GHL)](call-bookings-ghl.md) — round-robin kickoff coach, 5/day partner cap freed on cancel, pre-kickoff cutoff on first booking, idempotent step 4→5/5→6 advance.
 - [Partner dashboard scoping + shared mark-done](partner-dashboard-scoping.md) — partner sees own roster only, admin needs ?partnerId=, admin is read-only even with partners:view; call-done MUST go through markPartnerCallDone (a future webhook-driven completion path must reuse it).
+- [Per-row GHL location](ghl-per-row-location.md) — separate GHL sub-accounts per calendar-holder type; round-robin tests must isolate active rows in a shared dev DB.

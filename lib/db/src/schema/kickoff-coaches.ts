@@ -24,6 +24,10 @@ export const kickoffCoachesTable = pgTable("kickoff_coaches", {
   // without a calendar configured simply offers no bookable slots and is
   // skipped by round-robin selection.
   ghlCalendarId: text("ghl_calendar_id"),
+  // GHL sub-account location that owns `ghlCalendarId` (Task #1611). See the
+  // matching column on `partners` for the rationale — defaults to the
+  // coaching location so existing rows/behavior are unchanged.
+  ghlLocationId: text("ghl_location_id").notNull().default("JI6HzFwkNIr5VA2QUWUL"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true })
     .notNull()

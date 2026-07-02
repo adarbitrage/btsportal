@@ -144,36 +144,55 @@ describe("assignRoundRobin", () => {
   });
 
   it("picks the least-loaded partner and is idempotent", async () => {
-    const partnerA = await insertPartner("a");
-    const partnerB = await insertPartner("b");
-    const memberX = await insertUser("member-x");
-    const memberY = await insertUser("member-y");
-    const memberZ = await insertUser("member-z");
+    // The real seeded roster (Task #1611: Jean/Mikha/John/Neil) is active in
+    // the shared dev DB with zero assignments, which would otherwise tie
+    // with our fresh partnerB for "least-loaded" and make the pick
+    // non-deterministic. Deactivate every other active partner for the
+    // duration of this test so only our two fixtures compete.
+    const otherActivePartners = await db
+      .select({ id: partnersTable.id })
+      .from(partnersTable)
+      .where(eq(partnersTable.isActive, true));
+    const otherActivePartnerIds = otherActivePartners.map((p) => p.id);
+    if (otherActivePartnerIds.length > 0) {
+      await db.update(partnersTable).set({ isActive: false }).where(inArray(partnersTable.id, otherActivePartnerIds));
+    }
+    try {
+      const partnerA = await insertPartner("a");
+      const partnerB = await insertPartner("b");
+      const memberX = await insertUser("member-x");
+      const memberY = await insertUser("member-y");
+      const memberZ = await insertUser("member-z");
 
-    // Pre-load partnerA with one active assignment so it's no longer the
-    // least-loaded candidate between A and B.
-    await db
-      .insert(partnerAssignmentsTable)
-      .values({ memberId: memberX, partnerId: partnerA, status: "active" });
+      // Pre-load partnerA with one active assignment so it's no longer the
+      // least-loaded candidate between A and B.
+      await db
+        .insert(partnerAssignmentsTable)
+        .values({ memberId: memberX, partnerId: partnerA, status: "active" });
 
-    const firstPick = await assignRoundRobin(memberY);
-    expect(firstPick.assigned).toBe(true);
-    expect(firstPick.partnerId).toBe(partnerB);
+      const firstPick = await assignRoundRobin(memberY);
+      expect(firstPick.assigned).toBe(true);
+      expect(firstPick.partnerId).toBe(partnerB);
 
-    // Now A and B are tied (1 active each) — next pick breaks the tie by
-    // whichever candidate set orders first; simply confirm it lands on one
-    // of our two seeded partners.
-    const secondPick = await assignRoundRobin(memberZ);
-    expect(secondPick.assigned).toBe(true);
-    expect([partnerA, partnerB]).toContain(secondPick.partnerId);
+      // Now A and B are tied (1 active each) — next pick breaks the tie by
+      // whichever candidate set orders first; simply confirm it lands on one
+      // of our two seeded partners.
+      const secondPick = await assignRoundRobin(memberZ);
+      expect(secondPick.assigned).toBe(true);
+      expect([partnerA, partnerB]).toContain(secondPick.partnerId);
 
-    // Idempotency: calling again for a member who already has an active
-    // assignment returns the existing one and does not insert a duplicate.
-    const repeat = await assignRoundRobin(memberY);
-    expect(repeat.assigned).toBe(false);
-    expect(repeat.partnerId).toBe(partnerB);
-    const rows = await getAssignments(memberY);
-    expect(rows.filter((r) => r.status === "active")).toHaveLength(1);
+      // Idempotency: calling again for a member who already has an active
+      // assignment returns the existing one and does not insert a duplicate.
+      const repeat = await assignRoundRobin(memberY);
+      expect(repeat.assigned).toBe(false);
+      expect(repeat.partnerId).toBe(partnerB);
+      const rows = await getAssignments(memberY);
+      expect(rows.filter((r) => r.status === "active")).toHaveLength(1);
+    } finally {
+      if (otherActivePartnerIds.length > 0) {
+        await db.update(partnersTable).set({ isActive: true }).where(inArray(partnersTable.id, otherActivePartnerIds));
+      }
+    }
   });
 });
 
