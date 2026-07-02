@@ -1,0 +1,37 @@
+## BTS Portal — /api/ops refund hardening (security + correctness). Money-path: architect-review required.
+
+### What This Does
+Mirrors the hardening just applied to The Machine's ops API onto BTS's OWN native refund path (the "bts" ops source: ad-spend top-ups, First Movers, native subscriptions — refunded via /api/ops from TicketDesk). BTS's ops refund currently has the same weaknesses The Machine's did: a single shared OPS_API_KEY, a self-asserted "approver" string with no real second factor, and (verify) no rate limiting. Close them WITHOUT changing refund money-safety internals (integer cents, void-vs-refund by settlement, request idempotency, the subscription-cancel-on-refund behavior, the single-grant revoke) — those are verified correct. Additive guards + one correctness fix.
+
+### FIRST — read-only confirm before changing (report these):
+- The exact current guards on BTS's /api/ops refund + access endpoints (the ops-service-auth middleware, the approver check if any, whether any rate limiting exists).
+- Whether the refund success path writes its audit/log row BEFORE or AFTER the order status flip / money movement, and whether that audit write is wrapped (the false-500 bug pattern).
+Report what exists, then implement the fixes below.
+
+### Fixes (priority order)
+
+1. AUDIT-AFTER-MUTATION FALSE-FAILURE (correctness — if present):
+   - If the ops refund flips the order to refunded (and/or cancels the funded subscription) BEFORE writing the audit/action-log row, and that audit write is unwrapped: a throw in the audit write would surface a 500 "failed" for a refund that ALREADY SUCCEEDED (money moved, sub already canceled). Wrap the success-path audit write in its own try/catch — on failure, log loudly but STILL return the success result. Never report a completed refund as failed. Apply the same to the ops access grant/revoke path if it has the same shape.
+   - Do NOT reorder money movement or the subscription-cancel; only make the audit write non-fatal to a completed action.
+
+2. REAL APPROVAL GATE (replace the self-asserted approver):
+   - Add a SEPARATE secret, BTS_OPS_REFUND_APPROVAL_KEY (distinct from OPS_API_KEY), required for refunds at/above a threshold (env-tunable, e.g. BTS_APPROVER_REQUIRED_THRESHOLD_CENTS default 100000 = $1,000). Presented via header X-Refund-Approval (match The Machine's header name exactly, so TicketDesk's always-attach behavior — task #1191 — works for BTS too with no TicketDesk change). Verify constant-time against the env value; unset or mismatch → 403, refund does NOT proceed. The actor/approver strings stay for the audit record but are NO LONGER the authorization.
+   - IMPORTANT: TicketDesk already always-attaches X-Refund-Approval (with its OPS_REFUND_APPROVAL_KEY) on ops refunds. So BTS must verify against the SAME value TicketDesk sends. Operator will set BTS_OPS_REFUND_APPROVAL_KEY to the same value TicketDesk's OPS_REFUND_APPROVAL_KEY holds. Confirm the header name BTS reads matches what TicketDesk sends (X-Refund-Approval).
+
+3. RATE LIMITING on BTS's /api/ops (if absent — verify first):
+   - Apply a Redis-backed limiter (reuse BTS's existing limiter pattern) to the ops router, per-key-fingerprint + per-IP, env-tunable (e.g. refunds 20/10min, reads 120/10min). Exceed → 429. Fail-closed-soft: Redis unavailable → bounded in-memory window (log loudly), NOT a silent no-op. Apply at ops router mount so all ops routes are covered. Do NOT rate-limit member-facing or webhook routes here — only /api/ops.
+
+4. NO 403-BODY KEY LEAK (the bug the Machine fix surfaced):
+   - Ensure BTS's 403 (and any error) response body does NOT echo the approval key or the OPS_API_KEY, and that BTS does not log the presented X-Refund-Approval / OPS_API_KEY values. Redact if headers are ever logged. (This is the leak path the TicketDesk-side fix caught — make sure BTS doesn't reintroduce it from the server side.)
+
+### Explicitly NOT changing
+- Integer-cents math, void-vs-refund-by-settlement, request idempotency (peek-then-claim), the already-refunded guard, the subscription-cancel-on-refund + scheduling-null behavior, the single-order/single-grant revoke discipline — all verified correct, leave intact.
+- The shared-secret ops-service-auth mechanism itself is fine; we add approval/limits/redaction ON TOP.
+
+### Acceptance Criteria
+- A full refund ≥ threshold WITHOUT a valid X-Refund-Approval (BTS_OPS_REFUND_APPROVAL_KEY) → 403, no gateway call, no order/subscription state change; WITH the matching key → proceeds. A placeholder approver string no longer authorizes.
+- A refund whose audit-log write fails still returns success (test by forcing the audit write to throw); same for access grant/revoke. No false 500 on a completed refund.
+- Ops endpoints return 429 past the limit; Redis-down → in-memory fallback still limits (test both); an authorized, in-limit, correctly-approved refund behaves identically to today.
+- No error/403 body or log line contains the approval key or OPS_API_KEY (test the 403-echo case).
+- Existing BTS ops refund/read tests still green (unchanged for authorized/in-limit/approved calls). The subscription-refund-cancels-and-drops-from-charger behavior still verified.
+- Clean tsc + architect review on shipped code. Report files + new env vars (BTS_OPS_REFUND_APPROVAL_KEY, threshold, limit vars). Do NOT create follow-up tasks.
