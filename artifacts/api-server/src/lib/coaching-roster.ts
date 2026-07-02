@@ -49,8 +49,17 @@ export const COACHING_ROSTER: RosterCoach[] = [
 // types (today: 1-on-1 VA calls). Keyed by name (VAs have no private-coaching
 // ghl_calendar_id to key on; their booking calendars live in
 // coach_call_calendars). Only Neil is wired for 1-on-1 VA calls for now.
-interface RosterVa {
+export interface RosterVa {
   name: string;
+  // Optional surname — the controlled capture point that gives VAs the SAME
+  // deterministic surname protection coaches have. Members must only ever see a
+  // VA by their FIRST name. When a VA's real surname is known, record it here
+  // and the privacy filter (content-privacy-filter.ts) automatically derives a
+  // deterministic scrub rule from it (full name -> first name, plus an
+  // orphaned-surname strip) via buildStaffSurnameRules(VA_ROSTER). Leave unset
+  // when the surname is genuinely unknown — never invent one. Until a surname is
+  // recorded here the LLM first-name-only prompt guidance is the sole mechanism.
+  surname?: string;
   sortOrder: number;
   // Whether this VA offers free 1-on-1 VA calls. When true, oneOnOneVaCalendar
   // must be set so there's something to book against.

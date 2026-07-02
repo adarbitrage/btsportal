@@ -19,10 +19,51 @@
  * agency API config). It only sanitizes free-text knowledge-base content.
  */
 
+import { VA_ROSTER } from "./coaching-roster";
+
 export interface PrivacyRule {
   /** Must include the global flag so all occurrences are replaced. */
   pattern: RegExp;
   replacement: string;
+}
+
+/** Escape a literal string for safe embedding in a RegExp. */
+function escapeRegExp(literal: string): string {
+  return literal.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+/**
+ * Build the deterministic first-name-only scrub rules for a staff roster whose
+ * surnames ARE known — the reusable generalisation of the hand-written coach
+ * rules in PRIVACY_RULES below. For each staff member that carries a surname it
+ * emits, in order:
+ *   1. a full-name rule  "First Surname" -> "First"  (whitespace-tolerant), then
+ *   2. an orphaned-surname strip  "Surname" -> ""     (for chunk-split leftovers).
+ * The full-name rule is emitted BEFORE the orphan strip so the longer match wins.
+ * Staff with no surname produce no rules (the LLM prompt guidance is their only
+ * protection until a surname is recorded). Both first name and surname are regex-
+ * escaped, so a name with special characters can never break the pattern.
+ */
+export function buildStaffSurnameRules(
+  staff: ReadonlyArray<{ name: string; surname?: string | null }>,
+): PrivacyRule[] {
+  const rules: PrivacyRule[] = [];
+  for (const person of staff) {
+    const first = person.name?.trim();
+    const surname = person.surname?.trim();
+    if (!first || !surname) continue;
+    const firstPat = escapeRegExp(first);
+    const surnamePat = escapeRegExp(surname);
+    rules.push({
+      pattern: new RegExp(`${firstPat}\\s+${surnamePat}`, "gi"),
+      replacement: first,
+    });
+    rules.push({
+      pattern: new RegExp(`\\b${surnamePat}\\b`, "gi"),
+      replacement: "",
+    });
+  }
+  return rules;
 }
 
 /**
@@ -102,11 +143,12 @@ export const OLD_BRAND_REBRAND_RULES: PrivacyRule[] = [
  * Members must only ever see a coach or VA by their FIRST name, so whenever a
  * transcript names a staff member with a surname the surname is dropped. Unlike
  * the founder / coach surnames in PRIVACY_RULES below, this guidance keys only
- * on FIRST names because that is all the live roster (coaching-roster.ts)
- * stores — the LLM sees the surname in context and drops it. The deterministic
- * PRIVACY_RULES coach entries below are the backstop for the coaches whose
- * surnames ARE known; the VAs have no known surname, so for them this prompt
- * guidance is the sole mechanism (see the VA seam in PRIVACY_RULES).
+ * on FIRST names because that is the roster field the cleaner needs — the LLM
+ * sees the surname in context and drops it. The deterministic PRIVACY_RULES
+ * entries below are the backstop for every staff member whose surname IS known:
+ * coaches via hand-written rules, and VAs via buildStaffSurnameRules(VA_ROSTER)
+ * once a VA surname is recorded in the roster (see the VA seam in PRIVACY_RULES).
+ * A VA with no recorded surname still relies on this prompt guidance alone.
  *
  * Pass the live staff first names (from the roster loader) so the transcript
  * cleaner's prompts stay in lockstep with coaching-roster.ts and never drift.
@@ -168,15 +210,16 @@ export const PRIVACY_RULES: PrivacyRule[] = [
   { pattern: /\bSheph?[ae]?rd\b/gi, replacement: "" },
   { pattern: /\bClark\b/gi, replacement: "Bruce" },
 
-  // --- VAs: surname strip (SEAM — no known surnames today) ---
-  // The VAs (John, Neil, Mikha) have NO surname stored anywhere in the codebase,
-  // so the deterministic filter cannot key on them. The LLM clean/refine prompt
-  // (which sees the surname in context via buildStaffFirstNameGuidance) is the
-  // primary mechanism for VA surnames. When/if a VA surname becomes KNOWN, add it
-  // here the SAME way as the coach rules above — a full-name -> first-name rule,
-  // then an orphaned-surname strip. Do NOT invent VA surnames.
-  // e.g. { pattern: /Neil\s+<Surname>/gi, replacement: "Neil" },
-  //      { pattern: /\b<Surname>\b/gi, replacement: "" },
+  // --- VAs: surname strip (roster-driven, same protection as coaches) ---
+  // VA surnames are captured in VA_ROSTER (coaching-roster.ts) via an optional
+  // `surname` field. buildStaffSurnameRules derives the SAME two-rule pattern the
+  // coaches use above (full name -> first name, then an orphaned-surname strip)
+  // for every VA whose surname is KNOWN, so scrubPrivateContent deterministically
+  // reduces that VA to first-name-only even if the model echoes the full name.
+  // VAs with no recorded surname produce no rule (the LLM first-name-only prompt
+  // guidance stays their protection). To protect a VA deterministically, record
+  // their real surname in VA_ROSTER — never invent one here.
+  ...buildStaffSurnameRules(VA_ROSTER),
 
   // ============================================================
   // ADD NEW FORBIDDEN NAMES HERE.
