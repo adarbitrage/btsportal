@@ -40,6 +40,7 @@ import {
   type SynthesisScope,
 } from "../../lib/kb-synthesis.js";
 import { ALL_NODES, HOME_ROOT_SLUGS } from "../../lib/kb-taxonomy.js";
+import { scanCoreTrainingSourceChanges } from "../../lib/kb-source-change-scan.js";
 
 const execFileAsync = promisify(execFile);
 const _require = createRequire(import.meta.url);
@@ -1730,6 +1731,71 @@ router.get("/synthesis-affected", async (_req: Request, res: Response) => {
   try {
     const affected = await getAffectedNodes();
     res.json({ affected, count: affected.length });
+  } catch (err: unknown) {
+    res.status(500).json({ error: err instanceof Error ? err.message : "Unknown error" });
+  }
+});
+
+/**
+ * Blitz change-monitoring foundation (Task #1564) — DORMANT.
+ *
+ * Detects when the core-training source material changed since it was last
+ * filed, and — for MATERIAL changes — proposes AI-reference-doc revisions
+ * through the existing supersede path (synthesizeNode authors an `update` draft
+ * against the node's published live doc; the human gate is unchanged).
+ *
+ * This endpoint is only reachable from a DISABLED "Scan for changes" button:
+ * there is no boot hook and no schedule wired to it. It exists so the plumbing
+ * is in place and verifiable, without the feature being live.
+ */
+router.post("/scan-core-training-changes", async (_req: Request, res: Response) => {
+  try {
+    if (isSynthesisRunning()) {
+      res.status(409).json({ error: "A synthesis run is already in progress" });
+      return;
+    }
+
+    const scan = await scanCoreTrainingSourceChanges();
+
+    // No material change → nothing to propose. Report the scan outcome.
+    if (scan.affectedNodes.length === 0) {
+      res.json({
+        message:
+          scan.material.length === 0
+            ? `Scanned ${scan.scanned} source(s); ${scan.changed.length} changed, none material — no revisions proposed.`
+            : `Scanned ${scan.scanned} source(s); ${scan.material.length} material change(s) but no affected node has a published document to revise.`,
+        running: false,
+        scanned: scan.scanned,
+        changed: scan.changed,
+        material: scan.material,
+        affectedNodes: scan.affectedNodes,
+      });
+      return;
+    }
+
+    // Reuse the normal synthesis path: it authors an `update` draft for each
+    // affected node (target_live_doc_id + update_summary) and triages it, all
+    // behind the unchanged human approval gate.
+    res.json({
+      message: `Scanned ${scan.scanned} source(s); ${scan.material.length} material change(s) — proposing revisions for ${scan.affectedNodes.length} node(s) in background.`,
+      running: true,
+      scanned: scan.scanned,
+      changed: scan.changed,
+      material: scan.material,
+      affectedNodes: scan.affectedNodes,
+    });
+    synthesizeNodesBackground(scan.affectedNodes)
+      .then(async (createdIds) => {
+        if (createdIds.length === 0) return;
+        const drafts = await db
+          .select()
+          .from(kbStagingDocsTable)
+          .where(sql`${kbStagingDocsTable.id} = ANY(${createdIds})`);
+        await runTriageBackground(drafts);
+      })
+      .catch((err) =>
+        console.error("[SourceChangeScan] Unhandled background error:", err),
+      );
   } catch (err: unknown) {
     res.status(500).json({ error: err instanceof Error ? err.message : "Unknown error" });
   }

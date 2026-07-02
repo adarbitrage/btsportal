@@ -131,7 +131,7 @@ function dominantAuthority(sources: SourceDoc[]): AuthorityRole {
 
 // ── LLM plumbing ────────────────────────────────────────────────────────────
 
-async function callLLM(system: string, user: string, maxTokens: number, jsonMode = false): Promise<string> {
+export async function callLLM(system: string, user: string, maxTokens: number, jsonMode = false): Promise<string> {
   const base = process.env.AI_INTEGRATIONS_OPENAI_BASE_URL;
   const key = process.env.AI_INTEGRATIONS_OPENAI_API_KEY;
   if (!base || !key) throw new Error("AI integration is not configured");

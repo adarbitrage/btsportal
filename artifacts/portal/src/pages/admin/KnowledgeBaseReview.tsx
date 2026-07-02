@@ -51,6 +51,7 @@ import {
   FolderTree,
   ShieldCheck,
   GitCompare,
+  Radar,
 } from "lucide-react";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -1347,6 +1348,21 @@ export default function KnowledgeBaseReview() {
             <Button onClick={toggleCoverage} variant="outline">
               <Layers className="w-4 h-4 mr-2" />
               {showCoverage ? "Hide Coverage" : "Coverage"}
+            </Button>
+            {/*
+              Blitz change-monitoring (Task #1564) — DORMANT. The plumbing to
+              detect changed core-training sources and propose reference-doc
+              revisions exists on the backend, but the feature is intentionally
+              OFF: this button stays disabled (no boot hook, no schedule). It is
+              the only entry point to that plumbing.
+            */}
+            <Button
+              variant="outline"
+              disabled
+              title="Coming soon — automatic detection of changed Blitz/core-training content is not enabled yet."
+            >
+              <Radar className="w-4 h-4 mr-2" />
+              Scan for changes
             </Button>
           </div>
         </div>

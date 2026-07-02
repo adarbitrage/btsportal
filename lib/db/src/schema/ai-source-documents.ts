@@ -46,6 +46,16 @@ export const aiSourceDocumentsTable = pgTable("ai_source_documents", {
   // into a node synthesis. NULL = never incorporated (a brand-new source the
   // incremental run should classify + route to its affected nodes).
   incorporatedAt: timestamp("incorporated_at", { withTimezone: true }),
+  // Blitz change-monitoring foundation (Task #1564): a content fingerprint
+  // (sha256 hex of `content`) captured the last time this source was scanned.
+  // NULL = never scanned. The dormant "Scan for changes" flow refreshes each
+  // core-training source's content, recomputes this hash, and flags a source as
+  // changed when the new hash differs from the stored one — so it can propose an
+  // AI-reference-doc revision through the existing supersede path. Additive.
+  contentHash: text("content_hash"),
+  // The last time this source was examined by the change scan (independent of
+  // whether it changed). NULL = never scanned.
+  lastScannedAt: timestamp("last_scanned_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 }, (table) => [

@@ -1,6 +1,7 @@
 import { db } from "@workspace/db";
 import { aiSourceDocumentsTable, blitzLessonsTable } from "@workspace/db/schema";
 import { asc, ne } from "drizzle-orm";
+import { fingerprintContent } from "./kb-source-windows.js";
 
 /**
  * Core BTS training → AI Source Knowledge mining corpus (Task: feed core
@@ -130,9 +131,82 @@ The 7 Pillars™ shows you the destination — a profitable campaign scaling wit
 const PROSE_DOCS: readonly CoreTrainingDoc[] = [SEVEN_PILLARS_DOC, PILLARS_TO_BLITZ_DOC];
 
 /**
- * Idempotent boot seed. Files the three core-training bodies into
+ * A single core-training source doc in its canonical, current form — the shape
+ * both the boot seed (which INSERTs missing titles) and the dormant change scan
+ * (which refreshes existing titles' content) consume. This is the single source
+ * of truth for "what should the core-training sources currently say", derived
+ * live from the re-authored prose + the `blitz_lessons` store.
+ */
+export interface CoreTrainingSourceDoc {
+  title: string;
+  content: string;
+  sourceType: string;
+  authorityRole: string;
+  sourceName: string;
+  provenanceNote: string;
+}
+
+/**
+ * Builds the current canonical set of core-training source docs: the two
+ * re-authored prose bodies plus one doc per non-rejected Blitz lesson (edited
+ * content preferred, else raw). Lessons with an empty body are skipped. The
+ * ordering mirrors the seed (prose first, then curriculum by blitzOrder).
+ */
+export async function buildCoreTrainingSourceDocs(): Promise<CoreTrainingSourceDoc[]> {
+  const docs: CoreTrainingSourceDoc[] = [];
+
+  // 1 + 2) The re-authored prose bodies.
+  for (const doc of PROSE_DOCS) {
+    docs.push({
+      title: doc.title,
+      content: doc.content,
+      sourceType: SOURCE_FOLDER,
+      authorityRole: AUTHORITY_ROLE,
+      sourceName: doc.sourceName,
+      provenanceNote: doc.provenanceNote,
+    });
+  }
+
+  // 3) The Blitz curriculum — every published lesson body from the store, one
+  //    source doc per lesson (natural granularity for the topic indexer).
+  const lessons = await db
+    .select({
+      title: blitzLessonsTable.title,
+      content: blitzLessonsTable.content,
+      editedContent: blitzLessonsTable.editedContent,
+      lessonId: blitzLessonsTable.lessonId,
+      blitzOrder: blitzLessonsTable.blitzOrder,
+      status: blitzLessonsTable.status,
+    })
+    .from(blitzLessonsTable)
+    .where(ne(blitzLessonsTable.status, "rejected"))
+    .orderBy(asc(blitzLessonsTable.blitzOrder));
+
+  for (const lesson of lessons) {
+    const sourceTitle = `The Blitz™ Lesson — ${lesson.title}`;
+    const body = (lesson.editedContent?.trim() || lesson.content || "").trim();
+    if (!body) continue;
+    docs.push({
+      title: sourceTitle,
+      content: body,
+      sourceType: SOURCE_FOLDER,
+      authorityRole: AUTHORITY_ROLE,
+      sourceName: "The Blitz™ Curriculum",
+      provenanceNote: `Seeded from blitz_lessons (lessonId ${lesson.lessonId ?? "?"}, order ${
+        lesson.blitzOrder ?? "?"
+      }) — core Blitz training body for AI source mining.`,
+    });
+  }
+
+  return docs;
+}
+
+/**
+ * Idempotent boot seed. Files the core-training bodies into
  * `ai_source_documents` (reference_docs / curriculum), skipping any title that
- * already exists so re-runs never duplicate.
+ * already exists so re-runs never duplicate. Freshly inserted rows carry a
+ * `contentHash` fingerprint so the dormant change scan can tell a genuine edit
+ * from a never-hashed row.
  */
 export async function seedCoreTrainingSources(): Promise<void> {
   try {
@@ -141,59 +215,18 @@ export async function seedCoreTrainingSources(): Promise<void> {
       .from(aiSourceDocumentsTable);
     const existingTitles = new Set(existing.map((r) => r.title.trim()));
 
-    const toInsert: {
-      title: string;
-      content: string;
-      sourceType: string;
-      authorityRole: string;
-      sourceName: string;
-      provenanceNote: string;
-    }[] = [];
-
-    // 1 + 2) The re-authored prose bodies.
-    for (const doc of PROSE_DOCS) {
-      if (existingTitles.has(doc.title.trim())) continue;
-      toInsert.push({
+    const canonical = await buildCoreTrainingSourceDocs();
+    const toInsert = canonical
+      .filter((doc) => !existingTitles.has(doc.title.trim()))
+      .map((doc) => ({
         title: doc.title,
         content: doc.content,
-        sourceType: SOURCE_FOLDER,
-        authorityRole: AUTHORITY_ROLE,
+        sourceType: doc.sourceType,
+        authorityRole: doc.authorityRole,
         sourceName: doc.sourceName,
         provenanceNote: doc.provenanceNote,
-      });
-    }
-
-    // 3) The Blitz curriculum — every published lesson body from the store, one
-    //    source doc per lesson (natural granularity for the topic indexer).
-    const lessons = await db
-      .select({
-        title: blitzLessonsTable.title,
-        content: blitzLessonsTable.content,
-        editedContent: blitzLessonsTable.editedContent,
-        lessonId: blitzLessonsTable.lessonId,
-        blitzOrder: blitzLessonsTable.blitzOrder,
-        status: blitzLessonsTable.status,
-      })
-      .from(blitzLessonsTable)
-      .where(ne(blitzLessonsTable.status, "rejected"))
-      .orderBy(asc(blitzLessonsTable.blitzOrder));
-
-    for (const lesson of lessons) {
-      const sourceTitle = `The Blitz™ Lesson — ${lesson.title}`;
-      if (existingTitles.has(sourceTitle.trim())) continue;
-      const body = (lesson.editedContent?.trim() || lesson.content || "").trim();
-      if (!body) continue;
-      toInsert.push({
-        title: sourceTitle,
-        content: body,
-        sourceType: SOURCE_FOLDER,
-        authorityRole: AUTHORITY_ROLE,
-        sourceName: "The Blitz™ Curriculum",
-        provenanceNote: `Seeded from blitz_lessons (lessonId ${lesson.lessonId ?? "?"}, order ${
-          lesson.blitzOrder ?? "?"
-        }) — core Blitz training body for AI source mining.`,
-      });
-    }
+        contentHash: fingerprintContent(doc.content),
+      }));
 
     if (toInsert.length === 0) {
       console.log("[CoreTrainingSources] All core-training sources already present, skipping seed");

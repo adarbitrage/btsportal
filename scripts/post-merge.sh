@@ -358,6 +358,20 @@ if [ -n "$DATABASE_URL" ]; then
   #     EXISTS, guarded ADD CONSTRAINT).
   psql "$DATABASE_URL" -v ON_ERROR_STOP=1 \
     -f lib/db/drizzle/0095_billing_ops_heartbeat.sql >/dev/null
+
+  # 32. Blitz change-monitoring foundation (Task #1564) — DORMANT.
+  #     Additive nullable columns `ai_source_documents.content_hash` (sha256
+  #     fingerprint of content at last scan) + `last_scanned_at`, plus a
+  #     one-time idempotent backfill of the hash for existing rows (via
+  #     pgcrypto digest(), which matches the app's fingerprintContent). These
+  #     back the disabled "Scan for changes" flow that detects when a
+  #     core-training source changed and proposes a reference-doc revision
+  #     through the existing supersede path. Applying it here keeps the
+  #     live-schema-drift gate green so the conditional push stays skipped
+  #     (same pattern as steps 20/21/26/30/31). Idempotent (ADD COLUMN IF NOT
+  #     EXISTS, CREATE EXTENSION IF NOT EXISTS, UPDATE gated on NULL).
+  psql "$DATABASE_URL" -v ON_ERROR_STOP=1 \
+    -f lib/db/drizzle/0095_ai_source_documents_content_hash.sql >/dev/null
 fi
 
 # Schema sync — CONDITIONAL push.
