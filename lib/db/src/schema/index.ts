@@ -103,3 +103,4 @@ export * from "./billing-ops-heartbeat";
 export * from "./partners";
 export * from "./partner-assignments";
 export * from "./kickoff-coaches";
+export * from "./kb-tool-tags";

@@ -33,7 +33,7 @@ import { sql, type SQL } from "drizzle-orm";
 import { scrubPrivateContent } from "./content-privacy-filter";
 import { citableDocFilter } from "./kb-citable-filter";
 import { buildVoiceSynonymTsquery, expandVoiceQuerySynonyms } from "./voice-synonyms";
-import { detectQueryTags } from "./kb-taxonomy";
+import { detectQueryTags } from "./kb-tool-tags.js";
 
 export type RetrievalSurface = "chat" | "voice";
 

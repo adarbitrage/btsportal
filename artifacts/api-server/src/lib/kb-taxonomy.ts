@@ -344,7 +344,7 @@ export const TAG_TRIGGERS: Readonly<Record<string, readonly string[]>> = {
  * multi-word triggers match on word boundaries. Mirrors the voice-synonyms
  * normaliser so the two layers behave identically.
  */
-function normalizeForTagMatch(text: string): string {
+export function normalizeForTagMatch(text: string): string {
   const collapsed = text
     .toLowerCase()
     .normalize("NFKD")
@@ -356,16 +356,22 @@ function normalizeForTagMatch(text: string): string {
 }
 
 /**
- * Detect which controlled tags a member query references, so retrieval can boost
- * docs carrying those tags. Returns the (deduped) tag slugs in registry order.
- * Empty when nothing matches (the common case).
+ * Pure trigger matcher: given a query, an ordered tag list, and a per-tag
+ * trigger map, return the (deduped) tags whose triggers fire, in list order.
+ * Shared by the code-baseline {@link detectQueryTags} here and the DB-backed
+ * EFFECTIVE detector in kb-tool-tags (which merges concept + troubleshooting
+ * with the admin-managed tool tags).
  */
-export function detectQueryTags(query: string): string[] {
+export function detectTagsFromTriggers(
+  query: string,
+  tags: readonly string[],
+  triggersByTag: Readonly<Record<string, readonly string[]>>,
+): string[] {
   const haystack = normalizeForTagMatch(query);
   if (!haystack) return [];
   const matched: string[] = [];
-  for (const tag of ALL_TAGS) {
-    const triggers = TAG_TRIGGERS[tag];
+  for (const tag of tags) {
+    const triggers = triggersByTag[tag];
     if (!triggers) continue;
     const hit = triggers.some((t) => {
       const needle = normalizeForTagMatch(t);
@@ -374,6 +380,20 @@ export function detectQueryTags(query: string): string[] {
     if (hit) matched.push(tag);
   }
   return matched;
+}
+
+/**
+ * Detect which controlled tags a member query references, so retrieval can boost
+ * docs carrying those tags. Returns the (deduped) tag slugs in registry order.
+ * Empty when nothing matches (the common case).
+ *
+ * NOTE: this is the CODE-BASELINE detector over the hard-coded registry. The
+ * live retrieval/triage paths use the DB-backed EFFECTIVE detector in
+ * kb-tool-tags, which merges these concept/troubleshooting tags with the
+ * admin-managed tool tags.
+ */
+export function detectQueryTags(query: string): string[] {
+  return detectTagsFromTriggers(query, ALL_TAGS, TAG_TRIGGERS);
 }
 
 // ───────────────────────────────────────────────────────────────────────────

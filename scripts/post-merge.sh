@@ -462,3 +462,15 @@ if [ -n "$DATABASE_URL" ]; then
     -f lib/db/drizzle/0094_transcript_cleaner_provided_inputs.sql \
     >/dev/null
 fi
+
+# Admin-manageable TOOL-tag vocabulary + AI-proposes queue (Task #1586). New
+# tables, so the drift gate DOES fire push --force — but apply the companion
+# .sql explicitly and idempotently (CREATE TABLE / INDEX IF NOT EXISTS) so prod
+# picks them up on merge regardless of whether the drift short-circuits. The
+# api-server boot also runs the same DDL, so this is belt-and-suspenders.
+if [ -n "$DATABASE_URL" ]; then
+  psql "$DATABASE_URL" \
+    -v ON_ERROR_STOP=1 \
+    -f lib/db/drizzle/0097_kb_tool_tags.sql \
+    >/dev/null
+fi

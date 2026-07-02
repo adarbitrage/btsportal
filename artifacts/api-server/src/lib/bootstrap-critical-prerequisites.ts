@@ -33,6 +33,7 @@ import {
   LEGACY_GENERIC_KB_TITLES,
 } from "./chat-system-prompt";
 import { ensureFoundingSuperAdmins } from "./ensure-founding-superadmins";
+import { seedToolTags } from "./kb-tool-tags";
 import { backfillUndeliveredTickets } from "./ticketdesk-queue";
 import { migrateOneOffCoachingCallsToTemplates } from "./coaching-call-migrate-oneoffs";
 import { migrateOnboardingStepsToSevenStepContract } from "./onboarding-advancement";
@@ -114,6 +115,19 @@ export async function bootstrapCriticalPrerequisites(): Promise<PrerequisiteResu
   } catch (err) {
     console.error("[Bootstrap] runAiLiveDocumentsParityMigration() threw:", err);
     missing.push("aiLiveDocumentsParityMigration");
+  }
+
+  // 0a-5. Admin-manageable TOOL-tag vocabulary (Task #1586). Retrieval + triage
+  //       read a MERGED effective vocab (DB tool tags + code concept +
+  //       troubleshooting). Create the tables before seeding so a fresh dev DB
+  //       (no companion .sql yet) still works, then seed the baseline tool tags
+  //       and warm the in-memory cache.
+  try {
+    await runKbToolTagsMigration();
+    await seedToolTags();
+  } catch (err) {
+    console.error("[Bootstrap] kb tool-tags migration/seed threw:", err);
+    missing.push("kbToolTagsSeed");
   }
 
   // 0b. Backfill undelivered tickets — runs in the background after the HTTP
@@ -502,6 +516,38 @@ async function runKnowledgebaseSourceColumnsMigration(): Promise<void> {
     sql`ALTER TABLE knowledgebase_docs
         ADD COLUMN IF NOT EXISTS source_label text`,
   );
+}
+
+async function runKbToolTagsMigration(): Promise<void> {
+  await db.execute(sql`
+    CREATE TABLE IF NOT EXISTS kb_tool_tags (
+      id serial PRIMARY KEY,
+      slug text NOT NULL UNIQUE,
+      label text NOT NULL,
+      triggers jsonb NOT NULL DEFAULT '[]'::jsonb,
+      enabled boolean NOT NULL DEFAULT true,
+      protected boolean NOT NULL DEFAULT false,
+      source text NOT NULL DEFAULT 'seed',
+      created_by integer REFERENCES users(id) ON DELETE SET NULL,
+      created_at timestamp with time zone NOT NULL DEFAULT now(),
+      updated_at timestamp with time zone NOT NULL DEFAULT now()
+    )`);
+  await db.execute(sql`CREATE INDEX IF NOT EXISTS kb_tool_tags_enabled_idx ON kb_tool_tags (enabled)`);
+  await db.execute(sql`
+    CREATE TABLE IF NOT EXISTS kb_proposed_tool_tags (
+      id serial PRIMARY KEY,
+      slug text NOT NULL UNIQUE,
+      label text NOT NULL,
+      suggested_triggers jsonb NOT NULL DEFAULT '[]'::jsonb,
+      status text NOT NULL DEFAULT 'pending',
+      occurrence_count integer NOT NULL DEFAULT 1,
+      example_context text,
+      reviewed_by integer REFERENCES users(id) ON DELETE SET NULL,
+      reviewed_at timestamp with time zone,
+      first_seen_at timestamp with time zone NOT NULL DEFAULT now(),
+      last_seen_at timestamp with time zone NOT NULL DEFAULT now()
+    )`);
+  await db.execute(sql`CREATE INDEX IF NOT EXISTS kb_proposed_tool_tags_status_idx ON kb_proposed_tool_tags (status)`);
 }
 
 async function runAiLiveDocumentsParityMigration(): Promise<void> {

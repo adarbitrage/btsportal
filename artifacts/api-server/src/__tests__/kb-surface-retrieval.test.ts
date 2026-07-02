@@ -6,6 +6,11 @@ import {
   type RetrievalTurn,
 } from "../lib/kb-retrieval";
 import { detectQueryTags, TAG_TRIGGERS, ALL_TAGS } from "../lib/kb-taxonomy";
+import {
+  getEffectiveTags,
+  getEffectiveTagSet,
+  getEffectiveTagTriggers,
+} from "../lib/kb-tool-tags";
 
 describe("detectQueryTags", () => {
   it("maps a tool name onto its controlled tag", () => {
@@ -45,6 +50,25 @@ describe("detectQueryTags", () => {
     for (const key of Object.keys(TAG_TRIGGERS)) {
       expect(ALL_TAGS).toContain(key);
     }
+  });
+});
+
+describe("effective vocabulary (DB tool tags + code concept/troubleshooting)", () => {
+  it("every trigger key is a member of the enabled effective tag set", () => {
+    const tagSet = getEffectiveTagSet();
+    for (const key of Object.keys(getEffectiveTagTriggers())) {
+      expect(tagSet.has(key)).toBe(true);
+    }
+  });
+
+  it("merges the code concept + troubleshooting baseline with the seeded tools", () => {
+    const tags = getEffectiveTags();
+    // Code baseline is always present.
+    expect(tags).toEqual(expect.arrayContaining(["troubleshooting", "headline", "conversion"]));
+    // Seeded external AI tools are present pre-DB via the shipped baseline.
+    expect(tags).toEqual(expect.arrayContaining(["midjourney", "chatgpt", "claude"]));
+    // Seeded existing code tool tags are present.
+    expect(tags).toEqual(expect.arrayContaining(["flexy", "media-mavens", "clickbank"]));
   });
 });
 

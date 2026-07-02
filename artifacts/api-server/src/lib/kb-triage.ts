@@ -24,9 +24,13 @@ import {
 import {
   HOME_ROOTS,
   ALL_NODES,
-  ALL_TAGS,
   DOC_CLASSES,
 } from "./kb-taxonomy.js";
+import {
+  getEffectiveTags,
+  getEffectiveTagSet,
+  recordProposedToolTag,
+} from "./kb-tool-tags.js";
 
 // ── Run-state flag (unified for manual and pipeline-triggered runs) ──────────
 
@@ -41,7 +45,11 @@ export function isTriageRunning(): boolean {
 const NODE_LIST = ALL_NODES.map((n) => `${n.slug} (${n.root})`).join(", ");
 const ROOT_LIST = HOME_ROOTS.map((r) => r.slug).join(" | ");
 
-const TRIAGE_PROMPT = `You are a knowledge-base librarian for the BTS (Build Test Scale) affiliate-marketing coaching assistant.
+// The tag vocabulary is now the DB-backed EFFECTIVE vocabulary (admin-managed
+// tool tags + code concept/troubleshooting tags), so the tag list is injected
+// per-call rather than baked into a module const.
+function buildTriagePrompt(tagList: string): string {
+  return `You are a knowledge-base librarian for the BTS (Build Test Scale) affiliate-marketing coaching assistant.
 
 You receive a DRAFT training document extracted from a transcript or coaching session. You do NOT decide whether to publish it — a human always does that. Your job is to suggest clean metadata so the human reviewer can work faster.
 
@@ -55,7 +63,7 @@ TAXONOMY:
 - home root (pick ONE): ${ROOT_LIST}
 - node (pick ONE that fits the home root): ${NODE_LIST}
 - doc class (pick ONE): ${DOC_CLASSES.join(" | ")}
-- tags (pick 0-4 from): ${ALL_TAGS.join(", ")}
+- tags (pick 0-4 from): ${tagList}
 
 CATEGORIES (legacy field, pick one): curriculum | strategy | sop | faq | platform_guide
 
@@ -68,8 +76,10 @@ Respond ONLY with valid JSON (no markdown, no extra text):
   "suggestedNode": <a node slug from the list>,
   "suggestedDocClass": <${DOC_CLASSES.join(" | ")}>,
   "suggestedTags": <array of 0-4 tag slugs>,
+  "observedTools": <array of names of any third-party or in-house SOFTWARE / TOOL / PLATFORM the document tells the member to use that is NOT already in the tag list above; plain names, [] if none>,
   "reasoning": <1-2 sentence note on quality / brand or privacy issues>
 }`;
+}
 
 export interface TriageResult {
   suggestedCategory: string;
@@ -84,7 +94,6 @@ export interface TriageResult {
 
 const ROOT_SET = new Set(HOME_ROOTS.map((r) => r.slug));
 const NODE_SET = new Set(ALL_NODES.map((n) => n.slug));
-const TAG_SET = new Set(ALL_TAGS);
 const DOC_CLASS_SET = new Set<string>(DOC_CLASSES as readonly string[]);
 
 export async function triageDoc(doc: {
@@ -105,6 +114,11 @@ export async function triageDoc(doc: {
 
   const userMessage = `Title: ${doc.title}${contextHint}\n\n${content.substring(0, 4000)}`;
 
+  // Effective vocabulary (DB tool tags + code concept/troubleshooting tags),
+  // read fresh per call so admin edits take effect with no deploy.
+  const effectiveTags = getEffectiveTags();
+  const tagSet = getEffectiveTagSet();
+
   const resp = await fetch(
     process.env.AI_INTEGRATIONS_OPENAI_BASE_URL + "/chat/completions",
     {
@@ -116,7 +130,7 @@ export async function triageDoc(doc: {
       body: JSON.stringify({
         model: "gpt-5",
         messages: [
-          { role: "system", content: TRIAGE_PROMPT },
+          { role: "system", content: buildTriagePrompt(effectiveTags.join(", ")) },
           { role: "user", content: userMessage },
         ],
         max_completion_tokens: 500,
@@ -134,10 +148,22 @@ export async function triageDoc(doc: {
   const raw = json.choices[0]?.message?.content ?? "";
 
   try {
-    const parsed = JSON.parse(raw) as Partial<TriageResult> & { suggestedTags?: unknown };
+    const parsed = JSON.parse(raw) as Partial<TriageResult> & {
+      suggestedTags?: unknown;
+      observedTools?: unknown;
+    };
     const tags = Array.isArray(parsed.suggestedTags)
-      ? parsed.suggestedTags.map(String).filter((t) => TAG_SET.has(t)).slice(0, 4)
+      ? parsed.suggestedTags.map(String).filter((t) => tagSet.has(t)).slice(0, 4)
       : [];
+    // AI-proposes / human-approves queue: any tool/platform the model noticed
+    // that isn't already in the effective vocabulary becomes a proposal (never a
+    // live tag). Fire-and-forget so triage latency is unaffected.
+    if (Array.isArray(parsed.observedTools)) {
+      for (const name of parsed.observedTools.map(String)) {
+        const trimmed = name.trim();
+        if (trimmed) void recordProposedToolTag(trimmed, doc.title);
+      }
+    }
     const root = typeof parsed.suggestedHomeRoot === "string" && ROOT_SET.has(parsed.suggestedHomeRoot)
       ? parsed.suggestedHomeRoot
       : null;
