@@ -198,22 +198,31 @@ router.post("/admin/transcript-cleaner/documents/batch", requirePermission("chat
       results.push({ ok: false, sourceName: rawItem.sourceName, error: "Unknown authority role" });
       continue;
     }
-    const [doc] = await db
-      .insert(transcriptCleanerDocumentsTable)
-      .values({
-        title: (item.title ?? "").trim(),
-        proposedTitle: item.proposedTitle?.trim() || null,
-        transcriptType,
-        originalContent: content,
-        sourceName: item.sourceName?.trim() || null,
-        provenanceNote: item.provenanceNote?.trim() || null,
-        inLessonOrder: typeof item.inLessonOrder === "number" ? item.inLessonOrder : null,
-        vidalyticsId: item.vidalyticsId?.trim() || null,
-        ...providedInputColumns(item, providedAuthorityRole),
-        status: "uploaded",
-      })
-      .returning();
-    results.push({ ok: true, id: doc.id, sourceName: doc.sourceName ?? undefined });
+    try {
+      const [doc] = await db
+        .insert(transcriptCleanerDocumentsTable)
+        .values({
+          title: (item.title ?? "").trim(),
+          proposedTitle: item.proposedTitle?.trim() || null,
+          transcriptType,
+          originalContent: content,
+          sourceName: item.sourceName?.trim() || null,
+          provenanceNote: item.provenanceNote?.trim() || null,
+          inLessonOrder: typeof item.inLessonOrder === "number" ? item.inLessonOrder : null,
+          vidalyticsId: item.vidalyticsId?.trim() || null,
+          ...providedInputColumns(item, providedAuthorityRole),
+          status: "uploaded",
+        })
+        .returning();
+      results.push({ ok: true, id: doc.id, sourceName: doc.sourceName ?? undefined });
+    } catch (err) {
+      console.error("[transcript-cleaner batch] insert failed:", err);
+      results.push({
+        ok: false,
+        sourceName: rawItem.sourceName,
+        error: err instanceof Error ? err.message : "Failed to save transcript",
+      });
+    }
   }
 
   res.status(201).json({ results });

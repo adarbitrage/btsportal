@@ -13,7 +13,14 @@ async function adminFetch<T = unknown>(path: string, options: RequestInit = {}):
   });
   if (!res.ok) {
     const data = await res.json().catch(() => ({ error: "Request failed" }));
-    throw new Error(data.error || `Request failed with status ${res.status}`);
+    const rawError = (data as { error?: unknown }).error;
+    let message: string | undefined;
+    if (typeof rawError === "string") {
+      message = rawError;
+    } else if (rawError && typeof rawError === "object" && typeof (rawError as { message?: unknown }).message === "string") {
+      message = (rawError as { message: string }).message;
+    }
+    throw new Error(message || `Request failed with status ${res.status}`);
   }
   if (res.status === 204 || res.headers.get("content-length") === "0") {
     return undefined as T;
