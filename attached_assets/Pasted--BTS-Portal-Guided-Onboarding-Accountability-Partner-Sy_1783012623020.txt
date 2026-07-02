@@ -1,0 +1,297 @@
+# BTS Portal — Guided Onboarding + Accountability Partner System (Build Spec)
+
+## Goal
+
+New members (3-Month and up) have just paid a lot of money and are scared; some have
+buyer's remorse. Replace the current 5-step onboarding with a simpler guided
+sequence, and build an accountability-partner system: every 3-Month+ member is
+assigned a real partner (round-robin) who does recurring 1-on-1 calls for the whole
+term, tracked against Blitz progress, with escalation when a mentee wobbles. The
+judgment metric is refund/chargeback reduction, made continuously observable via a
+daily NMI poller. Everything adapts proven in-portal patterns; the only genuinely
+new subsystems are assignment state and NMI event ingestion.
+
+## Locked decisions (source of truth)
+
+- Partners: start with 3, **headcount scales fast**; round-robin assignment;
+  reassignment supported (full history carries; new photo/bio replaces old).
+- Eligibility: **3-Month and up**. Term expiry cleanly ends everything (portal
+  access already stops at expiry — no separate offboarding).
+- Check-ins are **calls only** (no partner email/SMS threads). Cadence set jointly
+  on the first call: 1x/week up to daily. Cap: **5 calls/day per partner**.
+- Booking: **native BTS-designed UI**, GHL as the engine behind the API. Partners'
+  availability managed **in GHL directly** (Sandy relays their hours).
+- Kickoff call: with a kickoff coach (photo + bio), **not** a partner. Partner
+  calendar unlocks **when the kickoff is BOOKED** (not completed). Partner-call
+  slots offered only **after the kickoff's scheduled time**.
+- Mentee journey: welcome video → ToS acceptance → profile → book kickoff →
+  (partner revealed: photo + bio; calendar unlocked) → book first partner call →
+  watch 7 Pillars while waiting → first partner call → Blitz Day 1. Checklist
+  visible; **full-width banner on call days** with time + call link.
+- Blitz is **23 steps** (blitz-hub-step-v2-{1..23}) — all "Day X" displays use 23.
+- Escalation to COO/CEO: **3 consecutive no-shows** OR **14 days with no completed
+  partner call** while term active (the vanish rule).
+- Hiring signal: admin alert when **fleet average utilization ≥80%** (trailing 7 days).
+- Reminders: **portal-sent email + SMS** (not GHL workflows).
+- Partners: **flat monthly salary** — no per-call/per-mentee counting needed for pay.
+- Coaches can see partner notes. Partners see only their own roster.
+- NMI refunds/chargebacks: **daily poller** on the existing queryTransaction;
+  baseline refund rate supplied by Adam; dashboard shows partnered-cohort rate vs.
+  baseline.
+- ToS: the portal's click-wrap ToS step **stays** (it is the only acceptance record
+  in the system — diagnostic confirmed no upstream capture). The mentorship
+  agreement remains external (GHL business process, deliberately out of portal).
+- Kickoff/partner call completion + no-show detection: **GHL appointment webhooks**
+  (new handler branch). GHL-side event subscription is a flagged config task (Sandy).
+
+## Diagnostic anchors (what we build ON — file:line verified)
+
+- Onboarding contract: `users.onboardingStep` + `users.onboardingComplete`
+  (users.ts:15-16); PATCH `/members/me/onboarding` (onboarding.ts:78); four guards
+  read `onboardingComplete` (App.tsx:228/275/350/427). **Completion side effects
+  (onboarding.ts:128-133): cancels onboarding_* email sequences, enrolls
+  nurture_frontend_to_upgrade — MUST be preserved by the new flow.**
+- ToS plumbing: `legal_documents` + `signed_documents` + POST `/documents/sign`
+  (documents.ts:39-91) — reusable as-is; only step wiring changes.
+- Coach role pattern: COACH_ROLE constant (lib/auth:87), CoachRoute guard, explicit
+  isCoachRole touchpoints (Sidebar, App.tsx, rbac.ts). Partner mirrors this.
+- Booking template: coaching session-pack flow (coaching-sessions.ts — availability
+  :174, book :421: advisory locks → GHL createAppointment :523 → busy block :536 →
+  local record :547). GHL client has getFreeSlots (:243), createAppointment (:329),
+  cancelAppointment (:404).
+- GHL webhooks: POST /webhooks/ghl exists w/ HMAC (webhooks-ghl.ts:11) — handlers
+  are tag-only; appointment events are a new branch + GHL-side subscription.
+- Blitz reads: course_progress is sole truth; cross-user read via
+  fetchRecentActivity (lib/blitz/activity.ts:40) as used by coach-dashboard.ts:463.
+- Reminders: scheduled-comms.ts already does 24h email (:119) + 1h SMS (:184) with
+  dedup (:53) for coaching calls — near-copy. SMS needs a new category opt-in
+  column (pattern: coachingSmsOptIn). Prod caveat: Twilio env-gated
+  (TWILIO_ACCOUNT_SID must start "AC" + republish).
+- Escalation: on-call dispatcher (oncall-dispatcher.ts:226 — PagerDuty/email/Slack,
+  throttling, fire/clear). Email channel is armed (ops_alert_email now set).
+- NMI: queryTransaction (nmi-gateway.ts:176-200) parses <condition> — the poller
+  builds on it. No NMI webhook infra exists (deliberate: polling chosen).
+
+---
+
+# Tasks
+
+Tiers:
+- **Tier 1 (parallel):** T1 partner role · T2 assignment schema · T3 onboarding contract
+- **Tier 2 (after T1-T3):** T4 partner dashboard · T5 native booking · T6 mentee sequence UI
+- **Tier 3 (after Tier 2):** T7 GHL appointment webhooks · T8 reminders · T9 escalations + capacity alert
+- **Tier 4 (independent, anytime):** T10 NMI refund/chargeback poller + metric view
+
+---
+
+## T1 — Partner role (mirror the coach pattern)
+
+**Creates:** PARTNER_ROLE constant + isPartnerRole() in lib/auth (beside COACH_ROLE
+:87); PartnerRoute guard (mirror CoachRoute — allows partner role OR admin with a
+new `partners:view` permission); rbac touchpoints; sidebar section for partner nav.
+Admin permissions: `partners:view` (super_admin, admin, support_agent),
+`partners:manage` (super_admin, admin) added to PERMISSION_MATRIX.
+**Acceptance:** a user with role=partner reaches /partner/* routes and nothing
+else staff-side; admins with partners:view can view partner surfaces; partner role
+grants NO member entitlements (entitlements stay product-derived — hard rule).
+
+## T2 — Assignment schema + round-robin (net-new state)
+
+**Creates:**
+- `partners` table: id, user_id FK, display_name, photo_url, bio, is_active,
+  max_daily_calls (default 5), created_at. (Mirror of coaches table shape.)
+- `partner_assignments` table: id, member_id FK, partner_id FK, status
+  (active|ended|reassigned), assigned_at, ended_at, ended_reason. **History
+  preserved**: reassignment ends the old row and inserts a new one — never
+  overwrite. Partial unique index: one ACTIVE assignment per member.
+- `assignRoundRobin(memberId)`: picks the active partner with the fewest active
+  assignments (ties → least-recently-assigned). Trigger: on grant of any 3-Month+
+  product (hook the existing grant path — same spot entitlements resolve).
+  Idempotent: skip if an active assignment exists.
+- Term-expiry: when the qualifying product expires (existing expiry sweep),
+  assignment rows flip to ended. No partner action needed — portal access already
+  stops.
+- Reassignment: admin action (permission partners:manage) — end current, assign
+  named partner or re-run round-robin, reason recorded. Notes/history remain keyed
+  to member_id so the new partner inherits everything.
+- `kickoff_coaches` table (or a flag on coaches): photo_url + bio for the kickoff
+  coach display; round-robin across kickoff coaches at booking time.
+**Acceptance:** granting a 3month product creates exactly one active assignment;
+round-robin balances counts; reassignment preserves history and swaps the active
+row; expiry ends assignments; a 6month direct buyer gets assigned identically.
+
+## T3 — New onboarding contract (replace steps, keep the gate)
+
+**Keeps:** the two-column contract (onboardingStep/onboardingComplete), the four
+guards untouched, the PATCH route shape, **and the completion side effects
+(email-sequence cancel + nurture enrollment, onboarding.ts:128-133) — carried over
+verbatim.**
+**Replaces:** step definitions. New steps:
+  1 welcome video → 2 ToS acceptance (existing documents plumbing; prerequisite
+  check re-wired to new numbering) → 3 profile (existing fields) → 4 book kickoff →
+  5 book first partner call → 6 watch 7 Pillars → 7 first partner call done →
+  complete → Blitz.
+- Steps 4/5/7 are **event-advanced**, not click-advanced: 4 completes on kickoff
+  BOOKED (T5), 5 on partner call BOOKED (T5), 7 on partner call COMPLETED (T7
+  webhook). Step 6 is click-advanced (mentee confirms they watched — keep it
+  simple; Blitz is the real tracked content).
+- Members mid-flight in the OLD flow at deploy: map old step → nearest new step
+  (1→1, 2→2, 3→3, 4/5→4). Members already onboardingComplete are untouched.
+- Old pages (Orientation, QuickStart) removed; Welcome/Documents/Profile adapted.
+**Acceptance:** new member walks 1→7; direct-API step skips still blocked by
+prerequisites (ToS row required for step 2→3, kickoff booking for 4→5, etc.);
+completion fires the same email-sequence handoff as today; a pre-deploy
+mid-onboarding member lands on the correct mapped step; completed members see no
+change.
+
+## T4 — Partner dashboard
+
+**Creates:** /partner/dashboard (+ /partner/mentees/:id detail), PartnerRoute-gated.
+- Roster: active assignments with member name, **Blitz Day X of 23** (via the
+  coach-dashboard read pattern — fetchRecentActivity/course_progress), cadence,
+  last completed call, next booked call.
+- Today view: today's calls with time + **call link** (GHL appointment's meeting
+  URL, stored on the local booking record at create time).
+- Per-mentee: mark call done / add note / flag concern (notes keyed to member_id;
+  visible to coaches via a read surface on the existing coach mentee view);
+  cadence setter (free-form times/week 1–7, set after the first call).
+- Consecutive no-show counter + "days since last completed call" surfaced per
+  mentee (data from T7; display-only here).
+**Acceptance:** partner sees ONLY their roster; coach can read partner notes on a
+shared mentee; admin with partners:view sees all partners' dashboards; Blitz day
+matches the member's actual course_progress.
+
+## T5 — Native booking (kickoff + partner calls), BTS-designed, GHL-backed
+
+**Adapts** the session-pack booking flow end to end (no session-credit deduction —
+partner calls aren't credit-metered; kickoff isn't either).
+- **Kickoff booking (step 4):** shows the round-robined kickoff coach's photo +
+  bio; availability via getFreeSlots on that coach's GHL calendar; book →
+  createAppointment → local `call_bookings` record (type=kickoff). On success:
+  advance onboarding step 4 AND unlock partner booking.
+- **Partner booking (step 5 + ongoing):** shows the assigned partner's photo + bio;
+  availability via getFreeSlots on the partner's GHL calendar, **filtered**: (a)
+  no slots before the kickoff's scheduled datetime (first booking only), (b) no
+  slots on a day where the partner already has 5 booked calls (enforce the cap
+  in OUR layer — GHL free-slots won't know the cap). Book/reschedule/cancel all
+  in-portal via the GHL client.
+- `call_bookings` table: id, member_id, staff_id (partner or kickoff coach), type
+  (kickoff|partner), ghl_appointment_id, scheduled_at, meeting_url, status
+  (booked|completed|no_show|canceled), created_at. This is the local truth the
+  dashboard, reminders, escalations, and checklist all read.
+- **Call-day banner:** full-width top bar for the mentee on any day with a booked
+  call — "Accountability call today at {time}" + meeting link. (Kickoff day too.)
+**Acceptance:** mentee cannot see partner slots before kickoff is booked; first
+partner slot offered is after kickoff's scheduled time; a partner with 5 bookings
+on a day shows no slots that day; cancel/reschedule round-trips to GHL; banner
+shows on call days with a working link; booking events advance onboarding steps
+4 and 5.
+
+## T6 — Mentee-facing guided sequence UI
+
+**Creates:** the new onboarding pages/checklist per T3's steps — welcome video
+first, checklist beneath ("Step 3 of 7"), each step card states plainly what to do
+next. Photo + bio cards for kickoff coach (revealed at step 4) and partner
+(revealed the moment kickoff is booked). Post-onboarding: a persistent
+"Your Accountability Partner" panel (partner photo/bio, cadence, next call,
+check-ins completed) on the dashboard — the relationship status the mentee sees.
+**Tone:** calm, one-thing-at-a-time — this flow exists because new members are
+scared; never show more than the current step's action. 7 Pillars step links
+straight to /core-training/7-pillars.
+**Acceptance:** a brand-new 3month member sees exactly one next action at every
+point from first login to Blitz Day 1; partner reveal happens at kickoff booking;
+checklist state survives logout/login; completed members see the partner panel,
+not the checklist.
+
+## T7 — GHL appointment webhooks (completed / no-show / canceled)
+
+**Extends** POST /webhooks/ghl (existing HMAC route) with an appointment-events
+branch: match ghl_appointment_id → call_bookings row → update status.
+- completed → status=completed (advances onboarding step 7 if it's the first
+  partner call; feeds "last completed call").
+- no_show → status=no_show (feeds the consecutive counter; counter resets on any
+  completed call).
+- canceled → status=canceled (does NOT count as a no-show).
+- Unmatched appointment ids: log and ignore (other GHL calendars exist).
+**Config task (flagged, non-code):** subscribe the GHL location to appointment
+status events pointing at /webhooks/ghl — Sandy/admin action; the spec is not done
+until a real GHL no-show round-trips into call_bookings.
+**Acceptance:** marking an appointment no-show in GHL flips the local row within
+the webhook round-trip; completed kickoff/partner calls advance the right state;
+canceled ≠ no-show; a replayed webhook is idempotent (status transitions only
+forward).
+
+## T8 — Call reminders (email + SMS from the portal)
+
+**Near-copies** scheduled-comms' coaching-call jobs for call_bookings: 24h-before
+email + 1h-before SMS, same dedup pattern (checkAndRecordSend). New templates
+(partner call + kickoff variants). New per-category opt-in column
+`partnerCallSmsOptIn` following the existing pattern, enforced at the single
+send-point.
+**Acceptance:** booked call → both reminders fire once each at the right offsets;
+opt-out suppresses SMS only; canceled/rescheduled bookings don't fire stale
+reminders. **Flag:** SMS is env-gated in prod (TWILIO_ACCOUNT_SID) — reminders
+must degrade to email-only gracefully until that's set.
+
+## T9 — Escalations + capacity alert (on-call dispatcher)
+
+**Creates** a poll runner (BullMQ, reuse the scheduled-comms cadence) evaluating:
+- **3 consecutive no-shows** (per member, from call_bookings; reset on completed)
+  → fire on-call alert "Mentee escalation: {name} — 3 consecutive no-shows"
+  (email channel — reaches COO/CEO via the armed ops email; PagerDuty/Slack ride
+  along if ever configured).
+- **Vanish rule:** active 3month+ term AND active assignment AND no completed
+  partner call in 14 days (measured from last completed, or from assignment start
+  for never-called) → same alert path, distinct message.
+- **Fleet capacity:** trailing-7-day booked-slots ÷ available-slots across active
+  partners ≥80% → admin alert "Partner capacity ≥80% — time to hire." (Available
+  slots derived from GHL free-slots snapshot + the 5/day cap.)
+- All three: fire/clear semantics + throttling via the existing dispatcher (no
+  re-alert spam); each firing also lands in the System Health alert timeline
+  (registry additions per the existing pattern).
+**Acceptance:** simulated 3rd consecutive no-show fires exactly one alert and
+clears on the next completed call; a member dark 14 days fires the vanish alert;
+capacity math verified against a constructed roster; alerts visible in System
+Health.
+
+## T10 — NMI refund/chargeback poller + metric view (independent)
+
+**Creates:**
+- Daily job on the existing queryTransaction (nmi-gateway.ts:176) querying NMI for
+  refund/chargeback-condition transactions since the last poll; match to members
+  via order/transaction records; stamp `member_refund_events` (member_id, type
+  refund|chargeback, amount_cents, nmi_transaction_id UNIQUE for idempotency,
+  occurred_at). Include refunds NOT initiated by us (the current blind spot).
+- Admin metric view (admin permission): partnered-cohort refund/chargeback rate
+  (members with an assignment) vs. the Adam-supplied baseline (a settings value,
+  editable), trended monthly. Optional cut: rate by check-in engagement band.
+**Acceptance:** a dashboard-initiated NMI refund (not via our ops flow) appears
+within one poll cycle stamped to the right member; re-polls never double-count;
+the metric view shows cohort rate vs. baseline. **Scope fence:** read-only
+ingestion — this task must not touch charging, refund-issuing, or billing logic.
+
+---
+
+## Cross-cutting rules
+
+- Partner role grants no entitlements; content access stays product-derived.
+- call_bookings is the single local truth for calls — dashboard, banner,
+  reminders, escalations, and checklist all read it; GHL is the engine, never the
+  store of record.
+- All new alerts go through the on-call dispatcher (never ad-hoc email sends).
+- Nothing in this build touches the mentorship agreement (external, deliberate)
+  or weakens the ToS gate. Pre-existing known holes (legacy members without ToS
+  rows; version-static signing) are OUT of scope — documented, not worsened.
+- Every schema task ships companion idempotent SQL + drift-baseline update per
+  repo convention.
+
+## Dependency map
+
+```
+Tier 1:  T1 role      T2 assignment      T3 onboarding contract
+            └─────┬──────┴───────┬──────────┘
+Tier 2:        T4 dashboard   T5 booking   T6 sequence UI
+                    └──────┬──────┴──────┬─────┘
+Tier 3:            T7 webhooks   T8 reminders   T9 escalations
+Tier 4:  T10 NMI poller + metric view (independent — start anytime)
+```

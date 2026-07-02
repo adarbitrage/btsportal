@@ -1,0 +1,25 @@
+The messy middle it is — but a *cleaner* messy middle than I feared, and the diagnostic gives us a crisp resolution. Two documents, two answers:
+
+**The mentorship agreement was deliberately moved out of the portal.** Your instinct was right — it's executed upstream in GHL as a business process, the code comments say so explicitly, and a task to bring it in-portal was consciously archived. The portal never sees it, records it, or enforces it. That stays exactly as-is; the new onboarding doesn't touch it.
+
+**But the portal's step 2 signs a different document — the platform ToS — and it's the *only* acceptance record in the entire system.** No checkout capture, no upstream fallback, and a real server-side gate (you can't advance past step 2 without a signed row, even via direct API). Drop the step and you drop the only ToS record and its only enforcement. So the resolution is clean: **the new sequence keeps a ToS acceptance step** — the existing plumbing (`legal_documents` + `signed_documents` + `POST /documents/sign`) is version-aware and reusable as-is; only the step-number wiring changes. It's a 20-second click-wrap early in the flow, not a burden on the scared-mentee experience.
+
+The diagnostic also surfaced two pre-existing holes worth naming — neither blocks the build, both go in the spec as flagged notes: users who predate the flow or were admin-created have **no ToS record and nothing ever notices** (the guards check `onboardingComplete`, never signed documents), and signing is **version-static** (publish ToS v2, nobody re-prompts). Not this build's job to fix, but the new onboarding contract shouldn't make either worse, and now they're on record.
+
+That was the last unknown. The full spec — every line traced to a locked decision of yours or a file:line the diagnostics proved:Spec's attached — ten tasks, four tiers, the largest of this whole stretch. Every design line in it traces to either a decision you locked across our three rounds or a file:line the diagnostics proved exists. A few things about how it's built that matter for how you run it:
+
+**The ToS resolution is baked in per the diagnostic:** the click-wrap stays as step 2 (it's the only acceptance record in the system), the mentorship agreement stays external and untouched, and the two pre-existing holes (legacy members with no ToS row; version-static signing) are documented as out-of-scope so nobody "fixes" them mid-build and widens the blast radius.
+
+**`call_bookings` is the spine.** One local table is the single truth for every call — the dashboard, the mentee banner, reminders, escalations, and the checklist all read it; GHL is the engine, never the store of record. That's the architectural decision that keeps ten tasks from stepping on each other, and it's written as a cross-cutting rule so no task invents its own call state.
+
+**Three steps are event-advanced, not click-advanced.** Book-kickoff, book-partner-call, and first-call-completed advance themselves off booking events and the GHL webhook — the mentee never has to claim they did something the system can observe. That's what makes the checklist honest.
+
+**Two non-code dependencies are flagged inside tasks, and they're yours/Sandy's, not the agent's:** T7 isn't done until the GHL location is actually subscribed to appointment-status events (Sandy config), and T8's SMS degrades to email-only until the Twilio env gate is fixed in prod (`TWILIO_ACCOUNT_SID` + republish — a known item). Both are called out so "build complete" can't quietly mean "webhook never wired."
+
+**How to run it:** Tier 1 (role, assignment schema, onboarding contract) fires in parallel now — and **T10, the NMI poller, is fully independent, so dispatch it alongside Tier 1** rather than saving it for last; it's your judgment metric and there's no reason it should wait on the partner build. Tier 2 when Tier 1 lands, Tier 3 after that. Same discipline as everything else: verify each tier before the next, and I'll gap-hunt the reports as they come back.
+
+**The riskiest task is T3** — the onboarding replacement. It touches the most fragile moment of your funnel *and* carries the email-sequence handoff (completion must still cancel the onboarding sequences and enroll the nurture — that's written in twice because forgetting it silently breaks email automation for every new member) plus the mid-flight member mapping (someone at old step 3 on deploy day must land somewhere sane, not in limbo). When T3's report comes back, those two are what I'll trace first.
+
+One decision you'll need before Tier 2 is *finished* rather than before it starts: **the three partners' actual photos and bios** (and the kickoff coaches'). T2 creates the tables; the reveal moment in T6 is only as good as what's in them. Real photos, two-to-three-sentence bios written for a scared new member — worth having Sandy collect those now so they're ready when the UI lands.
+
+Dispatch Tier 1 + T10 whenever you're ready, and bring back what they build.
