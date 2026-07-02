@@ -198,3 +198,119 @@ export async function queryTransaction(
   const condition = conditionMatch ? conditionMatch[1] : undefined;
   return { condition, raw: text };
 }
+
+// ─── Read-only transaction listing (for the refund/chargeback poller) ────────
+//
+// NMI's query.php also supports listing transactions in a date range via
+// `start_date`/`end_date` (format `YYYYMMDDHHMMSS`, UTC). This is used ONLY
+// to read what happened — it never charges, refunds, or voids anything.
+// Deliberately separate from `queryTransaction` above (which looks up a
+// single order's settlement condition) since the shapes are different: this
+// returns a list of `<transaction>` nodes, each optionally containing
+// `<action>` entries describing what happened to it (sale, refund, void,
+// chargeback, ...).
+
+export interface NmiTransactionAction {
+  actionType: string;
+  amountCents: number | undefined;
+  date: string | undefined;
+  success: boolean;
+}
+
+export interface NmiTransactionRecord {
+  transactionId: string;
+  orderId: string | undefined;
+  condition: string | undefined;
+  actions: NmiTransactionAction[];
+}
+
+export interface QueryTransactionsByDateRangeParams {
+  /** Inclusive start of the window, UTC. */
+  startDate: Date;
+  /** Exclusive end of the window, UTC. */
+  endDate: Date;
+}
+
+export interface QueryTransactionsByDateRangeResult {
+  transactions: NmiTransactionRecord[];
+  raw: string;
+}
+
+function formatNmiDate(d: Date): string {
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return (
+    `${d.getUTCFullYear()}${pad(d.getUTCMonth() + 1)}${pad(d.getUTCDate())}` +
+    `${pad(d.getUTCHours())}${pad(d.getUTCMinutes())}${pad(d.getUTCSeconds())}`
+  );
+}
+
+function extractTag(xml: string, tag: string): string | undefined {
+  const match = xml.match(new RegExp(`<${tag}>([^<]*)<\\/${tag}>`));
+  return match ? match[1] : undefined;
+}
+
+function parseAmountCents(raw: string | undefined): number | undefined {
+  if (raw === undefined) return undefined;
+  const n = Number(raw);
+  if (!Number.isFinite(n)) return undefined;
+  return Math.round(n * 100);
+}
+
+function parseTransactionsXml(xml: string): NmiTransactionRecord[] {
+  const transactions: NmiTransactionRecord[] = [];
+  const transactionBlocks = xml.match(/<transaction>[\s\S]*?<\/transaction>/g) ?? [];
+
+  for (const block of transactionBlocks) {
+    const transactionId = extractTag(block, "transaction_id");
+    if (!transactionId) continue;
+
+    const actionBlocks = block.match(/<action>[\s\S]*?<\/action>/g) ?? [];
+    const actions: NmiTransactionAction[] = actionBlocks.map((actionBlock) => ({
+      actionType: extractTag(actionBlock, "action_type") ?? "unknown",
+      amountCents: parseAmountCents(extractTag(actionBlock, "amount")),
+      date: extractTag(actionBlock, "date"),
+      success: extractTag(actionBlock, "success") === "1",
+    }));
+
+    transactions.push({
+      transactionId,
+      orderId: extractTag(block, "order_id"),
+      condition: extractTag(block, "condition"),
+      actions,
+    });
+  }
+
+  return transactions;
+}
+
+/**
+ * List transactions in `[startDate, endDate)`. Read-only — used exclusively
+ * by the refund/chargeback poller to discover reversals that happened
+ * outside our own ops-refund flow (e.g. issued directly in the NMI
+ * dashboard). Never mutates gateway state.
+ */
+export async function queryTransactionsByDateRange(
+  params: QueryTransactionsByDateRangeParams,
+): Promise<QueryTransactionsByDateRangeResult> {
+  const securityKey = getSecurityKey();
+  const body = new URLSearchParams({
+    security_key: securityKey,
+    report_type: "transaction",
+    start_date: formatNmiDate(params.startDate),
+    end_date: formatNmiDate(params.endDate),
+  });
+
+  const res = await fetch(NMI_QUERY_URL, {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: body.toString(),
+  });
+
+  if (!res.ok) {
+    const text = await res.text().catch(() => "(no body)");
+    throw new Error(`NMI query (date range) HTTP ${res.status}: ${text}`);
+  }
+
+  const text = await res.text();
+  return { transactions: parseTransactionsXml(text), raw: text };
+}

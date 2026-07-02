@@ -18,6 +18,7 @@ import { startPasswordResetAttemptsCleanupJob } from "./lib/password-reset-attem
 import { startEmailChangeHistoryCleanupJob } from "./lib/email-change-history-cleanup";
 import { startPhoneChangeHistoryCleanupJob } from "./lib/phone-change-history-cleanup";
 import { startCoachingRecordingIngestJob } from "./lib/coaching-recording-ingest-job";
+import { startNmiRefundPollerJob } from "./lib/nmi-refund-poller-job";
 import { startCoachingCallTemplateTopUpJob } from "./lib/coaching-call-template-topup";
 import { startPendingEmailCleanupJob } from "./lib/pending-email-cleanup";
 import { startAuthTokenCleanupJob } from "./lib/auth-token-cleanup";
@@ -210,6 +211,7 @@ startPasswordResetAttemptsCleanupJob();
 startEmailChangeHistoryCleanupJob();
 startPhoneChangeHistoryCleanupJob();
 startCoachingRecordingIngestJob();
+startNmiRefundPollerJob();
 startCoachingCallTemplateTopUpJob();
 startPendingEmailCleanupJob();
 startAuthTokenCleanupJob();

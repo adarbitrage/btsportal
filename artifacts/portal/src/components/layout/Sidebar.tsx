@@ -331,6 +331,7 @@ export const ADMIN_CHILDREN: NavNode[] = [
   },
   { kind: "leaf", href: "/admin/wins", label: "Wins Curation", icon: Trophy, requiredPermission: "wins:manage" },
   { kind: "leaf", href: "/admin/revenue", label: "Revenue Intelligence", icon: LineChart, requiredPermission: "revenue:view" },
+  { kind: "leaf", href: "/admin/refund-metrics", label: "Refund & Chargeback Metrics", icon: TrendingUp, requiredPermission: "revenue:view" },
   { kind: "leaf", href: "/admin/audit-log", label: "Audit Log", icon: ScrollText, requiredPermission: "audit:view" },
   { kind: "leaf", href: "/admin/system", label: "System Health", icon: Server, requiredPermission: "system:view" },
 ];

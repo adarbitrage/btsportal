@@ -132,6 +132,7 @@ import SystemHealth from "@/pages/admin/SystemHealth";
 import VoiceUsage from "@/pages/admin/VoiceUsage";
 import AdminSettings from "@/pages/admin/AdminSettings";
 import RevenueDashboard from "@/pages/admin/RevenueDashboard";
+import RefundMetrics from "@/pages/admin/RefundMetrics";
 import CohortAnalysis from "@/pages/admin/CohortAnalysis";
 import AtRiskMembers from "@/pages/admin/AtRiskMembers";
 import UpgradeOpportunities from "@/pages/admin/UpgradeOpportunities";
@@ -596,6 +597,7 @@ function Router() {
       <Route path="/admin/voice">{() => <AdminRoute component={VoiceUsage} permission="system:view" />}</Route>
       <Route path="/admin/settings">{() => <AdminRoute component={AdminSettings} permission="settings:view" />}</Route>
       <Route path="/admin/revenue">{() => <AdminRoute component={RevenueDashboard} permission="revenue:view" />}</Route>
+      <Route path="/admin/refund-metrics">{() => <AdminRoute component={RefundMetrics} permission="revenue:view" />}</Route>
       <Route path="/admin/revenue/cohorts">{() => <AdminRoute component={CohortAnalysis} permission="revenue:view" />}</Route>
       <Route path="/admin/revenue/at-risk">{() => <AdminRoute component={AtRiskMembers} permission="revenue:view" />}</Route>
       <Route path="/admin/revenue/upgrade-opportunities">{() => <AdminRoute component={UpgradeOpportunities} permission="revenue:view" />}</Route>
