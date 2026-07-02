@@ -2,6 +2,7 @@ import { db } from "@workspace/db";
 import { aiSourceDocumentsTable, blitzLessonsTable } from "@workspace/db/schema";
 import { asc, ne } from "drizzle-orm";
 import { fingerprintContent } from "./kb-source-windows.js";
+import { blitzSourceDocTitle } from "./blitz-identity-map.js";
 
 /**
  * Core BTS training → AI Source Knowledge mining corpus (Task: feed core
@@ -131,6 +132,14 @@ The 7 Pillars™ shows you the destination — a profitable campaign scaling wit
 const PROSE_DOCS: readonly CoreTrainingDoc[] = [SEVEN_PILLARS_DOC, PILLARS_TO_BLITZ_DOC];
 
 /**
+ * Exact reference-doc titles of the two core-training prose docs (not
+ * `blitz_lessons` rows). Single source of truth shared with the Blitz identity
+ * map + its drift guard so the prose entries can't silently drift from the
+ * seeder.
+ */
+export const CORE_TRAINING_PROSE_TITLES: readonly string[] = PROSE_DOCS.map((d) => d.title);
+
+/**
  * A single core-training source doc in its canonical, current form — the shape
  * both the boot seed (which INSERTs missing titles) and the dormant change scan
  * (which refreshes existing titles' content) consume. This is the single source
@@ -183,7 +192,7 @@ export async function buildCoreTrainingSourceDocs(): Promise<CoreTrainingSourceD
     .orderBy(asc(blitzLessonsTable.blitzOrder));
 
   for (const lesson of lessons) {
-    const sourceTitle = `The Blitz™ Lesson — ${lesson.title}`;
+    const sourceTitle = blitzSourceDocTitle(lesson.title);
     const body = (lesson.editedContent?.trim() || lesson.content || "").trim();
     if (!body) continue;
     docs.push({
