@@ -109,38 +109,56 @@ describe("content privacy filter — orphaned coach surnames", () => {
   });
 });
 
-describe("content privacy filter — agency (Cherrington/Charrington) rules", () => {
-  // Both spellings of the agency name must scrub identically.
-  const cases: Array<{ input: string; expected: string }> = [
-    // Adam <agency> -> the instructor
-    { input: "Adam Cherrington teaches the method", expected: "the instructor teaches the method" },
-    { input: "Adam Charrington teaches the method", expected: "the instructor teaches the method" },
-    // <agency> Media Support -> the support team
-    { input: "email Cherrington Media Support now", expected: "email the support team now" },
-    { input: "email Charrington Media Support now", expected: "email the support team now" },
-    // <agency>media (single token) -> oursupport
-    { input: "reach cherringtonmedia for help", expected: "reach oursupport for help" },
-    { input: "reach charringtonmedia for help", expected: "reach oursupport for help" },
-    // <agency> Media -> the agency
-    { input: "the Cherrington Media team", expected: "the agency team" },
-    { input: "the Cherringtong Media team", expected: "the agency team" },
-    // <agency> Mentees -> the mentees
-    { input: "join Cherrington Mentees today", expected: "join the mentees today" },
-    // <agency> Support -> support
-    { input: "ask Cherrington Support please", expected: "ask support please" },
-    // bare <agency> -> the agency (with/without trailing g)
-    { input: "the Cherrington program", expected: "the agency program" },
-    { input: "the Charrington program", expected: "the agency program" },
-    { input: "the Cherringtong program", expected: "the agency program" },
+describe("content privacy filter — old-brand rebrand (founder -> Adam, company/program -> BTS)", () => {
+  // Founder's personal name (both spellings) -> first name only.
+  const founderCases: Array<{ input: string; expected: string }> = [
+    { input: "Adam Cherrington teaches the method", expected: "Adam teaches the method" },
+    { input: "Adam Charrington teaches the method", expected: "Adam teaches the method" },
   ];
 
-  for (const { input, expected } of cases) {
-    it(`scrubs: "${input}"`, () => {
+  for (const { input, expected } of founderCases) {
+    it(`reduces founder to first name: "${input}"`, () => {
       expect(scrubPrivateContent(input)).toBe(expected);
     });
   }
 
-  it("never leaks the agency surname in any spelling", () => {
+  // Company / program references (both spellings + garbled/phonetic variants)
+  // -> BTS.
+  const companyCases: Array<{ input: string; expected: string }> = [
+    // The Cherrington Experience -> BTS
+    { input: "join The Cherrington Experience now", expected: "join BTS now" },
+    { input: "join the Charrington Experience now", expected: "join BTS now" },
+    // <brand> Media Support -> BTS Support
+    { input: "email Cherrington Media Support now", expected: "email BTS Support now" },
+    { input: "email Charrington Media Support now", expected: "email BTS Support now" },
+    // <brand>media (single token) -> BTS
+    { input: "reach cherringtonmedia for help", expected: "reach BTS for help" },
+    { input: "reach charringtonmedia for help", expected: "reach BTS for help" },
+    // <brand> Media -> BTS
+    { input: "the Cherrington Media team", expected: "the BTS team" },
+    { input: "the Cherringtong Media team", expected: "the BTS team" },
+    // <brand> Mentees -> BTS members
+    { input: "join Cherrington Mentees today", expected: "join BTS members today" },
+    // <brand> Support -> BTS Support
+    { input: "ask Cherrington Support please", expected: "ask BTS Support please" },
+    // Garbled/phonetic program-name variant -> BTS
+    { input: "learn the Cherring method today", expected: "learn the BTS today" },
+    { input: "learn the Charring method today", expected: "learn the BTS today" },
+    // Old program acronym -> BTS
+    { input: "welcome to TCE everyone", expected: "welcome to BTS everyone" },
+    // bare <brand> -> BTS (with/without trailing g)
+    { input: "the Cherrington program", expected: "the BTS program" },
+    { input: "the Charrington program", expected: "the BTS program" },
+    { input: "the Cherringtong program", expected: "the BTS program" },
+  ];
+
+  for (const { input, expected } of companyCases) {
+    it(`rebrands to BTS: "${input}"`, () => {
+      expect(scrubPrivateContent(input)).toBe(expected);
+    });
+  }
+
+  it("never leaks the old brand surname in any spelling", () => {
     const out = scrubPrivateContent(
       "Adam Cherrington and the Charrington Media team plus Cherrington Support.",
     );
@@ -148,10 +166,16 @@ describe("content privacy filter — agency (Cherrington/Charrington) rules", ()
     expect(out.toLowerCase()).not.toContain("charrington");
   });
 
-  it('collapses the "the the <noun>" artifact left by chained rules', () => {
-    // "the <agency> Media" -> "the the agency" -> cleanup -> "the agency"
-    expect(scrubPrivateContent("the Cherrington Media")).toBe("the agency");
-    expect(scrubPrivateContent("the Cherrington")).toBe("the agency");
+  it("rebrands a mixed paragraph without leaving any old-brand token", () => {
+    const out = scrubPrivateContent(
+      "Adam Cherrington founded The Cherrington Experience, also called TCE and the Cherring method.",
+    );
+    expect(out.toLowerCase()).not.toContain("cherrington");
+    expect(out.toLowerCase()).not.toContain("charrington");
+    expect(out.toLowerCase()).not.toContain("cherring");
+    expect(out).not.toMatch(/\bTCE\b/);
+    expect(out).toContain("Adam");
+    expect(out).toContain("BTS");
   });
 });
 

@@ -31,6 +31,7 @@ import { join } from "node:path";
 import { getAnthropicClient } from "@workspace/integrations-anthropic-ai";
 import { db, coachesTable, mediaMavensProductsTable, transcriptCleanerDocumentsTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
+import { OLD_BRAND_REBRAND_GUIDANCE } from "./content-privacy-filter";
 import {
   resolveSourceFolder,
   authorityRoleFromCoachType,
@@ -696,10 +697,20 @@ const CLEAN_SYSTEM_PROMPT = [
   "     'Caterpillar'). Unfamiliar proper nouns are EXPECTED and legitimate — fix",
   "     obvious mistranscriptions, pick the single most likely spelling, and use it",
   "     CONSISTENTLY throughout. NEVER flag a proper noun just because you don't",
-  "     recognise it. Do not otherwise reword what people said.",
-  "4. Strip useless cruft: standalone timestamps, transcription-tool artefacts,",
+  "     recognise it. Do not otherwise reword what people said (but SEE the",
+  "     REBRAND exception below).",
+  "4. REBRAND OLD-PROGRAM REFERENCES — a DELIBERATE exception to the",
+  "   'do not otherwise reword' rule above. Transcripts come from the old program",
+  "   and still name the old brand and founder; convert these to BTS wording so",
+  "   the mined knowledge is on-brand. Reword LIGHTLY so the sentence still flows",
+  "   naturally — do NOT do a rigid word-for-word swap, and do NOT flag these:",
+  ...OLD_BRAND_REBRAND_GUIDANCE.map((g) => `   - ${g}`),
+  "   Recognise obvious phonetic/garbled mistranscriptions of the old brand (e.g.",
+  "   'the Cherring method', 'Charrington Media') and rebrand them too — never",
+  "   leave them in and never flag them as unrecoverable garble.",
+  "5. Strip useless cruft: standalone timestamps, transcription-tool artefacts,",
   "   excess blank space. Keep the actual dialogue intact.",
-  "5. EXTRACT TITLE BUILDING BLOCKS — do NOT compose the final title yourself; it",
+  "6. EXTRACT TITLE BUILDING BLOCKS — do NOT compose the final title yourself; it",
   "   is assembled downstream from these fields:",
   "   - primarySubject: this FLIPS by call type. For a 1-on-1 call (private",
   "     coaching or 1-on-1 VA) it is the MEMBER's real name — the non-authority",
@@ -861,6 +872,7 @@ function buildCleanUserMessage(args: {
     canonicalTerms.length > 0
       ? `Canonical BTS / Media Mavens / traffic-source terms — normalise spelling to these EXACT forms when referenced. Any OTHER proper noun is a member's own niche term: correct obvious typos, keep it consistent, and do NOT flag it. Terms: ${canonicalTerms.join(", ")}`
       : null,
+    `REBRAND old-program references to BTS (deliberate exception to "do not reword"; reword lightly for natural flow, never flag these): ${OLD_BRAND_REBRAND_GUIDANCE.join(" ")}`,
   ];
 
   if (multi) {
@@ -1179,6 +1191,13 @@ const REFINE_PATCH_SYSTEM_PROMPT = [
   "convention: EXACTLY ONE authority ('Coach' or 'VA', label only), everyone else",
   "labelled 'Member' (no numbers, no names).",
   "",
+  "ALSO REBRAND old-program references whenever you touch or notice them (do this",
+  "automatically — the admin should NOT have to ask). Emit find/replace edits that",
+  "rebrand company/program names to BTS (rewording lightly for natural flow) and",
+  "reduce the founder's name to 'Adam' (first name only), including obvious",
+  "phonetic/garbled variants:",
+  ...OLD_BRAND_REBRAND_GUIDANCE.map((g) => `  - ${g}`),
+  "",
   "Return STRICT JSON only with keys:",
   "- edits: array of { find, replace, all? }. `find` MUST be an EXACT, VERBATIM",
   "  substring copied character-for-character from the current transcript",
@@ -1206,6 +1225,12 @@ const REFINE_FULL_SYSTEM_PROMPT = [
   "preserving every distinct speaker and the authority labelling convention:",
   "EXACTLY ONE authority ('Coach' or 'VA', label only), everyone else labelled",
   "'Member' (no numbers, no names).",
+  "",
+  "ALSO REBRAND old-program references automatically (the admin should NOT have to",
+  "ask): rebrand company/program names to BTS, rewording lightly for natural flow,",
+  "and reduce the founder's name to 'Adam' (first name only), including obvious",
+  "phonetic/garbled variants:",
+  ...OLD_BRAND_REBRAND_GUIDANCE.map((g) => `  - ${g}`),
   "",
   "Return STRICT JSON only with keys: cleanedTranscript (string, the full updated",
   "transcript), flags (array of { type, text, reason, confidence } — the refreshed",

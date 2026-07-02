@@ -25,6 +25,33 @@ export interface PrivacyRule {
   replacement: string;
 }
 
+/**
+ * OLD-PROGRAM / OLD-BRAND REBRAND VOCABULARY — single source of truth.
+ *
+ * Transcripts from the old program still reference the old brand ("Cherrington
+ * Media", "TCE", "The Cherrington Experience"), the founder ("Adam Cherrington")
+ * and garbled/phonetic mistranscriptions of these (e.g. "the Cherring method").
+ * As part of the portal rebrand these are converted to BTS wording so the mined
+ * AI source-knowledge is on-brand.
+ *
+ * Policy (confirmed with the user):
+ *   - Company / program references (Cherrington Media, TCE, The Cherrington
+ *     Experience, and garbled/phonetic variants such as "the Cherring method")
+ *     -> rebrand to "BTS".
+ *   - The founder's personal name "Adam Cherrington" (and misspellings like
+ *     "Adam Charrington") -> reduce to just "Adam" (keep the first name, drop
+ *     the surname) — consistent with the first-name-only privacy convention.
+ *
+ * This constant feeds BOTH the transcript-cleaner prompts (clean + refine) and
+ * the retrieval-time privacy rules below, so the two stay in lockstep. The
+ * cleaner rewords lightly for natural flow; the privacy filter is the blunt
+ * safety net for anything the cleaner missed (including the misspellings).
+ */
+export const OLD_BRAND_REBRAND_GUIDANCE: string[] = [
+  'Company / program names — "Cherrington Media", "TCE", "The Cherrington Experience", and obvious phonetic or garbled mistranscriptions of these (e.g. "the Cherring method", "Charrington Media", "the Cherrington program") -> rebrand to "BTS", rewording lightly so the sentence still flows naturally rather than a rigid word-for-word swap.',
+  'The founder\'s personal name — "Adam Cherrington" (and misspellings like "Adam Charrington") -> reduce to just "Adam" (keep the first name, drop the surname).',
+];
+
 export const PRIVACY_RULES: PrivacyRule[] = [
   // --- Generic PII: email addresses ---
   // Matches any RFC-5321-style address regardless of domain or who it belongs
@@ -67,14 +94,24 @@ export const PRIVACY_RULES: PrivacyRule[] = [
   { pattern: /\bSheph?[ae]rd\b/gi, replacement: "" },
   { pattern: /\bClark\b/gi, replacement: "Bruce" },
 
-  // --- Adam Cherrington / Charrington (person + agency name) ---
-  { pattern: /\bAdam\s+Ch[ae]rrington\b/gi, replacement: "the instructor" },
-  { pattern: /Ch[ae]rrington ?Media Support/gi, replacement: "the support team" },
-  { pattern: /Ch[ae]rringtonmedia/gi, replacement: "oursupport" },
-  { pattern: /Ch[ae]rringtong? ?Media/gi, replacement: "the agency" },
-  { pattern: /Ch[ae]rrington Mentees/gi, replacement: "the mentees" },
-  { pattern: /Ch[ae]rrington Support/gi, replacement: "support" },
-  { pattern: /\bCh[ae]rringtong?\b/gi, replacement: "the agency" },
+  // --- Old brand rebrand: Adam Cherrington -> "Adam"; company/program -> "BTS" ---
+  // Aligned with OLD_BRAND_REBRAND_GUIDANCE (single source above). Ordered
+  // specific -> general so the longest match wins. Founder's personal name keeps
+  // the first name only (matches the coach convention); every company / program
+  // reference (including phonetic/garbled variants) resolves to "BTS".
+  { pattern: /\bAdam\s+Ch[ae]rrington\b/gi, replacement: "Adam" },
+  { pattern: /\b(?:The\s+)?Ch[ae]rrington\s+Experience\b/gi, replacement: "BTS" },
+  { pattern: /Ch[ae]rrington ?Media Support/gi, replacement: "BTS Support" },
+  { pattern: /Ch[ae]rringtonmedia/gi, replacement: "BTS" },
+  { pattern: /Ch[ae]rringtong? ?Media/gi, replacement: "BTS" },
+  { pattern: /Ch[ae]rrington Mentees/gi, replacement: "BTS members" },
+  { pattern: /Ch[ae]rrington Support/gi, replacement: "BTS Support" },
+  // Garbled/phonetic variant of the program name (e.g. "the Cherring method").
+  { pattern: /\bCh[ae]rring\s+method\b/gi, replacement: "BTS" },
+  // Old program acronym (always uppercase in the wild).
+  { pattern: /\bTCE\b/g, replacement: "BTS" },
+  // Bare surname / -ton(g) variants -> BTS.
+  { pattern: /\bCh[ae]rringtong?\b/gi, replacement: "BTS" },
 
   // ============================================================
   // ADD NEW FORBIDDEN NAMES HERE.
