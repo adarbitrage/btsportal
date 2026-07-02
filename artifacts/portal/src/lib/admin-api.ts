@@ -2192,6 +2192,10 @@ export interface TranscriptCleanerDocument {
   sourceName: string | null;
   provenanceNote: string | null;
   inLessonOrder: number | null;
+  providedAuthorityRole: string | null;
+  providedAuthorityName: string | null;
+  providedSubject: string | null;
+  providedDate: string | null;
   filedSourceDocId: number | null;
   filedAt: string | null;
   errorMessage: string | null;
@@ -2206,6 +2210,22 @@ export interface TranscriptCleanerIntakeItem {
   sourceName?: string;
   proposedTitle?: string;
   provenanceNote?: string;
+  providedAuthorityRole?: string;
+  providedAuthorityName?: string;
+  providedSubject?: string;
+  providedDate?: string;
+}
+
+export interface TranscriptCleanerRosterEntry {
+  name: string;
+  type: string;
+  authorityRole: string;
+}
+
+export function getTranscriptCleanerRoster() {
+  return adminFetch<{ roster: TranscriptCleanerRosterEntry[] }>(
+    "/admin/transcript-cleaner/roster",
+  );
 }
 
 export function listTranscriptCleanerDocuments(status?: string) {
@@ -2245,6 +2265,10 @@ export function updateTranscriptCleanerDocument(
     titleNeedsInput: boolean;
     flags: TranscriptCleanerFlag[];
     provenanceNote: string;
+    providedAuthorityRole: string | null;
+    providedAuthorityName: string | null;
+    providedSubject: string | null;
+    providedDate: string | null;
   }>,
 ) {
   return adminFetch<TranscriptCleanerDocument>(`/admin/transcript-cleaner/documents/${id}`, {

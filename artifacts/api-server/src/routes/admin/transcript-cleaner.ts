@@ -13,7 +13,7 @@ import {
 import {
   cleanTranscript,
   refineTranscript,
-  loadRosterMap,
+  loadRosterList,
 } from "../../lib/transcript-cleaner";
 import { buildImportPlan, executeImport } from "../../lib/transcript-import";
 import { applyBlitzCaptionAutofill } from "../../lib/blitz-caption-filename";
@@ -67,6 +67,12 @@ router.get("/admin/transcript-cleaner/documents", requirePermission("chat:view")
   });
 });
 
+/** GET /admin/transcript-cleaner/roster — live coach/VA roster for the upload picker. */
+router.get("/admin/transcript-cleaner/roster", requirePermission("chat:view"), async (_req, res): Promise<void> => {
+  const roster = await loadRosterList();
+  res.json({ roster });
+});
+
 /** GET /admin/transcript-cleaner/documents/:id — fetch a single held transcript. */
 router.get("/admin/transcript-cleaner/documents/:id", requirePermission("chat:view"), async (req, res): Promise<void> => {
   const id = parseId(getParam(req.params.id));
@@ -95,12 +101,34 @@ interface IntakeItem {
   provenanceNote?: string;
   inLessonOrder?: number;
   vidalyticsId?: string;
+  // Admin-supplied ground truth captured at upload (Task #1560).
+  providedAuthorityRole?: string;
+  providedAuthorityName?: string;
+  providedSubject?: string;
+  providedDate?: string;
 }
 
 function validateTranscriptType(value: unknown): string | null | undefined {
   if (value === undefined || value === null || value === "") return null;
   if (typeof value === "string" && isSourceFolder(value)) return value;
   return undefined; // invalid sentinel
+}
+
+/** Accept a known authority role or null (unset); reject anything else. */
+function validateProvidedAuthorityRole(value: unknown): AuthorityRole | null | undefined {
+  if (value === undefined || value === null || value === "") return null;
+  if (isAuthorityRole(value)) return value;
+  return undefined; // invalid sentinel
+}
+
+/** Common provided-input columns shared by the single + batch insert paths. */
+function providedInputColumns(item: IntakeItem, providedAuthorityRole: AuthorityRole | null) {
+  return {
+    providedAuthorityRole,
+    providedAuthorityName: item.providedAuthorityName?.trim() || null,
+    providedSubject: item.providedSubject?.trim() || null,
+    providedDate: item.providedDate?.trim() || null,
+  };
 }
 
 /** POST /admin/transcript-cleaner/documents — create one held transcript. */
@@ -117,6 +145,11 @@ router.post("/admin/transcript-cleaner/documents", requirePermission("chat:manag
     res.status(400).json({ error: "Unknown transcript type" });
     return;
   }
+  const providedAuthorityRole = validateProvidedAuthorityRole(item.providedAuthorityRole);
+  if (providedAuthorityRole === undefined) {
+    res.status(400).json({ error: "Unknown authority role" });
+    return;
+  }
 
   const [doc] = await db
     .insert(transcriptCleanerDocumentsTable)
@@ -129,6 +162,7 @@ router.post("/admin/transcript-cleaner/documents", requirePermission("chat:manag
       provenanceNote: item.provenanceNote?.trim() || null,
       inLessonOrder: typeof item.inLessonOrder === "number" ? item.inLessonOrder : null,
       vidalyticsId: item.vidalyticsId?.trim() || null,
+      ...providedInputColumns(item, providedAuthorityRole),
       status: "uploaded",
     })
     .returning();
@@ -159,6 +193,11 @@ router.post("/admin/transcript-cleaner/documents/batch", requirePermission("chat
       results.push({ ok: false, sourceName: rawItem.sourceName, error: "Unknown transcript type" });
       continue;
     }
+    const providedAuthorityRole = validateProvidedAuthorityRole(item.providedAuthorityRole);
+    if (providedAuthorityRole === undefined) {
+      results.push({ ok: false, sourceName: rawItem.sourceName, error: "Unknown authority role" });
+      continue;
+    }
     const [doc] = await db
       .insert(transcriptCleanerDocumentsTable)
       .values({
@@ -170,6 +209,7 @@ router.post("/admin/transcript-cleaner/documents/batch", requirePermission("chat
         provenanceNote: item.provenanceNote?.trim() || null,
         inLessonOrder: typeof item.inLessonOrder === "number" ? item.inLessonOrder : null,
         vidalyticsId: item.vidalyticsId?.trim() || null,
+        ...providedInputColumns(item, providedAuthorityRole),
         status: "uploaded",
       })
       .returning();
@@ -210,6 +250,10 @@ router.patch("/admin/transcript-cleaner/documents/:id", requirePermission("chat:
     titleNeedsInput?: boolean;
     flags?: unknown;
     provenanceNote?: string;
+    providedAuthorityRole?: string | null;
+    providedAuthorityName?: string | null;
+    providedSubject?: string | null;
+    providedDate?: string | null;
   };
 
   const update: Partial<typeof transcriptCleanerDocumentsTable.$inferInsert> = {};
@@ -239,6 +283,31 @@ router.patch("/admin/transcript-cleaner/documents/:id", requirePermission("chat:
   if (typeof body.titleNeedsInput === "boolean") update.titleNeedsInput = body.titleNeedsInput;
   if (Array.isArray(body.flags)) update.flags = body.flags as typeof existing.flags;
   if (typeof body.provenanceNote === "string") update.provenanceNote = body.provenanceNote.trim() || null;
+
+  // Admin-provided ground truth (Task #1560): editable before cleaning so a
+  // wrong pick at upload can be corrected in-place, not by re-uploading. `null`
+  // explicitly clears a field back to the call-type default / AI guess.
+  if (body.providedAuthorityRole !== undefined) {
+    if (body.providedAuthorityRole === null || body.providedAuthorityRole === "") {
+      update.providedAuthorityRole = null;
+    } else {
+      const role = validateProvidedAuthorityRole(body.providedAuthorityRole);
+      if (role === undefined || role === null) {
+        res.status(400).json({ error: "Unknown authority role" });
+        return;
+      }
+      update.providedAuthorityRole = role;
+    }
+  }
+  if (body.providedAuthorityName !== undefined) {
+    update.providedAuthorityName = body.providedAuthorityName?.trim() || null;
+  }
+  if (body.providedSubject !== undefined) {
+    update.providedSubject = body.providedSubject?.trim() || null;
+  }
+  if (body.providedDate !== undefined) {
+    update.providedDate = body.providedDate?.trim() || null;
+  }
 
   if (Object.keys(update).length === 0) {
     res.json(existing);
@@ -285,13 +354,15 @@ async function runClean(id: number): Promise<{ ok: boolean; error?: string }> {
     .where(eq(transcriptCleanerDocumentsTable.id, id));
 
   try {
-    const roster = await loadRosterMap();
     const result = await cleanTranscript({
       rawText: doc.originalContent,
       transcriptType: doc.transcriptType,
       sourceName: doc.sourceName,
       proposedTitle: doc.proposedTitle,
-      roster,
+      providedAuthorityRole: doc.providedAuthorityRole,
+      providedAuthorityName: doc.providedAuthorityName,
+      providedSubject: doc.providedSubject,
+      providedDate: doc.providedDate,
     });
 
     // Title: an imported proposedTitle is the default and is offered-not-applied;

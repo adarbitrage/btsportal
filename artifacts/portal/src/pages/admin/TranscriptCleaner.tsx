@@ -31,6 +31,7 @@ import {
   Loader2,
   Download,
   Eye,
+  Pencil,
 } from "lucide-react";
 import {
   listTranscriptCleanerDocuments,
@@ -45,7 +46,10 @@ import {
   fileTranscriptCleanerBatch,
   previewTranscriptImport,
   runTranscriptImport,
+  getTranscriptCleanerRoster,
   type TranscriptCleanerDocument,
+  type TranscriptCleanerIntakeItem,
+  type TranscriptCleanerRosterEntry,
   type TranscriptImportPlan,
 } from "@/lib/admin-api";
 import { format } from "date-fns";
@@ -76,6 +80,29 @@ const typeLabel = (slug: string | null) =>
 const roleLabel = (role: string | null) =>
   role ? AUTHORITY_ROLES.find((r) => r.value === role)?.label ?? role : "—";
 
+// Blitz caption files auto-fill their type/title server-side; the upload dialog
+// leaves their call type blank so that autofill wins.
+const BLITZ_FILE_RE = /^blitz-lesson\d/i;
+
+// The authority a file is uploaded with is encoded as a single string so one
+// <Select> can offer BOTH the live roster (a named coach/VA — sets name + role)
+// and the bare authority types (role only): "" (unset), "roster:<name>", or
+// "role:<value>".
+function resolveUploadAuthority(
+  authority: string,
+  roster: TranscriptCleanerRosterEntry[],
+): { providedAuthorityRole?: string; providedAuthorityName?: string } {
+  if (authority.startsWith("roster:")) {
+    const name = authority.slice("roster:".length);
+    const entry = roster.find((r) => r.name === name);
+    return { providedAuthorityRole: entry?.authorityRole, providedAuthorityName: name };
+  }
+  if (authority.startsWith("role:")) {
+    return { providedAuthorityRole: authority.slice("role:".length) };
+  }
+  return {};
+}
+
 type Tab = "intake" | "holding" | "filed";
 
 const STATUS_BADGE: Record<string, { label: string; variant: "default" | "secondary" | "outline" | "destructive" }> = {
@@ -95,6 +122,7 @@ export default function TranscriptCleaner() {
   const [selected, setSelected] = useState<Set<number>>(new Set());
   const [reviewId, setReviewId] = useState<number | null>(null);
   const [viewId, setViewId] = useState<number | null>(null);
+  const [editId, setEditId] = useState<number | null>(null);
   const [showImport, setShowImport] = useState(false);
 
   // Paste-intake form.
@@ -102,6 +130,17 @@ export default function TranscriptCleaner() {
   const [pasteContent, setPasteContent] = useState("");
   const [pasteType, setPasteType] = useState<string>("");
   const [pasteSourceName, setPasteSourceName] = useState("");
+  const [pasteAuthority, setPasteAuthority] = useState<string>("");
+
+  // File-upload staging: read files client-side, then collect call type +
+  // authority in the upload dialog before creating the intake docs.
+  const [uploadFiles, setUploadFiles] = useState<{ content: string; sourceName: string }[]>([]);
+
+  const { data: rosterData } = useQuery({
+    queryKey: ["transcript-cleaner-roster"],
+    queryFn: getTranscriptCleanerRoster,
+  });
+  const roster = rosterData?.roster ?? [];
 
   const { data, isLoading } = useQuery({
     queryKey: ["transcript-cleaner-docs"],
@@ -130,6 +169,7 @@ export default function TranscriptCleaner() {
       setPasteContent("");
       setPasteSourceName("");
       setPasteType("");
+      setPasteAuthority("");
       toast({ title: "Transcript added to intake" });
     },
     onError: (e: Error) => toast({ title: "Failed to add", description: e.message, variant: "destructive" }),
@@ -191,6 +231,8 @@ export default function TranscriptCleaner() {
   });
 
   // ── Upload (client-side text read, tool-agnostic) ───────────────────────────
+  // Read the files here, then open the upload dialog to collect the call type +
+  // authority before the docs are actually created.
   const handleFiles = async (files: FileList | null) => {
     if (!files || files.length === 0) return;
     const items: { content: string; sourceName: string }[] = [];
@@ -202,12 +244,12 @@ export default function TranscriptCleaner() {
         /* skip unreadable file */
       }
     }
+    if (fileInputRef.current) fileInputRef.current.value = "";
     if (items.length === 0) {
       toast({ title: "No readable text found in those files", variant: "destructive" });
       return;
     }
-    batchCreateMutation.mutate(items);
-    if (fileInputRef.current) fileInputRef.current.value = "";
+    setUploadFiles(items);
   };
 
   const toggleSelect = (id: number) => {
@@ -397,6 +439,11 @@ export default function TranscriptCleaner() {
                             </Button>
                           ) : null}
                           {tab === "intake" && doc.status !== "cleaning" && (
+                            <Button size="sm" variant="ghost" className="ml-1" title="Edit type & authority" onClick={() => setEditId(doc.id)}>
+                              <Pencil className="w-3.5 h-3.5" />
+                            </Button>
+                          )}
+                          {tab === "intake" && doc.status !== "cleaning" && (
                             <Button size="sm" variant="ghost" className="ml-1" title="View transcript" onClick={() => setViewId(doc.id)}>
                               <Eye className="w-3.5 h-3.5" />
                             </Button>
@@ -440,9 +487,13 @@ export default function TranscriptCleaner() {
                 </Select>
               </div>
               <div>
-                <Label className="text-sm font-medium mb-1 block">Source name <span className="text-muted-foreground font-normal">(optional)</span></Label>
-                <Input value={pasteSourceName} onChange={(e) => setPasteSourceName(e.target.value)} placeholder="e.g. original file / recording name" />
+                <Label className="text-sm font-medium mb-1 block">Authority <span className="text-muted-foreground font-normal">(optional)</span></Label>
+                <AuthoritySelect value={pasteAuthority} onChange={setPasteAuthority} roster={roster} />
               </div>
+            </div>
+            <div>
+              <Label className="text-sm font-medium mb-1 block">Source name <span className="text-muted-foreground font-normal">(optional)</span></Label>
+              <Input value={pasteSourceName} onChange={(e) => setPasteSourceName(e.target.value)} placeholder="e.g. original file / recording name" />
             </div>
             <div>
               <Label className="text-sm font-medium mb-1 block">Transcript</Label>
@@ -454,10 +505,13 @@ export default function TranscriptCleaner() {
             <Button
               onClick={() => {
                 if (!pasteContent.trim()) { toast({ title: "Transcript content is required", variant: "destructive" }); return; }
+                const auth = resolveUploadAuthority(pasteAuthority, roster);
                 pasteMutation.mutate({
                   content: pasteContent,
                   transcriptType: pasteType || undefined,
                   sourceName: pasteSourceName || undefined,
+                  providedAuthorityRole: auth.providedAuthorityRole,
+                  providedAuthorityName: auth.providedAuthorityName,
                 });
               }}
               disabled={pasteMutation.isPending}
@@ -467,6 +521,19 @@ export default function TranscriptCleaner() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Upload dialog: set call type + authority before creating the docs */}
+      {uploadFiles.length > 0 && (
+        <UploadDialog
+          files={uploadFiles}
+          roster={roster}
+          isPending={batchCreateMutation.isPending}
+          onClose={() => setUploadFiles([])}
+          onSubmit={(items) => {
+            batchCreateMutation.mutate(items, { onSuccess: () => setUploadFiles([]) });
+          }}
+        />
+      )}
 
       {/* View dialog */}
       {viewId !== null && (
@@ -478,11 +545,259 @@ export default function TranscriptCleaner() {
         <ReviewDialog docId={reviewId} onClose={() => setReviewId(null)} onChanged={invalidate} />
       )}
 
+      {/* Intake edit dialog — correct call type + authority before cleaning */}
+      {editId !== null && (
+        <IntakeEditDialog docId={editId} roster={roster} onClose={() => setEditId(null)} onChanged={invalidate} />
+      )}
+
       {/* Triaged-import dialog */}
       {showImport && (
         <ImportDialog onClose={() => setShowImport(false)} onImported={invalidate} />
       )}
     </AppLayout>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Authority picker: one dropdown offering the live roster (named coach/VA — sets
+// both name + role) OR a bare authority type (role only). Value is the encoded
+// string consumed by resolveUploadAuthority().
+// ─────────────────────────────────────────────────────────────────────────────
+
+function AuthoritySelect({
+  value,
+  onChange,
+  roster,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  roster: TranscriptCleanerRosterEntry[];
+}) {
+  return (
+    <Select value={value || "__none__"} onValueChange={(v) => onChange(v === "__none__" ? "" : v)}>
+      <SelectTrigger><SelectValue placeholder="Choose authority (optional)" /></SelectTrigger>
+      <SelectContent>
+        <SelectItem value="__none__">— Unset —</SelectItem>
+        {roster.length > 0 && (
+          <>
+            {roster.map((r) => (
+              <SelectItem key={`roster:${r.name}`} value={`roster:${r.name}`}>
+                {r.name} ({roleLabel(r.authorityRole)})
+              </SelectItem>
+            ))}
+          </>
+        )}
+        {AUTHORITY_ROLES.map((r) => (
+          <SelectItem key={`role:${r.value}`} value={`role:${r.value}`}>
+            {r.label} (unnamed)
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Upload dialog: after files are read client-side, collect a batch call type +
+// authority (applied to every file) plus optional per-file overrides — type,
+// authority, name, subject, date. Blitz caption files (blitz-lesson…) skip the
+// call-type control so the server autofill (type=Blitz Video, title, order) wins.
+// ─────────────────────────────────────────────────────────────────────────────
+
+interface UploadRow {
+  content: string;
+  sourceName: string;
+  isBlitz: boolean;
+  type: string;
+  authority: string;
+  name: string;
+  subject: string;
+  date: string;
+}
+
+function UploadDialog({
+  files,
+  roster,
+  isPending,
+  onClose,
+  onSubmit,
+}: {
+  files: { content: string; sourceName: string }[];
+  roster: TranscriptCleanerRosterEntry[];
+  isPending: boolean;
+  onClose: () => void;
+  onSubmit: (items: TranscriptCleanerIntakeItem[]) => void;
+}) {
+  const [batchType, setBatchType] = useState("");
+  const [batchAuthority, setBatchAuthority] = useState("");
+  const [batchName, setBatchName] = useState("");
+  const [batchSubject, setBatchSubject] = useState("");
+  const [batchDate, setBatchDate] = useState("");
+  const [rows, setRows] = useState<UploadRow[]>(() =>
+    files.map((f) => ({
+      content: f.content,
+      sourceName: f.sourceName,
+      isBlitz: BLITZ_FILE_RE.test(f.sourceName),
+      type: "",
+      authority: "",
+      name: "",
+      subject: "",
+      date: "",
+    })),
+  );
+
+  const setRow = (i: number, patch: Partial<UploadRow>) =>
+    setRows((prev) => prev.map((r, idx) => (idx === i ? { ...r, ...patch } : r)));
+
+  // Applying a batch default fills every non-blitz row (type) / every row
+  // (authority) that the user hasn't already overridden individually.
+  const applyBatchType = (v: string) => {
+    setBatchType(v);
+    setRows((prev) => prev.map((r) => (r.isBlitz ? r : { ...r, type: v })));
+  };
+  const applyBatchAuthority = (v: string) => {
+    setBatchAuthority(v);
+    setRows((prev) => prev.map((r) => ({ ...r, authority: v })));
+  };
+  const applyBatchName = (v: string) => {
+    setBatchName(v);
+    setRows((prev) => prev.map((r) => ({ ...r, name: v })));
+  };
+  const applyBatchSubject = (v: string) => {
+    setBatchSubject(v);
+    setRows((prev) => prev.map((r) => ({ ...r, subject: v })));
+  };
+  const applyBatchDate = (v: string) => {
+    setBatchDate(v);
+    setRows((prev) => prev.map((r) => ({ ...r, date: v })));
+  };
+
+  const submit = () => {
+    const items: TranscriptCleanerIntakeItem[] = rows.map((r) => {
+      const auth = resolveUploadAuthority(r.authority, roster);
+      return {
+        content: r.content,
+        sourceName: r.sourceName,
+        transcriptType: r.isBlitz ? undefined : r.type || undefined,
+        providedAuthorityRole: auth.providedAuthorityRole,
+        providedAuthorityName: r.name.trim() || auth.providedAuthorityName || undefined,
+        providedSubject: r.subject.trim() || undefined,
+        providedDate: r.date.trim() || undefined,
+      };
+    });
+    onSubmit(items);
+  };
+
+  const blitzCount = rows.filter((r) => r.isBlitz).length;
+
+  return (
+    <Dialog open onOpenChange={(o) => { if (!o) onClose(); }}>
+      <DialogContent className="max-w-4xl">
+        <DialogHeader>
+          <DialogTitle>Upload {rows.length} transcript{rows.length === 1 ? "" : "s"}</DialogTitle>
+          <DialogDescription>
+            Set the call type and authority for the batch, then override individual files as needed.
+            The admin-provided authority is treated as ground truth — the AI only decides which turns belong to it.
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-4">
+          {/* Batch defaults */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 rounded-lg border p-3 bg-muted/30">
+            <div>
+              <Label className="text-sm font-medium mb-1 block">Call type (applies to all)</Label>
+              <Select value={batchType || "__none__"} onValueChange={(v) => applyBatchType(v === "__none__" ? "" : v)}>
+                <SelectTrigger><SelectValue placeholder="Choose type" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__none__">— Unset —</SelectItem>
+                  {TRANSCRIPT_TYPES.map((t) => (
+                    <SelectItem key={t.slug} value={t.slug}>{t.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label className="text-sm font-medium mb-1 block">Authority (applies to all)</Label>
+              <AuthoritySelect value={batchAuthority} onChange={applyBatchAuthority} roster={roster} />
+            </div>
+            <div>
+              <Label className="text-sm font-medium mb-1 block">Name override <span className="font-normal">(optional, applies to all)</span></Label>
+              <Input value={batchName} onChange={(e) => applyBatchName(e.target.value)} placeholder="e.g. Sasha" className="h-9" />
+            </div>
+            <div>
+              <Label className="text-sm font-medium mb-1 block">Subject <span className="font-normal">(optional, applies to all)</span></Label>
+              <Input value={batchSubject} onChange={(e) => applyBatchSubject(e.target.value)} placeholder="e.g. Offer positioning" className="h-9" />
+            </div>
+            <div>
+              <Label className="text-sm font-medium mb-1 block">Date <span className="font-normal">(optional, applies to all)</span></Label>
+              <Input type="date" value={batchDate} onChange={(e) => applyBatchDate(e.target.value)} className="h-9" />
+            </div>
+          </div>
+
+          {blitzCount > 0 && (
+            <p className="text-xs text-muted-foreground flex items-center gap-1">
+              <Sparkles className="w-3.5 h-3.5" />
+              {blitzCount} Blitz caption file{blitzCount === 1 ? "" : "s"} detected — their call type is auto-filled on the server.
+            </p>
+          )}
+
+          {/* Per-file overrides */}
+          <div className="max-h-[46vh] overflow-y-auto space-y-3 pr-1">
+            {rows.map((r, i) => (
+              <div key={i} className="rounded-lg border p-3 space-y-2">
+                <div className="flex items-center gap-2 text-sm font-medium">
+                  <FileText className="w-4 h-4 text-muted-foreground shrink-0" />
+                  <span className="truncate" title={r.sourceName}>{r.sourceName}</span>
+                  {r.isBlitz && <Badge variant="secondary">Blitz</Badge>}
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                  <div>
+                    <Label className="text-xs text-muted-foreground mb-1 block">Call type</Label>
+                    <Select
+                      value={r.type || "__none__"}
+                      onValueChange={(v) => setRow(i, { type: v === "__none__" ? "" : v })}
+                      disabled={r.isBlitz}
+                    >
+                      <SelectTrigger><SelectValue placeholder={r.isBlitz ? "Auto (Blitz Video)" : "Choose type"} /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="__none__">— Unset —</SelectItem>
+                        {TRANSCRIPT_TYPES.map((t) => (
+                          <SelectItem key={t.slug} value={t.slug}>{t.label}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label className="text-xs text-muted-foreground mb-1 block">Authority</Label>
+                    <AuthoritySelect value={r.authority} onChange={(v) => setRow(i, { authority: v })} roster={roster} />
+                  </div>
+                  <div>
+                    <Label className="text-xs text-muted-foreground mb-1 block">Name override <span className="font-normal">(optional)</span></Label>
+                    <Input value={r.name} onChange={(e) => setRow(i, { name: e.target.value })} placeholder="e.g. Sasha" className="h-9" />
+                  </div>
+                  <div>
+                    <Label className="text-xs text-muted-foreground mb-1 block">Subject <span className="font-normal">(optional)</span></Label>
+                    <Input value={r.subject} onChange={(e) => setRow(i, { subject: e.target.value })} placeholder="e.g. Offer positioning" className="h-9" />
+                  </div>
+                  <div>
+                    <Label className="text-xs text-muted-foreground mb-1 block">Date <span className="font-normal">(optional)</span></Label>
+                    <Input type="date" value={r.date} onChange={(e) => setRow(i, { date: e.target.value })} className="h-9" />
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose} disabled={isPending}>Cancel</Button>
+          <Button onClick={submit} disabled={isPending}>
+            {isPending ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : <Upload className="w-4 h-4 mr-1" />}
+            Add {rows.length} to intake
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -621,6 +936,144 @@ function Stat({ label, value, highlight }: { label: string; value: number; highl
       <div className={`text-2xl font-bold ${highlight ? "text-primary" : "text-foreground"}`}>{value}</div>
       <div className="text-xs text-muted-foreground mt-0.5">{label}</div>
     </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Intake edit dialog: correct the admin-provided ground truth (call type +
+// authority + name/subject/date) on an uploaded doc BEFORE cleaning, so a wrong
+// pick at upload doesn't force a delete + re-upload. Cleaning uses these values.
+// ─────────────────────────────────────────────────────────────────────────────
+
+function encodeProvidedAuthority(
+  role: string | null,
+  name: string | null,
+  roster: TranscriptCleanerRosterEntry[],
+): string {
+  if (name) {
+    const match = roster.find((r) => r.name.toLowerCase() === name.toLowerCase());
+    if (match) return `roster:${match.name}`;
+  }
+  if (role) return `role:${role}`;
+  return "";
+}
+
+function IntakeEditDialog({
+  docId,
+  roster,
+  onClose,
+  onChanged,
+}: {
+  docId: number;
+  roster: TranscriptCleanerRosterEntry[];
+  onClose: () => void;
+  onChanged: () => void;
+}) {
+  const { toast } = useToast();
+  const { data: doc, isLoading } = useQuery({
+    queryKey: ["transcript-cleaner-doc", docId],
+    queryFn: () => getTranscriptCleanerDocument(docId),
+  });
+
+  const [type, setType] = useState("");
+  const [authority, setAuthority] = useState("");
+  const [name, setName] = useState("");
+  const [subject, setSubject] = useState("");
+  const [date, setDate] = useState("");
+  const [ready, setReady] = useState(false);
+
+  useEffect(() => {
+    if (!doc || ready) return;
+    setType(doc.transcriptType ?? "");
+    setAuthority(encodeProvidedAuthority(doc.providedAuthorityRole, doc.providedAuthorityName, roster));
+    setName(doc.providedAuthorityName ?? "");
+    setSubject(doc.providedSubject ?? "");
+    setDate(doc.providedDate ?? "");
+    setReady(true);
+  }, [doc, ready, roster]);
+
+  const saveMutation = useMutation({
+    mutationFn: () => {
+      const auth = resolveUploadAuthority(authority, roster);
+      return updateTranscriptCleanerDocument(docId, {
+        transcriptType: type || undefined,
+        providedAuthorityRole: auth.providedAuthorityRole ?? null,
+        providedAuthorityName: name.trim() || auth.providedAuthorityName || null,
+        providedSubject: subject.trim() || null,
+        providedDate: date.trim() || null,
+      });
+    },
+    onSuccess: () => { onChanged(); toast({ title: "Saved" }); onClose(); },
+    onError: (e: Error) => toast({ title: "Save failed", description: e.message, variant: "destructive" }),
+  });
+
+  const isBlitz = doc?.sourceName ? BLITZ_FILE_RE.test(doc.sourceName) : false;
+
+  return (
+    <Dialog open onOpenChange={(o) => { if (!o) onClose(); }}>
+      <DialogContent className="max-w-lg">
+        <DialogHeader>
+          <DialogTitle>Set call type &amp; authority</DialogTitle>
+          <DialogDescription>
+            The admin-provided authority is ground truth — the AI only decides which turns belong to it.
+            These apply the next time the transcript is cleaned.
+          </DialogDescription>
+        </DialogHeader>
+
+        {isLoading || !doc ? (
+          <div className="p-8 text-center text-muted-foreground flex items-center justify-center gap-2">
+            <Loader2 className="w-4 h-4 animate-spin" /> Loading…
+          </div>
+        ) : (
+          <div className="space-y-4">
+            <div className="text-sm text-muted-foreground truncate" title={doc.sourceName ?? ""}>
+              {doc.sourceName || `Transcript #${doc.id}`}
+            </div>
+            <div>
+              <Label className="text-sm font-medium mb-1 block">Call type</Label>
+              <Select value={type || "__none__"} onValueChange={(v) => setType(v === "__none__" ? "" : v)} disabled={isBlitz}>
+                <SelectTrigger><SelectValue placeholder={isBlitz ? "Auto (Blitz Video)" : "Choose type"} /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__none__">— Unset —</SelectItem>
+                  {TRANSCRIPT_TYPES.map((t) => (
+                    <SelectItem key={t.slug} value={t.slug}>{t.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {isBlitz && (
+                <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
+                  <Sparkles className="w-3 h-3" /> Blitz caption — type is auto-filled on the server.
+                </p>
+              )}
+            </div>
+            <div>
+              <Label className="text-sm font-medium mb-1 block">Authority</Label>
+              <AuthoritySelect value={authority} onChange={setAuthority} roster={roster} />
+            </div>
+            <div>
+              <Label className="text-sm font-medium mb-1 block">Name override <span className="font-normal">(optional)</span></Label>
+              <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Sasha" className="h-9" />
+            </div>
+            <div>
+              <Label className="text-sm font-medium mb-1 block">Subject <span className="font-normal">(optional)</span></Label>
+              <Input value={subject} onChange={(e) => setSubject(e.target.value)} placeholder="e.g. Offer positioning" className="h-9" />
+            </div>
+            <div>
+              <Label className="text-sm font-medium mb-1 block">Date <span className="font-normal">(optional)</span></Label>
+              <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="h-9" />
+            </div>
+          </div>
+        )}
+
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose} disabled={saveMutation.isPending}>Cancel</Button>
+          <Button onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending || isLoading || !doc}>
+            {saveMutation.isPending ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : null}
+            Save
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 

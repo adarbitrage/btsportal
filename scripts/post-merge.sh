@@ -425,3 +425,15 @@ if [ -n "$DATABASE_URL" ]; then
   pnpm --filter @workspace/api-server exec tsx \
     src/scripts/rescrub-knowledgebase-docs.ts
 fi
+
+# Transcript Cleaner admin-supplied cleaning inputs (Task #1560). Additive,
+# all-nullable columns captured at upload time. The drift test only fires
+# push --force when the schema is out of sync, so add these columns explicitly
+# and idempotently (ADD COLUMN IF NOT EXISTS) so prod picks them up on merge
+# even when the drift gate short-circuits. No backfill — unset means fall back.
+if [ -n "$DATABASE_URL" ]; then
+  psql "$DATABASE_URL" \
+    -v ON_ERROR_STOP=1 \
+    -f lib/db/drizzle/0094_transcript_cleaner_provided_inputs.sql \
+    >/dev/null
+fi

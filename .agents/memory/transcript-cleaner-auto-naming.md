@@ -23,14 +23,33 @@ coach-first-name privacy convention (`Coach {First}` / `VA {First}`).
 - Title prefix is NOT always the folder label: reference_docs→"Reference",
   other_docs→"Doc" (see TITLE_PREFIX_BY_SLUG). Date is appended ONLY for slugs in
   SLUGS_WITH_DATE (private/va/group/other_video) and only when confidently found —
-  never fabricated. A missing date is NOT a review flag.
-- 1-on-1 titles REQUIRE BOTH member AND authority — `assembleTranscriptTitle`
-  returns blank + `titleNeedsInput=true` if EITHER is unrecoverable; it never emits
-  a partial authority-less title like "Private Coaching — {Member}". Member prefers
-  model primarySubject, falls back to `memberNameFromSourceName` (strips "Meeting
-  Information", "(1)", "- desc").
-- Authority name prefers a deterministic roster label match (lowercased; title-cased
-  for display), then model detectedName.
+  never fabricated. A missing date is NOT a review flag. So the date only surfaces
+  in a title once the doc has a date-bearing transcriptType set (a NULL/untagged doc
+  never shows the date even if the filename carries one).
+- Admin-provided ground truth: `providedAuthorityRole/Name/Subject/Date` (4 additive
+  nullable cols) are collected at UPLOAD time (and editable afterwards via the intake
+  edit dialog + PATCH before cleaning) and ALWAYS win over the AI's detection. The
+  admin decides WHO/WHAT; the AI only decides WHICH turns.
+- Authority ALWAYS renders (`renderAuthorityName`): with a name → `Coach {First}` /
+  `VA {First}` (first-name-only privacy), WITHOUT a name → bare `Coach`/`VA` (never
+  blank for want of a name). There is NO roster "crowning" anymore — the old
+  behavior of auto-promoting a detected roster name to authority was removed.
+- Blanking rule flipped accordingly: `assembleTranscriptTitle` blanks 1-on-1 titles
+  ONLY when the MEMBER is unrecoverable (authority alone is never the blocker);
+  group_coaching ALWAYS assembles (authority + optional date). Member prefers
+  provided/model subject, falls back to `memberNameFromSourceName`.
+- Date extracted from filenames incl. the `...(2026-03-24 06_52 GMT+8).txt` shape via
+  `detectIsoDateInText` (`\b\d{4}-\d{2}-\d{2}\b` → `normalizeIsoDate`); precedence is
+  providedDate ?? filename ?? AI.
+- Post-clean sanity: SLUGS_WITH_AUTHORITY_LABEL (private/va/group) flag
+  `uncertain_authority` when the expected `Coach`/`VA` turn label never appears in the
+  cleaned body (`hasAuthorityLabel`). Member turns are labeled "Member" with NO
+  numbers/names.
+- Upload UI: TranscriptCleaner.tsx UploadDialog collects a batch call type + authority
+  (one AuthoritySelect offering roster coach/VA OR bare role, encoded "roster:<name>"/
+  "role:<value>") + optional per-file name/subject/date overrides; blitz-lesson* files
+  leave type blank so the server autofill wins. Roster served by GET
+  /admin/transcript-cleaner/roster (loadRosterList).
 - `titleFollowsGrammar(title, folder?)` is SLUG-AWARE: with a folder it tests the
   full per-slug shape (TITLE_GRAMMAR_BY_SLUG regex — incl. required `(Coach|VA …)`
   for 1-on-1), not just a known prefix, so a malformed title isn't falsely skipped.

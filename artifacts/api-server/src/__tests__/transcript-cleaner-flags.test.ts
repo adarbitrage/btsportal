@@ -307,7 +307,7 @@ describe("assembleTranscriptTitle (type-specific grammar, Task #1518)", () => {
     ).toEqual({ title: "", titleNeedsInput: true });
   });
 
-  it("1-on-1 with an unrecoverable authority → blank title + titleNeedsInput (never authority-less)", () => {
+  it("1-on-1 with no authority name → bare 'Coach' fallback (req 9), still titled", () => {
     expect(
       assembleTranscriptTitle({
         folder: folder("private_coaching"),
@@ -315,6 +315,19 @@ describe("assembleTranscriptTitle (type-specific grammar, Task #1518)", () => {
         authorityName: null,
         primarySubject: "Cheryl L Rodriguez",
         sourceName: "Cheryl L Rodriguez",
+        isoDate: null,
+      }),
+    ).toEqual({ title: "Private Coaching — Cheryl L Rodriguez (Coach)", titleNeedsInput: false });
+  });
+
+  it("1-on-1 still blanks when the MEMBER is unrecoverable (authority alone is not enough)", () => {
+    expect(
+      assembleTranscriptTitle({
+        folder: folder("private_coaching"),
+        authorityRole: "strategic_coach",
+        authorityName: "Bruce",
+        primarySubject: null,
+        sourceName: null,
         isoDate: null,
       }),
     ).toEqual({ title: "", titleNeedsInput: true });
@@ -333,7 +346,7 @@ describe("assembleTranscriptTitle (type-specific grammar, Task #1518)", () => {
     ).toEqual({ title: "Group Coaching — Coach Michael — 2025-02-03", titleNeedsInput: false });
   });
 
-  it("group coaching with no coach name → blank + titleNeedsInput", () => {
+  it("group coaching with no coach name → bare 'Coach' fallback (req 9), still titled", () => {
     expect(
       assembleTranscriptTitle({
         folder: folder("group_coaching"),
@@ -343,7 +356,7 @@ describe("assembleTranscriptTitle (type-specific grammar, Task #1518)", () => {
         sourceName: "Live Coaching Call",
         isoDate: null,
       }),
-    ).toEqual({ title: "", titleNeedsInput: true });
+    ).toEqual({ title: "Group Coaching — Coach", titleNeedsInput: false });
   });
 
   it("blitz video: topic only, never a date", () => {

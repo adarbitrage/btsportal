@@ -83,6 +83,31 @@ export async function loadRosterMap(): Promise<Map<string, string>> {
   return map;
 }
 
+export interface RosterEntry {
+  name: string;
+  /** The coach's raw `coaches.type` (e.g. "strategic_coach", "va"). */
+  type: string;
+  /** The authority role that type maps to ("coach"/"va"), for the upload picker. */
+  authorityRole: AuthorityRole;
+}
+
+/**
+ * The live coach/VA roster as a display list for the upload dialog's authority
+ * picker (Task #1560). Each entry carries the coach's name plus the authority
+ * role its type maps to, so selecting a coach fixes both WHO and the role.
+ */
+export async function loadRosterList(): Promise<RosterEntry[]> {
+  const rows = await db.select({ name: coachesTable.name, type: coachesTable.type }).from(coachesTable);
+  return rows
+    .map((r) => ({
+      name: (r.name ?? "").trim(),
+      type: r.type ?? "strategic_coach",
+      authorityRole: authorityRoleFromCoachType(r.type),
+    }))
+    .filter((r) => r.name.length > 0)
+    .sort((a, b) => a.name.localeCompare(b.name));
+}
+
 function containsWholeWord(haystack: string, needle: string): boolean {
   const escaped = needle.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   return new RegExp(`\\b${escaped}\\b`, "i").test(haystack);
@@ -396,6 +421,29 @@ const MEMBER_SUBJECT_SLUGS: ReadonlySet<string> = new Set([
   "one_on_one_va",
 ]);
 
+/**
+ * Call-type slugs whose cleaned transcript MUST carry an explicit authority turn
+ * label ("Coach"/"VA"). These are the coach/VA-led conversations; the post-clean
+ * sanity check (Task #1560 req 8) flags a doc whose expected label never appears.
+ * Video/document types have no such turn structure and are excluded.
+ */
+const SLUGS_WITH_AUTHORITY_LABEL: ReadonlySet<string> = new Set([
+  "private_coaching",
+  "one_on_one_va",
+  "group_coaching",
+]);
+
+/**
+ * True when the cleaned transcript uses the expected authority turn label as an
+ * actual speaker label. Matches the label at a line start or after a newline,
+ * followed by the usual turn delimiters (":", "-", or an em/en dash), so a mere
+ * inline mention of the word "coach" does not count as an authority turn.
+ */
+function hasAuthorityLabel(cleaned: string, label: "Coach" | "VA"): boolean {
+  const re = new RegExp(String.raw`(^|\n)\s*${label}\b\s*[:\-–—]`, "i");
+  return re.test(cleaned);
+}
+
 const TITLE_PREFIXES: readonly string[] = Object.values(TITLE_PREFIX_BY_SLUG);
 
 /**
@@ -407,13 +455,13 @@ const TITLE_PREFIXES: readonly string[] = Object.values(TITLE_PREFIX_BY_SLUG);
 const ISO_DATE_TAIL = String.raw`(?: — \d{4}-\d{2}-\d{2})?`;
 const TITLE_GRAMMAR_BY_SLUG: Readonly<Record<string, RegExp>> = {
   private_coaching: new RegExp(
-    String.raw`^Private Coaching — .+ \((?:Coach|VA) .+\)${ISO_DATE_TAIL}$`,
+    String.raw`^Private Coaching — .+ \((?:Coach|VA)(?: .+)?\)${ISO_DATE_TAIL}$`,
   ),
   one_on_one_va: new RegExp(
-    String.raw`^1-on-1 VA — .+ \((?:Coach|VA) .+\)${ISO_DATE_TAIL}$`,
+    String.raw`^1-on-1 VA — .+ \((?:Coach|VA)(?: .+)?\)${ISO_DATE_TAIL}$`,
   ),
   group_coaching: new RegExp(
-    String.raw`^Group Coaching — (?:Coach|VA) .+${ISO_DATE_TAIL}$`,
+    String.raw`^Group Coaching — (?:Coach|VA)(?: .+)?${ISO_DATE_TAIL}$`,
   ),
   blitz_video: /^Blitz Video — .+$/,
   other_video: new RegExp(String.raw`^Other Video — .+?${ISO_DATE_TAIL}$`),
@@ -422,15 +470,26 @@ const TITLE_GRAMMAR_BY_SLUG: Readonly<Record<string, RegExp>> = {
 };
 
 /**
+ * The bare authority label for a role — "VA" for the VA pool, "Coach" for every
+ * other role. This is the label the AI applies to the authority's turns and the
+ * generic authority name used in a title when no personal name is available.
+ */
+function authorityLabel(role: AuthorityRole): "Coach" | "VA" {
+  return role === "va" ? "VA" : "Coach";
+}
+
+/**
  * Render the authority as `Coach {First}` / `VA {First}` — first names only, per
  * the coach-name privacy convention. VA role → "VA", everything else → "Coach".
- * Returns null when there is no usable name.
+ * When no usable name is available, falls back to the bare label ("Coach"/"VA")
+ * so a title is never left blank for want of a name (Task #1560 req 9).
  */
-function renderAuthorityName(role: AuthorityRole, name: string | null | undefined): string | null {
+function renderAuthorityName(role: AuthorityRole, name: string | null | undefined): string {
+  const label = authorityLabel(role);
   const first = (name ?? "").trim().split(/\s+/)[0];
-  if (!first) return null;
+  if (!first) return label;
   const display = first.charAt(0).toUpperCase() + first.slice(1);
-  return `${role === "va" ? "VA" : "Coach"} ${display}`;
+  return `${label} ${display}`;
 }
 
 /**
@@ -530,17 +589,19 @@ export function assembleTranscriptTitle(
   if (slug && MEMBER_SUBJECT_SLUGS.has(slug)) {
     const member =
       parts.primarySubject?.trim() || memberNameFromSourceName(parts.sourceName);
+    // The authority is admin-supplied ground truth and always renders (a bare
+    // "Coach"/"VA" when no name is given, per req 9), so only the MEMBER can be
+    // unrecoverable — e.g. "Private Coaching — {Member} (Coach {First})". When
+    // the member is missing, blank the title and flag it.
     const authority = renderAuthorityName(parts.authorityRole, parts.authorityName);
-    // The 1-on-1 grammar REQUIRES both the member and the authority — e.g.
-    // "Private Coaching — {Member} (Coach {First})". If either is unrecoverable,
-    // blank the title and flag it; never emit a partial, authority-less title.
-    if (!member || !authority) return blank;
+    if (!member) return blank;
     return { title: `${prefix} — ${member} (${authority})${datePart}`, titleNeedsInput: false };
   }
 
   if (slug === "group_coaching") {
+    // Authority always renders (generic "Coach"/"VA" fallback), so a group title
+    // is always assemblable from the call type alone.
     const authority = renderAuthorityName(parts.authorityRole, parts.authorityName);
-    if (!authority) return blank;
     return { title: `${prefix} — ${authority}${datePart}`, titleNeedsInput: false };
   }
 
@@ -612,14 +673,21 @@ const CLEAN_SYSTEM_PROMPT = [
   "   labels (Speaker 3 / Speaker 4) or bleed one person's words into another's",
   "   label — merge/reassign those. Never invent or drop a real speaker. Merging",
   "   consecutive same-speaker labels is routine cleanup — just do it, never flag it.",
-  "2. Identify the SOURCE OF AUTHORITY — the coach/VA doing the teaching/answering/",
-  "   directing, as opposed to the member(s) asking questions or describing their",
-  "   situation. Label that speaker with their authority role title (e.g. 'Coach'",
-  "   or 'VA'), not a personal name. Label the others 'Member 1', 'Member 2', etc.",
-  "   When speakers are only numbered, infer the authority PURELY from",
-  "   conversational role (who teaches/answers vs who asks). No knowledge of BTS",
-  "   training concepts is needed; the teacher/answerer pattern is the signal and",
-  "   may only resolve by mid-call. Report your confidence + the evidence.",
+  "2. APPLY THE AUTHORITY the admin has already set for this call — it is GROUND",
+  "   TRUTH, do NOT second-guess it. Every call has EXACTLY ONE source of",
+  "   authority (a single Coach OR a single VA); the admin tells you which, and,",
+  "   when known, their name. Your ONLY authority job is to decide WHICH turns are",
+  "   theirs by CONVERSATIONAL ROLE — who teaches / answers / directs, as opposed",
+  "   to the member(s) asking questions or describing their situation:",
+  "   - Label EVERY authority turn with the exact authority label the admin gave",
+  "     ('Coach' or 'VA') — the label only, never a personal name, never a number.",
+  "   - Label EVERY other speaker simply 'Member' — never a number, never a name,",
+  "     never their real name even if it is spoken.",
+  "   - NAME-COLLISION GUARD: a member may say the authority's name (e.g. address",
+  "     the coach by name, or be named the same). Never let a spoken name decide",
+  "     who the authority is — go by who is teaching/answering vs asking. The",
+  "     person the admin named is the ONE authority; do not crown anyone else.",
+  "   Report your confidence + the evidence for the turn split.",
   "3. AUTO-CORRECT SPELLING — do this silently, do NOT flag it:",
   "   - Normalise any term that matches the supplied canonical list to its EXACT",
   "     canonical spelling (e.g. 'DIY trax' -> 'DIYTrax').",
@@ -759,36 +827,37 @@ export function dedupeFlags(flags: TranscriptCleanerFlag[]): TranscriptCleanerFl
 function buildCleanUserMessage(args: {
   chunkText: string;
   folder: SourceFolder | null;
-  rosterHit: ReturnType<typeof detectRosterAuthority>;
+  authorityLabel: "Coach" | "VA";
+  providedAuthorityName: string | null;
   canonicalTerms: string[];
   sourceName?: string | null;
   proposedTitle?: string | null;
   chunkIndex: number;
   chunkCount: number;
-  authorityHint: string | null;
 }): string {
   const {
     chunkText,
     folder,
-    rosterHit,
+    authorityLabel: label,
+    providedAuthorityName,
     canonicalTerms,
     sourceName,
     proposedTitle,
     chunkIndex,
     chunkCount,
-    authorityHint,
   } = args;
   const multi = chunkCount > 1;
+  const namePhrase = providedAuthorityName ? ` (${providedAuthorityName})` : "";
+  const collisionRef = providedAuthorityName ? `${providedAuthorityName}'s` : "the authority's";
   const lines: (string | null)[] = [
     `Transcript type: ${folder ? folder.label : "(untagged — infer the call type)"}`,
     `Expected speakers: ${expectedSpeakers(folder)}`,
     sourceName ? `Source / original filename: ${sourceName}` : null,
     proposedTitle ? `An approved title already exists (do not override it): ${proposedTitle}` : null,
-    rosterHit.labelMatched.length > 0
-      ? `Known roster names present as SPEAKER LABELS (treat the matching speaker as the AUTHORITY, high confidence): ${rosterHit.labelMatched.map((m) => m.name).join(", ")}`
-      : rosterHit.inlineOnly.length > 0
-        ? `Roster names mentioned inline but NOT as speaker labels: ${rosterHit.inlineOnly.join(", ")}. Do NOT assume these people are the authority — they may just be talked about. Infer the authority from conversational role and report your confidence.`
-        : "No known roster names detected — infer the authority from conversational role and report your confidence.",
+    // Admin-supplied authority is GROUND TRUTH for WHO/WHAT (Task #1560). Your
+    // only authority job is to decide WHICH turns are theirs, by conversational
+    // role, and to guard against the name-collision hazard.
+    `AUTHORITY (set by an admin — this is ground truth, do NOT second-guess it): this call has EXACTLY ONE source of authority, the ${label}${namePhrase}. Label EVERY turn where that person is teaching / answering / directing as "${label}". Label EVERY other speaker simply "Member" — never a number, never a personal name. Decide who the ${label} is by CONVERSATIONAL ROLE (who teaches and answers vs who asks and describes their situation), NOT by whose name is spoken: a member may mention ${collisionRef} name, and that must NOT make them the ${label}.`,
     canonicalTerms.length > 0
       ? `Canonical BTS / Media Mavens / traffic-source terms — normalise spelling to these EXACT forms when referenced. Any OTHER proper noun is a member's own niche term: correct obvious typos, keep it consistent, and do NOT flag it. Terms: ${canonicalTerms.join(", ")}`
       : null,
@@ -801,10 +870,8 @@ function buildCleanUserMessage(args: {
     );
     if (chunkIndex > 0) {
       lines.push(
-        authorityHint
-          ? `The teaching authority for this call was already identified in part 1 as "${authorityHint}". Use that SAME label for them here, and label members consistently (Member 1, Member 2, ...).`
-          : "The teaching authority was already identified in part 1 — reuse the same authority/member labelling here.",
-        "Title building blocks and authority were already decided from part 1; you may return null for primarySubject / detectedDate and an empty authority object in this part.",
+        `Use the SAME labelling here: the single authority is "${label}", everyone else is "Member" (no numbers, no names).`,
+        "Title building blocks were already decided from part 1; you may return null for primarySubject / detectedDate and an empty authority object in this part.",
       );
     }
   }
@@ -827,39 +894,59 @@ export async function cleanTranscript(args: {
   transcriptType?: string | null;
   sourceName?: string | null;
   proposedTitle?: string | null;
-  roster: ReadonlyMap<string, string>;
+  /** Admin-supplied ground truth captured at upload (Task #1560). */
+  providedAuthorityRole?: string | null;
+  providedAuthorityName?: string | null;
+  providedSubject?: string | null;
+  providedDate?: string | null;
 }): Promise<CleanTranscriptResult> {
-  const { rawText, transcriptType, sourceName, proposedTitle, roster } = args;
+  const {
+    rawText,
+    transcriptType,
+    sourceName,
+    proposedTitle,
+    providedAuthorityRole,
+    providedAuthorityName,
+    providedSubject,
+    providedDate,
+  } = args;
   const folder = resolveSourceFolder(transcriptType ?? null);
-  const rosterHit = detectRosterAuthority(rawText, roster);
   const canonicalTerms = await loadCanonicalTerms();
+
+  // Authority is the admin's call, not the AI's (Task #1560 req 3, 5, 7):
+  //   - the ROLE is the admin-provided one, else the call type's default.
+  //   - there is EXACTLY ONE authority; its label ("Coach"/"VA") drives the
+  //     turn labelling and the title's generic fallback.
+  // The AI never crowns the authority from a spoken roster name (req 6) — that
+  // whole roster-matching path is gone; the admin decides WHO, the AI only
+  // decides WHICH turns.
+  const adminRoleGiven = isAuthorityRole(providedAuthorityRole);
+  const authorityRole: AuthorityRole = adminRoleGiven
+    ? (providedAuthorityRole as AuthorityRole)
+    : folder?.defaultAuthorityRole ?? DEFAULT_AUTHORITY_ROLE;
+  const label = authorityLabel(authorityRole);
+  const providedName = (providedAuthorityName ?? "").trim() || null;
 
   const chunks = splitTranscriptForCleaning(rawText);
 
-  // Part 1 is cleaned first because it establishes the title, the AI authority
-  // inference, and the speaker-label convention the remaining parts must match.
-  // Given that convention the remaining parts are independent of each other, so
-  // they are cleaned in parallel to keep wall-clock down on big files.
+  // Part 1 is cleaned first because it establishes the title building blocks and
+  // the speaker-label convention the remaining parts must match. Given that
+  // convention the remaining parts are independent, so they are cleaned in
+  // parallel to keep wall-clock down on big files.
   const firstParsed = await requestCleanerJson({
     system: CLEAN_SYSTEM_PROMPT,
     userMessage: buildCleanUserMessage({
       chunkText: chunks[0],
       folder,
-      rosterHit,
+      authorityLabel: label,
+      providedAuthorityName: providedName,
       canonicalTerms,
       sourceName,
       proposedTitle,
       chunkIndex: 0,
       chunkCount: chunks.length,
-      authorityHint: null,
     }),
   });
-  const authorityHint =
-    firstParsed.authority &&
-    typeof firstParsed.authority.label === "string" &&
-    firstParsed.authority.label.trim()
-      ? firstParsed.authority.label.trim()
-      : null;
 
   const restParsed = await Promise.all(
     chunks.slice(1).map((chunkText, i) =>
@@ -868,13 +955,13 @@ export async function cleanTranscript(args: {
         userMessage: buildCleanUserMessage({
           chunkText,
           folder,
-          rosterHit,
+          authorityLabel: label,
+          providedAuthorityName: providedName,
           canonicalTerms,
           sourceName,
           proposedTitle,
           chunkIndex: i + 1,
           chunkCount: chunks.length,
-          authorityHint,
         }),
       }),
     ),
@@ -892,59 +979,67 @@ export async function cleanTranscript(args: {
     .join("\n\n");
   const flags = dedupeFlags(allParsed.flatMap((p) => mapModelFlags(p.flags)));
 
-  // Authority resolution. A deterministic, high-confidence swap is only safe
-  // when the roster names that appear as SPEAKER LABELS resolve to a single,
-  // unambiguous authority role:
-  //   - exactly one distinct role among label matches → deterministic + high.
-  //   - several label matches with CONFLICTING roles → ambiguous: fall back to
-  //     the folder default but flag it low-confidence for manual confirmation
-  //     (never silently auto-pick the first match).
-  //   - no label matches → AI inference, default the role from the folder.
-  let authorityRole: AuthorityRole;
-  let authorityConfidence: "high" | "low";
-  let authorityEvidence: string;
   const aiAuthority = firstParsed.authority ?? {};
-  const labelRoles = Array.from(new Set(rosterHit.labelMatched.map((m) => m.role)));
-  if (labelRoles.length === 1) {
-    authorityRole = labelRoles[0];
-    authorityConfidence = "high";
-    const names = rosterHit.labelMatched.map((m) => m.name).join(", ");
-    authorityEvidence = `Matched live roster name(s) "${names}" as speaker label(s) — deterministic authority swap.`;
-  } else if (labelRoles.length > 1) {
-    authorityRole = folder?.defaultAuthorityRole ?? DEFAULT_AUTHORITY_ROLE;
-    authorityConfidence = "low";
-    const detail = rosterHit.labelMatched.map((m) => `${m.name}=${m.role}`).join(", ");
-    authorityEvidence = `Multiple roster names with different authority roles appear as speaker labels (${detail}) — cannot deterministically pick one; confirm or override.`;
-  } else {
-    authorityRole = folder?.defaultAuthorityRole ?? DEFAULT_AUTHORITY_ROLE;
-    authorityConfidence = aiAuthority.confidence === "high" ? "high" : "low";
-    authorityEvidence = String(aiAuthority.evidence ?? "Authority inferred from conversational role.");
-  }
 
-  if (authorityConfidence === "low") {
+  // Confidence: an admin who set the role (or picked a named coach/VA) is the
+  // ground truth — high. When the role was only DEFAULTED from the call type,
+  // defer to the AI's read of how clearly the roles separate.
+  let authorityConfidence: "high" | "low" = adminRoleGiven || providedName
+    ? "high"
+    : aiAuthority.confidence === "high"
+      ? "high"
+      : "low";
+  let authorityEvidence: string = providedName
+    ? `Authority set by admin at upload: ${label} ${providedName}. AI labelled turns by conversational role.`
+    : adminRoleGiven
+      ? `Authority role set by admin at upload: ${label}. AI labelled turns by conversational role.`
+      : `Authority role defaulted from call type (${folder?.label ?? "untagged"}); AI labelled turns by conversational role. ${String(aiAuthority.evidence ?? "")}`.trim();
+
+  // Post-clean sanity check (req 8): for the call types that MUST carry an
+  // explicit authority label, verify the expected label actually appears in the
+  // cleaned output. If it doesn't, the AI failed to find any authority turn —
+  // downgrade confidence and flag it for a human. Otherwise, when the role was
+  // only defaulted and the AI itself was unsure, surface a single generic flag.
+  const labelAbsent =
+    folder != null &&
+    SLUGS_WITH_AUTHORITY_LABEL.has(folder.slug) &&
+    !hasAuthorityLabel(cleanedContent, label);
+  if (labelAbsent) {
+    authorityConfidence = "low";
     flags.push({
       type: "uncertain_authority",
-      reason: `Authority mapping is low-confidence — confirm or override. ${authorityEvidence}`,
+      reason: `Expected the "${label}" authority label but it does not appear in the cleaned transcript — confirm which turns are the ${label}.`,
+      confidence: "low",
+    });
+  } else if (authorityConfidence === "low") {
+    flags.push({
+      type: "uncertain_authority",
+      reason: `Authority role was defaulted from the call type and the AI could not clearly separate the ${label} — confirm or override. ${authorityEvidence}`,
       confidence: "low",
     });
   }
 
-  // Auto-naming (Task #1518): assemble the title deterministically from the
-  // building blocks the model extracted, picking the grammar by call type. The
-  // authority name prefers a deterministic roster label match, then the model's
-  // detected name. The member (1-on-1 types) prefers the model's primary subject,
-  // then a cleaned source filename. The date is appended only when present.
-  const rosterAuthorityName = rosterHit.labelMatched[0]?.name ?? null;
+  // Auto-naming (Task #1518 + #1560): assemble the title deterministically from
+  // the building blocks. Every WHO/WHAT block prefers the admin-provided value,
+  // then falls back to the AI's extraction:
+  //   - authorityName: provided name, else the AI's detected name (never a
+  //     roster crowning — req 6). A missing name is tolerated (generic label).
+  //   - member/topic subject: provided subject, else the AI's primarySubject.
+  //   - date: provided date, else a date in the filename, else the AI's date.
   const aiDetectedName =
     typeof aiAuthority.detectedName === "string" && aiAuthority.detectedName.trim()
       ? aiAuthority.detectedName.trim()
       : null;
-  const authorityName = rosterAuthorityName ?? aiDetectedName;
+  const authorityName = providedName ?? aiDetectedName;
   const primarySubject =
-    typeof firstParsed.primarySubject === "string" && firstParsed.primarySubject.trim()
+    (providedSubject ?? "").trim() ||
+    (typeof firstParsed.primarySubject === "string" && firstParsed.primarySubject.trim()
       ? firstParsed.primarySubject.trim()
-      : null;
-  const isoDate = normalizeIsoDate(firstParsed.detectedDate);
+      : null);
+  const isoDate =
+    normalizeIsoDate(providedDate) ??
+    detectIsoDateInText(sourceName ?? "") ??
+    normalizeIsoDate(firstParsed.detectedDate);
 
   const { title: suggestedTitle, titleNeedsInput } = assembleTranscriptTitle({
     folder,
@@ -1025,23 +1120,34 @@ export async function retitleCleanedHoldingDocs(): Promise<number> {
       continue;
     }
 
-    const role: AuthorityRole = isAuthorityRole(doc.authorityRole)
-      ? doc.authorityRole
-      : folder?.defaultAuthorityRole ?? DEFAULT_AUTHORITY_ROLE;
+    // Admin-provided ground truth (Task #1560) wins over anything re-derived from
+    // the body; only fall back to detection when a field was not supplied.
+    const role: AuthorityRole = isAuthorityRole(doc.providedAuthorityRole)
+      ? doc.providedAuthorityRole
+      : isAuthorityRole(doc.authorityRole)
+        ? doc.authorityRole
+        : folder?.defaultAuthorityRole ?? DEFAULT_AUTHORITY_ROLE;
     // Raw originalContent retains real speaker labels (e.g. "Bruce:"); the cleaned
     // body is frequently anonymized to "Coach"/"Member N", so prefer the original
     // for roster/authority detection and fall back to cleaned only if absent.
     const authorityBody = doc.originalContent || doc.cleanedContent || "";
     const dateBody = doc.cleanedContent || doc.originalContent || "";
     const rosterHit = detectRosterAuthority(authorityBody, roster);
+    const authorityName =
+      (doc.providedAuthorityName ?? "").trim() || rosterHit.labelMatched[0]?.name || null;
+    const primarySubject = (doc.providedSubject ?? "").trim() || null;
+    const isoDate =
+      normalizeIsoDate(doc.providedDate) ??
+      detectIsoDateInText(doc.sourceName ?? "") ??
+      detectIsoDateInText(dateBody);
 
     const { title, titleNeedsInput } = assembleTranscriptTitle({
       folder,
       authorityRole: role,
-      authorityName: rosterHit.labelMatched[0]?.name ?? null,
-      primarySubject: null,
+      authorityName,
+      primarySubject,
       sourceName: doc.sourceName,
-      isoDate: detectIsoDateInText(dateBody),
+      isoDate,
     });
     // Never blank out an existing title during a backfill; leave it for the admin.
     if (!title || title === doc.title) continue;
@@ -1070,7 +1176,8 @@ const REFINE_PATCH_SYSTEM_PROMPT = [
   "",
   "Return your change as a SMALL set of literal find/replace edits — NOT the whole",
   "transcript. Preserve every distinct speaker and the authority labelling",
-  "convention (authority role title vs Member N).",
+  "convention: EXACTLY ONE authority ('Coach' or 'VA', label only), everyone else",
+  "labelled 'Member' (no numbers, no names).",
   "",
   "Return STRICT JSON only with keys:",
   "- edits: array of { find, replace, all? }. `find` MUST be an EXACT, VERBATIM",
@@ -1096,8 +1203,9 @@ const REFINE_FULL_SYSTEM_PROMPT = [
   "You are refining an already-cleaned call transcript based on an admin's",
   "instruction (e.g. 'Speaker 4 from 12:30 on is the member', 'Speaker 2 is the",
   "authority', 'merge the two coach labels'). Apply the change faithfully while",
-  "preserving every distinct speaker and the authority labelling convention",
-  "(authority role title vs Member N).",
+  "preserving every distinct speaker and the authority labelling convention:",
+  "EXACTLY ONE authority ('Coach' or 'VA', label only), everyone else labelled",
+  "'Member' (no numbers, no names).",
   "",
   "Return STRICT JSON only with keys: cleanedTranscript (string, the full updated",
   "transcript), flags (array of { type, text, reason, confidence } — the refreshed",

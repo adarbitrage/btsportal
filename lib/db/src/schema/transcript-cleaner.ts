@@ -50,6 +50,18 @@ export const transcriptCleanerDocumentsTable = pgTable("transcript_cleaner_docum
   authorityConfidence: text("authority_confidence"),
   // Free-form evidence supporting the authority mapping.
   authorityEvidence: text("authority_evidence"),
+  // Admin-supplied cleaning inputs, captured at upload (batch default or
+  // per-file override) BEFORE cleaning. They are the ground truth for WHO/WHAT
+  // (Task #1560): the AI only decides WHICH turns belong to the authority.
+  // All nullable — an unset value falls back to a call-type default / AI guess.
+  //  - providedAuthorityRole: 'strategic_coach' | 'va' | 'curriculum' | 'internal'.
+  //  - providedAuthorityName: the authority's name when a roster coach/VA is picked.
+  //  - providedSubject:       the member / topic subject for the title.
+  //  - providedDate:          the call date (any string containing an ISO date).
+  providedAuthorityRole: text("provided_authority_role"),
+  providedAuthorityName: text("provided_authority_name"),
+  providedSubject: text("provided_subject"),
+  providedDate: text("provided_date"),
   // Structured low-confidence segments / review flags: [{ type, text, reason, confidence }].
   flags: jsonb("flags").$type<TranscriptCleanerFlag[]>().notNull().default(sql`'[]'::jsonb`),
   // Refinement chat turns: [{ role: 'user' | 'assistant', content }].
