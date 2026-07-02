@@ -19,6 +19,7 @@ import {
   rescrubKnowledgebaseDocs,
   findUnscrubbedTitles,
 } from "./rescrub-knowledgebase-docs";
+import { rebrandOldBrandSourceContent } from "./rebrand-old-brand-source-content";
 import {
   ANTI_HALLUCINATION_SYSTEM_PROMPT,
   ANTI_HALLUCINATION_SENTINEL,
@@ -474,6 +475,25 @@ export async function ensureKBGrounding(): Promise<void> {
         `cleaned this run across ${rescrub.scanned} rows).`,
     );
   }
+
+  // 3b. Rebrand stored OLD-BRAND references (Cherrington / TCE / … -> BTS / Adam)
+  //     in the two raw AI-source tables that have no re-scrub pass of their own:
+  //     transcript_cleaner_documents (holding store) and ai_source_documents
+  //     (filed source library). The #1604 cleaner rules only rebrand NEW cleans /
+  //     refine + retrieval; this backfill fixes content already cleaned / filed
+  //     before those rules landed. Old-brand ONLY — coach / VA attribution in raw
+  //     source is deliberately preserved (NOT the full privacy filter). Runs here
+  //     (not just in post-merge, which only touches the dev DB) so a fresh
+  //     production deploy applies it against its own DATABASE_URL — the only way
+  //     the rewrite reaches prod. Idempotent: only rows that actually change are
+  //     written, so it is a fast no-op once everything is on-brand.
+  const rebrand = await rebrandOldBrandSourceContent((m) => console.log(m));
+  console.log(
+    `[Bootstrap] old-brand source rebrand: ` +
+      `${rebrand.transcriptCleaner.updated}/${rebrand.transcriptCleaner.scanned} ` +
+      `transcript_cleaner + ${rebrand.aiSource.updated}/${rebrand.aiSource.scanned} ` +
+      `ai_source row(s) updated.`,
+  );
 
   // 4. Ingest BTS knowledge base files (idempotent via ON CONFLICT DO NOTHING).
   //    Runs in the background after startup so it doesn't block the HTTP server.

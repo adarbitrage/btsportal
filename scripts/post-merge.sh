@@ -462,6 +462,19 @@ if [ -n "$DATABASE_URL" ]; then
     src/scripts/rescrub-knowledgebase-docs.ts
 fi
 
+# Rebrand stored OLD-BRAND references (Cherrington / TCE / … -> BTS / Adam) in the
+# two raw AI-source tables that have no re-scrub pass of their own:
+# transcript_cleaner_documents (holding store) and ai_source_documents (filed
+# source library). The #1604 cleaner rules only rebrand NEW cleans / refine +
+# retrieval; this one-shot fixes content already cleaned / filed before those
+# rules landed. Old-brand ONLY — coach / VA attribution in raw source is
+# preserved (NOT the full privacy filter). Idempotent: only rows that actually
+# change are written, so a re-run is a no-op.
+if [ -n "$DATABASE_URL" ]; then
+  pnpm --filter @workspace/api-server exec tsx \
+    src/scripts/rebrand-old-brand-source-content.ts
+fi
+
 # Transcript Cleaner admin-supplied cleaning inputs (Task #1560). Additive,
 # all-nullable columns captured at upload time. The drift test only fires
 # push --force when the schema is out of sync, so add these columns explicitly

@@ -1,0 +1,31 @@
+Backfill: rewrite stored old-brand references in already-cleaned AI source content
+
+Task #1604 added old-brand → BTS rebrand rules to the shared privacy filter (artifacts/api-server/src/lib/content-privacy-filter.ts — OLD_BRAND_REBRAND_GUIDANCE plus the old-brand block inside PRIVACY_RULES). Those apply during new transcript cleans/refine and at retrieval time, but they do not rewrite content that was already cleaned into the Transcript Cleaner holding store or already filed into the AI Source Knowledge library. Those rows still carry the old brand in their stored text; the retrieval-time filter neutralizes it on the way out, but the stored source-of-truth is off-brand and downstream mining/synthesis reads that stored text.
+
+Important — don't duplicate existing coverage. Seeded knowledgebase_docs rows are already handled: the existing rescrub-knowledgebase-docs pass (run on boot in bootstrap-critical-prerequisites.ts and again in scripts/post-merge.sh) applies the full scrubPrivateContent, which now includes the #1604 old-brand rules. The real gaps are the two tables that have no rescrub pass:
+
+transcript_cleaner_documents (holding store): cleaned_content, and the title fields title / suggested_title / proposed_title.
+ai_source_documents (filed raw-source library): content, title.
+Scope discipline — old-brand ONLY. Do NOT run the full privacy filter over these two tables. They are raw mining input where coach-name attribution is meaningful (authority labelling), so stripping coach surnames here would damage the data and is out of scope. Rewrite only the old-brand references, reusing the exact rule objects from the shared filter so it stays in lockstep with the cleaner.
+
+Implement (follow the rescrub-knowledgebase-docs precedent):
+
+In content-privacy-filter.ts, factor the old-brand rules out of PRIVACY_RULES into an exported OLD_BRAND_REBRAND_RULES: PrivacyRule[] (the "Adam Cherrington → Adam" rule and the company/program → BTS rules, plus the trailing whitespace-collapse cleanup rules needed after them). Keep PRIVACY_RULES composed from that same array so there's one source of truth. Add and export rebrandOldBrandContent(text): string that applies only OLD_BRAND_REBRAND_RULES, with the same null/empty handling as scrubPrivateContent.
+
+Create a pure lib artifacts/api-server/src/lib/rebrand-old-brand-source-content.ts (no CLI side-effects, importable from boot + tests), mirroring lib/rescrub-knowledgebase-docs.ts:
+
+Select all transcript_cleaner_documents; for each, rebrand cleanedContent + title + suggestedTitle + proposedTitle; update only rows that actually change.
+Select all ai_source_documents; for each, rebrand content + title; update only changed rows.
+Neither table declares a title UNIQUE constraint today, so a plain update is safe — no collision handling needed (confirm this against lib/db/src/schema/transcript-cleaner.ts and lib/db/src/schema/ai-source-documents.ts before relying on it).
+Return per-table counts { scanned, updated } and log each change.
+Idempotent: rebranded text no longer matches the old-brand patterns, so a second run writes nothing.
+Add a CLI wrapper artifacts/api-server/src/scripts/rebrand-old-brand-source-content.ts guarded by import.meta.url === `file://${process.argv[1]}` (exactly like scripts/rescrub-knowledgebase-docs.ts) so it's never bundled into the server.
+
+Wire it in:
+
+In bootstrap-critical-prerequisites.ts, call it awaited right after the existing rescrubKnowledgebaseDocs step — a fresh production deploy applies it against its own DATABASE_URL, which is the only way the rewrite reaches the prod DB.
+In scripts/post-merge.sh, add a step next to the existing rescrub invocation: pnpm --filter @workspace/api-server exec tsx src/scripts/rebrand-old-brand-source-content.ts so the dev DB is fixed on merge.
+Add a vitest test: a doc containing "Cherrington Media" / "The Cherrington Experience" / "Adam Cherrington" / "TCE" / "the Cherring method" is rewritten to BTS/Adam; a clean doc is untouched; a second run makes no further change (idempotency).
+
+Constraints: safe to re-run, no double-rewrites, no unrelated content changed. Reuse OLD_BRAND_REBRAND_RULES — never hand-duplicate the patterns. Verify with the typecheck gate + the new test.
+

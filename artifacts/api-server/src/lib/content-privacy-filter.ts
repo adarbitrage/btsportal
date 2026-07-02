@@ -52,6 +52,48 @@ export const OLD_BRAND_REBRAND_GUIDANCE: string[] = [
   'The founder\'s personal name — "Adam Cherrington" (and misspellings like "Adam Charrington") -> reduce to just "Adam" (keep the first name, drop the surname).',
 ];
 
+/**
+ * OLD-BRAND REPLACEMENT patterns — the founder's name -> "Adam" and every
+ * company / program reference (including phonetic/garbled variants) -> "BTS".
+ * Ordered specific -> general so the longest match wins. Aligned with
+ * OLD_BRAND_REBRAND_GUIDANCE (single source above).
+ */
+const OLD_BRAND_REPLACEMENT_RULES: PrivacyRule[] = [
+  { pattern: /\bAdam\s+Ch[ae]rrington\b/gi, replacement: "Adam" },
+  { pattern: /\b(?:The\s+)?Ch[ae]rrington\s+Experience\b/gi, replacement: "BTS" },
+  { pattern: /Ch[ae]rrington ?Media Support/gi, replacement: "BTS Support" },
+  { pattern: /Ch[ae]rringtonmedia/gi, replacement: "BTS" },
+  { pattern: /Ch[ae]rringtong? ?Media/gi, replacement: "BTS" },
+  { pattern: /Ch[ae]rrington Mentees/gi, replacement: "BTS members" },
+  { pattern: /Ch[ae]rrington Support/gi, replacement: "BTS Support" },
+  // Garbled/phonetic variant of the program name (e.g. "the Cherring method").
+  { pattern: /\bCh[ae]rring\s+method\b/gi, replacement: "BTS" },
+  // Old program acronym (always uppercase in the wild).
+  { pattern: /\bTCE\b/g, replacement: "BTS" },
+  // Bare surname / -ton(g) variants -> BTS.
+  { pattern: /\bCh[ae]rringtong?\b/gi, replacement: "BTS" },
+];
+
+/**
+ * Cleanup applied AFTER an old-brand replacement to tidy up artifacts the
+ * replacement may leave behind (a doubled "the …" and collapsed double spaces).
+ */
+const OLD_BRAND_CLEANUP_RULES: PrivacyRule[] = [
+  { pattern: /\bthe the (agency|support|mentees|instructor)\b/gi, replacement: "the $1" },
+  { pattern: / {2,}/g, replacement: " " },
+];
+
+/**
+ * The complete old-brand rebrand rule set (replacements + cleanup) — the single
+ * source of truth shared by PRIVACY_RULES (retrieval-time scrub) and
+ * rebrandOldBrandContent (the stored-content backfill). Never hand-duplicate
+ * these patterns elsewhere; import this instead.
+ */
+export const OLD_BRAND_REBRAND_RULES: PrivacyRule[] = [
+  ...OLD_BRAND_REPLACEMENT_RULES,
+  ...OLD_BRAND_CLEANUP_RULES,
+];
+
 export const PRIVACY_RULES: PrivacyRule[] = [
   // --- Generic PII: email addresses ---
   // Matches any RFC-5321-style address regardless of domain or who it belongs
@@ -94,25 +136,6 @@ export const PRIVACY_RULES: PrivacyRule[] = [
   { pattern: /\bSheph?[ae]rd\b/gi, replacement: "" },
   { pattern: /\bClark\b/gi, replacement: "Bruce" },
 
-  // --- Old brand rebrand: Adam Cherrington -> "Adam"; company/program -> "BTS" ---
-  // Aligned with OLD_BRAND_REBRAND_GUIDANCE (single source above). Ordered
-  // specific -> general so the longest match wins. Founder's personal name keeps
-  // the first name only (matches the coach convention); every company / program
-  // reference (including phonetic/garbled variants) resolves to "BTS".
-  { pattern: /\bAdam\s+Ch[ae]rrington\b/gi, replacement: "Adam" },
-  { pattern: /\b(?:The\s+)?Ch[ae]rrington\s+Experience\b/gi, replacement: "BTS" },
-  { pattern: /Ch[ae]rrington ?Media Support/gi, replacement: "BTS Support" },
-  { pattern: /Ch[ae]rringtonmedia/gi, replacement: "BTS" },
-  { pattern: /Ch[ae]rringtong? ?Media/gi, replacement: "BTS" },
-  { pattern: /Ch[ae]rrington Mentees/gi, replacement: "BTS members" },
-  { pattern: /Ch[ae]rrington Support/gi, replacement: "BTS Support" },
-  // Garbled/phonetic variant of the program name (e.g. "the Cherring method").
-  { pattern: /\bCh[ae]rring\s+method\b/gi, replacement: "BTS" },
-  // Old program acronym (always uppercase in the wild).
-  { pattern: /\bTCE\b/g, replacement: "BTS" },
-  // Bare surname / -ton(g) variants -> BTS.
-  { pattern: /\bCh[ae]rringtong?\b/gi, replacement: "BTS" },
-
   // ============================================================
   // ADD NEW FORBIDDEN NAMES HERE.
   // Example — remove a full name entirely:
@@ -121,9 +144,11 @@ export const PRIVACY_RULES: PrivacyRule[] = [
   //   { pattern: /\bJohn Smith\b/gi, replacement: "the coach" },
   // ============================================================
 
-  // --- Cleanup: collapse artifacts left by the rules above ---
-  { pattern: /\bthe the (agency|support|mentees|instructor)\b/gi, replacement: "the $1" },
-  { pattern: / {2,}/g, replacement: " " },
+  // --- Old-brand rebrand + trailing cleanup (shared single source) ---
+  // Founder -> "Adam"; company/program (incl. garbled variants) -> "BTS", then
+  // collapse the artifacts. Kept LAST so the whitespace cleanup also tidies the
+  // coach-surname removals above. See OLD_BRAND_REBRAND_RULES.
+  ...OLD_BRAND_REBRAND_RULES,
 ];
 
 /** Apply every privacy rule to a single string. Returns "" for nullish input. */
@@ -131,6 +156,33 @@ export function scrubPrivateContent(text: string | null | undefined): string {
   if (!text) return text ?? "";
   let out = text;
   for (const rule of PRIVACY_RULES) {
+    out = out.replace(rule.pattern, rule.replacement);
+  }
+  return out;
+}
+
+/**
+ * Rewrite ONLY old-brand references (founder -> "Adam"; company / program ->
+ * "BTS") in a single string, using OLD_BRAND_REBRAND_RULES. Unlike
+ * scrubPrivateContent this does NOT strip coach / VA names — it is safe to run
+ * over raw mining source (ai_source_documents / transcript_cleaner_documents)
+ * where authority attribution must be preserved.
+ *
+ * Content that carries NO old-brand reference is returned byte-for-byte
+ * unchanged: the trailing whitespace/artifact cleanup only runs once a brand
+ * replacement has actually fired, so the stored-content backfill never rewrites
+ * unrelated rows (e.g. collapsing legitimate double spaces) and stays
+ * idempotent. Returns "" for nullish input.
+ */
+export function rebrandOldBrandContent(text: string | null | undefined): string {
+  if (!text) return text ?? "";
+  let out = text;
+  for (const rule of OLD_BRAND_REPLACEMENT_RULES) {
+    out = out.replace(rule.pattern, rule.replacement);
+  }
+  // No old-brand reference present -> leave the input untouched.
+  if (out === text) return text;
+  for (const rule of OLD_BRAND_CLEANUP_RULES) {
     out = out.replace(rule.pattern, rule.replacement);
   }
   return out;
