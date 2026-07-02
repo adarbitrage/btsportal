@@ -171,6 +171,7 @@ import { AdminRoute } from "@/components/auth/AdminRoute";
 import { CoachRoute } from "@/components/auth/CoachRoute";
 import { PartnerRoute } from "@/components/auth/PartnerRoute";
 import PartnerDashboard from "@/pages/partner/PartnerDashboard";
+import PartnerMenteeDetail from "@/pages/partner/PartnerMenteeDetail";
 import { adminPanelApi } from "@/lib/admin-panel-api";
 import { useToast } from "@/hooks/use-toast";
 import { useContentAccess } from "@/hooks/use-content-access";
@@ -646,6 +647,8 @@ function Router() {
       <Route path="/coach/messages">{() => <CoachRoute component={DMInbox} />}</Route>
       <Route path="/coach/messages/:threadId">{() => <CoachRoute component={DMThread} />}</Route>
       <Route path="/partner">{() => <PartnerRoute component={PartnerDashboard} />}</Route>
+      <Route path="/partner/dashboard">{() => <PartnerRoute component={PartnerDashboard} />}</Route>
+      <Route path="/partner/mentees/:memberId">{() => <PartnerRoute component={PartnerMenteeDetail} />}</Route>
       <Route component={NotFound} />
     </Switch>
   );

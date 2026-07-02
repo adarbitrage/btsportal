@@ -8,7 +8,11 @@ const APP_TSX_PATH = path.resolve(__dirname, "..", "..", "App.tsx");
 const APP_TSX = readFileSync(APP_TSX_PATH, "utf8");
 
 describe("App.tsx partner route", () => {
-  it('registers a <Route path="/partner"> in App.tsx', () => {
+  it('registers a <Route path="/partner/dashboard"> in App.tsx', () => {
+    expect(APP_TSX).toContain('path="/partner/dashboard"');
+  });
+
+  it('keeps <Route path="/partner"> as a legacy alias', () => {
     expect(APP_TSX).toContain('path="/partner"');
   });
 
@@ -18,9 +22,9 @@ describe("App.tsx partner route", () => {
 });
 
 describe("Sidebar PARTNER_NAV_NODES", () => {
-  it("contains a Partner Home leaf pointing at /partner", () => {
+  it("contains a Partner Home leaf pointing at /partner/dashboard", () => {
     const leaf = PARTNER_NAV_NODES.find(
-      (n): n is NavLeaf => n.kind === "leaf" && n.href === "/partner",
+      (n): n is NavLeaf => n.kind === "leaf" && n.href === "/partner/dashboard",
     );
     expect(leaf).toBeDefined();
   });

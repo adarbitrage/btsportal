@@ -22,6 +22,8 @@ import {
   usersTable,
   coachesTable,
   coachingCallsTable,
+  partnerNotesTable,
+  partnersTable,
 } from "@workspace/db";
 import { sql, eq, and, asc, gte, desc } from "drizzle-orm";
 import { requirePermission, requireCoachOrCoachingView } from "../middleware/rbac";
@@ -462,6 +464,31 @@ router.get(
       // Recent activity timeline via the shared activity fetcher
       const recent_events = await fetchRecentActivity(userId, 20);
 
+      // Accountability-partner notes, READ-ONLY here: coaches see every note
+      // ever written for this member across every partner they've ever had
+      // (keyed to member_id, survives reassignment), never author one under
+      // their own identity.
+      const partnerNoteRows = await db
+        .select({
+          id: partnerNotesTable.id,
+          body: partnerNotesTable.body,
+          isConcern: partnerNotesTable.isConcern,
+          createdAt: partnerNotesTable.createdAt,
+          authorName: partnersTable.displayName,
+        })
+        .from(partnerNotesTable)
+        .innerJoin(partnersTable, eq(partnersTable.id, partnerNotesTable.authorPartnerId))
+        .where(eq(partnerNotesTable.memberId, userId))
+        .orderBy(desc(partnerNotesTable.createdAt));
+
+      const partner_notes = partnerNoteRows.map((n) => ({
+        id: n.id,
+        body: n.body,
+        is_concern: n.isConcern,
+        author_name: n.authorName,
+        created_at: new Date(n.createdAt).toISOString(),
+      }));
+
       const status = computeStatus(row);
       const blitz_completion_pct = completionPct(row.blitz_count);
 
@@ -480,6 +507,7 @@ router.get(
         phase_breakdown,
         section_completion,
         recent_events,
+        partner_notes,
       });
     } catch (err) {
       console.error("[CoachDashboard] mentee detail error:", err);

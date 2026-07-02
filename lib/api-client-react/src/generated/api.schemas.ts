@@ -592,6 +592,24 @@ export interface OwnedProduct {
   externalSource?: string | null;
 }
 
+/**
+ * Resolved brand display strings for the member's front-end product.
+Derived from the member's earliest active frontend product grant;
+falls back to the BTS platform defaults when no frontend product
+is held.
+
+ */
+export interface BrandStrings {
+  /** Full brand name (e.g. "Build Test Scale" or "Your Second Engine"). */
+  full: string;
+  /** Short brand name (e.g. "BTS" or "YSE"). */
+  short: string;
+  /** Full possessive form (e.g. "Build Test Scale's"). */
+  possessive: string;
+  /** Short possessive form (e.g. "BTS's"). */
+  shortPossessive: string;
+}
+
 export interface MemberProfile {
   id: number;
   name: string;
@@ -659,17 +677,6 @@ always sends regardless.
   products: OwnedProduct[];
   ticketLimit: number;
   brand: BrandStrings;
-}
-
-export interface BrandStrings {
-  /** Full brand name (e.g. "Build Test Scale" or "Your Second Engine"). */
-  full: string;
-  /** Short brand name (e.g. "BTS" or "YSE"). */
-  short: string;
-  /** Full possessive form (e.g. "Build Test Scale's"). */
-  possessive: string;
-  /** Short possessive form (e.g. "BTS's"). */
-  shortPossessive: string;
 }
 
 export interface EntitlementSet {
@@ -2906,11 +2913,97 @@ export interface BlitzActivityEvent {
   occurredAt: string;
 }
 
+export interface CoachVisiblePartnerNote {
+  id: number;
+  body: string;
+  is_concern: boolean;
+  author_name: string;
+  created_at: string;
+}
+
 export type CoachMenteeDetail = CoachMenteeRow & {
   phase_breakdown: PhaseBreakdown[];
   section_completion: SectionCompletion[];
   recent_events: BlitzActivityEvent[];
+  /** Accountability-partner notes for this member, read-only for coaches. */
+  partner_notes: CoachVisiblePartnerNote[];
 };
+
+export type PartnerRosterMenteeNextCall = {
+  id: number;
+  scheduled_at: string;
+  meeting_url: string | null;
+} | null;
+
+export interface PartnerRosterMentee {
+  member_id: number;
+  name: string;
+  email: string;
+  joined_at: string;
+  cadence_per_week: number | null;
+  assigned_at: string;
+  current_section: MenteeCurrentSection | null;
+  blitz_status: string;
+  next_call: PartnerRosterMenteeNextCall;
+  last_completed_call_at: string | null;
+  days_since_last_completed_call: number | null;
+  consecutive_no_shows: number;
+  has_concern: boolean;
+}
+
+export interface PartnerRosterResponse {
+  mentees: PartnerRosterMentee[];
+}
+
+export interface PartnerTodayCall {
+  id: number;
+  member_id: number;
+  member_name: string;
+  member_email: string;
+  scheduled_at: string;
+  end_at: string;
+  duration_minutes: number;
+  meeting_url: string | null;
+  status: string;
+}
+
+export interface PartnerTodayResponse {
+  calls: PartnerTodayCall[];
+}
+
+export interface PartnerNote {
+  id: number;
+  body: string;
+  is_concern: boolean;
+  author_partner_id: number;
+  author_name?: string;
+  created_at: string;
+}
+
+export interface PartnerMenteeCall {
+  id: number;
+  scheduled_at: string;
+  end_at: string;
+  status: string;
+  meeting_url: string | null;
+}
+
+export interface PartnerMenteeDetail {
+  member_id: number;
+  name: string;
+  email: string;
+  joined_at: string;
+  current_section: MenteeCurrentSection | null;
+  blitz_status: string;
+  blitz_completion_pct: number;
+  cadence_per_week: number | null;
+  assigned_at: string;
+  last_completed_call_at: string | null;
+  days_since_last_completed_call: number | null;
+  consecutive_no_shows: number;
+  notes: PartnerNote[];
+  calls: PartnerMenteeCall[];
+}
 
 /**
  * Bad request — validation error
@@ -3277,6 +3370,45 @@ export const ListCoachMenteesStatus = {
   new: "new",
   completed: "completed",
 } as const;
+
+export type GetPartnerRosterParams = {
+  /**
+   * Required for admin callers (partners:view); ignored for partner logins.
+   */
+  partnerId?: number;
+};
+
+export type GetPartnerTodayParams = {
+  partnerId?: number;
+};
+
+export type GetPartnerMenteeDetailParams = {
+  partnerId?: number;
+};
+
+export type AddPartnerMenteeNoteBody = {
+  body: string;
+  isConcern?: boolean;
+};
+
+export type SetPartnerMenteeCadenceBody = {
+  /**
+   * @minimum 1
+   * @maximum 7
+   */
+  cadencePerWeek: number | null;
+};
+
+export type SetPartnerMenteeCadence200 = {
+  member_id: number;
+  cadence_per_week: number | null;
+};
+
+export type MarkPartnerCallDoneRoute200 = {
+  id: number;
+  updated: boolean;
+  onboarding_advanced: boolean;
+};
 
 export type GetPrivateCoachingSlotsParams = {
   coachId: number;

@@ -119,13 +119,23 @@ export const GetCurrentMemberResponse = zod.object({
   ticketLimit: zod.number(),
   brand: zod
     .object({
-      full: zod.string().describe('Full brand name (e.g. "Build Test Scale" or "Your Second Engine").'),
-      short: zod.string().describe('Short brand name (e.g. "BTS" or "YSE").'),
-      possessive: zod.string().describe('Full possessive form (e.g. "Build Test Scale\'s").'),
-      shortPossessive: zod.string().describe('Short possessive form (e.g. "BTS\'s").'),
+      full: zod
+        .string()
+        .describe(
+          'Full brand name (e.g. \"Build Test Scale\" or \"Your Second Engine\").',
+        ),
+      short: zod
+        .string()
+        .describe('Short brand name (e.g. \"BTS\" or \"YSE\").'),
+      possessive: zod
+        .string()
+        .describe('Full possessive form (e.g. \"Build Test Scale\'s\").'),
+      shortPossessive: zod
+        .string()
+        .describe('Short possessive form (e.g. \"BTS\'s\").'),
     })
     .describe(
-      "Resolved brand display strings for the member's front-end product.\nFalls back to BTS platform defaults when no frontend product is held.\n",
+      "Resolved brand display strings for the member's front-end product.\nDerived from the member's earliest active frontend product grant;\nfalls back to the BTS platform defaults when no frontend product\nis held.\n",
     ),
 });
 
@@ -3693,8 +3703,194 @@ export const GetCoachMenteeDetailResponse = zod
           occurredAt: zod.date(),
         }),
       ),
+      partner_notes: zod
+        .array(
+          zod.object({
+            id: zod.number(),
+            body: zod.string(),
+            is_concern: zod.boolean(),
+            author_name: zod.string(),
+            created_at: zod.date(),
+          }),
+        )
+        .describe(
+          "Accountability-partner notes for this member, read-only for coaches.",
+        ),
     }),
   );
+
+/**
+ * @summary List active mentees assigned to the resolved partner
+ */
+export const GetPartnerRosterQueryParams = zod.object({
+  partnerId: zod.coerce
+    .number()
+    .optional()
+    .describe(
+      "Required for admin callers (partners:view); ignored for partner logins.",
+    ),
+});
+
+export const GetPartnerRosterResponse = zod.object({
+  mentees: zod.array(
+    zod.object({
+      member_id: zod.number(),
+      name: zod.string(),
+      email: zod.string(),
+      joined_at: zod.date(),
+      cadence_per_week: zod.number().nullable(),
+      assigned_at: zod.date(),
+      current_section: zod.union([
+        zod.object({
+          id: zod.number(),
+          courseId: zod.string(),
+          name: zod.string(),
+          step: zod.string(),
+          phase: zod.string(),
+        }),
+        zod.null(),
+      ]),
+      blitz_status: zod.string(),
+      next_call: zod
+        .object({
+          id: zod.number(),
+          scheduled_at: zod.date(),
+          meeting_url: zod.string().nullable(),
+        })
+        .nullable(),
+      last_completed_call_at: zod.date().nullable(),
+      days_since_last_completed_call: zod.number().nullable(),
+      consecutive_no_shows: zod.number(),
+      has_concern: zod.boolean(),
+    }),
+  ),
+});
+
+/**
+ * @summary List today's calls for the resolved partner
+ */
+export const GetPartnerTodayQueryParams = zod.object({
+  partnerId: zod.coerce.number().optional(),
+});
+
+export const GetPartnerTodayResponse = zod.object({
+  calls: zod.array(
+    zod.object({
+      id: zod.number(),
+      member_id: zod.number(),
+      member_name: zod.string(),
+      member_email: zod.string(),
+      scheduled_at: zod.date(),
+      end_at: zod.date(),
+      duration_minutes: zod.number(),
+      meeting_url: zod.string().nullable(),
+      status: zod.string(),
+    }),
+  ),
+});
+
+/**
+ * @summary Get full detail for a single mentee (notes, cadence, call history)
+ */
+export const GetPartnerMenteeDetailParams = zod.object({
+  memberId: zod.coerce.number(),
+});
+
+export const GetPartnerMenteeDetailQueryParams = zod.object({
+  partnerId: zod.coerce.number().optional(),
+});
+
+export const GetPartnerMenteeDetailResponse = zod.object({
+  member_id: zod.number(),
+  name: zod.string(),
+  email: zod.string(),
+  joined_at: zod.date(),
+  current_section: zod.union([
+    zod.object({
+      id: zod.number(),
+      courseId: zod.string(),
+      name: zod.string(),
+      step: zod.string(),
+      phase: zod.string(),
+    }),
+    zod.null(),
+  ]),
+  blitz_status: zod.string(),
+  blitz_completion_pct: zod.number(),
+  cadence_per_week: zod.number().nullable(),
+  assigned_at: zod.date(),
+  last_completed_call_at: zod.date().nullable(),
+  days_since_last_completed_call: zod.number().nullable(),
+  consecutive_no_shows: zod.number(),
+  notes: zod.array(
+    zod.object({
+      id: zod.number(),
+      body: zod.string(),
+      is_concern: zod.boolean(),
+      author_partner_id: zod.number(),
+      author_name: zod.string().optional(),
+      created_at: zod.date(),
+    }),
+  ),
+  calls: zod.array(
+    zod.object({
+      id: zod.number(),
+      scheduled_at: zod.date(),
+      end_at: zod.date(),
+      status: zod.string(),
+      meeting_url: zod.string().nullable(),
+    }),
+  ),
+});
+
+/**
+ * @summary Add a note (optionally flagged as a concern) for a mentee
+ */
+export const AddPartnerMenteeNoteParams = zod.object({
+  memberId: zod.coerce.number(),
+});
+
+export const addPartnerMenteeNoteBodyIsConcernDefault = false;
+
+export const AddPartnerMenteeNoteBody = zod.object({
+  body: zod.string(),
+  isConcern: zod.boolean().default(addPartnerMenteeNoteBodyIsConcernDefault),
+});
+
+/**
+ * @summary Set (or clear) the weekly call cadence for a mentee
+ */
+export const SetPartnerMenteeCadenceParams = zod.object({
+  memberId: zod.coerce.number(),
+});
+
+export const setPartnerMenteeCadenceBodyCadencePerWeekMax = 7;
+
+export const SetPartnerMenteeCadenceBody = zod.object({
+  cadencePerWeek: zod
+    .number()
+    .min(1)
+    .max(setPartnerMenteeCadenceBodyCadencePerWeekMax)
+    .nullable(),
+});
+
+export const SetPartnerMenteeCadenceResponse = zod.object({
+  member_id: zod.number(),
+  cadence_per_week: zod.number().nullable(),
+});
+
+/**
+ * @summary Mark a booked partner call as completed
+ */
+export const MarkPartnerCallDoneRouteParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const MarkPartnerCallDoneRouteResponse = zod.object({
+  id: zod.number(),
+  updated: zod.boolean(),
+  onboarding_advanced: zod.boolean(),
+});
 
 /**
  * @summary Get Private Coaching status for current member

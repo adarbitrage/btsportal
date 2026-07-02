@@ -3995,6 +3995,215 @@ paths:
         "404":
           description: Mentee not found
 
+  /partner/dashboard/roster:
+    get:
+      operationId: getPartnerRoster
+      tags: [partner-dashboard]
+      summary: List active mentees assigned to the resolved partner
+      security:
+        - cookieAuth: []
+        - apiKeyAuth: []
+      parameters:
+        - name: partnerId
+          in: query
+          required: false
+          description: Required for admin callers (partners:view); ignored for partner logins.
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Partner roster
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PartnerRosterResponse"
+        "400":
+          description: Missing partnerId for an admin caller
+        "403":
+          description: Forbidden
+        "404":
+          description: No partner profile linked to this account
+
+  /partner/dashboard/today:
+    get:
+      operationId: getPartnerToday
+      tags: [partner-dashboard]
+      summary: List today's calls for the resolved partner
+      security:
+        - cookieAuth: []
+        - apiKeyAuth: []
+      parameters:
+        - name: partnerId
+          in: query
+          required: false
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Today's calls
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PartnerTodayResponse"
+        "403":
+          description: Forbidden
+
+  /partner/dashboard/mentee/{memberId}:
+    get:
+      operationId: getPartnerMenteeDetail
+      tags: [partner-dashboard]
+      summary: Get full detail for a single mentee (notes, cadence, call history)
+      security:
+        - cookieAuth: []
+        - apiKeyAuth: []
+      parameters:
+        - name: memberId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: partnerId
+          in: query
+          required: false
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Mentee detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PartnerMenteeDetail"
+        "403":
+          description: Forbidden
+        "404":
+          description: Mentee not found in this partner's roster
+
+  /partner/dashboard/mentee/{memberId}/notes:
+    post:
+      operationId: addPartnerMenteeNote
+      tags: [partner-dashboard]
+      summary: Add a note (optionally flagged as a concern) for a mentee
+      security:
+        - cookieAuth: []
+        - apiKeyAuth: []
+      parameters:
+        - name: memberId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                body:
+                  type: string
+                isConcern:
+                  type: boolean
+                  default: false
+              required: [body]
+      responses:
+        "201":
+          description: Note created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PartnerNote"
+        "400":
+          description: Validation error
+        "403":
+          description: Forbidden
+        "404":
+          description: Mentee not found in this partner's roster
+
+  /partner/dashboard/mentee/{memberId}/cadence:
+    patch:
+      operationId: setPartnerMenteeCadence
+      tags: [partner-dashboard]
+      summary: Set (or clear) the weekly call cadence for a mentee
+      security:
+        - cookieAuth: []
+        - apiKeyAuth: []
+      parameters:
+        - name: memberId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                cadencePerWeek:
+                  type: integer
+                  nullable: true
+                  minimum: 1
+                  maximum: 7
+              required: [cadencePerWeek]
+      responses:
+        "200":
+          description: Cadence updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  member_id:
+                    type: integer
+                  cadence_per_week:
+                    type: integer
+                    nullable: true
+                required: [member_id, cadence_per_week]
+        "400":
+          description: Validation error
+        "403":
+          description: Forbidden
+        "404":
+          description: Mentee not found in this partner's roster
+
+  /partner/dashboard/calls/{id}/mark-done:
+    post:
+      operationId: markPartnerCallDoneRoute
+      tags: [partner-dashboard]
+      summary: Mark a booked partner call as completed
+      security:
+        - cookieAuth: []
+        - apiKeyAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Call marked done
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: integer
+                  updated:
+                    type: boolean
+                  onboarding_advanced:
+                    type: boolean
+                required: [id, updated, onboarding_advanced]
+        "403":
+          description: Forbidden
+        "404":
+          description: Call not found in this partner's schedule
+        "409":
+          description: Call is not in "booked" status
+
   /coaching/private/status:
     get:
       operationId: getPrivateCoachingStatus
@@ -10914,5 +11123,201 @@ components:
               type: array
               items:
                 $ref: "#/components/schemas/BlitzActivityEvent"
-          required: [phase_breakdown, section_completion, recent_events]
+            partner_notes:
+              type: array
+              description: Accountability-partner notes for this member, read-only for coaches.
+              items:
+                $ref: "#/components/schemas/CoachVisiblePartnerNote"
+          required: [phase_breakdown, section_completion, recent_events, partner_notes]
+
+    CoachVisiblePartnerNote:
+      type: object
+      properties:
+        id:
+          type: integer
+        body:
+          type: string
+        is_concern:
+          type: boolean
+        author_name:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+      required: [id, body, is_concern, author_name, created_at]
+
+    PartnerRosterMentee:
+      type: object
+      properties:
+        member_id:
+          type: integer
+        name:
+          type: string
+        email:
+          type: string
+        joined_at:
+          type: string
+          format: date-time
+        cadence_per_week:
+          type: integer
+          nullable: true
+        assigned_at:
+          type: string
+          format: date-time
+        current_section:
+          oneOf:
+            - $ref: "#/components/schemas/MenteeCurrentSection"
+            - type: "null"
+        blitz_status:
+          type: string
+        next_call:
+          type: object
+          nullable: true
+          properties:
+            id:
+              type: integer
+            scheduled_at:
+              type: string
+              format: date-time
+            meeting_url:
+              type: string
+              nullable: true
+          required: [id, scheduled_at, meeting_url]
+        last_completed_call_at:
+          type: string
+          format: date-time
+          nullable: true
+        days_since_last_completed_call:
+          type: integer
+          nullable: true
+        consecutive_no_shows:
+          type: integer
+        has_concern:
+          type: boolean
+      required: [member_id, name, email, joined_at, cadence_per_week, assigned_at, current_section, blitz_status, next_call, last_completed_call_at, days_since_last_completed_call, consecutive_no_shows, has_concern]
+
+    PartnerRosterResponse:
+      type: object
+      properties:
+        mentees:
+          type: array
+          items:
+            $ref: "#/components/schemas/PartnerRosterMentee"
+      required: [mentees]
+
+    PartnerTodayCall:
+      type: object
+      properties:
+        id:
+          type: integer
+        member_id:
+          type: integer
+        member_name:
+          type: string
+        member_email:
+          type: string
+        scheduled_at:
+          type: string
+          format: date-time
+        end_at:
+          type: string
+          format: date-time
+        duration_minutes:
+          type: integer
+        meeting_url:
+          type: string
+          nullable: true
+        status:
+          type: string
+      required: [id, member_id, member_name, member_email, scheduled_at, end_at, duration_minutes, meeting_url, status]
+
+    PartnerTodayResponse:
+      type: object
+      properties:
+        calls:
+          type: array
+          items:
+            $ref: "#/components/schemas/PartnerTodayCall"
+      required: [calls]
+
+    PartnerNote:
+      type: object
+      properties:
+        id:
+          type: integer
+        body:
+          type: string
+        is_concern:
+          type: boolean
+        author_partner_id:
+          type: integer
+        author_name:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+      required: [id, body, is_concern, author_partner_id, created_at]
+
+    PartnerMenteeCall:
+      type: object
+      properties:
+        id:
+          type: integer
+        scheduled_at:
+          type: string
+          format: date-time
+        end_at:
+          type: string
+          format: date-time
+        status:
+          type: string
+        meeting_url:
+          type: string
+          nullable: true
+      required: [id, scheduled_at, end_at, status, meeting_url]
+
+    PartnerMenteeDetail:
+      type: object
+      properties:
+        member_id:
+          type: integer
+        name:
+          type: string
+        email:
+          type: string
+        joined_at:
+          type: string
+          format: date-time
+        current_section:
+          oneOf:
+            - $ref: "#/components/schemas/MenteeCurrentSection"
+            - type: "null"
+        blitz_status:
+          type: string
+        blitz_completion_pct:
+          type: integer
+        cadence_per_week:
+          type: integer
+          nullable: true
+        assigned_at:
+          type: string
+          format: date-time
+        last_completed_call_at:
+          type: string
+          format: date-time
+          nullable: true
+        days_since_last_completed_call:
+          type: integer
+          nullable: true
+        consecutive_no_shows:
+          type: integer
+        notes:
+          type: array
+          items:
+            $ref: "#/components/schemas/PartnerNote"
+        calls:
+          type: array
+          items:
+            $ref: "#/components/schemas/PartnerMenteeCall"
+      required: [member_id, name, email, joined_at, current_section, blitz_status, blitz_completion_pct, cadence_per_week, assigned_at, last_completed_call_at, days_since_last_completed_call, consecutive_no_shows, notes, calls]
 

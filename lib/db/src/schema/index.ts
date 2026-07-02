@@ -105,3 +105,4 @@ export * from "./partner-assignments";
 export * from "./kickoff-coaches";
 export * from "./kb-tool-tags";
 export * from "./call-bookings";
+export * from "./partner-notes";

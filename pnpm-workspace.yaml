@@ -39,6 +39,7 @@ onlyBuiltDependencies:
 
 overrides:
   '@babel/core@<=7.29.0': '>=7.29.6'
+  'orval>js-yaml': '4.2.0'
   '@esbuild-kit/esm-loader': npm:tsx@^4.21.0
   '@expo/ngrok-bin>@expo/ngrok-bin-darwin-arm64': '-'
   '@expo/ngrok-bin>@expo/ngrok-bin-darwin-x64': '-'

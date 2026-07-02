@@ -72,6 +72,7 @@ catalogs:
 
 overrides:
   '@babel/core@<=7.29.0': '>=7.29.6'
+  orval>js-yaml: 4.2.0
   '@esbuild-kit/esm-loader': npm:tsx@^4.21.0
   '@expo/ngrok-bin>@expo/ngrok-bin-darwin-arm64': '-'
   '@expo/ngrok-bin>@expo/ngrok-bin-darwin-x64': '-'
@@ -3822,8 +3823,8 @@ packages:
   js-tokens@9.0.1:
     resolution: {integrity: sha512-mxa9E9ITFOt0ban3j6L5MpjwegGz6lBQmM1IJkWeBZGcMxto50+eWdjC/52xDbS2vy0k7vIMK0Fe2wfL9OQSpQ==}
 
-  js-yaml@5.0.0:
-    resolution: {integrity: sha512-GSvaPUbk1U+FMZ7rJzF+F8e5YVtu7KnD40et/5rBXXRBv2jCO9L3qCewvIDDdudC0QycTFlf6EAA+h3kxBsuUw==}
+  js-yaml@4.2.0:
+    resolution: {integrity: sha512-ePWsvanv0DWuDRsW8dnt+R4jQ31SCRCQ7hhNcPXZPsoBZiemuZNYGf7adZdqX2D86j6rvKp3RpCxVTSb8WQlOw==}
     hasBin: true
 
   jsdom@25.0.1:
@@ -8384,7 +8385,7 @@ snapshots:
 
   js-tokens@9.0.1: {}
 
-  js-yaml@5.0.0:
+  js-yaml@4.2.0:
     dependencies:
       argparse: 2.0.1
 
@@ -9098,7 +9099,7 @@ snapshots:
       find-up: 8.0.0
       fs-extra: 11.3.4
       jiti: 2.6.1
-      js-yaml: 5.0.0
+      js-yaml: 4.2.0
       remeda: 2.33.6
       string-argv: 0.3.2
       tsconfck: 3.1.6(typescript@5.9.3)

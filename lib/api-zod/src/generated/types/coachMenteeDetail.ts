@@ -7,6 +7,7 @@
  */
 import type { BlitzActivityEvent } from "./blitzActivityEvent";
 import type { CoachMenteeRow } from "./coachMenteeRow";
+import type { CoachVisiblePartnerNote } from "./coachVisiblePartnerNote";
 import type { PhaseBreakdown } from "./phaseBreakdown";
 import type { SectionCompletion } from "./sectionCompletion";
 
@@ -14,4 +15,6 @@ export type CoachMenteeDetail = CoachMenteeRow & {
   phase_breakdown: PhaseBreakdown[];
   section_completion: SectionCompletion[];
   recent_events: BlitzActivityEvent[];
+  /** Accountability-partner notes for this member, read-only for coaches. */
+  partner_notes: CoachVisiblePartnerNote[];
 };

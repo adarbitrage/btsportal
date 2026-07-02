@@ -12,8 +12,9 @@ import {
   type PhaseBreakdown,
   type SectionCompletion,
   type BlitzActivityEvent,
+  type CoachVisiblePartnerNote,
 } from "@workspace/api-client-react";
-import { ArrowLeft, User, Flame, BookOpen, Clock, CheckCircle2, Circle, MinusCircle, MessageSquare } from "lucide-react";
+import { ArrowLeft, User, Flame, BookOpen, Clock, CheckCircle2, Circle, MinusCircle, MessageSquare, AlertTriangle, StickyNote } from "lucide-react";
 import { format, formatDistanceToNow, differenceInDays } from "date-fns";
 
 // ---------------------------------------------------------------------------
@@ -162,6 +163,28 @@ function ActivityEventRow({ event }: { event: BlitzActivityEvent }) {
       <time className="text-xs text-muted-foreground shrink-0 mt-0.5">
         {formatDistanceToNow(new Date(event.occurredAt), { addSuffix: true })}
       </time>
+    </li>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Partner note row (read-only)
+// ---------------------------------------------------------------------------
+
+function PartnerNoteRow({ note }: { note: CoachVisiblePartnerNote }) {
+  return (
+    <li className={`px-6 py-3 border-b border-border/50 last:border-0 ${note.is_concern ? "bg-amber-50/50" : ""}`}>
+      <div className="flex items-start justify-between gap-3">
+        <p className="text-sm text-foreground whitespace-pre-wrap">{note.body}</p>
+        {note.is_concern && (
+          <span className="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider text-amber-700 bg-amber-100 border border-amber-200 rounded px-1.5 py-0.5 shrink-0">
+            <AlertTriangle className="w-3 h-3" /> Concern
+          </span>
+        )}
+      </div>
+      <p className="text-xs text-muted-foreground mt-1.5">
+        {note.author_name} · {formatDistanceToNow(new Date(note.created_at), { addSuffix: true })}
+      </p>
     </li>
   );
 }
@@ -346,6 +369,27 @@ export default function MenteeDetail() {
             </div>
           </CardContent>
         </Card>
+
+        {/* Accountability partner notes (read-only) */}
+        {(mentee.partner_notes ?? []).length > 0 && (
+          <Card>
+            <CardHeader className="pb-3 border-b border-border/50">
+              <h2 className="text-base font-semibold text-foreground flex items-center gap-2">
+                <StickyNote className="w-4 h-4 text-primary" /> Partner Notes
+              </h2>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Read-only — written by this member's accountability partner
+              </p>
+            </CardHeader>
+            <CardContent className="pt-0 px-0">
+              <ul>
+                {(mentee.partner_notes ?? []).map((note: CoachVisiblePartnerNote) => (
+                  <PartnerNoteRow key={note.id} note={note} />
+                ))}
+              </ul>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Activity timeline */}
         <Card>

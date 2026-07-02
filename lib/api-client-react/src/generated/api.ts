@@ -18,6 +18,7 @@ import type {
 
 import type {
   ActionItemsResponse,
+  AddPartnerMenteeNoteBody,
   AdminBulkMoveLessons200,
   AdminBulkMoveLessonsBody,
   AdminBulkPublishLessons200,
@@ -185,6 +186,9 @@ import type {
   GetFlexyCredentials200,
   GetLegalDocumentsParams,
   GetMemberEmailChangePrefillParams,
+  GetPartnerMenteeDetailParams,
+  GetPartnerRosterParams,
+  GetPartnerTodayParams,
   GetPrivateCoachingSlotsParams,
   GhlConfig,
   GhlLogEntry,
@@ -214,6 +218,7 @@ import type {
   LogToolUsageBody,
   LoginBody,
   LoginErrorResponse,
+  MarkPartnerCallDoneRoute200,
   MediaMavensCategory,
   MediaMavensCategoryInput,
   MediaMavensProduct,
@@ -230,6 +235,10 @@ import type {
   OneOnOneCoach,
   OneOnOneStatus,
   OwnedProduct,
+  PartnerMenteeDetail,
+  PartnerNote,
+  PartnerRosterResponse,
+  PartnerTodayResponse,
   PatchMemberProfileBody,
   PatchMemberProfileResponse,
   PatchOnboardingStepBody,
@@ -258,6 +267,8 @@ import type {
   SatisfactionStatus,
   SaveToolDataBody,
   SendChatMessageBody,
+  SetPartnerMenteeCadence200,
+  SetPartnerMenteeCadenceBody,
   SignDocumentBody,
   SignDocumentResponse,
   SlaDashboard,
@@ -16217,6 +16228,587 @@ export function useGetCoachMenteeDetail<
 
   return { ...query, queryKey: queryOptions.queryKey };
 }
+
+/**
+ * @summary List active mentees assigned to the resolved partner
+ */
+export const getGetPartnerRosterUrl = (params?: GetPartnerRosterParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/partner/dashboard/roster?${stringifiedParams}`
+    : `/api/partner/dashboard/roster`;
+};
+
+export const getPartnerRoster = async (
+  params?: GetPartnerRosterParams,
+  options?: RequestInit,
+): Promise<PartnerRosterResponse> => {
+  return customFetch<PartnerRosterResponse>(getGetPartnerRosterUrl(params), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetPartnerRosterQueryKey = (
+  params?: GetPartnerRosterParams,
+) => {
+  return [
+    `/api/partner/dashboard/roster`,
+    ...(params ? [params] : []),
+  ] as const;
+};
+
+export const getGetPartnerRosterQueryOptions = <
+  TData = Awaited<ReturnType<typeof getPartnerRoster>>,
+  TError = ErrorType<void>,
+>(
+  params?: GetPartnerRosterParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getPartnerRoster>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetPartnerRosterQueryKey(params);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getPartnerRoster>>
+  > = ({ signal }) => getPartnerRoster(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getPartnerRoster>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetPartnerRosterQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getPartnerRoster>>
+>;
+export type GetPartnerRosterQueryError = ErrorType<void>;
+
+/**
+ * @summary List active mentees assigned to the resolved partner
+ */
+
+export function useGetPartnerRoster<
+  TData = Awaited<ReturnType<typeof getPartnerRoster>>,
+  TError = ErrorType<void>,
+>(
+  params?: GetPartnerRosterParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getPartnerRoster>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetPartnerRosterQueryOptions(params, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary List today's calls for the resolved partner
+ */
+export const getGetPartnerTodayUrl = (params?: GetPartnerTodayParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/partner/dashboard/today?${stringifiedParams}`
+    : `/api/partner/dashboard/today`;
+};
+
+export const getPartnerToday = async (
+  params?: GetPartnerTodayParams,
+  options?: RequestInit,
+): Promise<PartnerTodayResponse> => {
+  return customFetch<PartnerTodayResponse>(getGetPartnerTodayUrl(params), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetPartnerTodayQueryKey = (params?: GetPartnerTodayParams) => {
+  return [`/api/partner/dashboard/today`, ...(params ? [params] : [])] as const;
+};
+
+export const getGetPartnerTodayQueryOptions = <
+  TData = Awaited<ReturnType<typeof getPartnerToday>>,
+  TError = ErrorType<void>,
+>(
+  params?: GetPartnerTodayParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getPartnerToday>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetPartnerTodayQueryKey(params);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof getPartnerToday>>> = ({
+    signal,
+  }) => getPartnerToday(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getPartnerToday>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetPartnerTodayQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getPartnerToday>>
+>;
+export type GetPartnerTodayQueryError = ErrorType<void>;
+
+/**
+ * @summary List today's calls for the resolved partner
+ */
+
+export function useGetPartnerToday<
+  TData = Awaited<ReturnType<typeof getPartnerToday>>,
+  TError = ErrorType<void>,
+>(
+  params?: GetPartnerTodayParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getPartnerToday>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetPartnerTodayQueryOptions(params, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Get full detail for a single mentee (notes, cadence, call history)
+ */
+export const getGetPartnerMenteeDetailUrl = (
+  memberId: number,
+  params?: GetPartnerMenteeDetailParams,
+) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/partner/dashboard/mentee/${memberId}?${stringifiedParams}`
+    : `/api/partner/dashboard/mentee/${memberId}`;
+};
+
+export const getPartnerMenteeDetail = async (
+  memberId: number,
+  params?: GetPartnerMenteeDetailParams,
+  options?: RequestInit,
+): Promise<PartnerMenteeDetail> => {
+  return customFetch<PartnerMenteeDetail>(
+    getGetPartnerMenteeDetailUrl(memberId, params),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getGetPartnerMenteeDetailQueryKey = (
+  memberId: number,
+  params?: GetPartnerMenteeDetailParams,
+) => {
+  return [
+    `/api/partner/dashboard/mentee/${memberId}`,
+    ...(params ? [params] : []),
+  ] as const;
+};
+
+export const getGetPartnerMenteeDetailQueryOptions = <
+  TData = Awaited<ReturnType<typeof getPartnerMenteeDetail>>,
+  TError = ErrorType<void>,
+>(
+  memberId: number,
+  params?: GetPartnerMenteeDetailParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getPartnerMenteeDetail>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ??
+    getGetPartnerMenteeDetailQueryKey(memberId, params);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getPartnerMenteeDetail>>
+  > = ({ signal }) =>
+    getPartnerMenteeDetail(memberId, params, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!memberId,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getPartnerMenteeDetail>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetPartnerMenteeDetailQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getPartnerMenteeDetail>>
+>;
+export type GetPartnerMenteeDetailQueryError = ErrorType<void>;
+
+/**
+ * @summary Get full detail for a single mentee (notes, cadence, call history)
+ */
+
+export function useGetPartnerMenteeDetail<
+  TData = Awaited<ReturnType<typeof getPartnerMenteeDetail>>,
+  TError = ErrorType<void>,
+>(
+  memberId: number,
+  params?: GetPartnerMenteeDetailParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getPartnerMenteeDetail>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetPartnerMenteeDetailQueryOptions(
+    memberId,
+    params,
+    options,
+  );
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Add a note (optionally flagged as a concern) for a mentee
+ */
+export const getAddPartnerMenteeNoteUrl = (memberId: number) => {
+  return `/api/partner/dashboard/mentee/${memberId}/notes`;
+};
+
+export const addPartnerMenteeNote = async (
+  memberId: number,
+  addPartnerMenteeNoteBody: AddPartnerMenteeNoteBody,
+  options?: RequestInit,
+): Promise<PartnerNote> => {
+  return customFetch<PartnerNote>(getAddPartnerMenteeNoteUrl(memberId), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(addPartnerMenteeNoteBody),
+  });
+};
+
+export const getAddPartnerMenteeNoteMutationOptions = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof addPartnerMenteeNote>>,
+    TError,
+    { memberId: number; data: BodyType<AddPartnerMenteeNoteBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof addPartnerMenteeNote>>,
+  TError,
+  { memberId: number; data: BodyType<AddPartnerMenteeNoteBody> },
+  TContext
+> => {
+  const mutationKey = ["addPartnerMenteeNote"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof addPartnerMenteeNote>>,
+    { memberId: number; data: BodyType<AddPartnerMenteeNoteBody> }
+  > = (props) => {
+    const { memberId, data } = props ?? {};
+
+    return addPartnerMenteeNote(memberId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type AddPartnerMenteeNoteMutationResult = NonNullable<
+  Awaited<ReturnType<typeof addPartnerMenteeNote>>
+>;
+export type AddPartnerMenteeNoteMutationBody =
+  BodyType<AddPartnerMenteeNoteBody>;
+export type AddPartnerMenteeNoteMutationError = ErrorType<void>;
+
+/**
+ * @summary Add a note (optionally flagged as a concern) for a mentee
+ */
+export const useAddPartnerMenteeNote = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof addPartnerMenteeNote>>,
+    TError,
+    { memberId: number; data: BodyType<AddPartnerMenteeNoteBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof addPartnerMenteeNote>>,
+  TError,
+  { memberId: number; data: BodyType<AddPartnerMenteeNoteBody> },
+  TContext
+> => {
+  return useMutation(getAddPartnerMenteeNoteMutationOptions(options));
+};
+
+/**
+ * @summary Set (or clear) the weekly call cadence for a mentee
+ */
+export const getSetPartnerMenteeCadenceUrl = (memberId: number) => {
+  return `/api/partner/dashboard/mentee/${memberId}/cadence`;
+};
+
+export const setPartnerMenteeCadence = async (
+  memberId: number,
+  setPartnerMenteeCadenceBody: SetPartnerMenteeCadenceBody,
+  options?: RequestInit,
+): Promise<SetPartnerMenteeCadence200> => {
+  return customFetch<SetPartnerMenteeCadence200>(
+    getSetPartnerMenteeCadenceUrl(memberId),
+    {
+      ...options,
+      method: "PATCH",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(setPartnerMenteeCadenceBody),
+    },
+  );
+};
+
+export const getSetPartnerMenteeCadenceMutationOptions = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof setPartnerMenteeCadence>>,
+    TError,
+    { memberId: number; data: BodyType<SetPartnerMenteeCadenceBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof setPartnerMenteeCadence>>,
+  TError,
+  { memberId: number; data: BodyType<SetPartnerMenteeCadenceBody> },
+  TContext
+> => {
+  const mutationKey = ["setPartnerMenteeCadence"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof setPartnerMenteeCadence>>,
+    { memberId: number; data: BodyType<SetPartnerMenteeCadenceBody> }
+  > = (props) => {
+    const { memberId, data } = props ?? {};
+
+    return setPartnerMenteeCadence(memberId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type SetPartnerMenteeCadenceMutationResult = NonNullable<
+  Awaited<ReturnType<typeof setPartnerMenteeCadence>>
+>;
+export type SetPartnerMenteeCadenceMutationBody =
+  BodyType<SetPartnerMenteeCadenceBody>;
+export type SetPartnerMenteeCadenceMutationError = ErrorType<void>;
+
+/**
+ * @summary Set (or clear) the weekly call cadence for a mentee
+ */
+export const useSetPartnerMenteeCadence = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof setPartnerMenteeCadence>>,
+    TError,
+    { memberId: number; data: BodyType<SetPartnerMenteeCadenceBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof setPartnerMenteeCadence>>,
+  TError,
+  { memberId: number; data: BodyType<SetPartnerMenteeCadenceBody> },
+  TContext
+> => {
+  return useMutation(getSetPartnerMenteeCadenceMutationOptions(options));
+};
+
+/**
+ * @summary Mark a booked partner call as completed
+ */
+export const getMarkPartnerCallDoneRouteUrl = (id: number) => {
+  return `/api/partner/dashboard/calls/${id}/mark-done`;
+};
+
+export const markPartnerCallDoneRoute = async (
+  id: number,
+  options?: RequestInit,
+): Promise<MarkPartnerCallDoneRoute200> => {
+  return customFetch<MarkPartnerCallDoneRoute200>(
+    getMarkPartnerCallDoneRouteUrl(id),
+    {
+      ...options,
+      method: "POST",
+    },
+  );
+};
+
+export const getMarkPartnerCallDoneRouteMutationOptions = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof markPartnerCallDoneRoute>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof markPartnerCallDoneRoute>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  const mutationKey = ["markPartnerCallDoneRoute"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof markPartnerCallDoneRoute>>,
+    { id: number }
+  > = (props) => {
+    const { id } = props ?? {};
+
+    return markPartnerCallDoneRoute(id, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type MarkPartnerCallDoneRouteMutationResult = NonNullable<
+  Awaited<ReturnType<typeof markPartnerCallDoneRoute>>
+>;
+
+export type MarkPartnerCallDoneRouteMutationError = ErrorType<void>;
+
+/**
+ * @summary Mark a booked partner call as completed
+ */
+export const useMarkPartnerCallDoneRoute = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof markPartnerCallDoneRoute>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof markPartnerCallDoneRoute>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  return useMutation(getMarkPartnerCallDoneRouteMutationOptions(options));
+};
 
 /**
  * @summary Get Private Coaching status for current member

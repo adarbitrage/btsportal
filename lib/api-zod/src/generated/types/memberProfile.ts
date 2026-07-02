@@ -6,6 +6,7 @@
  * OpenAPI spec version: 0.2.0
  */
 import type { AdminCancelledEmailChange } from "./adminCancelledEmailChange";
+import type { BrandStrings } from "./brandStrings";
 import type { OwnedProduct } from "./ownedProduct";
 
 export interface MemberProfile {
@@ -74,4 +75,5 @@ always sends regardless.
   entitlements: string[];
   products: OwnedProduct[];
   ticketLimit: number;
+  brand: BrandStrings;
 }

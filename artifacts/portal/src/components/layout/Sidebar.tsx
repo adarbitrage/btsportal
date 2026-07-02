@@ -383,7 +383,7 @@ export function shouldShowCoachSection(
 export const PARTNER_NAV_NODES: NavNode[] = [
   {
     kind: "leaf",
-    href: "/partner",
+    href: "/partner/dashboard",
     label: "Partner Home",
     icon: Users2,
   },

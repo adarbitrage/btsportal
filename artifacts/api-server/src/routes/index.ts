@@ -93,6 +93,7 @@ import billingRouter from "./billing";
 import adSpendRouter from "./ad-spend";
 import opsRouter from "./ops";
 import callBookingsRouter from "./call-bookings";
+import partnerDashboardRouter from "./partner-dashboard";
 
 const router: IRouter = Router();
 
@@ -190,5 +191,6 @@ router.use(billingRouter);
 router.use(adSpendRouter);
 router.use(opsRouter);
 router.use(callBookingsRouter);
+router.use(partnerDashboardRouter);
 
 export default router;
