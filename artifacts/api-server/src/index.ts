@@ -51,6 +51,10 @@ import {
   stopMachineMismatchDigestJob,
 } from "./lib/machine-mismatch-daily-digest";
 import {
+  startBillingDigestJob,
+  stopBillingDigestJob,
+} from "./lib/billing-digest";
+import {
   startMachineMismatchDigestAlerter,
   stopMachineMismatchDigestAlerter,
 } from "./lib/machine-mismatch-digest-alerter";
@@ -129,6 +133,7 @@ startRateLimitAuditFailureAlerter();
 startMachineMismatchAlerter();
 startMachineMismatchDigestJob();
 startMachineMismatchDigestAlerter();
+startBillingDigestJob();
 startModerationFailureAlerter();
 startCommsDedupFailureAlerter();
 startTicketDeskDeliveryAlerter();
@@ -192,6 +197,7 @@ async function gracefulShutdown(signal: string) {
   stopMachineMismatchAlerter();
   stopMachineMismatchDigestJob();
   stopMachineMismatchDigestAlerter();
+  stopBillingDigestJob();
   stopModerationFailureAlerter();
   stopCommsDedupFailureAlerter();
   stopTicketDeskDeliveryAlerter();

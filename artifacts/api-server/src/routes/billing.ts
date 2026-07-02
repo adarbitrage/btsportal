@@ -13,6 +13,13 @@ import {
   deletePaymentMethodRow,
 } from "../storage/payment-methods-store.js";
 import { isPaymentMethodPinnedToActiveSubscription } from "../storage/subscriptions-store.js";
+import {
+  billingUserLimiter,
+  billingIpLimiter,
+  billingDeclineBreakerCheck,
+} from "../middleware/billing-rate-limit.js";
+import { recordFreshDecline } from "../lib/billing-decline-tracker.js";
+import { queueBillingAlert } from "../lib/billing-alerts.js";
 
 const router = Router();
 
@@ -107,7 +114,7 @@ router.get("/billing/product/:id", async (req, res): Promise<void> => {
  * Body: { paymentToken, last4, brand, expMonth, expYear, setDefault? }
  * vault_id is stored server-side; it is NEVER returned to the client.
  */
-router.post("/billing/payment-methods", async (req, res): Promise<void> => {
+router.post("/billing/payment-methods", billingUserLimiter, billingIpLimiter, billingDeclineBreakerCheck(), async (req, res): Promise<void> => {
   if (!req.userId) {
     sendError(res, 401, ErrorCodes.AUTHENTICATION_REQUIRED, "Authentication required");
     return;
@@ -283,7 +290,7 @@ router.delete("/billing/payment-methods/:id", async (req, res): Promise<void> =>
  * Accepts either { paymentToken } (Collect.js token) or { paymentMethodId }
  * (saved card id). Exactly one must be supplied.
  */
-router.post("/billing/checkout", async (req, res): Promise<void> => {
+router.post("/billing/checkout", billingUserLimiter, billingIpLimiter, billingDeclineBreakerCheck(), async (req, res): Promise<void> => {
   if (!req.userId) {
     sendError(res, 401, ErrorCodes.AUTHENTICATION_REQUIRED, "Authentication required");
     return;
@@ -356,7 +363,26 @@ router.post("/billing/checkout", async (req, res): Promise<void> => {
       });
       return;
 
-    case "declined":
+    case "declined": {
+      const ip = req.ip || req.socket?.remoteAddress || "unknown";
+      recordFreshDecline(req.userId, ip).then(({ trippedUser, trippedIp }) => {
+        if (trippedUser || trippedIp) {
+          const dim = trippedUser ? "user" : "ip";
+          const label = trippedUser ? String(req.userId) : ip;
+          queueBillingAlert({
+            type: "circuit_breaker_tripped",
+            dimension: dim,
+            dimensionLabel: label,
+            declineCount: Number(process.env.BILLING_DECLINE_MAX ?? 5),
+            windowSeconds: Number(process.env.BILLING_DECLINE_WINDOW_SECONDS ?? 900),
+            cooldownSeconds: Number(process.env.BILLING_DECLINE_COOLDOWN_SECONDS ?? 3600),
+          });
+        }
+      }).catch(() => {});
+      res.status(402).json({ error: outcome.message });
+      return;
+    }
+
     case "replay_declined":
       res.status(402).json({ error: outcome.message });
       return;
@@ -399,7 +425,7 @@ router.post("/billing/checkout", async (req, res): Promise<void> => {
  * Body: { productId, idempotencyKey, paymentToken? | paymentMethodId? }
  * Exactly one card source must be supplied. Amount is server-authoritative.
  */
-router.post("/billing/subscribe", async (req, res): Promise<void> => {
+router.post("/billing/subscribe", billingUserLimiter, billingIpLimiter, billingDeclineBreakerCheck(), async (req, res): Promise<void> => {
   if (!req.userId) {
     sendError(res, 401, ErrorCodes.AUTHENTICATION_REQUIRED, "Authentication required");
     return;
@@ -486,7 +512,26 @@ router.post("/billing/subscribe", async (req, res): Promise<void> => {
       });
       return;
 
-    case "declined":
+    case "declined": {
+      const ip2 = req.ip || req.socket?.remoteAddress || "unknown";
+      recordFreshDecline(req.userId, ip2).then(({ trippedUser, trippedIp }) => {
+        if (trippedUser || trippedIp) {
+          const dim = trippedUser ? "user" : "ip";
+          const label = trippedUser ? String(req.userId) : ip2;
+          queueBillingAlert({
+            type: "circuit_breaker_tripped",
+            dimension: dim,
+            dimensionLabel: label,
+            declineCount: Number(process.env.BILLING_DECLINE_MAX ?? 5),
+            windowSeconds: Number(process.env.BILLING_DECLINE_WINDOW_SECONDS ?? 900),
+            cooldownSeconds: Number(process.env.BILLING_DECLINE_COOLDOWN_SECONDS ?? 3600),
+          });
+        }
+      }).catch(() => {});
+      res.status(402).json({ error: outcome.message });
+      return;
+    }
+
     case "replay_declined":
       res.status(402).json({ error: outcome.message });
       return;

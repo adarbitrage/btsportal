@@ -20,6 +20,7 @@ import { db, refundIdempotencyTable, btsOrdersTable, subscriptionsTable, userPro
 import { eq, and } from "drizzle-orm";
 import { refund as nmiRefund, voidTransaction, queryTransaction } from "./payments/nmi-gateway.js";
 import { logAuditEvent } from "./audit-log.js";
+import { queueBillingAlert } from "./billing-alerts.js";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -317,6 +318,13 @@ export async function processRefund(req: RefundRequest): Promise<RefundOutcome> 
       } catch (err) {
         console.error(`[OpsRefund] Grant revoke failed for order ${orderNumber}:`, err);
         revoked = false;
+        queueBillingAlert({
+          type: "refund_side_effect_failed",
+          orderNumber,
+          refundTxnId,
+          failedSideEffect: "grant revoke",
+          error: err instanceof Error ? err.message : String(err),
+        });
       }
     }
 
@@ -329,11 +337,25 @@ export async function processRefund(req: RefundRequest): Promise<RefundOutcome> 
             await revokeSubscriptionGrant(order.userId, productId);
           } catch (err) {
             console.error(`[OpsRefund] Sub grant revoke failed for sub ${order.subscriptionId}:`, err);
+            queueBillingAlert({
+              type: "refund_side_effect_failed",
+              orderNumber,
+              refundTxnId,
+              failedSideEffect: "subscription grant revoke",
+              error: err instanceof Error ? err.message : String(err),
+            });
           }
         }
       } catch (err) {
         console.error(`[OpsRefund] Subscription cancel failed for sub ${order.subscriptionId}:`, err);
         subscriptionCanceled = false;
+        queueBillingAlert({
+          type: "refund_side_effect_failed",
+          orderNumber,
+          refundTxnId,
+          failedSideEffect: "subscription cancel",
+          error: err instanceof Error ? err.message : String(err),
+        });
       }
     }
   }

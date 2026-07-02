@@ -23,6 +23,7 @@ import {
 import { createOrder, updateOrderStatus } from "../../storage/billing-orders-store.js";
 import { logAuditEvent } from "../audit-log.js";
 import { insertUserProductGrant } from "../external-grant-product.js";
+import { queueBillingAlert } from "../billing-alerts.js";
 
 export type CoreOrderType =
   | "one_time"
@@ -329,6 +330,13 @@ export async function runCheckoutCore(
       `but DB status update failed. Manual reconciliation required.`,
       persistErr,
     );
+    queueBillingAlert({
+      type: "reconciliation_needed",
+      orderNumber,
+      amountCents: opts.amountCents,
+      userEmail: opts.email,
+      failedStep: "DB order-status update after charge",
+    });
     return { type: "paid_reconciliation_needed", orderNumber, transactionId: chargeResult.transactionId };
   }
 
@@ -367,6 +375,13 @@ export async function runCheckoutCore(
         `Manual reconciliation required.`,
         callbackErr,
       );
+      queueBillingAlert({
+        type: "reconciliation_needed",
+        orderNumber,
+        amountCents: opts.amountCents,
+        userEmail: opts.email,
+        failedStep: "post-charge callback (subscription/grant creation)",
+      });
       return { type: "paid_reconciliation_needed", orderNumber, transactionId: chargeResult.transactionId };
     }
   }
@@ -398,6 +413,13 @@ export async function runCheckoutCore(
         `Charge succeeded (txn=${chargeResult.transactionId}). Manual grant required.`,
         err,
       );
+      queueBillingAlert({
+        type: "reconciliation_needed",
+        orderNumber,
+        amountCents: opts.amountCents,
+        userEmail: opts.email,
+        failedStep: "entitlement grant creation (grant pending — charge succeeded)",
+      });
     }
   }
 

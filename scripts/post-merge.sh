@@ -346,6 +346,18 @@ if [ -n "$DATABASE_URL" ]; then
   #     (CREATE TABLE/INDEX IF NOT EXISTS).
   psql "$DATABASE_URL" -v ON_ERROR_STOP=1 \
     -f lib/db/drizzle/0094_kb_source_node_extracts.sql >/dev/null
+
+  # 31. Billing hardening (Task #1572) — DB-backed billing job heartbeat.
+  #     New additive table `billing_ops_heartbeat` that stores the renewal
+  #     charger's last_run_at (the dead-man's-switch source) and the daily
+  #     digest's cross-process send claim in Postgres, NOT Redis — precisely so
+  #     the heartbeat survives the Redis outage it is meant to detect. Applying
+  #     it explicitly here keeps the live-schema-drift gate below green so the
+  #     conditional push stays skipped on the common merge (same pattern as
+  #     steps 7/10/11/15/18-24/27/29/30). Idempotent (CREATE TABLE IF NOT
+  #     EXISTS, guarded ADD CONSTRAINT).
+  psql "$DATABASE_URL" -v ON_ERROR_STOP=1 \
+    -f lib/db/drizzle/0095_billing_ops_heartbeat.sql >/dev/null
 fi
 
 # Schema sync — CONDITIONAL push.

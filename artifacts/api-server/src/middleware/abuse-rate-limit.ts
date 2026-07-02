@@ -39,6 +39,13 @@ export function emailKey(prefix: string, fieldName: string = "email") {
   };
 }
 
+export function userIdKey(prefix: string) {
+  return (req: Request) => {
+    if (!req.userId) return null;
+    return `${prefix}:user:${req.userId}`;
+  };
+}
+
 // Hard upper bound on how many entries we'll keep in any single rate-limit
 // sorted set. The middleware decides allow/deny based on the count *before*
 // the new entry is added, but during a sustained spam wave many writers can

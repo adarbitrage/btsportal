@@ -35,6 +35,8 @@ import IORedis from "ioredis";
 import { db, usersTable, productsTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import { QUEUE_REDIS_OPTIONS, makeThrottledRedisErrorLogger } from "./redis";
+import { recordChargerRun } from "./billing-heartbeat";
+import { queueBillingAlert } from "./billing-alerts";
 import { runCheckoutCore } from "./payments/checkout-core";
 import { extendActiveGrantExpiry } from "./external-grant-product";
 import { getPaymentMethodForUser } from "../storage/payment-methods-store";
@@ -618,7 +620,14 @@ export async function startRenewalCharger(): Promise<void> {
     QUEUE_NAME,
     async (job: Job) => {
       console.log(`[RenewalCharger] Processing job: ${job.name}`);
-      return processDueRenewals();
+      try {
+        return await processDueRenewals();
+      } finally {
+        // Stamp the heartbeat on EVERY invocation — even one that threw — so the
+        // dead-man's-switch reflects that the scheduler actually fired. A
+        // wholesale failure still surfaces via the worker "failed" alert below.
+        await recordChargerRun().catch(() => {});
+      }
     },
     {
       connection: getConnection(),
@@ -627,7 +636,16 @@ export async function startRenewalCharger(): Promise<void> {
   );
 
   worker.on("failed", (job, err) => {
-    console.error(`[RenewalCharger] Job ${job?.name} failed:`, err.message);
+    const message = err?.message ?? String(err);
+    console.error(`[RenewalCharger] Job ${job?.name} failed:`, message);
+    // Escalate to on-call. Fire-and-forget; the dispatcher throttles repeats
+    // (single dedup key) so a persistently-failing charger pages once per window
+    // rather than on every hourly tick.
+    queueBillingAlert({
+      type: "renewal_charger_failed",
+      jobName: job?.name ?? QUEUE_NAME,
+      error: message,
+    });
   });
 
   // Clear any previously-registered repeatable jobs so a changed schedule never
