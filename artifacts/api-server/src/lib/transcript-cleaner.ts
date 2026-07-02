@@ -31,7 +31,12 @@ import { join } from "node:path";
 import { getAnthropicClient } from "@workspace/integrations-anthropic-ai";
 import { db, coachesTable, mediaMavensProductsTable, transcriptCleanerDocumentsTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
-import { OLD_BRAND_REBRAND_GUIDANCE } from "./content-privacy-filter";
+import {
+  OLD_BRAND_REBRAND_GUIDANCE,
+  buildStaffFirstNameGuidance,
+  scrubPrivateContent,
+} from "./content-privacy-filter";
+import { COACHING_ROSTER, VA_ROSTER } from "./coaching-roster";
 import {
   resolveSourceFolder,
   authorityRoleFromCoachType,
@@ -657,6 +662,17 @@ export function mapModelFlags(rawFlags: unknown): TranscriptCleanerFlag[] {
 // Cleanup engine.
 // ───────────────────────────────────────────────────────────────────────────
 
+// Roster-driven "coaches & VAs by first name only" prompt guidance. Sourced
+// from the SAME static roster arrays as coaching-roster.ts (COACHING_ROSTER +
+// VA_ROSTER, which store first names), so the prompt list stays in lockstep with
+// the roster and never drifts. This generalises the founder first-name rule to
+// the whole staff and is the PRIMARY mechanism for VA surnames (they have no
+// known surname for the deterministic scrub to key on). The scrub in
+// content-privacy-filter.ts remains the deterministic backstop for coaches.
+export const STAFF_FIRST_NAME_GUIDANCE = buildStaffFirstNameGuidance(
+  [...COACHING_ROSTER, ...VA_ROSTER].map((s) => s.name),
+);
+
 const CLEAN_SYSTEM_PROMPT = [
   "You are a meticulous transcript-cleaning assistant for an affiliate-marketing",
   "coaching membership (BTS). You clean RAW call/video transcripts that come from",
@@ -705,6 +721,7 @@ const CLEAN_SYSTEM_PROMPT = [
   "   the mined knowledge is on-brand. Reword LIGHTLY so the sentence still flows",
   "   naturally — do NOT do a rigid word-for-word swap, and do NOT flag these:",
   ...OLD_BRAND_REBRAND_GUIDANCE.map((g) => `   - ${g}`),
+  `   - ${STAFF_FIRST_NAME_GUIDANCE}`,
   "   Recognise obvious phonetic/garbled mistranscriptions of the old brand (e.g.",
   "   'the Cherring method', 'Charrington Media') and rebrand them too — never",
   "   leave them in and never flag them as unrecoverable garble.",
@@ -873,6 +890,7 @@ function buildCleanUserMessage(args: {
       ? `Canonical BTS / Media Mavens / traffic-source terms — normalise spelling to these EXACT forms when referenced. Any OTHER proper noun is a member's own niche term: correct obvious typos, keep it consistent, and do NOT flag it. Terms: ${canonicalTerms.join(", ")}`
       : null,
     `REBRAND old-program references to BTS (deliberate exception to "do not reword"; reword lightly for natural flow, never flag these): ${OLD_BRAND_REBRAND_GUIDANCE.join(" ")}`,
+    STAFF_FIRST_NAME_GUIDANCE,
   ];
 
   if (multi) {
@@ -980,15 +998,22 @@ export async function cleanTranscript(args: {
   );
 
   const allParsed = [firstParsed, ...restParsed];
-  const cleanedContent = allParsed
-    .map((p, i) => {
-      // Fall back to the original chunk if the model returns an empty/whitespace
-      // cleaned value — never silently drop a chunk's content.
-      const cleaned = typeof p.cleanedTranscript === "string" ? p.cleanedTranscript.trim() : "";
-      return cleaned.length > 0 ? cleaned : chunks[i].trim();
-    })
-    .filter((s) => s.length > 0)
-    .join("\n\n");
+  // Deterministic privacy backstop (Task #1607): pass the assembled body through
+  // the coach-name privacy scrub so any staff surname the model left in is
+  // reduced to a first name (and old-brand references / PII are caught), even on
+  // the fallback path that reuses the raw chunk. The prompt's roster guidance is
+  // the primary mechanism; this is the safety net that keeps the two aligned.
+  const cleanedContent = scrubPrivateContent(
+    allParsed
+      .map((p, i) => {
+        // Fall back to the original chunk if the model returns an empty/whitespace
+        // cleaned value — never silently drop a chunk's content.
+        const cleaned = typeof p.cleanedTranscript === "string" ? p.cleanedTranscript.trim() : "";
+        return cleaned.length > 0 ? cleaned : chunks[i].trim();
+      })
+      .filter((s) => s.length > 0)
+      .join("\n\n"),
+  );
   const flags = dedupeFlags(allParsed.flatMap((p) => mapModelFlags(p.flags)));
 
   const aiAuthority = firstParsed.authority ?? {};
@@ -1197,6 +1222,7 @@ const REFINE_PATCH_SYSTEM_PROMPT = [
   "reduce the founder's name to 'Adam' (first name only), including obvious",
   "phonetic/garbled variants:",
   ...OLD_BRAND_REBRAND_GUIDANCE.map((g) => `  - ${g}`),
+  `  - ${STAFF_FIRST_NAME_GUIDANCE}`,
   "",
   "Return STRICT JSON only with keys:",
   "- edits: array of { find, replace, all? }. `find` MUST be an EXACT, VERBATIM",
@@ -1231,6 +1257,7 @@ const REFINE_FULL_SYSTEM_PROMPT = [
   "and reduce the founder's name to 'Adam' (first name only), including obvious",
   "phonetic/garbled variants:",
   ...OLD_BRAND_REBRAND_GUIDANCE.map((g) => `  - ${g}`),
+  `  - ${STAFF_FIRST_NAME_GUIDANCE}`,
   "",
   "Return STRICT JSON only with keys: cleanedTranscript (string, the full updated",
   "transcript), flags (array of { type, text, reason, confidence } — the refreshed",
@@ -1274,7 +1301,10 @@ export function applyRefineEdits(current: string, rawEdits: unknown): string | n
 /** Build the shared refine result (flags + authority + message) for either path. */
 function buildRefineResult(parsed: any, cleanedContent: string): RefineTranscriptResult {
   const result: RefineTranscriptResult = {
-    cleanedContent,
+    // Deterministic privacy backstop (Task #1607): the refined body passes
+    // through the same coach-name scrub as the initial clean so a surname
+    // reintroduced by a refine edit is still reduced to a first name.
+    cleanedContent: scrubPrivateContent(cleanedContent),
     flags: mapModelFlags(parsed.flags),
     assistantMessage: typeof parsed.message === "string" ? parsed.message : "Transcript updated.",
   };

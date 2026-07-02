@@ -32,3 +32,17 @@ rows onto the same title (the whitespace/"the the" cleanup rules), throwing 2350
 test (kb-coach-name-leak-guard) scans qa-articles.txt + glossary.txt raw AND all DB rows with
 variant-tolerant fuzzy matchers; the re-scrub one-shot lives at
 scripts/rescrub-knowledgebase-docs.ts.
+
+**Transcript-cleaner staff-name reduction (two cooperating layers):** cleaned transcripts
+reduce coaches AND VAs to first-name-only via TWO mechanisms — (1) roster-driven
+`STAFF_FIRST_NAME_GUIDANCE` (built by exported `buildStaffFirstNameGuidance()` in
+content-privacy-filter.ts from COACHING_ROSTER+VA_ROSTER first names) embedded in the clean +
+BOTH refine prompts, and (2) `scrubPrivateContent` applied to the assembled body in
+`cleanTranscript` and inside `buildRefineResult` (content only, never the title). The prompt is
+the PRIMARY mechanism and the ONLY one for VAs — VAs have no stored surname, so the deterministic
+scrub cannot key on them (documented seam in PRIVACY_RULES; don't invent VA surnames). The scrub
+is the deterministic backstop for KNOWN coach surnames the model leaves in.
+**Why:** a spelling-variant surname ("Shephrd") slipped the regex — the fix is an OPTIONAL inner
+vowel `Sheph?[ae]?rd` (not `[ae]`) in both the full-name and orphaned-surname coach rules.
+**How to apply:** widen coach surname regexes to tolerate variants (optional/alternating chars);
+build any staff-name prompt guidance from the roster arrays, never one-off name lists.

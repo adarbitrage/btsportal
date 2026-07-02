@@ -94,6 +94,37 @@ export const OLD_BRAND_REBRAND_RULES: PrivacyRule[] = [
   ...OLD_BRAND_CLEANUP_RULES,
 ];
 
+/**
+ * COACH & VA FIRST-NAME-ONLY GUIDANCE — the roster-driven generalisation of the
+ * founder first-name rule above (single source of truth alongside
+ * {@link OLD_BRAND_REBRAND_GUIDANCE}).
+ *
+ * Members must only ever see a coach or VA by their FIRST name, so whenever a
+ * transcript names a staff member with a surname the surname is dropped. Unlike
+ * the founder / coach surnames in PRIVACY_RULES below, this guidance keys only
+ * on FIRST names because that is all the live roster (coaching-roster.ts)
+ * stores — the LLM sees the surname in context and drops it. The deterministic
+ * PRIVACY_RULES coach entries below are the backstop for the coaches whose
+ * surnames ARE known; the VAs have no known surname, so for them this prompt
+ * guidance is the sole mechanism (see the VA seam in PRIVACY_RULES).
+ *
+ * Pass the live staff first names (from the roster loader) so the transcript
+ * cleaner's prompts stay in lockstep with coaching-roster.ts and never drift.
+ */
+export function buildStaffFirstNameGuidance(staffFirstNames: string[]): string {
+  const names = staffFirstNames.map((n) => n.trim()).filter((n) => n.length > 0).join(", ");
+  return (
+    "Coach & VA names — FIRST NAME ONLY. This is the SAME first-name-only privacy " +
+    "convention as the founder rule, generalised to the whole live coach + VA " +
+    "roster. Whenever a coach or VA is named with a surname, keep the FIRST name " +
+    "and DROP the surname (e.g. 'Bruce Clark' -> 'Bruce'), throughout the body, " +
+    "not just speaker labels. Do NOT flag this. NEVER strip a MEMBER's surname — " +
+    "members keep their real name" +
+    (names ? `. Live coach + VA roster (first names): ${names}` : "") +
+    "."
+  );
+}
+
 export const PRIVACY_RULES: PrivacyRule[] = [
   // --- Generic PII: email addresses ---
   // Matches any RFC-5321-style address regardless of domain or who it belongs
@@ -125,16 +156,27 @@ export const PRIVACY_RULES: PrivacyRule[] = [
   { pattern: /Bruce\s+Clark/gi, replacement: "Bruce" },
   { pattern: /Michael\s+Wiss?baum/gi, replacement: "Michael" },
   { pattern: /Todd\s+Rupp/gi, replacement: "Todd" },
-  // Shephard / Shepard / Shepherd / Sheperd — tolerates any h-insertion and
-  // the a/e vowel variant seen across source files.
-  { pattern: /Robin\s+Sheph?[ae]rd/gi, replacement: "Robin" },
+  // Shephard / Shepard / Shepherd / Sheperd / Shephrd — tolerates any
+  // h-insertion and the a/e vowel variant seen across source files. The vowel is
+  // OPTIONAL ([ae]?) so the vowel-less "Shephrd" mistranscription also collapses.
+  { pattern: /Robin\s+Sheph?[ae]?rd/gi, replacement: "Robin" },
 
   // --- Coaches: strip orphaned surnames (left over from chunk splits) ---
   { pattern: /\bBob[iy]lev\b/gi, replacement: "" },
   { pattern: /\bWiss?baum\b/gi, replacement: "" },
   { pattern: /\bRupp\b/gi, replacement: "" },
-  { pattern: /\bSheph?[ae]rd\b/gi, replacement: "" },
+  { pattern: /\bSheph?[ae]?rd\b/gi, replacement: "" },
   { pattern: /\bClark\b/gi, replacement: "Bruce" },
+
+  // --- VAs: surname strip (SEAM — no known surnames today) ---
+  // The VAs (John, Neil, Mikha) have NO surname stored anywhere in the codebase,
+  // so the deterministic filter cannot key on them. The LLM clean/refine prompt
+  // (which sees the surname in context via buildStaffFirstNameGuidance) is the
+  // primary mechanism for VA surnames. When/if a VA surname becomes KNOWN, add it
+  // here the SAME way as the coach rules above — a full-name -> first-name rule,
+  // then an orphaned-surname strip. Do NOT invent VA surnames.
+  // e.g. { pattern: /Neil\s+<Surname>/gi, replacement: "Neil" },
+  //      { pattern: /\b<Surname>\b/gi, replacement: "" },
 
   // ============================================================
   // ADD NEW FORBIDDEN NAMES HERE.
