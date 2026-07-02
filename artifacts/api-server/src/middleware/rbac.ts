@@ -7,6 +7,7 @@ import {
   hasPermission,
   isAdminRole,
   isCoachRole,
+  isPartnerRole,
 } from "@workspace/auth";
 import { sendError, ErrorCodes } from "../lib/api-errors";
 
@@ -17,6 +18,7 @@ export {
   hasPermission,
   isAdminRole,
   isCoachRole,
+  isPartnerRole,
 } from "@workspace/auth";
 export type { AdminRole, Permission } from "@workspace/auth";
 
@@ -105,5 +107,50 @@ export function requireCoachOrCoachingView() {
     }
 
     sendError(res, 403, ErrorCodes.FORBIDDEN, "Coach access required");
+  };
+}
+
+/**
+ * Allow either a `partner` (usersTable.role === "partner", which is NOT an
+ * admin role) OR an admin role that holds `partners:view`. Mirrors
+ * requireCoachOrCoachingView exactly, for the accountability-partner staff
+ * surfaces. Admin callers get `req.adminRole` set (partners do not — they
+ * have no admin role).
+ */
+export function requirePartnerOrPartnersView() {
+  return async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    if (req.isApiKeyAuth) {
+      sendError(res, 403, ErrorCodes.FORBIDDEN, "Partner routes require session authentication");
+      return;
+    }
+
+    if (!req.userId) {
+      sendError(res, 401, ErrorCodes.AUTHENTICATION_REQUIRED, "Authentication required");
+      return;
+    }
+
+    const [user] = await db
+      .select({ role: usersTable.role })
+      .from(usersTable)
+      .where(eq(usersTable.id, req.userId))
+      .limit(1);
+
+    if (!user) {
+      sendError(res, 403, ErrorCodes.FORBIDDEN, "Partner access required");
+      return;
+    }
+
+    if (isPartnerRole(user.role)) {
+      next();
+      return;
+    }
+
+    if (isAdminRole(user.role) && hasPermission(user.role, "partners:view")) {
+      req.adminRole = user.role;
+      next();
+      return;
+    }
+
+    sendError(res, 403, ErrorCodes.FORBIDDEN, "Partner access required");
   };
 }

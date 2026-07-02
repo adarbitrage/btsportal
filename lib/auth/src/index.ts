@@ -70,6 +70,12 @@ export const PERMISSION_MATRIX = {
   "notifications:view": ["super_admin", "admin", "support_agent", "content_manager", "compliance_reviewer"],
   "apps:manage": ["super_admin", "admin"],
   "apps:support": ["super_admin", "admin", "support_agent"],
+  // Accountability-partner staff surfaces (mirrors coaching:view/manage).
+  // partners:view lets support staff look at partner surfaces without being
+  // able to administer the partner program; partners:manage is reserved for
+  // full admins.
+  "partners:view": ["super_admin", "admin", "support_agent"],
+  "partners:manage": ["super_admin", "admin"],
 } as const satisfies Record<string, readonly AdminRole[]>;
 
 export type Permission = keyof typeof PERMISSION_MATRIX;
@@ -88,6 +94,18 @@ export const COACH_ROLE = "coach";
 
 export function isCoachRole(role: string | undefined | null): boolean {
   return role === COACH_ROLE;
+}
+
+// The `partner` role is NOT an admin role — mirrors the coach role pattern
+// exactly. Partners get their OWN /partner/* staff surfaces and NOTHING
+// else: no admin panel, no coach surfaces, and critically NO member
+// entitlements (unlike coach, which bypasses member content gates by role).
+// Partner access stays 100% product-derived at the member-entitlement layer;
+// this role only unlocks the dedicated partner staff area.
+export const PARTNER_ROLE = "partner";
+
+export function isPartnerRole(role: string | undefined | null): boolean {
+  return role === PARTNER_ROLE;
 }
 
 export function hasPermission(

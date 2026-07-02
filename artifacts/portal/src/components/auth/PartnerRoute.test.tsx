@@ -19,7 +19,7 @@ vi.mock("wouter", () => ({
   Redirect: (props: { to: string }) => redirectMock(props),
 }));
 
-import { CoachRoute } from "./CoachRoute";
+import { PartnerRoute } from "./PartnerRoute";
 
 const ProtectedComponent = () => (
   <div data-testid="protected-component">protected</div>
@@ -39,12 +39,12 @@ function setMember(member: { role?: string } | null, isLoading = false) {
   useGetCurrentMemberMock.mockReturnValue({ data: member, isLoading });
 }
 
-describe("CoachRoute", () => {
+describe("PartnerRoute", () => {
   it("redirects to /login when there is no authenticated user", () => {
     setAuth(null);
     setMember(null);
 
-    render(<CoachRoute component={ProtectedComponent} />);
+    render(<PartnerRoute component={ProtectedComponent} />);
 
     expect(screen.getByTestId("redirect")).toHaveAttribute("data-to", "/login");
     expect(screen.queryByTestId("protected-component")).toBeNull();
@@ -54,68 +54,58 @@ describe("CoachRoute", () => {
     setAuth({ role: "free_member" });
     setMember({ role: "free_member" });
 
-    render(<CoachRoute component={ProtectedComponent} />);
+    render(<PartnerRoute component={ProtectedComponent} />);
 
     expect(screen.getByTestId("redirect")).toHaveAttribute("data-to", "/");
     expect(screen.queryByTestId("protected-component")).toBeNull();
   });
 
-  it("renders the protected component when the auth user is a coach", () => {
+  it("redirects a coach (no partner or admin access) to /", () => {
     setAuth({ role: "coach" });
-    setMember({ role: "free_member" });
-
-    render(<CoachRoute component={ProtectedComponent} />);
-
-    expect(screen.getByTestId("protected-component")).toBeInTheDocument();
-    expect(screen.queryByTestId("redirect")).toBeNull();
-  });
-
-  it("renders the protected component when the member profile is a coach", () => {
-    setAuth({ role: "free_member" });
     setMember({ role: "coach" });
 
-    render(<CoachRoute component={ProtectedComponent} />);
-
-    expect(screen.getByTestId("protected-component")).toBeInTheDocument();
-    expect(screen.queryByTestId("redirect")).toBeNull();
-  });
-
-  it("renders the protected component for an admin with coaching:view permission", () => {
-    setAuth({ role: "super_admin" });
-    setMember({ role: "free_member" });
-
-    render(<CoachRoute component={ProtectedComponent} />);
-
-    expect(screen.getByTestId("protected-component")).toBeInTheDocument();
-    expect(screen.queryByTestId("redirect")).toBeNull();
-  });
-
-  it("renders the protected component when only the member profile is an admin with coaching:view", () => {
-    setAuth({ role: "free_member" });
-    setMember({ role: "admin" });
-
-    render(<CoachRoute component={ProtectedComponent} />);
-
-    expect(screen.getByTestId("protected-component")).toBeInTheDocument();
-    expect(screen.queryByTestId("redirect")).toBeNull();
-  });
-
-  it("redirects an admin role that lacks coaching:view to /", () => {
-    // support_agent is an admin role but does not have coaching:view.
-    setAuth({ role: "support_agent" });
-    setMember({ role: "free_member" });
-
-    render(<CoachRoute component={ProtectedComponent} />);
+    render(<PartnerRoute component={ProtectedComponent} />);
 
     expect(screen.getByTestId("redirect")).toHaveAttribute("data-to", "/");
     expect(screen.queryByTestId("protected-component")).toBeNull();
   });
 
-  it("redirects a partner-role user to / (partner is not coach and has no coaching:view)", () => {
+  it("renders the protected component when the auth user is a partner", () => {
     setAuth({ role: "partner" });
     setMember({ role: "free_member" });
 
-    render(<CoachRoute component={ProtectedComponent} />);
+    render(<PartnerRoute component={ProtectedComponent} />);
+
+    expect(screen.getByTestId("protected-component")).toBeInTheDocument();
+    expect(screen.queryByTestId("redirect")).toBeNull();
+  });
+
+  it("renders the protected component when the member profile is a partner", () => {
+    setAuth({ role: "free_member" });
+    setMember({ role: "partner" });
+
+    render(<PartnerRoute component={ProtectedComponent} />);
+
+    expect(screen.getByTestId("protected-component")).toBeInTheDocument();
+    expect(screen.queryByTestId("redirect")).toBeNull();
+  });
+
+  it("renders the protected component for an admin with partners:view", () => {
+    setAuth({ role: "super_admin" });
+    setMember({ role: "free_member" });
+
+    render(<PartnerRoute component={ProtectedComponent} />);
+
+    expect(screen.getByTestId("protected-component")).toBeInTheDocument();
+    expect(screen.queryByTestId("redirect")).toBeNull();
+  });
+
+  it("redirects an admin role that lacks partners:view to /", () => {
+    // content_manager is an admin role but does not have partners:view.
+    setAuth({ role: "content_manager" });
+    setMember({ role: "free_member" });
+
+    render(<PartnerRoute component={ProtectedComponent} />);
 
     expect(screen.getByTestId("redirect")).toHaveAttribute("data-to", "/");
     expect(screen.queryByTestId("protected-component")).toBeNull();
@@ -125,7 +115,7 @@ describe("CoachRoute", () => {
     setAuth(null, true);
     setMember(null);
 
-    render(<CoachRoute component={ProtectedComponent} />);
+    render(<PartnerRoute component={ProtectedComponent} />);
 
     expect(screen.getByText("Loading...")).toBeInTheDocument();
     expect(screen.queryByTestId("protected-component")).toBeNull();
@@ -133,10 +123,10 @@ describe("CoachRoute", () => {
   });
 
   it("shows the loading spinner while the member profile is still loading", () => {
-    setAuth({ role: "coach" });
+    setAuth({ role: "partner" });
     setMember(null, true);
 
-    render(<CoachRoute component={ProtectedComponent} />);
+    render(<PartnerRoute component={ProtectedComponent} />);
 
     expect(screen.getByText("Loading...")).toBeInTheDocument();
     expect(screen.queryByTestId("protected-component")).toBeNull();

@@ -95,6 +95,16 @@ describe("AdminRoute", () => {
     expect(screen.getByTestId("redirect")).toHaveAttribute("data-to", "/");
   });
 
+  it("redirects a partner-role user to / (partner is not an admin role)", () => {
+    setAuth({ role: "partner" });
+    setMember({ role: "free_member" });
+
+    render(<AdminRoute component={ProtectedComponent} />);
+
+    expect(screen.getByTestId("redirect")).toHaveAttribute("data-to", "/");
+    expect(screen.queryByTestId("protected-component")).toBeNull();
+  });
+
   it("checks the required permission against the resolved admin role from the auth user", () => {
     // super_admin (auth) has every permission. member-only role would be a
     // non-admin, so this proves the guard uses the auth role for the

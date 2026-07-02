@@ -68,7 +68,7 @@ import {
 import { cn } from "@/lib/utils";
 import { useGetCurrentMember, type MemberProfile } from "@workspace/api-client-react";
 import { useAuth } from "@/lib/auth";
-import { isCoachRole } from "@workspace/auth";
+import { isCoachRole, isPartnerRole } from "@workspace/auth";
 import { NotificationBell, NotificationBadgeCount } from "@/components/community/NotificationBell";
 import { useAdminModerationPendingCount } from "@/hooks/useAdminModeration";
 import { UnreadBadge } from "@/components/dm/unread-badge";
@@ -375,6 +375,24 @@ export function shouldShowCoachSection(
   return isCoach || (isAdminUser && hasPermission(userRole, "coaching:view"));
 }
 
+export const PARTNER_NAV_NODES: NavNode[] = [
+  {
+    kind: "leaf",
+    href: "/partner",
+    label: "Partner Home",
+    icon: Users2,
+  },
+];
+
+export function shouldShowPartnerSection(
+  authRole: string | undefined | null,
+  memberRole: string | undefined | null,
+): boolean {
+  const { userRole, isAdminUser } = resolveAdminRole(authRole, memberRole);
+  const isPartner = isPartnerRole(authRole) || isPartnerRole(memberRole);
+  return isPartner || (isAdminUser && hasPermission(userRole, "partners:view"));
+}
+
 const LS_PREFIX = "sidebar-folder-";
 
 function useFolderState(key: string, defaultOpen: boolean) {
@@ -581,6 +599,7 @@ export function SidebarContent({ onNavClick }: { onNavClick?: () => void }) {
   const isCoach = isCoachRole(user?.role) || isCoachRole(member?.role);
 
   const showCoachSection = shouldShowCoachSection(user?.role, member?.role);
+  const showPartnerSection = shouldShowPartnerSection(user?.role, member?.role);
 
   const highestSlug: string = member?.highestProductSlug ?? "free";
   const hasLifetime = isLifetimeSlug(highestSlug);
@@ -615,6 +634,7 @@ export function SidebarContent({ onNavClick }: { onNavClick?: () => void }) {
     [
       ...filteredMemberNav,
       ...(showCoachSection ? COACH_NAV_NODES : []),
+      ...(showPartnerSection ? PARTNER_NAV_NODES : []),
       ...(showAdminSection ? [adminFolder] : []),
     ],
     location,
@@ -707,6 +727,26 @@ export function SidebarContent({ onNavClick }: { onNavClick?: () => void }) {
             </div>
             <div className="space-y-0.5">
               {COACH_NAV_NODES.map((node) => (
+                <NavNodeRow
+                  key={node.kind === "leaf" ? node.href : node.storageKey}
+                  node={node}
+                  activeHref={activeHref}
+                  onNavClick={onNavClick}
+                  indent={0}
+                />
+              ))}
+            </div>
+          </div>
+        )}
+
+        {showPartnerSection && (
+          <div className="mt-6 pt-4 border-t border-border/50">
+            <div className="flex items-center gap-2 px-3 mb-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+              <Users2 className="w-3.5 h-3.5" />
+              Partner
+            </div>
+            <div className="space-y-0.5">
+              {PARTNER_NAV_NODES.map((node) => (
                 <NavNodeRow
                   key={node.kind === "leaf" ? node.href : node.storageKey}
                   node={node}

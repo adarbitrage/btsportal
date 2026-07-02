@@ -4,7 +4,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider, useAuth } from "@/lib/auth";
-import { isAdminRole, isCoachRole } from "@workspace/auth";
+import { isAdminRole, isCoachRole, isPartnerRole } from "@workspace/auth";
 
 import { useGetCurrentMember } from "@workspace/api-client-react";
 import Dashboard from "@/pages/Dashboard";
@@ -165,6 +165,8 @@ import GroupCoaching from "@/pages/coaching/GroupCoaching";
 import MenteeDetail from "@/pages/coaching/MenteeDetail";
 import { AdminRoute } from "@/components/auth/AdminRoute";
 import { CoachRoute } from "@/components/auth/CoachRoute";
+import { PartnerRoute } from "@/components/auth/PartnerRoute";
+import PartnerDashboard from "@/pages/partner/PartnerDashboard";
 import { adminPanelApi } from "@/lib/admin-panel-api";
 import { useToast } from "@/hooks/use-toast";
 import { useContentAccess } from "@/hooks/use-content-access";
@@ -226,7 +228,7 @@ export function ProtectedRoute({ component: Component }: { component: React.Comp
     return <Redirect to="/change-password" />;
   }
 
-  if (!user.onboardingComplete && !isCoachRole(user.role)) {
+  if (!user.onboardingComplete && !isCoachRole(user.role) && !isPartnerRole(user.role)) {
     const stepRoute = STEP_ROUTES[(user.onboardingStep || 1) - 1] || STEP_ROUTES[0];
     return <Redirect to={stepRoute} />;
   }
@@ -273,7 +275,7 @@ export function EntitlementRoute({ component: Component, entitlement }: { compon
     return <Redirect to="/change-password" />;
   }
 
-  if (!user.onboardingComplete && !isCoachRole(user.role)) {
+  if (!user.onboardingComplete && !isCoachRole(user.role) && !isPartnerRole(user.role)) {
     const stepRoute = STEP_ROUTES[(user.onboardingStep || 1) - 1] || STEP_ROUTES[0];
     return <Redirect to={stepRoute} />;
   }
@@ -348,7 +350,7 @@ export function ContentAccessRoute({
     return <Redirect to="/change-password" />;
   }
 
-  if (!user.onboardingComplete && !isCoachRole(user.role)) {
+  if (!user.onboardingComplete && !isCoachRole(user.role) && !isPartnerRole(user.role)) {
     const stepRoute = STEP_ROUTES[(user.onboardingStep || 1) - 1] || STEP_ROUTES[0];
     return <Redirect to={stepRoute} />;
   }
@@ -425,7 +427,7 @@ export function GuestRoute({ component: Component }: { component: React.Componen
     if (user.mustChangePassword) {
       return <Redirect to="/change-password" />;
     }
-    if (!user.onboardingComplete && !isCoachRole(user.role)) {
+    if (!user.onboardingComplete && !isCoachRole(user.role) && !isPartnerRole(user.role)) {
       const stepRoute = STEP_ROUTES[(user.onboardingStep || 1) - 1] || STEP_ROUTES[0];
       return <Redirect to={stepRoute} />;
     }
@@ -625,6 +627,7 @@ function Router() {
       <Route path="/coach/mentees/:userId">{() => <CoachRoute component={MenteeDetail} />}</Route>
       <Route path="/coach/messages">{() => <CoachRoute component={DMInbox} />}</Route>
       <Route path="/coach/messages/:threadId">{() => <CoachRoute component={DMThread} />}</Route>
+      <Route path="/partner">{() => <PartnerRoute component={PartnerDashboard} />}</Route>
       <Route component={NotFound} />
     </Switch>
   );
