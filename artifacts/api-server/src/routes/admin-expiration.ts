@@ -1,9 +1,11 @@
 import { Router, type Request, type Response } from "express";
 import { db, userProductsTable, productsTable, usersTable } from "@workspace/db";
-import { eq, and, lt, lte, gte, isNotNull } from "drizzle-orm";
+import { eq, and, lt, lte, gte, isNotNull, inArray } from "drizzle-orm";
 import { queueGHLSync } from "../lib/ghl-queue";
 import { requirePermission } from "../middleware/rbac";
 import { CommunicationService } from "../lib/communication-service";
+import { PRODUCT_RANK } from "../lib/product-rank";
+import { isPartnerEligibleRank, endActiveAssignment } from "../lib/partner-assignment";
 
 const router = Router();
 
@@ -107,6 +109,49 @@ router.post("/admin/run-expiration-check", requirePermission("settings:manage"),
         noteBody: `Product access expired (user_product ID: ${item.id})`,
       });
     }
+    // Term-expiry cleanup for the accountability-partner system: when a
+    // 3-Month+ (rank >= 2) grant lapses to "expired", end the member's active
+    // partner assignment — UNLESS they still hold another active grant that's
+    // independently qualifying (e.g. they hold both a 6-month and a lifetime
+    // grant and only one expired). Scoped to `expiredActive` only: those are
+    // the rows that were actually entitlement-bearing right up to the moment
+    // they expired, unlike `expiredCancelled`/`expiredPastDue` which already
+    // lost their active status earlier.
+    if (expiredActive.length > 0) {
+      const expiredProductIds = [...new Set(expiredActive.map((item) => item.productId))];
+      const expiredProducts = await db
+        .select({ id: productsTable.id, slug: productsTable.slug })
+        .from(productsTable)
+        .where(inArray(productsTable.id, expiredProductIds));
+      const rankById = new Map(
+        expiredProducts.map((p) => [p.id, PRODUCT_RANK[p.slug]]),
+      );
+
+      for (const item of expiredActive) {
+        const rank = rankById.get(item.productId);
+        if (!isPartnerEligibleRank(rank)) continue;
+
+        const [stillQualifying] = await db
+          .select({ id: userProductsTable.id })
+          .from(userProductsTable)
+          .innerJoin(productsTable, eq(userProductsTable.productId, productsTable.id))
+          .where(
+            and(
+              eq(userProductsTable.userId, item.userId),
+              eq(userProductsTable.status, "active"),
+              inArray(productsTable.slug, Object.keys(PRODUCT_RANK).filter((slug) => isPartnerEligibleRank(PRODUCT_RANK[slug]))),
+            ),
+          )
+          .limit(1);
+        if (stillQualifying) continue;
+
+        const ended = await endActiveAssignment(item.userId, "3-Month+ product access expired");
+        if (ended) {
+          console.log(`[Expiration] Ended partner assignment for user ${item.userId} (product access expired)`);
+        }
+      }
+    }
+
     for (const item of expiredCancelled) {
       console.log(`[Expiration] Expired cancelled product (user_product ID: ${item.id}) for user ${item.userId}`);
       await queueGHLSync({

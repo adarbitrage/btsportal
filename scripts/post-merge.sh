@@ -372,6 +372,17 @@ if [ -n "$DATABASE_URL" ]; then
   #     EXISTS, CREATE EXTENSION IF NOT EXISTS, UPDATE gated on NULL).
   psql "$DATABASE_URL" -v ON_ERROR_STOP=1 \
     -f lib/db/drizzle/0095_ai_source_documents_content_hash.sql >/dev/null
+
+  # 33. Accountability Partner system (Task #1577) — partners,
+  #     partner_assignments, kickoff_coaches. Three new additive tables (a
+  #     roster, an assignment-history log with a partial unique index enforcing
+  #     one active assignment per member, and a separate kickoff-coach roster).
+  #     Applying it here keeps the live-schema-drift gate green so the
+  #     conditional push stays skipped on the common merge (same pattern as
+  #     steps 7/10/11/15/18-24/27/29-32). Idempotent (CREATE TABLE/INDEX IF NOT
+  #     EXISTS, guarded ADD CONSTRAINT).
+  psql "$DATABASE_URL" -v ON_ERROR_STOP=1 \
+    -f lib/db/drizzle/0096_partner_assignment_tables.sql >/dev/null
 fi
 
 # Schema sync — CONDITIONAL push.

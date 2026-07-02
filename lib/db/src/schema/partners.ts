@@ -1,0 +1,40 @@
+import { pgTable, text, serial, integer, boolean, timestamp } from "drizzle-orm/pg-core";
+import { createInsertSchema } from "drizzle-zod";
+import { z } from "zod/v4";
+import { usersTable } from "./users";
+
+// Accountability-partner roster. Mirrors the shape of `coaches` — partners
+// are a distinct role from coaches (partners run the ongoing accountability
+// check-ins for 3-Month+ members; coaches run group/private coaching calls).
+// Starts with 3 partners but nothing may assume a fixed headcount — the
+// round-robin balancer (see lib/partner-assignment.ts) scales to any count.
+export const partnersTable = pgTable("partners", {
+  id: serial("id").primaryKey(),
+  // Optional link to the partner's portal login. Nullable: a partner can be
+  // seeded before they have a portal account. ON DELETE SET NULL so deleting
+  // a user account leaves the partner row (and their assignment history)
+  // intact — just unlinked.
+  userId: integer("user_id")
+    .references(() => usersTable.id, { onDelete: "set null" })
+    .unique(),
+  displayName: text("display_name").notNull(),
+  photoUrl: text("photo_url"),
+  bio: text("bio"),
+  isActive: boolean("is_active").notNull().default(true),
+  // Soft capacity ceiling for the Tier 2 booking/reveal UI (not enforced by
+  // round-robin assignment itself, which balances by count, not by this cap).
+  maxDailyCalls: integer("max_daily_calls").notNull().default(5),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true })
+    .notNull()
+    .defaultNow()
+    .$onUpdate(() => new Date()),
+});
+
+export const insertPartnerSchema = createInsertSchema(partnersTable).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type InsertPartner = z.infer<typeof insertPartnerSchema>;
+export type Partner = typeof partnersTable.$inferSelect;

@@ -18,6 +18,7 @@ import {
   Network,
   MessageSquare,
   Users2,
+  Handshake,
   CalendarDays,
   CalendarClock,
   DollarSign,
@@ -228,6 +229,7 @@ export const ADMIN_CHILDREN: NavNode[] = [
     children: [
       { kind: "leaf", href: "/admin/coaching/sessions", label: "Private Coaching", icon: UserCheck, requiredPermission: "coaching:view" },
       { kind: "leaf", href: "/admin/coaching/coaches", label: "Coaches", icon: Users2, requiredPermission: "coaching:view" },
+      { kind: "leaf", href: "/admin/partners", label: "Accountability Partners", icon: Handshake, requiredPermission: "partners:view" },
       { kind: "leaf", href: "/admin/coaching/calls", label: "Group Calls", icon: Video, requiredPermission: "coaching:view" },
     ],
   },

@@ -116,6 +116,7 @@ import BookSessionPack from "@/pages/coaching/BookSessionPack";
 import PrivateCoaching from "@/pages/admin/PrivateCoaching";
 import CoachingCalls from "@/pages/admin/CoachingCalls";
 import CoachProfiles from "@/pages/admin/CoachProfiles";
+import Partners from "@/pages/admin/Partners";
 import CommunicationsTemplates from "@/pages/admin/CommunicationsTemplates";
 import CommunicationsSmsTemplates from "@/pages/admin/CommunicationsSmsTemplates";
 import CommunicationsSequences from "@/pages/admin/CommunicationsSequences";
@@ -594,6 +595,7 @@ function Router() {
       <Route path="/admin/coaching/credits">{() => <Redirect to="/admin/coaching/sessions" />}</Route>
       <Route path="/admin/coaching/calls">{() => <AdminRoute component={CoachingCalls} permission="coaching:view" />}</Route>
       <Route path="/admin/coaching/coaches">{() => <AdminRoute component={CoachProfiles} permission="coaching:view" />}</Route>
+      <Route path="/admin/partners">{() => <AdminRoute component={Partners} permission="partners:view" />}</Route>
       <Route path="/admin/communications/templates">{() => <AdminRoute component={CommunicationsTemplates} permission="communications:manage" />}</Route>
       <Route path="/admin/communications/sms-templates">{() => <AdminRoute component={CommunicationsSmsTemplates} permission="communications:manage" />}</Route>
       <Route path="/admin/communications/sequences">{() => <AdminRoute component={CommunicationsSequences} permission="communications:manage" />}</Route>

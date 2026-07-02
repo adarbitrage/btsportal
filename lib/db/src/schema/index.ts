@@ -100,3 +100,6 @@ export * from "./kb-source-node-extracts";
 export * from "./transcript-cleaner";
 export * from "./ad-spend-transactions";
 export * from "./billing-ops-heartbeat";
+export * from "./partners";
+export * from "./partner-assignments";
+export * from "./kickoff-coaches";

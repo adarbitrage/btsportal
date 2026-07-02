@@ -16,6 +16,7 @@ import { queueGHLSync } from "./ghl-queue";
 import { CommunicationService } from "./communication-service";
 import { ensureAffiliateProfile } from "./commissions";
 import { emitWebhookEvent } from "./webhook-events";
+import { maybeAssignPartnerForGrant } from "./partner-assignment";
 
 export const YSE_GRANT_EVENT_TYPE = "external.grant_product";
 export const YSE_GRANT_MAX_ATTEMPTS = 5;
@@ -193,6 +194,13 @@ export async function insertUserProductGrant(params: {
       thrivecartOrderId: thrivecartOrderId ?? null,
       thrivecartSubId: thrivecartSubId ?? null,
     });
+    // Fire the round-robin accountability-partner assignment for any
+    // 3-Month+ grant. This single call site covers every purchase path that
+    // shares this function (ThriveCart webhook, NMI native checkout, manual
+    // admin grant) — including 6-month+ direct buyers who never hold a
+    // 3-month grant. Non-fatal: maybeAssignPartnerForGrant swallows its own
+    // errors so a partner-assignment hiccup never blocks the purchase.
+    await maybeAssignPartnerForGrant(userId, productId);
     return { alreadyGranted: false };
   } catch (err: unknown) {
     const e = err as { code?: string; cause?: { code?: string } };
@@ -275,6 +283,10 @@ export async function extendActiveGrantExpiry(params: {
       externalOrderId,
       expiresAt: newExpiresAt,
     });
+    // A brand-new active grant was created here (not just extended) — e.g. a
+    // renewal charge landing after the prior grant had already expired.
+    // Trigger the same round-robin partner assignment as a fresh purchase.
+    await maybeAssignPartnerForGrant(userId, productId);
     return { extended: false, created: true, untouched: false };
   } catch (err: unknown) {
     const e = err as { code?: string; cause?: { code?: string } };
@@ -656,6 +668,18 @@ export async function handleExternalGrantProduct(
       redactPii(err),
     );
   });
+
+  // Trigger round-robin accountability-partner assignment for every
+  // newly-granted 3-Month+ product in this batch. This is the YSE external
+  // grant path — it does its own inline insert inside the transaction above
+  // rather than calling insertUserProductGrant, so the hook lives here
+  // instead. maybeAssignPartnerForGrant is idempotent (no-op if the member
+  // already has an active assignment), so looping over multiple qualifying
+  // grants in one batch is safe.
+  for (const grant of grants) {
+    if (grant.alreadyGranted) continue;
+    await maybeAssignPartnerForGrant(userId, grant.productId);
+  }
 
   try {
     await attributeYseCommission(payload, userId, grants);
