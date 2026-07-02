@@ -383,6 +383,17 @@ if [ -n "$DATABASE_URL" ]; then
   #     EXISTS, guarded ADD CONSTRAINT).
   psql "$DATABASE_URL" -v ON_ERROR_STOP=1 \
     -f lib/db/drizzle/0096_partner_assignment_tables.sql >/dev/null
+
+  # 34. Native kickoff + partner call booking (Task #1591) — new additive
+  #     `call_bookings` table (the single store-of-record for both call
+  #     types) plus `ghl_calendar_id` on partners/kickoff_coaches and
+  #     `cadence_per_week` on partner_assignments. Applying it here keeps the
+  #     live-schema-drift gate green so the conditional push stays skipped on
+  #     the common merge (same pattern as steps 7/10/11/15/18-24/27/29-33).
+  #     Idempotent (CREATE TABLE/INDEX IF NOT EXISTS, guarded ADD
+  #     CONSTRAINT/COLUMN).
+  psql "$DATABASE_URL" -v ON_ERROR_STOP=1 \
+    -f lib/db/drizzle/0097_call_bookings.sql >/dev/null
 fi
 
 # Schema sync — CONDITIONAL push.

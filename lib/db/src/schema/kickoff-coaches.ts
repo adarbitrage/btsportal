@@ -20,6 +20,10 @@ export const kickoffCoachesTable = pgTable("kickoff_coaches", {
   bio: text("bio"),
   isActive: boolean("is_active").notNull().default(true),
   sortOrder: integer("sort_order").notNull().default(0),
+  // GHL calendar to book kickoff calls against (Tier 2). Nullable — a coach
+  // without a calendar configured simply offers no bookable slots and is
+  // skipped by round-robin selection.
+  ghlCalendarId: text("ghl_calendar_id"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true })
     .notNull()

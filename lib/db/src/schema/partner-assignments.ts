@@ -24,6 +24,9 @@ export const partnerAssignmentsTable = pgTable(
     assignedAt: timestamp("assigned_at", { withTimezone: true }).notNull().defaultNow(),
     endedAt: timestamp("ended_at", { withTimezone: true }),
     endedReason: text("ended_reason"),
+    // How often this pair is expected to call (Tier 2 schema only — T4 sets
+    // it, T6 displays it). Null means no cadence configured yet.
+    cadencePerWeek: integer("cadence_per_week"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => ({

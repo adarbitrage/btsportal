@@ -74,6 +74,15 @@ function parsePartnerBody(
     values.maxDailyCalls = n;
   }
 
+  if (body.ghlCalendarId !== undefined) {
+    if (body.ghlCalendarId === null) {
+      values.ghlCalendarId = null;
+    } else {
+      const trimmed = typeof body.ghlCalendarId === "string" ? body.ghlCalendarId.trim() : "";
+      values.ghlCalendarId = trimmed || null;
+    }
+  }
+
   return { values };
 }
 
@@ -84,6 +93,7 @@ const PARTNER_COLUMNS = {
   photoUrl: partnersTable.photoUrl,
   isActive: partnersTable.isActive,
   maxDailyCalls: partnersTable.maxDailyCalls,
+  ghlCalendarId: partnersTable.ghlCalendarId,
   userId: partnersTable.userId,
 };
 

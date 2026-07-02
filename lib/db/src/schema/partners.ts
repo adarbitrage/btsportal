@@ -24,6 +24,9 @@ export const partnersTable = pgTable("partners", {
   // Soft capacity ceiling for the Tier 2 booking/reveal UI (not enforced by
   // round-robin assignment itself, which balances by count, not by this cap).
   maxDailyCalls: integer("max_daily_calls").notNull().default(5),
+  // GHL calendar to book partner calls against (Tier 2). Nullable — a partner
+  // without a calendar configured simply offers no bookable slots.
+  ghlCalendarId: text("ghl_calendar_id"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true })
     .notNull()

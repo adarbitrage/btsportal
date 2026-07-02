@@ -92,6 +92,7 @@ import adminContentGapsRouter from "./admin-content-gaps";
 import billingRouter from "./billing";
 import adSpendRouter from "./ad-spend";
 import opsRouter from "./ops";
+import callBookingsRouter from "./call-bookings";
 
 const router: IRouter = Router();
 
@@ -188,5 +189,6 @@ router.use(adminContentGapsRouter);
 router.use(billingRouter);
 router.use(adSpendRouter);
 router.use(opsRouter);
+router.use(callBookingsRouter);
 
 export default router;

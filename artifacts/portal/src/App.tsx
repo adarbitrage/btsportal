@@ -541,6 +541,7 @@ function Router() {
       <Route path="/wins/:id">{() => <ProtectedRoute component={WinDetail} />}</Route>
       <Route path="/coaching/book-session/book">{() => <ProtectedRoute component={BookSessionPack} />}</Route>
       <Route path="/coaching/book-session">{() => <ProtectedRoute component={SessionBooking} />}</Route>
+      <Route path="/coaching/partner-calls">{() => <ProtectedRoute component={OnboardingBookPartnerCall} />}</Route>
       <Route path="/coaching">{() => <EntitlementRoute component={Coaching} entitlement="coaching:group" />}</Route>
       <Route path="/account">{() => <ProtectedRoute component={Account} />}</Route>
       <Route path="/account/products">{() => <ProtectedRoute component={MyProducts} />}</Route>
