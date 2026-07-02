@@ -1,19 +1,75 @@
 import { useGetDashboard, useGetCurrentMember } from "@workspace/api-client-react";
 import { useVaultStats } from "@/lib/vault-api";
+import { usePartnerPanel } from "@/lib/call-bookings-api";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
-import { BookOpen, Clock, Flame, Calendar, PlayCircle, MessageSquare, Video, ShieldCheck, Wrench, FolderOpen, Heart, ChevronRight, Lock } from "lucide-react";
+import { BookOpen, Clock, Flame, Calendar, PlayCircle, MessageSquare, Video, ShieldCheck, Wrench, FolderOpen, Heart, ChevronRight, Lock, Users } from "lucide-react";
 import { format } from "date-fns";
 import { Link, useLocation } from "wouter";
 import { WinsSummaryWidget } from "@/components/wins/WinsSummaryWidget";
 import { UpgradeFeaturesCard } from "@/components/upgrade/UpgradeFeaturesCard";
+import { PartnerRevealCard } from "@/components/onboarding/PartnerRevealCard";
 import { isCoachRole } from "@workspace/auth";
 import { FEATURE_TO_PLAN_SLUG } from "@/lib/upgrade-plans";
 import { BlitzContinueCard } from "@/components/blitz/BlitzContinueCard";
 import { BlitzStreakWidget } from "@/components/blitz/BlitzStreakWidget";
+
+// Persistent "Your Accountability Partner" dashboard panel (Task #1593).
+// Renders nothing for members without an active assignment (e.g. below the
+// eligible product tier, or an assignment that ended) — absence is the
+// correct state, not a loading/error condition.
+function AccountabilityPartnerCard() {
+  const { data, isLoading } = usePartnerPanel();
+  const assignment = data?.assignment;
+
+  if (isLoading || !assignment) return null;
+
+  const { partner, cadencePerWeek, nextCall, completedCallCount } = assignment;
+
+  return (
+    <Card data-testid="accountability-partner-panel">
+      <CardHeader className="pb-4 border-b border-border/50">
+        <div className="flex items-center gap-2 text-foreground font-semibold">
+          <Users className="w-5 h-5 text-primary" />
+          Your Accountability Partner
+        </div>
+      </CardHeader>
+      <CardContent className="pt-4 space-y-4">
+        <PartnerRevealCard
+          partner={partner}
+          subtitle={cadencePerWeek ? `${cadencePerWeek}x per week` : "Your accountability partner"}
+        />
+
+        {partner.bio && <p className="text-xs text-muted-foreground leading-relaxed">{partner.bio}</p>}
+
+        <div className="flex items-center justify-between text-sm bg-secondary/50 rounded-lg px-3 py-2">
+          <span className="text-muted-foreground">Check-ins completed</span>
+          <span className="font-semibold text-foreground" data-testid="partner-completed-count">
+            {completedCallCount}
+          </span>
+        </div>
+
+        {nextCall ? (
+          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+            <Calendar className="w-3.5 h-3.5" />
+            <span>Next call {format(new Date(nextCall.scheduledAt), "MMM d, h:mm a")}</span>
+          </div>
+        ) : (
+          <p className="text-xs text-muted-foreground">No call scheduled yet.</p>
+        )}
+
+        <Link href="/onboarding/book-partner-call">
+          <Button variant="outline" className="w-full">
+            {nextCall ? "Manage Calls" : "Book a Call"}
+          </Button>
+        </Link>
+      </CardContent>
+    </Card>
+  );
+}
 
 export default function Dashboard() {
   const { data: dashboard, isLoading, error } = useGetDashboard();
@@ -221,6 +277,8 @@ export default function Dashboard() {
             )}
 
             <BlitzStreakWidget />
+
+            <AccountabilityPartnerCard />
 
             <WinsSummaryWidget />
 

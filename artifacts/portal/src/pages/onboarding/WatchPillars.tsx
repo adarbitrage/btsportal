@@ -1,6 +1,8 @@
 import { OnboardingLayout } from "@/components/onboarding/OnboardingLayout";
+import { PartnerRevealCard } from "@/components/onboarding/PartnerRevealCard";
 import { useAuth } from "@/lib/auth";
 import { usePatchOnboardingStep } from "@workspace/api-client-react";
+import { usePartnerInfo } from "@/lib/call-bookings-api";
 import { useLocation, Link } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -11,6 +13,8 @@ import { useState } from "react";
 export default function OnboardingWatchPillars() {
   const { refreshAuth } = useAuth();
   const patchOnboarding = usePatchOnboardingStep();
+  const { data: partnerInfo } = usePartnerInfo();
+  const partner = partnerInfo?.partner ?? null;
   const [, navigate] = useLocation();
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
@@ -38,6 +42,8 @@ export default function OnboardingWatchPillars() {
             Before your first call, watch our 7 Pillars training to learn the foundation of the program.
           </p>
         </div>
+
+        {partner && <PartnerRevealCard partner={partner} />}
 
         <Card>
           <CardContent className="p-6 space-y-4 text-center">

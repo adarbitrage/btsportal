@@ -1,5 +1,7 @@
 import { OnboardingLayout } from "@/components/onboarding/OnboardingLayout";
+import { PartnerRevealCard } from "@/components/onboarding/PartnerRevealCard";
 import { useAuth } from "@/lib/auth";
+import { usePartnerInfo } from "@/lib/call-bookings-api";
 import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -11,6 +13,8 @@ import { useState } from "react";
 // onboarding from here — there is no client PATCH for this step.
 export default function OnboardingPartnerCallPending() {
   const { refreshAuth } = useAuth();
+  const { data: partnerInfo } = usePartnerInfo();
+  const partner = partnerInfo?.partner ?? null;
   const [, navigate] = useLocation();
   const [checking, setChecking] = useState(false);
 
@@ -32,6 +36,8 @@ export default function OnboardingPartnerCallPending() {
             You're all set up — just complete your first partner call to unlock the full member portal, including Blitz.
           </p>
         </div>
+
+        {partner && <PartnerRevealCard partner={partner} />}
 
         <Card>
           <CardContent className="p-6 space-y-4 text-center">

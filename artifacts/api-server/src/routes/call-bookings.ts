@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { db, pool, usersTable, partnersTable, callBookingsTable } from "@workspace/db";
+import { db, pool, usersTable, partnersTable, partnerAssignmentsTable, callBookingsTable } from "@workspace/db";
 import { eq, and, ne, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/node-postgres";
 import {
@@ -464,6 +464,76 @@ router.get("/onboarding/partner/availability", async (req, res): Promise<void> =
     console.error("[call-bookings] partner availability failed:", err);
     res.status(502).json({ error: "Could not load availability. Please try again." });
   }
+});
+
+// ---------------------------------------------------------------------------
+// Accountability partner panel — /partner/me (Task #1593). Member-safe
+// summary for the persistent dashboard panel: only present once a member has
+// an ACTIVE assignment (empty for unassigned members, e.g. still onboarding
+// or below the eligible product tier). No coach-only fields are exposed —
+// mirrors the loadAssignedPartner() projection used by the onboarding
+// partner routes above.
+// ---------------------------------------------------------------------------
+
+router.get("/partner/me", async (req, res): Promise<void> => {
+  const userId = req.userId!;
+  const assignment = await getActiveAssignment(userId);
+  if (!assignment) {
+    res.json({ assignment: null });
+    return;
+  }
+
+  const partner = await loadAssignedPartner(userId);
+  if (!partner) {
+    res.json({ assignment: null });
+    return;
+  }
+
+  const [assignmentRow] = await db
+    .select({ cadencePerWeek: partnerAssignmentsTable.cadencePerWeek })
+    .from(partnerAssignmentsTable)
+    .where(eq(partnerAssignmentsTable.id, assignment.id));
+
+  const [nextCall] = await db
+    .select({ scheduledAt: callBookingsTable.scheduledAt, meetingUrl: callBookingsTable.meetingUrl })
+    .from(callBookingsTable)
+    .where(
+      and(
+        eq(callBookingsTable.memberId, userId),
+        eq(callBookingsTable.type, "partner"),
+        eq(callBookingsTable.status, "booked"),
+        sql`${callBookingsTable.scheduledAt} >= now()`,
+      ),
+    )
+    .orderBy(sql`${callBookingsTable.scheduledAt} asc`)
+    .limit(1);
+
+  const [completedRow] = await db
+    .select({ completedCallCount: sql<number>`count(*)` })
+    .from(callBookingsTable)
+    .where(
+      and(
+        eq(callBookingsTable.memberId, userId),
+        eq(callBookingsTable.type, "partner"),
+        eq(callBookingsTable.status, "completed"),
+      ),
+    );
+
+  res.json({
+    assignment: {
+      partner: {
+        id: partner.id,
+        displayName: partner.displayName,
+        photoUrl: partner.photoUrl,
+        bio: partner.bio,
+      },
+      cadencePerWeek: assignmentRow?.cadencePerWeek ?? null,
+      nextCall: nextCall
+        ? { scheduledAt: nextCall.scheduledAt.toISOString(), meetingUrl: nextCall.meetingUrl }
+        : null,
+      completedCallCount: Number(completedRow?.completedCallCount ?? 0),
+    },
+  });
 });
 
 router.get("/onboarding/partner/mine", async (req, res): Promise<void> => {

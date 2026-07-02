@@ -20,7 +20,7 @@ import {
 } from "date-fns";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
-import { resolveCoachPhotoUrl } from "@/lib/coaches-admin-api";
+import { PartnerRevealCard } from "@/components/onboarding/PartnerRevealCard";
 import {
   usePartnerInfo,
   usePartnerAvailability,
@@ -31,15 +31,6 @@ import {
 } from "@/lib/call-bookings-api";
 
 const PARTNER_CALL_DURATION_MINUTES = 30;
-
-function initials(name: string): string {
-  return name
-    .split(/\s+/)
-    .map((p) => p[0])
-    .join("")
-    .slice(0, 2)
-    .toUpperCase();
-}
 
 export default function OnboardingBookPartnerCall() {
   const { refreshAuth, user } = useAuth();
@@ -197,23 +188,10 @@ export default function OnboardingBookPartnerCall() {
         </div>
       )}
       {partner && (
-        <div className="flex items-center justify-center gap-3">
-          {partner.photoUrl ? (
-            <img
-              src={resolveCoachPhotoUrl(partner.photoUrl) ?? undefined}
-              alt={partner.displayName}
-              className="w-12 h-12 rounded-full object-cover"
-            />
-          ) : (
-            <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center text-sm font-bold text-primary">
-              {initials(partner.displayName)}
-            </div>
-          )}
-          <div className="text-left">
-            <p className="font-semibold text-foreground">{partner.displayName}</p>
-            <p className="text-xs text-muted-foreground">Free {PARTNER_CALL_DURATION_MINUTES}-minute accountability call</p>
-          </div>
-        </div>
+        <PartnerRevealCard
+          partner={partner}
+          subtitle={`Free ${PARTNER_CALL_DURATION_MINUTES}-minute accountability call`}
+        />
       )}
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">

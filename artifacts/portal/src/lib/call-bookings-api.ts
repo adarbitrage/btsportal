@@ -150,6 +150,24 @@ export function useCancelPartnerCall() {
 }
 
 // ---------------------------------------------------------------------------
+// Accountability partner panel (dashboard, Task #1593)
+// ---------------------------------------------------------------------------
+
+export interface PartnerAssignmentPanel {
+  partner: StaffProfile;
+  cadencePerWeek: number | null;
+  nextCall: { scheduledAt: string; meetingUrl: string | null } | null;
+  completedCallCount: number;
+}
+
+export function usePartnerPanel() {
+  return useQuery<{ assignment: PartnerAssignmentPanel | null }>({
+    queryKey: ["/api/partner/me"],
+    queryFn: () => callFetch("/partner/me"),
+  });
+}
+
+// ---------------------------------------------------------------------------
 // Call-day banner
 // ---------------------------------------------------------------------------
 

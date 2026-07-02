@@ -45,6 +45,9 @@ export function OnboardingLayout({
       </header>
 
       <div className="w-full max-w-3xl mx-auto px-6 pt-8 pb-4">
+        <p className="text-center text-xs font-semibold tracking-widest uppercase text-primary mb-4" data-testid="onboarding-step-indicator">
+          Step {currentStep} of {STEPS.length}
+        </p>
         <div className="flex items-center justify-between mb-2">
           {STEPS.map((step, index) => {
             const stepNum = index + 1;
