@@ -127,6 +127,7 @@ beforeAll(async () => {
   process.env.OPS_API_KEY = OPS_KEY;
   process.env.BTS_NMI_SECURITY_KEY = "demo_sandbox_key_test";
   process.env.BTS_NMI_TOKENIZATION_KEY = "demo_public_key_test";
+  process.env.NMI_LIVE_MODE = "true";
 
   app = buildTestApp({ routers: [opsRouter, billingRouter] });
 

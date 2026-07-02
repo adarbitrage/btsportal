@@ -125,6 +125,7 @@ const SAVED_VAULT_ID = "VAULT_SAVED_001";
 
 beforeAll(async () => {
   process.env.BTS_NMI_SECURITY_KEY = "demo_sandbox_key_test";
+  process.env.NMI_LIVE_MODE = "true";
   process.env.BTS_NMI_TOKENIZATION_KEY = "demo_public_key_test";
 
   const [user] = await db

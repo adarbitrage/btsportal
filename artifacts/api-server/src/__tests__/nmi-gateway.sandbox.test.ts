@@ -52,6 +52,7 @@ function httpErrorResponse(status: number): Response {
 beforeAll(() => {
   process.env.BTS_NMI_SECURITY_KEY = "demo_sandbox_key_6457Thfj624V5r7W";
   process.env.BTS_NMI_TOKENIZATION_KEY = "demo_public_tokenization_key";
+  process.env.NMI_LIVE_MODE = "true";
 });
 
 afterEach(() => {
@@ -309,5 +310,125 @@ describe("NMI Gateway — getTokenizationKey", () => {
   it("returns the public tokenization key from the environment", async () => {
     const { getTokenizationKey } = await import("../lib/payments/nmi-gateway.js");
     expect(getTokenizationKey()).toBe("demo_public_tokenization_key");
+  });
+});
+
+describe("NMI Gateway — NMI_LIVE_MODE fail-closed gate", () => {
+  const originalLiveMode = process.env.NMI_LIVE_MODE;
+
+  afterEach(() => {
+    if (originalLiveMode === undefined) {
+      delete process.env.NMI_LIVE_MODE;
+    } else {
+      process.env.NMI_LIVE_MODE = originalLiveMode;
+    }
+  });
+
+  it("refuses chargeWithToken when NMI_LIVE_MODE is unset", async () => {
+    delete process.env.NMI_LIVE_MODE;
+    const { chargeWithToken } = await import("../lib/payments/nmi-gateway.js");
+    await expect(
+      chargeWithToken({
+        amountCents: 100,
+        paymentToken: "tok_any",
+        orderId: "order-gate",
+        email: "gate@example.com",
+      }),
+    ).rejects.toThrow("NMI live mode not enabled — refusing to move money");
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("refuses chargeWithToken when NMI_LIVE_MODE is a non-'true' value", async () => {
+    process.env.NMI_LIVE_MODE = "false";
+    const { chargeWithToken } = await import("../lib/payments/nmi-gateway.js");
+    await expect(
+      chargeWithToken({
+        amountCents: 100,
+        paymentToken: "tok_any",
+        orderId: "order-gate-2",
+        email: "gate2@example.com",
+      }),
+    ).rejects.toThrow("NMI live mode not enabled — refusing to move money");
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("refuses chargeWithVault when NMI_LIVE_MODE is unset", async () => {
+    delete process.env.NMI_LIVE_MODE;
+    const { chargeWithVault } = await import("../lib/payments/nmi-gateway.js");
+    await expect(
+      chargeWithVault({
+        amountCents: 100,
+        customerVaultId: "CV1",
+        orderId: "order-gate-3",
+        email: "gate3@example.com",
+      }),
+    ).rejects.toThrow("NMI live mode not enabled — refusing to move money");
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("refuses refund when NMI_LIVE_MODE is unset", async () => {
+    delete process.env.NMI_LIVE_MODE;
+    const { refund } = await import("../lib/payments/nmi-gateway.js");
+    await expect(refund({ transactionId: "TXN001" })).rejects.toThrow(
+      "NMI live mode not enabled — refusing to move money",
+    );
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("refuses voidTransaction when NMI_LIVE_MODE is unset", async () => {
+    delete process.env.NMI_LIVE_MODE;
+    const { voidTransaction } = await import("../lib/payments/nmi-gateway.js");
+    await expect(voidTransaction({ transactionId: "TXN001" })).rejects.toThrow(
+      "NMI live mode not enabled — refusing to move money",
+    );
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("refuses createVaultFromToken when NMI_LIVE_MODE is unset", async () => {
+    delete process.env.NMI_LIVE_MODE;
+    const { createVaultFromToken } = await import("../lib/payments/nmi-gateway.js");
+    await expect(
+      createVaultFromToken({ paymentToken: "tok_any", email: "gate4@example.com" }),
+    ).rejects.toThrow("NMI live mode not enabled — refusing to move money");
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("refuses deleteVaultCustomer when NMI_LIVE_MODE is unset", async () => {
+    delete process.env.NMI_LIVE_MODE;
+    const { deleteVaultCustomer } = await import("../lib/payments/nmi-gateway.js");
+    await expect(
+      deleteVaultCustomer({ customerVaultId: "CV1" }),
+    ).rejects.toThrow("NMI live mode not enabled — refusing to move money");
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("proceeds (reaches fetch) when NMI_LIVE_MODE is exactly 'true'", async () => {
+    process.env.NMI_LIVE_MODE = "true";
+    fetchMock.mockResolvedValueOnce(
+      nmiOkResponse({
+        response: "1",
+        responsetext: "SUCCESS",
+        transactionid: "TXN_LIVE",
+        response_code: "100",
+      }),
+    );
+    const { chargeWithToken } = await import("../lib/payments/nmi-gateway.js");
+    const result = await chargeWithToken({
+      amountCents: 100,
+      paymentToken: "tok_any",
+      orderId: "order-gate-live",
+      email: "live@example.com",
+    });
+    expect(result.success).toBe(true);
+    expect(fetchMock).toHaveBeenCalled();
+  });
+
+  it("queryTransaction works even when NMI_LIVE_MODE is unset (read-only)", async () => {
+    delete process.env.NMI_LIVE_MODE;
+    fetchMock.mockResolvedValueOnce(nmiQueryResponse("complete"));
+    const { queryTransaction } = await import("../lib/payments/nmi-gateway.js");
+    const result = await queryTransaction({ orderId: "order-readonly" });
+    expect(result.condition).toBe("complete");
+    expect(fetchMock).toHaveBeenCalled();
   });
 });

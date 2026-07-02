@@ -39,7 +39,14 @@ function buildResult(raw: Record<string, string>): NmiResult {
   return { success, transactionId, responseText, raw };
 }
 
+function assertLiveModeEnabled(): void {
+  if (process.env.NMI_LIVE_MODE !== "true") {
+    throw new Error("NMI live mode not enabled — refusing to move money");
+  }
+}
+
 async function nmiPost(params: Record<string, string>): Promise<NmiResult> {
+  assertLiveModeEnabled();
   const securityKey = getSecurityKey();
   const body = new URLSearchParams({ security_key: securityKey, ...params });
 

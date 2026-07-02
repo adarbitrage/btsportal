@@ -98,6 +98,7 @@ RETELL_API_BASE_URL = "https://portal.buildtestscale.com/api"
 [userenv.production]
 PORTAL_URL = "https://portal.buildtestscale.com"
 VITE_TURNSTILE_SITE_KEY = "0x4AAAAAADg3k96t3Hwv0N5i"
+NMI_LIVE_MODE = "true"
 
 [nix]
 channel = "stable-25_05"
