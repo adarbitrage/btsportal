@@ -39,6 +39,7 @@ import { backfillUndeliveredTickets } from "./ticketdesk-queue";
 import { migrateOneOffCoachingCallsToTemplates } from "./coaching-call-migrate-oneoffs";
 import { migrateOnboardingStepsToSevenStepContract } from "./onboarding-advancement";
 import { seedCallBookingRoster } from "./seed-call-booking-roster";
+import { seedPartnerPhotos } from "./seed-partner-photos";
 
 // Critical prerequisites for the /api/integrations/machine-purchase and
 // /api/integrations/grant-product endpoints. Both are awaited from index.ts
@@ -398,6 +399,18 @@ export async function bootstrapCriticalPrerequisites(): Promise<PrerequisiteResu
   } catch (err) {
     console.error("[Bootstrap] seedCallBookingRoster() threw:", err);
     missing.push("seedCallBookingRoster");
+  }
+
+  // 13. Arm partner + kickoff-coach headshots (Task #1612). Must run AFTER
+  //     seedCallBookingRoster so a fresh boot (e.g. first prod deploy with
+  //     both seeds) sees the roster rows and sets their photos in the same
+  //     boot instead of one boot later. Idempotent; only fills NULL
+  //     photo_url, never inserts or clobbers.
+  try {
+    await seedPartnerPhotos();
+  } catch (err) {
+    console.error("[Bootstrap] seedPartnerPhotos() threw:", err);
+    missing.push("seedPartnerPhotos");
   }
 
   if (missing.length === 0) {

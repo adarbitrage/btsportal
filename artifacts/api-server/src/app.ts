@@ -136,6 +136,9 @@ seedCannedResponses().catch(err => console.error("[Seed] Failed to seed canned r
 ensureRequiredEmailTemplates().catch(err => console.error("[Seed] Failed to ensure required email templates:", err));
 ensureRequiredSmsTemplates().catch(err => console.error("[Seed] Failed to ensure required SMS templates:", err));
 seedAffiliateNetworks().catch(err => console.error("[Seed] Failed to seed affiliate networks:", err));
+// Partner + kickoff-coach photo seeding runs inside
+// bootstrapCriticalPrerequisites (step 13), AFTER seedCallBookingRoster, so a
+// fresh boot arms the roster photos in the same boot the rows are created.
 seedMediaMavens().catch(err => console.error("[Seed] Failed to seed Media Mavens products:", err));
 seedModerationWordlist().catch(err => console.error("[Seed] Failed to seed moderation wordlist:", err));
 seedAssistantCards().catch(err => console.error("[Seed] Failed to seed assistant cards:", err));
