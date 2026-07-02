@@ -1,0 +1,19 @@
+Read-only diagnostic — make NO changes, just inspect and report, for the BTS portal. I'm planning a large new build: a guided onboarding sequence (replacing the current welcome/quick-start) plus an "accountability partner" system — a new partner role with its own dashboard, round-robin mentee assignment, native in-portal call booking backed by GHL's API, check-in tracking against Blitz progress, escalation alerts, and NMI refund/chargeback visibility. Before speccing, map what exists:
+
+1. Current onboarding flow: How does the post-first-login onboarding work today — the OnboardingRoute steps, welcome video, quick-start? List each step, its route/component, how completion is tracked (user.onboardingStep?), and what marks onboarding done. This flow will be REPLACED by a new guided sequence, so I need its full shape and what depends on it.
+
+2. Coach role as a template: How is the coach role implemented — role field, permissions, coach-only routes/dashboard, how coaches are associated with members? I'm adding a similar new "accountability partner" role and want to mirror the pattern. Also: how does the kickoff-call booking work today (you mentioned coaches do 45-min kickoff calls) — is there an existing booking flow for it, and is it GHL-backed?
+
+3. GHL integration depth: What GHL integration exists — API client, which endpoints we call, webhook handling (inbound GHL → portal), calendar/appointment capabilities used today? Specifically: can we currently (a) read a GHL calendar's availability via API, (b) create/cancel appointments via API, (c) receive webhooks when appointments are booked/completed/no-showed? Show the GHL client code and any webhook routes.
+
+4. Blitz progress tracking: How is a member's Blitz progress stored and exposed — the "Day X of 21" state, completion per day/lesson? Which tables/endpoints? A partner dashboard needs to read each assigned mentee's current Blitz day.
+
+5. Notifications: Confirm SendGrid email sending (known working) AND the Twilio/SMS situation — is Twilio wired for sending SMS today, which flows use it, and is there a general "send SMS to member" capability or only flow-specific? The new system needs portal-sent email + SMS reminders for booked calls.
+
+6. NMI refund/chargeback visibility: Does our NMI integration currently receive or query refund/chargeback events? Check the NMI webhook handling and the billing/funding code — do we get notified of refunds/chargebacks, or would we need to add either an NMI webhook subscription or a polling query? What does NMI's API offer for this (if visible from our client code)?
+
+7. Role/permission infrastructure: How are roles and permissions defined (the RBAC from lib/auth) — how hard is adding a new role ("partner") with its own permission set and nav? And how are member↔coach associations stored today (for mirroring member↔partner assignment)?
+
+8. Alert/notification-to-admin patterns: Is there an existing pattern for admin-facing alerts (the on-call alerter, system health warnings) that an escalation ("mentee missed 5 calls" / "partners at 80% capacity") could reuse?
+
+Report with file+line evidence, clearly separating EXISTS (reusable) / PARTIAL (needs extension) / MISSING (net-new build). No edits.
