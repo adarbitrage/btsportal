@@ -1,0 +1,18 @@
+Data entry — update the partner and kickoff-coach records with real values. Row updates only; no code changes, no schema changes.
+
+PARTNERS (partners table) — create rows if they don't exist. For each: set ghl_calendar_id, max_daily_calls = 6, photo_url + bio where provided:
+- Jean:  ghl_calendar_id = nkYhDbtQT3JCmiOtyz1w, max_daily_calls = 6, is_active = true, photo_url = [... or pending], bio = "[... or pending]"
+- Mikha: ghl_calendar_id = 1eLYfVfYqD9oViR4LQO0, max_daily_calls = 6, is_active = true, photo_url = [...], bio = "[...]"
+- John:  ghl_calendar_id = QVVfVN9hOeHDfH61JAjn, max_daily_calls = 6, is_active = true, photo_url = [...], bio = "[...]"
+- Neil:  ghl_calendar_id = 2BCEaFdbunl34Idf4F56, max_daily_calls = 6, is_active = true, photo_url = [...], bio = "[...]"
+- Myco:  NO calendar ID yet — create the row with is_active = false, max_daily_calls = 6, photo_url = [...], bio = "[...]". He must NOT receive round-robin assignments until his ghl_calendar_id is set and this flag is flipped.
+
+KICKOFF COACHES (kickoff_coaches table) — create rows if they don't exist:
+- Todd:  ghl_calendar_id = Nx8nzFJxkxHQlQyx5ZSW, photo_url = [... or pending], bio = "[... or pending]"
+- Mark:  ghl_calendar_id = wvSF5RfAi8FlsgHRo8IQ, photo_url = [...], bio = "[...]"
+- Bruce: ghl_calendar_id = wLvil3ING3i1d4oX7vg5, photo_url = [...], bio = "[...]"
+
+VERIFY (read-only, after the updates):
+1. For each of the SEVEN entered ghl_calendar_ids (4 partners + 3 kickoff coaches), call the GHL free-slots lookup once and report per calendar: valid response (slots returned, or empty-but-valid) vs. error. Every ID must resolve.
+2. Report a readiness table: name | role (partner/kickoff) | calendar ID set? | resolves? | is_active | max_daily_calls | photo? | bio? — gaps visible at a glance.
+3. Confirm the round-robin pools: (a) which PARTNERS are active and would receive a new 3-Month+ member right now — expected: Jean, Mikha, John, Neil, NOT Myco; (b) which KICKOFF COACHES are in the kickoff rotation — expected: Todd, Mark, Bruce.
