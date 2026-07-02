@@ -35,6 +35,7 @@ import {
 import { ensureFoundingSuperAdmins } from "./ensure-founding-superadmins";
 import { backfillUndeliveredTickets } from "./ticketdesk-queue";
 import { migrateOneOffCoachingCallsToTemplates } from "./coaching-call-migrate-oneoffs";
+import { migrateOnboardingStepsToSevenStepContract } from "./onboarding-advancement";
 
 // Critical prerequisites for the /api/integrations/machine-purchase and
 // /api/integrations/grant-product endpoints. Both are awaited from index.ts
@@ -354,6 +355,22 @@ export async function bootstrapCriticalPrerequisites(): Promise<PrerequisiteResu
   } catch (err) {
     console.error("[Bootstrap] syncCitableDocsToLiveDocuments() threw:", err);
     missing.push("syncCitableDocsToLiveDocuments");
+  }
+
+  // 11. One-time, idempotent migration of mid-flight onboarding members from
+  //     the old 5-step numbering to the new 7-step contract (Task #1578):
+  //     old step 4 (orientation) / 5 (quick-start) -> new step 4 (book kickoff).
+  //     Completed members are never touched. Claimed via a system_settings
+  //     marker row so it can only ever fire once, even across restarts — see
+  //     migrateOnboardingStepsToSevenStepContract() for why a plain
+  //     "already at step 4" check isn't safe here (4/5 are reused with new
+  //     meaning in the new contract). Must run at boot so production also
+  //     receives the remap (the agent cannot write prod directly).
+  try {
+    await migrateOnboardingStepsToSevenStepContract();
+  } catch (err) {
+    console.error("[Bootstrap] migrateOnboardingStepsToSevenStepContract() threw:", err);
+    missing.push("migrateOnboardingStepsToSevenStepContract");
   }
 
   if (missing.length === 0) {

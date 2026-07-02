@@ -69,7 +69,7 @@ export default function OnboardingProfile() {
       });
       await patchOnboarding.mutateAsync({ data: { step: 3 } });
       await refreshAuth();
-      navigate("/onboarding/orientation");
+      navigate("/onboarding/book-kickoff");
     } catch (err: any) {
       setError(err?.message || "Failed to save profile. Please try again.");
     } finally {

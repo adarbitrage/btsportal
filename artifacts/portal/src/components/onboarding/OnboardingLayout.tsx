@@ -5,8 +5,10 @@ const STEPS = [
   { label: "Welcome", path: "/onboarding/welcome" },
   { label: "Documents", path: "/onboarding/documents" },
   { label: "Profile", path: "/onboarding/profile" },
-  { label: "Orientation", path: "/onboarding/orientation" },
-  { label: "Quick Start", path: "/onboarding/quick-start" },
+  { label: "Book Kickoff", path: "/onboarding/book-kickoff" },
+  { label: "Book Partner Call", path: "/onboarding/book-partner-call" },
+  { label: "7 Pillars", path: "/onboarding/pillars" },
+  { label: "First Call", path: "/onboarding/partner-call-pending" },
 ];
 
 export function OnboardingLayout({

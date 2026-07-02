@@ -11,7 +11,46 @@ import {
 
 const router: IRouter = Router();
 
-const STEP_NAMES = ["welcome", "documents", "profile", "orientation", "quick-start"];
+// The 7-step guided onboarding contract (Task #1578).
+//
+//   1. welcome                 — intro + welcome video. Client-advanceable.
+//   2. documents (ToS)         — existing sign-doc plumbing. Client-advanceable
+//                                 (gated on a signed terms_of_service row).
+//   3. profile                 — name/experience/goal. Client-advanceable
+//                                 (gated on those profile fields being filled).
+//   4. kickoff_booked          — book the kickoff call. EVENT-ADVANCED: only
+//                                 advanceOnboardingAfterKickoffBooked() (Tier 2
+//                                 booking flow) may move a member off this step.
+//   5. partner_call_booked     — book the first accountability-partner call.
+//                                 EVENT-ADVANCED: only
+//                                 advanceOnboardingAfterPartnerCallBooked() may
+//                                 move a member off this step.
+//   6. pillars_watched         — watch the 7 Pillars training. Client-advanceable
+//                                 (simple click-to-confirm, no server prerequisite).
+//   7. partner_call_completed  — the first partner call itself. EVENT-ADVANCED:
+//                                 only completeOnboardingAfterPartnerCallDone()
+//                                 (Tier 3 GHL webhook) may complete onboarding
+//                                 from here.
+//
+// See lib/onboarding-advancement.ts for the internal advancement functions Tier 2
+// (booking) and Tier 3 (GHL webhook) call to move members through steps 4/5/7 —
+// this route intentionally REJECTS any client PATCH attempt to complete those
+// steps directly, so a member can never skip ahead of a real booking/webhook event.
+const STEP_NAMES = [
+  "welcome",
+  "documents",
+  "profile",
+  "kickoff_booked",
+  "partner_call_booked",
+  "pillars_watched",
+  "partner_call_completed",
+];
+
+// Steps a member may complete themselves via PATCH /members/me/onboarding.
+// Steps 4, 5, and 7 are intentionally excluded — they only ever advance via the
+// internal functions in lib/onboarding-advancement.ts, triggered by a real
+// booking (Tier 2) or a GHL webhook confirming the call happened (Tier 3).
+const CLIENT_ADVANCEABLE_STEPS = new Set([1, 2, 3, 6]);
 
 async function validateStepPrerequisites(step: number, userId: number): Promise<string | null> {
   if (step === 2) {
@@ -85,8 +124,8 @@ router.patch("/members/me/onboarding", async (req, res): Promise<void> => {
 
   const { step } = parsed.data;
 
-  if (step < 1 || step > 5) {
-    res.status(400).json({ error: "Step must be between 1 and 5" });
+  if (step < 1 || step > 7) {
+    res.status(400).json({ error: "Step must be between 1 and 7" });
     return;
   }
 
@@ -106,36 +145,34 @@ router.patch("/members/me/onboarding", async (req, res): Promise<void> => {
     return;
   }
 
+  if (!CLIENT_ADVANCEABLE_STEPS.has(step)) {
+    res.status(400).json({
+      error: `Step ${step} advances automatically and cannot be completed directly`,
+    });
+    return;
+  }
+
   const prerequisiteError = await validateStepPrerequisites(step, userId);
   if (prerequisiteError) {
     res.status(400).json({ error: prerequisiteError });
     return;
   }
 
+  // Client-advanceable steps never complete onboarding on their own — the last
+  // client-advanceable step (6) only hands off to step 7, which is
+  // event-advanced (see completeOnboardingAfterPartnerCallDone in
+  // lib/onboarding-advancement.ts).
   const nextStep = step + 1;
-  const isComplete = step >= 5;
 
-  const updateData: Record<string, any> = {
-    onboardingStep: isComplete ? 5 : nextStep,
-  };
-
-  if (isComplete) {
-    updateData.onboardingComplete = true;
-  }
-
-  await db.update(usersTable).set(updateData).where(eq(usersTable.id, userId));
-
-  if (isComplete) {
-    const { cancelSequence, enrollInSequence } = await import("../lib/sequence-helpers");
-    await cancelSequence(userId, "onboarding_frontend");
-    await cancelSequence(userId, "onboarding_mentorship");
-    await enrollInSequence(userId, "nurture_frontend_to_upgrade");
-  }
+  await db
+    .update(usersTable)
+    .set({ onboardingStep: nextStep })
+    .where(and(eq(usersTable.id, userId), eq(usersTable.onboardingStep, step)));
 
   res.json(
     PatchOnboardingStepResponse.parse({
-      currentStep: isComplete ? 5 : nextStep,
-      onboardingComplete: isComplete,
+      currentStep: nextStep,
+      onboardingComplete: false,
     })
   );
 });
