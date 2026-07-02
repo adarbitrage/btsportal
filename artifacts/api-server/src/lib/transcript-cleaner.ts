@@ -314,31 +314,167 @@ function sliceJsonCandidate(text: string): string {
 }
 
 /**
- * Pull the first JSON object out of an AI text response. Tolerant of two common
- * LLM slips: ``` fences (handled by {@link sliceJsonCandidate}) and trailing
- * commas before a closing `}`/`]`. Anything beyond that (a genuinely malformed
- * or truncated reply) throws, and the caller's retry loop re-requests a fresh
- * generation rather than guessing at a repair.
+ * Repair the two escaping slips a model deterministically makes when it has to
+ * embed a large, punctuation-rich value (a whole transcript, or a flag snippet
+ * quoting garbled text) as a JSON string:
+ *   1. unescaped inner double-quotes inside a string value, and
+ *   2. raw control characters (newlines/tabs) inside a string value.
+ * Walks the text as a small state machine. Inside a string, a `"` is treated as
+ * the CLOSING quote only when the next non-whitespace char is a JSON structural
+ * token (`,` `}` `]` `:`) or end-of-input; otherwise it is an inner quote and is
+ * escaped. Raw control chars inside a string are escaped to their `\n`/`\t`/`\u`
+ * forms. Structural whitespace and everything outside strings is passed through
+ * untouched, so already-valid JSON is returned byte-for-byte unchanged.
  */
-function extractJson(text: string): any {
+export function repairJsonStringLiterals(input: string): string {
+  let out = "";
+  let inString = false;
+  let escaped = false;
+  const isStructuralNext = (from: number): boolean => {
+    let j = from;
+    while (j < input.length && (input[j] === " " || input[j] === "\t" || input[j] === "\n" || input[j] === "\r")) {
+      j++;
+    }
+    const next = input[j];
+    return next === undefined || next === "," || next === "}" || next === "]" || next === ":";
+  };
+  for (let i = 0; i < input.length; i++) {
+    const ch = input[i];
+    if (!inString) {
+      if (ch === '"') inString = true;
+      out += ch;
+      continue;
+    }
+    if (escaped) {
+      out += ch;
+      escaped = false;
+      continue;
+    }
+    if (ch === "\\") {
+      out += ch;
+      escaped = true;
+      continue;
+    }
+    if (ch === '"') {
+      if (isStructuralNext(i + 1)) {
+        inString = false;
+        out += ch;
+      } else {
+        out += '\\"';
+      }
+      continue;
+    }
+    if (ch === "\n") {
+      out += "\\n";
+      continue;
+    }
+    if (ch === "\r") {
+      out += "\\r";
+      continue;
+    }
+    if (ch === "\t") {
+      out += "\\t";
+      continue;
+    }
+    const code = ch.charCodeAt(0);
+    if (code < 0x20) {
+      out += "\\u" + code.toString(16).padStart(4, "0");
+      continue;
+    }
+    out += ch;
+  }
+  return out;
+}
+
+/**
+ * Pull the first JSON object out of an AI text response. Tolerant of the LLM
+ * slips we actually see: ``` fences (via {@link sliceJsonCandidate}), trailing
+ * commas before a closing `}`/`]`, and — the deterministic failure on
+ * punctuation-heavy content — unescaped inner double-quotes / control characters
+ * inside a string value (via {@link repairJsonStringLiterals}). Plain valid JSON
+ * parses on the FIRST try and is returned unchanged; the repair passes only run
+ * after a strict parse fails, so successful replies are never altered.
+ */
+export function extractJson(text: string): any {
   const candidate = sliceJsonCandidate(text);
   try {
     return JSON.parse(candidate);
   } catch {
-    // Strip trailing commas (e.g. `"a": 1, }`) and retry once.
-    return JSON.parse(candidate.replace(/,(\s*[}\]])/g, "$1"));
+    // 1) Strip trailing commas (e.g. `"a": 1, }`) and retry.
+    const noTrailingCommas = candidate.replace(/,(\s*[}\]])/g, "$1");
+    try {
+      return JSON.parse(noTrailingCommas);
+    } catch {
+      // 2) Escape unescaped inner quotes + raw control chars, then retry. This
+      //    is the recoverable "escaping slip" — distinct from a truncated reply.
+      const repaired = repairJsonStringLiterals(noTrailingCommas).replace(/,(\s*[}\]])/g, "$1");
+      return JSON.parse(repaired);
+    }
   }
 }
 
+// The clean / full-refine replies return the large cleaned-transcript body
+// OUTSIDE the JSON, between these markers, as PLAIN (unescaped) text. This
+// removes the entire class of "unescaped quote/control char inside the big JSON
+// string value" failure (Task #1616) rather than only repairing it: the body
+// never has to survive JSON string-escaping. The compact metadata (authority,
+// flags, title building blocks) still rides in JSON, where escaping slips are
+// rare and covered by {@link extractJson}'s repair net.
+const CLEANED_BODY_OPEN = "===BEGIN CLEANED TRANSCRIPT===";
+const CLEANED_BODY_CLOSE = "===END CLEANED TRANSCRIPT===";
+
 /**
- * Make one structured-JSON request to the model and parse the reply, retrying
- * the whole call when the JSON comes back unparseable. The parse failure is
- * non-deterministic (an occasional escaping slip in an otherwise-fine reply), so
- * a fresh generation almost always succeeds. A truncated reply
- * (stop_reason="max_tokens") is surfaced immediately with a clear message
- * instead of being retried, because it would just truncate again.
+ * Parse a clean / full-refine reply where the metadata is JSON and the cleaned
+ * transcript body is a delimited PLAIN-TEXT block. Returns the parsed metadata
+ * merged with the verbatim body under `cleanedTranscript`, matching the shape
+ * the rest of the engine already consumes. The metadata JSON is read from the
+ * regions OUTSIDE the body block (before and after it, joined) so the
+ * transcript's own braces/quotes can never confuse the JSON slice. Falls back to
+ * {@link extractJson} (body embedded as a JSON string, hardened repair applied)
+ * when the markers are absent, so a reply that ignores the new format still
+ * parses.
  */
-async function requestCleanerJson(args: { system: string; userMessage: string }): Promise<any> {
+export function parseCleanerReply(text: string): any {
+  const open = text.indexOf(CLEANED_BODY_OPEN);
+  const close = text.lastIndexOf(CLEANED_BODY_CLOSE);
+  if (open !== -1 && close !== -1 && close > open + CLEANED_BODY_OPEN.length) {
+    // Strip only the single newline that sits between each marker and the body
+    // (the markers are on their own lines); the transcript's own interior
+    // whitespace is preserved. Downstream trims per-chunk regardless.
+    const body = text
+      .slice(open + CLEANED_BODY_OPEN.length, close)
+      .replace(/^\r?\n/, "")
+      .replace(/\r?\n[ \t]*$/, "");
+    const outside = `${text.slice(0, open)}\n${text.slice(close + CLEANED_BODY_CLOSE.length)}`;
+    const meta = extractJson(outside);
+    return { ...meta, cleanedTranscript: body };
+  }
+  return extractJson(text);
+}
+
+/** Classify a parse failure so the stored error message names the cause. */
+function describeParseFailure(err: unknown): string {
+  const msg = err instanceof Error ? err.message : String(err);
+  if (/did not contain a JSON object/i.test(msg)) {
+    return "the reply contained no JSON object (no-JSON)";
+  }
+  return "the reply's JSON could not be parsed even after escaping-repair (likely an unescaped quote or control character in a string value)";
+}
+
+/**
+ * Make one request to the model and parse the reply with `parse`, retrying the
+ * whole call when parsing fails. The parse (and its {@link extractJson} repair
+ * net) runs on EVERY attempt, so a deterministic escaping slip is recovered
+ * on the first attempt rather than re-failing identically three times. A
+ * truncated reply (stop_reason="max_tokens") is surfaced immediately with a
+ * clear message instead of being retried, because it would just truncate again.
+ * The final error names the cause (truncation vs. no-JSON vs. escaping) so a
+ * stored failure is diagnosable from the message alone (Task #1616).
+ */
+async function requestCleanerCompletion<T>(
+  args: { system: string; userMessage: string },
+  parse: (text: string) => T,
+): Promise<T> {
   const anthropic = getAnthropicClient();
   let lastError: unknown;
   for (let attempt = 1; attempt <= MAX_JSON_ATTEMPTS; attempt++) {
@@ -350,21 +486,31 @@ async function requestCleanerJson(args: { system: string; userMessage: string })
     });
     if (response.stop_reason === "max_tokens") {
       throw new Error(
-        "AI response hit the output token limit before completing — the transcript is too large to clean in a single pass.",
+        "AI response hit the output token limit before completing — the transcript is too large to clean in a single pass (truncation).",
       );
     }
     const text = response.content[0]?.type === "text" ? response.content[0].text : "";
     try {
-      return extractJson(text);
+      return parse(text);
     } catch (err) {
       lastError = err;
     }
   }
   throw new Error(
-    `AI returned unparseable JSON after ${MAX_JSON_ATTEMPTS} attempts: ${
+    `AI returned unparseable output after ${MAX_JSON_ATTEMPTS} attempts: ${describeParseFailure(lastError)}. Last parser error: ${
       lastError instanceof Error ? lastError.message : String(lastError)
     }`,
   );
+}
+
+/** JSON-only reply path (e.g. the refine patch edits). */
+async function requestCleanerJson(args: { system: string; userMessage: string }): Promise<any> {
+  return requestCleanerCompletion(args, extractJson);
+}
+
+/** Clean / full-refine reply path: metadata JSON + delimited plain-text body. */
+async function requestCleanerCompletionWithBody(args: { system: string; userMessage: string }): Promise<any> {
+  return requestCleanerCompletion(args, parseCleanerReply);
 }
 
 function expectedSpeakers(folder: SourceFolder | null): string {
@@ -759,10 +905,20 @@ const CLEAN_SYSTEM_PROMPT = [
   "can and flag only per the narrow FLAGGING rule above — do not error or fabricate",
   "structure.",
   "",
-  "Return ONLY a JSON object with keys: cleanedTranscript (string), authority",
-  "({ label, confidence: 'high'|'low', evidence, detectedName }), primarySubject",
-  "(string|null), detectedDate (string|null, ISO 'YYYY-MM-DD'), flags (array of",
-  "{ type: 'garbled_content'|'uncertain_authority', text, reason, confidence }).",
+  "OUTPUT FORMAT — return your reply in TWO parts, in this exact order:",
+  "PART A — a SINGLE strict JSON object with METADATA ONLY (do NOT put the",
+  "  transcript in it): authority ({ label, confidence: 'high'|'low', evidence,",
+  "  detectedName }), primarySubject (string|null), detectedDate (string|null,",
+  "  ISO 'YYYY-MM-DD'), flags (array of { type:",
+  "  'garbled_content'|'uncertain_authority', text, reason, confidence }).",
+  "PART B — the FULL cleaned transcript as PLAIN TEXT, between these exact marker",
+  "  lines (each marker on its own line). Write the transcript VERBATIM: do NOT",
+  "  wrap it in JSON, do NOT escape quotes or newlines, do NOT add code fences:",
+  `  ${CLEANED_BODY_OPEN}`,
+  "  ...the entire cleaned transcript...",
+  `  ${CLEANED_BODY_CLOSE}`,
+  "Keeping the transcript OUTSIDE the JSON is REQUIRED — transcripts are rich in",
+  "quotes, apostrophes and punctuation that corrupt a JSON string value.",
 ].join("\n");
 
 /**
@@ -913,7 +1069,7 @@ function buildCleanUserMessage(args: {
     chunkText,
     "TRANSCRIPT",
     "",
-    "Return the strict JSON object now.",
+    `Now return PART A (the JSON metadata) followed by PART B (the cleaned transcript between ${CLEANED_BODY_OPEN} and ${CLEANED_BODY_CLOSE}).`,
   );
 
   return lines.filter((l) => l !== null).join("\n");
@@ -963,7 +1119,7 @@ export async function cleanTranscript(args: {
   // the speaker-label convention the remaining parts must match. Given that
   // convention the remaining parts are independent, so they are cleaned in
   // parallel to keep wall-clock down on big files.
-  const firstParsed = await requestCleanerJson({
+  const firstParsed = await requestCleanerCompletionWithBody({
     system: CLEAN_SYSTEM_PROMPT,
     userMessage: buildCleanUserMessage({
       chunkText: chunks[0],
@@ -980,7 +1136,7 @@ export async function cleanTranscript(args: {
 
   const restParsed = await Promise.all(
     chunks.slice(1).map((chunkText, i) =>
-      requestCleanerJson({
+      requestCleanerCompletionWithBody({
         system: CLEAN_SYSTEM_PROMPT,
         userMessage: buildCleanUserMessage({
           chunkText,
@@ -1259,15 +1415,21 @@ const REFINE_FULL_SYSTEM_PROMPT = [
   ...OLD_BRAND_REBRAND_GUIDANCE.map((g) => `  - ${g}`),
   `  - ${STAFF_FIRST_NAME_GUIDANCE}`,
   "",
-  "Return STRICT JSON only with keys: cleanedTranscript (string, the full updated",
-  "transcript), flags (array of { type, text, reason, confidence } — the refreshed",
-  "review flags; flag SPARINGLY, only 'garbled_content' (a substantive passage",
-  "whose meaning cannot be recovered) or 'uncertain_authority'; never flag",
-  "unfamiliar proper nouns / brand / product / campaign / traffic names,",
-  "already-normalised spelling, short/trivial utterances, or cosmetic issues),",
-  "authority (OPTIONAL — include ONLY if the instruction changed the",
-  `authority mapping: { role: one of ${AUTHORITY_ROLES.join("/")}, confidence:`,
-  "'high'|'low', evidence }), message (a one-sentence summary of what you changed).",
+  "OUTPUT FORMAT — return your reply in TWO parts, in this exact order:",
+  "PART A — a SINGLE strict JSON object with METADATA ONLY (do NOT put the",
+  "  transcript in it): flags (array of { type, text, reason, confidence } — the",
+  "  refreshed review flags; flag SPARINGLY, only 'garbled_content' (a substantive",
+  "  passage whose meaning cannot be recovered) or 'uncertain_authority'; never",
+  "  flag unfamiliar proper nouns / brand / product / campaign / traffic names,",
+  "  already-normalised spelling, short/trivial utterances, or cosmetic issues),",
+  "  authority (OPTIONAL — include ONLY if the instruction changed the authority",
+  `  mapping: { role: one of ${AUTHORITY_ROLES.join("/")}, confidence: 'high'|'low', evidence }),`,
+  "  message (a one-sentence summary of what you changed).",
+  "PART B — the FULL updated transcript as PLAIN TEXT, between these exact marker",
+  "  lines (verbatim: no JSON, no escaping of quotes/newlines, no code fences):",
+  `  ${CLEANED_BODY_OPEN}`,
+  "  ...the entire updated transcript...",
+  `  ${CLEANED_BODY_CLOSE}`,
 ].join("\n");
 
 /**
@@ -1378,9 +1540,13 @@ export async function refineTranscript(args: {
 
   // Fallback: the edits couldn't be applied unambiguously (structural / multi-spot
   // change, or a mis-copied anchor) — regenerate the full transcript instead.
-  const fullParsed = await requestCleanerJson({
+  const fullParsed = await requestCleanerCompletionWithBody({
     system: REFINE_FULL_SYSTEM_PROMPT,
-    userMessage: [...sharedContext, "", "Return the strict JSON object now."].join("\n"),
+    userMessage: [
+      ...sharedContext,
+      "",
+      `Now return PART A (the JSON metadata) followed by PART B (the full updated transcript between ${CLEANED_BODY_OPEN} and ${CLEANED_BODY_CLOSE}).`,
+    ].join("\n"),
   });
   const cleanedContent =
     typeof fullParsed.cleanedTranscript === "string" ? fullParsed.cleanedTranscript.trim() : currentCleaned;

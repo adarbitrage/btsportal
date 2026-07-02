@@ -9,6 +9,9 @@ import {
   memberNameFromSourceName,
   titleFollowsGrammar,
   detectRosterAuthority,
+  extractJson,
+  parseCleanerReply,
+  repairJsonStringLiterals,
 } from "../lib/transcript-cleaner";
 import { resolveSourceFolder } from "../lib/kb-taxonomy";
 
@@ -452,5 +455,89 @@ describe("detectRosterAuthority (inline speaker labels)", () => {
   it("does not match a name embedded in a larger word", () => {
     const hit = detectRosterAuthority("This is abruce: not a label", roster);
     expect(hit.labelMatched).toEqual([]);
+  });
+});
+
+describe("JSON recovery (Task #1616 — smart-quote-heavy replies)", () => {
+  it("parses already-valid JSON unchanged on the first try", () => {
+    const obj = { authority: { label: "Coach", confidence: "high" }, flags: [] };
+    expect(extractJson(JSON.stringify(obj))).toEqual(obj);
+  });
+
+  it("repairs UNESCAPED inner double-quotes inside a string value", () => {
+    // The exact failure mode: a big value with a raw `"` mid-string.
+    const broken = '{"cleanedTranscript": "He said "let\'s go" and left", "flags": []}';
+    const parsed = extractJson(broken);
+    expect(parsed.cleanedTranscript).toBe('He said "let\'s go" and left');
+    expect(parsed.flags).toEqual([]);
+  });
+
+  it("repairs RAW control characters (newlines/tabs) inside a string value", () => {
+    const broken = '{"cleanedTranscript": "Coach: hello\nMember: hi\tthere", "flags": []}';
+    const parsed = extractJson(broken);
+    expect(parsed.cleanedTranscript).toBe("Coach: hello\nMember: hi\tthere");
+  });
+
+  it("still repairs trailing commas", () => {
+    expect(extractJson('{"a": 1, "b": [1, 2,], }')).toEqual({ a: 1, b: [1, 2] });
+  });
+
+  it("tolerates ``` fences around the JSON", () => {
+    expect(extractJson('```json\n{"a": 1}\n```')).toEqual({ a: 1 });
+  });
+
+  it("throws a no-JSON error when the reply has no object", () => {
+    expect(() => extractJson("sorry, I cannot help with that")).toThrow(/did not contain a JSON object/i);
+  });
+
+  it("repairJsonStringLiterals leaves already-valid JSON byte-for-byte unchanged", () => {
+    const valid = '{"a": "plain value", "b": [1, 2], "c": {"d": "x"}}';
+    expect(repairJsonStringLiterals(valid)).toBe(valid);
+  });
+});
+
+describe("parseCleanerReply (Task #1616 — delimited plain-text body)", () => {
+  const OPEN = "===BEGIN CLEANED TRANSCRIPT===";
+  const CLOSE = "===END CLEANED TRANSCRIPT===";
+
+  it("extracts the transcript VERBATIM from the delimited block (no JSON escaping)", () => {
+    // Smart quotes, straight quotes, ellipsis, apostrophes — the content that
+    // deterministically corrupted the old single-JSON-string contract.
+    const body = 'Coach: “Let’s begin,” he said… "really".\nMember: I don\'t know—maybe?';
+    const reply = [
+      '{"authority": {"label": "Coach", "confidence": "high"}, "primarySubject": "Jane Doe", "detectedDate": null, "flags": []}',
+      "",
+      OPEN,
+      body,
+      CLOSE,
+    ].join("\n");
+    const parsed = parseCleanerReply(reply);
+    expect(parsed.cleanedTranscript).toBe(body);
+    expect(parsed.authority.label).toBe("Coach");
+    expect(parsed.primarySubject).toBe("Jane Doe");
+    expect(parsed.flags).toEqual([]);
+  });
+
+  it("is unfazed by braces/quotes INSIDE the transcript body", () => {
+    const body = 'Coach: The config was {"key": "value"} — note the quotes "here".';
+    const reply = ['{"flags": [], "authority": {}}', OPEN, body, CLOSE].join("\n");
+    const parsed = parseCleanerReply(reply);
+    expect(parsed.cleanedTranscript).toBe(body);
+    expect(parsed.flags).toEqual([]);
+  });
+
+  it("falls back to hardened extractJson when the markers are absent", () => {
+    // Legacy/no-marker shape with an unescaped inner quote still recovers.
+    const reply = '{"cleanedTranscript": "He said "hi" today", "flags": []}';
+    const parsed = parseCleanerReply(reply);
+    expect(parsed.cleanedTranscript).toBe('He said "hi" today');
+  });
+
+  it("reads metadata that appears AFTER the body block too", () => {
+    const body = "Coach: hello\nMember: hi";
+    const reply = [OPEN, body, CLOSE, '{"flags": [], "primarySubject": "Topic"}'].join("\n");
+    const parsed = parseCleanerReply(reply);
+    expect(parsed.cleanedTranscript).toBe(body);
+    expect(parsed.primarySubject).toBe("Topic");
   });
 });
