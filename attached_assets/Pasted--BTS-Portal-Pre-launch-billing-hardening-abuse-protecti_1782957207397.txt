@@ -1,0 +1,27 @@
+## BTS Portal — Pre-launch billing hardening: abuse protection + operational alerting + pre-swap purge script
+
+### What This Does
+Three additive protections around the verified billing engine before launch. NONE of this modifies checkout/charge/refund money-safety internals — the limiter sits IN FRONT of the money paths, the alerting HOOKS INTO existing state transitions, the purge is a dry-run-gated operator script. If any piece already exists, EXTEND it rather than duplicate, and report what existed.
+
+### Part 1 — Card-testing / abuse protection on public billing endpoints
+Carders hit public checkout endpoints with stolen-card lists to validate them; a decline burst also damages the new merchant account's standing with NMI. In front of POST /api/billing/checkout, POST /api/billing/subscribe, and the add-payment-method (vault) route:
+1. RATE LIMITS (Redis-backed sliding window, reuse existing Redis): per-user AND per-IP, env-tunable defaults (e.g. 10 attempts/10min per user, 20/10min per IP). Exceeding → 429 clean JSON error. Applied BEFORE any idempotency peek/claim so blocked requests never touch money paths or consume keys.
+2. DECLINE-VELOCITY CIRCUIT BREAKER: count real GATEWAY DECLINES per user and per IP (idempotent replays of a completed result must NOT count). After N declines in a window (e.g. 5 in 15min), block that user/IP from these endpoints for a cooldown (e.g. 1 hour), 429, and queue an alert email (Part 2 address). Env-tunable.
+3. Do NOT rate-limit /api/ops or webhooks — only public member-facing billing routes. A request that passes the limiter behaves byte-identically to today.
+
+### Part 2 — Operational alerting (the engine gets eyes)
+New env var BILLING_ALERTS_EMAIL. Queue via the existing comms service; never block a money path on email sending.
+1. IMMEDIATE alert when an order enters paid_reconciliation_needed (order number, amount, user email, failed step) — money moved but fulfillment didn't finish; today nothing surfaces it.
+2. IMMEDIATE alert when a refund side-effect fails post-reversal, and when the Part-1 circuit breaker trips.
+3. DAILY BILLING DIGEST (once/day via the existing scheduler): charger last-run timestamp + runs in last 24h, renewal successes/declines, subscriptions by status, open reconciliation count, refunds processed. Have the charger record last_run_at (Redis key or small table) so the digest can report it. Digest footer: "If this email stops arriving, the billing scheduler is down — investigate immediately." (The digest doubles as a dead-man's-switch: its ABSENCE is the alarm for a dead scheduler, which no in-app check can catch.)
+
+### Part 3 — Pre-merchant-swap purge script (operator-run, dry-run default)
+The NMI merchant account is being replaced; all vaulted cards + test subscriptions reference vault IDs in the OLD account and will hard-decline (then enter dunning and email test users) after the swap. Create scripts/pre-merchant-swap-purge.ts: DRY-RUN by default (prints exactly what it would delete, with counts), --apply to execute. In FK-safe order remove ALL native-NMI billing test data: checkout_idempotency + refund_idempotency, bts_order_items, bts_orders, subscriptions, then payment_methods (subscriptions.payment_method_id is ON DELETE RESTRICT — subscriptions first), and revoke/remove user_products grants that originated from native-NMI test orders. Leave ThriveCart-granted products untouched; if a grant's origin is ambiguous, SKIP and report rather than delete. Print per-table before/after counts. Operator runs it immediately BEFORE swapping BTS_NMI_SECURITY_KEY / BTS_NMI_TOKENIZATION_KEY.
+
+### Acceptance Criteria
+- Burst from one user/IP → 429 after the limit; a passing request is byte-identical to today (existing checkout/subscribe tests still green, untouched).
+- N gateway declines → breaker blocks + alert queued; replays do NOT increment decline counts; a legitimate retry after a decline (new key, within limits) still works.
+- Forcing paid_reconciliation_needed queues an immediate alert.
+- Daily digest sends with real numbers incl. charger last_run_at; charger records last_run_at every run.
+- Purge dry-run prints an accurate plan; --apply empties billing tables FK-safe with ThriveCart data untouched; re-run is a clean no-op.
+- Clean tsc + architect review. Report files/env vars. Do NOT create follow-up tasks.
