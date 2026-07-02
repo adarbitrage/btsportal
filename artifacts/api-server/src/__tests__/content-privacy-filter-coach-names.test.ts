@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { scrubPrivateContent, PRIVACY_RULES } from "../lib/content-privacy-filter";
+import { COACHING_ROSTER } from "../lib/coaching-roster";
 
 /**
  * Direct unit tests for the privacy scrubber's own rule table
@@ -177,6 +178,56 @@ describe("content privacy filter — old-brand rebrand (founder -> Adam, company
     expect(out).toContain("Adam");
     expect(out).toContain("BTS");
   });
+});
+
+/**
+ * ROSTER <-> SCRUB GUARD.
+ *
+ * The live coaching roster (COACHING_ROSTER in lib/coaching-roster.ts) and the
+ * deterministic scrub rules (PRIVACY_RULES) are maintained in two different
+ * files. If a coach is added to the roster but no matching scrub rule is added,
+ * their surname could silently leak into mined AI content. This block ties the
+ * two together: for EVERY roster coach that declares a known surname, the
+ * scrubber must reduce "First Surname" to just "First".
+ *
+ * Design decision (documented on RosterCoach.knownSurnames in coaching-roster.ts):
+ * we do NOT auto-derive scrub rules from the roster because (1) the pure
+ * content-privacy-filter module has no DB dependency and importing the DB-backed
+ * roster would couple it to the data layer, and (2) surnames appear with spelling
+ * variants in source content that need regex flexibility a plain string cannot
+ * express. Instead the roster carries a declarative `knownSurnames` list and this
+ * guard forces a scrub rule to exist for each — so adding a coach with a known
+ * surname without a scrub rule fails CI. (Surnames the org does not know stay
+ * omitted; nothing can scrub an unknown name, and the LLM prompt guidance in
+ * buildStaffFirstNameGuidance is the roster-driven backstop for those.)
+ */
+describe("content privacy filter — every rostered coach surname is scrubbed", () => {
+  const coachesWithSurnames = COACHING_ROSTER.filter(
+    (c) => (c.knownSurnames?.length ?? 0) > 0,
+  );
+
+  it("has at least one rostered coach with a known surname to guard", () => {
+    // Sanity: if this ever hits zero the guard below would silently pass with no
+    // assertions, defeating its purpose.
+    expect(coachesWithSurnames.length).toBeGreaterThan(0);
+  });
+
+  for (const coach of coachesWithSurnames) {
+    for (const surname of coach.knownSurnames!) {
+      it(`scrubs rostered coach "${coach.name} ${surname}" to just "${coach.name}"`, () => {
+        const out = scrubPrivateContent(`Join ${coach.name} ${surname} on the call`);
+        expect(out).toBe(`Join ${coach.name} on the call`);
+        expect(out).toContain(coach.name);
+        expect(out.toLowerCase()).not.toContain(surname.toLowerCase());
+      });
+
+      it(`strips the orphaned rostered surname "${surname}"`, () => {
+        // A chunk split can leave a bare surname with no first name attached.
+        const out = scrubPrivateContent(`${surname} ran the session`);
+        expect(out.toLowerCase()).not.toContain(surname.toLowerCase());
+      });
+    }
+  }
 });
 
 describe("content privacy filter — scrubber invariants", () => {

@@ -24,13 +24,24 @@ export interface RosterCoach {
   // is how a signed-in coach is mapped to their coach record (coach-facing
   // surfaces scope to "their own" calls). Omit for coaches with no portal account.
   userEmail?: string;
+  // Known real surname(s) for this coach — PRIVACY-ONLY metadata, never written
+  // to the DB (the coaches table stores first names only). Members must only ever
+  // see a coach's FIRST name, so any surname that appears in mined AI content is
+  // stripped by scrubPrivateContent (content-privacy-filter.ts). This field is the
+  // human-declared list of surnames we KNOW about; a guard test
+  // (content-privacy-filter-coach-names.test.ts) asserts every entry here is
+  // actually reduced to first-name-only by the scrubber, so adding a coach with a
+  // known surname WITHOUT a matching scrub rule fails CI. List the canonical
+  // spelling; the scrub rule tolerates spelling variants (see PRIVACY_RULES).
+  // Omit / leave empty when the surname is unknown (nothing can be scrubbed).
+  knownSurnames?: string[];
 }
 
 export const COACHING_ROSTER: RosterCoach[] = [
-  { name: "Sasha", ghlCalendarId: "BdBxOw8kL1aF7VfJR5cc", sortOrder: 1, photoUrl: "/coaching-photos/sasha.png", userEmail: "sasha+coach@cherringtonmedia.com" },
-  { name: "Bruce", ghlCalendarId: "0feHbG6YfH2apzvdmR3U", sortOrder: 2, photoUrl: "/coaching-photos/bruce.jpg" },
-  { name: "Michael", ghlCalendarId: "JF7LYxF5KRQImZpvSrHo", sortOrder: 3, photoUrl: "/coaching-photos/michael.png" },
-  { name: "Todd", ghlCalendarId: "JiTLouUKzGeYrsPtEmK5", sortOrder: 4, photoUrl: "/coaching-photos/todd.jpeg" },
+  { name: "Sasha", ghlCalendarId: "BdBxOw8kL1aF7VfJR5cc", sortOrder: 1, photoUrl: "/coaching-photos/sasha.png", userEmail: "sasha+coach@cherringtonmedia.com", knownSurnames: ["Bobylev"] },
+  { name: "Bruce", ghlCalendarId: "0feHbG6YfH2apzvdmR3U", sortOrder: 2, photoUrl: "/coaching-photos/bruce.jpg", knownSurnames: ["Clark"] },
+  { name: "Michael", ghlCalendarId: "JF7LYxF5KRQImZpvSrHo", sortOrder: 3, photoUrl: "/coaching-photos/michael.png", knownSurnames: ["Wissbaum"] },
+  { name: "Todd", ghlCalendarId: "JiTLouUKzGeYrsPtEmK5", sortOrder: 4, photoUrl: "/coaching-photos/todd.jpeg", knownSurnames: ["Rupp"] },
 ];
 
 // Virtual-assistant roster. VAs live in the SAME `coaches` table (type === "va")
