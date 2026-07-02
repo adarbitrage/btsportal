@@ -1280,6 +1280,14 @@ export default function KnowledgeBaseReview() {
             </p>
           </div>
           <div className="flex items-center gap-2 flex-wrap">
+            <Button
+              variant="outline"
+              onClick={() => window.open(`${import.meta.env.BASE_URL}docs/tips-and-tricks-categorization-sop.pdf`, "_blank", "noopener,noreferrer")}
+              title="How to categorize tips-and-tricks content (Nano Banana, Grok, Anstrex, headlines)"
+            >
+              <FileText className="w-4 h-4 mr-2" />
+              Tips SOP
+            </Button>
             <Button variant="outline" onClick={loadSources} disabled={sourcesLoading}>
               {sourcesLoading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <ShieldCheck className="w-4 h-4 mr-2" />}
               Sources

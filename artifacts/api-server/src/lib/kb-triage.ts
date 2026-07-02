@@ -65,6 +65,13 @@ TAXONOMY:
 - doc class (pick ONE): ${DOC_CLASSES.join(" | ")}
 - tags (pick 0-4 from): ${tagList}
 
+TIPS-AND-TRICKS RULE (short, tool-driven "tips and tricks" walkthroughs — e.g. Nano Banana, Grok Imagine, Anstrex ad copy, headline formulas — that show a member how to get one specific thing done, usually with a named piece of software):
+- These are training source material. Keep doc class = "transcript" (training-only, non-citable) — never suggest "curated" or "overview" for a tip.
+- Pick home root by intent: a REPEATABLE CAMPAIGN BUILD STEP (make/resize/animate/edit a creative, or a step in launching/tracking/testing/scaling a campaign) => home root "process", node USUALLY "creative-assets". A CROSS-CAMPAIGN SKILL or principle (how to write copy, choose angles, structure tests) => home root "concepts", node from: headlines-and-copy, creative-strategy, testing-methodology, angles.
+- Rule of thumb: if the payoff is AN ASSET the member produced => process/creative-assets; if the payoff is A WAY OF WRITING OR THINKING they reuse => a concepts node.
+- The specific SOFTWARE a tip uses is a TOOL TAG, never a node — never invent a node named after a tool. Put known tools in "suggestedTags" and any unknown tool in "observedTools".
+- A tip may touch several nodes; suggest only the SINGLE DOMINANT node. Secondary links are added later at synthesis.
+
 CATEGORIES (legacy field, pick one): curriculum | strategy | sop | faq | platform_guide
 
 Respond ONLY with valid JSON (no markdown, no extra text):
