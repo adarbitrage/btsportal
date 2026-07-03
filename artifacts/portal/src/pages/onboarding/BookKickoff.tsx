@@ -44,7 +44,9 @@ export default function OnboardingBookKickoff() {
 
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
-  const [selectedSlot, setSelectedSlot] = useState<{ startTime: string } | null>(null);
+  const [selectedSlot, setSelectedSlot] = useState<{ startTime: string; coachId: number; durationMinutes: number } | null>(
+    null,
+  );
   const [advancing, setAdvancing] = useState(false);
 
   const { data: mine, isLoading: mineLoading } = useMyKickoffBooking();
@@ -62,10 +64,20 @@ export default function OnboardingBookKickoff() {
     isLoading: slotsLoading,
     refetch: refetchAvailability,
   } = useKickoffAvailability(startDate, endDate);
-  const coach = availability?.coach;
+
+  // Task #1654: the grid is a MERGED pool across every coach in the tier —
+  // there's no single "the coach" until the member picks a slot. Coach
+  // photo/bio only reveal once a specific slot (and therefore a specific
+  // coach) is selected.
+  const coachesById = useMemo(() => {
+    const map = new Map<number, { id: number; displayName: string; photoUrl: string | null; bio: string | null }>();
+    for (const c of availability?.coaches ?? []) map.set(c.id, c);
+    return map;
+  }, [availability]);
+  const selectedCoach = selectedSlot ? coachesById.get(selectedSlot.coachId) ?? null : null;
 
   const slotsByDate = useMemo(() => {
-    const map = new Map<string, { startTime: string }[]>();
+    const map = new Map<string, { startTime: string; coachId: number; durationMinutes: number }[]>();
     if (!availability?.slots) return map;
     for (const slot of availability.slots) {
       const key = format(new Date(slot.startTime), "yyyy-MM-dd");
@@ -115,7 +127,10 @@ export default function OnboardingBookKickoff() {
   const handleConfirm = async () => {
     if (!selectedSlot) return;
     try {
-      const result = await bookCall.mutateAsync({ startTime: selectedSlot.startTime });
+      const result = await bookCall.mutateAsync({
+        startTime: selectedSlot.startTime,
+        coachId: selectedSlot.coachId,
+      });
       if (result.setupPending) {
         toast({
           title: "Kickoff booking isn't set up yet",
@@ -206,25 +221,23 @@ export default function OnboardingBookKickoff() {
           </p>
         </div>
 
-        {coach && (
+        {selectedCoach && selectedSlot && (
           <div className="flex items-center justify-center gap-3">
-            {coach.photoUrl ? (
+            {selectedCoach.photoUrl ? (
               <img
-                src={resolveCoachPhotoUrl(coach.photoUrl) ?? undefined}
-                alt={coach.displayName}
+                src={resolveCoachPhotoUrl(selectedCoach.photoUrl) ?? undefined}
+                alt={selectedCoach.displayName}
                 className="w-12 h-12 rounded-full object-cover"
               />
             ) : (
               <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center text-sm font-bold text-primary">
-                {initials(coach.displayName)}
+                {initials(selectedCoach.displayName)}
               </div>
             )}
             <div className="text-left">
-              <p className="font-semibold text-foreground">{coach.displayName}</p>
+              <p className="font-semibold text-foreground">{selectedCoach.displayName}</p>
               <p className="text-xs text-muted-foreground">
-                {availability?.durationMinutes
-                  ? `Free ${availability.durationMinutes}-minute kickoff call`
-                  : "Free kickoff call"}
+                {`Free ${selectedSlot.durationMinutes}-minute kickoff call`}
               </p>
             </div>
           </div>
@@ -314,20 +327,32 @@ export default function OnboardingBookKickoff() {
                   {slotsForSelectedDate.length > 0 ? (
                     <div className="grid grid-cols-2 gap-2">
                       {slotsForSelectedDate.map((slot) => {
-                        const isSelected = selectedSlot?.startTime === slot.startTime;
+                        const isSelected =
+                          selectedSlot?.startTime === slot.startTime && selectedSlot?.coachId === slot.coachId;
+                        const slotCoach = coachesById.get(slot.coachId);
                         return (
                           <button
-                            key={slot.startTime}
+                            key={`${slot.coachId}-${slot.startTime}`}
                             onClick={() => setSelectedSlot(slot)}
                             data-testid={`kickoff-slot-${slot.startTime}`}
                             className={cn(
-                              "px-4 py-2.5 rounded-lg text-sm font-medium transition-colors border",
+                              "px-4 py-2.5 rounded-lg text-sm font-medium transition-colors border flex flex-col items-center",
                               isSelected
                                 ? "bg-primary text-white border-primary"
                                 : "border-border hover:border-primary hover:bg-primary/5 text-foreground",
                             )}
                           >
-                            {format(new Date(slot.startTime), "h:mm a")}
+                            <span>{format(new Date(slot.startTime), "h:mm a")}</span>
+                            {slotCoach && (
+                              <span
+                                className={cn(
+                                  "text-[10px] font-normal",
+                                  isSelected ? "text-white/80" : "text-muted-foreground",
+                                )}
+                              >
+                                {slotCoach.displayName}
+                              </span>
+                            )}
                           </button>
                         );
                       })}

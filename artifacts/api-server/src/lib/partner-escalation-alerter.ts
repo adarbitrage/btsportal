@@ -81,6 +81,10 @@ export type { DeliveryResult };
 export const PARTNER_NO_SHOW_ALERT_ACTION_TYPE = "partner_noshow_alert";
 export const PARTNER_VANISH_ALERT_ACTION_TYPE = "partner_vanish_alert";
 export const PARTNER_CAPACITY_ALERT_ACTION_TYPE = "partner_capacity_alert";
+// Task #1654: fires at ASSIGNMENT TIME (from partner-assignment.ts), not on
+// the poll cycle like the other three — distinct from
+// PARTNER_CAPACITY_ALERT_ACTION_TYPE's trailing-7-day booked/available ratio.
+export const PARTNER_ASSIGNMENT_DELAY_ALERT_ACTION_TYPE = "partner_assignment_delay_alert";
 export const PARTNER_ESCALATION_ALERT_ENTITY_TYPE = "alert";
 
 export type AlertDeliveryOutcome = "sent" | "failed" | "throttled" | "skipped";
@@ -135,6 +139,13 @@ export type PartnerEscalationAlertPayload =
       bookedSlots: number;
       availableSlots: number;
       ratioPct: number;
+    }
+  | {
+      alertType: "assignment_delay";
+      kind: AlertKind;
+      now: number;
+      soonestIso: string | null;
+      daysOut: number | null;
     };
 
 function destinationsFromEnv(): OnCallDestinations {
@@ -148,11 +159,13 @@ function destinationsFromEnv(): OnCallDestinations {
 function actionTypeFor(alertType: PartnerEscalationAlertPayload["alertType"]): string {
   if (alertType === "no_show") return PARTNER_NO_SHOW_ALERT_ACTION_TYPE;
   if (alertType === "vanish") return PARTNER_VANISH_ALERT_ACTION_TYPE;
+  if (alertType === "assignment_delay") return PARTNER_ASSIGNMENT_DELAY_ALERT_ACTION_TYPE;
   return PARTNER_CAPACITY_ALERT_ACTION_TYPE;
 }
 
 function entityIdFor(payload: PartnerEscalationAlertPayload): string {
   if (payload.alertType === "capacity") return "partner-capacity-fleet";
+  if (payload.alertType === "assignment_delay") return "partner-assignment-delay-fleet";
   if (payload.alertType === "no_show") return `partner-noshow:${payload.memberId}`;
   return `partner-vanish:${payload.memberId}`;
 }
@@ -232,41 +245,87 @@ function buildMessages(p: PartnerEscalationAlertPayload): AlertMessages {
     };
   }
 
-  // capacity
-  const subject =
+  if (p.alertType === "capacity") {
+    const subject =
+      p.kind === "fire"
+        ? "[ALERT] Partner capacity \u2265 80% \u2014 time to hire"
+        : "[RESOLVED] Partner fleet capacity back under 80%";
+    const text =
+      p.kind === "fire"
+        ? [
+            `Accountability-partner fleet booked ${p.bookedSlots} of ${p.availableSlots} available slots over the trailing 7 days (${p.ratioPct}%), at or above the ${Math.round(CAPACITY_RATIO_THRESHOLD * 100)}% threshold.`,
+            "",
+            "Time to hire another accountability partner. Open /admin/partners to review current roster load.",
+          ].join("\n")
+        : [
+            `Accountability-partner fleet capacity dropped back to ${p.ratioPct}% (booked ${p.bookedSlots} of ${p.availableSlots} available slots), below the ${Math.round(CAPACITY_RATIO_THRESHOLD * 100)}% threshold.`,
+          ].join("\n");
+    const slackText =
+      p.kind === "fire"
+        ? `:rotating_light: *Partner capacity \u2265 80% \u2014 time to hire* — booked ${p.bookedSlots}/${p.availableSlots} slots (${p.ratioPct}%) over the trailing 7 days. Check /admin/partners.`
+        : `:white_check_mark: *Partner fleet capacity recovered* — ${p.ratioPct}% (booked ${p.bookedSlots}/${p.availableSlots}).`;
+    return {
+      pagerduty: {
+        dedupKey: "partner-capacity:fleet",
+        summary: `Partner capacity ${p.ratioPct}% \u2014 time to hire`,
+        severity: "warning",
+        component: "partner-escalation",
+        class: "partner_capacity_high",
+        custom_details: {
+          bookedSlots: p.bookedSlots,
+          availableSlots: p.availableSlots,
+          ratioPct: p.ratioPct,
+          link: "/admin/partners",
+        },
+      },
+      email: { subject, text },
+      slack: { text: slackText },
+    };
+  }
+
+  // assignment_delay — fired from the soonest-first assignment probe when
+  // every active partner's earliest bookable slot is more than 7 days out
+  // (i.e. even the best pick is a bad outcome for the new member). The
+  // member is still assigned to whichever partner truly has the soonest
+  // slot (assignment_method stays "soonest") — this alert exists purely to
+  // flag the fleet-wide capacity crunch, not a fallback-routing event.
+  const delaySubject =
     p.kind === "fire"
-      ? "[ALERT] Partner capacity \u2265 80% \u2014 time to hire"
-      : "[RESOLVED] Partner fleet capacity back under 80%";
-  const text =
+      ? "[ALERT] Every accountability-partner slot is more than 7 days out"
+      : "[RESOLVED] Accountability-partner availability back within 7 days";
+  const delayText =
     p.kind === "fire"
       ? [
-          `Accountability-partner fleet booked ${p.bookedSlots} of ${p.availableSlots} available slots over the trailing 7 days (${p.ratioPct}%), at or above the ${Math.round(CAPACITY_RATIO_THRESHOLD * 100)}% threshold.`,
+          `Every active accountability partner's soonest bookable slot is now more than 7 days away${
+            p.soonestIso ? ` (best: ${p.soonestIso}, ${p.daysOut} days out)` : " (no bookable slot found at all)"
+          }.`,
           "",
-          "Time to hire another accountability partner. Open /admin/partners to review current roster load.",
+          "New members are still being assigned to whichever partner has the truly soonest slot, but that soonest slot is more than a week away fleet-wide. Time to hire or free up partner capacity.",
         ].join("\n")
       : [
-          `Accountability-partner fleet capacity dropped back to ${p.ratioPct}% (booked ${p.bookedSlots} of ${p.availableSlots} available slots), below the ${Math.round(CAPACITY_RATIO_THRESHOLD * 100)}% threshold.`,
+          `Accountability-partner availability recovered — the soonest bookable slot across the fleet is back within 7 days${
+            p.soonestIso ? ` (${p.soonestIso}, ${p.daysOut} days out)` : ""
+          }.`,
         ].join("\n");
-  const slackText =
+  const delaySlackText =
     p.kind === "fire"
-      ? `:rotating_light: *Partner capacity \u2265 80% \u2014 time to hire* — booked ${p.bookedSlots}/${p.availableSlots} slots (${p.ratioPct}%) over the trailing 7 days. Check /admin/partners.`
-      : `:white_check_mark: *Partner fleet capacity recovered* — ${p.ratioPct}% (booked ${p.bookedSlots}/${p.availableSlots}).`;
+      ? `:rotating_light: *Partner assignment delay* — every partner's soonest slot is >7 days out${p.soonestIso ? ` (best: ${p.soonestIso})` : ""}. Check /admin/partners.`
+      : `:white_check_mark: *Partner assignment delay cleared* — soonest slot back within 7 days.`;
   return {
     pagerduty: {
-      dedupKey: "partner-capacity:fleet",
-      summary: `Partner capacity ${p.ratioPct}% \u2014 time to hire`,
+      dedupKey: "partner-assignment-delay:fleet",
+      summary: "Every accountability-partner slot is more than 7 days out",
       severity: "warning",
       component: "partner-escalation",
-      class: "partner_capacity_high",
+      class: "partner_assignment_delay",
       custom_details: {
-        bookedSlots: p.bookedSlots,
-        availableSlots: p.availableSlots,
-        ratioPct: p.ratioPct,
+        soonestIso: p.soonestIso,
+        daysOut: p.daysOut,
         link: "/admin/partners",
       },
     },
-    email: { subject, text },
-    slack: { text: slackText },
+    email: { subject: delaySubject, text: delayText },
+    slack: { text: delaySlackText },
   };
 }
 
@@ -290,7 +349,9 @@ function describeAttempt(
       ? "no-show escalation"
       : payload.alertType === "vanish"
         ? "vanish alert"
-        : "fleet capacity alert";
+        : payload.alertType === "assignment_delay"
+          ? "assignment delay alert"
+          : "fleet capacity alert";
   switch (outcome) {
     case "sent":
       return `Sent ${verb} alert via ${result.channel} for partner ${label}`;
@@ -323,11 +384,13 @@ async function recordDeliveryAttempt(
         ? { memberId: payload.memberId, consecutiveNoShows: payload.consecutiveNoShows }
         : payload.alertType === "vanish"
           ? { memberId: payload.memberId, daysSinceLastCall: payload.daysSinceLastCall }
-          : {
-              bookedSlots: payload.bookedSlots,
-              availableSlots: payload.availableSlots,
-              ratioPct: payload.ratioPct,
-            }),
+          : payload.alertType === "assignment_delay"
+            ? { soonestIso: payload.soonestIso, daysOut: payload.daysOut }
+            : {
+                bookedSlots: payload.bookedSlots,
+                availableSlots: payload.availableSlots,
+                ratioPct: payload.ratioPct,
+              }),
     },
   });
 }
@@ -342,7 +405,9 @@ const dispatcher = createOnCallDispatcher<PartnerEscalationAlertPayload, string>
   throttleKey: (p, dc) =>
     p.alertType === "capacity"
       ? `capacity:${p.kind}:${dc}`
-      : `${p.alertType}:${p.memberId}:${p.kind}:${dc}`,
+      : p.alertType === "assignment_delay"
+        ? `assignment_delay:${p.kind}:${dc}`
+        : `${p.alertType}:${p.memberId}:${p.kind}:${dc}`,
   buildMessages,
   kindOf: (p) => p.kind,
   onDelivery: recordDeliveryAttempt,
@@ -364,12 +429,14 @@ export function __setPartnerEscalationAlerterDeliveriesForTests(
 const noShowAlertingMembers = new Set<number>();
 const vanishAlertingMembers = new Set<number>();
 let capacityAlerting = false;
+let assignmentDelayAlerting = false;
 
 /** Test-only: reset all alerter state. */
 export function __resetPartnerEscalationAlerterForTests(): void {
   noShowAlertingMembers.clear();
   vanishAlertingMembers.clear();
   capacityAlerting = false;
+  assignmentDelayAlerting = false;
   throttleStore.reset();
   dispatcher.setDeliveryOverrides(null);
   freeSlotsOverride = null;
@@ -380,12 +447,54 @@ export function getPartnerEscalationAlertingState(): {
   noShowAlertingMemberIds: number[];
   vanishAlertingMemberIds: number[];
   capacityAlerting: boolean;
+  assignmentDelayAlerting: boolean;
 } {
   return {
     noShowAlertingMemberIds: Array.from(noShowAlertingMembers),
     vanishAlertingMemberIds: Array.from(vanishAlertingMembers),
     capacityAlerting,
+    assignmentDelayAlerting,
   };
+}
+
+// ---------------------------------------------------------------------------
+// (d) Assignment delay — fired at ASSIGNMENT TIME, not on the poll cycle
+// ---------------------------------------------------------------------------
+
+/**
+ * Task #1654: called by partner-assignment.ts's soonest-first probe with the
+ * earliest bookable slot found across the WHOLE active-partner fleet (or
+ * `null` if none was found at all / the probe timed out before finding one).
+ * Fires once when the fleet's best case crosses the 7-day threshold; clears
+ * the next time an assignment's soonest-probe finds something within 7 days.
+ * Deliberately independent of `evaluateFleetCapacity` — that's a trailing
+ * booked/available RATIO on a poll cadence; this is a same-request "the
+ * member we just assigned got a bad outcome" signal.
+ */
+export async function evaluateAssignmentDelay(
+  soonestOverall: Date | null,
+  now: number = Date.now(),
+): Promise<DeliveryResult[]> {
+  const daysOut = soonestOverall ? (soonestOverall.getTime() - now) / (24 * 60 * 60 * 1000) : null;
+  const isDelayed = daysOut === null || daysOut > 7;
+  const soonestIso = soonestOverall ? soonestOverall.toISOString() : null;
+  const roundedDaysOut = daysOut === null ? null : Math.round(daysOut * 10) / 10;
+
+  if (isDelayed && !assignmentDelayAlerting) {
+    assignmentDelayAlerting = true;
+    return dispatcher.dispatch(
+      { alertType: "assignment_delay", kind: "fire", now, soonestIso, daysOut: roundedDaysOut },
+      now,
+    );
+  }
+  if (!isDelayed && assignmentDelayAlerting) {
+    assignmentDelayAlerting = false;
+    return dispatcher.dispatch(
+      { alertType: "assignment_delay", kind: "clear", now, soonestIso, daysOut: roundedDaysOut },
+      now,
+    );
+  }
+  return [];
 }
 
 // ---------------------------------------------------------------------------

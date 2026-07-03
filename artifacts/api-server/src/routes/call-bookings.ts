@@ -12,8 +12,9 @@ import {
   COACHING_LOCATION_ID,
   type FreeSlot,
 } from "../lib/ghl-coaching-calendar";
-import { selectKickoffCoach, getMemberKickoffTier } from "../lib/kickoff-assignment";
+import { listKickoffCoachPool, loadKickoffCoachById, getMemberKickoffTier } from "../lib/kickoff-assignment";
 import { getActiveAssignment } from "../lib/partner-assignment";
+import { getPartnerDailyCounts, filterSlotsByDailyCap } from "../lib/partner-call-capacity";
 import {
   advanceOnboardingAfterKickoffBooked,
   advanceOnboardingAfterPartnerCallBooked,
@@ -132,6 +133,15 @@ function parseDateRange(req: { query: Record<string, unknown> }): { startMs: num
 // Kickoff calls — /onboarding/kickoff/*
 // ---------------------------------------------------------------------------
 
+// A single merged-pool slot, tagged with the coach that owns it (Task #1654).
+// Calendars can differ per coach, so durationMinutes travels WITH the slot
+// rather than as one top-level value.
+interface KickoffPoolSlot {
+  startTime: string;
+  coachId: number;
+  durationMinutes: number;
+}
+
 router.get("/onboarding/kickoff/availability", async (req, res): Promise<void> => {
   const userId = req.userId!;
   const range = parseDateRange(req);
@@ -141,38 +151,60 @@ router.get("/onboarding/kickoff/availability", async (req, res): Promise<void> =
   }
 
   const tier = await getMemberKickoffTier(userId);
-  const coach = await selectKickoffCoach(tier);
-  if (!coach) {
+  const pool = await listKickoffCoachPool(tier);
+  if (pool.length === 0) {
     // Task #1641: no active, calendar-configured coach for this member's
     // tier — e.g. LaunchPad before Neil's real calendar ID is entered. This
     // is a loud, explicit "still being set up" signal, never a silent empty
     // slot list, and NEVER a fallback to the other tier's coaches.
-    res.json({ setupPending: true, coach: null, slots: [], durationMinutes: null });
+    res.json({ setupPending: true, coaches: [], slots: [] });
     return;
   }
 
-  try {
-    const coachLocationId = coach.ghlLocationId ?? COACHING_LOCATION_ID;
-    const [slots, durationMinutes] = await Promise.all([
-      getFreeSlots(coach.ghlCalendarId, range.startMs, range.endMs, coachLocationId),
-      getCalendarDurationMinutes(coach.ghlCalendarId, coachLocationId),
-    ]);
-    const cutoff = Date.now() + MIN_LEAD_TIME_MS;
-    const usable = slots.filter((s) => new Date(s.startTime).getTime() >= cutoff);
-    res.json({
-      coach: {
-        id: coach.id,
-        displayName: coach.displayName,
-        photoUrl: coach.photoUrl,
-        bio: coach.bio,
-      },
-      slots: usable,
-      durationMinutes,
-    });
-  } catch (err) {
-    console.error("[call-bookings] kickoff availability failed:", err);
+  const cutoff = Date.now() + MIN_LEAD_TIME_MS;
+  const results = await Promise.allSettled(
+    pool.map(async (coach) => {
+      const coachLocationId = coach.ghlLocationId ?? COACHING_LOCATION_ID;
+      const [slots, durationMinutes] = await Promise.all([
+        getFreeSlots(coach.ghlCalendarId, range.startMs, range.endMs, coachLocationId),
+        getCalendarDurationMinutes(coach.ghlCalendarId, coachLocationId),
+      ]);
+      const usable: KickoffPoolSlot[] = slots
+        .filter((s) => new Date(s.startTime).getTime() >= cutoff)
+        .map((s) => ({ startTime: s.startTime, coachId: coach.id, durationMinutes }));
+      return usable;
+    }),
+  );
+
+  // Task #1654: one coach's fetch failing doesn't take down the whole grid —
+  // the other coaches' slots still render. Only a TOTAL failure (every
+  // coach's fetch rejected) surfaces the existing 502.
+  const succeeded = results.filter(
+    (r): r is PromiseFulfilledResult<KickoffPoolSlot[]> => r.status === "fulfilled",
+  );
+  if (succeeded.length === 0) {
+    console.error(
+      "[call-bookings] kickoff availability failed for every coach in the pool:",
+      results.map((r) => (r.status === "rejected" ? r.reason : null)),
+    );
     res.status(502).json({ error: "Could not load availability. Please try again." });
+    return;
   }
+  for (const r of results) {
+    if (r.status === "rejected") {
+      console.error("[call-bookings] kickoff availability failed for one coach in the pool:", r.reason);
+    }
+  }
+
+  const merged = succeeded.flatMap((r) => r.value).sort((a, b) => {
+    const t = new Date(a.startTime).getTime() - new Date(b.startTime).getTime();
+    return t !== 0 ? t : a.coachId - b.coachId;
+  });
+
+  res.json({
+    coaches: pool.map((c) => ({ id: c.id, displayName: c.displayName, photoUrl: c.photoUrl, bio: c.bio })),
+    slots: merged,
+  });
 });
 
 router.get("/onboarding/kickoff/mine", async (req, res): Promise<void> => {
@@ -208,9 +240,13 @@ router.post("/onboarding/kickoff/book", async (req, res): Promise<void> => {
     return;
   }
 
-  const { startTime } = req.body || {};
+  const { startTime, coachId } = req.body || {};
   if (typeof startTime !== "string" || Number.isNaN(Date.parse(startTime))) {
     res.status(400).json({ error: "Invalid start time" });
+    return;
+  }
+  if (typeof coachId !== "number" || !Number.isInteger(coachId)) {
+    res.status(400).json({ error: "Invalid coach" });
     return;
   }
   const scheduledAt = new Date(startTime);
@@ -220,10 +256,17 @@ router.post("/onboarding/kickoff/book", async (req, res): Promise<void> => {
   }
 
   const tier = await getMemberKickoffTier(userId);
-  const coach = await selectKickoffCoach(tier);
+  // Task #1654: the member now picks a specific coach's slot from the merged
+  // grid — book against THAT coach, never re-run round robin here (which
+  // could silently hand the booking to a different coach than the one whose
+  // slot the member actually clicked). loadKickoffCoachById enforces
+  // active + correct-tier so a forged cross-tier coachId is rejected.
+  const coach = await loadKickoffCoachById(coachId, tier);
   if (!coach) {
     // Task #1641: same loud "still being set up" signal as the availability
-    // endpoint — never fall back to the other tier's coaches.
+    // endpoint — never fall back to the other tier's coaches. Also covers a
+    // forged/cross-tier/inactive coachId, which should look the same to the
+    // client as "no longer bookable".
     res.status(200).json({ setupPending: true });
     return;
   }
@@ -402,30 +445,12 @@ async function getKickoffCutoffForFirstPartnerCall(memberId: number): Promise<Da
   return kickoff?.scheduledAt ?? null;
 }
 
-// Non-canceled partner-call counts per day (coaching-timezone date key) for
-// this partner, used to enforce the 5/day (maxDailyCalls) cap.
-async function getPartnerDailyCounts(partnerId: number, startMs: number, endMs: number): Promise<Map<string, number>> {
-  const rows = await db
-    .select({ scheduledAt: callBookingsTable.scheduledAt })
-    .from(callBookingsTable)
-    .where(
-      and(
-        eq(callBookingsTable.staffId, partnerId),
-        eq(callBookingsTable.staffType, "partner"),
-        eq(callBookingsTable.type, "partner"),
-        ne(callBookingsTable.status, "canceled"),
-        sql`${callBookingsTable.scheduledAt} >= to_timestamp(${startMs / 1000})`,
-        sql`${callBookingsTable.scheduledAt} <= to_timestamp(${endMs / 1000})`,
-      ),
-    );
-  const counts = new Map<string, number>();
-  for (const row of rows) {
-    const key = dayKeyInTz(row.scheduledAt);
-    counts.set(key, (counts.get(key) ?? 0) + 1);
-  }
-  return counts;
-}
-
+// Task #1654: the daily-cap counting + filtering logic itself now lives in
+// ../lib/partner-call-capacity.ts (getPartnerDailyCounts, filterSlotsByDailyCap)
+// so the assignment-time soonest-slot probe in partner-assignment.ts can reuse
+// the EXACT same cap enforcement — raw GHL free slots have no concept of the
+// portal-side cap. This wrapper layers the member-specific "first partner
+// call can't be before kickoff" cutoff on top, which only applies here.
 async function filterPartnerSlots(
   memberId: number,
   partner: { id: number; maxDailyCalls: number },
@@ -434,17 +459,11 @@ async function filterPartnerSlots(
   endMs: number,
 ): Promise<FreeSlot[]> {
   const cutoff = await getKickoffCutoffForFirstPartnerCall(memberId);
-  const dailyCounts = await getPartnerDailyCounts(partner.id, startMs, endMs);
-  const leadCutoffMs = Date.now() + MIN_LEAD_TIME_MS;
+  const capFiltered = await filterSlotsByDailyCap(partner.id, partner.maxDailyCalls, slots, startMs, endMs);
 
-  return slots.filter((s) => {
-    const start = new Date(s.startTime);
-    const startMsSlot = start.getTime();
-    if (startMsSlot < leadCutoffMs) return false;
+  return capFiltered.filter((s) => {
+    const startMsSlot = new Date(s.startTime).getTime();
     if (cutoff && startMsSlot < cutoff.getTime()) return false;
-    const dayKey = dayKeyInTz(start);
-    const countForDay = dailyCounts.get(dayKey) ?? 0;
-    if (countForDay >= partner.maxDailyCalls) return false;
     return true;
   });
 }

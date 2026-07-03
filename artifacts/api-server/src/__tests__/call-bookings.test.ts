@@ -208,7 +208,7 @@ describe("kickoff call booking: step idempotency", () => {
     const first = await request(app)
       .post("/api/onboarding/kickoff/book")
       .set("Cookie", authCookie(memberId))
-      .send({ startTime: startTime.toISOString() });
+      .send({ startTime: startTime.toISOString(), coachId: kickoffCoachId });
 
     expect(first.status).toBe(201);
     expect(first.body.onboardingAdvanced).toBe(true);
@@ -239,7 +239,7 @@ describe("kickoff call booking: step idempotency", () => {
 });
 
 describe("availability responses expose the call duration (Task #1625)", () => {
-  it("kickoff availability includes durationMinutes matching the booked call", async () => {
+  it("kickoff availability includes per-slot durationMinutes matching the booked call", async () => {
     const memberId = await makeMember(3);
     const startTime = gridAlignedFutureTime(2);
     const dateStr = startTime.toISOString().slice(0, 10);
@@ -248,16 +248,19 @@ describe("availability responses expose the call duration (Task #1625)", () => {
       .get(`/api/onboarding/kickoff/availability?startDate=${dateStr}&endDate=${dateStr}`)
       .set("Cookie", authCookie(memberId));
     expect(avail.status).toBe(200);
-    expect(typeof avail.body.durationMinutes).toBe("number");
-    expect(avail.body.durationMinutes).toBeGreaterThan(0);
+    expect(avail.body.slots.length).toBeGreaterThan(0);
+    const chosenSlot = avail.body.slots.find((s: { startTime: string }) => s.startTime === startTime.toISOString());
+    expect(chosenSlot).toBeDefined();
+    expect(typeof chosenSlot.durationMinutes).toBe("number");
+    expect(chosenSlot.durationMinutes).toBeGreaterThan(0);
 
     const book = await request(app)
       .post("/api/onboarding/kickoff/book")
       .set("Cookie", authCookie(memberId))
-      .send({ startTime: startTime.toISOString() });
+      .send({ startTime: startTime.toISOString(), coachId: chosenSlot.coachId });
     expect(book.status).toBe(201);
     bookingIds.push(book.body.booking.id);
-    expect(book.body.booking.durationMinutes).toBe(avail.body.durationMinutes);
+    expect(book.body.booking.durationMinutes).toBe(chosenSlot.durationMinutes);
   });
 
   it("partner availability includes durationMinutes matching the booked call", async () => {
@@ -606,9 +609,18 @@ describe("per-row GHL location plumbing (Task #1611)", () => {
     const memberId = await makeMember(6, true);
     await assignPartner(memberId, customPartnerId);
 
-    const freeSlotsSpy = vi.spyOn(ghlCoachingCalendar, "getFreeSlots");
-    const upsertContactSpy = vi.spyOn(ghlCoachingCalendar, "upsertContact");
-    const createAppointmentSpy = vi.spyOn(ghlCoachingCalendar, "createAppointment");
+    // Cleared (not vi.spyOn-wrapped) — vi.spyOn on a property that is
+    // ALREADY a vi.fn() (from the module factory below) replaces the
+    // module's exported binding with a distinct wrapper object, and
+    // mockRestore() does not reliably reinstate a working mock afterward.
+    // Every other test in this file (and route.ts's own import) shares
+    // these exact same vi.fn instances, so read/clear them in place instead.
+    const freeSlotsSpy = ghlCoachingCalendar.getFreeSlots as unknown as ReturnType<typeof vi.fn>;
+    const upsertContactSpy = ghlCoachingCalendar.upsertContact as unknown as ReturnType<typeof vi.fn>;
+    const createAppointmentSpy = ghlCoachingCalendar.createAppointment as unknown as ReturnType<typeof vi.fn>;
+    freeSlotsSpy.mockClear();
+    upsertContactSpy.mockClear();
+    createAppointmentSpy.mockClear();
 
     const startTime = gridAlignedFutureTime(40);
     const booked = await request(app)
@@ -651,14 +663,16 @@ describe("per-row GHL location plumbing (Task #1611)", () => {
     }
     try {
       const memberId = await makeMember(3);
-      const freeSlotsSpy = vi.spyOn(ghlCoachingCalendar, "getFreeSlots");
-      const createAppointmentSpy = vi.spyOn(ghlCoachingCalendar, "createAppointment");
+      const freeSlotsSpy = ghlCoachingCalendar.getFreeSlots as unknown as ReturnType<typeof vi.fn>;
+      const createAppointmentSpy = ghlCoachingCalendar.createAppointment as unknown as ReturnType<typeof vi.fn>;
+      freeSlotsSpy.mockClear();
+      createAppointmentSpy.mockClear();
 
       const startTime = gridAlignedFutureTime(41);
       const booked = await request(app)
         .post("/api/onboarding/kickoff/book")
         .set("Cookie", authCookie(memberId))
-        .send({ startTime: startTime.toISOString() });
+        .send({ startTime: startTime.toISOString(), coachId: customKickoffCoachId });
       expect(booked.status).toBe(201);
       bookingIds.push(booked.body.booking.id);
 
@@ -707,7 +721,7 @@ describe("inactive partner/kickoff coach roster rows are excluded", () => {
     }
   });
 
-  it("excludes an inactive kickoff coach from round-robin selection", async () => {
+  it("excludes an inactive kickoff coach from the merged availability pool and rejects booking against it", async () => {
     const [inactiveCoach] = await db
       .insert(kickoffCoachesTable)
       .values({
@@ -720,15 +734,158 @@ describe("inactive partner/kickoff coach roster rows are excluded", () => {
     try {
       const memberId = await makeMember(3);
       const startTime = gridAlignedFutureTime(42);
+      const dateStr = startTime.toISOString().slice(0, 10);
+
+      const avail = await request(app)
+        .get(`/api/onboarding/kickoff/availability?startDate=${dateStr}&endDate=${dateStr}`)
+        .set("Cookie", authCookie(memberId));
+      expect(avail.status).toBe(200);
+      expect(avail.body.coaches.some((c: { id: number }) => c.id === inactiveCoach.id)).toBe(false);
+      expect(avail.body.slots.some((s: { coachId: number }) => s.coachId === inactiveCoach.id)).toBe(false);
+
+      const forgedBook = await request(app)
+        .post("/api/onboarding/kickoff/book")
+        .set("Cookie", authCookie(memberId))
+        .send({ startTime: startTime.toISOString(), coachId: inactiveCoach.id });
+      expect(forgedBook.status).toBe(200);
+      expect(forgedBook.body.setupPending).toBe(true);
+
       const booked = await request(app)
         .post("/api/onboarding/kickoff/book")
         .set("Cookie", authCookie(memberId))
-        .send({ startTime: startTime.toISOString() });
+        .send({ startTime: startTime.toISOString(), coachId: kickoffCoachId });
       expect(booked.status).toBe(201);
       expect(booked.body.booking.staffId).not.toBe(inactiveCoach.id);
       bookingIds.push(booked.body.booking.id);
     } finally {
       await db.delete(kickoffCoachesTable).where(eq(kickoffCoachesTable.id, inactiveCoach.id));
+    }
+  });
+});
+
+describe("merged kickoff pool across multiple coaches (Task #1654)", () => {
+  // Fetched fresh inside each test (never captured once at describe-collection
+  // time): earlier tests in this file `vi.spyOn(ghlCoachingCalendar,
+  // "getFreeSlots")` and restore it, which replaces the module's exported
+  // property with a distinct object. A stale top-level `const` captured
+  // before those tests run would silently diverge from whatever route.ts's
+  // live import binding resolves to at request time.
+  function freeSlots(): ReturnType<typeof vi.fn> {
+    return ghlCoachingCalendar.getFreeSlots as unknown as ReturnType<typeof vi.fn>;
+  }
+
+  it("merges three coaches' mocked pools earliest-first and books the slot's owner", async () => {
+    const otherActiveCoaches = await db
+      .select({ id: kickoffCoachesTable.id })
+      .from(kickoffCoachesTable)
+      .where(and(eq(kickoffCoachesTable.isActive, true), ne(kickoffCoachesTable.id, kickoffCoachId)));
+    const otherActiveCoachIds = otherActiveCoaches.map((c) => c.id);
+    if (otherActiveCoachIds.length > 0) {
+      await db.update(kickoffCoachesTable).set({ isActive: false }).where(inArray(kickoffCoachesTable.id, otherActiveCoachIds));
+    }
+
+    // Offsets must themselves be exact 30-minute-grid multiples — anything
+    // else gets ceil-rounded by gridAlignedFutureTime and can silently
+    // collide with a neighboring offset (e.g. +15min rounds up to the same
+    // grid slot as +30min), making the "earliest-first" ordering ambiguous.
+    const coachB_time = gridAlignedFutureTime(60);
+    const coachC_time = gridAlignedFutureTime(60, 30 * 60 * 1000);
+    const coachA_time = gridAlignedFutureTime(60, 60 * 60 * 1000);
+
+    const [coachB] = await db
+      .insert(kickoffCoachesTable)
+      .values({ displayName: "Merge Coach B", ghlCalendarId: `${TEST_TAG}-merge-cal-b`, isActive: true })
+      .returning({ id: kickoffCoachesTable.id });
+    const [coachC] = await db
+      .insert(kickoffCoachesTable)
+      .values({ displayName: "Merge Coach C", ghlCalendarId: `${TEST_TAG}-merge-cal-c`, isActive: true })
+      .returning({ id: kickoffCoachesTable.id });
+
+    const prevImpl = freeSlots().getMockImplementation();
+    // mockReset (not just mockImplementation) so any leftover queued
+    // mockImplementationOnce() calls from earlier tests in this file don't
+    // get consumed first and return stale/duplicated slot data here.
+    freeSlots().mockReset();
+    freeSlots().mockImplementation(async (calendarId: string) => {
+      if (calendarId === `${TEST_TAG}-merge-cal-b`) return [{ startTime: coachB_time.toISOString() }];
+      if (calendarId === `${TEST_TAG}-merge-cal-c`) return [{ startTime: coachC_time.toISOString() }];
+      return [{ startTime: coachA_time.toISOString() }];
+    });
+
+    try {
+      const memberId = await makeMember(3);
+      const dateStr = coachB_time.toISOString().slice(0, 10);
+
+      const avail = await request(app)
+        .get(`/api/onboarding/kickoff/availability?startDate=${dateStr}&endDate=${dateStr}`)
+        .set("Cookie", authCookie(memberId));
+      expect(avail.status).toBe(200);
+
+      // Merged pool spans all three coaches (plus any real roster still
+      // active — none here since we deactivated them above), sorted
+      // earliest-first: B (coachB_time) < C (+15m) < A (+30m).
+      const relevant = avail.body.slots.filter((s: { coachId: number }) =>
+        [coachB.id, coachC.id, kickoffCoachId].includes(s.coachId),
+      );
+      expect(relevant.map((s: { coachId: number }) => s.coachId)).toEqual([coachB.id, coachC.id, kickoffCoachId]);
+      expect(relevant[0].startTime).toBe(coachB_time.toISOString());
+
+      const book = await request(app)
+        .post("/api/onboarding/kickoff/book")
+        .set("Cookie", authCookie(memberId))
+        .send({ startTime: coachB_time.toISOString(), coachId: coachB.id });
+      expect(book.status).toBe(201);
+      expect(book.body.booking.staffId).toBe(coachB.id);
+      bookingIds.push(book.body.booking.id);
+    } finally {
+      freeSlots().mockImplementation(prevImpl ?? (async () => []));
+      await db.delete(kickoffCoachesTable).where(inArray(kickoffCoachesTable.id, [coachB.id, coachC.id]));
+      if (otherActiveCoachIds.length > 0) {
+        await db.update(kickoffCoachesTable).set({ isActive: true }).where(inArray(kickoffCoachesTable.id, otherActiveCoachIds));
+      }
+    }
+  });
+
+  it("still yields the other coaches' slots when one coach's fetch fails", async () => {
+    const otherActiveCoaches = await db
+      .select({ id: kickoffCoachesTable.id })
+      .from(kickoffCoachesTable)
+      .where(and(eq(kickoffCoachesTable.isActive, true), ne(kickoffCoachesTable.id, kickoffCoachId)));
+    const otherActiveCoachIds = otherActiveCoaches.map((c) => c.id);
+    if (otherActiveCoachIds.length > 0) {
+      await db.update(kickoffCoachesTable).set({ isActive: false }).where(inArray(kickoffCoachesTable.id, otherActiveCoachIds));
+    }
+
+    const goodTime = gridAlignedFutureTime(61);
+
+    const [failingCoach] = await db
+      .insert(kickoffCoachesTable)
+      .values({ displayName: "Failing Merge Coach", ghlCalendarId: `${TEST_TAG}-merge-cal-fail`, isActive: true })
+      .returning({ id: kickoffCoachesTable.id });
+
+    const prevImpl = freeSlots().getMockImplementation();
+    freeSlots().mockReset();
+    freeSlots().mockImplementation(async (calendarId: string) => {
+      if (calendarId === `${TEST_TAG}-merge-cal-fail`) throw new Error("GHL unreachable for this coach");
+      return [{ startTime: goodTime.toISOString() }];
+    });
+
+    try {
+      const memberId = await makeMember(3);
+      const dateStr = goodTime.toISOString().slice(0, 10);
+
+      const avail = await request(app)
+        .get(`/api/onboarding/kickoff/availability?startDate=${dateStr}&endDate=${dateStr}`)
+        .set("Cookie", authCookie(memberId));
+      expect(avail.status).toBe(200);
+      expect(avail.body.slots.some((s: { coachId: number }) => s.coachId === kickoffCoachId)).toBe(true);
+      expect(avail.body.slots.some((s: { coachId: number }) => s.coachId === failingCoach.id)).toBe(false);
+    } finally {
+      freeSlots().mockImplementation(prevImpl ?? (async () => []));
+      await db.delete(kickoffCoachesTable).where(eq(kickoffCoachesTable.id, failingCoach.id));
+      if (otherActiveCoachIds.length > 0) {
+        await db.update(kickoffCoachesTable).set({ isActive: true }).where(inArray(kickoffCoachesTable.id, otherActiveCoachIds));
+      }
     }
   });
 });
@@ -743,11 +900,11 @@ describe("kickoff call booking: concurrent double-submit produces a single booki
       request(app)
         .post("/api/onboarding/kickoff/book")
         .set("Cookie", authCookie(memberId))
-        .send({ startTime: startTimeA.toISOString() }),
+        .send({ startTime: startTimeA.toISOString(), coachId: kickoffCoachId }),
       request(app)
         .post("/api/onboarding/kickoff/book")
         .set("Cookie", authCookie(memberId))
-        .send({ startTime: startTimeB.toISOString() }),
+        .send({ startTime: startTimeB.toISOString(), coachId: kickoffCoachId }),
     ]);
 
     expect([resA.status, resB.status].sort()).toEqual([200, 201]);
@@ -777,29 +934,52 @@ describe("call duration comes from calendar config, never slot-grid spacing (Tas
   });
 
   it("kickoff booking uses the calendar's configured 45-minute slotDuration, not the 30-minute slot grid", async () => {
-    durationMock.mockImplementationOnce(async () => 45).mockImplementationOnce(async () => 45);
-    const memberId = await makeMember(3);
-    const startTime = gridAlignedFutureTime(50);
+    // Task #1654: the merged pool now spans every active kickoff coach in
+    // the tier (including the real seeded full-tier roster), so isolate to
+    // just this suite's single fixture coach or the duration mock's queued
+    // once-implementations (and the "which coach owns this slot" logic)
+    // become non-deterministic across multiple real coaches.
+    const otherActiveCoaches = await db
+      .select({ id: kickoffCoachesTable.id })
+      .from(kickoffCoachesTable)
+      .where(and(eq(kickoffCoachesTable.isActive, true), ne(kickoffCoachesTable.id, kickoffCoachId)));
+    const otherActiveCoachIds = otherActiveCoaches.map((c) => c.id);
+    if (otherActiveCoachIds.length > 0) {
+      await db.update(kickoffCoachesTable).set({ isActive: false }).where(inArray(kickoffCoachesTable.id, otherActiveCoachIds));
+    }
+    try {
+      durationMock.mockImplementationOnce(async () => 45).mockImplementationOnce(async () => 45);
+      const memberId = await makeMember(3);
+      const startTime = gridAlignedFutureTime(50);
 
-    const dateStr = startTime.toISOString().slice(0, 10);
-    const avail = await request(app)
-      .get(`/api/onboarding/kickoff/availability?startDate=${dateStr}&endDate=${dateStr}`)
-      .set("Cookie", authCookie(memberId));
-    expect(avail.status).toBe(200);
-    expect(avail.body.durationMinutes).toBe(45);
+      const dateStr = startTime.toISOString().slice(0, 10);
+      const avail = await request(app)
+        .get(`/api/onboarding/kickoff/availability?startDate=${dateStr}&endDate=${dateStr}`)
+        .set("Cookie", authCookie(memberId));
+      expect(avail.status).toBe(200);
+      const chosenSlot = avail.body.slots.find(
+        (s: { startTime: string }) => s.startTime === startTime.toISOString(),
+      );
+      expect(chosenSlot).toBeDefined();
+      expect(chosenSlot.durationMinutes).toBe(45);
 
-    const book = await request(app)
-      .post("/api/onboarding/kickoff/book")
-      .set("Cookie", authCookie(memberId))
-      .send({ startTime: startTime.toISOString() });
-    expect(book.status).toBe(201);
-    bookingIds.push(book.body.booking.id);
-    expect(book.body.booking.durationMinutes).toBe(45);
-    const expectedEndAt = new Date(startTime.getTime() + 45 * 60 * 1000).getTime();
-    expect(new Date(book.body.booking.endAt).getTime()).toBe(expectedEndAt);
-    // Sanity: the mocked slot grid itself is 30-minute spaced, proving the
-    // 45-minute duration did NOT leak in from slot spacing.
-    expect(SLOT_STEP_MS).toBe(30 * 60 * 1000);
+      const book = await request(app)
+        .post("/api/onboarding/kickoff/book")
+        .set("Cookie", authCookie(memberId))
+        .send({ startTime: startTime.toISOString(), coachId: chosenSlot.coachId });
+      expect(book.status).toBe(201);
+      bookingIds.push(book.body.booking.id);
+      expect(book.body.booking.durationMinutes).toBe(45);
+      const expectedEndAt = new Date(startTime.getTime() + 45 * 60 * 1000).getTime();
+      expect(new Date(book.body.booking.endAt).getTime()).toBe(expectedEndAt);
+      // Sanity: the mocked slot grid itself is 30-minute spaced, proving the
+      // 45-minute duration did NOT leak in from slot spacing.
+      expect(SLOT_STEP_MS).toBe(30 * 60 * 1000);
+    } finally {
+      if (otherActiveCoachIds.length > 0) {
+        await db.update(kickoffCoachesTable).set({ isActive: true }).where(inArray(kickoffCoachesTable.id, otherActiveCoachIds));
+      }
+    }
   });
 
   it("partner booking uses the calendar's own configured 30-minute slotDuration via the same generic mechanism (no special-casing)", async () => {
@@ -830,7 +1010,7 @@ describe("call duration comes from calendar config, never slot-grid spacing (Tas
     const book = await request(app)
       .post("/api/onboarding/kickoff/book")
       .set("Cookie", authCookie(memberId))
-      .send({ startTime: startTime.toISOString() });
+      .send({ startTime: startTime.toISOString(), coachId: kickoffCoachId });
     expect(book.status).toBe(502);
 
     const rows = await db
@@ -840,18 +1020,36 @@ describe("call duration comes from calendar config, never slot-grid spacing (Tas
     expect(rows.length).toBe(0);
   });
 
-  it("kickoff availability fails explicitly (502) when the calendar config fetch fails, with no silent 30-minute fallback", async () => {
-    durationMock.mockImplementationOnce(async () => {
-      throw new Error("GHL calendar config unreachable");
-    });
-    const memberId = await makeMember(3);
-    const startTime = gridAlignedFutureTime(53);
-    const dateStr = startTime.toISOString().slice(0, 10);
+  it("kickoff availability fails explicitly (502) when the calendar config fetch fails for EVERY coach, with no silent 30-minute fallback", async () => {
+    // Task #1654: one coach's fetch failing is now tolerated (the other
+    // coaches' slots still render) — a TOTAL 502 only happens when every
+    // coach in the pool fails, so isolate to this suite's single fixture
+    // coach for this assertion.
+    const otherActiveCoaches = await db
+      .select({ id: kickoffCoachesTable.id })
+      .from(kickoffCoachesTable)
+      .where(and(eq(kickoffCoachesTable.isActive, true), ne(kickoffCoachesTable.id, kickoffCoachId)));
+    const otherActiveCoachIds = otherActiveCoaches.map((c) => c.id);
+    if (otherActiveCoachIds.length > 0) {
+      await db.update(kickoffCoachesTable).set({ isActive: false }).where(inArray(kickoffCoachesTable.id, otherActiveCoachIds));
+    }
+    try {
+      durationMock.mockImplementationOnce(async () => {
+        throw new Error("GHL calendar config unreachable");
+      });
+      const memberId = await makeMember(3);
+      const startTime = gridAlignedFutureTime(53);
+      const dateStr = startTime.toISOString().slice(0, 10);
 
-    const avail = await request(app)
-      .get(`/api/onboarding/kickoff/availability?startDate=${dateStr}&endDate=${dateStr}`)
-      .set("Cookie", authCookie(memberId));
-    expect(avail.status).toBe(502);
+      const avail = await request(app)
+        .get(`/api/onboarding/kickoff/availability?startDate=${dateStr}&endDate=${dateStr}`)
+        .set("Cookie", authCookie(memberId));
+      expect(avail.status).toBe(502);
+    } finally {
+      if (otherActiveCoachIds.length > 0) {
+        await db.update(kickoffCoachesTable).set({ isActive: true }).where(inArray(kickoffCoachesTable.id, otherActiveCoachIds));
+      }
+    }
   });
 });
 
@@ -919,12 +1117,14 @@ describe("kickoff-coach tiering (Task #1641)", () => {
         .set("Cookie", authCookie(memberId));
       expect(avail.status).toBe(200);
       expect(avail.body.setupPending).toBeFalsy();
-      expect(avail.body.coach.id).toBe(launchpadCoach.id);
+      expect(avail.body.coaches).toHaveLength(1);
+      expect(avail.body.coaches[0].id).toBe(launchpadCoach.id);
+      expect(avail.body.slots.every((s: { coachId: number }) => s.coachId === launchpadCoach.id)).toBe(true);
 
       const book = await request(app)
         .post("/api/onboarding/kickoff/book")
         .set("Cookie", authCookie(memberId))
-        .send({ startTime: startTime.toISOString() });
+        .send({ startTime: startTime.toISOString(), coachId: launchpadCoach.id });
       expect(book.status).toBe(201);
       bookingIds.push(book.body.booking.id);
       expect(book.body.booking.staffId).toBe(launchpadCoach.id);
@@ -949,13 +1149,13 @@ describe("kickoff-coach tiering (Task #1641)", () => {
       .set("Cookie", authCookie(memberId));
     expect(avail.status).toBe(200);
     expect(avail.body.setupPending).toBe(true);
-    expect(avail.body.coach).toBeNull();
+    expect(avail.body.coaches).toEqual([]);
     expect(avail.body.slots).toEqual([]);
 
     const book = await request(app)
       .post("/api/onboarding/kickoff/book")
       .set("Cookie", authCookie(memberId))
-      .send({ startTime: startTime.toISOString() });
+      .send({ startTime: startTime.toISOString(), coachId: 99999999 });
     expect(book.status).toBe(200);
     expect(book.body.setupPending).toBe(true);
 
@@ -984,7 +1184,7 @@ describe("kickoff-coach tiering (Task #1641)", () => {
     const book = await request(app)
       .post("/api/onboarding/kickoff/book")
       .set("Cookie", authCookie(memberId))
-      .send({ startTime: startTime.toISOString() });
+      .send({ startTime: startTime.toISOString(), coachId: kickoffCoachId });
     expect(book.status).toBe(201);
     bookingIds.push(book.body.booking.id);
     expect(book.body.booking.staffId).not.toBe(launchpadCoach.id);

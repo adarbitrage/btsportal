@@ -22,6 +22,14 @@ export interface CallSlot {
   startTime: string;
 }
 
+// A merged kickoff-pool slot, tagged with the specific coach that owns it
+// (Task #1654). Calendars can differ per coach, so durationMinutes travels
+// WITH the slot rather than as one top-level value.
+export interface KickoffPoolSlot extends CallSlot {
+  coachId: number;
+  durationMinutes: number;
+}
+
 export interface CallBooking {
   id: number;
   memberId: number;
@@ -54,14 +62,17 @@ const PARTNER_KEY = "/api/onboarding/partner";
 // ---------------------------------------------------------------------------
 
 export function useKickoffAvailability(startDate: string, endDate: string) {
-  // Task #1641: setupPending is true when the member's tier (e.g. LaunchPad)
-  // has no active, calendar-configured kickoff coach yet — coach/slots/
-  // durationMinutes are null in that case. This is a loud, explicit
-  // application-level state (still HTTP 200), never a silent empty calendar.
+  // Task #1654: the response is now a MERGED, earliest-first pool across
+  // every active/calendar-configured kickoff coach in the member's tier —
+  // `coaches` lists every coach in the pool (for photo/bio reveal), `slots`
+  // is the merged grid with each slot tagged by `coachId` + its own
+  // `durationMinutes` (calendars can differ per coach). `setupPending` is
+  // true when the tier has no coach pool at all yet (e.g. LaunchPad before a
+  // real calendar ID is entered) — loud and explicit, never a silent empty
+  // grid, and never a fallback to another tier's coaches.
   return useQuery<{
-    coach: StaffProfile | null;
-    slots: CallSlot[];
-    durationMinutes: number | null;
+    coaches: StaffProfile[];
+    slots: KickoffPoolSlot[];
     setupPending?: boolean;
   }>({
     queryKey: [`${KICKOFF_KEY}/availability`, startDate, endDate],
@@ -82,7 +93,7 @@ export function useBookKickoffCall() {
   return useMutation<
     { booking: CallBooking; alreadyBooked?: boolean; onboardingAdvanced?: boolean; setupPending?: boolean },
     Error,
-    { startTime: string }
+    { startTime: string; coachId: number }
   >({
     mutationFn: (data) =>
       callFetch("/onboarding/kickoff/book", {

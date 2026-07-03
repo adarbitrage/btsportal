@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll, afterAll, vi } from "vitest";
+import { describe, it, expect, beforeAll, afterAll, beforeEach, afterEach, vi } from "vitest";
 import bcrypt from "bcryptjs";
 import { randomUUID } from "crypto";
 import {
@@ -8,6 +8,7 @@ import {
   userProductsTable,
   partnersTable,
   partnerAssignmentsTable,
+  callBookingsTable,
 } from "@workspace/db";
 import { eq, inArray } from "drizzle-orm";
 
@@ -32,7 +33,16 @@ import {
   getActiveAssignment,
   isPartnerEligibleRank,
   PARTNER_ELIGIBLE_MIN_RANK,
+  __setSoonestProbeBudgetMsForTests,
+  __setPartnerAssignmentFreeSlotsFnForTests,
 } from "../lib/partner-assignment";
+import {
+  __resetPartnerEscalationAlerterForTests,
+  __setPartnerEscalationAlerterDeliveriesForTests,
+  getPartnerEscalationAlertingState,
+  type DeliveryResult,
+  type PartnerEscalationAlertPayload,
+} from "../lib/partner-escalation-alerter";
 
 const TEST_TAG = `partner-assign-${randomUUID().slice(0, 8)}`;
 const seededUserIds: number[] = [];
@@ -88,12 +98,66 @@ async function getAssignments(memberId: number) {
     .where(eq(partnerAssignmentsTable.memberId, memberId));
 }
 
+const seededBookingIds: number[] = [];
+
+async function insertPartnerBooking(
+  memberId: number,
+  partnerId: number,
+  scheduledAt: Date,
+): Promise<number> {
+  const [row] = await db
+    .insert(callBookingsTable)
+    .values({
+      memberId,
+      staffType: "partner",
+      staffId: partnerId,
+      type: "partner",
+      ghlCalendarId: `${TEST_TAG}-booking-cal`,
+      scheduledAt,
+      endAt: new Date(scheduledAt.getTime() + 30 * 60 * 1000),
+      status: "booked",
+    })
+    .returning({ id: callBookingsTable.id });
+  seededBookingIds.push(row.id);
+  return row.id;
+}
+
+/**
+ * Deactivates every currently-active partner EXCEPT the given ids for the
+ * duration of `fn`, restoring them afterward. Needed because the shared dev
+ * DB has real seeded partners that would otherwise pollute soonest-first /
+ * fewest-active selection in these tests.
+ */
+async function withOnlyThesePartnersActive<T>(
+  partnerIds: number[],
+  fn: () => Promise<T>,
+): Promise<T> {
+  const active = await db
+    .select({ id: partnersTable.id })
+    .from(partnersTable)
+    .where(eq(partnersTable.isActive, true));
+  const otherIds = active.map((p) => p.id).filter((id) => !partnerIds.includes(id));
+  if (otherIds.length > 0) {
+    await db.update(partnersTable).set({ isActive: false }).where(inArray(partnersTable.id, otherIds));
+  }
+  try {
+    return await fn();
+  } finally {
+    if (otherIds.length > 0) {
+      await db.update(partnersTable).set({ isActive: true }).where(inArray(partnersTable.id, otherIds));
+    }
+  }
+}
+
 beforeAll(() => {
   vi.spyOn(console, "log").mockImplementation(() => {});
   vi.spyOn(console, "error").mockImplementation(() => {});
 });
 
 afterAll(async () => {
+  if (seededBookingIds.length > 0) {
+    await db.delete(callBookingsTable).where(inArray(callBookingsTable.id, seededBookingIds));
+  }
   if (seededUserIds.length > 0) {
     await db
       .delete(partnerAssignmentsTable)
@@ -336,5 +400,325 @@ describe("reassignMember", () => {
           .where(inArray(partnersTable.id, idsToRestore));
       }
     }
+  });
+});
+
+// Task #1654, step 7(c)-(g): soonest-first partner assignment, its
+// never-block fallback, method recording, the >7-day capacity alert, and
+// daily-cap-aware slot filtering at assignment time.
+describe("assignRoundRobin: soonest-first selection (Task #1654)", () => {
+  let pdCalls: PartnerEscalationAlertPayload[];
+
+  beforeEach(() => {
+    __resetPartnerEscalationAlerterForTests();
+    pdCalls = [];
+    __setPartnerEscalationAlerterDeliveriesForTests({
+      pagerduty: vi.fn(async (p: PartnerEscalationAlertPayload): Promise<DeliveryResult> => {
+        pdCalls.push(p);
+        return { channel: "pagerduty", ok: true };
+      }),
+    });
+  });
+
+  afterEach(() => {
+    __setPartnerAssignmentFreeSlotsFnForTests(null);
+    __setSoonestProbeBudgetMsForTests(null);
+    __setPartnerEscalationAlerterDeliveriesForTests(null);
+    __resetPartnerEscalationAlerterForTests();
+  });
+
+  it("(c) picks the earlier-slot partner over the lighter-booked partner", async () => {
+    const earlyPartner = await insertPartner("soonest-early");
+    const lightPartner = await insertPartner("soonest-light");
+    await db
+      .update(partnersTable)
+      .set({ ghlCalendarId: `${TEST_TAG}-cal-early` })
+      .where(eq(partnersTable.id, earlyPartner));
+    await db
+      .update(partnersTable)
+      .set({ ghlCalendarId: `${TEST_TAG}-cal-light` })
+      .where(eq(partnersTable.id, lightPartner));
+
+    // Weight earlyPartner with an existing active assignment so it is NOT
+    // the fewest-active pick — soonest-first must still choose it because
+    // its slot is earlier than lightPartner's.
+    const priorMember = await insertUser("soonest-c-prior");
+    await db
+      .insert(partnerAssignmentsTable)
+      .values({ memberId: priorMember, partnerId: earlyPartner, status: "active" });
+
+    const now = Date.now();
+    const earlySlot = new Date(now + 2 * 24 * 60 * 60 * 1000).toISOString();
+    const lateSlot = new Date(now + 4 * 24 * 60 * 60 * 1000).toISOString();
+    __setPartnerAssignmentFreeSlotsFnForTests(async (calendarId: string) => {
+      if (calendarId === `${TEST_TAG}-cal-early`) return [{ startTime: earlySlot }];
+      if (calendarId === `${TEST_TAG}-cal-light`) return [{ startTime: lateSlot }];
+      return [];
+    });
+
+    await withOnlyThesePartnersActive([earlyPartner, lightPartner], async () => {
+      const memberId = await insertUser("soonest-c-target");
+      const result = await assignRoundRobin(memberId);
+      expect(result.assigned).toBe(true);
+      expect(result.partnerId).toBe(earlyPartner);
+
+      const [row] = await db
+        .select({ assignmentMethod: partnerAssignmentsTable.assignmentMethod })
+        .from(partnerAssignmentsTable)
+        .where(eq(partnerAssignmentsTable.memberId, memberId));
+      expect(row.assignmentMethod).toBe("soonest");
+    });
+  });
+
+  it("(d) breaks a same-time tie by fewest active assignments", async () => {
+    const partnerA = await insertPartner("tie-a");
+    const partnerB = await insertPartner("tie-b");
+    await db
+      .update(partnersTable)
+      .set({ ghlCalendarId: `${TEST_TAG}-cal-tie-a` })
+      .where(eq(partnersTable.id, partnerA));
+    await db
+      .update(partnersTable)
+      .set({ ghlCalendarId: `${TEST_TAG}-cal-tie-b` })
+      .where(eq(partnersTable.id, partnerB));
+
+    // Load partnerA with an active assignment so partnerB is strictly
+    // fewer-active; both report the EXACT same earliest slot time so the
+    // tie must resolve on activeCount, not arrival order.
+    const priorMember = await insertUser("soonest-d-prior");
+    await db
+      .insert(partnerAssignmentsTable)
+      .values({ memberId: priorMember, partnerId: partnerA, status: "active" });
+
+    const sameSlot = new Date(Date.now() + 2 * 24 * 60 * 60 * 1000).toISOString();
+    __setPartnerAssignmentFreeSlotsFnForTests(async () => [{ startTime: sameSlot }]);
+
+    await withOnlyThesePartnersActive([partnerA, partnerB], async () => {
+      const memberId = await insertUser("soonest-d-target");
+      const result = await assignRoundRobin(memberId);
+      expect(result.assigned).toBe(true);
+      expect(result.partnerId).toBe(partnerB);
+    });
+  });
+
+  it("(e) falls back to fewest-active (with assignment_method recorded) when the GHL probe times out, without blocking or erroring", async () => {
+    const partnerA = await insertPartner("timeout-a");
+    const partnerB = await insertPartner("timeout-b");
+    await db
+      .update(partnersTable)
+      .set({ ghlCalendarId: `${TEST_TAG}-cal-timeout-a` })
+      .where(eq(partnersTable.id, partnerA));
+    await db
+      .update(partnersTable)
+      .set({ ghlCalendarId: `${TEST_TAG}-cal-timeout-b` })
+      .where(eq(partnersTable.id, partnerB));
+
+    // Load partnerA so partnerB is the fewest-active fallback pick.
+    const priorMember = await insertUser("soonest-e-prior");
+    await db
+      .insert(partnerAssignmentsTable)
+      .values({ memberId: priorMember, partnerId: partnerA, status: "active" });
+
+    // A tiny probe budget + a free-slots stub that never resolves guarantees
+    // the timeout branch fires deterministically and fast.
+    __setSoonestProbeBudgetMsForTests(20);
+    __setPartnerAssignmentFreeSlotsFnForTests(
+      () => new Promise(() => {}), // never resolves
+    );
+
+    await withOnlyThesePartnersActive([partnerA, partnerB], async () => {
+      const memberId = await insertUser("soonest-e-target");
+      const start = Date.now();
+      const result = await assignRoundRobin(memberId);
+      const elapsedMs = Date.now() - start;
+
+      expect(result.assigned).toBe(true);
+      expect(result.partnerId).toBe(partnerB);
+      // Must complete promptly — the ~3s budget is a ceiling, not something
+      // this test should ever have to wait out at full length.
+      expect(elapsedMs).toBeLessThan(2000);
+
+      const [row] = await db
+        .select({ assignmentMethod: partnerAssignmentsTable.assignmentMethod })
+        .from(partnerAssignmentsTable)
+        .where(eq(partnerAssignmentsTable.memberId, memberId));
+      expect(row.assignmentMethod).toBe("fallback_fewest_active");
+
+      // A timed-out probe is "unreliable" data — it must never drive the
+      // >7-day capacity alert.
+      expect(pdCalls.filter((p) => p.alertType === "assignment_delay")).toHaveLength(0);
+    });
+  });
+
+  it("falls back to fewest-active (discarding the partial result) when one partner's probe succeeds and another rejects", async () => {
+    const okPartner = await insertPartner("mixed-ok");
+    const errorPartner = await insertPartner("mixed-error");
+    await db
+      .update(partnersTable)
+      .set({ ghlCalendarId: `${TEST_TAG}-cal-mixed-ok` })
+      .where(eq(partnersTable.id, okPartner));
+    await db
+      .update(partnersTable)
+      .set({ ghlCalendarId: `${TEST_TAG}-cal-mixed-error` })
+      .where(eq(partnersTable.id, errorPartner));
+
+    // Load okPartner so errorPartner is the fewest-active fallback pick —
+    // this proves the fallback path actually ran (a soonest choice would
+    // have picked okPartner, since it's the only one that "succeeded").
+    const priorMember = await insertUser("soonest-mixed-prior");
+    await db
+      .insert(partnerAssignmentsTable)
+      .values({ memberId: priorMember, partnerId: okPartner, status: "active" });
+
+    const now = Date.now();
+    const okSlot = new Date(now + 2 * 24 * 60 * 60 * 1000).toISOString();
+    __setPartnerAssignmentFreeSlotsFnForTests(async (calendarId: string) => {
+      if (calendarId === `${TEST_TAG}-cal-mixed-ok`) return [{ startTime: okSlot }];
+      throw new Error("GHL unreachable for this partner");
+    });
+
+    await withOnlyThesePartnersActive([okPartner, errorPartner], async () => {
+      const memberId = await insertUser("soonest-mixed-target");
+      const result = await assignRoundRobin(memberId);
+
+      expect(result.assigned).toBe(true);
+      expect(result.partnerId).toBe(errorPartner);
+
+      const [row] = await db
+        .select({ assignmentMethod: partnerAssignmentsTable.assignmentMethod })
+        .from(partnerAssignmentsTable)
+        .where(eq(partnerAssignmentsTable.memberId, memberId));
+      expect(row.assignmentMethod).toBe("fallback_fewest_active");
+
+      // A partial (one-error) probe is untrustworthy data — it must never
+      // drive the >7-day capacity alert either.
+      expect(pdCalls.filter((p) => p.alertType === "assignment_delay")).toHaveLength(0);
+    });
+  });
+
+  it("(f) assigns the soonest partner AND fires the >7-day capacity alert exactly once when every slot is more than 7 days out", async () => {
+    const partnerA = await insertPartner("capacity-a");
+    const partnerB = await insertPartner("capacity-b");
+    await db
+      .update(partnersTable)
+      .set({ ghlCalendarId: `${TEST_TAG}-cal-capacity-a` })
+      .where(eq(partnersTable.id, partnerA));
+    await db
+      .update(partnersTable)
+      .set({ ghlCalendarId: `${TEST_TAG}-cal-capacity-b` })
+      .where(eq(partnersTable.id, partnerB));
+
+    const now = Date.now();
+    const soonestOfTheBad = new Date(now + 9 * 24 * 60 * 60 * 1000).toISOString();
+    const laterStill = new Date(now + 12 * 24 * 60 * 60 * 1000).toISOString();
+    __setPartnerAssignmentFreeSlotsFnForTests(async (calendarId: string) => {
+      if (calendarId === `${TEST_TAG}-cal-capacity-a`) return [{ startTime: soonestOfTheBad }];
+      return [{ startTime: laterStill }];
+    });
+
+    await withOnlyThesePartnersActive([partnerA, partnerB], async () => {
+      const memberId = await insertUser("soonest-f-target");
+      const result = await assignRoundRobin(memberId);
+
+      expect(result.assigned).toBe(true);
+      expect(result.partnerId).toBe(partnerA);
+
+      const [row] = await db
+        .select({ assignmentMethod: partnerAssignmentsTable.assignmentMethod })
+        .from(partnerAssignmentsTable)
+        .where(eq(partnerAssignmentsTable.memberId, memberId));
+      expect(row.assignmentMethod).toBe("soonest");
+
+      const fires = pdCalls.filter((p) => p.alertType === "assignment_delay" && p.kind === "fire");
+      expect(fires).toHaveLength(1);
+      expect(getPartnerEscalationAlertingState().assignmentDelayAlerting).toBe(true);
+
+      // A second assignment while still in the same delayed state must not
+      // re-fire (dispatcher-level dedup on the state transition itself).
+      const memberId2 = await insertUser("soonest-f-target-2");
+      await assignRoundRobin(memberId2);
+      expect(pdCalls.filter((p) => p.alertType === "assignment_delay" && p.kind === "fire")).toHaveLength(1);
+    });
+  });
+
+  it("widens the probe past 7 days when nobody has a slot within the primary window, still assigning + alerting with the true soonest date", async () => {
+    const partnerA = await insertPartner("widen-a");
+    const partnerB = await insertPartner("widen-b");
+    await db
+      .update(partnersTable)
+      .set({ ghlCalendarId: `${TEST_TAG}-cal-widen-a` })
+      .where(eq(partnersTable.id, partnerA));
+    await db
+      .update(partnersTable)
+      .set({ ghlCalendarId: `${TEST_TAG}-cal-widen-b` })
+      .where(eq(partnersTable.id, partnerB));
+
+    const now = Date.now();
+    const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
+    const soonestBeyondWindow = new Date(now + 9 * 24 * 60 * 60 * 1000).toISOString();
+    const laterStill = new Date(now + 12 * 24 * 60 * 60 * 1000).toISOString();
+    // This mock DOES respect the requested window (unlike the other tests'
+    // stubs) — it returns nothing for the primary 7-day-bounded query and
+    // only reveals slots once the probe widens past 7 days, proving the
+    // widened second probe (not an incidental window-ignoring mock) is what
+    // discovers them.
+    __setPartnerAssignmentFreeSlotsFnForTests(async (calendarId: string, startMs: number, endMs: number) => {
+      if (endMs - startMs <= SEVEN_DAYS_MS) return [];
+      if (calendarId === `${TEST_TAG}-cal-widen-a`) return [{ startTime: soonestBeyondWindow }];
+      return [{ startTime: laterStill }];
+    });
+
+    await withOnlyThesePartnersActive([partnerA, partnerB], async () => {
+      const memberId = await insertUser("soonest-widen-target");
+      const result = await assignRoundRobin(memberId);
+
+      expect(result.assigned).toBe(true);
+      expect(result.partnerId).toBe(partnerA);
+
+      const [row] = await db
+        .select({ assignmentMethod: partnerAssignmentsTable.assignmentMethod })
+        .from(partnerAssignmentsTable)
+        .where(eq(partnerAssignmentsTable.memberId, memberId));
+      expect(row.assignmentMethod).toBe("soonest");
+
+      const fires = pdCalls.filter((p) => p.alertType === "assignment_delay" && p.kind === "fire");
+      expect(fires).toHaveLength(1);
+    });
+  });
+
+  it("(g) a partner at their daily cap exposes no slots for that day in the assignment-time evaluation", async () => {
+    const cappedPartner = await insertPartner("cap-capped");
+    const openPartner = await insertPartner("cap-open");
+    await db
+      .update(partnersTable)
+      .set({ ghlCalendarId: `${TEST_TAG}-cal-cap-capped`, maxDailyCalls: 1 })
+      .where(eq(partnersTable.id, cappedPartner));
+    await db
+      .update(partnersTable)
+      .set({ ghlCalendarId: `${TEST_TAG}-cal-cap-open` })
+      .where(eq(partnersTable.id, openPartner));
+
+    // cappedPartner's ONLY free slot for the next 7 days falls on a day it
+    // is already booked solid (maxDailyCalls = 1, one existing booking that
+    // day) — the assignment-time probe must filter that day out entirely,
+    // leaving openPartner (a later slot on an unbooked day) as the winner.
+    const cappedDay = new Date(Date.now() + 2 * 24 * 60 * 60 * 1000);
+    cappedDay.setUTCHours(15, 0, 0, 0);
+    const someoneElse = await insertUser("soonest-g-existing-booking");
+    await insertPartnerBooking(someoneElse, cappedPartner, cappedDay);
+
+    const cappedSlot = new Date(cappedDay.getTime() + 60 * 60 * 1000).toISOString();
+    const openSlot = new Date(Date.now() + 5 * 24 * 60 * 60 * 1000).toISOString();
+    __setPartnerAssignmentFreeSlotsFnForTests(async (calendarId: string) => {
+      if (calendarId === `${TEST_TAG}-cal-cap-capped`) return [{ startTime: cappedSlot }];
+      return [{ startTime: openSlot }];
+    });
+
+    await withOnlyThesePartnersActive([cappedPartner, openPartner], async () => {
+      const memberId = await insertUser("soonest-g-target");
+      const result = await assignRoundRobin(memberId);
+      expect(result.assigned).toBe(true);
+      expect(result.partnerId).toBe(openPartner);
+    });
   });
 });

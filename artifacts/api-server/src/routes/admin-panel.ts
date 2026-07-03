@@ -122,6 +122,7 @@ import {
   PARTNER_NO_SHOW_ALERT_ACTION_TYPE,
   PARTNER_VANISH_ALERT_ACTION_TYPE,
   PARTNER_CAPACITY_ALERT_ACTION_TYPE,
+  PARTNER_ASSIGNMENT_DELAY_ALERT_ACTION_TYPE,
 } from "../lib/partner-escalation-alerter";
 import {
   getLiveChatEmbedProbeState,
@@ -3819,6 +3820,7 @@ router.get("/admin/system/queue-fallback-alert-events", requirePermission("syste
       PARTNER_NO_SHOW_ALERT_ACTION_TYPE,
       PARTNER_VANISH_ALERT_ACTION_TYPE,
       PARTNER_CAPACITY_ALERT_ACTION_TYPE,
+      PARTNER_ASSIGNMENT_DELAY_ALERT_ACTION_TYPE,
     ];
 
     const baseFilter = and(

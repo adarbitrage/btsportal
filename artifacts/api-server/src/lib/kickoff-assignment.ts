@@ -73,6 +73,39 @@ export async function selectKickoffCoach(
   };
 }
 
+// Task #1654: the full pool of active, calendar-configured kickoff coaches
+// for a tier, ordered by id for deterministic merging/tie-breaking. Replaces
+// selectKickoffCoach() at the availability/book call sites — Book Kickoff
+// now shows a MERGED earliest-first grid across every coach in the pool
+// (full: Todd/Mark/Bruce; launchpad: Neil) rather than pre-selecting one via
+// round robin. Coaches without a configured calendar offer no bookable
+// slots and are filtered out here, same as before.
+export async function listKickoffCoachPool(tier: KickoffCoachTier): Promise<SelectedKickoffCoach[]> {
+  const candidates = await db
+    .select({
+      id: kickoffCoachesTable.id,
+      displayName: kickoffCoachesTable.displayName,
+      photoUrl: kickoffCoachesTable.photoUrl,
+      bio: kickoffCoachesTable.bio,
+      ghlCalendarId: kickoffCoachesTable.ghlCalendarId,
+      ghlLocationId: kickoffCoachesTable.ghlLocationId,
+    })
+    .from(kickoffCoachesTable)
+    .where(and(eq(kickoffCoachesTable.isActive, true), eq(kickoffCoachesTable.tier, tier)))
+    .orderBy(kickoffCoachesTable.id);
+
+  return candidates
+    .filter((c): c is typeof c & { ghlCalendarId: string } => !!c.ghlCalendarId)
+    .map((c) => ({
+      id: c.id,
+      displayName: c.displayName,
+      photoUrl: c.photoUrl,
+      bio: c.bio,
+      ghlCalendarId: c.ghlCalendarId,
+      ghlLocationId: c.ghlLocationId,
+    }));
+}
+
 // Task #1641: map a member's current highest product to a kickoff-coach
 // tier bucket. LaunchPad (rank 1) is the only bucket that gets 'launchpad';
 // everything else (including 3-Month+, which is the only other cohort that
@@ -83,7 +116,13 @@ export async function getMemberKickoffTier(userId: number): Promise<KickoffCoach
   return highest.slug === "launchpad" ? "launchpad" : "full";
 }
 
-export async function loadKickoffCoachById(coachId: number): Promise<SelectedKickoffCoach | null> {
+// Task #1654: `tier` is required and enforced here (not just a filter) so a
+// member can never book against a coach outside their own tier by forging a
+// coachId in the request body — e.g. a launchpad member hitting Bruce's id.
+export async function loadKickoffCoachById(
+  coachId: number,
+  tier: KickoffCoachTier,
+): Promise<SelectedKickoffCoach | null> {
   const [row] = await db
     .select({
       id: kickoffCoachesTable.id,
@@ -94,7 +133,13 @@ export async function loadKickoffCoachById(coachId: number): Promise<SelectedKic
       ghlLocationId: kickoffCoachesTable.ghlLocationId,
     })
     .from(kickoffCoachesTable)
-    .where(and(eq(kickoffCoachesTable.id, coachId), eq(kickoffCoachesTable.isActive, true)));
+    .where(
+      and(
+        eq(kickoffCoachesTable.id, coachId),
+        eq(kickoffCoachesTable.isActive, true),
+        eq(kickoffCoachesTable.tier, tier),
+      ),
+    );
   if (!row || !row.ghlCalendarId) return null;
   return { ...row, ghlCalendarId: row.ghlCalendarId };
 }
