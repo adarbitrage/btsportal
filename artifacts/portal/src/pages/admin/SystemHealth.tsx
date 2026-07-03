@@ -89,6 +89,9 @@ const ALERT_SOURCE_LABELS: Record<string, string> = {
   machine_mismatch_alert: "Machine mismatch",
   machine_mismatch_digest_alert: "Machine digest",
   retell_agent_alert: "Voice assistant",
+  partner_noshow_alert: "Partner no-show escalation",
+  partner_vanish_alert: "Partner vanish alert",
+  partner_capacity_alert: "Partner fleet capacity",
 };
 
 function alertSourceLabel(actionType: string | null | undefined): string {

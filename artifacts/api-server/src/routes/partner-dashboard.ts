@@ -27,6 +27,7 @@ import { sendError, ErrorCodes } from "../lib/api-errors";
 import { resolveCurrentSectionBulk, resolveCurrentSection } from "../lib/blitz/continue-resolver";
 import { BLITZ_SECTION_COUNT, BLITZ_V2_COURSE_ID_SQL_PATTERN } from "../lib/blitz/sections";
 import { markPartnerCallDone } from "../lib/partner-call-completion";
+import { daysSince, computeConsecutiveNoShows } from "../lib/partner-escalation-metrics";
 
 const router: IRouter = Router();
 
@@ -42,34 +43,6 @@ function parsePositiveInt(value: unknown): number | null {
   const str = Array.isArray(value) ? value[0] : value;
   const num = parseInt(typeof str === "string" ? str : String(str ?? ""), 10);
   return Number.isInteger(num) && num > 0 ? num : null;
-}
-
-function daysSince(date: Date | string | null | undefined): number | null {
-  if (!date) return null;
-  const ms = Date.now() - new Date(date).getTime();
-  return Math.max(0, Math.floor(ms / (24 * 60 * 60 * 1000)));
-}
-
-/**
- * Given completed/no_show rows for one or more members, ordered
- * member_id, scheduled_at DESC (most recent first per member), count how
- * many of the most-recent-first rows are consecutive `no_show` before
- * hitting a `completed` (or running out of rows).
- */
-function computeConsecutiveNoShows(
-  rows: Array<{ member_id: number; status: string }>,
-): Map<number, number> {
-  const result = new Map<number, number>();
-  const stopped = new Set<number>();
-  for (const row of rows) {
-    if (stopped.has(row.member_id)) continue;
-    if (row.status === "no_show") {
-      result.set(row.member_id, (result.get(row.member_id) ?? 0) + 1);
-    } else {
-      stopped.add(row.member_id);
-    }
-  }
-  return result;
 }
 
 type PartnerContext = { partnerId: number };

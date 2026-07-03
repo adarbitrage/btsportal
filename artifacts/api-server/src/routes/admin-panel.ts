@@ -118,6 +118,11 @@ import {
 import { MACHINE_MISMATCH_ALERT_ACTION_TYPE } from "../lib/machine-mismatch-alerter";
 import { RETELL_AGENT_ALERT_ACTION_TYPE } from "../lib/retell-agent-alerter";
 import {
+  PARTNER_NO_SHOW_ALERT_ACTION_TYPE,
+  PARTNER_VANISH_ALERT_ACTION_TYPE,
+  PARTNER_CAPACITY_ALERT_ACTION_TYPE,
+} from "../lib/partner-escalation-alerter";
+import {
   getLiveChatEmbedProbeState,
   getLiveChatEmbedProbeUrl,
 } from "../lib/live-chat-embed-probe";
@@ -3803,6 +3808,9 @@ router.get("/admin/system/queue-fallback-alert-events", requirePermission("syste
       MACHINE_MISMATCH_ALERT_ACTION_TYPE,
       MACHINE_MISMATCH_DIGEST_ALERT_ACTION_TYPE,
       RETELL_AGENT_ALERT_ACTION_TYPE,
+      PARTNER_NO_SHOW_ALERT_ACTION_TYPE,
+      PARTNER_VANISH_ALERT_ACTION_TYPE,
+      PARTNER_CAPACITY_ALERT_ACTION_TYPE,
     ];
 
     const baseFilter = and(

@@ -66,6 +66,10 @@ import {
   startTicketDeskDeliveryProbe,
   stopTicketDeskDeliveryProbe,
 } from "./lib/ticketdesk-delivery-probe";
+import {
+  startPartnerEscalationAlerter,
+  stopPartnerEscalationAlerter,
+} from "./lib/partner-escalation-alerter";
 import { seedBlitzDocs } from "./lib/blitz-seed";
 import { seedCoreTrainingSources } from "./lib/seed-core-training-sources";
 import { bootstrapCriticalPrerequisites } from "./lib/bootstrap-critical-prerequisites";
@@ -140,6 +144,7 @@ startTicketDeskDeliveryAlerter();
 startRetellAgentAlerter();
 startLiveChatEmbedProbe();
 startTicketDeskDeliveryProbe();
+startPartnerEscalationAlerter();
 
 // Run critical prerequisites (YSE product seed + ON CONFLICT constraint check)
 // BEFORE accepting traffic so a fresh deploy can never race the
@@ -204,6 +209,7 @@ async function gracefulShutdown(signal: string) {
   stopRetellAgentAlerter();
   stopLiveChatEmbedProbe();
   stopTicketDeskDeliveryProbe();
+  stopPartnerEscalationAlerter();
   process.exit(0);
 }
 
