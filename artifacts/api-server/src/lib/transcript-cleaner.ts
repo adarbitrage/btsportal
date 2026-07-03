@@ -569,8 +569,17 @@ const SLUGS_WITH_DATE: ReadonlySet<string> = new Set([
 
 /** Slugs whose primary subject is the MEMBER (the non-authority participant). */
 const MEMBER_SUBJECT_SLUGS: ReadonlySet<string> = new Set([
-  "private_coaching",
   "one_on_one_va",
+]);
+
+/**
+ * Slugs assembled coach-only — the title carries the authority (coach/VA) and
+ * never the member name. Group coaching has no per-member subject; private
+ * coaching drops the member on purpose (Task #1667) to match that shape.
+ */
+const COACH_ONLY_SLUGS: ReadonlySet<string> = new Set([
+  "group_coaching",
+  "private_coaching",
 ]);
 
 /**
@@ -607,7 +616,7 @@ const TITLE_PREFIXES: readonly string[] = Object.values(TITLE_PREFIX_BY_SLUG);
 const ISO_DATE_TAIL = String.raw`(?: — \d{4}-\d{2}-\d{2})?`;
 const TITLE_GRAMMAR_BY_SLUG: Readonly<Record<string, RegExp>> = {
   private_coaching: new RegExp(
-    String.raw`^Private Coaching — .+ \((?:Coach|VA)(?: .+)?\)${ISO_DATE_TAIL}$`,
+    String.raw`^Private Coaching — (?:Coach|VA)(?: .+)?${ISO_DATE_TAIL}$`,
   ),
   one_on_one_va: new RegExp(
     String.raw`^1-on-1 VA — .+ \((?:Coach|VA)(?: .+)?\)${ISO_DATE_TAIL}$`,
@@ -743,16 +752,17 @@ export function assembleTranscriptTitle(
       parts.primarySubject?.trim() || memberNameFromSourceName(parts.sourceName);
     // The authority is admin-supplied ground truth and always renders (a bare
     // "Coach"/"VA" when no name is given, per req 9), so only the MEMBER can be
-    // unrecoverable — e.g. "Private Coaching — {Member} (Coach {First})". When
-    // the member is missing, blank the title and flag it.
+    // unrecoverable — e.g. "1-on-1 VA — {Member} (VA {First})". When the member
+    // is missing, blank the title and flag it.
     const authority = renderAuthorityName(parts.authorityRole, parts.authorityName);
     if (!member) return blank;
     return { title: `${prefix} — ${member} (${authority})${datePart}`, titleNeedsInput: false };
   }
 
-  if (slug === "group_coaching") {
-    // Authority always renders (generic "Coach"/"VA" fallback), so a group title
-    // is always assemblable from the call type alone.
+  if (slug && COACH_ONLY_SLUGS.has(slug)) {
+    // Authority always renders (generic "Coach"/"VA" fallback), so a coach-only
+    // title (group or private coaching) is always assemblable from the call type
+    // alone — e.g. "Private Coaching — Coach Bruce — 2025-01-14".
     const authority = renderAuthorityName(parts.authorityRole, parts.authorityName);
     return { title: `${prefix} — ${authority}${datePart}`, titleNeedsInput: false };
   }
@@ -875,13 +885,13 @@ const CLEAN_SYSTEM_PROMPT = [
   "   excess blank space. Keep the actual dialogue intact.",
   "6. EXTRACT TITLE BUILDING BLOCKS — do NOT compose the final title yourself; it",
   "   is assembled downstream from these fields:",
-  "   - primarySubject: this FLIPS by call type. For a 1-on-1 call (private",
-  "     coaching or 1-on-1 VA) it is the MEMBER's real name — the non-authority",
-  "     participant — recovered from the source / original filename FIRST, then the",
-  "     transcript body; use their real name, never 'Member 1'. For a video or a",
-  "     document it is a concise topic / module title (e.g. 'Reading DIYTrax",
-  "     Stats'). For a GROUP coaching call there is no single subject — return",
-  "     null. Return null whenever you genuinely cannot determine it.",
+  "   - primarySubject: this FLIPS by call type. For a 1-on-1 VA call it is the",
+  "     MEMBER's real name — the non-authority participant — recovered from the",
+  "     source / original filename FIRST, then the transcript body; use their real",
+  "     name, never 'Member 1'. For a video or a document it is a concise topic /",
+  "     module title (e.g. 'Reading DIYTrax Stats'). For a PRIVATE coaching or a",
+  "     GROUP coaching call there is no single subject (the title is coach-only) —",
+  "     return null. Return null whenever you genuinely cannot determine it.",
   "   - authority.detectedName: the coach/VA authority's name (first name is fine).",
   "   - detectedDate: the call/recording date as ISO 'YYYY-MM-DD', and ONLY when",
   "     you can confidently determine it from the content/source. Otherwise null.",

@@ -230,7 +230,7 @@ describe("memberNameFromSourceName", () => {
 
 describe("titleFollowsGrammar", () => {
   it("recognises a conforming title", () => {
-    expect(titleFollowsGrammar("Private Coaching — Adam Field (Coach Sasha)")).toBe(true);
+    expect(titleFollowsGrammar("Private Coaching — Coach Sasha")).toBe(true);
     expect(titleFollowsGrammar("1-on-1 VA — Donald Hayes (VA John)")).toBe(true);
     expect(titleFollowsGrammar("Doc — Refund Policy")).toBe(true);
   });
@@ -241,16 +241,21 @@ describe("titleFollowsGrammar", () => {
     expect(titleFollowsGrammar(null)).toBe(false);
   });
 
-  it("is slug-aware: a 1-on-1 title missing its (Coach …) authority is rejected", () => {
+  it("is slug-aware: rejects old member-bearing private coaching + authority-less VA titles", () => {
     const pc = resolveSourceFolder("private_coaching");
     const va = resolveSourceFolder("one_on_one_va");
-    // Authority-less 1-on-1 titles look prefix-valid but fail the slug grammar.
-    expect(titleFollowsGrammar("Private Coaching — Cheryl L Rodriguez", pc)).toBe(false);
-    expect(titleFollowsGrammar("1-on-1 VA — Donald Hayes", va)).toBe(false);
-    // Fully-formed titles pass under their slug.
+    // Old member-bearing private coaching titles are now NON-conforming (Task
+    // #1667) so the backfill recognises them as stale and rewrites them to the
+    // coach-only shape.
     expect(
       titleFollowsGrammar("Private Coaching — Adam Field (Coach Sasha) — 2025-01-14", pc),
-    ).toBe(true);
+    ).toBe(false);
+    expect(titleFollowsGrammar("Private Coaching — Cheryl L Rodriguez", pc)).toBe(false);
+    // New coach-only private coaching titles are compliant (idempotent no-op).
+    expect(titleFollowsGrammar("Private Coaching — Coach Sasha — 2025-01-14", pc)).toBe(true);
+    expect(titleFollowsGrammar("Private Coaching — Coach", pc)).toBe(true);
+    // Authority-less 1-on-1 VA titles look prefix-valid but fail the slug grammar.
+    expect(titleFollowsGrammar("1-on-1 VA — Donald Hayes", va)).toBe(false);
     expect(titleFollowsGrammar("1-on-1 VA — Donald Hayes (VA John)", va)).toBe(true);
     // A title under the WRONG slug is rejected.
     expect(titleFollowsGrammar("Doc — Refund Policy", pc)).toBe(false);
@@ -260,7 +265,8 @@ describe("titleFollowsGrammar", () => {
 describe("assembleTranscriptTitle (type-specific grammar, Task #1518)", () => {
   const folder = (slug: string) => resolveSourceFolder(slug);
 
-  it("private coaching: member (Coach) with optional date", () => {
+  it("private coaching: coach only, no member subject, with optional date (Task #1667)", () => {
+    // The member name must NOT appear — even when a member/source is supplied.
     expect(
       assembleTranscriptTitle({
         folder: folder("private_coaching"),
@@ -270,7 +276,7 @@ describe("assembleTranscriptTitle (type-specific grammar, Task #1518)", () => {
         sourceName: "Cheryl L Rodriguez",
         isoDate: null,
       }),
-    ).toEqual({ title: "Private Coaching — Cheryl L Rodriguez (Coach Bruce)", titleNeedsInput: false });
+    ).toEqual({ title: "Private Coaching — Coach Bruce", titleNeedsInput: false });
 
     expect(
       assembleTranscriptTitle({
@@ -281,7 +287,33 @@ describe("assembleTranscriptTitle (type-specific grammar, Task #1518)", () => {
         sourceName: null,
         isoDate: "2025-01-14",
       }),
-    ).toEqual({ title: "Private Coaching — Adam Field (Coach Sasha) — 2025-01-14", titleNeedsInput: false });
+    ).toEqual({ title: "Private Coaching — Coach Sasha — 2025-01-14", titleNeedsInput: false });
+  });
+
+  it("private coaching with no coach name → bare 'Coach' fallback (req 9), still titled", () => {
+    expect(
+      assembleTranscriptTitle({
+        folder: folder("private_coaching"),
+        authorityRole: "strategic_coach",
+        authorityName: null,
+        primarySubject: null,
+        sourceName: null,
+        isoDate: null,
+      }),
+    ).toEqual({ title: "Private Coaching — Coach", titleNeedsInput: false });
+  });
+
+  it("private coaching never blanks — the member is irrelevant to the coach-only title", () => {
+    expect(
+      assembleTranscriptTitle({
+        folder: folder("private_coaching"),
+        authorityRole: "strategic_coach",
+        authorityName: "Bruce",
+        primarySubject: null,
+        sourceName: null,
+        isoDate: "2025-01-14",
+      }),
+    ).toEqual({ title: "Private Coaching — Coach Bruce — 2025-01-14", titleNeedsInput: false });
   });
 
   it("1-on-1 VA: member (VA) and falls back to the source filename for the member", () => {
@@ -297,12 +329,12 @@ describe("assembleTranscriptTitle (type-specific grammar, Task #1518)", () => {
     ).toEqual({ title: "1-on-1 VA — Donald Hayes (VA John)", titleNeedsInput: false });
   });
 
-  it("1-on-1 with an unrecoverable member → blank title + titleNeedsInput", () => {
+  it("1-on-1 VA with an unrecoverable member → blank title + titleNeedsInput", () => {
     expect(
       assembleTranscriptTitle({
-        folder: folder("private_coaching"),
-        authorityRole: "strategic_coach",
-        authorityName: "Bruce",
+        folder: folder("one_on_one_va"),
+        authorityRole: "va",
+        authorityName: "John",
         primarySubject: null,
         sourceName: null,
         isoDate: null,
@@ -310,30 +342,17 @@ describe("assembleTranscriptTitle (type-specific grammar, Task #1518)", () => {
     ).toEqual({ title: "", titleNeedsInput: true });
   });
 
-  it("1-on-1 with no authority name → bare 'Coach' fallback (req 9), still titled", () => {
+  it("1-on-1 VA with no authority name → bare 'VA' fallback (req 9), still titled", () => {
     expect(
       assembleTranscriptTitle({
-        folder: folder("private_coaching"),
-        authorityRole: "strategic_coach",
+        folder: folder("one_on_one_va"),
+        authorityRole: "va",
         authorityName: null,
-        primarySubject: "Cheryl L Rodriguez",
-        sourceName: "Cheryl L Rodriguez",
+        primarySubject: "Donald Hayes",
+        sourceName: "Donald Hayes",
         isoDate: null,
       }),
-    ).toEqual({ title: "Private Coaching — Cheryl L Rodriguez (Coach)", titleNeedsInput: false });
-  });
-
-  it("1-on-1 still blanks when the MEMBER is unrecoverable (authority alone is not enough)", () => {
-    expect(
-      assembleTranscriptTitle({
-        folder: folder("private_coaching"),
-        authorityRole: "strategic_coach",
-        authorityName: "Bruce",
-        primarySubject: null,
-        sourceName: null,
-        isoDate: null,
-      }),
-    ).toEqual({ title: "", titleNeedsInput: true });
+    ).toEqual({ title: "1-on-1 VA — Donald Hayes (VA)", titleNeedsInput: false });
   });
 
   it("group coaching: coach only, no member subject", () => {

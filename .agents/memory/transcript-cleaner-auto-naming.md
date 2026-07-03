@@ -9,8 +9,20 @@ Cleaned-transcript titles follow a deterministic, type-specific grammar assemble
 in `assembleTranscriptTitle` (lib/transcript-cleaner.ts), NOT free-form by the LLM.
 
 Grammar: `{Call Type} — {Primary Subject} ({Authority})[ — {YYYY-MM-DD}]`, where the
-**primary subject flips by transcriptType**: member for 1-on-1 (private_coaching,
-one_on_one_va), coach-only for group_coaching, topic/module for video/doc types.
+**primary subject flips by transcriptType**: member for `one_on_one_va` ONLY,
+coach-only for `group_coaching` AND `private_coaching` (Task #1667 dropped the member
+from private coaching → `Private Coaching — Coach {First}[ — date]`), topic/module for
+video/doc types.
+
+**Task #1667 (private coaching = coach-only):** `private_coaching` was REMOVED from
+`MEMBER_SUBJECT_SLUGS` and added to a new `COACH_ONLY_SLUGS` set (with group_coaching);
+its `TITLE_GRAMMAR_BY_SLUG` regex became the coach-only shape
+(`^Private Coaching — (?:Coach|VA)(?: .+)?…$`), and the AI building-block prompt now
+tells the model to return `null` primarySubject for private coaching (like group).
+It STAYS in SLUGS_WITH_DATE and SLUGS_WITH_AUTHORITY_LABEL. Old member-bearing
+`Private Coaching — {Member} (Coach …)` titles are now non-conforming, so the boot
+backfill (`retitleCleanedHoldingDocs`) rewrites them. `one_on_one_va` is the sole
+remaining member-subject type and is unchanged.
 
 **Why:** coach-first free-form titles were inconsistent and leaked member identity
 ordering; a fixed grammar keeps the holding store scannable and respects the
