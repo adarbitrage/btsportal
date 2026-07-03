@@ -1,0 +1,15 @@
+Admin member deletion — for removing test/probe accounts. Super-admin only, heavily guarded, with full side-effect cleanup. This ships to the PUBLISHED portal, so the guards are not optional.
+
+1. ENDPOINT: DELETE /admin/members/:id — permission: super_admin ONLY (not members:edit). Hard-refuses (422, clear message) if the member has ANY financial history: rows in ad_spend_transactions, member_refund_events, or NMI-sourced orders. Those members cannot be hard-deleted, period — the error says why.
+
+2. CLEANUP, in order, transactional where possible:
+   (a) call_bookings with status=booked: cancel each through the REAL GHL cancel path first (per-row location, fail-closed as built) — a deleted member must not leave live appointments on coaches' calendars. If a GHL cancel fails, ABORT the deletion and report which appointment — never delete around a live booking.
+   (b) End active partner_assignments (status=ended, reason=member_deleted) BEFORE row deletion so round-robin active-counts stay honest; then delete assignment + history rows.
+   (c) Delete: partner_notes, call_bookings, onboarding artifacts, signed_documents rows for this member (acceptable ONLY because the financial guard already excluded anyone with real history; note in code that signed docs die with the member here by design), user_products, then the user row.
+   (d) Write ONE audit_log entry recording who deleted whom, when, and the counts of each artifact type removed — the deletion itself must be auditable even though the member is gone.
+
+3. UI: on the member DETAIL page only (not a list-row action — deliberate friction): a "Delete Member" in a danger zone section, super-admin visible only, confirm dialog requires typing the member's email exactly, and the dialog lists what will be removed ("2 bookings will be canceled on GHL, 1 partner assignment ended, ..."). Blocked members (financial history) see the button disabled with the reason.
+
+4. TESTS: financial-history refusal; GHL-cancel-failure aborts cleanly (nothing partially deleted); partner active-count correct after deletion; audit row written; non-super-admin gets 403.
+
+Report the full cleanup order implemented and the guard conditions verified.
