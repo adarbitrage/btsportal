@@ -720,8 +720,9 @@ function callTypeLabel(folder: SourceFolder | null): string {
 //
 //   {Call Type} — {Primary Subject} ({Authority})[ — {YYYY-MM-DD}]
 //
-// where the PRIMARY SUBJECT flips based on call type: the member for 1-on-1
-// calls, a topic/module for videos/docs, and nothing (coach-only) for group
+// where the PRIMARY SUBJECT flips based on call type: the ISSUE TYPE for 1-on-1
+// VA calls (the VA name in a leading parenthetical, member name never shown), a
+// topic/module for videos/docs, and nothing (coach-only) for group/private
 // coaching. The date is appended in ISO form ONLY when confidently determined —
 // it is NEVER fabricated. The title is assembled deterministically here from the
 // building blocks the model extracts; the model does NOT compose the final title.
@@ -749,8 +750,11 @@ const SLUGS_WITH_DATE: ReadonlySet<string> = new Set([
   "other_video",
 ]);
 
-/** Slugs whose primary subject is the MEMBER (the non-authority participant). */
-const MEMBER_SUBJECT_SLUGS: ReadonlySet<string> = new Set([
+/**
+ * Slugs whose title is built around the ISSUE TYPE (subject) with the VA name in
+ * a leading parenthetical. The member name never appears (Task #1675).
+ */
+const ISSUE_TYPE_SUBJECT_SLUGS: ReadonlySet<string> = new Set([
   "one_on_one_va",
 ]);
 
@@ -801,7 +805,11 @@ const TITLE_GRAMMAR_BY_SLUG: Readonly<Record<string, RegExp>> = {
     String.raw`^Private Coaching — (?:Coach|VA)(?: .+)?${ISO_DATE_TAIL}$`,
   ),
   one_on_one_va: new RegExp(
-    String.raw`^1-on-1 VA — .+ \((?:Coach|VA)(?: .+)?\)${ISO_DATE_TAIL}$`,
+    // New shape (Task #1675): the VA name is a LEADING parenthetical (only when
+    // known), the subject is the issue type, member name never appears. The
+    // negative lookahead rejects the OLD trailing `(VA …)`/`(Coach …)` member
+    // shape so the backfill recognises those as stale and rewrites them.
+    String.raw`^1-on-1 VA(?: \(VA [^)]+\))? — (?!.*\((?:VA|Coach) )[^\n]+?${ISO_DATE_TAIL}$`,
   ),
   group_coaching: new RegExp(
     String.raw`^Group Coaching — (?:Coach|VA)(?: .+)?${ISO_DATE_TAIL}$`,
@@ -842,7 +850,9 @@ function renderAuthorityName(role: AuthorityRole, name: string | null | undefine
  */
 export function normalizeIsoDate(raw: unknown): string | null {
   if (typeof raw !== "string") return null;
-  const m = raw.trim().match(/(\d{4})-(\d{2})-(\d{2})/);
+  // Accept both the ISO `YYYY-MM-DD` and the slash `YYYY/MM/DD` shape (the latter
+  // appears in the VA recording filenames), always normalising to dashes.
+  const m = raw.trim().match(/(\d{4})[-/](\d{2})[-/](\d{2})/);
   if (!m) return null;
   const [, y, mo, d] = m;
   const year = Number(y);
@@ -859,9 +869,13 @@ export function normalizeIsoDate(raw: unknown): string | null {
   return `${y}-${mo}-${d}`;
 }
 
-/** First confidently-present ISO date in free text (used by the backfill). */
+/**
+ * First confidently-present date in free text (used by the backfill + filename
+ * date extraction). Recognises both `YYYY-MM-DD` and `YYYY/MM/DD`, normalising
+ * to ISO. Never fabricates — an impossible date returns null.
+ */
 function detectIsoDateInText(text: string): string | null {
-  const m = text.match(/\b\d{4}-\d{2}-\d{2}\b/);
+  const m = text.match(/\b\d{4}[-/]\d{2}[-/]\d{2}\b/);
   return m ? normalizeIsoDate(m[0]) : null;
 }
 
@@ -880,6 +894,93 @@ export function memberNameFromSourceName(sourceName: string | null | undefined):
   s = s.replace(/\s+meeting\s+(information|notes|recording|recap)\s*$/i, "");
   s = s.replace(/\s+meeting\s*$/i, "");
   return s.trim();
+}
+
+/**
+ * Parsed pieces of a 1-on-1 VA recording filename (Task #1675). The uploads
+ * follow the shape:
+ *
+ *   {Member} - {Issue Type} - {YYYY/MM/DD HH:MM TZ} - Recording[.ext]
+ *   e.g. "Stephanie Sharpe - Assistance Required - 2026/03/28 01:27 PST - Recording"
+ *
+ * We take the issue type from the SECOND ` - `-delimited segment (never the
+ * member name in segment one) and the date from wherever a `YYYY/MM/DD` or
+ * `YYYY-MM-DD` date appears. Anything that doesn't have a usable second segment
+ * returns null, and each field is independently null when not confidently found.
+ */
+export interface VaTranscriptFilenameMeta {
+  issueType: string | null;
+  isoDate: string | null;
+}
+
+export function parseVaTranscriptFilename(
+  filename: unknown,
+): VaTranscriptFilenameMeta | null {
+  if (typeof filename !== "string") return null;
+  // Drop any leading directory path and a single trailing extension. NOTE: the
+  // date itself uses `/` (YYYY/MM/DD), so we must NOT split on every slash — we
+  // strip only path separators followed by a NON-digit (a real folder boundary),
+  // which leaves the date's digit-flanked slashes intact.
+  const base = filename.trim().replace(/^.*[/\\](?=\D)/, "").trim();
+  if (!base) return null;
+  const withoutExt = base.replace(/\.[A-Za-z0-9]+$/, "");
+  // Split on a spaced dash (any dash style). Member names may contain hyphens
+  // ("Mary-Jane"), but never a SPACE-dash-SPACE, so this delimiter is safe.
+  const segments = withoutExt
+    .split(/\s+[-–—]\s+/)
+    .map((s) => s.trim())
+    .filter(Boolean);
+  if (segments.length < 2) return null;
+
+  // Issue type is the second segment — unless that segment is itself the date or
+  // the trailing "Recording" marker (a filename with no real issue type).
+  const rawIssue = segments[1];
+  const isDateLike = detectIsoDateInText(rawIssue) !== null;
+  const isRecordingMarker = /^recording$/i.test(rawIssue);
+  const issueType = rawIssue && !isDateLike && !isRecordingMarker ? rawIssue : null;
+
+  // Date can appear in any segment (normally the third); take the first match.
+  let isoDate: string | null = null;
+  for (const seg of segments) {
+    const hit = detectIsoDateInText(seg);
+    if (hit) {
+      isoDate = hit;
+      break;
+    }
+  }
+
+  if (!issueType && !isoDate) return null;
+  return { issueType, isoDate };
+}
+
+/** The subset of intake fields the VA filename autofill can populate. */
+export interface VaAutofillFields {
+  transcriptType?: string | null;
+  sourceName?: string | null;
+  providedSubject?: string | null;
+  providedDate?: string | null;
+}
+
+/**
+ * Auto-fill the intake Subject (issue type) and Date for a `one_on_one_va`
+ * upload whose `sourceName` matches the VA recording convention. Mirrors the
+ * Blitz caption autofill: each field is filled independently and ONLY when the
+ * caller left it blank — an explicit Subject/Date is always respected. Applies
+ * only to VA uploads; every other type (and non-matching names) is untouched.
+ */
+export function applyVaFilenameAutofill<T extends VaAutofillFields>(item: T): T {
+  if (item.transcriptType !== "one_on_one_va") return item;
+  const meta = parseVaTranscriptFilename(item.sourceName);
+  if (!meta) return item;
+  const hasSubject =
+    typeof item.providedSubject === "string" && item.providedSubject.trim() !== "";
+  const hasDate =
+    typeof item.providedDate === "string" && item.providedDate.trim() !== "";
+  return {
+    ...item,
+    providedSubject: hasSubject ? item.providedSubject : meta.issueType ?? item.providedSubject,
+    providedDate: hasDate ? item.providedDate : meta.isoDate ?? item.providedDate,
+  };
 }
 
 /**
@@ -916,8 +1017,9 @@ export interface TranscriptTitleParts {
 /**
  * Assemble the working title from the type-specific grammar. Returns
  * `titleNeedsInput: true` with an empty title when the REQUIRED primary subject
- * (member for 1-on-1 types; coach for group coaching; topic for video/doc) can't
- * be determined — the admin then fills it in. The date is appended only for the
+ * (issue type for 1-on-1 VA; coach for group/private coaching; topic for
+ * video/doc) can't be determined — the admin then fills it in. The date is
+ * appended only for the
  * slugs whose grammar carries one, and only when present (never fabricated).
  */
 export function assembleTranscriptTitle(
@@ -929,16 +1031,21 @@ export function assembleTranscriptTitle(
     parts.isoDate && slug && SLUGS_WITH_DATE.has(slug) ? ` — ${parts.isoDate}` : "";
   const blank = { title: "", titleNeedsInput: true };
 
-  if (slug && MEMBER_SUBJECT_SLUGS.has(slug)) {
-    const member =
-      parts.primarySubject?.trim() || memberNameFromSourceName(parts.sourceName);
-    // The authority is admin-supplied ground truth and always renders (a bare
-    // "Coach"/"VA" when no name is given, per req 9), so only the MEMBER can be
-    // unrecoverable — e.g. "1-on-1 VA — {Member} (VA {First})". When the member
-    // is missing, blank the title and flag it.
-    const authority = renderAuthorityName(parts.authorityRole, parts.authorityName);
-    if (!member) return blank;
-    return { title: `${prefix} — ${member} (${authority})${datePart}`, titleNeedsInput: false };
+  if (slug && ISSUE_TYPE_SUBJECT_SLUGS.has(slug)) {
+    // 1-on-1 VA (Task #1675): the REQUIRED subject is the issue type; the member
+    // name never appears. The VA name renders in a LEADING parenthetical only
+    // when known — omitted entirely otherwise (never a bare "VA"). When the issue
+    // type can't be determined, blank the title and flag it for the admin.
+    const issueType = parts.primarySubject?.trim();
+    if (!issueType) return blank;
+    const first = (parts.authorityName ?? "").trim().split(/\s+/)[0];
+    const namePart = first
+      ? ` (VA ${first.charAt(0).toUpperCase() + first.slice(1)})`
+      : "";
+    return {
+      title: `${prefix}${namePart} — ${issueType}${datePart}`,
+      titleNeedsInput: false,
+    };
   }
 
   if (slug && COACH_ONLY_SLUGS.has(slug)) {
@@ -1097,13 +1204,15 @@ const CLEAN_SYSTEM_PROMPT = [
   "6. EXTRACT TITLE BUILDING BLOCKS — do NOT compose the final title yourself; it",
   "   is assembled downstream from these fields:",
   "   - primarySubject: this FLIPS by call type. For a 1-on-1 VA call it is the",
-  "     MEMBER's real name — the non-authority participant — recovered from the",
-  "     source / original filename FIRST, then the transcript body; use their real",
-  "     name, never 'Member 1'. For a video or a document it is a concise topic /",
-  "     module title (e.g. 'Reading DIYTrax Stats'). For a PRIVATE coaching or a",
+  "     ISSUE / TOPIC TYPE of the call — what the member needed help with (e.g.",
+  "     'Assistance Required', 'Website Setup', 'Funnel Review') — recovered from",
+  "     the source / original filename FIRST, then the transcript body. NEVER the",
+  "     member's name. For a video or a document it is a concise topic / module",
+  "     title (e.g. 'Reading DIYTrax Stats'). For a PRIVATE coaching or a",
   "     GROUP coaching call there is no single subject (the title is coach-only) —",
   "     return null. Return null whenever you genuinely cannot determine it.",
   "   - authority.detectedName: the coach/VA authority's name (first name is fine).",
+  "     For a 1-on-1 VA call this is the VA's name — never the member's.",
   "   - detectedDate: the call/recording date as ISO 'YYYY-MM-DD', and ONLY when",
   "     you can confidently determine it from the content/source. Otherwise null.",
   "     NEVER invent, guess, or approximate a date. A missing date is NOT a flag.",
@@ -1554,7 +1663,14 @@ export async function retitleCleanedHoldingDocs(): Promise<number> {
     const rosterHit = detectRosterAuthority(authorityBody, roster);
     const authorityName =
       (doc.providedAuthorityName ?? "").trim() || rosterHit.labelMatched[0]?.name || null;
-    const primarySubject = (doc.providedSubject ?? "").trim() || null;
+    // For 1-on-1 VA the subject is the ISSUE TYPE (Task #1675): admin-provided
+    // Subject wins, then the issue type parsed from the stored source filename.
+    // When neither is recoverable the subject stays null and assembly blanks the
+    // title, so the doc is left untouched below.
+    const vaFilenameMeta =
+      folder?.slug === "one_on_one_va" ? parseVaTranscriptFilename(doc.sourceName) : null;
+    const primarySubject =
+      (doc.providedSubject ?? "").trim() || vaFilenameMeta?.issueType || null;
     const isoDate =
       normalizeIsoDate(doc.providedDate) ??
       detectIsoDateInText(doc.sourceName ?? "") ??

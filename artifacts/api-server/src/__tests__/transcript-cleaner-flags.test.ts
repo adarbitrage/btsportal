@@ -7,6 +7,9 @@ import {
   assembleTranscriptTitle,
   normalizeIsoDate,
   memberNameFromSourceName,
+  parseVaTranscriptFilename,
+  applyVaFilenameAutofill,
+  type VaAutofillFields,
   titleFollowsGrammar,
   detectRosterAuthority,
   extractJson,
@@ -199,10 +202,16 @@ describe("normalizeIsoDate", () => {
     expect(normalizeIsoDate("recorded 2024-12-31 evening")).toBe("2024-12-31");
   });
 
+  it("accepts the YYYY/MM/DD slash shape (VA filenames) and normalises to dashes", () => {
+    expect(normalizeIsoDate("2026/03/28")).toBe("2026-03-28");
+    expect(normalizeIsoDate("2026/03/28 01:27 PST")).toBe("2026-03-28");
+    expect(normalizeIsoDate("2025/13/01")).toBeNull(); // month 13, slash form
+  });
+
   it("rejects impossible / malformed dates (never fabricates)", () => {
     expect(normalizeIsoDate("2025-13-01")).toBeNull(); // month 13
     expect(normalizeIsoDate("2025-02-30")).toBeNull(); // Feb 30
-    expect(normalizeIsoDate("01/14/2025")).toBeNull(); // not ISO
+    expect(normalizeIsoDate("01/14/2025")).toBeNull(); // not ISO (month-first)
     expect(normalizeIsoDate("")).toBeNull();
     expect(normalizeIsoDate(null)).toBeNull();
     expect(normalizeIsoDate(undefined)).toBeNull();
@@ -225,6 +234,82 @@ describe("memberNameFromSourceName", () => {
     expect(memberNameFromSourceName("Cheryl L Rodriguez")).toBe("Cheryl L Rodriguez");
     expect(memberNameFromSourceName(null)).toBe("");
     expect(memberNameFromSourceName(undefined)).toBe("");
+  });
+});
+
+describe("parseVaTranscriptFilename (Task #1675)", () => {
+  it("extracts the issue type (segment 2) and the slash date, never the member", () => {
+    expect(
+      parseVaTranscriptFilename(
+        "Stephanie Sharpe - Assistance Required - 2026/03/28 01:27 PST - Recording",
+      ),
+    ).toEqual({ issueType: "Assistance Required", isoDate: "2026-03-28" });
+  });
+
+  it("strips a path and file extension before parsing", () => {
+    expect(
+      parseVaTranscriptFilename(
+        "uploads/Donald Hayes - Website Setup - 2026/01/05 12:00 EST - Recording.vtt",
+      ),
+    ).toEqual({ issueType: "Website Setup", isoDate: "2026-01-05" });
+  });
+
+  it("tolerates a missing date (issue type only)", () => {
+    expect(parseVaTranscriptFilename("Jane Doe - Funnel Review - Recording")).toEqual({
+      issueType: "Funnel Review",
+      isoDate: null,
+    });
+  });
+
+  it("does not treat a date or the 'Recording' marker as an issue type", () => {
+    // Second segment is the date itself → no issue type, date still captured.
+    expect(
+      parseVaTranscriptFilename("Jane Doe - 2026/03/28 01:27 PST - Recording"),
+    ).toEqual({ issueType: null, isoDate: "2026-03-28" });
+  });
+
+  it("returns null when there is no usable second segment or match", () => {
+    expect(parseVaTranscriptFilename("Just A Member Name")).toBeNull();
+    expect(parseVaTranscriptFilename("")).toBeNull();
+    expect(parseVaTranscriptFilename(null)).toBeNull();
+    expect(parseVaTranscriptFilename(undefined)).toBeNull();
+    expect(parseVaTranscriptFilename(42)).toBeNull();
+  });
+});
+
+describe("applyVaFilenameAutofill (Task #1675)", () => {
+  it("fills blank Subject + Date for a VA upload from the filename", () => {
+    const input: VaAutofillFields = {
+      transcriptType: "one_on_one_va",
+      sourceName: "Stephanie Sharpe - Assistance Required - 2026/03/28 01:27 PST - Recording",
+    };
+    const out = applyVaFilenameAutofill(input);
+    expect(out.providedSubject).toBe("Assistance Required");
+    expect(out.providedDate).toBe("2026-03-28");
+  });
+
+  it("never overrides an admin-provided Subject or Date", () => {
+    const out = applyVaFilenameAutofill({
+      transcriptType: "one_on_one_va",
+      sourceName: "Stephanie Sharpe - Assistance Required - 2026/03/28 01:27 PST - Recording",
+      providedSubject: "Manual Topic",
+      providedDate: "2020-01-01",
+    });
+    expect(out.providedSubject).toBe("Manual Topic");
+    expect(out.providedDate).toBe("2020-01-01");
+  });
+
+  it("only applies to VA uploads (leaves other call types untouched)", () => {
+    const input = {
+      transcriptType: "private_coaching",
+      sourceName: "Stephanie Sharpe - Assistance Required - 2026/03/28 01:27 PST - Recording",
+    };
+    expect(applyVaFilenameAutofill(input)).toEqual(input);
+  });
+
+  it("leaves a VA upload untouched when the filename does not match", () => {
+    const input = { transcriptType: "one_on_one_va", sourceName: "Just A Member Name" };
+    expect(applyVaFilenameAutofill(input)).toEqual(input);
   });
 });
 
@@ -254,9 +339,16 @@ describe("titleFollowsGrammar", () => {
     // New coach-only private coaching titles are compliant (idempotent no-op).
     expect(titleFollowsGrammar("Private Coaching — Coach Sasha — 2025-01-14", pc)).toBe(true);
     expect(titleFollowsGrammar("Private Coaching — Coach", pc)).toBe(true);
-    // Authority-less 1-on-1 VA titles look prefix-valid but fail the slug grammar.
-    expect(titleFollowsGrammar("1-on-1 VA — Donald Hayes", va)).toBe(false);
-    expect(titleFollowsGrammar("1-on-1 VA — Donald Hayes (VA John)", va)).toBe(true);
+    // Old member-bearing 1-on-1 VA titles (trailing `(VA …)`) are now stale (Task
+    // #1675) so the backfill rewrites them to the issue-type shape.
+    expect(titleFollowsGrammar("1-on-1 VA — Donald Hayes (VA John)", va)).toBe(false);
+    expect(titleFollowsGrammar("1-on-1 VA — Donald Hayes (VA John) — 2026-03-28", va)).toBe(false);
+    // New issue-type 1-on-1 VA titles are compliant (idempotent no-op), with and
+    // without the leading VA parenthetical, with and without a date.
+    expect(titleFollowsGrammar("1-on-1 VA (VA John) — Assistance Required — 2026-03-28", va)).toBe(true);
+    expect(titleFollowsGrammar("1-on-1 VA — Assistance Required — 2026-03-28", va)).toBe(true);
+    expect(titleFollowsGrammar("1-on-1 VA (VA John) — Assistance Required", va)).toBe(true);
+    expect(titleFollowsGrammar("1-on-1 VA — Website Setup", va)).toBe(true);
     // A title under the WRONG slug is rejected.
     expect(titleFollowsGrammar("Doc — Refund Policy", pc)).toBe(false);
   });
@@ -316,20 +408,38 @@ describe("assembleTranscriptTitle (type-specific grammar, Task #1518)", () => {
     ).toEqual({ title: "Private Coaching — Coach Bruce — 2025-01-14", titleNeedsInput: false });
   });
 
-  it("1-on-1 VA: member (VA) and falls back to the source filename for the member", () => {
+  it("1-on-1 VA: issue-type subject with a LEADING VA parenthetical + date (Task #1675)", () => {
+    // The member name must NOT appear — the subject is the issue type, the VA
+    // name renders in a leading parenthetical, and the date is appended.
     expect(
       assembleTranscriptTitle({
         folder: folder("one_on_one_va"),
         authorityRole: "va",
         authorityName: "John",
-        primarySubject: null,
-        sourceName: "Donald Hayes - Mitolyn",
-        isoDate: null,
+        primarySubject: "Assistance Required",
+        sourceName: "Stephanie Sharpe - Assistance Required - 2026/03/28 01:27 PST - Recording",
+        isoDate: "2026-03-28",
       }),
-    ).toEqual({ title: "1-on-1 VA — Donald Hayes (VA John)", titleNeedsInput: false });
+    ).toEqual({
+      title: "1-on-1 VA (VA John) — Assistance Required — 2026-03-28",
+      titleNeedsInput: false,
+    });
   });
 
-  it("1-on-1 VA with an unrecoverable member → blank title + titleNeedsInput", () => {
+  it("1-on-1 VA with no VA name → the parenthetical is OMITTED entirely (never bare 'VA')", () => {
+    expect(
+      assembleTranscriptTitle({
+        folder: folder("one_on_one_va"),
+        authorityRole: "va",
+        authorityName: null,
+        primarySubject: "Website Setup",
+        sourceName: "Donald Hayes - Website Setup - 2026/01/05 - Recording",
+        isoDate: null,
+      }),
+    ).toEqual({ title: "1-on-1 VA — Website Setup", titleNeedsInput: false });
+  });
+
+  it("1-on-1 VA with an unrecoverable issue type → blank title + titleNeedsInput", () => {
     expect(
       assembleTranscriptTitle({
         folder: folder("one_on_one_va"),
@@ -340,19 +450,6 @@ describe("assembleTranscriptTitle (type-specific grammar, Task #1518)", () => {
         isoDate: null,
       }),
     ).toEqual({ title: "", titleNeedsInput: true });
-  });
-
-  it("1-on-1 VA with no authority name → bare 'VA' fallback (req 9), still titled", () => {
-    expect(
-      assembleTranscriptTitle({
-        folder: folder("one_on_one_va"),
-        authorityRole: "va",
-        authorityName: null,
-        primarySubject: "Donald Hayes",
-        sourceName: "Donald Hayes",
-        isoDate: null,
-      }),
-    ).toEqual({ title: "1-on-1 VA — Donald Hayes (VA)", titleNeedsInput: false });
   });
 
   it("group coaching: coach only, no member subject", () => {

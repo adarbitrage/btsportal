@@ -14,6 +14,7 @@ import {
   cleanTranscript,
   refineTranscript,
   loadRosterList,
+  applyVaFilenameAutofill,
 } from "../../lib/transcript-cleaner";
 import { buildImportPlan, executeImport } from "../../lib/transcript-import";
 import { applyBlitzCaptionAutofill } from "../../lib/blitz-caption-filename";
@@ -139,7 +140,7 @@ router.post("/admin/transcript-cleaner/documents", requirePermission("chat:manag
     res.status(400).json({ error: "Transcript content is required" });
     return;
   }
-  const item = applyBlitzCaptionAutofill(body);
+  const item = applyVaFilenameAutofill(applyBlitzCaptionAutofill(body));
   const transcriptType = validateTranscriptType(item.transcriptType);
   if (transcriptType === undefined) {
     res.status(400).json({ error: "Unknown transcript type" });
@@ -187,7 +188,7 @@ router.post("/admin/transcript-cleaner/documents/batch", requirePermission("chat
       results.push({ ok: false, sourceName: rawItem.sourceName, error: "Empty transcript" });
       continue;
     }
-    const item = applyBlitzCaptionAutofill(rawItem);
+    const item = applyVaFilenameAutofill(applyBlitzCaptionAutofill(rawItem));
     const transcriptType = validateTranscriptType(item.transcriptType);
     if (transcriptType === undefined) {
       results.push({ ok: false, sourceName: rawItem.sourceName, error: "Unknown transcript type" });

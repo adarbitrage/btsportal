@@ -725,8 +725,8 @@ function UploadDialog({
               <Input value={batchName} onChange={(e) => applyBatchName(e.target.value)} placeholder="e.g. Sasha" className="h-9" />
             </div>
             <div>
-              <Label className="text-sm font-medium mb-1 block">Subject <span className="font-normal">(optional, applies to all)</span></Label>
-              <Input value={batchSubject} onChange={(e) => applyBatchSubject(e.target.value)} placeholder="e.g. Offer positioning" className="h-9" />
+              <Label className="text-sm font-medium mb-1 block">Subject / issue type <span className="font-normal">(optional, applies to all)</span></Label>
+              <Input value={batchSubject} onChange={(e) => applyBatchSubject(e.target.value)} placeholder="e.g. Assistance Required (VA issue type) or Offer positioning" className="h-9" />
             </div>
             <div>
               <Label className="text-sm font-medium mb-1 block">Date <span className="font-normal">(optional, applies to all)</span></Label>
@@ -776,8 +776,8 @@ function UploadDialog({
                     <Input value={r.name} onChange={(e) => setRow(i, { name: e.target.value })} placeholder="e.g. Sasha" className="h-9" />
                   </div>
                   <div>
-                    <Label className="text-xs text-muted-foreground mb-1 block">Subject <span className="font-normal">(optional)</span></Label>
-                    <Input value={r.subject} onChange={(e) => setRow(i, { subject: e.target.value })} placeholder="e.g. Offer positioning" className="h-9" />
+                    <Label className="text-xs text-muted-foreground mb-1 block">Subject / issue type <span className="font-normal">(optional)</span></Label>
+                    <Input value={r.subject} onChange={(e) => setRow(i, { subject: e.target.value })} placeholder="e.g. Assistance Required or Offer positioning" className="h-9" />
                   </div>
                   <div>
                     <Label className="text-xs text-muted-foreground mb-1 block">Date <span className="font-normal">(optional)</span></Label>
@@ -1055,8 +1055,8 @@ function IntakeEditDialog({
               <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Sasha" className="h-9" />
             </div>
             <div>
-              <Label className="text-sm font-medium mb-1 block">Subject <span className="font-normal">(optional)</span></Label>
-              <Input value={subject} onChange={(e) => setSubject(e.target.value)} placeholder="e.g. Offer positioning" className="h-9" />
+              <Label className="text-sm font-medium mb-1 block">Subject / issue type <span className="font-normal">(optional)</span></Label>
+              <Input value={subject} onChange={(e) => setSubject(e.target.value)} placeholder="e.g. Assistance Required or Offer positioning" className="h-9" />
             </div>
             <div>
               <Label className="text-sm font-medium mb-1 block">Date <span className="font-normal">(optional)</span></Label>
