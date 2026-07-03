@@ -29,6 +29,8 @@ import {
   Send,
 } from "lucide-react";
 import { format, formatDistanceToNow } from "date-fns";
+import { useAuth } from "@/lib/auth";
+import { getMemberTimezone, formatMemberDate, formatMemberTime } from "@/lib/member-timezone";
 
 // ---------------------------------------------------------------------------
 // Admin-viewer support (same convention as PartnerDashboard)
@@ -188,7 +190,17 @@ function AddNoteForm({ memberId, partnerId }: { memberId: number; partnerId?: nu
 // Call history / mark done
 // ---------------------------------------------------------------------------
 
-function CallRow({ call, partnerId, memberId }: { call: PartnerMenteeCall; partnerId?: number; memberId: number }) {
+function CallRow({
+  call,
+  partnerId,
+  memberId,
+  timeZone,
+}: {
+  call: PartnerMenteeCall;
+  partnerId?: number;
+  memberId: number;
+  timeZone: string;
+}) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const markDone = useMarkPartnerCallDoneRoute();
@@ -218,8 +230,8 @@ function CallRow({ call, partnerId, memberId }: { call: PartnerMenteeCall; partn
   return (
     <li className="flex items-center gap-4 px-6 py-3 border-b border-border/50 last:border-0">
       <div className="w-32 shrink-0">
-        <p className="text-sm font-medium text-foreground">{format(new Date(call.scheduled_at), "MMM d, yyyy")}</p>
-        <p className="text-xs text-muted-foreground">{format(new Date(call.scheduled_at), "h:mm a")}</p>
+        <p className="text-sm font-medium text-foreground">{formatMemberDate(call.scheduled_at, timeZone)}</p>
+        <p className="text-xs text-muted-foreground">{formatMemberTime(call.scheduled_at, timeZone)}</p>
       </div>
       <span className="text-xs px-2 py-0.5 rounded-full border font-semibold bg-secondary/50 text-muted-foreground border-border capitalize">
         {call.status.replace(/_/g, " ")}
@@ -260,6 +272,8 @@ export default function PartnerMenteeDetail() {
   const memberId = parseInt(params.memberId ?? "", 10);
   const validMemberId = !isNaN(memberId) && memberId > 0 ? memberId : null;
   const partnerId = usePartnerIdParam();
+  const { user } = useAuth();
+  const timeZone = getMemberTimezone(user?.timezone);
 
   const { data: mentee, isLoading, isError } = useGetPartnerMenteeDetail(
     validMemberId ?? 0,
@@ -367,7 +381,7 @@ export default function PartnerMenteeDetail() {
             ) : (
               <ul>
                 {mentee.calls.map((call) => (
-                  <CallRow key={call.id} call={call} partnerId={partnerId} memberId={validMemberId} />
+                  <CallRow key={call.id} call={call} partnerId={partnerId} memberId={validMemberId} timeZone={timeZone} />
                 ))}
               </ul>
             )}

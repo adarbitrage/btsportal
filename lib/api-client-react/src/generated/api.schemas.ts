@@ -227,6 +227,7 @@ export interface AuthUser {
   role: string;
   onboardingComplete?: boolean;
   onboardingStep?: number;
+  timezone?: string;
 }
 
 export interface MessageResponse {

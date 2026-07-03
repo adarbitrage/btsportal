@@ -1,13 +1,13 @@
 import { db, usersTable, systemSettingsTable } from "@workspace/db";
-import { eq, and, inArray } from "drizzle-orm";
+import { eq, and, inArray, sql } from "drizzle-orm";
 import { cancelSequence, enrollInSequence } from "./sequence-helpers";
 
 // Internal, server-only advancement functions for the 6-step onboarding
-// contract (Task #1624 — removed the in-portal ToS signing step from the
-// prior 7-step contract). These are the ONLY legitimate way a member moves
-// off steps 3, 4, or 6 — PATCH /members/me/onboarding explicitly rejects
-// client-driven attempts to complete these steps (see
-// CLIENT_ADVANCEABLE_STEPS in routes/onboarding.ts).
+// contract's three EVENT-ADVANCED steps (renumbered from the prior 7-step
+// contract, which removed the standalone in-portal ToS-signing step). These
+// are the ONLY legitimate way a member moves off steps 3, 4, or 6 — PATCH
+// /members/me/onboarding explicitly rejects client-driven attempts to
+// complete these steps (see CLIENT_ADVANCEABLE_STEPS in routes/onboarding.ts).
 //
 // Intended callers (hooks only):
 //   - advanceOnboardingAfterKickoffBooked      — Tier 2 kickoff-call booking flow
@@ -220,6 +220,7 @@ export async function migrateOnboardingStepsToSixStepContract(): Promise<{
 
     // Map old step -> new step. Step 1 is identical in both contracts and is
     // intentionally omitted (no row change needed).
+    // Note: old steps 2 and 3 both collapse onto new step 2 (PROFILE).
     const OLD_TO_NEW: Record<number, number> = {
       2: ONBOARDING_STEP.PROFILE,
       3: ONBOARDING_STEP.PROFILE,
@@ -229,15 +230,23 @@ export async function migrateOnboardingStepsToSixStepContract(): Promise<{
       7: ONBOARDING_STEP.PARTNER_CALL_COMPLETED,
     };
 
-    let usersUpdated = 0;
-    for (const [oldStep, newStep] of Object.entries(OLD_TO_NEW)) {
-      const updated = await tx
-        .update(usersTable)
-        .set({ onboardingStep: newStep })
-        .where(and(eq(usersTable.onboardingComplete, false), eq(usersTable.onboardingStep, Number(oldStep))))
-        .returning({ id: usersTable.id });
-      usersUpdated += updated.length;
-    }
+    const updated = await tx
+      .update(usersTable)
+      .set({
+        onboardingStep: sql`CASE ${usersTable.onboardingStep}
+          WHEN 2 THEN ${ONBOARDING_STEP.PROFILE}
+          WHEN 3 THEN ${ONBOARDING_STEP.PROFILE}
+          WHEN 4 THEN ${ONBOARDING_STEP.KICKOFF_BOOKED}
+          WHEN 5 THEN ${ONBOARDING_STEP.PARTNER_CALL_BOOKED}
+          WHEN 6 THEN ${ONBOARDING_STEP.PILLARS_WATCHED}
+          WHEN 7 THEN ${ONBOARDING_STEP.PARTNER_CALL_COMPLETED}
+          ELSE ${usersTable.onboardingStep}
+        END`,
+      })
+      .where(and(eq(usersTable.onboardingComplete, false), inArray(usersTable.onboardingStep, [2, 3, 4, 5, 6, 7])))
+      .returning({ id: usersTable.id });
+    
+    let usersUpdated = updated.length;
 
     await tx
       .update(systemSettingsTable)
@@ -254,7 +263,7 @@ export async function migrateOnboardingStepsToSixStepContract(): Promise<{
 
   if (result.migrated) {
     console.log(
-      `[Onboarding] Migrated ${result.usersUpdated} mid-flight member(s) from the old 7-step onboarding numbering to the new 6-step contract (ToS signing step removed).`,
+      `[Onboarding] Migrated ${result.usersUpdated} mid-flight member(s) from the old 7-step onboarding numbering to the new 6-step contract (ToS-signing step removed).`,
     );
   }
 

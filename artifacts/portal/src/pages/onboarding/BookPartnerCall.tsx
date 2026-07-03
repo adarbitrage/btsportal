@@ -1,6 +1,7 @@
 import { useState, useMemo } from "react";
 import { OnboardingLayout } from "@/components/onboarding/OnboardingLayout";
 import { useAuth } from "@/lib/auth";
+import { getMemberTimezone, formatMemberFullDateTime } from "@/lib/member-timezone";
 import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -29,11 +30,13 @@ import {
   useReschedulePartnerCall,
   useCancelPartnerCall,
 } from "@/lib/call-bookings-api";
+import { getOnboardingRouteForStep } from "@/components/onboarding/OnboardingLayout";
 
-const PARTNER_CALL_DURATION_MINUTES = 30;
+const THIS_STEP = 4;
 
 export default function OnboardingBookPartnerCall() {
   const { refreshAuth, user } = useAuth();
+  const memberTimezoneShared = getMemberTimezone(user?.timezone);
   const [, navigate] = useLocation();
   const { toast } = useToast();
   const memberTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
@@ -84,10 +87,21 @@ export default function OnboardingBookPartnerCall() {
   const cancelCall = useCancelPartnerCall();
   const isReschedule = reschedulingBookingId !== null;
 
+  // Forward-navigate whenever the server says the member is already past this
+  // page's step — mirrors BookKickoff's advanceIfAhead (see its comment for
+  // why this must read the refreshAuth() return value, not the stale `user`
+  // closure).
+  const advanceIfAhead = async () => {
+    const freshUser = await refreshAuth();
+    if (freshUser && freshUser.onboardingStep > THIS_STEP) {
+      navigate(getOnboardingRouteForStep(freshUser.onboardingStep));
+    }
+  };
+
   const handleCheckStatus = async () => {
     setAdvancing(true);
     try {
-      await refreshAuth();
+      await advanceIfAhead();
     } finally {
       setAdvancing(false);
     }
@@ -111,7 +125,7 @@ export default function OnboardingBookPartnerCall() {
         toast({ title: "Partner call booked!" });
       }
       resetBookingFlow();
-      await refreshAuth();
+      await advanceIfAhead();
     } catch (err) {
       toast({
         title: reschedulingBookingId !== null ? "Could not reschedule call" : "Could not book call",
@@ -143,7 +157,7 @@ export default function OnboardingBookPartnerCall() {
 
   const Wrapper = ({ children }: { children: React.ReactNode }) =>
     inOnboarding ? (
-      <OnboardingLayout currentStep={4} onBack={() => navigate("/onboarding/book-kickoff")}>
+      <OnboardingLayout currentStep={THIS_STEP} onBack={() => navigate("/onboarding/book-kickoff")}>
         {children}
       </OnboardingLayout>
     ) : (
@@ -190,7 +204,7 @@ export default function OnboardingBookPartnerCall() {
       {partner && (
         <PartnerRevealCard
           partner={partner}
-          subtitle={`Free ${PARTNER_CALL_DURATION_MINUTES}-minute accountability call`}
+          subtitle={`Free ${availability?.durationMinutes ?? 30}-minute accountability call`}
         />
       )}
 
@@ -377,7 +391,7 @@ export default function OnboardingBookPartnerCall() {
                 <CardContent className="p-4 flex items-center justify-between">
                   <div>
                     <p className="font-semibold text-foreground">
-                      {format(new Date(b.scheduledAt), "EEEE, MMMM d, yyyy 'at' h:mm a")}
+                      {formatMemberFullDateTime(b.scheduledAt, memberTimezoneShared)}
                     </p>
                     <p className="text-xs text-muted-foreground">{b.durationMinutes} minutes</p>
                   </div>
@@ -416,7 +430,7 @@ export default function OnboardingBookPartnerCall() {
               <Card key={b.id} className="opacity-70">
                 <CardContent className="p-4">
                   <p className="font-semibold text-foreground">
-                    {format(new Date(b.scheduledAt), "EEEE, MMMM d, yyyy 'at' h:mm a")}
+                    {formatMemberFullDateTime(b.scheduledAt, memberTimezoneShared)}
                   </p>
                   <p className="text-xs text-muted-foreground capitalize">{b.status}</p>
                 </CardContent>

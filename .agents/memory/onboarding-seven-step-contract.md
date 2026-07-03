@@ -1,7 +1,9 @@
 ---
-name: 7-step onboarding contract
-description: How the BTS Member Portal onboarding flow enforces event-advanced steps and mid-flight migration when the step count changed.
+name: Onboarding step contract (now 6 steps)
+description: How the BTS Member Portal onboarding flow enforces event-advanced steps and mid-flight migration when the step count/contract changes.
 ---
+
+**Current contract (6 steps, as of the ToS-signing-step removal):** 1 welcome, 2 profile, 3 kickoff_booked, 4 partner_call_booked, 5 pillars_watched, 6 partner_call_completed. The Documents/ToS-signing step was removed entirely (profile-fields gate now guards step 2); the platform ToS is reached via a portal footer browsewrap link instead, no signature required. `CLIENT_ADVANCEABLE_STEPS = {1, 2, 5}`. A second claim-row migration (distinct key from the original 7-step one) remaps mid-flight members from the old 7-step numbering: 1→1, 2→2, 3→2, 4→3, 5→4, 6→5, 7→6.
 
 Client-driven step advancement (PATCH /members/me/onboarding) only covers a subset of steps (welcome/ToS/profile/click-through); steps that represent something happening elsewhere (booking a call, a call actually occurring) are advanced ONLY by internal server functions, never by the client PATCH — the route explicitly rejects attempts to skip to those step numbers.
 

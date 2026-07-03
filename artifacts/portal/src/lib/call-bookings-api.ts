@@ -54,7 +54,7 @@ const PARTNER_KEY = "/api/onboarding/partner";
 // ---------------------------------------------------------------------------
 
 export function useKickoffAvailability(startDate: string, endDate: string) {
-  return useQuery<{ coach: StaffProfile; slots: CallSlot[] }>({
+  return useQuery<{ coach: StaffProfile; slots: CallSlot[]; durationMinutes: number }>({
     queryKey: [`${KICKOFF_KEY}/availability`, startDate, endDate],
     queryFn: () => callFetch(`/onboarding/kickoff/availability?startDate=${startDate}&endDate=${endDate}`),
     enabled: !!startDate && !!endDate,
@@ -96,7 +96,7 @@ export function usePartnerInfo() {
 }
 
 export function usePartnerAvailability(startDate: string, endDate: string) {
-  return useQuery<{ partnerId: number; slots: CallSlot[] }>({
+  return useQuery<{ partnerId: number; slots: CallSlot[]; durationMinutes: number }>({
     queryKey: [`${PARTNER_KEY}/availability`, startDate, endDate],
     queryFn: () => callFetch(`/onboarding/partner/availability?startDate=${startDate}&endDate=${endDate}`),
     enabled: !!startDate && !!endDate,

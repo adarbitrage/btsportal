@@ -6,7 +6,6 @@ import { randomUUID } from "crypto";
 import {
   db,
   usersTable,
-  signedDocumentsTable,
   sequencesTable,
   sequenceEnrollmentsTable,
   systemSettingsTable,
@@ -107,12 +106,11 @@ beforeAll(() => {
 afterAll(async () => {
   if (seededUserIds.length > 0) {
     await db.delete(sequenceEnrollmentsTable).where(inArray(sequenceEnrollmentsTable.userId, seededUserIds));
-    await db.delete(signedDocumentsTable).where(inArray(signedDocumentsTable.userId, seededUserIds));
     await db.delete(usersTable).where(inArray(usersTable.id, seededUserIds));
   }
 });
 
-describe("6-step onboarding contract — full walk (no ToS signing step)", () => {
+describe("6-step onboarding contract — full walk (Task #1624/#1625: ToS-signing step removed)", () => {
   it("walks a member who never signed anything from step 1 through completion at step 6", async () => {
     const { id, cookie } = await seedMember({ onboardingStep: 1 });
 
@@ -123,7 +121,7 @@ describe("6-step onboarding contract — full walk (no ToS signing step)", () =>
     expect(res.body.onboardingComplete).toBe(false);
 
     // Step 2: profile — blocked until name/experienceLevel/primaryGoal are set.
-    // No terms_of_service prerequisite exists anywhere in this flow.
+    // Notably NOT a ToS/documents gate anymore.
     res = await request(app).patch("/api/members/me/onboarding").set("Cookie", cookie).send({ step: 2 });
     expect(res.status).toBe(400);
     expect((await getUser(id)).onboardingStep).toBe(2);
@@ -165,10 +163,6 @@ describe("6-step onboarding contract — full walk (no ToS signing step)", () =>
     const after = await getUser(id);
     expect(after.onboardingComplete).toBe(true);
     expect(after.onboardingStep).toBe(6);
-
-    // Confirm the member never had to sign anything to get here.
-    const signedDocs = await db.select().from(signedDocumentsTable).where(eq(signedDocumentsTable.userId, id));
-    expect(signedDocs.length).toBe(0);
   });
 });
 
@@ -289,17 +283,19 @@ describe("Onboarding completion side effects", () => {
   });
 });
 
-describe("Mid-flight onboarding migration (Task #1624) — old 7-step -> new 6-step", () => {
+describe("Mid-flight onboarding migration: 7-step -> 6-step (Task #1624/#1625, ToS-signing step removed)", () => {
   // Clean up both before AND after each test: the real app boot process
   // (bootstrapCriticalPrerequisites) shares this same dev DB and may have
   // already claimed the migration marker outside of this test run, so we
   // can't assume the marker starts absent.
   beforeEach(async () => {
     await db.delete(systemSettingsTable).where(eq(systemSettingsTable.key, MIGRATION_MARKER_KEY));
+    await db.delete(systemSettingsTable).where(eq(systemSettingsTable.key, "onboarding_v3_six_step_migration_completed_at"));
   });
 
   afterEach(async () => {
     await db.delete(systemSettingsTable).where(eq(systemSettingsTable.key, MIGRATION_MARKER_KEY));
+    await db.delete(systemSettingsTable).where(eq(systemSettingsTable.key, "onboarding_v3_six_step_migration_completed_at"));
   });
 
   it("remaps every old step value to the correct new step", async () => {
@@ -326,23 +322,28 @@ describe("Mid-flight onboarding migration (Task #1624) — old 7-step -> new 6-s
 
   it("never touches completed members, even if they were stamped at an old step value", async () => {
     const completedAtFour = await seedMember({ onboardingStep: 4, onboardingComplete: true });
+    const completedAtSix = await seedMember({ onboardingStep: 6, onboardingComplete: true });
     const completedAtSeven = await seedMember({ onboardingStep: 7, onboardingComplete: true });
 
     await migrateOnboardingStepsToSixStepContract();
 
     const userFour = await getUser(completedAtFour.id);
+    const userSix = await getUser(completedAtSix.id);
     const userSeven = await getUser(completedAtSeven.id);
     expect(userFour.onboardingComplete).toBe(true);
     expect(userFour.onboardingStep).toBe(4);
+    expect(userSix.onboardingComplete).toBe(true);
+    expect(userSix.onboardingStep).toBe(6);
     expect(userSeven.onboardingComplete).toBe(true);
     expect(userSeven.onboardingStep).toBe(7);
   });
 
   it("is idempotent — running it a second time does not re-touch anything (claim marker)", async () => {
-    const memberOnFour = await seedMember({ onboardingStep: 4, onboardingComplete: false });
+    const memberOnOldKickoff = await seedMember({ onboardingStep: 4, onboardingComplete: false });
 
     const first = await migrateOnboardingStepsToSixStepContract();
     expect(first.migrated).toBe(true);
+    expect((await getUser(memberOnOldKickoff.id)).onboardingStep).toBe(ONBOARDING_STEP.KICKOFF_BOOKED);
 
     // Simulate a genuinely new-contract member now legitimately sitting on
     // step 4 (partner call booked, new meaning) after the first migration
@@ -356,6 +357,6 @@ describe("Mid-flight onboarding migration (Task #1624) — old 7-step -> new 6-s
     expect((await getUser(newContractMember.id)).onboardingStep).toBe(4);
     // The already-migrated member should have landed on step 3 (kickoff
     // booked, per the old-4 -> new-3 map) and stayed there.
-    expect((await getUser(memberOnFour.id)).onboardingStep).toBe(ONBOARDING_STEP.KICKOFF_BOOKED);
+    expect((await getUser(memberOnOldKickoff.id)).onboardingStep).toBe(ONBOARDING_STEP.KICKOFF_BOOKED);
   });
 });

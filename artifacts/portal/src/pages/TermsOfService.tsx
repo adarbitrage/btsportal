@@ -1,71 +1,58 @@
+import { AppLayout } from "@/components/layout/AppLayout";
+import { Card, CardContent } from "@/components/ui/card";
 import { useGetLegalDocuments } from "@workspace/api-client-react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { useLocation } from "wouter";
+import { FileText, Loader2 } from "lucide-react";
 
-// Browsewrap Terms of Service page (Task #1624). This is the SOLE surfacing
-// of the platform Terms of Service — reachable via the footer link in the
-// Sidebar. It reuses the same legal-documents content source the (now
-// removed from onboarding) Documents page reads; it never requires or
-// records a signature.
+// Read-only "browsewrap" view of the platform Terms of Service — reachable
+// from the portal sidebar link and footer link. No signature is collected
+// here; the onboarding signing gate that used to live on this content was
+// removed (Task #1625).
 export default function TermsOfService() {
-  const { data: documents, isLoading } = useGetLegalDocuments();
-  const [, navigate] = useLocation();
+  const { data: documents, isLoading, isError } = useGetLegalDocuments({
+    type: "terms_of_service",
+  });
 
-  const terms = documents?.find((d) => d.type === "terms_of_service");
+  const latest = documents?.[0];
 
   return (
-    <div className="min-h-screen bg-[#faf9f7] flex flex-col">
-      <header className="bg-white border-b border-border/50 px-6 py-4 flex items-center justify-between">
+    <AppLayout>
+      <div className="max-w-3xl mx-auto space-y-6">
         <div className="flex items-center gap-3">
-          <img
-            src={`${import.meta.env.BASE_URL}images/bts-logo.png`}
-            alt="Build Test Scale"
-            className="h-10 w-10 object-contain"
-          />
+          <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
+            <FileText className="w-5 h-5 text-primary" />
+          </div>
           <div>
-            <h1 className="font-bold text-sm tracking-tight text-foreground leading-tight">BUILD TEST SCALE</h1>
+            <h1 className="text-2xl font-bold text-foreground">{latest?.title ?? "Terms of Service"}</h1>
+            {latest && <p className="text-sm text-muted-foreground">Version {latest.version}</p>}
           </div>
         </div>
-        <button
-          onClick={() => navigate("/")}
-          className="text-sm text-muted-foreground hover:text-foreground transition-colors"
-        >
-          Back to Portal
-        </button>
-      </header>
 
-      <div className="flex-1 w-full max-w-3xl mx-auto px-6 py-10">
         <Card>
-          <CardHeader>
-            <CardTitle className="text-xl">{terms?.title ?? "Terms of Service"}</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {isLoading && <p className="text-muted-foreground">Loading...</p>}
-            {!isLoading && !terms && (
-              <p className="text-muted-foreground">Terms of Service content is not currently available.</p>
+          <CardContent className="p-6">
+            {isLoading && (
+              <div className="flex items-center justify-center py-12 text-muted-foreground">
+                <Loader2 className="w-5 h-5 animate-spin mr-2" />
+                Loading...
+              </div>
             )}
-            {terms && (
-              <div
-                className="text-sm leading-relaxed prose prose-sm max-w-none"
-                dangerouslySetInnerHTML={{ __html: markdownToHtml(terms.content) }}
-              />
+            {isError && (
+              <p className="text-sm text-destructive">
+                Could not load the Terms of Service right now. Please try again later.
+              </p>
+            )}
+            {!isLoading && !isError && !latest && (
+              <p className="text-sm text-muted-foreground">
+                The Terms of Service are not available right now.
+              </p>
+            )}
+            {latest && (
+              <div className="prose prose-sm max-w-none whitespace-pre-wrap text-foreground">
+                {latest.content}
+              </div>
             )}
           </CardContent>
         </Card>
       </div>
-    </div>
+    </AppLayout>
   );
-}
-
-function markdownToHtml(md: string): string {
-  return md
-    .replace(/^### (.*$)/gm, "<h3>$1</h3>")
-    .replace(/^## (.*$)/gm, "<h2>$1</h2>")
-    .replace(/^# (.*$)/gm, "<h1>$1</h1>")
-    .replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>")
-    .replace(/\*(.*?)\*/g, "<em>$1</em>")
-    .replace(/^- (.*$)/gm, "<li>$1</li>")
-    .replace(/(<li>.*<\/li>)/s, "<ul>$1</ul>")
-    .replace(/\n\n/g, "<br/><br/>")
-    .replace(/\n/g, "<br/>");
 }

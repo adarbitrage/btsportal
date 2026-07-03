@@ -8,8 +8,8 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { useState } from "react";
 
-// Step 6: watch the 7 Pillars training. This is CLIENT-ADVANCEABLE — a simple
-// click-to-confirm, no server-side prerequisite check (unlike documents/profile).
+// Step 5: watch the 7 Pillars training. This is CLIENT-ADVANCEABLE — a simple
+// click-to-confirm, no server-side prerequisite check (unlike profile).
 export default function OnboardingWatchPillars() {
   const { refreshAuth } = useAuth();
   const patchOnboarding = usePatchOnboardingStep();

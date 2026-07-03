@@ -8,6 +8,10 @@ interface User {
   role: string;
   onboardingComplete: boolean;
   onboardingStep: number;
+  // IANA timezone (e.g. "America/New_York"). Always present for real member
+  // rows (users.timezone has a DB default), but optional here defensively in
+  // case a caller mocks a partial user object.
+  timezone?: string;
   // True for staff accounts created via the admin panel that still hold their
   // shared temporary password. While set, route guards force the user to the
   // change-password screen before anything else loads.
@@ -49,7 +53,11 @@ interface AuthContextType {
   ) => Promise<string>;
   resendVerificationEmail: (email: string) => Promise<string>;
   logout: () => Promise<void>;
-  refreshAuth: () => Promise<void>;
+  // Returns the freshly-fetched user (or null on auth failure) so callers can
+  // act on the new onboardingStep immediately, without waiting for the async
+  // setUser() state update to flow through a re-render (React state reads in
+  // the same closure would otherwise see the stale pre-refresh value).
+  refreshAuth: () => Promise<User | null>;
 }
 
 export const AuthContext = createContext<AuthContextType | null>(null);
@@ -110,13 +118,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const refreshAuth = useCallback(async () => {
+  const refreshAuth = useCallback(async (): Promise<User | null> => {
     try {
       const res = await authFetch("/auth/me");
       if (res.ok) {
         const data = await res.json();
         setUser(data);
-        return;
+        return data;
       }
 
       const refreshRes = await authFetch("/auth/refresh", { method: "POST" });
@@ -125,13 +133,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (meRes.ok) {
           const data = await meRes.json();
           setUser(data);
-          return;
+          return data;
         }
       }
 
       setUser(null);
+      return null;
     } catch {
       setUser(null);
+      return null;
     }
   }, []);
 

@@ -7029,6 +7029,8 @@ components:
           type: boolean
         onboardingStep:
           type: integer
+        timezone:
+          type: string
       required: [id, name, email, role]
 
     MessageResponse:

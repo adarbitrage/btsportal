@@ -42,7 +42,7 @@ beforeEach(() => {
 });
 
 describe("onboarding step indicator", () => {
-  it("shows 'Step X of 6' for step 5 and step 6", () => {
+  it("shows 'Step X of 6' for step 5 and step 6 (Task #1625: 6-step contract)", () => {
     usePartnerInfo.mockReturnValue({ data: { partner: null } });
 
     const { unmount } = render(<OnboardingWatchPillars />);

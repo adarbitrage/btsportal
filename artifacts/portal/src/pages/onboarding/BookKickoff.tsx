@@ -22,8 +22,8 @@ import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import { resolveCoachPhotoUrl } from "@/lib/coaches-admin-api";
 import { useKickoffAvailability, useMyKickoffBooking, useBookKickoffCall } from "@/lib/call-bookings-api";
-
-const KICKOFF_CALL_DURATION_MINUTES = 30;
+import { getOnboardingRouteForStep } from "@/components/onboarding/OnboardingLayout";
+import { getMemberTimezone, formatMemberFullDateTime } from "@/lib/member-timezone";
 
 function initials(name: string): string {
   return name
@@ -34,11 +34,13 @@ function initials(name: string): string {
     .toUpperCase();
 }
 
+const THIS_STEP = 3;
+
 export default function OnboardingBookKickoff() {
-  const { refreshAuth } = useAuth();
+  const { refreshAuth, user } = useAuth();
   const [, navigate] = useLocation();
   const { toast } = useToast();
-  const memberTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+  const memberTimezone = getMemberTimezone(user?.timezone);
 
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
@@ -73,10 +75,22 @@ export default function OnboardingBookKickoff() {
 
   const bookCall = useBookKickoffCall();
 
+  // Forward-navigate whenever the server says the member is already past this
+  // page's step (booking flows advance onboardingStep server-side, so a stale
+  // "Continue" click here should never be a dead end — for the member OR for
+  // an admin impersonating them). Never navigate BACKWARD from here; a member
+  // could still be sitting exactly on this step (booking failed / retried).
+  const advanceIfAhead = async () => {
+    const freshUser = await refreshAuth();
+    if (freshUser && freshUser.onboardingStep > THIS_STEP) {
+      navigate(getOnboardingRouteForStep(freshUser.onboardingStep));
+    }
+  };
+
   const handleCheckStatus = async () => {
     setAdvancing(true);
     try {
-      await refreshAuth();
+      await advanceIfAhead();
     } finally {
       setAdvancing(false);
     }
@@ -87,7 +101,7 @@ export default function OnboardingBookKickoff() {
     try {
       await bookCall.mutateAsync({ startTime: selectedSlot.startTime });
       toast({ title: "Kickoff call booked!" });
-      await refreshAuth();
+      await advanceIfAhead();
     } catch (err) {
       toast({
         title: "Could not book call",
@@ -99,7 +113,7 @@ export default function OnboardingBookKickoff() {
 
   if (mineLoading) {
     return (
-      <OnboardingLayout currentStep={3} onBack={() => navigate("/onboarding/profile")}>
+      <OnboardingLayout currentStep={THIS_STEP} onBack={() => navigate("/onboarding/profile")}>
         <div className="animate-pulse h-64 bg-card rounded-xl" />
       </OnboardingLayout>
     );
@@ -107,7 +121,7 @@ export default function OnboardingBookKickoff() {
 
   if (existingBooking && existingBooking.status !== "canceled") {
     return (
-      <OnboardingLayout currentStep={3} onBack={() => navigate("/onboarding/profile")}>
+      <OnboardingLayout currentStep={THIS_STEP} onBack={() => navigate("/onboarding/profile")}>
         <div className="space-y-6 max-w-lg mx-auto text-center">
           <div className="w-14 h-14 mx-auto bg-primary/10 rounded-full flex items-center justify-center">
             <PartyPopper className="w-7 h-7 text-primary" />
@@ -116,10 +130,10 @@ export default function OnboardingBookKickoff() {
           <Card>
             <CardContent className="p-6 space-y-2">
               <p className="font-semibold text-foreground">
-                {format(new Date(existingBooking.scheduledAt), "EEEE, MMMM d, yyyy 'at' h:mm a")}
+                {formatMemberFullDateTime(existingBooking.scheduledAt, memberTimezone)}
               </p>
               <p className="text-sm text-muted-foreground">
-                {KICKOFF_CALL_DURATION_MINUTES} minutes
+                {existingBooking.durationMinutes} minutes
                 {existingBooking.meetingUrl ? " · Google Meet link will be in your email" : ""}
               </p>
             </CardContent>
@@ -136,7 +150,7 @@ export default function OnboardingBookKickoff() {
   }
 
   return (
-    <OnboardingLayout currentStep={3} onBack={() => navigate("/onboarding/profile")}>
+    <OnboardingLayout currentStep={THIS_STEP} onBack={() => navigate("/onboarding/profile")}>
       <div className="space-y-6">
         <div className="text-center mb-2">
           <h2 className="text-2xl font-bold text-foreground mb-2">Book Your Kickoff Call</h2>
@@ -160,7 +174,9 @@ export default function OnboardingBookKickoff() {
             )}
             <div className="text-left">
               <p className="font-semibold text-foreground">{coach.displayName}</p>
-              <p className="text-xs text-muted-foreground">Free {KICKOFF_CALL_DURATION_MINUTES}-minute kickoff call</p>
+              <p className="text-xs text-muted-foreground">
+                Free {availability?.durationMinutes ?? 30}-minute kickoff call
+              </p>
             </div>
           </div>
         )}

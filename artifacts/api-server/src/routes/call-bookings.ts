@@ -158,6 +158,7 @@ router.get("/onboarding/kickoff/availability", async (req, res): Promise<void> =
         bio: coach.bio,
       },
       slots: usable,
+      durationMinutes: KICKOFF_CALL_DURATION_MINUTES,
     });
   } catch (err) {
     console.error("[call-bookings] kickoff availability failed:", err);
@@ -459,7 +460,7 @@ router.get("/onboarding/partner/availability", async (req, res): Promise<void> =
     return;
   }
   if (!partner.ghlCalendarId) {
-    res.json({ partnerId: partner.id, slots: [] });
+    res.json({ partnerId: partner.id, slots: [], durationMinutes: PARTNER_CALL_DURATION_MINUTES });
     return;
   }
 
@@ -471,7 +472,7 @@ router.get("/onboarding/partner/availability", async (req, res): Promise<void> =
       partner.ghlLocationId ?? COACHING_LOCATION_ID,
     );
     const filtered = await filterPartnerSlots(userId, partner, slots, range.startMs, range.endMs);
-    res.json({ partnerId: partner.id, slots: filtered });
+    res.json({ partnerId: partner.id, slots: filtered, durationMinutes: PARTNER_CALL_DURATION_MINUTES });
   } catch (err) {
     console.error("[call-bookings] partner availability failed:", err);
     res.status(502).json({ error: "Could not load availability. Please try again." });

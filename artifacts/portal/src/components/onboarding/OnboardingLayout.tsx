@@ -10,6 +10,17 @@ const STEPS = [
   { label: "First Call", path: "/onboarding/partner-call-pending" },
 ];
 
+// Shared 1-indexed step -> route lookup so any onboarding page can forward-
+// navigate a member to wherever the server says they currently are (e.g.
+// after a booking confirmation advances onboardingStep server-side). Kept
+// here since this file already owns the canonical step list used by the
+// stepper UI — a second hardcoded copy would drift from it.
+export const ONBOARDING_STEP_ROUTES = STEPS.map((s) => s.path);
+
+export function getOnboardingRouteForStep(step: number): string {
+  return ONBOARDING_STEP_ROUTES[step - 1] ?? ONBOARDING_STEP_ROUTES[0];
+}
+
 export function OnboardingLayout({
   children,
   currentStep,

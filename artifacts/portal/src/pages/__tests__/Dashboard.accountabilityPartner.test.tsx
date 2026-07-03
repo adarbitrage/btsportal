@@ -55,6 +55,10 @@ vi.mock("@workspace/auth", () => ({
   isCoachRole: () => false,
 }));
 
+vi.mock("@/lib/auth", () => ({
+  useAuth: () => ({ user: { name: "Jamie Test", timezone: "America/New_York" } }),
+}));
+
 import Dashboard from "@/pages/Dashboard";
 
 function makeDashboard(overrides: Record<string, unknown> = {}) {

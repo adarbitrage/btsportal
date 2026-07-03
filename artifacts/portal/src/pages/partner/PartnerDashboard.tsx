@@ -20,6 +20,8 @@ import {
   ChevronRight,
 } from "lucide-react";
 import { format, formatDistanceToNow } from "date-fns";
+import { useAuth } from "@/lib/auth";
+import { getMemberTimezone, formatMemberDateTime, formatMemberTime } from "@/lib/member-timezone";
 
 // ---------------------------------------------------------------------------
 // Admin-viewer support: ?partnerId= lets an admin with partners:view impersonate
@@ -39,7 +41,7 @@ type Tab = "roster" | "today";
 // Roster row
 // ---------------------------------------------------------------------------
 
-function RosterRow({ mentee }: { mentee: PartnerRosterMentee }) {
+function RosterRow({ mentee, timeZone }: { mentee: PartnerRosterMentee; timeZone: string }) {
   return (
     <Link
       href={`/partner/mentees/${mentee.member_id}`}
@@ -73,7 +75,7 @@ function RosterRow({ mentee }: { mentee: PartnerRosterMentee }) {
       <div className="hidden lg:block w-44 shrink-0 text-sm text-muted-foreground">
         {mentee.next_call ? (
           <span className="text-foreground">
-            Next: {format(new Date(mentee.next_call.scheduled_at), "MMM d, h:mm a")}
+            Next: {formatMemberDateTime(mentee.next_call.scheduled_at, timeZone)}
           </span>
         ) : (
           "No call scheduled"
@@ -123,12 +125,12 @@ function CallStatusBadge({ status }: { status: string }) {
 // Today's call row
 // ---------------------------------------------------------------------------
 
-function TodayCallRow({ call }: { call: PartnerTodayCall }) {
+function TodayCallRow({ call, timeZone }: { call: PartnerTodayCall; timeZone: string }) {
   return (
     <div className="flex items-center gap-4 px-5 py-4 border-b border-border/50 last:border-0">
       <div className="w-16 shrink-0 text-center">
         <p className="text-sm font-semibold text-foreground">
-          {format(new Date(call.scheduled_at), "h:mm a")}
+          {formatMemberTime(call.scheduled_at, timeZone)}
         </p>
         <p className="text-[10px] text-muted-foreground">{call.duration_minutes}m</p>
       </div>
@@ -166,6 +168,8 @@ function TodayCallRow({ call }: { call: PartnerTodayCall }) {
 export default function PartnerDashboard() {
   const partnerId = usePartnerIdParam();
   const [tab, setTab] = useState<Tab>("today");
+  const { user } = useAuth();
+  const timeZone = getMemberTimezone(user?.timezone);
 
   const { data: roster, isLoading: rosterLoading, isError: rosterError } = useGetPartnerRoster(
     { partnerId },
@@ -235,7 +239,7 @@ export default function PartnerDashboard() {
             ) : (
               <div>
                 {today.calls.map((call) => (
-                  <TodayCallRow key={call.id} call={call} />
+                  <TodayCallRow key={call.id} call={call} timeZone={timeZone} />
                 ))}
               </div>
             )}
@@ -253,7 +257,7 @@ export default function PartnerDashboard() {
             ) : (
               <div>
                 {roster.mentees.map((mentee) => (
-                  <RosterRow key={mentee.member_id} mentee={mentee} />
+                  <RosterRow key={mentee.member_id} mentee={mentee} timeZone={timeZone} />
                 ))}
               </div>
             )}

@@ -395,10 +395,13 @@ export async function bootstrapCriticalPrerequisites(): Promise<PrerequisiteResu
 
   // 11b. One-time, idempotent migration of mid-flight onboarding members from
   //      the old 7-step numbering (which included an in-portal ToS signing
-  //      step) to the new 6-step contract (Task #1624 — ToS signing step
-  //      removed; platform ToS is now a browsewrap footer link only). See
-  //      migrateOnboardingStepsToSixStepContract() for the full old->new step
-  //      map and why a claim-row (not a value check) is required.
+  //      step) to the new 6-step contract (ToS signing step removed; platform
+  //      ToS is now a browsewrap link only). Old steps 2 (documents) and 3
+  //      (profile) both collapse onto new step 2 (profile), and every step
+  //      after it shifts down by one. Runs independently of (and after) the
+  //      5->7 migration above — see migrateOnboardingStepsToSixStepContract()
+  //      for the full old->new step map and why a claim-row (not a value
+  //      check) is required.
   try {
     await migrateOnboardingStepsToSixStepContract();
   } catch (err) {

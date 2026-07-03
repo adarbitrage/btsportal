@@ -4282,6 +4282,7 @@ export const LoginResponse = zod.object({
   role: zod.string(),
   onboardingComplete: zod.boolean().optional(),
   onboardingStep: zod.number().optional(),
+  timezone: zod.string().optional(),
 });
 
 /**
@@ -4294,6 +4295,7 @@ export const RefreshTokenResponse = zod.object({
   role: zod.string(),
   onboardingComplete: zod.boolean().optional(),
   onboardingStep: zod.number().optional(),
+  timezone: zod.string().optional(),
 });
 
 /**
@@ -4365,6 +4367,7 @@ export const GetAuthMeResponse = zod.object({
   role: zod.string(),
   onboardingComplete: zod.boolean().optional(),
   onboardingStep: zod.number().optional(),
+  timezone: zod.string().optional(),
 });
 
 /**

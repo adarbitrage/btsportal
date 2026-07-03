@@ -1,12 +1,16 @@
-import { format } from "date-fns";
 import { Video, Users, PhoneCall } from "lucide-react";
 import { useTodayCallBooking } from "@/lib/call-bookings-api";
+import { useAuth } from "@/lib/auth";
+import { getMemberTimezone, formatMemberTime } from "@/lib/member-timezone";
 
 export function CallDayBanner() {
   const { data } = useTodayCallBooking();
+  const { user } = useAuth();
   const booking = data?.booking ?? null;
 
   if (!booking) return null;
+
+  const timeZone = getMemberTimezone(user?.timezone);
 
   const isKickoff = booking.type === "kickoff";
   const label = isKickoff ? "Kickoff Call" : "Accountability Partner Call";
@@ -20,7 +24,7 @@ export function CallDayBanner() {
       <div className="flex items-center gap-2">
         <Icon className="w-4 h-4 shrink-0" />
         <span>
-          Today's {label} is at {format(new Date(booking.scheduledAt), "h:mm a")}
+          Today's {label} is at {formatMemberTime(booking.scheduledAt, timeZone)}
         </span>
       </div>
       {booking.meetingUrl && (

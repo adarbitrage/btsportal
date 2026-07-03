@@ -9,6 +9,8 @@ import { Progress } from "@/components/ui/progress";
 import { BookOpen, Clock, Flame, Calendar, PlayCircle, MessageSquare, Video, ShieldCheck, Wrench, FolderOpen, Heart, ChevronRight, Lock, Users } from "lucide-react";
 import { format } from "date-fns";
 import { Link, useLocation } from "wouter";
+import { useAuth } from "@/lib/auth";
+import { getMemberTimezone, formatMemberDateTime } from "@/lib/member-timezone";
 import { WinsSummaryWidget } from "@/components/wins/WinsSummaryWidget";
 import { UpgradeFeaturesCard } from "@/components/upgrade/UpgradeFeaturesCard";
 import { PartnerRevealCard } from "@/components/onboarding/PartnerRevealCard";
@@ -23,9 +25,12 @@ import { BlitzStreakWidget } from "@/components/blitz/BlitzStreakWidget";
 // correct state, not a loading/error condition.
 function AccountabilityPartnerCard() {
   const { data, isLoading } = usePartnerPanel();
+  const { user } = useAuth();
   const assignment = data?.assignment;
 
   if (isLoading || !assignment) return null;
+
+  const timeZone = getMemberTimezone(user?.timezone);
 
   const { partner, cadencePerWeek, nextCall, completedCallCount } = assignment;
 
@@ -55,7 +60,7 @@ function AccountabilityPartnerCard() {
         {nextCall ? (
           <div className="flex items-center gap-2 text-xs text-muted-foreground">
             <Calendar className="w-3.5 h-3.5" />
-            <span>Next call {format(new Date(nextCall.scheduledAt), "MMM d, h:mm a")}</span>
+            <span>Next call {formatMemberDateTime(nextCall.scheduledAt, timeZone)}</span>
           </div>
         ) : (
           <p className="text-xs text-muted-foreground">No call scheduled yet.</p>
@@ -74,10 +79,12 @@ function AccountabilityPartnerCard() {
 export default function Dashboard() {
   const { data: dashboard, isLoading, error } = useGetDashboard();
   const { data: member } = useGetCurrentMember();
+  const { user } = useAuth();
   const [, navigate] = useLocation();
   const memberEntitlements = new Set(member?.entitlements ?? []);
   const hasLifetime = (member?.sourceProduct ?? "free") === "lifetime";
   const { data: vaultStats } = useVaultStats();
+  const timeZone = getMemberTimezone(user?.timezone);
 
   if (isLoading) {
     return (
@@ -300,7 +307,7 @@ export default function Dashboard() {
                         </div>
                         <div className="flex items-center gap-2 text-xs text-muted-foreground mt-2">
                           <Calendar className="w-3.5 h-3.5" />
-                          <span>{format(new Date(call.scheduledAt), 'MMM d, h:mm a')}</span>
+                          <span>{formatMemberDateTime(call.scheduledAt, timeZone)}</span>
                         </div>
                         <div className="flex items-center justify-between mt-3">
                           <div className="flex items-center gap-2">

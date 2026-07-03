@@ -87,6 +87,7 @@ import WinSubmit from "@/pages/wins/WinSubmit";
 import MyWins from "@/pages/wins/MyWins";
 import WinDetail from "@/pages/wins/WinDetail";
 import TestimonialSubmit from "@/pages/wins/TestimonialSubmit";
+import { ONBOARDING_STEP_ROUTES } from "@/components/onboarding/OnboardingLayout";
 import OnboardingWelcome from "@/pages/onboarding/Welcome";
 import OnboardingProfile from "@/pages/onboarding/Profile";
 import OnboardingBookKickoff from "@/pages/onboarding/BookKickoff";
@@ -186,14 +187,7 @@ const queryClient = new QueryClient({
   },
 });
 
-const STEP_ROUTES = [
-  "/onboarding/welcome",
-  "/onboarding/profile",
-  "/onboarding/book-kickoff",
-  "/onboarding/book-partner-call",
-  "/onboarding/pillars",
-  "/onboarding/partner-call-pending",
-];
+const STEP_ROUTES = ONBOARDING_STEP_ROUTES;
 
 export function ProtectedRoute({ component: Component }: { component: React.ComponentType<any> }) {
   const { user, loading } = useAuth();
@@ -544,6 +538,7 @@ function Router() {
       <Route path="/coaching/partner-calls">{() => <ProtectedRoute component={OnboardingBookPartnerCall} />}</Route>
       <Route path="/coaching">{() => <EntitlementRoute component={Coaching} entitlement="coaching:group" />}</Route>
       <Route path="/account">{() => <ProtectedRoute component={Account} />}</Route>
+      <Route path="/legal/terms">{() => <ProtectedRoute component={TermsOfService} />}</Route>
       <Route path="/account/products">{() => <ProtectedRoute component={MyProducts} />}</Route>
       <Route path="/payment-methods">{() => <ProtectedRoute component={PaymentMethods} />}</Route>
       <Route path="/plans">{() => <ProtectedRoute component={Plans} />}</Route>

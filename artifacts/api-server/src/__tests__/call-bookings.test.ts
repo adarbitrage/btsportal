@@ -230,6 +230,51 @@ describe("kickoff call booking: step idempotency", () => {
   });
 });
 
+describe("availability responses expose the call duration (Task #1625)", () => {
+  it("kickoff availability includes durationMinutes matching the booked call", async () => {
+    const memberId = await makeMember(3);
+    const startTime = gridAlignedFutureTime(2);
+    const dateStr = startTime.toISOString().slice(0, 10);
+
+    const avail = await request(app)
+      .get(`/api/onboarding/kickoff/availability?startDate=${dateStr}&endDate=${dateStr}`)
+      .set("Cookie", authCookie(memberId));
+    expect(avail.status).toBe(200);
+    expect(typeof avail.body.durationMinutes).toBe("number");
+    expect(avail.body.durationMinutes).toBeGreaterThan(0);
+
+    const book = await request(app)
+      .post("/api/onboarding/kickoff/book")
+      .set("Cookie", authCookie(memberId))
+      .send({ startTime: startTime.toISOString() });
+    expect(book.status).toBe(201);
+    bookingIds.push(book.body.booking.id);
+    expect(book.body.booking.durationMinutes).toBe(avail.body.durationMinutes);
+  });
+
+  it("partner availability includes durationMinutes matching the booked call", async () => {
+    const memberId = await makeMember(5, true);
+    await assignPartner(memberId, partnerId);
+    const startTime = gridAlignedFutureTime(6);
+    const dateStr = startTime.toISOString().slice(0, 10);
+
+    const avail = await request(app)
+      .get(`/api/onboarding/partner/availability?startDate=${dateStr}&endDate=${dateStr}`)
+      .set("Cookie", authCookie(memberId));
+    expect(avail.status).toBe(200);
+    expect(typeof avail.body.durationMinutes).toBe("number");
+    expect(avail.body.durationMinutes).toBeGreaterThan(0);
+
+    const book = await request(app)
+      .post("/api/onboarding/partner/book")
+      .set("Cookie", authCookie(memberId))
+      .send({ startTime: startTime.toISOString() });
+    expect(book.status).toBe(201);
+    bookingIds.push(book.body.booking.id);
+    expect(book.body.booking.durationMinutes).toBe(avail.body.durationMinutes);
+  });
+});
+
 describe("partner call booking: 5/day cap filtering + cap freed on cancel", () => {
   it("excludes a fully-booked day from availability, rejects a booking attempt on it, then frees the cap on cancel", async () => {
     const fillerMemberId = await makeMember(5, true);

@@ -11,11 +11,11 @@ import {
 
 const router: IRouter = Router();
 
-// The 6-step guided onboarding contract (Task #1624 — removed the in-portal
-// ToS signing step that previously lived at step 2 of the 7-step contract.
-// Platform ToS now lives as a browsewrap footer link only; the mentorship
-// agreement is signed upstream in GHL before portal access, so no in-portal
-// signing step is needed here).
+// The 6-step guided onboarding contract (renumbered from the prior 7-step
+// contract by removing the in-portal ToS signing step that previously lived
+// at step 2. Platform ToS now lives as a browsewrap link only; the
+// mentorship agreement is signed upstream in GHL before portal access, so no
+// in-portal signing step is needed here).
 //
 //   1. welcome                 — intro + welcome video. Client-advanceable.
 //   2. profile                 — name/experience/goal. Client-advanceable
@@ -33,6 +33,10 @@ const router: IRouter = Router();
 //                                 only completeOnboardingAfterPartnerCallDone()
 //                                 (Tier 3 GHL webhook) may complete onboarding
 //                                 from here.
+//
+// ToS signing is no longer part of the guided flow — signedDocumentsTable /
+// GET+POST /documents remain as legal infrastructure (see routes/documents.ts)
+// and the ToS is now surfaced as a browsewrap footer link instead of a gate.
 //
 // See lib/onboarding-advancement.ts for the internal advancement functions Tier 2
 // (booking) and Tier 3 (GHL webhook) call to move members through steps 3/4/6 —

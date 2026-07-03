@@ -50,7 +50,7 @@ const onboardingUser = {
   name: "New Staffer",
   role: "admin",
   onboardingComplete: false,
-  onboardingStep: 2,
+  onboardingStep: 3,
   mustChangePassword: false,
 };
 
@@ -74,10 +74,10 @@ describe("onboarding gate — ProtectedRoute sends an incomplete user into the s
       <ProtectedRoute component={Target} />,
     );
 
-    // onboardingStep=2 -> STEP_ROUTES[1] -> /onboarding/profile
+    // onboardingStep=3 -> STEP_ROUTES[2] -> /onboarding/book-kickoff
     expect(getByTestId("redirect")).toHaveAttribute(
       "data-to",
-      "/onboarding/profile",
+      "/onboarding/book-kickoff",
     );
     expect(queryByTestId("target-content")).toBeNull();
   });
@@ -126,14 +126,14 @@ describe("onboarding gate — OnboardingRoute keeps users on their current step"
   it("redirects to the current step when a later step is requested", () => {
     authStateMock.mockReturnValue({ user: onboardingUser, loading: false });
 
-    // User is on step 2 (profile) but tries to open step 4 (book first partner call).
+    // User is on step 3 (book-kickoff) but tries to open step 5 (pillars).
     const { getByTestId, queryByTestId } = render(
       <OnboardingRoute component={Target} step={4} />,
     );
 
     expect(getByTestId("redirect")).toHaveAttribute(
       "data-to",
-      "/onboarding/profile",
+      "/onboarding/book-kickoff",
     );
     expect(queryByTestId("target-content")).toBeNull();
   });
@@ -196,10 +196,10 @@ describe("onboarding gate — EntitlementRoute runs the first-login and onboardi
       <EntitlementRoute component={Target} entitlement="community:access" />,
     );
 
-    // onboardingStep=2 -> STEP_ROUTES[1] -> /onboarding/profile, NOT "/"
+    // onboardingStep=3 -> STEP_ROUTES[2] -> /onboarding/book-kickoff, NOT "/"
     expect(getByTestId("redirect")).toHaveAttribute(
       "data-to",
-      "/onboarding/profile",
+      "/onboarding/book-kickoff",
     );
     expect(queryByTestId("target-content")).toBeNull();
   });
@@ -421,10 +421,10 @@ describe("GuestRoute — lets signed-out users in and bounces signed-in users to
       <GuestRoute component={Target} />,
     );
 
-    // onboardingStep=2 -> STEP_ROUTES[1] -> /onboarding/profile
+    // onboardingStep=3 -> STEP_ROUTES[2] -> /onboarding/book-kickoff
     expect(getByTestId("redirect")).toHaveAttribute(
       "data-to",
-      "/onboarding/profile",
+      "/onboarding/book-kickoff",
     );
     expect(queryByTestId("target-content")).toBeNull();
   });
