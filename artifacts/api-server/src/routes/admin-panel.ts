@@ -1,6 +1,7 @@
 import { getParam } from "../lib/params";
 import { PRODUCT_RANK } from "../lib/product-rank";
 import { applyCreationTimeOnboardingDefaults } from "../lib/onboarding-variant";
+import { insertUserProductGrant } from "../lib/external-grant-product";
 import { getProductLabelByRank } from "../lib/entitlements";
 import { Router, type Request, type Response } from "express";
 import crypto from "crypto";
@@ -2239,12 +2240,24 @@ router.post("/admin/members/:id/grant-product", requirePermission("members:edit"
     const { productId, expiresAt } = req.body;
     if (isNaN(id) || !productId) { res.status(400).json({ error: "Invalid request" }); return; }
 
-    const [userProduct] = await db.insert(userProductsTable).values({
+    // Routed through the shared grant seam (Task #1658) — NOT a raw insert —
+    // so this fires the same post-grant hooks as every other purchase path:
+    // maybeAssignPartnerForGrant (round-robin accountability partner) and
+    // maybeForceOnboardingReentry (TB1 variant re-resolve + onboarding
+    // re-entry). externalSource/externalOrderId are intentionally omitted
+    // (persist NULL) — the admin members list and external-orders search
+    // use `external_source IS NOT NULL` as their externally-sourced
+    // sentinel, and an admin-initiated grant must never match it.
+    const { alreadyGranted, userProduct } = await insertUserProductGrant({
       userId: id,
       productId: parseInt(productId, 10),
-      status: "active",
       expiresAt: expiresAt ? new Date(expiresAt) : null,
-    }).returning();
+    });
+
+    if (alreadyGranted) {
+      res.status(409).json({ error: "Member already has an active grant for this product", userProduct });
+      return;
+    }
 
     await logAdminAction(req, "grant_product", "user", String(id), `Granted product ${productId} to member ${id}`);
     res.json(userProduct);

@@ -17,6 +17,9 @@ import {
   userProductsTable,
   webhookLogsTable,
   apiKeysTable,
+  onboardingEffectsTable,
+  partnerAssignmentsTable,
+  sequenceEnrollmentsTable,
 } from "@workspace/db";
 import { eq, inArray, and } from "drizzle-orm";
 
@@ -218,6 +221,12 @@ afterAll(async () => {
   }
 
   if (uniqueIds.length > 0) {
+    // insertUserProductGrant fires the onboarding-upgrade + partner-assignment
+    // hooks (Task #1642/#1658) for every grant this file exercises, so their
+    // FK-referencing rows must be cleared before the user rows themselves.
+    await db.delete(onboardingEffectsTable).where(inArray(onboardingEffectsTable.userId, uniqueIds));
+    await db.delete(partnerAssignmentsTable).where(inArray(partnerAssignmentsTable.memberId, uniqueIds));
+    await db.delete(sequenceEnrollmentsTable).where(inArray(sequenceEnrollmentsTable.userId, uniqueIds));
     await db.delete(usersTable).where(inArray(usersTable.id, uniqueIds));
   }
 

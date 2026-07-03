@@ -14,6 +14,8 @@ import {
   productsTable,
   userProductsTable,
   auditLogTable,
+  partnerAssignmentsTable,
+  onboardingEffectsTable,
 } from "@workspace/db";
 import { eq, inArray, and } from "drizzle-orm";
 
@@ -141,6 +143,15 @@ afterAll(async () => {
     await db
       .delete(userProductsTable)
       .where(inArray(userProductsTable.userId, seededUserIds));
+    // insertUserProductGrant fires the onboarding-upgrade + partner-assignment
+    // hooks (Task #1642/#1658) for every grant this file exercises, so their
+    // FK-referencing rows must be cleared before the user rows themselves.
+    await db
+      .delete(partnerAssignmentsTable)
+      .where(inArray(partnerAssignmentsTable.memberId, seededUserIds));
+    await db
+      .delete(onboardingEffectsTable)
+      .where(inArray(onboardingEffectsTable.userId, seededUserIds));
     await db.delete(usersTable).where(inArray(usersTable.id, seededUserIds));
   }
   // Only delete products we actually inserted (don't touch pre-existing ones).

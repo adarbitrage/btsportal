@@ -158,64 +158,109 @@ export class UnknownProductSlugsError extends Error {
  * Drizzle wraps PostgreSQL errors in a DrizzleQueryError; the pg code lives on
  * `err.cause.code`, not `err.code` — hence the double-check below.
  */
-export async function insertUserProductGrant(params: {
+export type UserProductRow = typeof userProductsTable.$inferSelect;
+
+export interface InsertUserProductGrantParams {
   userId: number;
   productId: number;
-  externalSource: string;
-  externalOrderId: string;
+  /**
+   * External-purchase provenance. Omit (or pass null) for internal/admin
+   * grants — the row persists `external_source`/`external_order_id` as
+   * NULL, which is the sentinel the admin members list and external-orders
+   * search rely on to distinguish externally-sourced grants (Task #1658).
+   */
+  externalSource?: string | null;
+  externalOrderId?: string | null;
   durationDays?: number | null;
+  /**
+   * Explicit expiry override (e.g. an admin picking a date in the UI).
+   * Takes precedence over `durationDays` when both are supplied.
+   */
+  expiresAt?: Date | null;
   /** ThriveCart-specific fields — only set when source is 'thrivecart' */
   thrivecartOrderId?: string | null;
   thrivecartSubId?: string | null;
-}): Promise<{ alreadyGranted: boolean }> {
+}
+
+export interface InsertUserProductGrantResult {
+  alreadyGranted: boolean;
+  /**
+   * The newly-inserted row, or (when `alreadyGranted` is true) the
+   * pre-existing active row for this user+product — lets callers like the
+   * admin grant route preserve their prior raw-insert response shape /
+   * surface a 409 with the existing grant.
+   */
+  userProduct: UserProductRow | undefined;
+}
+
+export async function insertUserProductGrant(
+  params: InsertUserProductGrantParams,
+): Promise<InsertUserProductGrantResult> {
   const {
     userId,
     productId,
-    externalSource,
-    externalOrderId,
+    externalSource = null,
+    externalOrderId = null,
     durationDays,
+    expiresAt: expiresAtOverride,
     thrivecartOrderId,
     thrivecartSubId,
   } = params;
 
-  let expiresAt: Date | null = null;
-  if (durationDays) {
+  let expiresAt: Date | null = expiresAtOverride ?? null;
+  if (expiresAt === null && durationDays) {
     expiresAt = new Date();
     expiresAt.setDate(expiresAt.getDate() + durationDays);
   }
 
   try {
-    await db.insert(userProductsTable).values({
-      userId,
-      productId,
-      status: "active",
-      externalSource,
-      externalOrderId,
-      expiresAt,
-      thrivecartOrderId: thrivecartOrderId ?? null,
-      thrivecartSubId: thrivecartSubId ?? null,
-    });
+    const [userProduct] = await db
+      .insert(userProductsTable)
+      .values({
+        userId,
+        productId,
+        status: "active",
+        externalSource,
+        externalOrderId,
+        expiresAt,
+        thrivecartOrderId: thrivecartOrderId ?? null,
+        thrivecartSubId: thrivecartSubId ?? null,
+      })
+      .returning();
     // Fire the round-robin accountability-partner assignment for any
     // 3-Month+ grant. This single call site covers every purchase path that
     // shares this function (ThriveCart webhook, NMI native checkout, manual
-    // admin grant) — including 6-month+ direct buyers who never hold a
-    // 3-month grant. Non-fatal: maybeAssignPartnerForGrant swallows its own
-    // errors so a partner-assignment hiccup never blocks the purchase.
+    // admin grant, GHL manual-upgrade tag) — including 6-month+ direct
+    // buyers who never hold a 3-month grant. Non-fatal:
+    // maybeAssignPartnerForGrant swallows its own errors so a
+    // partner-assignment hiccup never blocks the purchase.
     await maybeAssignPartnerForGrant(userId, productId);
     // Tier-aware upgrade hook (Task #1642): if this grant elevated the
     // member's resolved product tier bucket (none->launchpad, none->full,
     // launchpad->full), force re-entry into the new variant's guided
     // onboarding flow at the first unsatisfied step. Same seam as the
-    // partner-assignment hook above so NMI checkout (checkout-core.ts) and
-    // admin/ops grants (routes/ops.ts) — both of which call this function —
-    // get identical upgrade behavior. Never throws; a same-or-lower resolved
+    // partner-assignment hook above so NMI checkout (checkout-core.ts),
+    // admin/ops grants (routes/ops.ts, admin-panel.ts), and the GHL
+    // manual-upgrade webhook — all of which call this function — get
+    // identical upgrade behavior. Never throws; a same-or-lower resolved
     // bucket (extension, renewal, adding a lower-rank product) is a no-op.
     await maybeForceOnboardingReentry(userId);
-    return { alreadyGranted: false };
+    return { alreadyGranted: false, userProduct };
   } catch (err: unknown) {
     const e = err as { code?: string; cause?: { code?: string } };
     if (e.code === "23505" || e.cause?.code === "23505") {
-      return { alreadyGranted: true };
+      const [existing] = await db
+        .select()
+        .from(userProductsTable)
+        .where(
+          and(
+            eq(userProductsTable.userId, userId),
+            eq(userProductsTable.productId, productId),
+            eq(userProductsTable.status, "active"),
+          ),
+        )
+        .limit(1);
+      return { alreadyGranted: true, userProduct: existing };
     }
     throw err;
   }

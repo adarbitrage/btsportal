@@ -100,8 +100,10 @@ export async function applyCreationTimeOnboardingDefaults(userId: number): Promi
 
 // Relative ordering of onboarding variants for upgrade-elevation comparisons.
 // Mirrors PRODUCT_RANK's ordering at the onboarding-tier-bucket level (not
-// the full per-product rank scale) — "none" < "launchpad" < "full".
-const VARIANT_RANK: Record<OnboardingVariant, number> = {
+// the full per-product rank scale) — "none" < "launchpad" < "full". Exported
+// so the repair endpoint (onboarding-grant-repair.ts, Task #1658) can reuse
+// the exact same elevation comparison this hook uses.
+export const VARIANT_RANK: Record<OnboardingVariant, number> = {
   none: 0,
   launchpad: 1,
   full: 2,

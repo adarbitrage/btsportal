@@ -4,6 +4,7 @@ import { db, usersTable, userProductsTable, productsTable, callBookingsTable } f
 import { eq, and } from "drizzle-orm";
 import { queueGHLSync } from "../lib/ghl-queue";
 import { markPartnerCallDone } from "../lib/partner-call-completion";
+import { insertUserProductGrant } from "../lib/external-grant-product";
 
 const router = Router();
 
@@ -171,7 +172,10 @@ async function handleAppointmentEvent(
   return { action: newStatus, result: `Booking ${booking.id} marked ${newStatus}` };
 }
 
-async function handleTagTrigger(
+// Exported (only) for the grant-seam regression test (Task #1658) — lets the
+// test assert on the manual_upgrade hook-firing behavior directly instead of
+// racing the webhook route's fire-and-forget (post-200-response) processing.
+export async function handleTagTrigger(
   tag: string,
   contactEmail: string,
   contactId: string
@@ -252,17 +256,15 @@ async function handleTagTrigger(
       return { action: "skipped", result: `User already has active ${productSlug}` };
     }
 
-    let expiresAt: Date | null = null;
-    if (product.durationDays) {
-      expiresAt = new Date();
-      expiresAt.setDate(expiresAt.getDate() + product.durationDays);
-    }
-
-    await db.insert(userProductsTable).values({
+    // Routed through the shared grant seam (Task #1658) — fires the same
+    // post-grant hooks (partner assignment + onboarding upgrade re-entry)
+    // as every other purchase path. durationDays is passed straight through
+    // rather than pre-computing expiresAt; the pre-check above already
+    // guards against double-granting an existing active grant.
+    await insertUserProductGrant({
       userId: user.id,
       productId: product.id,
-      status: "active",
-      expiresAt,
+      durationDays: product.durationDays ?? null,
     });
 
     await queueGHLSync({

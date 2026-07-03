@@ -36,6 +36,10 @@ import {
 import { requireOpsServiceAuth } from "../middleware/ops-service-auth.js";
 import { processRefund } from "../lib/ops-refund-service.js";
 import { insertUserProductGrant } from "../lib/external-grant-product.js";
+import {
+  findOnboardingRepairCandidates,
+  repairOnboardingCandidates,
+} from "../lib/onboarding-grant-repair.js";
 import { logAuditEvent } from "../lib/audit-log.js";
 import { sendError } from "../lib/api-errors.js";
 import {
@@ -342,6 +346,83 @@ router.post<{ orderNumber: string }>("/ops/orders/:orderNumber/access", opsWrite
   }
 
   res.json({ order_number: orderNumber, ...accessResult });
+});
+
+// ─── POST /api/ops/onboarding/repair-admin-grants ─────────────────────────────
+//
+// Repair mechanism for the two production probe members (Task #1658) — and
+// any other historical victim — whose admin/manual-upgrade product grant
+// bypassed the shared `insertUserProductGrant` seam before this task wired
+// both call sites through it. NOT a boot hook, NOT auto-run: an operator
+// must explicitly POST here after publish.
+//
+//   - Default (no `confirm`, or `confirm: false`) — dry-run. Reports exactly
+//     what WOULD change (target member emails, persisted vs resolved
+//     variant, whether a partner assignment would fire) without writing
+//     anything. Also reports (read-only) the full set of other members with
+//     the same symptom, split grandfathered vs not, so the owner can decide
+//     whether the repair should extend beyond the two known probes.
+//   - `confirm: true` — idempotently re-runs the exact post-grant hooks
+//     (`maybeForceOnboardingReentry` + partner assignment where warranted)
+//     for every non-grandfathered candidate. `grandfathered=true` rows are
+//     ALWAYS skipped for onboarding-state changes, per this task's guardrail
+//     (their missing partner assignments belong to the separate
+//     partner-backfill effort).
+router.post("/ops/onboarding/repair-admin-grants", opsWriteKeyLimiter, opsWriteIpLimiter, async (req, res): Promise<void> => {
+  const confirm = req.body?.confirm === true;
+
+  const candidates = await findOnboardingRepairCandidates();
+  const actionable = candidates.filter((c) => !c.grandfathered);
+  const grandfatheredSkipped = candidates.filter((c) => c.grandfathered);
+
+  const summarize = (c: (typeof candidates)[number]) => ({
+    userId: c.userId,
+    email: c.email,
+    persistedVariant: c.persistedVariant,
+    resolvedVariant: c.resolvedVariant,
+    onboardingCompleteBefore: c.onboardingCompleteBefore,
+    wouldAssignPartner: c.wouldAssignPartner,
+  });
+
+  if (!confirm) {
+    res.json({
+      dryRun: true,
+      repairCandidateCount: actionable.length,
+      repairCandidates: actionable.map(summarize),
+      grandfatheredSkippedCount: grandfatheredSkipped.length,
+      grandfatheredSkipped: grandfatheredSkipped.map(summarize),
+    });
+    return;
+  }
+
+  const outcomes = await repairOnboardingCandidates(actionable);
+
+  try {
+    await logAuditEvent({
+      actionType: "billing.ops.onboarding.repair_admin_grants",
+      entityType: "system",
+      entityId: "onboarding-grant-repair",
+      description: `Repaired onboarding re-entry for ${outcomes.length} member(s) whose grant bypassed the seam`,
+      metadata: {
+        repairedCount: outcomes.length,
+        repaired: outcomes,
+        grandfatheredSkippedCount: grandfatheredSkipped.length,
+      },
+    });
+  } catch (auditErr) {
+    console.error(
+      "[OpsOnboardingRepair] ALERT: Audit write failed for COMPLETED repair run:",
+      auditErr,
+    );
+  }
+
+  res.json({
+    dryRun: false,
+    repairedCount: outcomes.length,
+    repaired: outcomes,
+    grandfatheredSkippedCount: grandfatheredSkipped.length,
+    grandfatheredSkipped: grandfatheredSkipped.map(summarize),
+  });
 });
 
 export default router;
