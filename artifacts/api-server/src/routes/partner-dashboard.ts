@@ -20,8 +20,10 @@ import {
   partnerNotesTable,
   callBookingsTable,
   usersTable,
+  userProductsTable,
+  productsTable,
 } from "@workspace/db";
-import { sql, eq, and, asc, desc } from "drizzle-orm";
+import { sql, eq, and, or, isNull, gte, inArray, asc, desc } from "drizzle-orm";
 import { requirePartnerOrPartnersView } from "../middleware/rbac";
 import { sendError, ErrorCodes } from "../lib/api-errors";
 import { resolveCurrentSectionBulk, resolveCurrentSection } from "../lib/blitz/continue-resolver";
@@ -47,6 +49,73 @@ function parsePositiveInt(value: unknown): number | null {
 
 type PartnerContext = { partnerId: number };
 type PartnerContextError = { status: number; code: string; message: string };
+
+// ---------------------------------------------------------------------------
+// VIP badge (Task #1660)
+//
+// VIP is a pure status product with its own 730-day expiry clock, always
+// sold composed with a 1year mentorship grant (365-day clock) — the two run
+// fully independently. A VIP mentee's badge shows the accompanying
+// mentorship term: "VIP · expires {date}" from the active 1year grant, or
+// "VIP · Lifetime" if the member has since been upgraded to lifetime. Never
+// derive this from vip's own expiry — that clock is irrelevant to the badge.
+// ---------------------------------------------------------------------------
+
+interface VipInfo {
+  vip: boolean;
+  vipIsLifetime: boolean;
+  vipMentorshipExpiresAt: string | null;
+}
+
+async function loadVipInfoByMember(memberIds: number[]): Promise<Map<number, VipInfo>> {
+  const now = new Date();
+  const rows = await db
+    .select({
+      userId: userProductsTable.userId,
+      slug: productsTable.slug,
+      expiresAt: userProductsTable.expiresAt,
+    })
+    .from(userProductsTable)
+    .innerJoin(productsTable, eq(userProductsTable.productId, productsTable.id))
+    .where(
+      and(
+        inArray(userProductsTable.userId, memberIds),
+        eq(userProductsTable.status, "active"),
+        inArray(productsTable.slug, ["vip", "1year", "lifetime"]),
+        or(isNull(userProductsTable.expiresAt), gte(userProductsTable.expiresAt, now)),
+      ),
+    );
+
+  const byMember = new Map<number, VipInfo>();
+  for (const row of rows) {
+    const info = byMember.get(row.userId) ?? { vip: false, vipIsLifetime: false, vipMentorshipExpiresAt: null };
+    if (row.slug === "vip") info.vip = true;
+    if (row.slug === "lifetime") info.vipIsLifetime = true;
+    if (row.slug === "1year" && row.expiresAt) {
+      // A member could in theory hold more than one active "1year" grant
+      // row (e.g. a manual re-grant before the prior one expired) — always
+      // surface the LATEST (max) expiry, never whichever row happens to be
+      // read last, since row order from the query is not guaranteed.
+      const candidate = new Date(row.expiresAt).toISOString();
+      if (!info.vipMentorshipExpiresAt || candidate > info.vipMentorshipExpiresAt) {
+        info.vipMentorshipExpiresAt = candidate;
+      }
+    }
+    byMember.set(row.userId, info);
+  }
+  return byMember;
+}
+
+function vipFieldsFor(info: VipInfo | undefined): { vip: boolean; vip_is_lifetime: boolean; vip_mentorship_expires_at: string | null } {
+  if (!info || !info.vip) {
+    return { vip: false, vip_is_lifetime: false, vip_mentorship_expires_at: null };
+  }
+  return {
+    vip: true,
+    vip_is_lifetime: info.vipIsLifetime,
+    vip_mentorship_expires_at: info.vipIsLifetime ? null : info.vipMentorshipExpiresAt,
+  };
+}
 
 /**
  * Resolve which partner's dashboard the caller may see.
@@ -130,7 +199,7 @@ router.get(
       const memberIds = assignments.map((a) => a.memberId);
       const idArrayLiteral = `{${memberIds.join(",")}}`;
 
-      const [sectionMap, nextCallResult, lastCallResult, concernResult, noShowResult] = await Promise.all([
+      const [sectionMap, nextCallResult, lastCallResult, concernResult, noShowResult, vipByMember] = await Promise.all([
         resolveCurrentSectionBulk(memberIds),
         db.execute(sql`
           SELECT DISTINCT ON (member_id) member_id, id, scheduled_at, meeting_url
@@ -161,6 +230,7 @@ router.get(
             AND member_id = ANY(${idArrayLiteral}::int[])
           ORDER BY member_id, scheduled_at DESC
         `),
+        loadVipInfoByMember(memberIds),
       ]);
 
       const nextCallByMember = new Map(
@@ -197,6 +267,7 @@ router.get(
           days_since_last_completed_call: daysSince(lastCall?.scheduled_at ?? null),
           consecutive_no_shows: consecutiveNoShowsByMember.get(a.memberId) ?? 0,
           has_concern: concernMemberIds.has(a.memberId),
+          ...vipFieldsFor(vipByMember.get(a.memberId)),
         };
       });
 

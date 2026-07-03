@@ -75,6 +75,7 @@ const COLUMN_SHORT_LABELS: Record<string, string> = {
   "6month": "6-Month",
   "1year": "1-Year",
   lifetime: "Lifetime",
+  vip: "VIP",
 };
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -357,6 +358,14 @@ export default function ContentAccessMap() {
               View-only — editing requires the members:edit permission.
             </div>
           )}
+
+          <div className="flex items-center gap-2 rounded-md border border-border bg-muted/40 px-3 py-2 text-sm text-muted-foreground">
+            <Info className="h-4 w-4 shrink-0" />
+            VIP is a status-only product with no content entitlements of its own — every VIP box below starts
+            unchecked, and checking a page here is the ONLY way it becomes VIP-specific. It sits at the TOP of the
+            mentorship ladder, so checking a lower tier (e.g. Lifetime) auto-checks VIP too via ladder propagation —
+            but checking VIP alone does not check any tier below it.
+          </div>
 
           {loading && (
             <div className="flex items-center gap-2 py-12 text-muted-foreground">

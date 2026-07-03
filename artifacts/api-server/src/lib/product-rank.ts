@@ -18,4 +18,11 @@ export const PRODUCT_RANK: Record<string, number> = {
   "6month": 3,
   "1year": 4,
   lifetime: 5,
+  // VIP (Task #1660): pure status product, ranked ABOVE lifetime purely for
+  // level-badge/label purposes. It carries no coaching entitlements of its
+  // own — see PARTNER_INELIGIBLE_SLUGS in partner-assignment.ts, which
+  // deliberately excludes "vip" from every rank-based partner-eligibility
+  // check so holding VIP alone never substitutes for the 1year mentorship
+  // grant it's always sold alongside.
+  vip: 6,
 };

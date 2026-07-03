@@ -43,6 +43,7 @@ const createdProductIds: number[] = [];
 let productFrontendId: number;
 let product6monthId: number;
 let productLifetimeId: number;
+let productVipId: number;
 
 // Members
 let memberFreeId: number;       // no products
@@ -50,6 +51,7 @@ let memberFrontendId: number;   // rank 0 product only
 let member6monthId: number;     // rank 3 product
 let memberLifetimeId: number;   // rank 5 product
 let memberExpiredId: number;    // only expired 6-month grant → Free
+let memberVipId: number;        // rank 6 product (vip:status only)
 
 function signCookie(userId: number, email: string): string {
   const token = jwt.sign({ userId, email }, JWT_SECRET, { expiresIn: "1h" });
@@ -116,6 +118,7 @@ beforeAll(async () => {
   productFrontendId = await resolveProduct("frontend"); // rank 0
   product6monthId   = await resolveProduct("6month");   // rank 3
   productLifetimeId = await resolveProduct("lifetime"); // rank 5
+  productVipId      = await resolveProduct("vip");      // rank 6
 
   // Create test members.
   memberFreeId      = await insertUser("free-member");
@@ -123,11 +126,16 @@ beforeAll(async () => {
   member6monthId    = await insertUser("6month-member");
   memberLifetimeId  = await insertUser("lifetime-member");
   memberExpiredId   = await insertUser("expired-member");
+  memberVipId       = await insertUser("vip-member");
 
   // Active grants.
   await grantProduct(memberFrontendId, productFrontendId);
   await grantProduct(member6monthId,   product6monthId);
   await grantProduct(memberLifetimeId, productLifetimeId);
+  // VIP is a pure status product (Task #1660) always composed with a 1year
+  // mentorship grant in practice, but its own rank (6) must be highest
+  // regardless — test it standalone here to isolate the rank/label logic.
+  await grantProduct(memberVipId, productVipId);
 
   // Expired 6-month grant — must NOT count toward levelRank.
   const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000);
@@ -195,12 +203,16 @@ describe("getProductLabelByRank — unit", () => {
     expect(getProductLabelByRank(5)).toBe("Lifetime Mentorship");
   });
 
+  it("returns 'VIP' for rank 6", () => {
+    expect(getProductLabelByRank(6)).toBe("VIP");
+  });
+
   it("falls back to 'Free' for an unknown rank", () => {
     expect(getProductLabelByRank(999)).toBe("Free");
   });
 
-  it("RANK_LABEL_MAP covers all ranks -1..5 with no undefined entries", () => {
-    for (let r = -1; r <= 5; r++) {
+  it("RANK_LABEL_MAP covers all ranks -1..6 with no undefined entries", () => {
+    for (let r = -1; r <= 6; r++) {
       expect(RANK_LABEL_MAP[r]).toBeDefined();
     }
   });
@@ -263,6 +275,14 @@ describe("GET /api/admin/members — levelRank and levelLabel", () => {
     expect(m.levelRank).toBe(-1);
     expect(m.levelLabel).toBe("Free");
   });
+
+  it("member with a vip product gets levelRank=6 and levelLabel='VIP' — above Lifetime", async () => {
+    const members = await fetchAll();
+    const m = findMember(members, memberVipId);
+    expect(m).toBeDefined();
+    expect(m.levelRank).toBe(6);
+    expect(m.levelLabel).toBe("VIP");
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -272,14 +292,14 @@ describe("GET /api/admin/members — levelRank and levelLabel", () => {
 describe("GET /api/admin/members — sortBy=level", () => {
   // Restrict comparison to our seeded members to avoid noise from other DB rows.
   const seededSet = () =>
-    new Set([memberFreeId, memberFrontendId, member6monthId, memberLifetimeId, memberExpiredId]);
+    new Set([memberFreeId, memberFrontendId, member6monthId, memberLifetimeId, memberExpiredId, memberVipId]);
 
   function pickSeeded(members: any[]): any[] {
     const ids = seededSet();
     return members.filter((m: any) => ids.has(m.id));
   }
 
-  it("sortBy=level&sortDir=desc orders Lifetime > 6-Month > Front-End > Free", async () => {
+  it("sortBy=level&sortDir=desc orders VIP > Lifetime > 6-Month > Front-End > Free", async () => {
     const res = await request(app)
       .get("/api/admin/members")
       .query({ limit: 100, role: "member", sortBy: "level", sortDir: "desc" })
@@ -295,10 +315,12 @@ describe("GET /api/admin/members — sortBy=level", () => {
     }
 
     // Verify the strict ordering among our known members.
+    const vipIdx = seeded.findIndex((m: any) => m.id === memberVipId);
     const lifetimeIdx = seeded.findIndex((m: any) => m.id === memberLifetimeId);
     const sixMonthIdx = seeded.findIndex((m: any) => m.id === member6monthId);
     const frontendIdx = seeded.findIndex((m: any) => m.id === memberFrontendId);
     // Free members (freeId, expiredId) both rank -1 so either can come last.
+    expect(vipIdx).toBeLessThan(lifetimeIdx);
     expect(lifetimeIdx).toBeLessThan(sixMonthIdx);
     expect(sixMonthIdx).toBeLessThan(frontendIdx);
   });

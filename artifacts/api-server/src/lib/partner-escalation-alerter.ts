@@ -66,7 +66,7 @@ import {
   computeConsecutiveNoShows,
 } from "./partner-escalation-metrics";
 import { PRODUCT_RANK } from "./product-rank";
-import { PARTNER_ELIGIBLE_MIN_RANK } from "./partner-assignment";
+import { PARTNER_ELIGIBLE_MIN_RANK, isPartnerEligibleRank } from "./partner-assignment";
 import { getFreeSlots, type FreeSlot } from "./ghl-coaching-calendar";
 
 export type { DeliveryResult };
@@ -583,7 +583,7 @@ export async function evaluateNoShowEscalations(
 // "3-Month+" definition used to auto-assign a partner in the first place.
 function eligibleProductSlugs(): string[] {
   return Object.entries(PRODUCT_RANK)
-    .filter(([, rank]) => rank >= PARTNER_ELIGIBLE_MIN_RANK)
+    .filter(([slug, rank]) => isPartnerEligibleRank(rank, slug))
     .map(([slug]) => slug);
 }
 

@@ -49,6 +49,13 @@ export const ENTITLEMENT_KEYS = [
   "access:lifetime",
   // ── voice ─────────────────────────────────────────────────────────────────
   "voice:access",
+  // ── vip (Task #1660) ─────────────────────────────────────────────────────
+  // Pure status marker — VIP carries no content/coaching entitlements of its
+  // own. It is always sold composed with a `1year` mentorship grant (which
+  // supplies the actual coaching entitlements); `vip:status` alone confers
+  // no member-facing access beyond whatever the content-access matrix
+  // explicitly gates behind it (nothing, by default).
+  "vip:status",
 ] as const;
 
 export type EntitlementKey = (typeof ENTITLEMENT_KEYS)[number];

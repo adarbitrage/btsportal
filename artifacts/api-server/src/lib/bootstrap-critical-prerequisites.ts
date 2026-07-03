@@ -3,6 +3,7 @@ import { eq, sql } from "drizzle-orm";
 import { runTapfiliateColumnMigration } from "./tapfiliate-migration";
 import { seedYseProducts } from "./seed-yse-products";
 import { seedMachineBrandProducts } from "./seed-machine-brand-products";
+import { seedVipProduct } from "./seed-vip-product";
 import { reconcileEntitlementKeys } from "./reconcile-entitlement-keys";
 import { seedMachineProductKeyMappings } from "./machine-product-key-mappings";
 import {
@@ -160,6 +161,17 @@ export async function bootstrapCriticalPrerequisites(): Promise<PrerequisiteResu
   } catch (err) {
     console.error("[Bootstrap] seedMachineBrandProducts() threw:", err);
     missing.push("seedMachineBrandProducts");
+  }
+
+  // 1a-2. VIP status product (Task #1660) — a pure status product, never sold
+  //       standalone; admins compose it with a `1year` grant via the member
+  //       detail Products tab. Historically dev-only (seed.ts), so production
+  //       needs this boot seeder. Idempotent: insert-if-missing on slug.
+  try {
+    await seedVipProduct();
+  } catch (err) {
+    console.error("[Bootstrap] seedVipProduct() threw:", err);
+    missing.push("seedVipProduct");
   }
 
   // 1b. Default machine_product_key_mappings rows so the receiver can

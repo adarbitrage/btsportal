@@ -11,18 +11,34 @@ import { evaluateAssignmentDelay } from "./partner-escalation-alerter";
 // 6-month (or above) directly and never hold a 3-month grant at all.
 export const PARTNER_ELIGIBLE_MIN_RANK = 2;
 
-export function isPartnerEligibleRank(rank: number | undefined): boolean {
+// Product slugs that sit at/above PARTNER_ELIGIBLE_MIN_RANK in PRODUCT_RANK
+// purely for level/badge ordering, but carry NO coaching entitlements
+// (pure status products). VIP (Task #1660) is ranked 6 — above lifetime —
+// so its own badge outranks Lifetime, but holding VIP alone must never
+// itself qualify a member for accountability-partner assignment: that's
+// earned by the 1-year mentorship grant it's sold alongside, which has its
+// own independent expiry clock. Every call site that infers
+// partner-eligibility from a bare PRODUCT_RANK number must exclude these
+// slugs via isPartnerEligibleRank(rank, slug) below.
+// Exported so other rank-based eligibility checks that need the SAME
+// pure-status-product exclusion (e.g. resolveOnboardingVariant in
+// onboarding-variant.ts) can reuse the exact slug list rather than
+// duplicating it and risking drift.
+export const PARTNER_INELIGIBLE_SLUGS = new Set<string>(["vip"]);
+
+export function isPartnerEligibleRank(rank: number | undefined, slug?: string): boolean {
+  if (slug !== undefined && PARTNER_INELIGIBLE_SLUGS.has(slug)) return false;
   return typeof rank === "number" && rank >= PARTNER_ELIGIBLE_MIN_RANK;
 }
 
-async function getProductRank(productId: number): Promise<number | undefined> {
+async function getProductRank(productId: number): Promise<{ rank: number | undefined; slug: string | undefined }> {
   const [product] = await db
     .select({ slug: productsTable.slug })
     .from(productsTable)
     .where(eq(productsTable.id, productId))
     .limit(1);
-  if (!product) return undefined;
-  return PRODUCT_RANK[product.slug];
+  if (!product) return { rank: undefined, slug: undefined };
+  return { rank: PRODUCT_RANK[product.slug], slug: product.slug };
 }
 
 export async function getActiveAssignment(
@@ -392,8 +408,8 @@ export async function maybeAssignPartnerForGrant(
   productId: number,
 ): Promise<void> {
   try {
-    const rank = await getProductRank(productId);
-    if (!isPartnerEligibleRank(rank)) return;
+    const { rank, slug } = await getProductRank(productId);
+    if (!isPartnerEligibleRank(rank, slug)) return;
     await assignRoundRobin(userId);
   } catch (err) {
     console.error(

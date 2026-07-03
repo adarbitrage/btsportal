@@ -132,6 +132,7 @@ export const RANK_LABEL_MAP: Record<number, string> = {
   [3]: "6-Month Mentorship",
   [4]: "1-Year Mentorship",
   [5]: "Lifetime Mentorship",
+  [6]: "VIP",
 };
 
 /**
@@ -146,6 +147,12 @@ export function getProductLabelByRank(rank: number): string {
 }
 
 export function getHighestProductLabel(entitlements: Set<string>): { name: string; slug: string } {
+  // VIP (Task #1660) is checked first: it's a pure status product ranked
+  // ABOVE lifetime, but carries no OTHER entitlement key of its own, so it
+  // must be checked before every other branch or a VIP-only holder (e.g.
+  // after their composed 1year grant expires at day 365, with vip:status
+  // persisting to day 730) would fall through and misreport as "Free".
+  if (entitlements.has("vip:status")) return { name: RANK_LABEL_MAP[6], slug: "vip" };
   if (entitlements.has("access:lifetime")) return { name: RANK_LABEL_MAP[5], slug: "lifetime" };
   if (entitlements.has("commissions:premium")) return { name: RANK_LABEL_MAP[4], slug: "1year" };
   if (entitlements.has("coaching:mastermind")) return { name: RANK_LABEL_MAP[3], slug: "6month" };

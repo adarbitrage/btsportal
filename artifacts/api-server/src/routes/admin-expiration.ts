@@ -123,13 +123,13 @@ router.post("/admin/run-expiration-check", requirePermission("settings:manage"),
         .select({ id: productsTable.id, slug: productsTable.slug })
         .from(productsTable)
         .where(inArray(productsTable.id, expiredProductIds));
-      const rankById = new Map(
-        expiredProducts.map((p) => [p.id, PRODUCT_RANK[p.slug]]),
+      const infoById = new Map(
+        expiredProducts.map((p) => [p.id, { rank: PRODUCT_RANK[p.slug], slug: p.slug }]),
       );
 
       for (const item of expiredActive) {
-        const rank = rankById.get(item.productId);
-        if (!isPartnerEligibleRank(rank)) continue;
+        const info = infoById.get(item.productId);
+        if (!isPartnerEligibleRank(info?.rank, info?.slug)) continue;
 
         const [stillQualifying] = await db
           .select({ id: userProductsTable.id })
@@ -139,7 +139,7 @@ router.post("/admin/run-expiration-check", requirePermission("settings:manage"),
             and(
               eq(userProductsTable.userId, item.userId),
               eq(userProductsTable.status, "active"),
-              inArray(productsTable.slug, Object.keys(PRODUCT_RANK).filter((slug) => isPartnerEligibleRank(PRODUCT_RANK[slug]))),
+              inArray(productsTable.slug, Object.keys(PRODUCT_RANK).filter((slug) => isPartnerEligibleRank(PRODUCT_RANK[slug], slug))),
             ),
           )
           .limit(1);

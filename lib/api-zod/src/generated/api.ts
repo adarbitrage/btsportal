@@ -3783,6 +3783,22 @@ export const GetPartnerRosterResponse = zod.object({
       days_since_last_completed_call: zod.number().nullable(),
       consecutive_no_shows: zod.number(),
       has_concern: zod.boolean(),
+      vip: zod
+        .boolean()
+        .describe(
+          "True if the mentee holds an active `vip` status grant (Task #1660).",
+        ),
+      vip_is_lifetime: zod
+        .boolean()
+        .describe(
+          "True if the mentee also holds an active `lifetime` grant — badge should read 'VIP · Lifetime'.",
+        ),
+      vip_mentorship_expires_at: zod
+        .date()
+        .nullable()
+        .describe(
+          "Expiry of the mentee's active `1year` mentorship grant, if any (independent of the vip term itself). Null when there is no active 1year grant (e.g. vip_is_lifetime, or the 1year term already expired).",
+        ),
     }),
   ),
 });

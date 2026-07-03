@@ -2,7 +2,7 @@
  * Content Access Registry
  *
  * Single source of truth for:
- *   - The 11 mappable product slugs (front-ends + mentorship ladder)
+ *   - The 12 mappable product slugs (front-ends + mentorship ladder)
  *   - The mentorship ladder order
  *   - The gateable page registry (13 pages)
  *
@@ -20,10 +20,16 @@ export interface MappableProduct {
 }
 
 /**
- * The 11 product slugs that admins can use to gate content pages.
+ * The 12 product slugs that admins can use to gate content pages.
  * These are the join key into `products.slug` / `user_products`.
  *
  * Order within each group matches the display order in the admin matrix.
+ *
+ * `vip` (Task #1660) sits at the top of the mentorship ladder (ladderOrder 6,
+ * above lifetime) purely so copy-upward propagation treats it as the
+ * highest rung. It carries no content/coaching entitlement keys of its own
+ * (`vip:status` only) — matrix checkboxes are the ONLY way any page would
+ * ever be gated VIP-specific, and every vip box starts unchecked.
  */
 export const MAPPABLE_PRODUCTS: readonly MappableProduct[] = [
   { slug: "yse_front_end",    group: "frontend" },
@@ -37,9 +43,10 @@ export const MAPPABLE_PRODUCTS: readonly MappableProduct[] = [
   { slug: "6month",           group: "mentorship", ladderOrder: 3 },
   { slug: "1year",            group: "mentorship", ladderOrder: 4 },
   { slug: "lifetime",         group: "mentorship", ladderOrder: 5 },
+  { slug: "vip",              group: "mentorship", ladderOrder: 6 },
 ] as const;
 
-/** All 11 mappable product slugs as a plain array (for validation). */
+/** All 12 mappable product slugs as a plain array (for validation). */
 export const MAPPABLE_PRODUCT_SLUGS: readonly string[] = MAPPABLE_PRODUCTS.map(
   (p) => p.slug,
 );

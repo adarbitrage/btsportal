@@ -10,6 +10,7 @@ import {
   userProductsTable,
   partnersTable,
   partnerAssignmentsTable,
+  ghlSyncLogTable,
 } from "@workspace/db";
 import { eq, inArray } from "drizzle-orm";
 
@@ -78,6 +79,7 @@ beforeAll(async () => {
 
 afterAll(async () => {
   if (seededUserIds.length > 0) {
+    await db.delete(ghlSyncLogTable).where(inArray(ghlSyncLogTable.userId, seededUserIds));
     await db
       .delete(partnerAssignmentsTable)
       .where(inArray(partnerAssignmentsTable.memberId, seededUserIds));

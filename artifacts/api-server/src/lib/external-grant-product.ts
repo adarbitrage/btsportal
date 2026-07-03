@@ -234,6 +234,18 @@ export async function insertUserProductGrant(
     // buyers who never hold a 3-month grant. Non-fatal:
     // maybeAssignPartnerForGrant swallows its own errors so a
     // partner-assignment hiccup never blocks the purchase.
+    //
+    // VIP sale mechanics (Task #1660): "vip" is a pure status product (rank
+    // 6, above lifetime) with no coaching entitlements of its own — it is
+    // never sold standalone, always granted alongside "1year" via two
+    // separate calls to this function from the admin Products tab, each
+    // with its own independent expiry clock (vip: 730 days, 1year: 365
+    // days). A bare `vip` grant is a no-op here (isPartnerEligibleRank
+    // excludes it in maybeAssignPartnerForGrant/resolveOnboardingVariant) —
+    // only the accompanying "1year" grant actually assigns a partner /
+    // elevates onboarding. If "1year" later expires while "vip" is still
+    // active, the member keeps vip:status but loses partner/onboarding
+    // access, since that lookup never counts vip's rank.
     await maybeAssignPartnerForGrant(userId, productId);
     // Tier-aware upgrade hook (Task #1642): if this grant elevated the
     // member's resolved product tier bucket (none->launchpad, none->full,

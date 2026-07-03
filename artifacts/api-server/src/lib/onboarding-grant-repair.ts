@@ -74,11 +74,21 @@ export async function findOnboardingRepairCandidates(): Promise<OnboardingRepair
     grandfathered: boolean;
     onboardingVariant: string | null;
     onboardingComplete: boolean;
+    // Highest rank among ALL held slugs, used only for reporting/telemetry
+    // (`maxActiveProductRank`) — never for variant resolution.
     maxRank: number;
+    // Highest rank among slugs that ACTUALLY carry coaching/onboarding
+    // entitlements — excludes pure status products like `vip` (Task #1660),
+    // via the SAME `isPartnerEligibleRank`/`PARTNER_INELIGIBLE_SLUGS` rule
+    // `resolveOnboardingVariant` (onboarding-variant.ts) uses, so a repair
+    // candidate here always matches what the live re-entry hook would
+    // actually do. Holding VIP alone (rank 6) must never resolve to "full".
+    eligibleRank: number;
   }
   const byUser = new Map<number, Agg>();
   for (const row of rows) {
     const rank = PRODUCT_RANK[row.slug] ?? 0;
+    const eligibleRank = isPartnerEligibleRank(rank, row.slug) ? rank : 0;
     const existing = byUser.get(row.userId);
     if (!existing) {
       byUser.set(row.userId, {
@@ -87,19 +97,21 @@ export async function findOnboardingRepairCandidates(): Promise<OnboardingRepair
         onboardingVariant: row.onboardingVariant,
         onboardingComplete: row.onboardingComplete,
         maxRank: rank,
+        eligibleRank,
       });
     } else {
       existing.maxRank = Math.max(existing.maxRank, rank);
+      existing.eligibleRank = Math.max(existing.eligibleRank, eligibleRank);
     }
   }
 
   const candidates: OnboardingRepairCandidate[] = [];
   for (const [userId, info] of byUser) {
     const persisted = (info.onboardingVariant as OnboardingVariant) ?? "full";
-    const resolved = resolveVariantFromRank(info.maxRank);
+    const resolved = resolveVariantFromRank(info.eligibleRank);
     if (VARIANT_RANK[resolved] <= VARIANT_RANK[persisted]) continue;
 
-    const partnerEligible = isPartnerEligibleRank(info.maxRank);
+    const partnerEligible = isPartnerEligibleRank(info.eligibleRank);
     const existingAssignment = partnerEligible ? await getActiveAssignment(userId) : null;
 
     candidates.push({
@@ -143,7 +155,7 @@ export async function repairOnboardingCandidates(
     await maybeForceOnboardingReentry(candidate.userId);
 
     let partnerAssigned = false;
-    if (isPartnerEligibleRank(candidate.maxActiveProductRank)) {
+    if (candidate.wouldAssignPartner) {
       const result = await assignRoundRobin(candidate.userId);
       partnerAssigned = result.assigned;
     }

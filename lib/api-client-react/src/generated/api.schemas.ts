@@ -3006,6 +3006,12 @@ export interface PartnerRosterMentee {
   days_since_last_completed_call: number | null;
   consecutive_no_shows: number;
   has_concern: boolean;
+  /** True if the mentee holds an active `vip` status grant (Task #1660). */
+  vip: boolean;
+  /** True if the mentee also holds an active `lifetime` grant — badge should read 'VIP · Lifetime'. */
+  vip_is_lifetime: boolean;
+  /** Expiry of the mentee's active `1year` mentorship grant, if any (independent of the vip term itself). Null when there is no active 1year grant (e.g. vip_is_lifetime, or the 1year term already expired). */
+  vip_mentorship_expires_at: string | null;
 }
 
 export interface PartnerRosterResponse {

@@ -80,6 +80,7 @@ async function seed() {
     "chat:custom": { description: "AI chat with custom prompts", category: "chat" },
     "access:lifetime": { description: "No expiration on access", category: "access" },
     "voice:access": { description: "Voice assistant access", category: "voice" },
+    "vip:status": { description: "VIP status badge (Task #1660) — level/access ordering only, no coaching entitlements of its own", category: "status" },
   };
 
   const entitlementData = ENTITLEMENT_KEYS.map((key) => {
@@ -154,6 +155,23 @@ async function seed() {
       entitlementKeys: ["content:frontend", "content:advanced", "software:base", "software:expanded", "coaching:group", "coaching:mastermind", "community:access", "commissions:top", "support:vip", "chat:custom", "access:lifetime", "voice:access"],
       priceDisplay: "TBD", sortOrder: 8,
       checkoutUrl: "https://bts.thrivecart.com/bts-lifetime-mentorship/",
+    },
+    // VIP (Task #1660): a PURE status product, never sold standalone. An
+    // admin grants `vip` + `1year` together in one sitting via the member
+    // detail Products tab (the $20K `lifetime` upgrade is a later, separate
+    // upsell). The two grants run fully independent expiry clocks — vip's
+    // 730-day term is NOT extended or shortened by the 365-day 1year term,
+    // and vice versa; see PARTNER_INELIGIBLE_SLUGS in partner-assignment.ts
+    // for why `vip` alone must never satisfy partner-eligibility checks.
+    // `vip:status` is its only entitlement key — content-access matrix
+    // checkboxes are the sole way any page would ever be gated VIP-specific
+    // (none are, by default). No checkout/ThriveCart path exists for it.
+    {
+      slug: "vip", name: "VIP", type: "backend",
+      thrivecartProductId: null,
+      entitlementKeys: ["vip:status"],
+      durationDays: 730, priceDisplay: null, sortOrder: 14,
+      checkoutUrl: null,
     },
     // Machine front-end brand products. silent_partner and test_like_mad are
     // net-new; backroad/offmarket/reserve_income are above with placeholder

@@ -11,6 +11,9 @@ import {
   partnerNotesTable,
   callBookingsTable,
   sequenceEnrollmentsTable,
+  productsTable,
+  userProductsTable,
+  onboardingEffectsTable,
 } from "@workspace/db";
 import { eq, inArray } from "drizzle-orm";
 
@@ -18,6 +21,7 @@ import { buildTestAppWithRouters } from "./test-app";
 import partnerDashboardRouter from "../routes/partner-dashboard";
 import { markPartnerCallDone } from "../lib/partner-call-completion";
 import { ONBOARDING_STEP } from "../lib/onboarding-advancement";
+import { insertUserProductGrant } from "../lib/external-grant-product";
 
 const JWT_SECRET = process.env.JWT_SECRET || "dev-secret-change-me";
 const TEST_TAG = `partner-dash-${randomUUID().slice(0, 8)}`;
@@ -93,12 +97,14 @@ afterAll(async () => {
   if (seededUserIds.length > 0) {
     await db.delete(partnerNotesTable).where(inArray(partnerNotesTable.memberId, seededUserIds));
     await db.delete(partnerAssignmentsTable).where(inArray(partnerAssignmentsTable.memberId, seededUserIds));
+    await db.delete(userProductsTable).where(inArray(userProductsTable.userId, seededUserIds));
   }
   if (seededPartnerIds.length > 0) {
     await db.delete(partnersTable).where(inArray(partnersTable.id, seededPartnerIds));
   }
   if (seededUserIds.length > 0) {
     await db.delete(sequenceEnrollmentsTable).where(inArray(sequenceEnrollmentsTable.userId, seededUserIds));
+    await db.delete(onboardingEffectsTable).where(inArray(onboardingEffectsTable.userId, seededUserIds));
     await db.delete(usersTable).where(inArray(usersTable.id, seededUserIds));
   }
 });
@@ -195,6 +201,64 @@ describe("GET /api/partner/dashboard/roster", () => {
     expect(res.status).toBe(200);
     const row = res.body.mentees.find((m: { member_id: number }) => m.member_id === mentee.id);
     expect(row.consecutive_no_shows).toBe(0);
+  });
+
+  it("badges a VIP+1year mentee with the 1year expiry, independent of the vip term itself", async () => {
+    const partnerUser = await seedUser("partner", "roster-vip-partner");
+    const partnerId = await insertPartner("roster-vip", partnerUser.id);
+    const mentee = await seedUser("member", "roster-vip-mentee");
+    await db.insert(partnerAssignmentsTable).values({ memberId: mentee.id, partnerId, status: "active" });
+
+    const [vipProduct] = await db.select({ id: productsTable.id }).from(productsTable).where(eq(productsTable.slug, "vip")).limit(1);
+    const [oneYearProduct] = await db.select({ id: productsTable.id }).from(productsTable).where(eq(productsTable.slug, "1year")).limit(1);
+    expect(vipProduct).toBeDefined();
+    expect(oneYearProduct).toBeDefined();
+
+    await insertUserProductGrant({ userId: mentee.id, productId: vipProduct.id, durationDays: 730 });
+    await insertUserProductGrant({ userId: mentee.id, productId: oneYearProduct.id, durationDays: 365 });
+
+    const res = await request(app).get("/api/partner/dashboard/roster").set("Cookie", partnerUser.cookie);
+    expect(res.status).toBe(200);
+    const row = res.body.mentees.find((m: { member_id: number }) => m.member_id === mentee.id);
+    expect(row.vip).toBe(true);
+    expect(row.vip_is_lifetime).toBe(false);
+    expect(row.vip_mentorship_expires_at).toBeTruthy();
+  });
+
+  it("badges a VIP+lifetime mentee as Lifetime, not an expiry date", async () => {
+    const partnerUser = await seedUser("partner", "roster-vip-lifetime-partner");
+    const partnerId = await insertPartner("roster-vip-lifetime", partnerUser.id);
+    const mentee = await seedUser("member", "roster-vip-lifetime-mentee");
+    await db.insert(partnerAssignmentsTable).values({ memberId: mentee.id, partnerId, status: "active" });
+
+    const [vipProduct] = await db.select({ id: productsTable.id }).from(productsTable).where(eq(productsTable.slug, "vip")).limit(1);
+    const [lifetimeProduct] = await db.select({ id: productsTable.id }).from(productsTable).where(eq(productsTable.slug, "lifetime")).limit(1);
+    expect(vipProduct).toBeDefined();
+    expect(lifetimeProduct).toBeDefined();
+
+    await insertUserProductGrant({ userId: mentee.id, productId: vipProduct.id, durationDays: 730 });
+    await insertUserProductGrant({ userId: mentee.id, productId: lifetimeProduct.id, durationDays: null });
+
+    const res = await request(app).get("/api/partner/dashboard/roster").set("Cookie", partnerUser.cookie);
+    expect(res.status).toBe(200);
+    const row = res.body.mentees.find((m: { member_id: number }) => m.member_id === mentee.id);
+    expect(row.vip).toBe(true);
+    expect(row.vip_is_lifetime).toBe(true);
+    expect(row.vip_mentorship_expires_at).toBeNull();
+  });
+
+  it("does not badge VIP for a mentee with no vip grant", async () => {
+    const partnerUser = await seedUser("partner", "roster-no-vip-partner");
+    const partnerId = await insertPartner("roster-no-vip", partnerUser.id);
+    const mentee = await seedUser("member", "roster-no-vip-mentee");
+    await db.insert(partnerAssignmentsTable).values({ memberId: mentee.id, partnerId, status: "active" });
+
+    const res = await request(app).get("/api/partner/dashboard/roster").set("Cookie", partnerUser.cookie);
+    expect(res.status).toBe(200);
+    const row = res.body.mentees.find((m: { member_id: number }) => m.member_id === mentee.id);
+    expect(row.vip).toBe(false);
+    expect(row.vip_is_lifetime).toBe(false);
+    expect(row.vip_mentorship_expires_at).toBeNull();
   });
 });
 

@@ -10,20 +10,24 @@ import { PRODUCT_RANK } from "./product-rank";
 import { isSteppedVariant, getStepNames, type OnboardingVariant, type SteppedOnboardingVariant } from "./onboarding-steps";
 import { enrollInSequence } from "./sequence-helpers";
 import { claimOnboardingEffect, ONBOARDING_EFFECT } from "./onboarding-effects";
+import { PARTNER_INELIGIBLE_SLUGS } from "./partner-assignment";
 
 // Resolves the onboarding variant a member should follow based on the
-// highest-ranked ACTIVE (non-expired) product they currently hold:
+// highest-ranked ACTIVE (non-expired) MENTORSHIP product they currently
+// hold:
 //   rank >= 2 (3month and up)         -> "full"
 //   rank === 1 (launchpad)            -> "launchpad"
 //   rank === 0 (frontend-only) or none -> "none"
 //
-// This is a LIVE computation over current product grants — it is used at
-// creation time (see applyCreationTimeOnboardingDefaults below) to set the
-// persisted usersTable.onboardingVariant, which is what routes/onboarding.ts
-// actually reads from thereafter. Calling this again later for an existing
-// member (e.g. to check "what would their variant be today") is safe and
-// side-effect-free, but does NOT retroactively change their persisted variant
-// — that re-entry/upgrade behavior belongs to a later task (TB1).
+// Reuses isPartnerEligibleRank (partner-assignment.ts) to exclude "vip"
+// from this ranking (Task #1660): VIP was given a rank ABOVE lifetime purely
+// for level-badge/content-access purposes, but it is a pure status product
+// that carries no coaching/onboarding entitlements of its own. Without this
+// exclusion, a member holding vip alone (or vip after their 1year mentorship
+// grant expires) would incorrectly resolve to "full" onboarding — the same
+// pitfall isPartnerEligibleRank already guards against for partner
+// round-robin assignment, and VIP's exclusion rule must stay identical
+// between the two checks.
 export async function resolveOnboardingVariant(userId: number): Promise<OnboardingVariant> {
   const now = new Date();
   const rows = await db
@@ -38,7 +42,10 @@ export async function resolveOnboardingVariant(userId: number): Promise<Onboardi
       ),
     );
 
-  const maxRank = rows.reduce((max, row) => Math.max(max, PRODUCT_RANK[row.slug] ?? 0), -1);
+  const maxRank = rows.reduce((max, row) => {
+    if (PARTNER_INELIGIBLE_SLUGS.has(row.slug)) return max;
+    return Math.max(max, PRODUCT_RANK[row.slug] ?? 0);
+  }, -1);
 
   if (maxRank >= 2) return "full";
   if (maxRank === 1) return "launchpad";
