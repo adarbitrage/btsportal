@@ -38,7 +38,12 @@ import { ensureFoundingSuperAdmins } from "./ensure-founding-superadmins";
 import { seedToolTags } from "./kb-tool-tags";
 import { backfillUndeliveredTickets } from "./ticketdesk-queue";
 import { migrateOneOffCoachingCallsToTemplates } from "./coaching-call-migrate-oneoffs";
-import { migrateOnboardingStepsToSevenStepContract, migrateOnboardingStepsToSixStepContract } from "./onboarding-advancement";
+import {
+  migrateOnboardingStepsToSevenStepContract,
+  migrateOnboardingStepsToSixStepContract,
+  migrateOnboardingStepsToSendOffContract,
+} from "./onboarding-advancement";
+import { seedSendoffVideoSettings } from "./sendoff-video-settings";
 import { seedCallBookingRoster } from "./seed-call-booking-roster";
 import { seedPartnerPhotos } from "./seed-partner-photos";
 import { runGrandfatherBackfillBootHook } from "./grandfather-backfill";
@@ -420,6 +425,30 @@ export async function bootstrapCriticalPrerequisites(): Promise<PrerequisiteResu
   } catch (err) {
     console.error("[Bootstrap] migrateOnboardingStepsToSixStepContract() threw:", err);
     missing.push("migrateOnboardingStepsToSixStepContract");
+  }
+
+  // 11c. One-time, idempotent migration of mid-flight onboarding members from
+  //      the old 6-step numbering (pillars_watched=5, partner_call_completed=6
+  //      for "full") onto the new send_off contract (Task #1666). Runs after
+  //      (and independently of) the 6-step migration above — see
+  //      migrateOnboardingStepsToSendOffContract() for the full old->new step
+  //      map and why "launchpad" needs no row change at all.
+  try {
+    await migrateOnboardingStepsToSendOffContract();
+  } catch (err) {
+    console.error("[Bootstrap] migrateOnboardingStepsToSendOffContract() threw:", err);
+    missing.push("migrateOnboardingStepsToSendOffContract");
+  }
+
+  // 11d. Idempotent boot seed for the per-variant send-off video settings
+  //      (Task #1666) so the two new keys (sendoff_video_full/launchpad) show
+  //      up in the generic admin Settings UI without an admin having to know
+  //      the raw key names. Never overwrites an existing row.
+  try {
+    await seedSendoffVideoSettings();
+  } catch (err) {
+    console.error("[Bootstrap] seedSendoffVideoSettings() threw:", err);
+    missing.push("seedSendoffVideoSettings");
   }
 
   // 12. Seed the verified accountability-partner and kickoff-coach GHL

@@ -92,10 +92,14 @@ interface AppointmentEventResult {
  *
  * `completed` is routed through the SAME `markPartnerCallDone` seam the
  * partner dashboard's manual mark-done action uses (Task #1592/#1629
- * invariant: webhook-driven completion must never duplicate that logic —
- * it alone owns first-partner-call onboarding completion + last-completed
- * tracking). Kickoff-type bookings have no such seam yet (out of scope for
- * T7), so they get a direct, equally forward-only status flip.
+ * invariant: webhook-driven completion must never duplicate that logic).
+ * Kickoff-type bookings have no such seam yet (out of scope for T7), so they
+ * get a direct, equally forward-only status flip.
+ *
+ * Task #1666: marking a partner call "completed" here NEVER advances or
+ * completes onboarding anymore — it only flips the booking's own status.
+ * Onboarding completion is exclusively a member-driven action on the
+ * `send_off` step now, for both variants.
  */
 async function handleAppointmentEvent(
   payload: GHLWebhookPayload,

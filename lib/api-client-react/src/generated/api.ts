@@ -231,6 +231,7 @@ import type {
   MyActiveSessionList,
   NightlyJobResult,
   NotFoundResponse,
+  OnboardingSendOff,
   OnboardingState,
   OneOnOneCoach,
   OneOnOneStatus,
@@ -774,6 +775,81 @@ export const usePatchOnboardingStep = <
 > => {
   return useMutation(getPatchOnboardingStepMutationOptions(options));
 };
+
+/**
+ * @summary Get send-off page data (video + booked-call summary)
+ */
+export const getGetOnboardingSendOffUrl = () => {
+  return `/api/members/me/onboarding/send-off`;
+};
+
+export const getOnboardingSendOff = async (
+  options?: RequestInit,
+): Promise<OnboardingSendOff> => {
+  return customFetch<OnboardingSendOff>(getGetOnboardingSendOffUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetOnboardingSendOffQueryKey = () => {
+  return [`/api/members/me/onboarding/send-off`] as const;
+};
+
+export const getGetOnboardingSendOffQueryOptions = <
+  TData = Awaited<ReturnType<typeof getOnboardingSendOff>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getOnboardingSendOff>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetOnboardingSendOffQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getOnboardingSendOff>>
+  > = ({ signal }) => getOnboardingSendOff({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getOnboardingSendOff>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetOnboardingSendOffQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getOnboardingSendOff>>
+>;
+export type GetOnboardingSendOffQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Get send-off page data (video + booked-call summary)
+ */
+
+export function useGetOnboardingSendOff<
+  TData = Awaited<ReturnType<typeof getOnboardingSendOff>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getOnboardingSendOff>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetOnboardingSendOffQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
 
 /**
  * @summary Update member profile fields

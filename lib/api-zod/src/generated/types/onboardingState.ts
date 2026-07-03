@@ -12,10 +12,11 @@ export interface OnboardingState {
   currentStep: number;
   onboardingComplete: boolean;
   completedSteps: string[];
-  /** Which onboarding step-contract this member follows (Task #1640).
-"none" members never see this route in practice (onboarding is
-already complete). "launchpad" follows a 4-step contract,
-"full" the original 6-step contract.
+  /** Which onboarding step-contract this member follows (Task #1640,
+updated by Task #1666). "none" members never see this route in
+practice (onboarding is already complete). "launchpad" follows a
+4-step contract, "full" a 5-step contract — both end in a
+client-advanceable `send_off` step.
  */
   variant: OnboardingStateVariant;
   /** The ordered step-name array for this member's variant (empty for

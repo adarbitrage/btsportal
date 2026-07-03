@@ -92,8 +92,7 @@ import OnboardingWelcome from "@/pages/onboarding/Welcome";
 import OnboardingProfile from "@/pages/onboarding/Profile";
 import OnboardingBookKickoff from "@/pages/onboarding/BookKickoff";
 import OnboardingBookPartnerCall from "@/pages/onboarding/BookPartnerCall";
-import OnboardingWatchPillars from "@/pages/onboarding/WatchPillars";
-import OnboardingPartnerCallPending from "@/pages/onboarding/PartnerCallPending";
+import OnboardingSendOffPage from "@/pages/onboarding/SendOff";
 import TermsOfService from "@/pages/TermsOfService";
 import { ChatWidget } from "@/components/chat/ChatWidget";
 import CommunityCategories from "@/pages/admin/CommunityCategories";
@@ -348,14 +347,16 @@ export function ContentAccessRoute({
     return <Redirect to="/change-password" />;
   }
 
-  // Step 5 of onboarding ("Watch the 7 Pillars") links out to this same page —
-  // allow it through for a member sitting exactly on that step so the CTA
-  // isn't a dead-end loop back to onboarding. Every other page stays gated
-  // until onboarding is complete.
-  const pillarsStepNames = getStepNamesForVariant(user.onboardingVariant);
-  const pillarsStepNum = pillarsStepNames.indexOf("pillars_watched") + 1;
+  // The send_off step's "Start with the 7 Pillars" CTA completes onboarding
+  // and lands the member directly in the 7 Pillars training — allow that
+  // page through the instant onboarding flips to complete (the redirect
+  // above already lets fully-completed members straight through, so this
+  // exception only matters for the brief moment mid-navigation). Every other
+  // page stays gated until onboarding is complete.
+  const sendOffStepNames = getStepNamesForVariant(user.onboardingVariant);
+  const sendOffStepNum = sendOffStepNames.indexOf("send_off") + 1;
   const isPillarsStepException =
-    pageKey === "seven-pillars" && user.onboardingStep === pillarsStepNum && !user.onboardingComplete;
+    pageKey === "seven-pillars" && user.onboardingStep === sendOffStepNum && !user.onboardingComplete;
 
   if (!user.onboardingComplete && !isCoachRole(user.role) && !isPartnerRole(user.role) && !isPillarsStepException) {
     const stepRoute = getOnboardingRouteForStep(user.onboardingStep || 1, user.onboardingVariant);
@@ -485,8 +486,7 @@ function Router() {
       <Route path="/onboarding/profile">{() => <OnboardingRoute component={OnboardingProfile} stepName="profile" />}</Route>
       <Route path="/onboarding/book-kickoff">{() => <OnboardingRoute component={OnboardingBookKickoff} stepName="kickoff_booked" />}</Route>
       <Route path="/onboarding/book-partner-call">{() => <OnboardingRoute component={OnboardingBookPartnerCall} stepName="partner_call_booked" />}</Route>
-      <Route path="/onboarding/pillars">{() => <OnboardingRoute component={OnboardingWatchPillars} stepName="pillars_watched" />}</Route>
-      <Route path="/onboarding/partner-call-pending">{() => <OnboardingRoute component={OnboardingPartnerCallPending} stepName="partner_call_completed" />}</Route>
+      <Route path="/onboarding/send-off">{() => <OnboardingRoute component={OnboardingSendOffPage} stepName="send_off" />}</Route>
       <Route path="/terms-of-service">{() => <ProtectedRoute component={TermsOfService} />}</Route>
       <Route path="/">{() => <ProtectedRoute component={Home} />}</Route>
       <Route path="/dashboard">{() => <ProtectedRoute component={Dashboard} />}</Route>

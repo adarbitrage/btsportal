@@ -128,14 +128,14 @@ describe("computeUpgradeReentryStep — carries satisfied steps into the new var
   it("an in-progress launchpad member carries satisfied steps into 'full'", () => {
     // On launchpad step 3 (kickoff_booked) means steps 1-2 (welcome, profile)
     // are satisfied; full's array is [welcome, profile, kickoff_booked,
-    // partner_call_booked, pillars_watched, partner_call_completed] — first
-    // unsatisfied is kickoff_booked (step 3), since full still requires it.
+    // partner_call_booked, send_off] — first unsatisfied is kickoff_booked
+    // (step 3), since full still requires it.
     expect(computeUpgradeReentryStep("launchpad", 3, false, "full")).toBe(3);
   });
 
   it("a fully-completed launchpad member lands on 'partner_call_booked' (step 4) in full", () => {
     // completed launchpad carries {welcome, profile, kickoff_booked,
-    // pillars_watched}; full's first NOT-satisfied step is partner_call_booked.
+    // send_off}; full's first NOT-satisfied step is partner_call_booked.
     expect(computeUpgradeReentryStep("launchpad", 4, true, "full")).toBe(4);
   });
 });

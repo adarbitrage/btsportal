@@ -315,6 +315,8 @@ export * from "./nextLesson";
 export * from "./nightlyJobResult";
 export * from "./nightlyJobResultReminders";
 export * from "./notFoundResponse";
+export * from "./onboardingSendOff";
+export * from "./onboardingSendOffCallSummary";
 export * from "./onboardingState";
 export * from "./onboardingStateVariant";
 export * from "./oneOnOneCoach";

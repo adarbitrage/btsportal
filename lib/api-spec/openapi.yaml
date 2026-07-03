@@ -123,6 +123,19 @@ paths:
               schema:
                 $ref: "#/components/schemas/PatchOnboardingStepResponse"
 
+  /members/me/onboarding/send-off:
+    get:
+      operationId: getOnboardingSendOff
+      tags: [onboarding]
+      summary: Get send-off page data (video + booked-call summary)
+      responses:
+        "200":
+          description: Send-off page data
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OnboardingSendOff"
+
   /members/me/profile:
     patch:
       operationId: patchMemberProfile
@@ -8326,10 +8339,11 @@ components:
           type: string
           enum: [none, launchpad, full]
           description: |
-            Which onboarding step-contract this member follows (Task #1640).
-            "none" members never see this route in practice (onboarding is
-            already complete). "launchpad" follows a 4-step contract,
-            "full" the original 6-step contract.
+            Which onboarding step-contract this member follows (Task #1640,
+            updated by Task #1666). "none" members never see this route in
+            practice (onboarding is already complete). "launchpad" follows a
+            4-step contract, "full" a 5-step contract — both end in a
+            client-advanceable `send_off` step.
         stepNames:
           type: array
           items:
@@ -8354,6 +8368,43 @@ components:
         signedAt:
           type: string
       required: [documentType, signedAt]
+
+    OnboardingSendOffCallSummary:
+      type: object
+      properties:
+        coachName:
+          type: string
+        date:
+          type: string
+          description: Human-readable date formatted in the member's own timezone, e.g. "Tuesday, July 8".
+        time:
+          type: string
+          description: Human-readable time (with zone abbreviation) formatted in the member's own timezone, e.g. "2:00 PM EDT".
+      required: [coachName, date, time]
+
+    OnboardingSendOff:
+      type: object
+      properties:
+        videoUrl:
+          type: [string, "null"]
+          description: |
+            Per-variant send-off video URL (Task #1666), resolved from the
+            `sendoff_video_full` / `sendoff_video_launchpad` system_settings
+            keys. `null` if not yet configured by an admin.
+        kickoff:
+          oneOf:
+            - $ref: "#/components/schemas/OnboardingSendOffCallSummary"
+            - type: "null"
+          description: The member's booked kickoff call, or null if none found.
+        partnerCall:
+          oneOf:
+            - $ref: "#/components/schemas/OnboardingSendOffCallSummary"
+            - type: "null"
+          description: |
+            The member's booked accountability-partner call. Always null for
+            "launchpad" variant members (no partner-call tier exists for
+            that product).
+      required: [videoUrl, kickoff, partnerCall]
 
     PatchOnboardingStepBody:
       type: object

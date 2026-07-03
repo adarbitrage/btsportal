@@ -1181,10 +1181,11 @@ export interface UpdateAnnouncementRequest {
 }
 
 /**
- * Which onboarding step-contract this member follows (Task #1640).
-"none" members never see this route in practice (onboarding is
-already complete). "launchpad" follows a 4-step contract,
-"full" the original 6-step contract.
+ * Which onboarding step-contract this member follows (Task #1640,
+updated by Task #1666). "none" members never see this route in
+practice (onboarding is already complete). "launchpad" follows a
+4-step contract, "full" a 5-step contract — both end in a
+client-advanceable `send_off` step.
 
  */
 export type OnboardingStateVariant =
@@ -1205,10 +1206,11 @@ export interface OnboardingState {
   currentStep: number;
   onboardingComplete: boolean;
   completedSteps: string[];
-  /** Which onboarding step-contract this member follows (Task #1640).
-"none" members never see this route in practice (onboarding is
-already complete). "launchpad" follows a 4-step contract,
-"full" the original 6-step contract.
+  /** Which onboarding step-contract this member follows (Task #1640,
+updated by Task #1666). "none" members never see this route in
+practice (onboarding is already complete). "launchpad" follows a
+4-step contract, "full" a 5-step contract — both end in a
+client-advanceable `send_off` step.
  */
   variant: OnboardingStateVariant;
   /** The ordered step-name array for this member's variant (empty for
@@ -1218,6 +1220,32 @@ already complete). "launchpad" follows a 4-step contract,
   /** Total step count for this member's variant (0 for "none"). */
   totalSteps: number;
   signedDocuments: SignedDocumentSummary[];
+}
+
+export interface OnboardingSendOffCallSummary {
+  coachName: string;
+  /** Human-readable date formatted in the member's own timezone, e.g. "Tuesday, July 8". */
+  date: string;
+  /** Human-readable time (with zone abbreviation) formatted in the member's own timezone, e.g. "2:00 PM EDT". */
+  time: string;
+}
+
+export interface OnboardingSendOff {
+  /**
+   * Per-variant send-off video URL (Task #1666), resolved from the
+`sendoff_video_full` / `sendoff_video_launchpad` system_settings
+keys. `null` if not yet configured by an admin.
+
+   * @nullable
+   */
+  videoUrl: string | null;
+  /** The member's booked kickoff call, or null if none found. */
+  kickoff: OnboardingSendOffCallSummary | null;
+  /** The member's booked accountability-partner call. Always null for
+"launchpad" variant members (no partner-call tier exists for
+that product).
+ */
+  partnerCall: OnboardingSendOffCallSummary | null;
 }
 
 export interface PatchOnboardingStepBody {

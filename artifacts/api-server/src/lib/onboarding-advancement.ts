@@ -3,18 +3,28 @@ import { eq, and, inArray, sql } from "drizzle-orm";
 import { cancelSequence } from "./sequence-helpers";
 import { claimOnboardingEffect, ONBOARDING_EFFECT } from "./onboarding-effects";
 
-// Internal, server-only advancement functions for the 6-step onboarding
-// contract's three EVENT-ADVANCED steps (renumbered from the prior 7-step
-// contract, which removed the standalone in-portal ToS-signing step). These
-// are the ONLY legitimate way a member moves off steps 3, 4, or 6 — PATCH
-// /members/me/onboarding explicitly rejects client-driven attempts to
-// complete these steps (see CLIENT_ADVANCEABLE_STEPS in routes/onboarding.ts).
+// Internal, server-only advancement functions for the onboarding contract's
+// EVENT-ADVANCED steps (Task #1666: the old trailing pillars_watched +
+// partner_call_completed steps were collapsed into a single client-advanceable
+// `send_off` step — see onboarding-steps.ts for the full per-variant step
+// name arrays). These are the ONLY legitimate way a member moves off steps 3
+// or 4 — PATCH /members/me/onboarding explicitly rejects client-driven
+// attempts to complete these steps (see CLIENT_ADVANCEABLE_STEPS in
+// routes/onboarding.ts).
 //
 // Intended callers (hooks only):
 //   - advanceOnboardingAfterKickoffBooked      — Tier 2 kickoff-call booking flow
 //   - advanceOnboardingAfterPartnerCallBooked  — Tier 2 partner-call booking flow
-//   - completeOnboardingAfterPartnerCallDone   — Tier 3 GHL webhook confirming
-//                                                 the first partner call happened
+//
+// Onboarding COMPLETION itself is no longer triggered by any webhook or
+// internal event function for either variant — `send_off` is the final step
+// for both "full" and "launchpad" and is completed the same way any other
+// client-advanceable step is: a direct member PATCH, handled generically by
+// the isLastStep branch of PATCH /members/me/onboarding, which calls
+// fireOnboardingCompletionEffects() below. The GHL "first partner call
+// completed" webhook (webhooks-ghl.ts) still flows through
+// partner-call-completion.ts to flip the booking's own status, but it no
+// longer completes or advances onboarding at all (Task #1666).
 //
 // Each function is a no-op (returns false, does not throw) if the member isn't
 // currently sitting on the exact expected step or has already completed
@@ -27,8 +37,7 @@ export const ONBOARDING_STEP = {
   PROFILE: 2,
   KICKOFF_BOOKED: 3,
   PARTNER_CALL_BOOKED: 4,
-  PILLARS_WATCHED: 5,
-  PARTNER_CALL_COMPLETED: 6,
+  SEND_OFF: 5,
 } as const;
 
 async function advanceIfOnStep(
@@ -60,25 +69,28 @@ export async function advanceOnboardingAfterKickoffBooked(userId: number): Promi
 }
 
 // Called once a member's first accountability-partner call is booked (Tier 2).
-// Advances step 4 -> 5. NO-OP for "launchpad" variant members — LaunchPad has
-// no partner-call step at all, so step 4 for them means pillars_watched (a
-// client-advanceable step handled entirely by PATCH /members/me/onboarding,
-// never by this function).
+// Advances step 4 -> 5 (send_off). NO-OP for "launchpad" variant members —
+// LaunchPad has no partner-call step at all, so step 4 for them means
+// send_off (a client-advanceable step handled entirely by PATCH
+// /members/me/onboarding, never by this function).
 export async function advanceOnboardingAfterPartnerCallBooked(userId: number): Promise<boolean> {
   const [user] = await db.select({ onboardingVariant: usersTable.onboardingVariant }).from(usersTable).where(eq(usersTable.id, userId));
   if (!user || user.onboardingVariant !== "full") return false;
 
-  const advanced = await advanceIfOnStep(userId, ONBOARDING_STEP.PARTNER_CALL_BOOKED, ONBOARDING_STEP.PILLARS_WATCHED);
+  const advanced = await advanceIfOnStep(userId, ONBOARDING_STEP.PARTNER_CALL_BOOKED, ONBOARDING_STEP.SEND_OFF);
   if (advanced) {
-    console.log(`[Onboarding] User ${userId} advanced to step ${ONBOARDING_STEP.PILLARS_WATCHED} (partner call booked).`);
+    console.log(`[Onboarding] User ${userId} advanced to step ${ONBOARDING_STEP.SEND_OFF} (partner call booked).`);
   }
   return advanced;
 }
 
 // Shared, tier-aware onboarding-completion side effects (Task #1642 / TB1).
-// Called for BOTH variants the moment a member finishes onboarding — "full"
-// via completeOnboardingAfterPartnerCallDone below, and "launchpad" via the
-// isLastStep branch of PATCH /members/me/onboarding (routes/onboarding.ts).
+// Called for BOTH variants the moment a member finishes onboarding — since
+// Task #1666, `send_off` is the final, client-advanceable step for both
+// "full" and "launchpad", so completion for both now flows exclusively
+// through the generic isLastStep branch of PATCH /members/me/onboarding
+// (routes/onboarding.ts). No webhook or internal event function completes
+// onboarding anymore.
 //
 // Completion now ONLY cancels the onboarding nurture sequences
 // (onboarding_frontend, onboarding_mentorship) — it no longer enrolls the
@@ -90,11 +102,10 @@ export async function advanceOnboardingAfterPartnerCallBooked(userId: number): P
 // ever enrolled here or anywhere else in this flow.
 //
 // Guarded by a per-(member, effect) idempotency claim so calling this twice
-// for the same member (e.g. a retried webhook, or the same member later
-// re-completing a HIGHER variant after an upgrade re-entry) only ever fires
-// the sequence cancellation once — cancelSequence itself is safe to call
-// repeatedly, but this keeps the effect ledger authoritative and avoids
-// redundant work.
+// for the same member (e.g. the same member later re-completing a HIGHER
+// variant after an upgrade re-entry) only ever fires the sequence
+// cancellation once — cancelSequence itself is safe to call repeatedly, but
+// this keeps the effect ledger authoritative and avoids redundant work.
 export async function fireOnboardingCompletionEffects(userId: number): Promise<void> {
   const claimed = await claimOnboardingEffect(userId, ONBOARDING_EFFECT.COMPLETION_CANCEL_SEQUENCES);
   if (!claimed) {
@@ -105,35 +116,6 @@ export async function fireOnboardingCompletionEffects(userId: number): Promise<v
   await cancelSequence(userId, "onboarding_frontend");
   await cancelSequence(userId, "onboarding_mentorship");
   console.log(`[Onboarding] Fired completion effects for user ${userId} (cancelled onboarding sequences).`);
-}
-
-// Called once GHL confirms the member's first partner call actually happened
-// (Tier 3 webhook). Completes onboarding from step 6 and fires the shared
-// tier-aware completion effects (see fireOnboardingCompletionEffects above).
-// NO-OP for "launchpad" variant members (see advanceOnboardingAfterPartnerCallBooked)
-// — LaunchPad onboarding completes via a direct client PATCH instead.
-export async function completeOnboardingAfterPartnerCallDone(userId: number): Promise<boolean> {
-  const [existingUser] = await db.select({ onboardingVariant: usersTable.onboardingVariant }).from(usersTable).where(eq(usersTable.id, userId));
-  if (!existingUser || existingUser.onboardingVariant !== "full") return false;
-
-  const result = await db
-    .update(usersTable)
-    .set({ onboardingStep: ONBOARDING_STEP.PARTNER_CALL_COMPLETED, onboardingComplete: true })
-    .where(
-      and(
-        eq(usersTable.id, userId),
-        eq(usersTable.onboardingStep, ONBOARDING_STEP.PARTNER_CALL_COMPLETED),
-        eq(usersTable.onboardingComplete, false),
-      ),
-    )
-    .returning({ id: usersTable.id });
-
-  if (result.length === 0) return false;
-
-  await fireOnboardingCompletionEffects(userId);
-
-  console.log(`[Onboarding] User ${userId} completed onboarding (first partner call done).`);
-  return true;
 }
 
 // One-time, idempotent mid-flight migration mapping old 5-step onboarding
@@ -149,11 +131,12 @@ export async function completeOnboardingAfterPartnerCallDone(userId: number): Pr
 // Completed members (onboardingComplete = true) are never touched.
 //
 // Kept even though the 7-step contract has since been superseded by the
-// 6-step contract (see migrateOnboardingStepsToSixStepContract below) —
-// members who never received this remap still need it BEFORE the 6-step
-// remap runs, since the 6-step remap's OLD_TO_NEW map assumes 7-step
-// numbering as its starting point. Boot order (see
-// bootstrap-critical-prerequisites.ts) runs this one first.
+// 6-step contract, and then the current 5-step (full) / 4-step (launchpad)
+// send_off contract — members who never received this remap still need it
+// BEFORE the later remaps run, since each remap's OLD_TO_NEW map assumes the
+// immediately-preceding contract's numbering as its starting point. Boot
+// order (see bootstrap-critical-prerequisites.ts) runs these in historical
+// order.
 const LEGACY_SEVEN_STEP_MIGRATION_MARKER_KEY = "onboarding_v2_step_migration_completed_at";
 const LEGACY_SEVEN_STEP_KICKOFF_BOOKED = 4;
 
@@ -208,8 +191,8 @@ export async function migrateOnboardingStepsToSevenStepContract(): Promise<{
 
 // One-time, idempotent mid-flight migration mapping the old 7-step onboarding
 // numbering (which included an in-portal ToS signing step at step 2) onto the
-// new 6-step contract for members who were mid-onboarding when the ToS step
-// was removed (Task #1624):
+// (now superseded) 6-step contract for members who were mid-onboarding when
+// the ToS step was removed (Task #1624):
 //   old step 1 -> 1 (welcome, identical meaning)
 //   old step 2 (documents/ToS) or 3 (profile) -> new step 2 (profile)
 //   old step 4 (kickoff booked) -> new step 3
@@ -220,7 +203,7 @@ export async function migrateOnboardingStepsToSevenStepContract(): Promise<{
 // Completed members (onboardingComplete = true) are never touched.
 //
 // Why a claim row (not a plain value-based check): every step number from 2
-// through 7 is REUSED in the new contract with a different meaning, so a
+// through 7 is REUSED in a later contract with a different meaning, so a
 // user's raw onboardingStep value is ambiguous after the first run — it could
 // be a genuinely new-contract member sitting on that step who must NOT be
 // remapped again. A system_settings marker, claimed exactly once via an
@@ -231,7 +214,26 @@ export async function migrateOnboardingStepsToSevenStepContract(): Promise<{
 // renumbering. Reaches prod the same way other one-time data repairs do: it
 // runs in bootstrapCriticalPrerequisites() on server start, since the agent
 // cannot write to prod directly.
+//
+// Kept (even though the 6-step contract has itself since been superseded by
+// the current send_off contract — see migrateOnboardingStepsToSendOffContract
+// below) for the same reason migrateOnboardingStepsToSevenStepContract is
+// kept: members who never received THIS remap still need it before the
+// send_off remap runs, since that remap's map assumes 6-step numbering as its
+// starting point.
 const MIGRATION_MARKER_KEY = "onboarding_v3_step_migration_completed_at";
+
+// Literal historical step-name constants used only by the migration below.
+// These intentionally do NOT reference ONBOARDING_STEP, whose numbering has
+// since moved on — the migration must keep meaning exactly what it always
+// has, frozen to the 6-step contract's numbering.
+const SIX_STEP_CONTRACT = {
+  PROFILE: 2,
+  KICKOFF_BOOKED: 3,
+  PARTNER_CALL_BOOKED: 4,
+  PILLARS_WATCHED: 5,
+  PARTNER_CALL_COMPLETED: 6,
+} as const;
 
 export async function migrateOnboardingStepsToSixStepContract(): Promise<{
   migrated: boolean;
@@ -262,31 +264,22 @@ export async function migrateOnboardingStepsToSixStepContract(): Promise<{
     // Map old step -> new step. Step 1 is identical in both contracts and is
     // intentionally omitted (no row change needed).
     // Note: old steps 2 and 3 both collapse onto new step 2 (PROFILE).
-    const OLD_TO_NEW: Record<number, number> = {
-      2: ONBOARDING_STEP.PROFILE,
-      3: ONBOARDING_STEP.PROFILE,
-      4: ONBOARDING_STEP.KICKOFF_BOOKED,
-      5: ONBOARDING_STEP.PARTNER_CALL_BOOKED,
-      6: ONBOARDING_STEP.PILLARS_WATCHED,
-      7: ONBOARDING_STEP.PARTNER_CALL_COMPLETED,
-    };
-
     const updated = await tx
       .update(usersTable)
       .set({
         onboardingStep: sql`CASE ${usersTable.onboardingStep}
-          WHEN 2 THEN ${ONBOARDING_STEP.PROFILE}
-          WHEN 3 THEN ${ONBOARDING_STEP.PROFILE}
-          WHEN 4 THEN ${ONBOARDING_STEP.KICKOFF_BOOKED}
-          WHEN 5 THEN ${ONBOARDING_STEP.PARTNER_CALL_BOOKED}
-          WHEN 6 THEN ${ONBOARDING_STEP.PILLARS_WATCHED}
-          WHEN 7 THEN ${ONBOARDING_STEP.PARTNER_CALL_COMPLETED}
+          WHEN 2 THEN ${SIX_STEP_CONTRACT.PROFILE}
+          WHEN 3 THEN ${SIX_STEP_CONTRACT.PROFILE}
+          WHEN 4 THEN ${SIX_STEP_CONTRACT.KICKOFF_BOOKED}
+          WHEN 5 THEN ${SIX_STEP_CONTRACT.PARTNER_CALL_BOOKED}
+          WHEN 6 THEN ${SIX_STEP_CONTRACT.PILLARS_WATCHED}
+          WHEN 7 THEN ${SIX_STEP_CONTRACT.PARTNER_CALL_COMPLETED}
           ELSE ${usersTable.onboardingStep}
         END`,
       })
       .where(and(eq(usersTable.onboardingComplete, false), inArray(usersTable.onboardingStep, [2, 3, 4, 5, 6, 7])))
       .returning({ id: usersTable.id });
-    
+
     let usersUpdated = updated.length;
 
     await tx
@@ -304,7 +297,86 @@ export async function migrateOnboardingStepsToSixStepContract(): Promise<{
 
   if (result.migrated) {
     console.log(
-      `[Onboarding] Migrated ${result.usersUpdated} mid-flight member(s) from the old 7-step onboarding numbering to the new 6-step contract (ToS-signing step removed).`,
+      `[Onboarding] Migrated ${result.usersUpdated} mid-flight member(s) from the old 7-step onboarding numbering to the (now superseded) 6-step contract (ToS-signing step removed).`,
+    );
+  }
+
+  return result;
+}
+
+// One-time, idempotent mid-flight migration collapsing the old 6-step
+// contract's two trailing steps — pillars_watched (5) and
+// partner_call_completed (6) — onto the current single `send_off` step
+// (Task #1666: "Onboarding send-off video ending"). LAUNCHPAD is NOT
+// affected: its old step 4 (pillars_watched) and the new step 4 (send_off)
+// share the same numeric value, so a launchpad member sitting on step 4
+// simply sees the new send_off page in place of the old pillars page with no
+// row change required — only FULL-variant rows at old step 5 or 6 need a
+// remap.
+//
+// Members who complete their booked-call summary click through send_off
+// exactly like any other client-advanceable step (see the isLastStep branch
+// of PATCH /members/me/onboarding) — this migration only repositions
+// mid-flight members onto the new step number, it does not complete anyone's
+// onboarding.
+//
+// Completed members (onboardingComplete = true) are never touched — a
+// full-tier member already stamped onboardingComplete=true at old step 6
+// keeps that historical step value forever, exactly like every earlier
+// migration in this file.
+const SEND_OFF_MIGRATION_MARKER_KEY = "onboarding_v4_send_off_step_migration_completed_at";
+const OLD_SIX_STEP_PILLARS_WATCHED = 5;
+const OLD_SIX_STEP_PARTNER_CALL_COMPLETED = 6;
+
+export async function migrateOnboardingStepsToSendOffContract(): Promise<{
+  migrated: boolean;
+  usersUpdated: number;
+}> {
+  const result = await db.transaction(async (tx) => {
+    const claimed = await tx
+      .insert(systemSettingsTable)
+      .values({
+        key: SEND_OFF_MIGRATION_MARKER_KEY,
+        value: { startedAt: new Date().toISOString() },
+        category: "onboarding",
+        description:
+          "One-time marker for the 6-step -> send_off onboarding contract migration (Task #1666: pillars_watched + partner_call_completed collapsed into a single send_off step). Presence of this row means the old-step -> new-step remap has already run and must never run again.",
+      })
+      .onConflictDoNothing()
+      .returning({ id: systemSettingsTable.id });
+
+    if (claimed.length === 0) {
+      return { migrated: false, usersUpdated: 0 };
+    }
+
+    const updated = await tx
+      .update(usersTable)
+      .set({ onboardingStep: ONBOARDING_STEP.SEND_OFF })
+      .where(
+        and(
+          eq(usersTable.onboardingComplete, false),
+          eq(usersTable.onboardingVariant, "full"),
+          inArray(usersTable.onboardingStep, [OLD_SIX_STEP_PILLARS_WATCHED, OLD_SIX_STEP_PARTNER_CALL_COMPLETED]),
+        ),
+      )
+      .returning({ id: usersTable.id });
+
+    await tx
+      .update(systemSettingsTable)
+      .set({
+        value: {
+          completedAt: new Date().toISOString(),
+          usersUpdated: updated.length,
+        },
+      })
+      .where(eq(systemSettingsTable.id, claimed[0].id));
+
+    return { migrated: true, usersUpdated: updated.length };
+  });
+
+  if (result.migrated) {
+    console.log(
+      `[Onboarding] Migrated ${result.usersUpdated} mid-flight full-tier member(s) from the old pillars_watched/partner_call_completed steps to the new send_off step.`,
     );
   }
 

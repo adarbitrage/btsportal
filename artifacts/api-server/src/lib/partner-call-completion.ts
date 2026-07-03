@@ -1,23 +1,30 @@
 import { db, callBookingsTable } from "@workspace/db";
-import { and, eq, lt, sql } from "drizzle-orm";
-import { completeOnboardingAfterPartnerCallDone } from "./onboarding-advancement";
+import { and, eq } from "drizzle-orm";
 
 // Shared "mark a partner call done" path (Task #1592). This is the ONLY
 // legitimate way a `call_bookings` row of type "partner" moves from "booked"
-// to "completed" — used today by the partner dashboard's manual
-// mark-call-done action, and intended for the future T7 GHL webhook that
-// confirms partner calls actually happened. Both callers MUST go through
-// this single function so the flip + first-call onboarding advancement can
-// never drift between the two paths.
+// to "completed" — used by the partner dashboard's manual mark-call-done
+// action and the GHL "appointment completed" webhook (webhooks-ghl.ts). Both
+// callers MUST go through this single function so the status flip can never
+// drift between the two paths.
 //
 // No-op-safe: if the booking doesn't exist, isn't a partner call, or isn't
 // currently "booked", nothing changes and `updated` is false. This makes it
 // safe to call from a webhook that might retry/replay.
+//
+// Task #1666: this function no longer touches onboarding at all. A first
+// partner call being marked "completed" used to complete the member's
+// onboarding (see the now-removed completeOnboardingAfterPartnerCallDone);
+// onboarding completion is now exclusively a member-driven action on the
+// `send_off` step (PATCH /members/me/onboarding), for BOTH variants. The
+// `onboardingAdvanced` field is kept (always `false`) purely so existing
+// callers/response shapes don't need to change.
 export interface MarkPartnerCallDoneResult {
   /** Whether the booking row was flipped booked -> completed by this call. */
   updated: boolean;
-  /** Whether this call also advanced the member's onboarding (first ever
-   *  completed partner call for them). */
+  /** @deprecated Always `false` since Task #1666 — onboarding completion no
+   *  longer happens as a side effect of a call being marked done. Kept for
+   *  response-shape compatibility with existing callers. */
   onboardingAdvanced: boolean;
 }
 
@@ -40,21 +47,6 @@ export async function markPartnerCallDone(
       return { updated: false, onboardingAdvanced: false };
     }
 
-    // Count prior completed partner calls for this member BEFORE flipping
-    // this one, so "first call" detection is unambiguous regardless of call
-    // order/retries.
-    const [{ value: priorCompletedCount }] = await tx
-      .select({ value: sql<number>`count(*)::int` })
-      .from(callBookingsTable)
-      .where(
-        and(
-          eq(callBookingsTable.memberId, booking.memberId),
-          eq(callBookingsTable.type, "partner"),
-          eq(callBookingsTable.status, "completed"),
-          lt(callBookingsTable.id, booking.id),
-        ),
-      );
-
     const updated = await tx
       .update(callBookingsTable)
       .set({ status: "completed" })
@@ -65,11 +57,6 @@ export async function markPartnerCallDone(
       return { updated: false, onboardingAdvanced: false };
     }
 
-    let onboardingAdvanced = false;
-    if (priorCompletedCount === 0) {
-      onboardingAdvanced = await completeOnboardingAfterPartnerCallDone(booking.memberId);
-    }
-
-    return { updated: true, onboardingAdvanced };
+    return { updated: true, onboardingAdvanced: false };
   });
 }

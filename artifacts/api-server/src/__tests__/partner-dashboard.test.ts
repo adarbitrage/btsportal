@@ -20,7 +20,6 @@ import { eq, inArray } from "drizzle-orm";
 import { buildTestAppWithRouters } from "./test-app";
 import partnerDashboardRouter from "../routes/partner-dashboard";
 import { markPartnerCallDone } from "../lib/partner-call-completion";
-import { ONBOARDING_STEP } from "../lib/onboarding-advancement";
 import { insertUserProductGrant } from "../lib/external-grant-product";
 
 const JWT_SECRET = process.env.JWT_SECRET || "dev-secret-change-me";
@@ -525,26 +524,31 @@ describe("markPartnerCallDone (shared helper)", () => {
     expect(result.updated).toBe(false);
   });
 
-  it("advances onboarding on the member's first completed partner call", async () => {
+  // Task #1666: marking a partner call "completed" no longer touches
+  // onboarding at all — completion is exclusively a member-driven action on
+  // the `send_off` step now. `onboardingAdvanced` is kept in the response
+  // shape but always `false`.
+  it("never advances or completes onboarding on the member's first completed partner call", async () => {
     const partnerId = await insertPartner("helper-onboarding");
     const mentee = await seedUser("member", "helper-onboarding-mentee", {
-      onboardingStep: ONBOARDING_STEP.PARTNER_CALL_COMPLETED,
+      onboardingStep: 5,
       onboardingComplete: false,
     });
     const bookingId = await insertBooking(mentee.id, partnerId);
 
     const result = await markPartnerCallDone(bookingId);
     expect(result.updated).toBe(true);
-    expect(result.onboardingAdvanced).toBe(true);
+    expect(result.onboardingAdvanced).toBe(false);
 
     const [row] = await db.select().from(usersTable).where(eq(usersTable.id, mentee.id));
-    expect(row.onboardingComplete).toBe(true);
+    expect(row.onboardingComplete).toBe(false);
+    expect(row.onboardingStep).toBe(5);
   });
 
-  it("does not double-advance onboarding on a member's second completed call", async () => {
+  it("still flips booking status on a member's second completed call, with onboarding untouched", async () => {
     const partnerId = await insertPartner("helper-second-call");
     const mentee = await seedUser("member", "helper-second-call-mentee", {
-      onboardingStep: ONBOARDING_STEP.PARTNER_CALL_COMPLETED,
+      onboardingStep: 5,
       onboardingComplete: false,
     });
     const firstBookingId = await insertBooking(mentee.id, partnerId, { scheduledAt: new Date(Date.now() - 7 * 24 * 3600_000) });

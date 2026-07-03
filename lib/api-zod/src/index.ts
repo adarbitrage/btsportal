@@ -316,6 +316,8 @@ export type {
   NightlyJobResult,
   NightlyJobResultReminders,
   NotFoundResponse,
+  OnboardingSendOff,
+  OnboardingSendOffCallSummary,
   OnboardingState,
   OnboardingStateVariant,
   OneOnOneCoach,

@@ -1,7 +1,15 @@
 import { Router, type IRouter } from "express";
-import { db, usersTable, signedDocumentsTable, phoneChangeHistoryTable } from "@workspace/db";
-import { eq, and } from "drizzle-orm";
-import { GetOnboardingStateResponse } from "@workspace/api-zod";
+import {
+  db,
+  usersTable,
+  signedDocumentsTable,
+  phoneChangeHistoryTable,
+  callBookingsTable,
+  kickoffCoachesTable,
+  partnersTable,
+} from "@workspace/db";
+import { eq, and, ne, desc } from "drizzle-orm";
+import { GetOnboardingStateResponse, GetOnboardingSendOffResponse } from "@workspace/api-zod";
 import {
   PatchOnboardingStepBody,
   PatchOnboardingStepResponse,
@@ -12,24 +20,23 @@ import {
   isSteppedVariant,
   getStepNames,
   getTotalSteps,
+  getStepNameAt,
   isClientAdvanceableStep,
   type OnboardingVariant,
   type SteppedOnboardingVariant,
 } from "../lib/onboarding-steps";
 import { fireOnboardingCompletionEffects } from "../lib/onboarding-advancement";
+import { formatInMemberTimezone } from "../lib/member-timezone";
+import { getSendoffVideoUrl } from "../lib/sendoff-video-settings";
 
 const router: IRouter = Router();
 
-// Per-tier guided onboarding step contracts (Task #1640). Which array a
-// member follows is decided once at creation time (see
-// lib/onboarding-variant.ts) and persisted on usersTable.onboardingVariant —
-// this route reads that persisted value, it never re-resolves it live.
+// Per-tier guided onboarding step contracts (Task #1640, collapsed further by
+// Task #1666). Which array a member follows is decided once at creation time
+// (see lib/onboarding-variant.ts) and persisted on usersTable.onboardingVariant
+// — this route reads that persisted value, it never re-resolves it live.
 //
-// "full" (6 steps, numbering UNCHANGED from the original single-contract
-// flow — renumbered from the prior 7-step contract by removing the in-portal
-// ToS signing step that previously lived at step 2. Platform ToS now lives as
-// a browsewrap link only; the mentorship agreement is signed upstream in GHL
-// before portal access, so no in-portal signing step is needed here):
+// "full" (5 steps):
 //   1. welcome                 — intro + welcome video. Client-advanceable.
 //   2. profile                 — name/experience/goal. Client-advanceable
 //                                 (gated on those profile fields being filled).
@@ -40,18 +47,18 @@ const router: IRouter = Router();
 //                                 EVENT-ADVANCED: only
 //                                 advanceOnboardingAfterPartnerCallBooked() may
 //                                 move a member off this step.
-//   5. pillars_watched         — watch the 7 Pillars training. Client-advanceable
-//                                 (simple click-to-confirm, no server prerequisite).
-//   6. partner_call_completed  — the first partner call itself. EVENT-ADVANCED:
-//                                 only completeOnboardingAfterPartnerCallDone()
-//                                 (Tier 3 GHL webhook) may complete onboarding
-//                                 from here.
+//   5. send_off                — the LAST step: per-variant send-off video +
+//                                 booked-call summary. Client-advanceable —
+//                                 completing it completes onboarding directly
+//                                 (Task #1666: no webhook completes onboarding
+//                                 anymore; the old pillars_watched +
+//                                 partner_call_completed steps are gone).
 //
 // "launchpad" (4 steps — no partner-call tier exists for this product):
 //   1. welcome, 2. profile — identical meaning/prerequisites to "full".
 //   3. kickoff_booked      — EVENT-ADVANCED, same function as "full" (the
 //                             kickoff step means the same thing in both variants).
-//   4. pillars_watched     — the LAST step, and it IS client-advanceable:
+//   4. send_off            — the LAST step, and it IS client-advanceable:
 //                             completing it completes onboarding directly.
 //
 // "none" — no guided onboarding at all; onboardingComplete is set true at
@@ -62,24 +69,63 @@ const router: IRouter = Router();
 // GET+POST /documents remain as legal infrastructure (see routes/documents.ts)
 // and the ToS is now surfaced as a browsewrap footer link instead of a gate.
 //
-// See lib/onboarding-advancement.ts for the internal advancement functions Tier 2
-// (booking) and Tier 3 (GHL webhook) call to move members through event-only
-// steps — this route intentionally REJECTS any client PATCH attempt to
-// complete those steps directly, so a member can never skip ahead of a real
-// booking/webhook event.
+// See lib/onboarding-advancement.ts for the internal advancement functions
+// Tier 2 (booking) calls to move members through event-only steps — this
+// route intentionally REJECTS any client PATCH attempt to complete those
+// steps directly, so a member can never skip ahead of a real booking event.
 //
 // NOTE: the Documents page, /documents/sign endpoint, and signed_documents
 // table are intentionally NOT deleted — existing signature records remain
 // legal records — but they are no longer part of the onboarding sequence or
 // gated by it.
 
-async function validateStepPrerequisites(step: number, userId: number): Promise<string | null> {
+async function validateStepPrerequisites(
+  variant: SteppedOnboardingVariant,
+  step: number,
+  userId: number,
+): Promise<string | null> {
   if (step === 2) {
     const [user] = await db.select().from(usersTable).where(eq(usersTable.id, userId));
     if (!user) return "User not found";
     if (!user.name?.trim()) return "Name is required";
     if (!user.experienceLevel) return "Experience level is required";
     if (!user.primaryGoal) return "Primary goal is required";
+  }
+
+  // Defensive belt-and-suspenders check for the final send_off step (Task
+  // #1666). In practice a member can only ever reach send_off having already
+  // passed through the event-advanced booking steps, so this should never
+  // actually trigger — but it guards against any future regression that lets
+  // a member reach this step without a real booking on file.
+  const stepName = getStepNameAt(variant, step);
+  if (stepName === "send_off") {
+    const [kickoff] = await db
+      .select({ id: callBookingsTable.id })
+      .from(callBookingsTable)
+      .where(
+        and(
+          eq(callBookingsTable.memberId, userId),
+          eq(callBookingsTable.type, "kickoff"),
+          ne(callBookingsTable.status, "canceled"),
+        ),
+      )
+      .limit(1);
+    if (!kickoff) return "A kickoff call must be booked first";
+
+    if (variant === "full") {
+      const [partnerCall] = await db
+        .select({ id: callBookingsTable.id })
+        .from(callBookingsTable)
+        .where(
+          and(
+            eq(callBookingsTable.memberId, userId),
+            eq(callBookingsTable.type, "partner"),
+            ne(callBookingsTable.status, "canceled"),
+          ),
+        )
+        .limit(1);
+      if (!partnerCall) return "An accountability-partner call must be booked first";
+    }
   }
 
   return null;
@@ -178,18 +224,18 @@ router.patch("/members/me/onboarding", async (req, res): Promise<void> => {
     return;
   }
 
-  const prerequisiteError = await validateStepPrerequisites(step, userId);
+  const prerequisiteError = await validateStepPrerequisites(variant, step, userId);
   if (prerequisiteError) {
     res.status(400).json({ error: prerequisiteError });
     return;
   }
 
   // The last client-advanceable step for a variant completes onboarding
-  // directly ONLY if it's also the LAST step overall for that variant
-  // (true for launchpad's step 4/pillars_watched). For "full", the last
-  // client-advanceable step (5) still hands off to step 6, which remains
-  // event-advanced (see completeOnboardingAfterPartnerCallDone in
-  // lib/onboarding-advancement.ts) — so it does not complete onboarding here.
+  // directly ONLY if it's also the LAST step overall for that variant.
+  // Since Task #1666, `send_off` is BOTH the last step AND client-advanceable
+  // for both "full" (step 5) and "launchpad" (step 4) — so this branch now
+  // uniformly handles completion for both variants; no webhook or internal
+  // event function ever completes onboarding anymore.
   const isLastStep = step === totalSteps;
   const nextStep = isLastStep ? step : step + 1;
   const onboardingComplete = isLastStep;
@@ -200,12 +246,11 @@ router.patch("/members/me/onboarding", async (req, res): Promise<void> => {
     .where(and(eq(usersTable.id, userId), eq(usersTable.onboardingStep, step)))
     .returning({ id: usersTable.id });
 
-  // Tier-aware completion (Task #1642 / TB1): this is the ONLY completion
-  // path for "launchpad" variant members (pillars_watched is client-
-  // advanceable and IS the last step for launchpad, unlike "full"). Fires
-  // the same shared completion effects "full" uses via
-  // completeOnboardingAfterPartnerCallDone — cancel onboarding sequences,
-  // enroll in nothing.
+  // Tier-aware completion (Task #1642 / TB1, updated by Task #1666): this is
+  // the ONLY completion path for BOTH variants now — `send_off` is the last,
+  // client-advanceable step for "full" and "launchpad" alike. Fires the
+  // shared completion effects: cancel onboarding sequences, enroll in
+  // nothing.
   if (updated.length > 0 && onboardingComplete) {
     await fireOnboardingCompletionEffects(userId);
   }
@@ -216,6 +261,85 @@ router.patch("/members/me/onboarding", async (req, res): Promise<void> => {
       onboardingComplete,
     })
   );
+});
+
+// Send-off page data (Task #1666): pre-joins the member's real kickoff/
+// accountability-partner bookings with staff display names and formats
+// scheduled times in the MEMBER's own timezone (formatInMemberTimezone),
+// plus the per-variant send-off video URL. Returns null for a booking summary
+// the member's variant doesn't have (partnerCall is always null for
+// "launchpad"). Available regardless of which step the member is currently
+// on — the send_off page renders it once the member reaches the final step.
+router.get("/members/me/onboarding/send-off", async (req, res): Promise<void> => {
+  const userId = req.userId!;
+  const [user] = await db.select().from(usersTable).where(eq(usersTable.id, userId));
+  if (!user) {
+    res.status(404).json({ error: "User not found" });
+    return;
+  }
+
+  const variant = (user.onboardingVariant as OnboardingVariant) ?? "full";
+  if (!isSteppedVariant(variant)) {
+    res.status(400).json({ error: "Onboarding is not applicable for this account" });
+    return;
+  }
+
+  const videoUrl = await getSendoffVideoUrl(variant);
+
+  const [kickoffBooking] = await db
+    .select({
+      staffId: callBookingsTable.staffId,
+      scheduledAt: callBookingsTable.scheduledAt,
+    })
+    .from(callBookingsTable)
+    .where(
+      and(
+        eq(callBookingsTable.memberId, userId),
+        eq(callBookingsTable.type, "kickoff"),
+        ne(callBookingsTable.status, "canceled"),
+      ),
+    )
+    .orderBy(desc(callBookingsTable.createdAt))
+    .limit(1);
+
+  let kickoff: { coachName: string; date: string; time: string } | null = null;
+  if (kickoffBooking) {
+    const [coach] = await db
+      .select({ displayName: kickoffCoachesTable.displayName })
+      .from(kickoffCoachesTable)
+      .where(eq(kickoffCoachesTable.id, kickoffBooking.staffId));
+    const parts = formatInMemberTimezone(kickoffBooking.scheduledAt, user.timezone);
+    kickoff = { coachName: coach?.displayName ?? "your coach", date: parts.date, time: parts.time };
+  }
+
+  let partnerCall: { coachName: string; date: string; time: string } | null = null;
+  if (variant === "full") {
+    const [partnerBooking] = await db
+      .select({
+        staffId: callBookingsTable.staffId,
+        scheduledAt: callBookingsTable.scheduledAt,
+      })
+      .from(callBookingsTable)
+      .where(
+        and(
+          eq(callBookingsTable.memberId, userId),
+          eq(callBookingsTable.type, "partner"),
+          ne(callBookingsTable.status, "canceled"),
+        ),
+      )
+      .orderBy(desc(callBookingsTable.createdAt))
+      .limit(1);
+    if (partnerBooking) {
+      const [partner] = await db
+        .select({ displayName: partnersTable.displayName })
+        .from(partnersTable)
+        .where(eq(partnersTable.id, partnerBooking.staffId));
+      const parts = formatInMemberTimezone(partnerBooking.scheduledAt, user.timezone);
+      partnerCall = { coachName: partner?.displayName ?? "your accountability partner", date: parts.date, time: parts.time };
+    }
+  }
+
+  res.json(GetOnboardingSendOffResponse.parse({ videoUrl, kickoff, partnerCall }));
 });
 
 router.patch("/members/me/profile", async (req, res): Promise<void> => {

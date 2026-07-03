@@ -1,33 +1,32 @@
 import { useAuth } from "@/lib/auth";
 import { useLocation } from "wouter";
 
-// Per-tier step-name arrays (Task #1640). MUST be kept in lockstep with
-// FULL_STEP_NAMES / LAUNCHPAD_STEP_NAMES in
-// artifacts/api-server/src/lib/onboarding-steps.ts — the frontend and
-// api-server are separate packages with no shared step-contract module, so
-// this is a deliberate, documented duplication rather than an import.
+// Per-tier step-name arrays (Task #1666: send_off replaces pillars_watched +
+// partner_call_completed). MUST be kept in lockstep with FULL_STEP_NAMES /
+// LAUNCHPAD_STEP_NAMES in artifacts/api-server/src/lib/onboarding-steps.ts —
+// the frontend and api-server are separate packages with no shared
+// step-contract module, so this is a deliberate, documented duplication
+// rather than an import.
 export type OnboardingStepName =
   | "welcome"
   | "profile"
   | "kickoff_booked"
   | "partner_call_booked"
-  | "pillars_watched"
-  | "partner_call_completed";
+  | "send_off";
 
 const FULL_STEP_NAMES: readonly OnboardingStepName[] = [
   "welcome",
   "profile",
   "kickoff_booked",
   "partner_call_booked",
-  "pillars_watched",
-  "partner_call_completed",
+  "send_off",
 ];
 
 const LAUNCHPAD_STEP_NAMES: readonly OnboardingStepName[] = [
   "welcome",
   "profile",
   "kickoff_booked",
-  "pillars_watched",
+  "send_off",
 ];
 
 const STEP_META: Record<OnboardingStepName, { label: string; path: string }> = {
@@ -35,8 +34,7 @@ const STEP_META: Record<OnboardingStepName, { label: string; path: string }> = {
   profile: { label: "Profile", path: "/onboarding/profile" },
   kickoff_booked: { label: "Book Kickoff", path: "/onboarding/book-kickoff" },
   partner_call_booked: { label: "Book Partner Call", path: "/onboarding/book-partner-call" },
-  pillars_watched: { label: "7 Pillars", path: "/onboarding/pillars" },
-  partner_call_completed: { label: "First Call", path: "/onboarding/partner-call-pending" },
+  send_off: { label: "Send-Off", path: "/onboarding/send-off" },
 };
 
 // "none" and unset/unknown variants fall back to "full" — every existing

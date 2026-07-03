@@ -167,9 +167,6 @@ beforeAll(async () => {
 afterAll(async () => {
   if (userIds.length > 0) {
     await db.delete(callBookingsTable).where(inArray(callBookingsTable.memberId, userIds));
-    // completeOnboardingAfterPartnerCallDone enrolls members in the
-    // post-onboarding nurture sequence; that FK must be cleared before the
-    // users row can be deleted.
     await db.delete(sequenceEnrollmentsTable).where(inArray(sequenceEnrollmentsTable.userId, userIds));
     await db.delete(usersTable).where(inArray(usersTable.id, userIds));
   } else if (bookingIds.length > 0) {
@@ -179,7 +176,11 @@ afterAll(async () => {
 });
 
 describe("GHL appointment webhook -> call_bookings", () => {
-  it("completed on a member's first partner call flips status and advances onboarding exactly once", async () => {
+  // Task #1666: partner-call completion no longer touches onboarding at all
+  // (completion is now exclusively a member-driven action on the `send_off`
+  // step) — these webhook-driven completions must leave onboarding untouched,
+  // even on a member's very first completed partner call.
+  it("completed on a member's first partner call flips status without touching onboarding", async () => {
     const memberId = await makeMember();
     const { id: bookingId, ghlAppointmentId } = await seedPartnerBooking({ memberId });
 
@@ -193,9 +194,9 @@ describe("GHL appointment webhook -> call_bookings", () => {
 
     const onboarding = await onboardingOf(memberId);
     expect(onboarding.step).toBe(6);
-    expect(onboarding.complete).toBe(true);
+    expect(onboarding.complete).toBe(false);
 
-    // Replay the exact same event: must not re-fire the advance or throw.
+    // Replay the exact same event: must not throw or change anything.
     const replay = await postAppointmentEvent({
       type: "AppointmentUpdate",
       appointmentId: ghlAppointmentId,
@@ -205,10 +206,10 @@ describe("GHL appointment webhook -> call_bookings", () => {
     await new Promise((r) => setTimeout(r, 200));
     const afterReplay = await onboardingOf(memberId);
     expect(afterReplay.step).toBe(6);
-    expect(afterReplay.complete).toBe(true);
+    expect(afterReplay.complete).toBe(false);
   });
 
-  it("does not advance onboarding for a SECOND completed partner call", async () => {
+  it("does not touch onboarding for a SECOND completed partner call either", async () => {
     const memberId = await makeMember();
     // Seed a prior completed partner call (id lower than the one under test).
     await seedPartnerBooking({ memberId, status: "completed" });
@@ -222,10 +223,6 @@ describe("GHL appointment webhook -> call_bookings", () => {
     expect(res.status).toBe(200);
     await waitFor(async () => (await getBooking(bookingId))?.status === "completed");
 
-    // Member's FIRST completed partner call was seeded directly (not via a
-    // webhook), so onboarding was never advanced by this member's calls at
-    // all; the completed event under test is their SECOND completed call and
-    // must not advance onboarding either.
     const onboarding = await onboardingOf(memberId);
     expect(onboarding.complete).toBe(false);
     expect(onboarding.step).toBe(6);

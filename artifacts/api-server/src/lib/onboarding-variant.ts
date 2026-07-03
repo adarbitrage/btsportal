@@ -127,7 +127,7 @@ export const VARIANT_RANK: Record<OnboardingVariant, number> = {
 // any already-filled profile data is naturally carried since it's never
 // cleared, they simply breeze through step 2 when they reach it.
 // A completed launchpad member carries {welcome, profile, kickoff_booked,
-// pillars_watched} into "full", whose first NOT-satisfied step is
+// send_off} into "full", whose first NOT-satisfied step is
 // partner_call_booked — landing them directly on "Book Partner Call".
 export function computeUpgradeReentryStep(
   oldVariant: OnboardingVariant,

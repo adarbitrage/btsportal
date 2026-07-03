@@ -10,6 +10,7 @@ import {
   sequenceEnrollmentsTable,
   systemSettingsTable,
   onboardingEffectsTable,
+  callBookingsTable,
 } from "@workspace/db";
 import { eq, and, inArray } from "drizzle-orm";
 
@@ -18,7 +19,6 @@ import onboardingRouter from "../routes/onboarding";
 import {
   advanceOnboardingAfterKickoffBooked,
   advanceOnboardingAfterPartnerCallBooked,
-  completeOnboardingAfterPartnerCallDone,
   fireOnboardingCompletionEffects,
   migrateOnboardingStepsToSixStepContract,
   ONBOARDING_STEP,
@@ -39,6 +39,7 @@ function signCookie(userId: number, email: string): string {
 async function seedMember(opts: {
   onboardingStep?: number;
   onboardingComplete?: boolean;
+  onboardingVariant?: string;
   name?: string;
   experienceLevel?: string | null;
   primaryGoal?: string | null;
@@ -56,6 +57,7 @@ async function seedMember(opts: {
       emailVerified: true,
       onboardingStep: opts.onboardingStep ?? 1,
       onboardingComplete: opts.onboardingComplete ?? false,
+      onboardingVariant: opts.onboardingVariant ?? "full",
       experienceLevel: opts.experienceLevel ?? null,
       primaryGoal: opts.primaryGoal ?? null,
     })
@@ -107,15 +109,16 @@ beforeAll(() => {
 
 afterAll(async () => {
   if (seededUserIds.length > 0) {
+    await db.delete(callBookingsTable).where(inArray(callBookingsTable.memberId, seededUserIds));
     await db.delete(sequenceEnrollmentsTable).where(inArray(sequenceEnrollmentsTable.userId, seededUserIds));
     await db.delete(onboardingEffectsTable).where(inArray(onboardingEffectsTable.userId, seededUserIds));
     await db.delete(usersTable).where(inArray(usersTable.id, seededUserIds));
   }
 });
 
-describe("6-step onboarding contract — full walk (Task #1624/#1625: ToS-signing step removed)", () => {
-  it("walks a member who never signed anything from step 1 through completion at step 6", async () => {
-    const { id, cookie } = await seedMember({ onboardingStep: 1 });
+describe("5-step (full) onboarding contract — full walk (Task #1666: send_off replaces pillars_watched/partner_call_completed)", () => {
+  it("walks a member who never signed anything from step 1 through completion at step 5 (send_off)", async () => {
+    const { id, cookie } = await seedMember({ onboardingStep: 1, onboardingVariant: "full" });
 
     // Step 1: welcome — client-advanceable, no prerequisites.
     let res = await request(app).patch("/api/members/me/onboarding").set("Cookie", cookie).send({ step: 1 });
@@ -124,7 +127,6 @@ describe("6-step onboarding contract — full walk (Task #1624/#1625: ToS-signin
     expect(res.body.onboardingComplete).toBe(false);
 
     // Step 2: profile — blocked until name/experienceLevel/primaryGoal are set.
-    // Notably NOT a ToS/documents gate anymore.
     res = await request(app).patch("/api/members/me/onboarding").set("Cookie", cookie).send({ step: 2 });
     expect(res.status).toBe(400);
     expect((await getUser(id)).onboardingStep).toBe(2);
@@ -144,34 +146,57 @@ describe("6-step onboarding contract — full walk (Task #1624/#1625: ToS-signin
     expect(advanced).toBe(true);
     expect((await getUser(id)).onboardingStep).toBe(4);
 
-    // Step 4 (partner call booked) is event-advanced too.
+    // Step 4 (partner call booked) is event-advanced too — advances to send_off (5).
     advanced = await advanceOnboardingAfterPartnerCallBooked(id);
     expect(advanced).toBe(true);
     expect((await getUser(id)).onboardingStep).toBe(5);
 
-    // Step 5: watch 7 Pillars — client-advanceable, click-to-confirm.
-    res = await request(app).patch("/api/members/me/onboarding").set("Cookie", cookie).send({ step: 5 });
-    expect(res.status).toBe(200);
-    expect(res.body.currentStep).toBe(6);
-    expect(res.body.onboardingComplete).toBe(false);
+    // send_off's prerequisite guard requires real kickoff + partner call
+    // bookings on file — seed both directly since the internal advancement
+    // functions above only move the step counter, not the booking rows.
+    await db.insert(callBookingsTable).values([
+      {
+        memberId: id,
+        staffType: "kickoff_coach",
+        staffId: 1,
+        type: "kickoff",
+        ghlCalendarId: `test-cal-${TEST_TAG}-kickoff`,
+        scheduledAt: new Date(),
+        endAt: new Date(Date.now() + 30 * 60000),
+        status: "booked",
+      },
+      {
+        memberId: id,
+        staffType: "partner",
+        staffId: 1,
+        type: "partner",
+        ghlCalendarId: `test-cal-${TEST_TAG}-partner`,
+        scheduledAt: new Date(),
+        endAt: new Date(Date.now() + 30 * 60000),
+        status: "booked",
+      },
+    ]);
 
-    // Step 6 (first partner call done) completes onboarding via the internal
-    // function only, firing the completion side effects.
+    // Step 5: send_off — client-advanceable, and it's the LAST step, so
+    // completing it completes onboarding directly (no more webhook-driven
+    // completion for either variant).
     const before = await getUser(id);
     expect(before.onboardingComplete).toBe(false);
 
-    const completed = await completeOnboardingAfterPartnerCallDone(id);
-    expect(completed).toBe(true);
+    res = await request(app).patch("/api/members/me/onboarding").set("Cookie", cookie).send({ step: 5 });
+    expect(res.status).toBe(200);
+    expect(res.body.currentStep).toBe(5);
+    expect(res.body.onboardingComplete).toBe(true);
 
     const after = await getUser(id);
     expect(after.onboardingComplete).toBe(true);
-    expect(after.onboardingStep).toBe(6);
+    expect(after.onboardingStep).toBe(5);
   });
 });
 
-describe("6-step onboarding contract — blocked skip attempts", () => {
+describe("5-step (full) onboarding contract — blocked skip attempts", () => {
   it("rejects a PATCH that tries to complete step 3 (kickoff booked) directly", async () => {
-    const { id, cookie } = await seedMember({ onboardingStep: 3 });
+    const { id, cookie } = await seedMember({ onboardingStep: 3, onboardingVariant: "full" });
     const res = await request(app).patch("/api/members/me/onboarding").set("Cookie", cookie).send({ step: 3 });
     expect(res.status).toBe(400);
     expect(res.body.error).toMatch(/advances automatically/i);
@@ -179,54 +204,51 @@ describe("6-step onboarding contract — blocked skip attempts", () => {
   });
 
   it("rejects a PATCH that tries to complete step 4 (partner call booked) directly", async () => {
-    const { id, cookie } = await seedMember({ onboardingStep: 4 });
+    const { id, cookie } = await seedMember({ onboardingStep: 4, onboardingVariant: "full" });
     const res = await request(app).patch("/api/members/me/onboarding").set("Cookie", cookie).send({ step: 4 });
     expect(res.status).toBe(400);
     expect(res.body.error).toMatch(/advances automatically/i);
     expect((await getUser(id)).onboardingStep).toBe(4);
   });
 
-  it("rejects a PATCH that tries to complete step 6 (partner call completed) directly", async () => {
-    const { id, cookie } = await seedMember({ onboardingStep: 6 });
-    const res = await request(app).patch("/api/members/me/onboarding").set("Cookie", cookie).send({ step: 6 });
-    expect(res.status).toBe(400);
-    expect(res.body.error).toMatch(/advances automatically/i);
-    const user = await getUser(id);
-    expect(user.onboardingStep).toBe(6);
-    expect(user.onboardingComplete).toBe(false);
-  });
-
   it("rejects a PATCH that tries to jump ahead of the member's current step", async () => {
-    const { id, cookie } = await seedMember({ onboardingStep: 1 });
+    const { id, cookie } = await seedMember({ onboardingStep: 1, onboardingVariant: "full" });
     const res = await request(app).patch("/api/members/me/onboarding").set("Cookie", cookie).send({ step: 2 });
     expect(res.status).toBe(400);
     expect((await getUser(id)).onboardingStep).toBe(1);
   });
 
-  it("rejects a step number outside the 1-6 range", async () => {
-    const { cookie } = await seedMember({ onboardingStep: 1 });
-    const res = await request(app).patch("/api/members/me/onboarding").set("Cookie", cookie).send({ step: 7 });
+  it("rejects a step number outside the 1-5 range", async () => {
+    const { cookie } = await seedMember({ onboardingStep: 1, onboardingVariant: "full" });
+    const res = await request(app).patch("/api/members/me/onboarding").set("Cookie", cookie).send({ step: 6 });
     expect(res.status).toBe(400);
   });
 
   it("rejects any PATCH once onboarding is already complete", async () => {
-    const { id, cookie } = await seedMember({ onboardingStep: 6, onboardingComplete: true });
-    const res = await request(app).patch("/api/members/me/onboarding").set("Cookie", cookie).send({ step: 6 });
+    const { id, cookie } = await seedMember({ onboardingStep: 5, onboardingComplete: true, onboardingVariant: "full" });
+    const res = await request(app).patch("/api/members/me/onboarding").set("Cookie", cookie).send({ step: 5 });
     expect(res.status).toBe(400);
     expect((await getUser(id)).onboardingComplete).toBe(true);
+  });
+
+  it("rejects send_off completion until a kickoff call is on file (prerequisite guard)", async () => {
+    const { id, cookie } = await seedMember({ onboardingStep: 5, onboardingVariant: "full" });
+    const res = await request(app).patch("/api/members/me/onboarding").set("Cookie", cookie).send({ step: 5 });
+    expect(res.status).toBe(400);
+    expect((await getUser(id)).onboardingComplete).toBe(false);
   });
 });
 
 describe("Internal event-advancement functions — idempotency and guards", () => {
   it("advanceOnboardingAfterKickoffBooked is a no-op if the member isn't on step 3", async () => {
-    const { id } = await seedMember({ onboardingStep: 2 });
+    const { id } = await seedMember({ onboardingStep: 2, onboardingVariant: "full" });
     const advanced = await advanceOnboardingAfterKickoffBooked(id);
     expect(advanced).toBe(false);
     expect((await getUser(id)).onboardingStep).toBe(2);
   });
 
   it("advanceOnboardingAfterKickoffBooked is safe to call twice (replay-safe)", async () => {
-    const { id } = await seedMember({ onboardingStep: 3 });
+    const { id } = await seedMember({ onboardingStep: 3, onboardingVariant: "full" });
     const first = await advanceOnboardingAfterKickoffBooked(id);
     const second = await advanceOnboardingAfterKickoffBooked(id);
     expect(first).toBe(true);
@@ -235,37 +257,29 @@ describe("Internal event-advancement functions — idempotency and guards", () =
   });
 
   it("advanceOnboardingAfterPartnerCallBooked is a no-op if the member isn't on step 4", async () => {
-    const { id } = await seedMember({ onboardingStep: 5 });
+    const { id } = await seedMember({ onboardingStep: 5, onboardingVariant: "full" });
     const advanced = await advanceOnboardingAfterPartnerCallBooked(id);
     expect(advanced).toBe(false);
     expect((await getUser(id)).onboardingStep).toBe(5);
   });
 
-  it("completeOnboardingAfterPartnerCallDone is a no-op if the member isn't on step 6", async () => {
-    const { id } = await seedMember({ onboardingStep: 5 });
-    const completed = await completeOnboardingAfterPartnerCallDone(id);
-    expect(completed).toBe(false);
-    const user = await getUser(id);
-    expect(user.onboardingComplete).toBe(false);
-    expect(user.onboardingStep).toBe(5);
-  });
-
-  it("completeOnboardingAfterPartnerCallDone is a no-op once already complete (replay-safe)", async () => {
-    const { id } = await seedMember({ onboardingStep: 6 });
-    const first = await completeOnboardingAfterPartnerCallDone(id);
-    const second = await completeOnboardingAfterPartnerCallDone(id);
-    expect(first).toBe(true);
-    expect(second).toBe(false);
+  it("advanceOnboardingAfterPartnerCallBooked is a no-op for launchpad-variant members", async () => {
+    const { id } = await seedMember({ onboardingStep: 4, onboardingVariant: "launchpad" });
+    const advanced = await advanceOnboardingAfterPartnerCallBooked(id);
+    expect(advanced).toBe(false);
+    expect((await getUser(id)).onboardingStep).toBe(4);
   });
 });
 
 describe("Onboarding completion side effects", () => {
-  // Task #1642 (TB1): completion now ONLY cancels the onboarding nurture
-  // sequences — it no longer enrolls the member in anything.
+  // Task #1642 (TB1) / Task #1666: completion now ONLY cancels the onboarding
+  // nurture sequences — it no longer enrolls the member in anything, and it
+  // fires exclusively from the generic isLastStep branch of PATCH
+  // /members/me/onboarding (send_off), never from a webhook.
   // nurture_frontend_to_upgrade is fired exclusively at CREATION time for
   // "none"-variant members (see onboarding-effects.test.ts), never here.
   it("cancels both onboarding nurture sequences and enrolls the member in NOTHING", async () => {
-    const { id } = await seedMember({ onboardingStep: 6 });
+    const { id } = await seedMember({ onboardingStep: 5, onboardingVariant: "full" });
 
     const [frontendSeq] = await db.select().from(sequencesTable).where(eq(sequencesTable.slug, "onboarding_frontend"));
     const [mentorshipSeq] = await db.select().from(sequencesTable).where(eq(sequencesTable.slug, "onboarding_mentorship"));
@@ -277,8 +291,7 @@ describe("Onboarding completion side effects", () => {
       { userId: id, sequenceId: mentorshipSeq.id, status: "active", currentStepOrder: 1 },
     ]);
 
-    const completed = await completeOnboardingAfterPartnerCallDone(id);
-    expect(completed).toBe(true);
+    await fireOnboardingCompletionEffects(id);
 
     const frontendCancelled = await anyEnrollment(id, "onboarding_frontend", "cancelled");
     const mentorshipCancelled = await anyEnrollment(id, "onboarding_mentorship", "cancelled");
@@ -289,14 +302,9 @@ describe("Onboarding completion side effects", () => {
     expect(upgradeEnrollment).toBeFalsy();
   });
 
-  it("is idempotent: calling it again after a forced re-completion does not double-cancel or throw", async () => {
-    const { id } = await seedMember({ onboardingStep: 6 });
-    const completed = await completeOnboardingAfterPartnerCallDone(id);
-    expect(completed).toBe(true);
-
-    // Directly invoke the shared completion-effects helper a second time
-    // (simulating an upgrade re-entry later re-completing this member) —
-    // it must be a safe no-op guarded by the onboarding_effects ledger.
+  it("is idempotent: calling it again does not double-cancel or throw", async () => {
+    const { id } = await seedMember({ onboardingStep: 5, onboardingVariant: "full" });
+    await expect(fireOnboardingCompletionEffects(id)).resolves.toBeUndefined();
     await expect(fireOnboardingCompletionEffects(id)).resolves.toBeUndefined();
   });
 });
@@ -316,6 +324,12 @@ describe("Mid-flight onboarding migration: 7-step -> 6-step (Task #1624/#1625, T
     await db.delete(systemSettingsTable).where(eq(systemSettingsTable.key, "onboarding_v3_six_step_migration_completed_at"));
   });
 
+  // These historical step values (5=PILLARS_WATCHED, 6=PARTNER_CALL_COMPLETED)
+  // no longer exist on ONBOARDING_STEP after Task #1666 collapsed them into
+  // `send_off` — the migration function itself still targets the frozen
+  // literal values 5/6 internally (see SIX_STEP_CONTRACT in
+  // onboarding-advancement.ts), so these tests assert against those literals
+  // directly rather than the (now-removed) named constants.
   it("remaps every old step value to the correct new step", async () => {
     const memberOnOne = await seedMember({ onboardingStep: 1, onboardingComplete: false });
     const memberOnTwo = await seedMember({ onboardingStep: 2, onboardingComplete: false });
@@ -334,8 +348,8 @@ describe("Mid-flight onboarding migration: 7-step -> 6-step (Task #1624/#1625, T
     expect((await getUser(memberOnThree.id)).onboardingStep).toBe(ONBOARDING_STEP.PROFILE);
     expect((await getUser(memberOnFour.id)).onboardingStep).toBe(ONBOARDING_STEP.KICKOFF_BOOKED);
     expect((await getUser(memberOnFive.id)).onboardingStep).toBe(ONBOARDING_STEP.PARTNER_CALL_BOOKED);
-    expect((await getUser(memberOnSix.id)).onboardingStep).toBe(ONBOARDING_STEP.PILLARS_WATCHED);
-    expect((await getUser(memberOnSeven.id)).onboardingStep).toBe(ONBOARDING_STEP.PARTNER_CALL_COMPLETED);
+    expect((await getUser(memberOnSix.id)).onboardingStep).toBe(5);
+    expect((await getUser(memberOnSeven.id)).onboardingStep).toBe(6);
   });
 
   it("never touches completed members, even if they were stamped at an old step value", async () => {

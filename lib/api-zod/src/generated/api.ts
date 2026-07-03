@@ -194,7 +194,7 @@ export const GetOnboardingStateResponse = zod.object({
   variant: zod
     .enum(["none", "launchpad", "full"])
     .describe(
-      'Which onboarding step-contract this member follows (Task #1640).\n\"none\" members never see this route in practice (onboarding is\nalready complete). \"launchpad\" follows a 4-step contract,\n\"full\" the original 6-step contract.\n',
+      'Which onboarding step-contract this member follows (Task #1640,\nupdated by Task #1666). \"none\" members never see this route in\npractice (onboarding is already complete). \"launchpad\" follows a\n4-step contract, \"full\" a 5-step contract — both end in a\nclient-advanceable `send_off` step.\n',
     ),
   stepNames: zod
     .array(zod.string())
@@ -222,6 +222,56 @@ export const PatchOnboardingStepBody = zod.object({
 export const PatchOnboardingStepResponse = zod.object({
   currentStep: zod.number(),
   onboardingComplete: zod.boolean(),
+});
+
+/**
+ * @summary Get send-off page data (video + booked-call summary)
+ */
+export const GetOnboardingSendOffResponse = zod.object({
+  videoUrl: zod
+    .string()
+    .nullable()
+    .describe(
+      "Per-variant send-off video URL (Task #1666), resolved from the\n`sendoff_video_full` \/ `sendoff_video_launchpad` system_settings\nkeys. `null` if not yet configured by an admin.\n",
+    ),
+  kickoff: zod
+    .union([
+      zod.object({
+        coachName: zod.string(),
+        date: zod
+          .string()
+          .describe(
+            'Human-readable date formatted in the member\'s own timezone, e.g. \"Tuesday, July 8\".',
+          ),
+        time: zod
+          .string()
+          .describe(
+            'Human-readable time (with zone abbreviation) formatted in the member\'s own timezone, e.g. \"2:00 PM EDT\".',
+          ),
+      }),
+      zod.null(),
+    ])
+    .describe("The member's booked kickoff call, or null if none found."),
+  partnerCall: zod
+    .union([
+      zod.object({
+        coachName: zod.string(),
+        date: zod
+          .string()
+          .describe(
+            'Human-readable date formatted in the member\'s own timezone, e.g. \"Tuesday, July 8\".',
+          ),
+        time: zod
+          .string()
+          .describe(
+            'Human-readable time (with zone abbreviation) formatted in the member\'s own timezone, e.g. \"2:00 PM EDT\".',
+          ),
+      }),
+      zod.null(),
+    ])
+    .describe(
+      'The member\'s booked accountability-partner call. Always null for\n\"launchpad\" variant members (no partner-call tier exists for\nthat product).\n',
+    ),
 });
 
 /**

@@ -11,16 +11,14 @@ import {
   sequencesTable,
   sequenceEnrollmentsTable,
   onboardingEffectsTable,
+  callBookingsTable,
 } from "@workspace/db";
 import { eq, and, inArray } from "drizzle-orm";
 
 import { buildTestAppWithRouters } from "./test-app";
 import onboardingRouter from "../routes/onboarding";
 import { resolveOnboardingVariant, applyCreationTimeOnboardingDefaults } from "../lib/onboarding-variant";
-import {
-  advanceOnboardingAfterPartnerCallBooked,
-  completeOnboardingAfterPartnerCallDone,
-} from "../lib/onboarding-advancement";
+import { advanceOnboardingAfterPartnerCallBooked } from "../lib/onboarding-advancement";
 
 // Task #1640 (TA1): tier resolver + per-variant step arrays. Uses the
 // PRE-EXISTING dev-seeded "launchpad" (rank 1) and "3month" (rank 2, resolves
@@ -102,6 +100,7 @@ beforeAll(async () => {
 
 afterAll(async () => {
   if (seededUserIds.length > 0) {
+    await db.delete(callBookingsTable).where(inArray(callBookingsTable.memberId, seededUserIds));
     await db.delete(sequenceEnrollmentsTable).where(inArray(sequenceEnrollmentsTable.userId, seededUserIds));
     await db.delete(onboardingEffectsTable).where(inArray(onboardingEffectsTable.userId, seededUserIds));
     await db.delete(userProductsTable).where(inArray(userProductsTable.userId, seededUserIds));
@@ -192,10 +191,10 @@ describe("GET/PATCH /members/me/onboarding — variant-aware step arrays", () =>
     expect(res.status).toBe(200);
     expect(res.body.variant).toBe("launchpad");
     expect(res.body.totalSteps).toBe(4);
-    expect(res.body.stepNames).toEqual(["welcome", "profile", "kickoff_booked", "pillars_watched"]);
+    expect(res.body.stepNames).toEqual(["welcome", "profile", "kickoff_booked", "send_off"]);
   });
 
-  it("'full' GET reports the 6-step array and total", async () => {
+  it("'full' GET reports the 5-step array and total", async () => {
     const { id, cookie } = await seedMemberWithNoProducts();
     await grantProduct(id, fullTierProductId);
     await applyCreationTimeOnboardingDefaults(id);
@@ -203,14 +202,13 @@ describe("GET/PATCH /members/me/onboarding — variant-aware step arrays", () =>
     const res = await request(app).get("/api/members/me/onboarding").set("Cookie", cookie);
     expect(res.status).toBe(200);
     expect(res.body.variant).toBe("full");
-    expect(res.body.totalSteps).toBe(6);
+    expect(res.body.totalSteps).toBe(5);
     expect(res.body.stepNames).toEqual([
       "welcome",
       "profile",
       "kickoff_booked",
       "partner_call_booked",
-      "pillars_watched",
-      "partner_call_completed",
+      "send_off",
     ]);
   });
 
@@ -223,7 +221,7 @@ describe("GET/PATCH /members/me/onboarding — variant-aware step arrays", () =>
     expect(res.status).toBe(400);
   });
 
-  it("'launchpad' member completes onboarding directly after step 4 (pillars_watched) — no partner-call tier", async () => {
+  it("'launchpad' member completes onboarding directly after step 4 (send_off) — no partner-call tier", async () => {
     const { id, cookie } = await seedMemberWithNoProducts();
     await grantProduct(id, launchpadProductId);
     await applyCreationTimeOnboardingDefaults(id);
@@ -246,11 +244,22 @@ describe("GET/PATCH /members/me/onboarding — variant-aware step arrays", () =>
     res = await request(app).patch("/api/members/me/onboarding").set("Cookie", cookie).send({ step: 3 });
     expect(res.status).toBe(400);
 
-    // Simulate the kickoff-booked event advancing them to step 4.
+    // Simulate the kickoff-booked event advancing them to step 4, and give
+    // them the real kickoff booking that send_off's prerequisite guard checks for.
     await db.update(usersTable).set({ onboardingStep: 4 }).where(eq(usersTable.id, id));
+    await db.insert(callBookingsTable).values({
+      memberId: id,
+      staffType: "kickoff_coach",
+      staffId: 1,
+      type: "kickoff",
+      ghlCalendarId: `test-cal-${TEST_TAG}`,
+      scheduledAt: new Date(),
+      endAt: new Date(Date.now() + 30 * 60000),
+      status: "booked",
+    });
 
-    // Step 4: pillars_watched — the LAST launchpad step, client-advanceable,
-    // and completes onboarding directly (no partner-call step exists).
+    // Step 4: send_off — the LAST launchpad step, client-advanceable, and
+    // completes onboarding directly (no partner-call step exists).
     res = await request(app).patch("/api/members/me/onboarding").set("Cookie", cookie).send({ step: 4 });
     expect(res.status).toBe(200);
     expect(res.body.currentStep).toBe(4);
@@ -261,16 +270,59 @@ describe("GET/PATCH /members/me/onboarding — variant-aware step arrays", () =>
     expect(user.onboardingStep).toBe(4);
   });
 
-  it("'full' member does NOT complete after step 5 (pillars_watched) — step 6 remains event-only", async () => {
+  it("'full' member cannot complete send_off (step 5) without a partner call booked, even with a kickoff on file", async () => {
     const { id, cookie } = await seedMemberWithNoProducts();
     await grantProduct(id, fullTierProductId);
     await applyCreationTimeOnboardingDefaults(id);
     await db.update(usersTable).set({ onboardingStep: 5 }).where(eq(usersTable.id, id));
+    await db.insert(callBookingsTable).values({
+      memberId: id,
+      staffType: "kickoff_coach",
+      staffId: 1,
+      type: "kickoff",
+      ghlCalendarId: `test-cal-${TEST_TAG}-full`,
+      scheduledAt: new Date(),
+      endAt: new Date(Date.now() + 30 * 60000),
+      status: "booked",
+    });
+
+    const res = await request(app).patch("/api/members/me/onboarding").set("Cookie", cookie).send({ step: 5 });
+    expect(res.status).toBe(400);
+    expect((await getUser(id)).onboardingComplete).toBe(false);
+  });
+
+  it("'full' member completes send_off (step 5) once both kickoff and partner calls are booked", async () => {
+    const { id, cookie } = await seedMemberWithNoProducts();
+    await grantProduct(id, fullTierProductId);
+    await applyCreationTimeOnboardingDefaults(id);
+    await db.update(usersTable).set({ onboardingStep: 5 }).where(eq(usersTable.id, id));
+    await db.insert(callBookingsTable).values([
+      {
+        memberId: id,
+        staffType: "kickoff_coach",
+        staffId: 1,
+        type: "kickoff",
+        ghlCalendarId: `test-cal-${TEST_TAG}-full2`,
+        scheduledAt: new Date(),
+        endAt: new Date(Date.now() + 30 * 60000),
+        status: "booked",
+      },
+      {
+        memberId: id,
+        staffType: "partner",
+        staffId: 1,
+        type: "partner",
+        ghlCalendarId: `test-cal-${TEST_TAG}-full2-partner`,
+        scheduledAt: new Date(),
+        endAt: new Date(Date.now() + 30 * 60000),
+        status: "booked",
+      },
+    ]);
 
     const res = await request(app).patch("/api/members/me/onboarding").set("Cookie", cookie).send({ step: 5 });
     expect(res.status).toBe(200);
-    expect(res.body.currentStep).toBe(6);
-    expect(res.body.onboardingComplete).toBe(false);
+    expect(res.body.currentStep).toBe(5);
+    expect(res.body.onboardingComplete).toBe(true);
   });
 });
 
@@ -297,18 +349,5 @@ describe("Event-advance functions are variant-gated (no-op for launchpad, since 
     const advanced = await advanceOnboardingAfterPartnerCallBooked(id);
     expect(advanced).toBe(true);
     expect((await getUser(id)).onboardingStep).toBe(5);
-  });
-
-  it("completeOnboardingAfterPartnerCallDone is a no-op for a launchpad member", async () => {
-    const { id } = await seedMemberWithNoProducts();
-    await grantProduct(id, launchpadProductId);
-    await applyCreationTimeOnboardingDefaults(id);
-    await db.update(usersTable).set({ onboardingStep: 6 }).where(eq(usersTable.id, id));
-
-    const completed = await completeOnboardingAfterPartnerCallDone(id);
-    expect(completed).toBe(false);
-    const user = await getUser(id);
-    expect(user.onboardingComplete).toBe(false);
-    expect(user.onboardingStep).toBe(6);
   });
 });
