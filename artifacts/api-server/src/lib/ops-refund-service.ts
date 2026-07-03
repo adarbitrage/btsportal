@@ -21,6 +21,7 @@ import { eq, and } from "drizzle-orm";
 import { refund as nmiRefund, voidTransaction, queryTransaction } from "./payments/nmi-gateway.js";
 import { logAuditEvent } from "./audit-log.js";
 import { queueBillingAlert } from "./billing-alerts.js";
+import { timingSafeEqual } from "../middleware/ops-service-auth.js";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -30,6 +31,12 @@ export interface RefundRequest {
   /** Omit for full refund. Must be a positive integer in cents. */
   amountCents?: number;
   actor?: string;
+  /**
+   * Raw value of the `X-Refund-Approval` header, if present. Required (and
+   * checked against BTS_OPS_REFUND_APPROVAL_KEY) when the effective refund
+   * amount is at/above the approval threshold — see `checkRefundApproval`.
+   */
+  approvalHeader?: string;
 }
 
 export type RefundOutcome =
@@ -49,7 +56,43 @@ export type RefundOutcome =
   | { outcome: "in_progress" }
   | { outcome: "conflict" }
   | { outcome: "not_found" }
-  | { outcome: "invalid_amount"; reason: string };
+  | { outcome: "invalid_amount"; reason: string }
+  | { outcome: "approval_required" };
+
+// ─── Approval gate ────────────────────────────────────────────────────────────
+
+/** Default threshold ($1,000) above/at which a refund requires a second-factor approval header. */
+const DEFAULT_APPROVAL_THRESHOLD_CENTS = 100_000;
+
+function getApprovalThresholdCents(): number {
+  const raw = process.env.BTS_APPROVER_REQUIRED_THRESHOLD_CENTS;
+  if (!raw) return DEFAULT_APPROVAL_THRESHOLD_CENTS;
+  const parsed = Number.parseInt(raw, 10);
+  return Number.isFinite(parsed) && parsed >= 0 ? parsed : DEFAULT_APPROVAL_THRESHOLD_CENTS;
+}
+
+/**
+ * Returns true if the refund is authorized to proceed: either the effective
+ * refund amount is below the approver threshold, or a valid
+ * `X-Refund-Approval` header was presented that matches
+ * BTS_OPS_REFUND_APPROVAL_KEY (constant-time comparison).
+ *
+ * Fails CLOSED: an unset BTS_OPS_REFUND_APPROVAL_KEY, a missing header, or a
+ * mismatched header all return false when the threshold is met. The
+ * `actor` string on the request is never treated as authorization — it is
+ * audit-trail metadata only.
+ */
+export function isRefundApproved(effectiveAmountCents: number, approvalHeader: string | undefined): boolean {
+  const threshold = getApprovalThresholdCents();
+  if (effectiveAmountCents < threshold) return true;
+
+  const configured = process.env.BTS_OPS_REFUND_APPROVAL_KEY ?? "";
+  // Reject an unset approval key before the timing-sensitive compare. This
+  // branches only on server configuration, never on the presented header's
+  // content, so it adds no secret-dependent timing signal.
+  if (!configured) return false;
+  return timingSafeEqual(configured, approvalHeader ?? "");
+}
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -200,6 +243,12 @@ export async function processRefund(req: RefundRequest): Promise<RefundOutcome> 
 
   const partial = amountCents !== undefined;
 
+  // ── Approval gate (runs BEFORE any idempotency claim or money movement) ───
+  const effectiveAmountCents = amountCents ?? order.totalCents;
+  if (!isRefundApproved(effectiveAmountCents, req.approvalHeader)) {
+    return { outcome: "approval_required" };
+  }
+
   // ── Claim idempotency key ────────────────────────────────────────────────
   const claim = await claimKey(idempotencyKey, orderNumber, amountCents);
   if (claim.type === "in_progress") return { outcome: "in_progress" };
@@ -253,14 +302,18 @@ export async function processRefund(req: RefundRequest): Promise<RefundOutcome> 
   } catch (err) {
     const errResult: RefundOutcome = { outcome: "gateway_error", reason: String(err) };
     await completeKey(idempotencyKey, errResult);
-    logAuditEvent({
-      actorEmail: actor,
-      actionType: "billing.ops.refund.gateway_error",
-      entityType: "bts_order",
-      entityId: String(order.id),
-      description: `Ops refund gateway error for order ${orderNumber}`,
-      metadata: { orderNumber, action, error: String(err) },
-    });
+    try {
+      await logAuditEvent({
+        actorEmail: actor,
+        actionType: "billing.ops.refund.gateway_error",
+        entityType: "bts_order",
+        entityId: String(order.id),
+        description: `Ops refund gateway error for order ${orderNumber}`,
+        metadata: { orderNumber, action, error: String(err) },
+      });
+    } catch (auditErr) {
+      console.error(`[OpsRefund] Audit write failed for gateway-error outcome on order ${orderNumber}:`, auditErr);
+    }
     return errResult;
   }
 
@@ -270,14 +323,18 @@ export async function processRefund(req: RefundRequest): Promise<RefundOutcome> 
       reason: gatewayResult.responseText || "Gateway declined",
     };
     await completeKey(idempotencyKey, declineResult);
-    logAuditEvent({
-      actorEmail: actor,
-      actionType: "billing.ops.refund.declined",
-      entityType: "bts_order",
-      entityId: String(order.id),
-      description: `Ops refund declined for order ${orderNumber}: ${gatewayResult.responseText}`,
-      metadata: { orderNumber, action, responseText: gatewayResult.responseText },
-    });
+    try {
+      await logAuditEvent({
+        actorEmail: actor,
+        actionType: "billing.ops.refund.declined",
+        entityType: "bts_order",
+        entityId: String(order.id),
+        description: `Ops refund declined for order ${orderNumber}: ${gatewayResult.responseText}`,
+        metadata: { orderNumber, action, responseText: gatewayResult.responseText },
+      });
+    } catch (auditErr) {
+      console.error(`[OpsRefund] Audit write failed for declined outcome on order ${orderNumber}:`, auditErr);
+    }
     return declineResult;
   }
 
@@ -373,22 +430,33 @@ export async function processRefund(req: RefundRequest): Promise<RefundOutcome> 
 
   await completeKey(idempotencyKey, successResult);
 
-  logAuditEvent({
-    actorEmail: actor,
-    actionType: "billing.ops.refund.success",
-    entityType: "bts_order",
-    entityId: String(order.id),
-    description: `Ops ${action} ${partial ? "partial " : ""}refund for order ${orderNumber}: ${newStatus}`,
-    metadata: {
-      orderNumber,
-      action,
-      newStatus,
-      gatewayTransactionId: refundTxnId,
-      partial,
-      revoked,
-      subscriptionCanceled,
-    },
-  });
+  // The refund already succeeded (money moved, order status flipped, side
+  // effects applied above). A failure writing the audit row must NEVER turn
+  // this into a false failure for an action that already completed — log it
+  // loudly instead and still return the success result.
+  try {
+    await logAuditEvent({
+      actorEmail: actor,
+      actionType: "billing.ops.refund.success",
+      entityType: "bts_order",
+      entityId: String(order.id),
+      description: `Ops ${action} ${partial ? "partial " : ""}refund for order ${orderNumber}: ${newStatus}`,
+      metadata: {
+        orderNumber,
+        action,
+        newStatus,
+        gatewayTransactionId: refundTxnId,
+        partial,
+        revoked,
+        subscriptionCanceled,
+      },
+    });
+  } catch (auditErr) {
+    console.error(
+      `[OpsRefund] ALERT: Audit write failed for COMPLETED refund on order ${orderNumber} (txn=${refundTxnId}):`,
+      auditErr,
+    );
+  }
 
   return successResult;
 }

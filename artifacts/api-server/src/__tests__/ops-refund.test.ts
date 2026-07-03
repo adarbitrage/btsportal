@@ -14,7 +14,7 @@
  * 10. POST access grant/revoke
  */
 
-import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from "vitest";
+import { describe, it, expect, beforeAll, afterAll, beforeEach, afterEach, vi } from "vitest";
 import request from "supertest";
 import jwt from "jsonwebtoken";
 import bcrypt from "bcryptjs";
@@ -36,6 +36,7 @@ import { buildTestApp } from "./test-app";
 import opsRouter from "../routes/ops";
 import billingRouter from "../routes/billing";
 import { processDueRenewals } from "../lib/renewal-charger";
+import { __resetOpsRateLimitStateForTests } from "../middleware/ops-rate-limit";
 
 const TEST_TAG = `ops-refund-${randomUUID().slice(0, 8)}`;
 const JWT_SECRET = process.env.JWT_SECRET || "dev-secret-change-me";
@@ -61,6 +62,25 @@ vi.mock("../lib/redis", () => ({
   getRedis: () => null,
   isRedisConnected: async () => false,
 }));
+
+// Toggle-able audit-log failure injection. Defaults to the real
+// implementation (still exercised against the real DB) so all the existing
+// tests below keep writing real audit rows; individual tests flip
+// `auditWriteShouldFail` to true to prove a failing audit write never turns
+// an already-completed refund/access change into a false failure.
+let auditWriteShouldFail = false;
+vi.mock("../lib/audit-log", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../lib/audit-log")>();
+  return {
+    ...actual,
+    logAuditEvent: vi.fn(async (entry: Parameters<typeof actual.logAuditEvent>[0]) => {
+      if (auditWriteShouldFail) {
+        throw new Error("Simulated audit DB outage");
+      }
+      return actual.logAuditEvent(entry);
+    }),
+  };
+});
 
 vi.mock("../lib/webhook-events", () => ({
   emitWebhookEvent: vi.fn().mockResolvedValue(undefined),
@@ -759,5 +779,413 @@ describe("POST /api/ops/orders/:orderNumber/access", () => {
       .send({ action: "delete", reason: "bad" });
 
     expect(res.status).toBe(400);
+  });
+});
+
+// ─── Refund approval gate ─────────────────────────────────────────────────────
+
+describe("Refund approval gate", () => {
+  const APPROVAL_KEY_ENV = "BTS_OPS_REFUND_APPROVAL_KEY";
+  const THRESHOLD_ENV = "BTS_APPROVER_REQUIRED_THRESHOLD_CENTS";
+  const APPROVAL_KEY = `test-approval-key-${randomUUID()}`;
+  let prevApprovalKey: string | undefined;
+  let prevThreshold: string | undefined;
+
+  beforeAll(() => {
+    prevApprovalKey = process.env[APPROVAL_KEY_ENV];
+    prevThreshold = process.env[THRESHOLD_ENV];
+    process.env[APPROVAL_KEY_ENV] = APPROVAL_KEY;
+    // Low threshold so ordinary test amounts (9900) exercise the gate.
+    process.env[THRESHOLD_ENV] = "5000";
+  });
+
+  afterAll(() => {
+    if (prevApprovalKey === undefined) delete process.env[APPROVAL_KEY_ENV];
+    else process.env[APPROVAL_KEY_ENV] = prevApprovalKey;
+    if (prevThreshold === undefined) delete process.env[THRESHOLD_ENV];
+    else process.env[THRESHOLD_ENV] = prevThreshold;
+  });
+
+  it("rejects a large refund with no approval header (403), never touches the gateway", async () => {
+    const { orderNumber } = await seedPaidOrder({
+      userId: testUserId,
+      productId: nmiProductId,
+      email: testUserEmail,
+      totalCents: 9900,
+      gatewayTransactionId: "TXN_APPROVAL_NOHDR_001",
+    });
+    const ikey = `ik-approval-nohdr-${randomUUID()}`;
+    seededIdempotencyKeys.push(ikey);
+    fetchMock.mockClear();
+
+    const res = await request(app)
+      .post(`/api/ops/orders/${orderNumber}/refund`)
+      .set(opsHeaders())
+      .send({ idempotency_key: ikey });
+
+    expect(res.status).toBe(403);
+    expect(fetchMock).not.toHaveBeenCalled();
+
+    const [order] = await db.select().from(btsOrdersTable).where(eq(btsOrdersTable.orderNumber, orderNumber));
+    expect(order.status).toBe("paid");
+  });
+
+  it("rejects a large refund with a wrong approval header (403), never touches the gateway", async () => {
+    const { orderNumber } = await seedPaidOrder({
+      userId: testUserId,
+      productId: nmiProductId,
+      email: testUserEmail,
+      totalCents: 9900,
+      gatewayTransactionId: "TXN_APPROVAL_WRONGHDR_001",
+    });
+    const ikey = `ik-approval-wronghdr-${randomUUID()}`;
+    seededIdempotencyKeys.push(ikey);
+    fetchMock.mockClear();
+
+    const res = await request(app)
+      .post(`/api/ops/orders/${orderNumber}/refund`)
+      .set(opsHeaders())
+      .set("X-Refund-Approval", "not-the-real-key")
+      .send({ idempotency_key: ikey });
+
+    expect(res.status).toBe(403);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("fails closed when BTS_OPS_REFUND_APPROVAL_KEY is unset, even with a header presented", async () => {
+    const unset = process.env[APPROVAL_KEY_ENV];
+    delete process.env[APPROVAL_KEY_ENV];
+    try {
+      const { orderNumber } = await seedPaidOrder({
+        userId: testUserId,
+        productId: nmiProductId,
+        email: testUserEmail,
+        totalCents: 9900,
+        gatewayTransactionId: "TXN_APPROVAL_UNSETKEY_001",
+      });
+      const ikey = `ik-approval-unsetkey-${randomUUID()}`;
+      seededIdempotencyKeys.push(ikey);
+      fetchMock.mockClear();
+
+      const res = await request(app)
+        .post(`/api/ops/orders/${orderNumber}/refund`)
+        .set(opsHeaders())
+        .set("X-Refund-Approval", "anything-at-all")
+        .send({ idempotency_key: ikey });
+
+      expect(res.status).toBe(403);
+      expect(fetchMock).not.toHaveBeenCalled();
+    } finally {
+      if (unset !== undefined) process.env[APPROVAL_KEY_ENV] = unset;
+    }
+  });
+
+  it("allows a large refund with the correct approval header", async () => {
+    const { orderNumber, orderId } = await seedPaidOrder({
+      userId: testUserId,
+      productId: nmiProductId,
+      email: testUserEmail,
+      totalCents: 9900,
+      gatewayTransactionId: "TXN_APPROVAL_OK_001",
+    });
+    const ikey = `ik-approval-ok-${randomUUID()}`;
+    seededIdempotencyKeys.push(ikey);
+
+    fetchMock
+      .mockResolvedValueOnce(nmiQueryResponse("complete"))
+      .mockResolvedValueOnce(nmiApproved("TXN_APPROVAL_OK_REFUND_001"));
+
+    const res = await request(app)
+      .post(`/api/ops/orders/${orderNumber}/refund`)
+      .set(opsHeaders())
+      .set("X-Refund-Approval", APPROVAL_KEY)
+      .send({ idempotency_key: ikey });
+
+    expect(res.status).toBe(200);
+    expect(res.body.outcome).toBe("success");
+
+    const [order] = await db.select().from(btsOrdersTable).where(eq(btsOrdersTable.id, orderId));
+    expect(order.status).toBe("refunded");
+  });
+
+  it("does not require an approval header below the threshold", async () => {
+    const { orderNumber, orderId } = await seedPaidOrder({
+      userId: testUserId,
+      productId: nmiProductId,
+      email: testUserEmail,
+      totalCents: 9900,
+      gatewayTransactionId: "TXN_APPROVAL_BELOW_001",
+    });
+    const ikey = `ik-approval-below-${randomUUID()}`;
+    seededIdempotencyKeys.push(ikey);
+
+    fetchMock.mockResolvedValueOnce(nmiApproved("TXN_APPROVAL_BELOW_REFUND_001"));
+
+    const res = await request(app)
+      .post(`/api/ops/orders/${orderNumber}/refund`)
+      .set(opsHeaders())
+      // amount_cents (2000) is under the 5000-cent test threshold — no header needed.
+      .send({ idempotency_key: ikey, amount_cents: 2000 });
+
+    expect(res.status).toBe(200);
+    expect(res.body.outcome).toBe("success");
+
+    const [order] = await db.select().from(btsOrdersTable).where(eq(btsOrdersTable.id, orderId));
+    expect(order.status).toBe("partial_refunded");
+  });
+
+  it("never echoes the approval key, threshold, or presented header value in the 403 body", async () => {
+    const { orderNumber } = await seedPaidOrder({
+      userId: testUserId,
+      productId: nmiProductId,
+      email: testUserEmail,
+      totalCents: 9900,
+      gatewayTransactionId: "TXN_APPROVAL_LEAK_001",
+    });
+    const ikey = `ik-approval-leak-${randomUUID()}`;
+    seededIdempotencyKeys.push(ikey);
+
+    const presentedHeader = "totally-wrong-header-value";
+    const res = await request(app)
+      .post(`/api/ops/orders/${orderNumber}/refund`)
+      .set(opsHeaders())
+      .set("X-Refund-Approval", presentedHeader)
+      .send({ idempotency_key: ikey });
+
+    expect(res.status).toBe(403);
+    const bodyText = JSON.stringify(res.body);
+    expect(bodyText).not.toContain(APPROVAL_KEY);
+    expect(bodyText).not.toContain(presentedHeader);
+    expect(bodyText).not.toContain(OPS_KEY);
+    expect(bodyText).not.toContain("5000");
+  });
+});
+
+// ─── Audit-write failure never fails an already-completed action ─────────────
+
+describe("Audit write failures never turn a completed action into a false failure", () => {
+  beforeEach(() => {
+    auditWriteShouldFail = false;
+    __resetOpsRateLimitStateForTests();
+  });
+  afterEach(() => {
+    auditWriteShouldFail = false;
+  });
+
+  it("refund still returns success (200) when the audit write fails", async () => {
+    const { orderNumber, orderId } = await seedPaidOrder({
+      userId: testUserId,
+      productId: nmiProductId,
+      email: testUserEmail,
+      totalCents: 9900,
+      gatewayTransactionId: "TXN_AUDITFAIL_001",
+    });
+    const ikey = `ik-auditfail-${randomUUID()}`;
+    seededIdempotencyKeys.push(ikey);
+
+    fetchMock
+      .mockResolvedValueOnce(nmiQueryResponse("complete"))
+      .mockResolvedValueOnce(nmiApproved("TXN_AUDITFAIL_REFUND_001"));
+
+    auditWriteShouldFail = true;
+    const errSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    const res = await request(app)
+      .post(`/api/ops/orders/${orderNumber}/refund`)
+      .set(opsHeaders())
+      .send({ idempotency_key: ikey });
+
+    errSpy.mockRestore();
+
+    expect(res.status).toBe(200);
+    expect(res.body.outcome).toBe("success");
+
+    const [order] = await db.select().from(btsOrdersTable).where(eq(btsOrdersTable.id, orderId));
+    expect(order.status).toBe("refunded");
+  });
+
+  it("access grant still returns success (200) when the audit write fails", async () => {
+    const { orderNumber } = await seedPaidOrder({
+      userId: testUserId,
+      productId: nmiProductId,
+      email: testUserEmail,
+    });
+    await db.update(userProductsTable)
+      .set({ status: "cancelled", cancelledAt: new Date() })
+      .where(
+        and(
+          eq(userProductsTable.userId, testUserId),
+          eq(userProductsTable.productId, nmiProductId),
+          eq(userProductsTable.status, "active"),
+        ),
+      );
+
+    auditWriteShouldFail = true;
+    const errSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    const res = await request(app)
+      .post(`/api/ops/orders/${orderNumber}/access`)
+      .set(opsHeaders())
+      .send({ action: "grant", reason: "Test grant despite audit outage", actor: "ops@test.com" });
+
+    errSpy.mockRestore();
+
+    expect(res.status).toBe(200);
+    expect(res.body.action).toBe("grant");
+
+    const grants = await db.select().from(userProductsTable).where(
+      and(
+        eq(userProductsTable.userId, testUserId),
+        eq(userProductsTable.externalOrderId, orderNumber),
+      ),
+    );
+    expect(grants.some((g) => g.status === "active")).toBe(true);
+  });
+});
+
+// ─── Rate limiting ────────────────────────────────────────────────────────────
+//
+// This suite's module-level `../lib/redis` mock returns `getRedis: () =>
+// null`, so these requests exercise the bounded in-memory fallback path
+// (Redis unavailable) — proving the limiter still enforces a cap rather
+// than failing open like `abuseRateLimit` does when Redis is null.
+
+describe("Ops rate limiting (Redis unavailable -> bounded in-memory fallback)", () => {
+  const WRITE_MAX_ENV = "BTS_OPS_RATE_LIMIT_WRITE_MAX";
+  const WRITE_WINDOW_ENV = "BTS_OPS_RATE_LIMIT_WRITE_WINDOW_SEC";
+  let prevMax: string | undefined;
+  let prevWindow: string | undefined;
+
+  beforeAll(() => {
+    prevMax = process.env[WRITE_MAX_ENV];
+    prevWindow = process.env[WRITE_WINDOW_ENV];
+    process.env[WRITE_MAX_ENV] = "3";
+    process.env[WRITE_WINDOW_ENV] = "600";
+    __resetOpsRateLimitStateForTests();
+  });
+
+  afterAll(() => {
+    if (prevMax === undefined) delete process.env[WRITE_MAX_ENV];
+    else process.env[WRITE_MAX_ENV] = prevMax;
+    if (prevWindow === undefined) delete process.env[WRITE_WINDOW_ENV];
+    else process.env[WRITE_WINDOW_ENV] = prevWindow;
+  });
+
+  it("blocks with 429 after exceeding the per-key write limit, and never leaks the key", async () => {
+    // Distinct order numbers per attempt so we're only exercising the
+    // rate-limit gate, not idempotency/already-refunded logic. All requests
+    // share the same OPS_API_KEY, i.e. the same key-fingerprint bucket.
+    const attempt = async () => {
+      const { orderNumber } = await seedPaidOrder({
+        userId: testUserId,
+        productId: nmiProductId,
+        email: testUserEmail,
+        gatewayTransactionId: `TXN_RL_${randomUUID().slice(0, 8)}`,
+      });
+      const ikey = `ik-rl-${randomUUID()}`;
+      seededIdempotencyKeys.push(ikey);
+      // Invalid amount -> fast 400, never reaches the gateway; still counts
+      // against the write-bucket rate limiter, which runs before body
+      // validation.
+      return request(app)
+        .post(`/api/ops/orders/${orderNumber}/refund`)
+        .set(opsHeaders())
+        .send({ idempotency_key: ikey, amount_cents: -1 });
+    };
+
+    const results = [];
+    for (let i = 0; i < 4; i++) {
+      results.push(await attempt());
+    }
+
+    const statuses = results.map((r) => r.status);
+    const blocked = results.filter((r) => r.status === 429);
+    expect(blocked.length).toBeGreaterThan(0);
+    expect(statuses.slice(0, 3).every((s) => s !== 429)).toBe(true);
+
+    for (const r of blocked) {
+      const bodyText = JSON.stringify(r.body);
+      expect(bodyText).not.toContain(OPS_KEY);
+    }
+  });
+});
+
+// ─── No key leakage anywhere in error responses ──────────────────────────────
+
+describe("Secrets are never leaked in ops API responses", () => {
+  it("401 body for a wrong OPS key never echoes the configured OPS_API_KEY or the presented key", async () => {
+    const wrongKey = "totally-wrong-guess";
+    const res = await request(app)
+      .get(`/api/ops/customers/${encodeURIComponent(testUserEmail)}/orders`)
+      .set("Authorization", `Bearer ${wrongKey}`);
+
+    expect(res.status).toBe(401);
+    const bodyText = JSON.stringify(res.body);
+    expect(bodyText).not.toContain(OPS_KEY);
+    expect(bodyText).not.toContain(wrongKey);
+  });
+
+  it("never logs OPS_API_KEY or BTS_OPS_REFUND_APPROVAL_KEY to console across a battery of failure/fallback paths", async () => {
+    const prevApprovalKey = process.env.BTS_OPS_REFUND_APPROVAL_KEY;
+    const prevThreshold = process.env.BTS_APPROVER_REQUIRED_THRESHOLD_CENTS;
+    const approvalKey = `test-log-leak-approval-key-${randomUUID()}`;
+    process.env.BTS_OPS_REFUND_APPROVAL_KEY = approvalKey;
+    process.env.BTS_APPROVER_REQUIRED_THRESHOLD_CENTS = "1";
+
+    const logCalls: unknown[][] = [];
+    const errSpy = vi.spyOn(console, "error").mockImplementation((...args: unknown[]) => {
+      logCalls.push(args);
+    });
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation((...args: unknown[]) => {
+      logCalls.push(args);
+    });
+    const logSpy = vi.spyOn(console, "log").mockImplementation((...args: unknown[]) => {
+      logCalls.push(args);
+    });
+
+    try {
+      // Wrong OPS_API_KEY (auth failure path).
+      await request(app)
+        .get(`/api/ops/customers/${encodeURIComponent(testUserEmail)}/orders`)
+        .set("Authorization", "Bearer wrong-key-for-log-test");
+
+      // Wrong approval header on a refund above the (now $0.01) threshold.
+      const { orderNumber } = await seedPaidOrder({
+        userId: testUserId,
+        productId: nmiProductId,
+        email: testUserEmail,
+        totalCents: 9900,
+        gatewayTransactionId: "TXN_LOGLEAK_001",
+      });
+      const ikey = `ik-logleak-${randomUUID()}`;
+      seededIdempotencyKeys.push(ikey);
+      await request(app)
+        .post(`/api/ops/orders/${orderNumber}/refund`)
+        .set(opsHeaders())
+        .set("X-Refund-Approval", "wrong-approval-header-for-log-test")
+        .send({ idempotency_key: ikey });
+
+      // Rate-limit bounded-in-memory fallback log line (already exercised
+      // by earlier tests in this file since Redis is mocked null — trigger
+      // one more request to be sure at least one fallback log fires here).
+      await request(app)
+        .get(`/api/ops/customers/${encodeURIComponent(testUserEmail)}/orders`)
+        .set(opsHeaders());
+
+      const allLoggedText = logCalls
+        .map((args) => args.map((a) => (a instanceof Error ? a.stack || a.message : JSON.stringify(a))).join(" "))
+        .join("\n");
+
+      expect(allLoggedText).not.toContain(OPS_KEY);
+      expect(allLoggedText).not.toContain(approvalKey);
+    } finally {
+      errSpy.mockRestore();
+      warnSpy.mockRestore();
+      logSpy.mockRestore();
+      if (prevApprovalKey === undefined) delete process.env.BTS_OPS_REFUND_APPROVAL_KEY;
+      else process.env.BTS_OPS_REFUND_APPROVAL_KEY = prevApprovalKey;
+      if (prevThreshold === undefined) delete process.env.BTS_APPROVER_REQUIRED_THRESHOLD_CENTS;
+      else process.env.BTS_APPROVER_REQUIRED_THRESHOLD_CENTS = prevThreshold;
+    }
   });
 });

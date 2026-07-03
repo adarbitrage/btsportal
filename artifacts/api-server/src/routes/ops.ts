@@ -9,6 +9,17 @@
  *   GET  /api/ops/customers/:email          — aggregate customer view (read)
  *   POST /api/ops/orders/:orderNumber/refund — refund (write)
  *   POST /api/ops/orders/:orderNumber/access — grant/revoke access (write)
+ *
+ * Hardening on top of the shared-secret auth:
+ *   - Refunds at/above BTS_APPROVER_REQUIRED_THRESHOLD_CENTS additionally
+ *     require a valid `X-Refund-Approval` header (checked against
+ *     BTS_OPS_REFUND_APPROVAL_KEY, constant-time). See ops-refund-service.ts.
+ *     The `actor` field in the request body is audit-trail metadata only —
+ *     it is never treated as authorization.
+ *   - All ops routes are rate-limited (per key-fingerprint + per IP) via
+ *     ops-rate-limit.ts, fail-closed-soft if Redis is unavailable.
+ *   - Audit-log writes are always wrapped so a logging failure never turns
+ *     an already-completed refund/grant/revoke into a false failure.
  */
 
 import { Router } from "express";
@@ -27,6 +38,12 @@ import { processRefund } from "../lib/ops-refund-service.js";
 import { insertUserProductGrant } from "../lib/external-grant-product.js";
 import { logAuditEvent } from "../lib/audit-log.js";
 import { sendError } from "../lib/api-errors.js";
+import {
+  opsWriteKeyLimiter,
+  opsWriteIpLimiter,
+  opsReadKeyLimiter,
+  opsReadIpLimiter,
+} from "../middleware/ops-rate-limit.js";
 
 const router = Router();
 
@@ -61,7 +78,14 @@ function formatOrder(
 
 // ─── GET /api/ops/customers/:email/orders ─────────────────────────────────────
 
-router.get("/ops/customers/:email/orders", async (req, res): Promise<void> => {
+// NOTE: rate limiters are passed with an explicit `<{ email: string }>` (etc)
+// generic on each route below. Express 5's route-string param-literal
+// inference for `req.params` only fires when every passed handler shares the
+// exact same params type; mixing the generic `RequestHandler` type of the
+// rate limiters with an un-annotated async handler silently widens every
+// `req.params.*` access on the actual route body to `string | string[]`.
+// Pinning the generic here keeps that inference correct.
+router.get<{ email: string }>("/ops/customers/:email/orders", opsReadKeyLimiter, opsReadIpLimiter, async (req, res): Promise<void> => {
   const email = decodeURIComponent(req.params.email ?? "").toLowerCase().trim();
   if (!email) {
     sendError(res, 400, "INVALID_REQUEST", "email is required");
@@ -79,7 +103,7 @@ router.get("/ops/customers/:email/orders", async (req, res): Promise<void> => {
 
 // ─── GET /api/ops/customers/:email ────────────────────────────────────────────
 
-router.get("/ops/customers/:email", async (req, res): Promise<void> => {
+router.get<{ email: string }>("/ops/customers/:email", opsReadKeyLimiter, opsReadIpLimiter, async (req, res): Promise<void> => {
   const email = decodeURIComponent(req.params.email ?? "").toLowerCase().trim();
   if (!email) {
     sendError(res, 400, "INVALID_REQUEST", "email is required");
@@ -129,7 +153,7 @@ router.get("/ops/customers/:email", async (req, res): Promise<void> => {
 
 // ─── POST /api/ops/orders/:orderNumber/refund ─────────────────────────────────
 
-router.post("/ops/orders/:orderNumber/refund", async (req, res): Promise<void> => {
+router.post<{ orderNumber: string }>("/ops/orders/:orderNumber/refund", opsWriteKeyLimiter, opsWriteIpLimiter, async (req, res): Promise<void> => {
   const orderNumber = req.params.orderNumber ?? "";
   if (!orderNumber) {
     sendError(res, 400, "INVALID_REQUEST", "orderNumber is required");
@@ -142,6 +166,10 @@ router.post("/ops/orders/:orderNumber/refund", async (req, res): Promise<void> =
     sendError(res, 400, "INVALID_REQUEST", "idempotency_key is required (max 256 chars)");
     return;
   }
+
+  // Raw header value only — never logged, never echoed in any response body.
+  const rawApproval = req.headers["x-refund-approval"];
+  const approvalHeader = typeof rawApproval === "string" ? rawApproval : undefined;
 
   const rawAmount = body.amount_cents;
   let amountCents: number | undefined;
@@ -160,11 +188,17 @@ router.post("/ops/orders/:orderNumber/refund", async (req, res): Promise<void> =
 
   const actor = typeof body.actor === "string" ? body.actor : undefined;
 
-  const outcome = await processRefund({ orderNumber, idempotencyKey, amountCents, actor });
+  const outcome = await processRefund({ orderNumber, idempotencyKey, amountCents, actor, approvalHeader });
 
   switch (outcome.outcome) {
     case "success":
       res.json(outcome);
+      return;
+
+    case "approval_required":
+      // Deliberately generic: no threshold, no key, no header value in the
+      // response body or logs.
+      sendError(res, 403, "OPS_APPROVAL_REQUIRED", "This refund requires a valid approval header");
       return;
 
     case "replay":
@@ -211,7 +245,7 @@ router.post("/ops/orders/:orderNumber/refund", async (req, res): Promise<void> =
 
 // ─── POST /api/ops/orders/:orderNumber/access ─────────────────────────────────
 
-router.post("/ops/orders/:orderNumber/access", async (req, res): Promise<void> => {
+router.post<{ orderNumber: string }>("/ops/orders/:orderNumber/access", opsWriteKeyLimiter, opsWriteIpLimiter, async (req, res): Promise<void> => {
   const orderNumber = req.params.orderNumber ?? "";
   if (!orderNumber) {
     sendError(res, 400, "INVALID_REQUEST", "orderNumber is required");
@@ -288,14 +322,24 @@ router.post("/ops/orders/:orderNumber/access", async (req, res): Promise<void> =
     accessResult = { action: "revoke", revoked: updated.length > 0 };
   }
 
-  logAuditEvent({
-    actorEmail: actor || undefined,
-    actionType: `billing.ops.access.${action}`,
-    entityType: "bts_order",
-    entityId: String(order.id),
-    description: `Ops ${action} access for order ${orderNumber}${reason ? `: ${reason}` : ""}`,
-    metadata: { orderNumber, action, reason, actor, ...accessResult },
-  });
+  // The access grant/revoke DB mutation above already succeeded. An audit
+  // write failure must not turn this into a false failure for a completed
+  // action — log loudly and still return success.
+  try {
+    await logAuditEvent({
+      actorEmail: actor || undefined,
+      actionType: `billing.ops.access.${action}`,
+      entityType: "bts_order",
+      entityId: String(order.id),
+      description: `Ops ${action} access for order ${orderNumber}${reason ? `: ${reason}` : ""}`,
+      metadata: { orderNumber, action, reason, actor, ...accessResult },
+    });
+  } catch (auditErr) {
+    console.error(
+      `[OpsAccess] ALERT: Audit write failed for COMPLETED ${action} on order ${orderNumber}:`,
+      auditErr,
+    );
+  }
 
   res.json({ order_number: orderNumber, ...accessResult });
 });
