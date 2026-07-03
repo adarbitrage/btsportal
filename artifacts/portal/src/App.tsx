@@ -88,12 +88,12 @@ import MyWins from "@/pages/wins/MyWins";
 import WinDetail from "@/pages/wins/WinDetail";
 import TestimonialSubmit from "@/pages/wins/TestimonialSubmit";
 import OnboardingWelcome from "@/pages/onboarding/Welcome";
-import OnboardingDocuments from "@/pages/onboarding/Documents";
 import OnboardingProfile from "@/pages/onboarding/Profile";
 import OnboardingBookKickoff from "@/pages/onboarding/BookKickoff";
 import OnboardingBookPartnerCall from "@/pages/onboarding/BookPartnerCall";
 import OnboardingWatchPillars from "@/pages/onboarding/WatchPillars";
 import OnboardingPartnerCallPending from "@/pages/onboarding/PartnerCallPending";
+import TermsOfService from "@/pages/TermsOfService";
 import { ChatWidget } from "@/components/chat/ChatWidget";
 import CommunityCategories from "@/pages/admin/CommunityCategories";
 import CommunityModeration from "@/pages/admin/CommunityModeration";
@@ -188,7 +188,6 @@ const queryClient = new QueryClient({
 
 const STEP_ROUTES = [
   "/onboarding/welcome",
-  "/onboarding/documents",
   "/onboarding/profile",
   "/onboarding/book-kickoff",
   "/onboarding/book-partner-call",
@@ -357,12 +356,12 @@ export function ContentAccessRoute({
     return <Redirect to="/change-password" />;
   }
 
-  // Step 6 of onboarding ("Watch the 7 Pillars") links out to this same page —
+  // Step 5 of onboarding ("Watch the 7 Pillars") links out to this same page —
   // allow it through for a member sitting exactly on that step so the CTA
   // isn't a dead-end loop back to onboarding. Every other page stays gated
   // until onboarding is complete.
   const isPillarsStepException =
-    pageKey === "seven-pillars" && user.onboardingStep === 6 && !user.onboardingComplete;
+    pageKey === "seven-pillars" && user.onboardingStep === 5 && !user.onboardingComplete;
 
   if (!user.onboardingComplete && !isCoachRole(user.role) && !isPartnerRole(user.role) && !isPillarsStepException) {
     const stepRoute = STEP_ROUTES[(user.onboardingStep || 1) - 1] || STEP_ROUTES[0];
@@ -482,12 +481,12 @@ function Router() {
       <Route path="/verify-email">{() => <VerifyEmail />}</Route>
       <Route path="/verify-email-change">{() => <VerifyEmailChange />}</Route>
       <Route path="/onboarding/welcome">{() => <OnboardingRoute component={OnboardingWelcome} step={1} />}</Route>
-      <Route path="/onboarding/documents">{() => <OnboardingRoute component={OnboardingDocuments} step={2} />}</Route>
-      <Route path="/onboarding/profile">{() => <OnboardingRoute component={OnboardingProfile} step={3} />}</Route>
-      <Route path="/onboarding/book-kickoff">{() => <OnboardingRoute component={OnboardingBookKickoff} step={4} />}</Route>
-      <Route path="/onboarding/book-partner-call">{() => <OnboardingRoute component={OnboardingBookPartnerCall} step={5} />}</Route>
-      <Route path="/onboarding/pillars">{() => <OnboardingRoute component={OnboardingWatchPillars} step={6} />}</Route>
-      <Route path="/onboarding/partner-call-pending">{() => <OnboardingRoute component={OnboardingPartnerCallPending} step={7} />}</Route>
+      <Route path="/onboarding/profile">{() => <OnboardingRoute component={OnboardingProfile} step={2} />}</Route>
+      <Route path="/onboarding/book-kickoff">{() => <OnboardingRoute component={OnboardingBookKickoff} step={3} />}</Route>
+      <Route path="/onboarding/book-partner-call">{() => <OnboardingRoute component={OnboardingBookPartnerCall} step={4} />}</Route>
+      <Route path="/onboarding/pillars">{() => <OnboardingRoute component={OnboardingWatchPillars} step={5} />}</Route>
+      <Route path="/onboarding/partner-call-pending">{() => <OnboardingRoute component={OnboardingPartnerCallPending} step={6} />}</Route>
+      <Route path="/terms-of-service">{() => <ProtectedRoute component={TermsOfService} />}</Route>
       <Route path="/">{() => <ProtectedRoute component={Home} />}</Route>
       <Route path="/dashboard">{() => <ProtectedRoute component={Dashboard} />}</Route>
       <Route path="/core-training">{() => <ContentAccessRoute component={CoreTraining} pageKey="core-training" />}</Route>

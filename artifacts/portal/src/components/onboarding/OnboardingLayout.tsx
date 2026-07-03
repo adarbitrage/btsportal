@@ -3,7 +3,6 @@ import { useLocation } from "wouter";
 
 const STEPS = [
   { label: "Welcome", path: "/onboarding/welcome" },
-  { label: "Documents", path: "/onboarding/documents" },
   { label: "Profile", path: "/onboarding/profile" },
   { label: "Book Kickoff", path: "/onboarding/book-kickoff" },
   { label: "Book Partner Call", path: "/onboarding/book-partner-call" },

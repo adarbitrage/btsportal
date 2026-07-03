@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { useState } from "react";
 
-// Step 7: waiting on the first partner call to actually happen. EVENT-
+// Step 6: waiting on the first partner call to actually happen. EVENT-
 // ADVANCED: only completeOnboardingAfterPartnerCallDone() (server-side,
 // triggered by the GHL webhook once the call is confirmed) completes
 // onboarding from here — there is no client PATCH for this step.
@@ -28,7 +28,7 @@ export default function OnboardingPartnerCallPending() {
   };
 
   return (
-    <OnboardingLayout currentStep={7} onBack={() => navigate("/onboarding/pillars")}>
+    <OnboardingLayout currentStep={6} onBack={() => navigate("/onboarding/pillars")}>
       <div className="space-y-6">
         <div className="text-center mb-2">
           <h2 className="text-2xl font-bold text-foreground mb-2">Almost There!</h2>

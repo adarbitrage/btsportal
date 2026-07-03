@@ -45,7 +45,7 @@ async function makeMember(): Promise<number> {
       sourceProduct: "lifetime",
       emailVerified: true,
       onboardingComplete: true,
-      onboardingStep: 7,
+      onboardingStep: 6,
     })
     .returning({ id: usersTable.id });
   userIds.push(row.id);

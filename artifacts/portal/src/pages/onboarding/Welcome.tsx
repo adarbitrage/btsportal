@@ -23,7 +23,7 @@ export default function OnboardingWelcome() {
     try {
       await patchOnboarding.mutateAsync({ data: { step: 1 } });
       await refreshAuth();
-      navigate("/onboarding/documents");
+      navigate("/onboarding/profile");
     } catch (err) {
       console.error("Failed to advance step:", err);
     } finally {

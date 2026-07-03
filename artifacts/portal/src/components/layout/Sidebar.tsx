@@ -837,6 +837,16 @@ export function SidebarContent({ onNavClick }: { onNavClick?: () => void }) {
             <LogOut className="w-4 h-4" />
           </button>
         </div>
+
+        <div className="px-2 pt-1">
+          <Link
+            href="/terms-of-service"
+            onClick={() => onNavClick?.()}
+            className="text-[11px] text-muted-foreground hover:text-foreground transition-colors"
+          >
+            Terms of Service
+          </Link>
+        </div>
       </div>
     </>
   );

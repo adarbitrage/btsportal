@@ -23,7 +23,7 @@ export default function OnboardingWatchPillars() {
     setError("");
     setSubmitting(true);
     try {
-      await patchOnboarding.mutateAsync({ data: { step: 6 } });
+      await patchOnboarding.mutateAsync({ data: { step: 5 } });
       await refreshAuth();
       navigate("/onboarding/partner-call-pending");
     } catch (err: any) {
@@ -34,7 +34,7 @@ export default function OnboardingWatchPillars() {
   };
 
   return (
-    <OnboardingLayout currentStep={6} onBack={() => navigate("/onboarding/book-partner-call")}>
+    <OnboardingLayout currentStep={5} onBack={() => navigate("/onboarding/book-partner-call")}>
       <div className="space-y-6">
         <div className="text-center mb-2">
           <h2 className="text-2xl font-bold text-foreground mb-2">Watch the 7 Pillars</h2>

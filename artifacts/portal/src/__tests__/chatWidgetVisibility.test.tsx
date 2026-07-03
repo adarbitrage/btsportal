@@ -97,7 +97,7 @@ describe("AuthenticatedChatWidget — does not render on auth/onboarding routes"
     expect(queryByTestId("chat-widget")).not.toBeNull();
 
     act(() => {
-      navigate("/onboarding/documents");
+      navigate("/onboarding/profile");
     });
     expect(queryByTestId("chat-widget")).toBeNull();
   });

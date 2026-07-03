@@ -99,7 +99,7 @@ export default function OnboardingBookKickoff() {
 
   if (mineLoading) {
     return (
-      <OnboardingLayout currentStep={4} onBack={() => navigate("/onboarding/profile")}>
+      <OnboardingLayout currentStep={3} onBack={() => navigate("/onboarding/profile")}>
         <div className="animate-pulse h-64 bg-card rounded-xl" />
       </OnboardingLayout>
     );
@@ -107,7 +107,7 @@ export default function OnboardingBookKickoff() {
 
   if (existingBooking && existingBooking.status !== "canceled") {
     return (
-      <OnboardingLayout currentStep={4} onBack={() => navigate("/onboarding/profile")}>
+      <OnboardingLayout currentStep={3} onBack={() => navigate("/onboarding/profile")}>
         <div className="space-y-6 max-w-lg mx-auto text-center">
           <div className="w-14 h-14 mx-auto bg-primary/10 rounded-full flex items-center justify-center">
             <PartyPopper className="w-7 h-7 text-primary" />
@@ -136,7 +136,7 @@ export default function OnboardingBookKickoff() {
   }
 
   return (
-    <OnboardingLayout currentStep={4} onBack={() => navigate("/onboarding/profile")}>
+    <OnboardingLayout currentStep={3} onBack={() => navigate("/onboarding/profile")}>
       <div className="space-y-6">
         <div className="text-center mb-2">
           <h2 className="text-2xl font-bold text-foreground mb-2">Book Your Kickoff Call</h2>

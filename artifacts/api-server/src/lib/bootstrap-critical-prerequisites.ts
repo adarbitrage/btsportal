@@ -37,7 +37,7 @@ import { ensureFoundingSuperAdmins } from "./ensure-founding-superadmins";
 import { seedToolTags } from "./kb-tool-tags";
 import { backfillUndeliveredTickets } from "./ticketdesk-queue";
 import { migrateOneOffCoachingCallsToTemplates } from "./coaching-call-migrate-oneoffs";
-import { migrateOnboardingStepsToSevenStepContract } from "./onboarding-advancement";
+import { migrateOnboardingStepsToSevenStepContract, migrateOnboardingStepsToSixStepContract } from "./onboarding-advancement";
 import { seedCallBookingRoster } from "./seed-call-booking-roster";
 import { seedPartnerPhotos } from "./seed-partner-photos";
 
@@ -375,19 +375,35 @@ export async function bootstrapCriticalPrerequisites(): Promise<PrerequisiteResu
   }
 
   // 11. One-time, idempotent migration of mid-flight onboarding members from
-  //     the old 5-step numbering to the new 7-step contract (Task #1578):
-  //     old step 4 (orientation) / 5 (quick-start) -> new step 4 (book kickoff).
-  //     Completed members are never touched. Claimed via a system_settings
-  //     marker row so it can only ever fire once, even across restarts — see
-  //     migrateOnboardingStepsToSevenStepContract() for why a plain
-  //     "already at step 4" check isn't safe here (4/5 are reused with new
-  //     meaning in the new contract). Must run at boot so production also
-  //     receives the remap (the agent cannot write prod directly).
+  //     the old 5-step numbering to the (now superseded) 7-step contract
+  //     (Task #1578): old step 4 (orientation) / 5 (quick-start) -> new step 4
+  //     (book kickoff). Completed members are never touched. Claimed via a
+  //     system_settings marker row so it can only ever fire once, even across
+  //     restarts — see migrateOnboardingStepsToSevenStepContract() for why a
+  //     plain "already at step 4" check isn't safe here (4/5 are reused with
+  //     new meaning in the new contract). Must run at boot so production also
+  //     receives the remap (the agent cannot write prod directly). Kept even
+  //     though the 7-step contract has since been superseded (see #12) —
+  //     members who never got this remap still need it before the #12 remap
+  //     runs.
   try {
     await migrateOnboardingStepsToSevenStepContract();
   } catch (err) {
     console.error("[Bootstrap] migrateOnboardingStepsToSevenStepContract() threw:", err);
     missing.push("migrateOnboardingStepsToSevenStepContract");
+  }
+
+  // 11b. One-time, idempotent migration of mid-flight onboarding members from
+  //      the old 7-step numbering (which included an in-portal ToS signing
+  //      step) to the new 6-step contract (Task #1624 — ToS signing step
+  //      removed; platform ToS is now a browsewrap footer link only). See
+  //      migrateOnboardingStepsToSixStepContract() for the full old->new step
+  //      map and why a claim-row (not a value check) is required.
+  try {
+    await migrateOnboardingStepsToSixStepContract();
+  } catch (err) {
+    console.error("[Bootstrap] migrateOnboardingStepsToSixStepContract() threw:", err);
+    missing.push("migrateOnboardingStepsToSixStepContract");
   }
 
   // 12. Seed the verified accountability-partner and kickoff-coach GHL

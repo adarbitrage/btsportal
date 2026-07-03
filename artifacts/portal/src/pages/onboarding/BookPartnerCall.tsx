@@ -143,7 +143,7 @@ export default function OnboardingBookPartnerCall() {
 
   const Wrapper = ({ children }: { children: React.ReactNode }) =>
     inOnboarding ? (
-      <OnboardingLayout currentStep={5} onBack={() => navigate("/onboarding/book-kickoff")}>
+      <OnboardingLayout currentStep={4} onBack={() => navigate("/onboarding/book-kickoff")}>
         {children}
       </OnboardingLayout>
     ) : (

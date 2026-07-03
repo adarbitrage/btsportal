@@ -50,7 +50,7 @@ const onboardingUser = {
   name: "New Staffer",
   role: "admin",
   onboardingComplete: false,
-  onboardingStep: 3,
+  onboardingStep: 2,
   mustChangePassword: false,
 };
 
@@ -74,7 +74,7 @@ describe("onboarding gate — ProtectedRoute sends an incomplete user into the s
       <ProtectedRoute component={Target} />,
     );
 
-    // onboardingStep=3 -> STEP_ROUTES[2] -> /onboarding/profile
+    // onboardingStep=2 -> STEP_ROUTES[1] -> /onboarding/profile
     expect(getByTestId("redirect")).toHaveAttribute(
       "data-to",
       "/onboarding/profile",
@@ -116,7 +116,7 @@ describe("onboarding gate — OnboardingRoute keeps users on their current step"
     authStateMock.mockReturnValue({ user: completedUser, loading: false });
 
     const { getByTestId, queryByTestId } = render(
-      <OnboardingRoute component={Target} step={3} />,
+      <OnboardingRoute component={Target} step={2} />,
     );
 
     expect(getByTestId("redirect")).toHaveAttribute("data-to", "/");
@@ -126,9 +126,9 @@ describe("onboarding gate — OnboardingRoute keeps users on their current step"
   it("redirects to the current step when a later step is requested", () => {
     authStateMock.mockReturnValue({ user: onboardingUser, loading: false });
 
-    // User is on step 3 but tries to open step 5 (quick-start).
+    // User is on step 2 (profile) but tries to open step 4 (book first partner call).
     const { getByTestId, queryByTestId } = render(
-      <OnboardingRoute component={Target} step={5} />,
+      <OnboardingRoute component={Target} step={4} />,
     );
 
     expect(getByTestId("redirect")).toHaveAttribute(
@@ -142,7 +142,7 @@ describe("onboarding gate — OnboardingRoute keeps users on their current step"
     authStateMock.mockReturnValue({ user: onboardingUser, loading: false });
 
     const { getByTestId, queryByTestId } = render(
-      <OnboardingRoute component={Target} step={3} />,
+      <OnboardingRoute component={Target} step={2} />,
     );
 
     expect(getByTestId("target-content")).toBeInTheDocument();
@@ -196,7 +196,7 @@ describe("onboarding gate — EntitlementRoute runs the first-login and onboardi
       <EntitlementRoute component={Target} entitlement="community:access" />,
     );
 
-    // onboardingStep=3 -> STEP_ROUTES[2] -> /onboarding/profile, NOT "/"
+    // onboardingStep=2 -> STEP_ROUTES[1] -> /onboarding/profile, NOT "/"
     expect(getByTestId("redirect")).toHaveAttribute(
       "data-to",
       "/onboarding/profile",
@@ -421,7 +421,7 @@ describe("GuestRoute — lets signed-out users in and bounces signed-in users to
       <GuestRoute component={Target} />,
     );
 
-    // onboardingStep=3 -> STEP_ROUTES[2] -> /onboarding/profile
+    // onboardingStep=2 -> STEP_ROUTES[1] -> /onboarding/profile
     expect(getByTestId("redirect")).toHaveAttribute(
       "data-to",
       "/onboarding/profile",

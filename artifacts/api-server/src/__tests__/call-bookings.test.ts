@@ -193,8 +193,8 @@ async function seedPartnerBooking(opts: {
 }
 
 describe("kickoff call booking: step idempotency", () => {
-  it("advances step 4->5 exactly once; repeat book returns the SAME booking without re-advancing", async () => {
-    const memberId = await makeMember(4);
+  it("advances step 3->4 exactly once; repeat book returns the SAME booking without re-advancing", async () => {
+    const memberId = await makeMember(3);
     const startTime = gridAlignedFutureTime(3);
 
     const first = await request(app)
@@ -208,7 +208,7 @@ describe("kickoff call booking: step idempotency", () => {
     bookingIds.push(bookingId);
 
     const afterFirst = await onboardingStepOf(memberId);
-    expect(afterFirst.step).toBe(5);
+    expect(afterFirst.step).toBe(4);
 
     const second = await request(app)
       .post("/api/onboarding/kickoff/book")
@@ -220,7 +220,7 @@ describe("kickoff call booking: step idempotency", () => {
     expect(second.body.booking.id).toBe(bookingId);
 
     const afterSecond = await onboardingStepOf(memberId);
-    expect(afterSecond.step).toBe(5);
+    expect(afterSecond.step).toBe(4);
 
     const rows = await db
       .select({ id: callBookingsTable.id })
@@ -301,7 +301,7 @@ describe("partner call booking: 5/day cap filtering + cap freed on cancel", () =
 
 describe("partner call booking: pre-kickoff filtering on the first booking only", () => {
   it("hides slots before the kickoff call for a member's first partner booking, then lifts the restriction", async () => {
-    const memberId = await makeMember(5, false);
+    const memberId = await makeMember(4, false);
     await assignPartner(memberId, kickoffPartnerId);
 
     const kickoffAt = gridAlignedFutureTime(10);
@@ -336,7 +336,7 @@ describe("partner call booking: pre-kickoff filtering on the first booking only"
       .send({ startTime: beforeCutoff.toISOString() });
     expect(rejected.status).toBe(409);
 
-    // Booking AFTER the cutoff succeeds and advances onboarding step 5->6.
+    // Booking AFTER the cutoff succeeds and advances onboarding step 4->5.
     const afterCutoff = new Date(kickoffAt.getTime() + SLOT_STEP_MS);
     const firstBooking = await request(app)
       .post("/api/onboarding/partner/book")
@@ -347,11 +347,11 @@ describe("partner call booking: pre-kickoff filtering on the first booking only"
     bookingIds.push(firstBooking.body.booking.id);
 
     const stepAfterFirst = await onboardingStepOf(memberId);
-    expect(stepAfterFirst.step).toBe(6);
+    expect(stepAfterFirst.step).toBe(5);
 
     // Now that the member has a non-canceled partner booking, the pre-kickoff
     // restriction lifts: a SECOND booking before the kickoff time succeeds,
-    // and does NOT re-advance onboarding (already past step 5).
+    // and does NOT re-advance onboarding (already past step 4).
     const secondBooking = await request(app)
       .post("/api/onboarding/partner/book")
       .set("Cookie", authCookie(memberId))
@@ -361,7 +361,7 @@ describe("partner call booking: pre-kickoff filtering on the first booking only"
     bookingIds.push(secondBooking.body.booking.id);
 
     const stepAfterSecond = await onboardingStepOf(memberId);
-    expect(stepAfterSecond.step).toBe(6);
+    expect(stepAfterSecond.step).toBe(5);
   });
 });
 
@@ -597,7 +597,7 @@ describe("per-row GHL location plumbing (Task #1611)", () => {
       await db.update(kickoffCoachesTable).set({ isActive: false }).where(inArray(kickoffCoachesTable.id, otherActiveCoachIds));
     }
     try {
-      const memberId = await makeMember(4);
+      const memberId = await makeMember(3);
       const freeSlotsSpy = vi.spyOn(ghlCoachingCalendar, "getFreeSlots");
       const createAppointmentSpy = vi.spyOn(ghlCoachingCalendar, "createAppointment");
 
@@ -665,7 +665,7 @@ describe("inactive partner/kickoff coach roster rows are excluded", () => {
       .returning({ id: kickoffCoachesTable.id });
 
     try {
-      const memberId = await makeMember(4);
+      const memberId = await makeMember(3);
       const startTime = gridAlignedFutureTime(42);
       const booked = await request(app)
         .post("/api/onboarding/kickoff/book")
@@ -682,7 +682,7 @@ describe("inactive partner/kickoff coach roster rows are excluded", () => {
 
 describe("kickoff call booking: concurrent double-submit produces a single booking", () => {
   it("returns the same booking for two simultaneous kickoff book requests from the same member", async () => {
-    const memberId = await makeMember(4);
+    const memberId = await makeMember(3);
     const startTimeA = gridAlignedFutureTime(30);
     const startTimeB = gridAlignedFutureTime(31);
 

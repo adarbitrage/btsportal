@@ -11,34 +11,40 @@ import {
 
 const router: IRouter = Router();
 
-// The 7-step guided onboarding contract (Task #1578).
+// The 6-step guided onboarding contract (Task #1624 — removed the in-portal
+// ToS signing step that previously lived at step 2 of the 7-step contract.
+// Platform ToS now lives as a browsewrap footer link only; the mentorship
+// agreement is signed upstream in GHL before portal access, so no in-portal
+// signing step is needed here).
 //
 //   1. welcome                 — intro + welcome video. Client-advanceable.
-//   2. documents (ToS)         — existing sign-doc plumbing. Client-advanceable
-//                                 (gated on a signed terms_of_service row).
-//   3. profile                 — name/experience/goal. Client-advanceable
+//   2. profile                 — name/experience/goal. Client-advanceable
 //                                 (gated on those profile fields being filled).
-//   4. kickoff_booked          — book the kickoff call. EVENT-ADVANCED: only
+//   3. kickoff_booked          — book the kickoff call. EVENT-ADVANCED: only
 //                                 advanceOnboardingAfterKickoffBooked() (Tier 2
 //                                 booking flow) may move a member off this step.
-//   5. partner_call_booked     — book the first accountability-partner call.
+//   4. partner_call_booked     — book the first accountability-partner call.
 //                                 EVENT-ADVANCED: only
 //                                 advanceOnboardingAfterPartnerCallBooked() may
 //                                 move a member off this step.
-//   6. pillars_watched         — watch the 7 Pillars training. Client-advanceable
+//   5. pillars_watched         — watch the 7 Pillars training. Client-advanceable
 //                                 (simple click-to-confirm, no server prerequisite).
-//   7. partner_call_completed  — the first partner call itself. EVENT-ADVANCED:
+//   6. partner_call_completed  — the first partner call itself. EVENT-ADVANCED:
 //                                 only completeOnboardingAfterPartnerCallDone()
 //                                 (Tier 3 GHL webhook) may complete onboarding
 //                                 from here.
 //
 // See lib/onboarding-advancement.ts for the internal advancement functions Tier 2
-// (booking) and Tier 3 (GHL webhook) call to move members through steps 4/5/7 —
+// (booking) and Tier 3 (GHL webhook) call to move members through steps 3/4/6 —
 // this route intentionally REJECTS any client PATCH attempt to complete those
 // steps directly, so a member can never skip ahead of a real booking/webhook event.
+//
+// NOTE: the Documents page, /documents/sign endpoint, and signed_documents
+// table are intentionally NOT deleted — existing signature records remain
+// legal records — but they are no longer part of the onboarding sequence or
+// gated by it.
 const STEP_NAMES = [
   "welcome",
-  "documents",
   "profile",
   "kickoff_booked",
   "partner_call_booked",
@@ -47,24 +53,13 @@ const STEP_NAMES = [
 ];
 
 // Steps a member may complete themselves via PATCH /members/me/onboarding.
-// Steps 4, 5, and 7 are intentionally excluded — they only ever advance via the
+// Steps 3, 4, and 6 are intentionally excluded — they only ever advance via the
 // internal functions in lib/onboarding-advancement.ts, triggered by a real
 // booking (Tier 2) or a GHL webhook confirming the call happened (Tier 3).
-const CLIENT_ADVANCEABLE_STEPS = new Set([1, 2, 3, 6]);
+const CLIENT_ADVANCEABLE_STEPS = new Set([1, 2, 5]);
 
 async function validateStepPrerequisites(step: number, userId: number): Promise<string | null> {
   if (step === 2) {
-    const signedDocs = await db
-      .select()
-      .from(signedDocumentsTable)
-      .where(eq(signedDocumentsTable.userId, userId));
-    const signedTypes = new Set(signedDocs.map((d) => d.documentType));
-    if (!signedTypes.has("terms_of_service")) {
-      return "The Terms of Service must be signed before proceeding";
-    }
-  }
-
-  if (step === 3) {
     const [user] = await db.select().from(usersTable).where(eq(usersTable.id, userId));
     if (!user) return "User not found";
     if (!user.name?.trim()) return "Name is required";
@@ -124,8 +119,8 @@ router.patch("/members/me/onboarding", async (req, res): Promise<void> => {
 
   const { step } = parsed.data;
 
-  if (step < 1 || step > 7) {
-    res.status(400).json({ error: "Step must be between 1 and 7" });
+  if (step < 1 || step > 6) {
+    res.status(400).json({ error: "Step must be between 1 and 6" });
     return;
   }
 
@@ -159,7 +154,7 @@ router.patch("/members/me/onboarding", async (req, res): Promise<void> => {
   }
 
   // Client-advanceable steps never complete onboarding on their own — the last
-  // client-advanceable step (6) only hands off to step 7, which is
+  // client-advanceable step (5) only hands off to step 6, which is
   // event-advanced (see completeOnboardingAfterPartnerCallDone in
   // lib/onboarding-advancement.ts).
   const nextStep = step + 1;

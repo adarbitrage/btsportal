@@ -2,9 +2,10 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen } from "@testing-library/react";
 import type { ReactNode } from "react";
 
-// Guards two things for Task #1593:
+// Guards two things for Task #1593 (renumbered for Task #1624's 6-step
+// contract — ToS signing step removed):
 //   1. Partner reveal timing: the partner reveal card only appears on steps
-//      6/7 once a partner is actually assigned (usePartnerInfo returns one);
+//      5/6 once a partner is actually assigned (usePartnerInfo returns one);
 //      it must NOT render for members with no partner assigned yet.
 //   2. One-primary-action-per-step: each onboarding step page exposes exactly
 //      one primary (non-outline) call-to-action button.
@@ -18,7 +19,7 @@ vi.mock("wouter", () => ({
 
 const refreshAuth = vi.fn();
 vi.mock("@/lib/auth", () => ({
-  useAuth: () => ({ user: { name: "Test Member", onboardingStep: 6 }, refreshAuth }),
+  useAuth: () => ({ user: { name: "Test Member", onboardingStep: 5 }, refreshAuth }),
 }));
 
 const patchOnboardingMutateAsync = vi.fn();
@@ -41,20 +42,20 @@ beforeEach(() => {
 });
 
 describe("onboarding step indicator", () => {
-  it("shows 'Step X of 7' for step 6 and step 7", () => {
+  it("shows 'Step X of 6' for step 5 and step 6", () => {
     usePartnerInfo.mockReturnValue({ data: { partner: null } });
 
     const { unmount } = render(<OnboardingWatchPillars />);
-    expect(screen.getByTestId("onboarding-step-indicator")).toHaveTextContent("Step 6 of 7");
+    expect(screen.getByTestId("onboarding-step-indicator")).toHaveTextContent("Step 5 of 6");
     unmount();
 
     render(<OnboardingPartnerCallPending />);
-    expect(screen.getByTestId("onboarding-step-indicator")).toHaveTextContent("Step 7 of 7");
+    expect(screen.getByTestId("onboarding-step-indicator")).toHaveTextContent("Step 6 of 6");
   });
 });
 
-describe("partner reveal timing on steps 6/7", () => {
-  it("does not show the partner reveal card on step 6 when no partner is assigned yet", () => {
+describe("partner reveal timing on steps 5/6", () => {
+  it("does not show the partner reveal card on step 5 when no partner is assigned yet", () => {
     usePartnerInfo.mockReturnValue({ data: { partner: null } });
 
     render(<OnboardingWatchPillars />);
@@ -62,7 +63,7 @@ describe("partner reveal timing on steps 6/7", () => {
     expect(screen.queryByTestId("partner-reveal-card")).not.toBeInTheDocument();
   });
 
-  it("shows the partner reveal card on step 6 once a partner is assigned", () => {
+  it("shows the partner reveal card on step 5 once a partner is assigned", () => {
     usePartnerInfo.mockReturnValue({
       data: { partner: { id: 1, displayName: "Alex Partner", photoUrl: null, bio: null } },
     });
@@ -73,7 +74,7 @@ describe("partner reveal timing on steps 6/7", () => {
     expect(screen.getByText("Alex Partner")).toBeInTheDocument();
   });
 
-  it("does not show the partner reveal card on step 7 when no partner is assigned yet", () => {
+  it("does not show the partner reveal card on step 6 when no partner is assigned yet", () => {
     usePartnerInfo.mockReturnValue({ data: { partner: null } });
 
     render(<OnboardingPartnerCallPending />);
@@ -81,7 +82,7 @@ describe("partner reveal timing on steps 6/7", () => {
     expect(screen.queryByTestId("partner-reveal-card")).not.toBeInTheDocument();
   });
 
-  it("shows the partner reveal card on step 7 once a partner is assigned", () => {
+  it("shows the partner reveal card on step 6 once a partner is assigned", () => {
     usePartnerInfo.mockReturnValue({
       data: { partner: { id: 1, displayName: "Alex Partner", photoUrl: null, bio: null } },
     });
@@ -93,7 +94,7 @@ describe("partner reveal timing on steps 6/7", () => {
 });
 
 describe("one primary action per onboarding step", () => {
-  it("step 6 (Watch Pillars) has exactly one primary action button", () => {
+  it("step 5 (Watch Pillars) has exactly one primary action button", () => {
     usePartnerInfo.mockReturnValue({ data: { partner: null } });
 
     render(<OnboardingWatchPillars />);
@@ -104,7 +105,7 @@ describe("one primary action per onboarding step", () => {
     expect(screen.getByText(/I've watched it — Continue/i)).toBeInTheDocument();
   });
 
-  it("step 7 (Partner Call Pending) has exactly one primary action button, plus the shared Back nav", () => {
+  it("step 6 (Partner Call Pending) has exactly one primary action button, plus the shared Back nav", () => {
     usePartnerInfo.mockReturnValue({ data: { partner: null } });
 
     render(<OnboardingPartnerCallPending />);
