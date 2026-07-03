@@ -6,7 +6,8 @@ import { getProductLabelByRank } from "../lib/entitlements";
 import { Router, type Request, type Response } from "express";
 import crypto from "crypto";
 import bcrypt from "bcryptjs";
-import { db, usersTable, userProductsTable, productsTable, ticketsTable, auditLogTable, systemSettingsTable, adminNotesTable, progressTable, emailChangeHistoryTable, emailChangeAttemptsTable, phoneChangeHistoryTable, webhookLogsTable, machineProductKeyMappingsTable, machineUnknownProductKeysTable, sessionsTable } from "@workspace/db";
+import { db, usersTable, userProductsTable, productsTable, ticketsTable, auditLogTable, systemSettingsTable, adminNotesTable, progressTable, emailChangeHistoryTable, emailChangeAttemptsTable, phoneChangeHistoryTable, webhookLogsTable, machineProductKeyMappingsTable, machineUnknownProductKeysTable, sessionsTable, adSpendTransactionsTable, memberRefundEventsTable, btsOrdersTable, callBookingsTable, partnerAssignmentsTable, partnerNotesTable, onboardingEffectsTable, sequenceEnrollmentsTable, signedDocumentsTable } from "@workspace/db";
+import { cancelAppointment, COACHING_LOCATION_ID } from "../lib/ghl-coaching-calendar";
 import { eq, ne, and, gt, gte, lt, lte, desc, asc, sql, ilike, or, inArray, isNotNull, isNull, getTableColumns, type SQL } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import { ADMIN_ROLES, hasPermission, isAdminRole, requirePermission } from "../middleware/rbac";
@@ -3004,6 +3005,348 @@ router.post("/admin/members/:id/send-reset-email", requirePermission("members:as
   } catch (error) {
     console.error("[Admin] Send password reset email error:", error);
     res.status(500).json({ error: "Failed to send password reset email" });
+  }
+});
+
+// ---------------------------------------------------------------------------
+// Hard member deletion (super-admin only, financially-guarded).
+// ---------------------------------------------------------------------------
+//
+// Deliberately its own permission (members:delete, super_admin only — see
+// PERMISSION_MATRIX in @workspace/auth), not folded into members:edit. This
+// is destructive and irreversible, so it ships with a hard financial-history
+// guard (never hard-delete a member who has real money movement) and a
+// GHL-cancel-before-delete pipeline so no live appointment is orphaned on a
+// coach/partner calendar.
+//
+// Cleanup order (strict — mirrors the task spec):
+//   1. Cancel every `status=booked` call_bookings row's real GHL appointment
+//      (own stored location, falling back to COACHING_LOCATION_ID). Any
+//      cancel failure aborts the WHOLE deletion before any DB row is
+//      touched — nothing partially deleted, and reports which appointment.
+//   2. In one DB transaction: end active partner_assignments rows
+//      (status=ended, reason=member_deleted) BEFORE deleting them, so
+//      round-robin active-counts stay honest for any concurrent read that
+//      lands before the transaction commits deletion of the rows.
+//   3. Delete, in FK-safe order: partner_notes, call_bookings,
+//      onboarding_effects, sequence_enrollments (both have FKs to users and
+//      must go before the user row), signed_documents, user_products, then
+//      the user row itself.
+// Signed documents are intentionally deleted with the member (not
+// preserved) — this is only safe because the financial guard above already
+// excludes anyone with real financial history from ever reaching this path.
+
+// Deliberately NOT using safeCount here: this is a destructive-action safety
+// guard, so a failed query must fail closed (propagate the error and abort
+// the delete) rather than silently coercing to 0 and letting a member with
+// real financial history slip through.
+async function strictCount(query: Promise<{ count: number }[]>): Promise<number> {
+  const result = await query;
+  return Number(result[0]?.count || 0);
+}
+
+async function getMemberFinancialHistoryCounts(memberId: number): Promise<{
+  adSpendTransactions: number;
+  refundEvents: number;
+  orders: number;
+}> {
+  const [adSpendTransactions, refundEvents, orders] = await Promise.all([
+    strictCount(
+      db.select({ count: sql<number>`count(*)` }).from(adSpendTransactionsTable).where(eq(adSpendTransactionsTable.userId, memberId)),
+    ),
+    strictCount(
+      db.select({ count: sql<number>`count(*)` }).from(memberRefundEventsTable).where(eq(memberRefundEventsTable.memberId, memberId)),
+    ),
+    // Every bts_orders row represents a real NMI-gateway purchase/charge
+    // attempt tied to this member — any row at all is real financial
+    // history, regardless of its current status.
+    strictCount(
+      db.select({ count: sql<number>`count(*)` }).from(btsOrdersTable).where(eq(btsOrdersTable.userId, memberId)),
+    ),
+  ]);
+  return { adSpendTransactions, refundEvents, orders };
+}
+
+async function getMemberDeletionPreviewCounts(memberId: number): Promise<{
+  bookingsToCancel: number;
+  callBookings: number;
+  activeAssignmentsToEnd: number;
+  partnerNotes: number;
+  onboardingEffects: number;
+  sequenceEnrollments: number;
+  signedDocuments: number;
+  userProducts: number;
+}> {
+  const [
+    bookingsToCancel,
+    callBookings,
+    activeAssignmentsToEnd,
+    partnerNotes,
+    onboardingEffects,
+    sequenceEnrollments,
+    signedDocuments,
+    userProducts,
+  ] = await Promise.all([
+    safeCount(
+      db.select({ count: sql<number>`count(*)` }).from(callBookingsTable).where(and(eq(callBookingsTable.memberId, memberId), eq(callBookingsTable.status, "booked"))),
+    ),
+    safeCount(
+      db.select({ count: sql<number>`count(*)` }).from(callBookingsTable).where(eq(callBookingsTable.memberId, memberId)),
+    ),
+    safeCount(
+      db.select({ count: sql<number>`count(*)` }).from(partnerAssignmentsTable).where(and(eq(partnerAssignmentsTable.memberId, memberId), eq(partnerAssignmentsTable.status, "active"))),
+    ),
+    safeCount(
+      db.select({ count: sql<number>`count(*)` }).from(partnerNotesTable).where(eq(partnerNotesTable.memberId, memberId)),
+    ),
+    safeCount(
+      db.select({ count: sql<number>`count(*)` }).from(onboardingEffectsTable).where(eq(onboardingEffectsTable.userId, memberId)),
+    ),
+    safeCount(
+      db.select({ count: sql<number>`count(*)` }).from(sequenceEnrollmentsTable).where(eq(sequenceEnrollmentsTable.userId, memberId)),
+    ),
+    safeCount(
+      db.select({ count: sql<number>`count(*)` }).from(signedDocumentsTable).where(eq(signedDocumentsTable.userId, memberId)),
+    ),
+    safeCount(
+      db.select({ count: sql<number>`count(*)` }).from(userProductsTable).where(eq(userProductsTable.userId, memberId)),
+    ),
+  ]);
+  return {
+    bookingsToCancel,
+    callBookings,
+    activeAssignmentsToEnd,
+    partnerNotes,
+    onboardingEffects,
+    sequenceEnrollments,
+    signedDocuments,
+    userProducts,
+  };
+}
+
+// Hard-delete is scoped to plain member accounts only — never admin/staff
+// (any ADMIN_ROLES entry), coach, or partner accounts, regardless of who
+// requests it or what confirmation is supplied. This is a fixed allow-list
+// (role === "member"), not a denylist, so any future role added to the
+// system is excluded by default rather than silently becoming deletable.
+function isDeletableMemberRole(role: string | null | undefined): boolean {
+  return role === "member";
+}
+
+router.get("/admin/members/:id/delete-eligibility", requirePermission("members:delete"), async (req: Request, res: Response) => {
+  try {
+    const id = parseInt(getParam(req.params.id), 10);
+    if (isNaN(id)) { res.status(400).json({ error: "Invalid member ID" }); return; }
+
+    const [member] = await db
+      .select({ id: usersTable.id, email: usersTable.email, name: usersTable.name, role: usersTable.role })
+      .from(usersTable)
+      .where(eq(usersTable.id, id))
+      .limit(1);
+    if (!member) { res.status(404).json({ error: "Member not found" }); return; }
+
+    if (!isDeletableMemberRole(member.role)) {
+      // 200, not 422: this is a successfully-computed eligibility result
+      // (eligible:false), not a rejected request — the UI needs to render
+      // blockedReason in-card the same way it does for a financial-history
+      // block, not treat this as a transient fetch error.
+      res.json({
+        memberId: id,
+        email: member.email,
+        eligible: false,
+        blockedReason: `This account has role "${member.role}" and cannot be hard-deleted through this tool — only plain member accounts are eligible.`,
+        financialHistory: { adSpendTransactions: 0, refundEvents: 0, orders: 0 },
+        preview: null,
+      });
+      return;
+    }
+
+    const financialHistory = await getMemberFinancialHistoryCounts(id);
+    const blocked = financialHistory.adSpendTransactions > 0 || financialHistory.refundEvents > 0 || financialHistory.orders > 0;
+
+    const preview = await getMemberDeletionPreviewCounts(id);
+
+    res.json({
+      memberId: id,
+      email: member.email,
+      eligible: !blocked,
+      blockedReason: blocked
+        ? "This member has real financial history (ad-spend transactions, refund/chargeback events, and/or orders) and cannot be hard-deleted."
+        : null,
+      financialHistory,
+      preview,
+    });
+  } catch (error) {
+    console.error("[Admin] Member delete eligibility error:", error);
+    res.status(500).json({ error: "Failed to check member delete eligibility" });
+  }
+});
+
+router.delete("/admin/members/:id", requirePermission("members:delete"), async (req: Request, res: Response) => {
+  try {
+    const id = parseInt(getParam(req.params.id), 10);
+    if (isNaN(id)) { res.status(400).json({ error: "Invalid member ID" }); return; }
+
+    const [member] = await db
+      .select({ id: usersTable.id, email: usersTable.email, name: usersTable.name, role: usersTable.role })
+      .from(usersTable)
+      .where(eq(usersTable.id, id))
+      .limit(1);
+    if (!member) { res.status(404).json({ error: "Member not found" }); return; }
+
+    if (!isDeletableMemberRole(member.role)) {
+      res.status(422).json({
+        error: `This account has role "${member.role}" and cannot be hard-deleted through this tool — only plain member accounts are eligible.`,
+      });
+      return;
+    }
+
+    // Exact, case-sensitive match — this is deliberate friction to prevent
+    // an accidental hard-delete, not a lookup, so no trimming/lowercasing.
+    const confirmEmail = typeof req.body?.confirmEmail === "string" ? req.body.confirmEmail : "";
+    if (!confirmEmail || confirmEmail !== member.email) {
+      res.status(400).json({ error: "Confirmation email does not match this member's email exactly" });
+      return;
+    }
+
+    const financialHistory = await getMemberFinancialHistoryCounts(id);
+    if (financialHistory.adSpendTransactions > 0 || financialHistory.refundEvents > 0 || financialHistory.orders > 0) {
+      res.status(422).json({
+        error: "This member has real financial history (ad-spend transactions, refund/chargeback events, and/or orders) and cannot be hard-deleted.",
+        financialHistory,
+      });
+      return;
+    }
+
+    // Step 1: cancel every live GHL appointment BEFORE touching the DB.
+    // GHL calls can't be transactionally rolled back, so we do them all
+    // first and abort the entire deletion (no DB writes at all) the moment
+    // one fails — nothing partially deleted, no orphaned local rows.
+    const bookedCalls = await db
+      .select({
+        id: callBookingsTable.id,
+        ghlAppointmentId: callBookingsTable.ghlAppointmentId,
+        ghlLocationId: callBookingsTable.ghlLocationId,
+        scheduledAt: callBookingsTable.scheduledAt,
+      })
+      .from(callBookingsTable)
+      .where(and(eq(callBookingsTable.memberId, id), eq(callBookingsTable.status, "booked")));
+
+    for (const booking of bookedCalls) {
+      // Fail closed: a `booked` row with no GHL appointment id can't be
+      // proven canceled, so we refuse to proceed rather than silently
+      // deleting it out from under a real calendar hold.
+      if (!booking.ghlAppointmentId) {
+        console.error(`[Admin] Booked call_booking ${booking.id} has no GHL appointment id during member deletion; aborting.`);
+        res.status(502).json({
+          error: `Booking #${booking.id} (scheduled ${booking.scheduledAt.toISOString()}) is marked booked but has no calendar-provider appointment id, so it cannot be verified as canceled. Deletion aborted — nothing was deleted.`,
+          failedBookingId: booking.id,
+        });
+        return;
+      }
+      try {
+        await cancelAppointment(booking.ghlAppointmentId, booking.ghlLocationId ?? COACHING_LOCATION_ID);
+      } catch (err) {
+        console.error(`[Admin] Failed to cancel GHL appointment for call_booking ${booking.id} during member deletion:`, err);
+        res.status(502).json({
+          error: `Could not cancel appointment #${booking.id} (scheduled ${booking.scheduledAt.toISOString()}) with the calendar provider. Deletion aborted — nothing was deleted.`,
+          failedBookingId: booking.id,
+        });
+        return;
+      }
+    }
+
+    const counts = {
+      callBookingsCanceled: bookedCalls.length,
+      activeAssignmentsEnded: 0,
+      partnerNotesDeleted: 0,
+      callBookingsDeleted: 0,
+      onboardingEffectsDeleted: 0,
+      sequenceEnrollmentsDeleted: 0,
+      signedDocumentsDeleted: 0,
+      userProductsDeleted: 0,
+    };
+
+    await db.transaction(async (tx) => {
+      // End (not just delete) active assignments first so round-robin
+      // active-counts stay correct for any read that lands mid-transaction.
+      const ended = await tx
+        .update(partnerAssignmentsTable)
+        .set({ status: "ended", endedAt: new Date(), endedReason: "member_deleted" })
+        .where(and(eq(partnerAssignmentsTable.memberId, id), eq(partnerAssignmentsTable.status, "active")))
+        .returning({ id: partnerAssignmentsTable.id });
+      counts.activeAssignmentsEnded = ended.length;
+
+      const deletedNotes = await tx
+        .delete(partnerNotesTable)
+        .where(eq(partnerNotesTable.memberId, id))
+        .returning({ id: partnerNotesTable.id });
+      counts.partnerNotesDeleted = deletedNotes.length;
+
+      const deletedAssignments = await tx
+        .delete(partnerAssignmentsTable)
+        .where(eq(partnerAssignmentsTable.memberId, id));
+
+      const deletedBookings = await tx
+        .delete(callBookingsTable)
+        .where(eq(callBookingsTable.memberId, id))
+        .returning({ id: callBookingsTable.id });
+      counts.callBookingsDeleted = deletedBookings.length;
+
+      // onboarding_effects and sequence_enrollments both FK to users and
+      // must go before the user row is deleted.
+      const deletedEffects = await tx
+        .delete(onboardingEffectsTable)
+        .where(eq(onboardingEffectsTable.userId, id))
+        .returning({ id: onboardingEffectsTable.id });
+      counts.onboardingEffectsDeleted = deletedEffects.length;
+
+      const deletedEnrollments = await tx
+        .delete(sequenceEnrollmentsTable)
+        .where(eq(sequenceEnrollmentsTable.userId, id))
+        .returning({ id: sequenceEnrollmentsTable.id });
+      counts.sequenceEnrollmentsDeleted = deletedEnrollments.length;
+
+      // Signed docs die with the member by design — safe only because the
+      // financial guard above already excluded anyone with real financial
+      // history from reaching this path.
+      const deletedDocs = await tx
+        .delete(signedDocumentsTable)
+        .where(eq(signedDocumentsTable.userId, id))
+        .returning({ id: signedDocumentsTable.id });
+      counts.signedDocumentsDeleted = deletedDocs.length;
+
+      const deletedProducts = await tx
+        .delete(userProductsTable)
+        .where(eq(userProductsTable.userId, id))
+        .returning({ id: userProductsTable.id });
+      counts.userProductsDeleted = deletedProducts.length;
+
+      await tx.delete(usersTable).where(eq(usersTable.id, id));
+    });
+
+    // Use the audit helper directly with explicit actor fields (not a
+    // spread request object) — the actor is the admin performing the
+    // deletion, who still exists; only the target member row is gone.
+    await logAuditEvent({
+      actorId: req.userId,
+      actorEmail: req.userEmail,
+      actionType: "delete_member",
+      entityType: "user",
+      entityId: String(id),
+      description: `Hard-deleted member ${member.email} (id ${id}): canceled ${counts.callBookingsCanceled} GHL appointment(s), ended ${counts.activeAssignmentsEnded} active partner assignment(s), removed ${counts.partnerNotesDeleted} partner note(s), ${counts.callBookingsDeleted} call booking(s), ${counts.onboardingEffectsDeleted} onboarding effect(s), ${counts.sequenceEnrollmentsDeleted} sequence enrollment(s), ${counts.signedDocumentsDeleted} signed document(s), ${counts.userProductsDeleted} product grant(s)`,
+      metadata: {
+        memberEmail: member.email,
+        memberName: member.name,
+        ...counts,
+      },
+      req,
+    });
+
+    res.json({ success: true, deletedMemberId: id, deletedMemberEmail: member.email, counts });
+  } catch (error) {
+    console.error("[Admin] Member delete error:", error);
+    res.status(500).json({ error: "Failed to delete member" });
   }
 });
 

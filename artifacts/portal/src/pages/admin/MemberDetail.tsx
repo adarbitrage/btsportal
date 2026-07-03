@@ -192,6 +192,15 @@ export default function MemberDetail() {
   const canEditMembers = hasPermission(currentUser?.role, "members:edit");
   const canAssignRole = hasPermission(currentUser?.role, "members:assign_role");
   const canImpersonate = hasPermission(currentUser?.role, "members:impersonate");
+  const canDeleteMembers = hasPermission(currentUser?.role, "members:delete");
+  type DeleteEligibility = Awaited<
+    ReturnType<typeof adminPanelApi.getMemberDeleteEligibility>
+  >;
+  const [deleteEligibility, setDeleteEligibility] = useState<DeleteEligibility | null>(null);
+  const [deleteEligibilityLoading, setDeleteEligibilityLoading] = useState(false);
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [deleteConfirmEmailInput, setDeleteConfirmEmailInput] = useState("");
+  const [deleting, setDeleting] = useState(false);
   const [impersonating, setImpersonating] = useState(false);
   const [impersonateConfirmOpen, setImpersonateConfirmOpen] = useState(false);
   const [roleSaving, setRoleSaving] = useState(false);
@@ -534,6 +543,45 @@ export default function MemberDetail() {
       highlightedRowRef.current.scrollIntoView({ behavior: "smooth", block: "center" });
     }
   }, [highlightOldEmail, highlightOldPhone, data]);
+
+  // Only super_admins can even see the danger zone, so only fetch the
+  // (financial-history-checking) eligibility preview for them — no point
+  // spending a round trip for admins who'd never see the card render.
+  const loadDeleteEligibility = async () => {
+    if (!memberId || !canDeleteMembers) return;
+    setDeleteEligibilityLoading(true);
+    try {
+      const result = await adminPanelApi.getMemberDeleteEligibility(memberId);
+      setDeleteEligibility(result);
+    } catch (err: any) {
+      toast({ title: "Error", description: err.message, variant: "destructive" });
+    } finally {
+      setDeleteEligibilityLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    setDeleteEligibility(null);
+    if (canDeleteMembers) loadDeleteEligibility();
+  }, [memberId, canDeleteMembers]);
+
+  const handleDeleteMember = async () => {
+    if (!data) return;
+    try {
+      setDeleting(true);
+      const result = await adminPanelApi.deleteMember(memberId, deleteConfirmEmailInput);
+      toast({
+        title: "Member deleted",
+        description: `${result.deletedMemberEmail} was permanently removed.`,
+      });
+      setDeleteConfirmOpen(false);
+      navigate("/admin/members");
+    } catch (err: any) {
+      toast({ title: "Error", description: err.message, variant: "destructive" });
+    } finally {
+      setDeleting(false);
+    }
+  };
 
   const handleAddNote = async () => {
     if (!noteContent.trim()) return;
@@ -2116,6 +2164,149 @@ export default function MemberDetail() {
             </Card>
           </TabsContent>
         </Tabs>
+
+        {canDeleteMembers && (
+          <Card className="border-destructive/40" data-testid="card-danger-zone">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base flex items-center gap-2 text-destructive">
+                <X className="w-4 h-4" />
+                Danger zone
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="flex items-center justify-between gap-3 flex-wrap">
+                <div className="space-y-1 min-w-0">
+                  <p className="text-sm">Permanently delete this member account</p>
+                  <p className="text-xs text-muted-foreground max-w-xl">
+                    For test/probe accounts only. This cancels any booked calls, ends active
+                    partner assignments, and permanently removes the member and all associated
+                    records. This cannot be undone.
+                  </p>
+                  {deleteEligibilityLoading && (
+                    <p className="text-xs text-muted-foreground" data-testid="text-delete-eligibility-loading">
+                      Checking eligibility…
+                    </p>
+                  )}
+                  {!deleteEligibilityLoading && deleteEligibility && !deleteEligibility.eligible && (
+                    <p className="text-xs text-destructive" data-testid="text-delete-blocked-reason">
+                      {deleteEligibility.blockedReason}
+                    </p>
+                  )}
+                </div>
+                <Dialog
+                  open={deleteConfirmOpen}
+                  onOpenChange={(open) => {
+                    setDeleteConfirmOpen(open);
+                    if (!open) setDeleteConfirmEmailInput("");
+                  }}
+                >
+                  <DialogTrigger asChild>
+                    <Button
+                      size="sm"
+                      variant="destructive"
+                      disabled={
+                        deleteEligibilityLoading ||
+                        !deleteEligibility ||
+                        !deleteEligibility.eligible
+                      }
+                      data-testid="button-delete-member"
+                    >
+                      <X className="w-3 h-3 mr-1" />
+                      Delete member
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent data-testid="dialog-confirm-delete-member">
+                    <DialogHeader>
+                      <DialogTitle>Permanently delete this member?</DialogTitle>
+                      <DialogDescription asChild>
+                        <div className="space-y-3 text-sm">
+                          <p>
+                            This will permanently delete{" "}
+                            <span className="font-medium">{member.name}</span>
+                            {member.email ? (
+                              <>
+                                {" "}(<span className="font-mono">{member.email}</span>)
+                              </>
+                            ) : null}
+                            {" "}and cannot be undone. The following will happen, in order:
+                          </p>
+                          {deleteEligibility && deleteEligibility.preview && (
+                            <ul className="list-disc pl-5 space-y-1 text-muted-foreground">
+                              <li data-testid="text-delete-preview-bookings">
+                                Cancel {deleteEligibility.preview.bookingsToCancel} booked call(s) with the calendar provider
+                              </li>
+                              <li data-testid="text-delete-preview-assignments">
+                                End {deleteEligibility.preview.activeAssignmentsToEnd} active partner assignment(s)
+                              </li>
+                              <li data-testid="text-delete-preview-notes">
+                                Remove {deleteEligibility.preview.partnerNotes} partner note(s)
+                              </li>
+                              <li data-testid="text-delete-preview-callbookings">
+                                Remove {deleteEligibility.preview.callBookings} call booking record(s)
+                              </li>
+                              <li data-testid="text-delete-preview-onboarding">
+                                Remove {deleteEligibility.preview.onboardingEffects} onboarding effect(s)
+                              </li>
+                              <li data-testid="text-delete-preview-sequences">
+                                Remove {deleteEligibility.preview.sequenceEnrollments} sequence enrollment(s)
+                              </li>
+                              <li data-testid="text-delete-preview-documents">
+                                Remove {deleteEligibility.preview.signedDocuments} signed document(s)
+                              </li>
+                              <li data-testid="text-delete-preview-products">
+                                Remove {deleteEligibility.preview.userProducts} product grant(s)
+                              </li>
+                              <li>Permanently delete the member account</li>
+                            </ul>
+                          )}
+                          <div className="space-y-1.5">
+                            <Label htmlFor="input-delete-confirm-email">
+                              Type <span className="font-mono">{member.email}</span> to confirm
+                            </Label>
+                            <Input
+                              id="input-delete-confirm-email"
+                              value={deleteConfirmEmailInput}
+                              onChange={(e) => setDeleteConfirmEmailInput(e.target.value)}
+                              autoComplete="off"
+                              data-testid="input-delete-confirm-email"
+                            />
+                          </div>
+                        </div>
+                      </DialogDescription>
+                    </DialogHeader>
+                    <DialogFooter>
+                      <Button
+                        variant="outline"
+                        onClick={() => setDeleteConfirmOpen(false)}
+                        disabled={deleting}
+                        data-testid="button-cancel-delete-member"
+                      >
+                        Cancel
+                      </Button>
+                      <Button
+                        variant="destructive"
+                        onClick={handleDeleteMember}
+                        disabled={
+                          deleting ||
+                          !member.email ||
+                          deleteConfirmEmailInput !== member.email
+                        }
+                        data-testid="button-confirm-delete-member"
+                      >
+                        {deleting ? (
+                          <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+                        ) : (
+                          <X className="w-3 h-3 mr-1" />
+                        )}
+                        {deleting ? "Deleting…" : "Permanently delete"}
+                      </Button>
+                    </DialogFooter>
+                  </DialogContent>
+                </Dialog>
+              </div>
+            </CardContent>
+          </Card>
+        )}
       </div>
 
       <Dialog open={attemptDetailOpen} onOpenChange={handleAttemptDetailOpenChange}>

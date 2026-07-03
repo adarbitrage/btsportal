@@ -39,6 +39,11 @@ export const PERMISSION_MATRIX = {
   // NOTE: compliance_reviewer is intentionally absent — that's the whole
   // point of the role.
   "members:pii": ["super_admin", "admin", "support_agent"],
+  // Hard-deletion of test/probe member accounts. Deliberately its own
+  // permission (not folded into members:edit) and restricted to
+  // super_admin only — this is destructive and irreversible, unlike every
+  // other members:* action.
+  "members:delete": ["super_admin"],
   "tickets:view": ["super_admin", "admin", "support_agent"],
   "tickets:manage": ["super_admin", "admin", "support_agent"],
   "content:view": ["super_admin", "admin", "content_manager"],

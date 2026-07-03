@@ -998,6 +998,48 @@ export const adminPanelApi = {
     return res.json();
   },
 
+  async getMemberDeleteEligibility(userId: number) {
+    const res = await authFetch(`/admin/members/${userId}/delete-eligibility`);
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      throw new Error(extractApiError(data) || "Failed to check delete eligibility");
+    }
+    return res.json() as Promise<{
+      memberId: number;
+      email: string;
+      eligible: boolean;
+      blockedReason: string | null;
+      financialHistory: { adSpendTransactions: number; refundEvents: number; orders: number };
+      preview: {
+        bookingsToCancel: number;
+        callBookings: number;
+        activeAssignmentsToEnd: number;
+        partnerNotes: number;
+        onboardingEffects: number;
+        sequenceEnrollments: number;
+        signedDocuments: number;
+        userProducts: number;
+      } | null;
+    }>;
+  },
+
+  async deleteMember(userId: number, confirmEmail: string) {
+    const res = await authFetch(`/admin/members/${userId}`, {
+      method: "DELETE",
+      body: JSON.stringify({ confirmEmail }),
+    });
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      throw new Error(extractApiError(data) || "Failed to delete member");
+    }
+    return res.json() as Promise<{
+      success: true;
+      deletedMemberId: number;
+      deletedMemberEmail: string;
+      counts: Record<string, number>;
+    }>;
+  },
+
   async resendMemberInvite(userId: number) {
     const res = await authFetch(`/admin/members/${userId}/resend-invite`, { method: "POST" });
     if (!res.ok) {
