@@ -1,8 +1,9 @@
 import { Router, type Request, type Response } from "express";
 import crypto from "crypto";
-import { db, usersTable, userProductsTable, productsTable } from "@workspace/db";
+import { db, usersTable, userProductsTable, productsTable, callBookingsTable } from "@workspace/db";
 import { eq, and } from "drizzle-orm";
 import { queueGHLSync } from "../lib/ghl-queue";
+import { markPartnerCallDone } from "../lib/partner-call-completion";
 
 const router = Router();
 
@@ -37,7 +38,137 @@ interface GHLWebhookPayload {
   tags?: string[];
   pipelineId?: string;
   pipelineStageId?: string;
+  // Appointment status event fields (T7). GHL's calendar webhooks
+  // (AppointmentCreate / AppointmentUpdate / AppointmentDelete) carry the
+  // appointment id and its current status. We accept a couple of
+  // reasonable field-name variants (`appointmentId`/`id`,
+  // `appointmentStatus`/`status`) since GHL's own payload shape varies
+  // slightly by trigger/version — see the completion report for the exact
+  // subscription this route expects.
+  appointmentId?: string;
+  id?: string;
+  appointment?: { id?: string };
+  calendarId?: string;
+  appointmentStatus?: string;
+  status?: string;
   [key: string]: unknown;
+}
+
+// GHL appointment status -> local call_bookings status. Anything not listed
+// here (confirmed, new, invalid, etc.) is an in-flight/no-op state for our
+// purposes and is logged + ignored rather than applied.
+const GHL_APPOINTMENT_STATUS_MAP: Record<string, "completed" | "no_show" | "canceled"> = {
+  showed: "completed",
+  completed: "completed",
+  noshow: "no_show",
+  no_show: "no_show",
+  cancelled: "canceled",
+  canceled: "canceled",
+};
+
+// GHL calendar webhook event types this branch handles. Other `type` values
+// (contact tag changes, pipeline stage moves, etc.) fall through to the
+// existing tag-trigger branch untouched.
+const GHL_APPOINTMENT_EVENT_TYPES = new Set([
+  "AppointmentCreate",
+  "AppointmentUpdate",
+  "AppointmentDelete",
+]);
+
+interface AppointmentEventResult {
+  action: string;
+  result: string;
+}
+
+/**
+ * Sync a GHL appointment status change into `call_bookings` — the single
+ * local source of truth for call state (see call-bookings.ts schema notes).
+ *
+ * Forward-only + idempotent: a booking only ever moves off "booked"; once it
+ * has a terminal status (completed/no_show/canceled) any further/replayed
+ * event for the same appointment is a no-op. This makes GHL webhook retries
+ * and out-of-order delivery safe.
+ *
+ * `completed` is routed through the SAME `markPartnerCallDone` seam the
+ * partner dashboard's manual mark-done action uses (Task #1592/#1629
+ * invariant: webhook-driven completion must never duplicate that logic —
+ * it alone owns first-partner-call onboarding completion + last-completed
+ * tracking). Kickoff-type bookings have no such seam yet (out of scope for
+ * T7), so they get a direct, equally forward-only status flip.
+ */
+async function handleAppointmentEvent(
+  payload: GHLWebhookPayload,
+): Promise<AppointmentEventResult> {
+  const appointmentId = payload.appointmentId || payload.id || payload.appointment?.id;
+  if (!appointmentId) {
+    return { action: "skipped", result: "Appointment event missing an appointment id" };
+  }
+
+  const rawStatus = (payload.appointmentStatus || payload.status || "").toLowerCase();
+  const newStatus = GHL_APPOINTMENT_STATUS_MAP[rawStatus];
+  if (!newStatus) {
+    return {
+      action: "ignored",
+      result: `Appointment ${appointmentId}: unhandled status "${rawStatus || "(none)"}"`,
+    };
+  }
+
+  const [booking] = await db
+    .select({
+      id: callBookingsTable.id,
+      status: callBookingsTable.status,
+      type: callBookingsTable.type,
+    })
+    .from(callBookingsTable)
+    .where(eq(callBookingsTable.ghlAppointmentId, appointmentId))
+    .limit(1);
+
+  if (!booking) {
+    return {
+      action: "skipped",
+      result: `No call_bookings row for GHL appointment ${appointmentId} (may belong to another calendar in this location)`,
+    };
+  }
+
+  if (booking.status !== "booked") {
+    return {
+      action: "no_op",
+      result: `Booking ${booking.id} already "${booking.status}" — ignoring replayed/out-of-order "${rawStatus}" event`,
+    };
+  }
+
+  if (newStatus === "completed" && booking.type === "partner") {
+    const { updated, onboardingAdvanced } = await markPartnerCallDone(booking.id);
+    return {
+      action: updated ? "completed" : "no_op",
+      result: `Booking ${booking.id} ${updated ? "marked completed" : "was not in a completable state"}${
+        onboardingAdvanced ? " (onboarding advanced)" : ""
+      }`,
+    };
+  }
+
+  // Kickoff-type completion, or no_show/canceled for any call type: a plain
+  // conditional flip guarded on the row still being "booked" so a race with
+  // another writer (or a second replay slipping past the check above) can
+  // never regress/double-apply.
+  const updateFields: Record<string, unknown> = { status: newStatus };
+  if (newStatus === "canceled") {
+    updateFields.cancelledAt = new Date();
+  }
+  const updatedRows = await db
+    .update(callBookingsTable)
+    .set(updateFields)
+    .where(and(eq(callBookingsTable.id, booking.id), eq(callBookingsTable.status, "booked")))
+    .returning({ id: callBookingsTable.id });
+
+  if (updatedRows.length === 0) {
+    return {
+      action: "no_op",
+      result: `Booking ${booking.id} already advanced past "booked" — ignoring replay`,
+    };
+  }
+
+  return { action: newStatus, result: `Booking ${booking.id} marked ${newStatus}` };
 }
 
 async function handleTagTrigger(
@@ -175,6 +306,12 @@ router.post("/webhooks/ghl", async (req: Request, res: Response) => {
     const tags = payload.tags || payload.contact?.tags || [];
 
     console.log(`[GHL Webhook] Received event type=${payload.type} contactId=${contactId}`);
+
+    if (payload.type && GHL_APPOINTMENT_EVENT_TYPES.has(payload.type)) {
+      const result = await handleAppointmentEvent(payload);
+      console.log("[GHL Webhook] Appointment event result:", JSON.stringify(result));
+      return;
+    }
 
     const triggerTags = ["vip_override", "force_expire"];
     const results: Array<{ tag: string; action: string; result: string }> = [];
