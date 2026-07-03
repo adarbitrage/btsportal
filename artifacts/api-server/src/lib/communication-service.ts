@@ -19,6 +19,7 @@ import {
   getPortalUrlStatus,
   PORTAL_URL_SETTING_KEY,
 } from "./portal-url-settings";
+import { brandStrings } from "@workspace/brand-config";
 
 // Queue-fallback events are persisted to the audit log inside
 // `recordQueueFallback` (entityType="queue"). We used to also write a
@@ -40,7 +41,7 @@ const TWILIO_PHONE_NUMBER = process.env.TWILIO_PHONE_NUMBER || "";
 
 const FROM_EMAIL_TRANSACTIONAL = process.env.FROM_EMAIL_TRANSACTIONAL || "noreply@buildtestscale.com";
 const FROM_EMAIL_MARKETING = process.env.FROM_EMAIL_MARKETING || "team@buildtestscale.com";
-const FROM_NAME_DEFAULT = process.env.FROM_NAME_DEFAULT || "Build Test Scale";
+const FROM_NAME_DEFAULT = process.env.FROM_NAME_DEFAULT || brandStrings("bts").full;
 
 const UNSUBSCRIBE_SECRET = process.env.UNSUBSCRIBE_SECRET || "bts-unsub-secret-change-me";
 
@@ -424,7 +425,9 @@ async function getCommonVariables(
   return {
     portal_url: portalUrl ?? "",
     support_email: FROM_EMAIL_TRANSACTIONAL,
-    company_name: "Build Test Scale",
+    // Trademark-marked per Task #1635 — this is the full brand display name
+    // used in every transactional email's {{company_name}} token.
+    company_name: brandStrings("bts").full,
     current_year: new Date().getFullYear().toString(),
     ...extra,
   };
@@ -583,7 +586,7 @@ async function sendEmailDirect(params: {
       const unsubscribeUrl = `${portalUrl}/api/email/unsubscribe?email=${encodeURIComponent(to)}&token=${token}`;
       headers["List-Unsubscribe"] = `<${unsubscribeUrl}>`;
       headers["List-Unsubscribe-Post"] = "List-Unsubscribe=One-Click";
-      finalHtml += `\n<p style="text-align:center;font-size:12px;color:#999;margin-top:40px;">You are receiving this email because you are a member of Build Test Scale. <a href="${unsubscribeUrl}" style="color:#999;">Unsubscribe</a></p>`;
+      finalHtml += `\n<p style="text-align:center;font-size:12px;color:#999;margin-top:40px;">You are receiving this email because you are a member of ${brandStrings("bts").full}. <a href="${unsubscribeUrl}" style="color:#999;">Unsubscribe</a></p>`;
     }
 
     const msg: sgMail.MailDataRequired = {

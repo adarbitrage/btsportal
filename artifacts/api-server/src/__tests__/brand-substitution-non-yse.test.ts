@@ -135,7 +135,7 @@ describe("Assertion 1 — brand resolution", () => {
 
   it("brandStrings('reserve_income') returns correct full and short names", () => {
     const strings = brandStrings("reserve_income");
-    expect(strings.full).toBe("The Reserve Income System");
+    expect(strings.full).toBe("The Reserve Income System™");
     expect(strings.short).toBe("Reserve Income");
   });
 });
@@ -143,11 +143,11 @@ describe("Assertion 1 — brand resolution", () => {
 // ─── Assertion 2: Substitution (non-YSE) ─────────────────────────────────────
 
 describe("Assertion 2 — substitution for reserve_income member", () => {
-  it("{{brand}} resolves to 'The Reserve Income System' for the reserve_income member", async () => {
+  it("{{brand}} resolves to 'The Reserve Income System™' for the reserve_income member", async () => {
     const slug = await resolveMemberBrand(reserveIncomeUserId);
     const tokens = brandTokens(slug);
     const result = substituteString("Welcome to {{brand}}", tokens);
-    expect(result).toBe("Welcome to The Reserve Income System");
+    expect(result).toBe("Welcome to The Reserve Income System™");
     expect(result).not.toContain("Your Second Engine");
   });
 
@@ -167,7 +167,7 @@ describe("Assertion 2 — substitution for reserve_income member", () => {
       tokens,
     );
     expect(result).not.toContain("Your Second Engine");
-    expect(result).toContain("The Reserve Income System");
+    expect(result).toContain("The Reserve Income System™");
     expect(result).toContain("Reserve Income");
   });
 });
@@ -180,11 +180,11 @@ describe("Assertion 3 — contrast: yse_front_end member yields YSE strings", ()
     expect(slug).toBe("yse_front_end");
   });
 
-  it("{{brand}} for YSE member yields 'Your Second Engine'", async () => {
+  it("{{brand}} for YSE member yields 'Your Second Engine™'", async () => {
     const slug = await resolveMemberBrand(yseUserId);
     const tokens = brandTokens(slug);
     const result = substituteString("Welcome to {{brand}}", tokens);
-    expect(result).toBe("Welcome to Your Second Engine");
+    expect(result).toBe("Welcome to Your Second Engine™");
   });
 
   it("{{brand.short}} for YSE member yields 'YSE'", async () => {
@@ -203,17 +203,17 @@ describe("Assertion 4 — fallback for member with no frontend product", () => {
     expect(slug).toBe("bts");
   });
 
-  it("brandStrings('bts') returns 'Build Test Scale' / 'BTS'", () => {
+  it("brandStrings('bts') returns 'Build Test Scale™' / 'BTS'", () => {
     const strings = brandStrings("bts");
-    expect(strings.full).toBe("Build Test Scale");
+    expect(strings.full).toBe("Build Test Scale™");
     expect(strings.short).toBe("BTS");
   });
 
-  it("{{brand}} for no-product member yields 'Build Test Scale'", async () => {
+  it("{{brand}} for no-product member yields 'Build Test Scale™'", async () => {
     const slug = await resolveMemberBrand(noProductUserId);
     const tokens = brandTokens(slug);
     const result = substituteString("Welcome to {{brand}}", tokens);
-    expect(result).toBe("Welcome to Build Test Scale");
+    expect(result).toBe("Welcome to Build Test Scale™");
   });
 });
 
@@ -240,8 +240,8 @@ describe("Assertion 5 — no double-substitution via substituteTipTapDoc", () =>
     const tokens = brandTokens(slug);
     const result = substituteTipTapDoc(doc, tokens);
     const textNode = result.content![0].content![0];
-    expect(textNode.text).toBe("The Reserve Income System");
-    const count = (textNode.text as string).split("The Reserve Income System").length - 1;
+    expect(textNode.text).toBe("The Reserve Income System™");
+    const count = (textNode.text as string).split("The Reserve Income System™").length - 1;
     expect(count).toBe(1);
   });
 
@@ -253,6 +253,6 @@ describe("Assertion 5 — no double-substitution via substituteTipTapDoc", () =>
     const textAfterFirst = firstPass.content![0].content![0].text;
     const textAfterSecond = secondPass.content![0].content![0].text;
     expect(textAfterSecond).toBe(textAfterFirst);
-    expect(textAfterSecond).toBe("The Reserve Income System");
+    expect(textAfterSecond).toBe("The Reserve Income System™");
   });
 });

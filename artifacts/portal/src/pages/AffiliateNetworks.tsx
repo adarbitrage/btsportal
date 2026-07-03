@@ -43,7 +43,7 @@ export default function AffiliateNetworks() {
             An affiliate network is where you'll find the product you promote and get
             your unique tracking link — think of it like choosing which store you're
             going to sell products for. These are the networks supported inside the
-            Build Test Scale system.
+            Build Test Scale™ system.
           </p>
         </div>
 

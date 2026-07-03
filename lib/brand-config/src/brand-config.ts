@@ -45,8 +45,22 @@ export const BRAND_TABLE: Record<BrandSlug, BrandEntry> = {
 };
 
 /**
+ * Trademark glyph appended to every brand's FULL display name (Task #1635).
+ * Short forms (e.g. "BTS", "YSE") are never marked. Kept as a single named
+ * constant so the mark itself — and any future decision to drop it — lives
+ * in exactly one place.
+ */
+const TM = "\u2122";
+
+/**
  * Derive the possessive form: append `'` when the string ends in `s` or `S`
  * (case-insensitive — handles acronyms like "BTS"), else append `'s`.
+ *
+ * IMPORTANT: always call this on the UNMARKED name (`entry.full`/`entry.short`,
+ * never a string with `TM` already appended). A possessive built from the
+ * marked name would render "Build Test Scale™'s" — the mark glyph sitting
+ * mid-word before the apostrophe — which is not how ™ possessives are
+ * conventionally written.
  */
 function possessive(str: string): string {
   return str.toLowerCase().endsWith("s") ? `${str}'` : `${str}'s`;
@@ -56,10 +70,11 @@ function possessive(str: string): string {
  * Returns the flat token map consumed by `substituteString`.
  *
  * Keys:
- *   `brand`                — full brand name
- *   `brand.short`          — short brand name
- *   `brand.possessive`     — possessive of the full name
- *   `brand.short.possessive` — possessive of the short name
+ *   `brand`                — full brand name, trademark-marked
+ *   `brand.short`          — short brand name (unmarked)
+ *   `brand.possessive`     — possessive of the full name (derived from the
+ *                            UNMARKED name, so no mark glyph appears mid-word)
+ *   `brand.short.possessive` — possessive of the short name (unmarked)
  *
  * Unknown slugs fall back to the `bts` entry so callers never receive
  * undefined tokens.
@@ -67,7 +82,7 @@ function possessive(str: string): string {
 export function brandTokens(slug: string): Record<string, string> {
   const entry = (BRAND_TABLE as Record<string, BrandEntry>)[slug] ?? BRAND_TABLE.bts;
   return {
-    "brand":                   entry.full,
+    "brand":                   `${entry.full}${TM}`,
     "brand.short":             entry.short,
     "brand.possessive":        possessive(entry.full),
     "brand.short.possessive":  possessive(entry.short),
@@ -84,12 +99,15 @@ export interface BrandStrings {
 /**
  * Returns the brand strings object used by the client-side brand hook.
  *
+ * `full` carries the trademark mark; `short` and both possessive forms are
+ * always derived from/equal to the unmarked name.
+ *
  * Unknown slugs fall back to the `bts` entry.
  */
 export function brandStrings(slug: string): BrandStrings {
   const entry = (BRAND_TABLE as Record<string, BrandEntry>)[slug] ?? BRAND_TABLE.bts;
   return {
-    full:           entry.full,
+    full:           `${entry.full}${TM}`,
     short:          entry.short,
     possessive:     possessive(entry.full),
     shortPossessive: possessive(entry.short),

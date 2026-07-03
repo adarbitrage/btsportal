@@ -11,13 +11,13 @@ function wrapHtml(title: string, body: string): string {
 <tr><td align="center">
 <table width="600" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:8px;overflow:hidden;">
 <tr><td style="background:#1a1a2e;padding:30px;text-align:center;">
-<h1 style="color:#ffffff;margin:0;font-size:24px;">Build Test Scale</h1>
+<h1 style="color:#ffffff;margin:0;font-size:24px;">Build Test Scale™</h1>
 </td></tr>
 <tr><td style="padding:30px;">
 ${body}
 </td></tr>
 <tr><td style="background:#f8f8f8;padding:20px;text-align:center;font-size:12px;color:#999;">
-<p style="margin:0;">&copy; {{current_year}} Build Test Scale. All rights reserved.</p>
+<p style="margin:0;">&copy; {{current_year}} Build Test Scale™. All rights reserved.</p>
 </td></tr>
 </table>
 </td></tr>
@@ -30,9 +30,9 @@ const transactionalEmailTemplates = [
   {
     slug: "welcome",
     name: "Welcome Email",
-    subject: "Welcome to Build Test Scale, {{member_name}}!",
+    subject: "Welcome to Build Test Scale™, {{member_name}}!",
     htmlBody: wrapHtml("Welcome", `
-<h2 style="color:#1a1a2e;margin-top:0;">Welcome to Build Test Scale!</h2>
+<h2 style="color:#1a1a2e;margin-top:0;">Welcome to Build Test Scale™!</h2>
 <p>Hi {{member_name}},</p>
 <p>We're thrilled to have you join the BTS community. Your account has been created and you're ready to start your journey.</p>
 <p>Your temporary password is: <strong>{{temp_password}}</strong></p>
@@ -40,7 +40,7 @@ const transactionalEmailTemplates = [
 <p><a href="{{portal_url}}" style="display:inline-block;background:#4f46e5;color:#ffffff;padding:12px 24px;border-radius:6px;text-decoration:none;font-weight:bold;">Log In to Your Portal</a></p>
 <p>If you have any questions, reply to this email or reach out to {{support_email}}.</p>
 <p>Welcome aboard!<br>The BTS Team</p>`),
-    textBody: "Welcome to Build Test Scale, {{member_name}}!\n\nYour temporary password is: {{temp_password}}\n\nLog in at {{portal_url}} and change your password.\n\nWelcome aboard!\nThe BTS Team",
+    textBody: "Welcome to Build Test Scale™, {{member_name}}!\n\nYour temporary password is: {{temp_password}}\n\nLog in at {{portal_url}} and change your password.\n\nWelcome aboard!\nThe BTS Team",
     category: "transactional",
     variables: ["member_name", "temp_password", "portal_url", "support_email", "current_year"],
   },
@@ -81,7 +81,7 @@ const transactionalEmailTemplates = [
     htmlBody: wrapHtml("Signup Attempted", `
 <h2 style="color:#1a1a2e;margin-top:0;">Signup Attempt on Your Account</h2>
 <p>Hi {{member_name}},</p>
-<p>Someone just tried to create a new Build Test Scale account using <strong>{{member_email}}</strong>. Since this address already has an account, no new account was created.</p>
+<p>Someone just tried to create a new Build Test Scale™ account using <strong>{{member_email}}</strong>. Since this address already has an account, no new account was created.</p>
 <p>If this was you, you can sign in or reset your password instead — there's no need to create a new account:</p>
 <p>
 <a href="{{portal_url}}/login?email={{member_email_encoded}}" style="display:inline-block;background:#4f46e5;color:#ffffff;padding:12px 24px;border-radius:6px;text-decoration:none;font-weight:bold;margin-right:8px;">Sign In</a>
@@ -89,18 +89,18 @@ const transactionalEmailTemplates = [
 </p>
 <p style="margin-top:24px;padding:12px 16px;background:#fef2f2;border-left:4px solid #dc2626;color:#991b1b;">If this <strong>wasn't you</strong>, you can safely ignore this email — your account is unchanged. If you're seeing repeated attempts, contact <a href="mailto:{{support_email}}" style="color:#4f46e5;">{{support_email}}</a>.</p>
 <p>The BTS Team</p>`),
-    textBody: "Hi {{member_name}},\n\nSomeone just tried to create a new Build Test Scale account using {{member_email}}. Since this address already has an account, no new account was created.\n\nIf this was you, sign in: {{portal_url}}/login?email={{member_email_encoded}}\nOr reset your password: {{portal_url}}/forgot-password?email={{member_email_encoded}}\n\nIf this wasn't you, you can ignore this email — your account is unchanged.\n\nThe BTS Team",
+    textBody: "Hi {{member_name}},\n\nSomeone just tried to create a new Build Test Scale™ account using {{member_email}}. Since this address already has an account, no new account was created.\n\nIf this was you, sign in: {{portal_url}}/login?email={{member_email_encoded}}\nOr reset your password: {{portal_url}}/forgot-password?email={{member_email_encoded}}\n\nIf this wasn't you, you can ignore this email — your account is unchanged.\n\nThe BTS Team",
     category: "transactional",
     variables: ["member_name", "member_email", "member_email_encoded", "portal_url", "support_email", "current_year"],
   },
   {
     slug: "new_device_signin",
     name: "New Sign-in Detected",
-    subject: "New sign-in to your Build Test Scale account",
+    subject: "New sign-in to your Build Test Scale™ account",
     htmlBody: wrapHtml("New Sign-in Detected", `
 <h2 style="color:#1a1a2e;margin-top:0;">New Sign-in Detected</h2>
 <p>Hi {{member_name}},</p>
-<p>Your Build Test Scale account was just signed in to from a device we haven't seen before:</p>
+<p>Your Build Test Scale™ account was just signed in to from a device we haven't seen before:</p>
 <p style="background:#f0f0ff;padding:15px;border-radius:6px;">
 <strong>Device:</strong> {{device_description}}<br>
 <strong>IP address:</strong> {{ip_address}}<br>
@@ -111,70 +111,70 @@ const transactionalEmailTemplates = [
 <p><a href="{{portal_url}}/account#sessions" style="display:inline-block;background:#4f46e5;color:#ffffff;padding:12px 24px;border-radius:6px;text-decoration:none;font-weight:bold;">Review your devices</a></p>
 <p>Questions? Contact <a href="mailto:{{support_email}}" style="color:#4f46e5;">{{support_email}}</a>.</p>
 <p>Thanks,<br>The BTS Team</p>`),
-    textBody: "Hi {{member_name}},\n\nYour Build Test Scale account was just signed in to from a device we haven't seen before:\n\nDevice: {{device_description}}\nIP address: {{ip_address}}\nWhen: {{sign_in_time}}\n\nIf this was you, no action is needed.\n\nIf this wasn't you, your account may be compromised. Review where you're signed in and sign out the device you don't recognize, then change your password right away:\n{{portal_url}}/account#sessions\n\nQuestions? Contact {{support_email}}.\n\nThe BTS Team",
+    textBody: "Hi {{member_name}},\n\nYour Build Test Scale™ account was just signed in to from a device we haven't seen before:\n\nDevice: {{device_description}}\nIP address: {{ip_address}}\nWhen: {{sign_in_time}}\n\nIf this was you, no action is needed.\n\nIf this wasn't you, your account may be compromised. Review where you're signed in and sign out the device you don't recognize, then change your password right away:\n{{portal_url}}/account#sessions\n\nQuestions? Contact {{support_email}}.\n\nThe BTS Team",
     category: "transactional",
     variables: ["member_name", "device_description", "ip_address", "sign_in_time", "portal_url", "support_email", "current_year"],
   },
   {
     slug: "email_change_verify",
     name: "Email Change Verification",
-    subject: "Confirm your new Build Test Scale email address",
+    subject: "Confirm your new Build Test Scale™ email address",
     htmlBody: wrapHtml("Confirm New Email", `
 <h2 style="color:#1a1a2e;margin-top:0;">Confirm Your New Email</h2>
 <p>Hi {{member_name}},</p>
-<p>We received a request to change the email address on your Build Test Scale account from <strong>{{old_email}}</strong> to <strong>{{new_email}}</strong>.</p>
+<p>We received a request to change the email address on your Build Test Scale™ account from <strong>{{old_email}}</strong> to <strong>{{new_email}}</strong>.</p>
 <p>Click the button below within 24 hours to confirm this change. After confirming, you'll need to sign in again using your new email address.</p>
 <p><a href="{{portal_url}}/verify-email-change?token={{verify_token}}" style="display:inline-block;background:#1a56db;color:#ffffff;padding:12px 24px;border-radius:6px;text-decoration:none;font-weight:bold;">Confirm New Email</a></p>
 <p>If you didn't request this change, you can safely ignore this email — your address will stay the same.</p>
 <p>Thanks,<br>The BTS Team</p>`),
-    textBody: "Hi {{member_name}},\n\nConfirm changing your Build Test Scale email from {{old_email}} to {{new_email}}:\n{{portal_url}}/verify-email-change?token={{verify_token}}\n\nThis link expires in 24 hours. If you didn't request this, ignore this email.\n\nThe BTS Team",
+    textBody: "Hi {{member_name}},\n\nConfirm changing your Build Test Scale™ email from {{old_email}} to {{new_email}}:\n{{portal_url}}/verify-email-change?token={{verify_token}}\n\nThis link expires in 24 hours. If you didn't request this, ignore this email.\n\nThe BTS Team",
     category: "transactional",
     variables: ["member_name", "old_email", "new_email", "verify_token", "portal_url", "current_year"],
   },
   {
     slug: "email_change_notice",
     name: "Email Change Notice (Old Address)",
-    subject: "Email change requested on your Build Test Scale account",
+    subject: "Email change requested on your Build Test Scale™ account",
     htmlBody: wrapHtml("Email Change Requested", `
 <h2 style="color:#1a1a2e;margin-top:0;">Email Change Requested</h2>
 <p>Hi {{member_name}},</p>
-<p>We received a request to change the email address on your Build Test Scale account to <strong>{{new_email}}</strong>. The change will only take effect once it's confirmed from the new address.</p>
+<p>We received a request to change the email address on your Build Test Scale™ account to <strong>{{new_email}}</strong>. The change will only take effect once it's confirmed from the new address.</p>
 <p>If this was you, no further action is needed at this address — just confirm the change from your new inbox.</p>
 <p style="margin-top:24px;padding:12px 16px;background:#fef2f2;border-left:4px solid #dc2626;color:#991b1b;">If this <strong>wasn't you</strong>, please sign in and reset your password immediately, then contact <a href="mailto:{{support_email}}" style="color:#1a56db;">{{support_email}}</a>. Your current email address will keep working until the new one is confirmed.</p>
 <p>Thanks,<br>The BTS Team</p>`),
-    textBody: "Hi {{member_name}},\n\nWe received a request to change your Build Test Scale email to {{new_email}}. The change only takes effect after it's confirmed from the new address.\n\nIf this wasn't you, sign in and reset your password immediately, then contact {{support_email}}.\n\nThe BTS Team",
+    textBody: "Hi {{member_name}},\n\nWe received a request to change your Build Test Scale™ email to {{new_email}}. The change only takes effect after it's confirmed from the new address.\n\nIf this wasn't you, sign in and reset your password immediately, then contact {{support_email}}.\n\nThe BTS Team",
     category: "transactional",
     variables: ["member_name", "new_email", "support_email", "portal_url", "current_year"],
   },
   {
     slug: "email_change_cancelled_by_admin",
     name: "Email Change Cancelled by Admin",
-    subject: "Your pending email change was cancelled by Build Test Scale support",
+    subject: "Your pending email change was cancelled by Build Test Scale™ support",
     htmlBody: wrapHtml("Pending Email Change Cancelled", `
 <h2 style="color:#1a1a2e;margin-top:0;">Pending Email Change Cancelled</h2>
 <p>Hi {{member_name}},</p>
-<p>Our support team has cancelled the pending email change on your Build Test Scale account. The address we had queued — <strong>{{cancelled_pending_email}}</strong> — has been discarded and was never activated.</p>
+<p>Our support team has cancelled the pending email change on your Build Test Scale™ account. The address we had queued — <strong>{{cancelled_pending_email}}</strong> — has been discarded and was never activated.</p>
 <p>Your account email remains <strong>{{member_email}}</strong>, which is the address you should keep using to sign in. <strong>No further action is required from you.</strong></p>
 <p>If you still meant to switch your account to <strong>{{cancelled_pending_email}}</strong> (or another address), use the button below — we'll drop you straight onto the email-change form with the previously requested address pre-filled so you don't have to retype it. You'll still need to sign in and re-enter your password to confirm the change.</p>
 <p><a href="{{restart_url}}" style="display:inline-block;background:#1a56db;color:#ffffff;padding:12px 24px;border-radius:6px;text-decoration:none;font-weight:bold;">Start a new email change</a></p>
 <p style="margin-top:24px;padding:12px 16px;background:#fef2f2;border-left:4px solid #dc2626;color:#991b1b;">If you weren't expecting support to cancel this change, or you have any questions, please reply to this email or reach out to <a href="mailto:{{support_email}}" style="color:#1a56db;">{{support_email}}</a>.</p>
 <p>Thanks,<br>The BTS Team</p>`),
-    textBody: "Hi {{member_name}},\n\nOur support team has cancelled the pending email change on your Build Test Scale account. The address we had queued — {{cancelled_pending_email}} — has been discarded and was never activated.\n\nYour account email remains {{member_email}}, which is the address you should keep using to sign in. No further action is required from you.\n\nIf you still meant to switch your account to {{cancelled_pending_email}} (or another address), open this link to jump straight to the email-change form with the previous address pre-filled (you'll still need to sign in and re-enter your password):\n{{restart_url}}\n\nIf you weren't expecting this, contact {{support_email}}.\n\nThe BTS Team",
+    textBody: "Hi {{member_name}},\n\nOur support team has cancelled the pending email change on your Build Test Scale™ account. The address we had queued — {{cancelled_pending_email}} — has been discarded and was never activated.\n\nYour account email remains {{member_email}}, which is the address you should keep using to sign in. No further action is required from you.\n\nIf you still meant to switch your account to {{cancelled_pending_email}} (or another address), open this link to jump straight to the email-change form with the previous address pre-filled (you'll still need to sign in and re-enter your password):\n{{restart_url}}\n\nIf you weren't expecting this, contact {{support_email}}.\n\nThe BTS Team",
     category: "transactional",
     variables: ["member_name", "member_email", "cancelled_pending_email", "restart_url", "portal_url", "support_email", "current_year"],
   },
   {
     slug: "email_change_cancelled_by_admin_pending",
     name: "Email Change Cancelled by Admin (Pending Address)",
-    subject: "A pending email change to this address was cancelled by Build Test Scale support",
+    subject: "A pending email change to this address was cancelled by Build Test Scale™ support",
     htmlBody: wrapHtml("Pending Email Change Cancelled", `
 <h2 style="color:#1a1a2e;margin-top:0;">Pending Email Change Cancelled</h2>
 <p>Hello,</p>
-<p>Someone recently asked us to switch the email address on a Build Test Scale account to <strong>{{cancelled_pending_email}}</strong> — this inbox. Our support team has since cancelled that pending change, so this address was never linked to the account and the verification link we sent earlier no longer works.</p>
+<p>Someone recently asked us to switch the email address on a Build Test Scale™ account to <strong>{{cancelled_pending_email}}</strong> — this inbox. Our support team has since cancelled that pending change, so this address was never linked to the account and the verification link we sent earlier no longer works.</p>
 <p><strong>No action is required from you.</strong> You don't need to click anything, sign in, or reply.</p>
 <p style="margin-top:24px;padding:12px 16px;background:#f3f4f6;border-left:4px solid #6b7280;color:#374151;">If you weren't expecting any messages from us, you can safely ignore this email — this address has not been added to any account. If you have questions or believe you're receiving these messages by mistake, contact <a href="mailto:{{support_email}}" style="color:#1a56db;">{{support_email}}</a>.</p>
 <p>Thanks,<br>The BTS Team</p>`),
-    textBody: "Hello,\n\nSomeone recently asked us to switch the email address on a Build Test Scale account to {{cancelled_pending_email}} — this inbox. Our support team has since cancelled that pending change, so this address was never linked to the account and the verification link we sent earlier no longer works.\n\nNo action is required from you. You don't need to click anything, sign in, or reply.\n\nIf you weren't expecting any messages from us, you can safely ignore this email — this address has not been added to any account. If you have questions, contact {{support_email}}.\n\nThe BTS Team",
+    textBody: "Hello,\n\nSomeone recently asked us to switch the email address on a Build Test Scale™ account to {{cancelled_pending_email}} — this inbox. Our support team has since cancelled that pending change, so this address was never linked to the account and the verification link we sent earlier no longer works.\n\nNo action is required from you. You don't need to click anything, sign in, or reply.\n\nIf you weren't expecting any messages from us, you can safely ignore this email — this address has not been added to any account. If you have questions, contact {{support_email}}.\n\nThe BTS Team",
     category: "transactional",
     variables: ["cancelled_pending_email", "support_email", "current_year"],
   },
@@ -185,13 +185,13 @@ const transactionalEmailTemplates = [
     htmlBody: wrapHtml("Pending Email Change Cancelled", `
 <h2 style="color:#1a1a2e;margin-top:0;">Pending Email Change Cancelled</h2>
 <p>Hi {{member_name}},</p>
-<p>You just cancelled the pending email change on your Build Test Scale account. The address we had queued — <strong>{{cancelled_pending_email}}</strong> — has been discarded and was never activated.</p>
+<p>You just cancelled the pending email change on your Build Test Scale™ account. The address we had queued — <strong>{{cancelled_pending_email}}</strong> — has been discarded and was never activated.</p>
 <p>Your account email remains <strong>{{member_email}}</strong>, which is the address you should keep using to sign in. <strong>No further action is required from you.</strong></p>
 <p>Changed your mind, or made a typo the first time? Use the button below — we'll drop you straight onto the email-change form with the previously requested address pre-filled so you don't have to retype it. You'll still need to sign in and re-enter your password to confirm the change.</p>
 <p><a href="{{restart_url}}" style="display:inline-block;background:#1a56db;color:#ffffff;padding:12px 24px;border-radius:6px;text-decoration:none;font-weight:bold;">Start a new email change</a></p>
 <p style="margin-top:24px;padding:12px 16px;background:#fef2f2;border-left:4px solid #dc2626;color:#991b1b;">If you <strong>didn't</strong> cancel this change yourself, sign in and reset your password immediately, then contact <a href="mailto:{{support_email}}" style="color:#1a56db;">{{support_email}}</a>.</p>
 <p>Thanks,<br>The BTS Team</p>`),
-    textBody: "Hi {{member_name}},\n\nYou just cancelled the pending email change on your Build Test Scale account. The address we had queued — {{cancelled_pending_email}} — has been discarded and was never activated.\n\nYour account email remains {{member_email}}, which is the address you should keep using to sign in. No further action is required from you.\n\nChanged your mind, or made a typo the first time? Open this link to jump straight to the email-change form with the previous address pre-filled (you'll still need to sign in and re-enter your password):\n{{restart_url}}\n\nIf you didn't cancel this change yourself, sign in and reset your password immediately, then contact {{support_email}}.\n\nThe BTS Team",
+    textBody: "Hi {{member_name}},\n\nYou just cancelled the pending email change on your Build Test Scale™ account. The address we had queued — {{cancelled_pending_email}} — has been discarded and was never activated.\n\nYour account email remains {{member_email}}, which is the address you should keep using to sign in. No further action is required from you.\n\nChanged your mind, or made a typo the first time? Open this link to jump straight to the email-change form with the previous address pre-filled (you'll still need to sign in and re-enter your password):\n{{restart_url}}\n\nIf you didn't cancel this change yourself, sign in and reset your password immediately, then contact {{support_email}}.\n\nThe BTS Team",
     category: "transactional",
     variables: ["member_name", "member_email", "cancelled_pending_email", "restart_url", "portal_url", "support_email", "current_year"],
   },
@@ -202,11 +202,11 @@ const transactionalEmailTemplates = [
     htmlBody: wrapHtml("Pending Email Change Cancelled", `
 <h2 style="color:#1a1a2e;margin-top:0;">Pending Email Change Cancelled</h2>
 <p>Hello,</p>
-<p>Someone recently asked us to switch the email address on a Build Test Scale account to <strong>{{cancelled_pending_email}}</strong> — this inbox. That request has since been withdrawn, so this address was never linked to the account and the verification link we sent earlier no longer works.</p>
+<p>Someone recently asked us to switch the email address on a Build Test Scale™ account to <strong>{{cancelled_pending_email}}</strong> — this inbox. That request has since been withdrawn, so this address was never linked to the account and the verification link we sent earlier no longer works.</p>
 <p><strong>No action is required from you.</strong> You don't need to click anything, sign in, or reply.</p>
 <p style="margin-top:24px;padding:12px 16px;background:#f3f4f6;border-left:4px solid #6b7280;color:#374151;">If you weren't expecting any messages from us, you can safely ignore this email — this address has not been added to any account. If you have questions or believe you're receiving these messages by mistake, contact <a href="mailto:{{support_email}}" style="color:#1a56db;">{{support_email}}</a>.</p>
 <p>Thanks,<br>The BTS Team</p>`),
-    textBody: "Hello,\n\nSomeone recently asked us to switch the email address on a Build Test Scale account to {{cancelled_pending_email}} — this inbox. That request has since been withdrawn, so this address was never linked to the account and the verification link we sent earlier no longer works.\n\nNo action is required from you. You don't need to click anything, sign in, or reply.\n\nIf you weren't expecting any messages from us, you can safely ignore this email — this address has not been added to any account. If you have questions, contact {{support_email}}.\n\nThe BTS Team",
+    textBody: "Hello,\n\nSomeone recently asked us to switch the email address on a Build Test Scale™ account to {{cancelled_pending_email}} — this inbox. That request has since been withdrawn, so this address was never linked to the account and the verification link we sent earlier no longer works.\n\nNo action is required from you. You don't need to click anything, sign in, or reply.\n\nIf you weren't expecting any messages from us, you can safely ignore this email — this address has not been added to any account. If you have questions, contact {{support_email}}.\n\nThe BTS Team",
     category: "transactional",
     variables: ["cancelled_pending_email", "support_email", "current_year"],
   },
@@ -440,11 +440,11 @@ const transactionalEmailTemplates = [
   {
     slug: "role_changed",
     name: "Admin Role Changed",
-    subject: "Your Build Test Scale role is now {{new_role_label}}",
+    subject: "Your Build Test Scale™ role is now {{new_role_label}}",
     htmlBody: wrapHtml("Role Changed", `
 <h2 style="color:#1a1a2e;margin-top:0;">Your role was updated</h2>
 <p>Hi {{member_name}},</p>
-<p>{{actor_name}} just updated your access on Build Test Scale.</p>
+<p>{{actor_name}} just updated your access on Build Test Scale™.</p>
 <p style="background:#f0f0ff;padding:15px;border-radius:6px;">
 <strong>Previous role:</strong> {{previous_role_label}}<br>
 <strong>New role:</strong> {{new_role_label}}
@@ -453,7 +453,7 @@ const transactionalEmailTemplates = [
 <p><a href="{{portal_url}}/dashboard" style="display:inline-block;background:#4f46e5;color:#ffffff;padding:12px 24px;border-radius:6px;text-decoration:none;font-weight:bold;">Open Your Dashboard</a></p>
 <p style="margin-top:24px;padding:12px 16px;background:#fef2f2;border-left:4px solid #dc2626;color:#991b1b;">If you weren't expecting this change, please reach out to <a href="mailto:{{support_email}}" style="color:#1a56db;">{{support_email}}</a>.</p>
 <p>Thanks,<br>The BTS Team</p>`),
-    textBody: "Hi {{member_name}},\n\n{{actor_name}} just updated your access on Build Test Scale.\n\nPrevious role: {{previous_role_label}}\nNew role: {{new_role_label}}\n\nThis change takes effect the next time you sign in. Open your dashboard at {{portal_url}}/dashboard.\n\nIf you weren't expecting this change, contact {{support_email}}.\n\nThe BTS Team",
+    textBody: "Hi {{member_name}},\n\n{{actor_name}} just updated your access on Build Test Scale™.\n\nPrevious role: {{previous_role_label}}\nNew role: {{new_role_label}}\n\nThis change takes effect the next time you sign in. Open your dashboard at {{portal_url}}/dashboard.\n\nIf you weren't expecting this change, contact {{support_email}}.\n\nThe BTS Team",
     category: "transactional",
     variables: ["member_name", "actor_name", "previous_role_label", "new_role_label", "portal_url", "support_email", "current_year"],
   },
@@ -501,7 +501,7 @@ const marketingEmailTemplates = [
   {
     slug: "onboarding_day1",
     name: "Onboarding Day 1 — Getting Started",
-    subject: "Your first step inside Build Test Scale",
+    subject: "Your first step inside Build Test Scale™",
     htmlBody: wrapHtml("Getting Started", `
 <h2 style="color:#1a1a2e;margin-top:0;">Let's Get You Started</h2>
 <p>Hi {{member_name}},</p>
@@ -774,8 +774,11 @@ const marketingEmailTemplates = [
 const smsTemplates = [
   {
     slug: "welcome",
+    // Trademark-marked with the ASCII "(TM)" rather than the U+2122 glyph —
+    // see the `ensureSmsTrademarkMarking` doc comment below for why SMS uses
+    // the ASCII form (GSM-7 vs. UCS-2 segment-length impact).
     name: "Welcome SMS",
-    body: "Welcome to Build Test Scale, {{member_name}}! Log in to get started: {{portal_url}}",
+    body: "Welcome to Build Test Scale (TM), {{member_name}}! Log in to get started: {{portal_url}}",
     variables: ["member_name", "portal_url"],
   },
   {

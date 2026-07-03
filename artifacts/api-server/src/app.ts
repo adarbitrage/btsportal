@@ -32,6 +32,7 @@ import { setupRetellAgentKb, setCachedRetellSetupResult } from "./lib/retell-age
 import { startRetellHealthReprobeJob } from "./lib/retell-health-reprobe";
 import { seedCannedResponses } from "./lib/seed-canned-responses";
 import { ensureRequiredEmailTemplates, ensureRequiredSmsTemplates } from "./lib/seed-templates";
+import { ensureSmsTrademarkMarking, ensureSequenceTrademarkMarking } from "./lib/ensure-brand-trademark";
 import { seedAffiliateNetworks } from "./lib/seed-affiliate-networks";
 import { seedMediaMavens } from "./lib/seed-media-mavens";
 import { seedModerationWordlist } from "./lib/seed-moderation-wordlist";
@@ -135,6 +136,8 @@ app.use("/api", apiErrorHandler);
 seedCannedResponses().catch(err => console.error("[Seed] Failed to seed canned responses:", err));
 ensureRequiredEmailTemplates().catch(err => console.error("[Seed] Failed to ensure required email templates:", err));
 ensureRequiredSmsTemplates().catch(err => console.error("[Seed] Failed to ensure required SMS templates:", err));
+ensureSmsTrademarkMarking().catch(err => console.error("[Seed] Failed to apply SMS trademark marking:", err));
+ensureSequenceTrademarkMarking().catch(err => console.error("[Seed] Failed to apply sequence trademark marking:", err));
 seedAffiliateNetworks().catch(err => console.error("[Seed] Failed to seed affiliate networks:", err));
 // Partner + kickoff-coach photo seeding runs inside
 // bootstrapCriticalPrerequisites (step 13), AFTER seedCallBookingRoster, so a

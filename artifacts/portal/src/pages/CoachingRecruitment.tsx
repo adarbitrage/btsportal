@@ -87,7 +87,7 @@ export default function CoachingRecruitment() {
               </div>
               <h3 className="text-xl font-bold text-foreground">Application Submitted!</h3>
               <p className="text-muted-foreground">
-                Our team will review your application and Mark Blyn, CEO of Build Test Scale, will reach out directly with next steps.
+                Our team will review your application and Mark Blyn, CEO of Build Test Scale™, will reach out directly with next steps.
               </p>
               <Button onClick={() => setSubmitted(false)} variant="outline" className="mt-4">
                 Submit Another Application
@@ -255,7 +255,7 @@ export default function CoachingRecruitment() {
               </div>
 
               <p className="text-xs text-muted-foreground italic">
-                Once submitted, our team will review your application and Mark Blyn, CEO of Build Test Scale, will reach out directly with next steps.
+                Once submitted, our team will review your application and Mark Blyn, CEO of Build Test Scale™, will reach out directly with next steps.
               </p>
 
               <Button type="submit">

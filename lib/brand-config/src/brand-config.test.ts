@@ -4,10 +4,12 @@ import { substituteTipTapDoc, substituteString } from "./substitute";
 
 // ─── brandTokens ─────────────────────────────────────────────────────────────
 
+const TM = "\u2122";
+
 describe("brandTokens", () => {
   it("returns all four token keys for a known slug", () => {
     const tokens = brandTokens("yse_front_end");
-    expect(tokens["brand"]).toBe("Your Second Engine");
+    expect(tokens["brand"]).toBe(`Your Second Engine${TM}`);
     expect(tokens["brand.short"]).toBe("YSE");
     expect(tokens["brand.possessive"]).toBe("Your Second Engine's");
     expect(tokens["brand.short.possessive"]).toBe("YSE's");
@@ -15,7 +17,7 @@ describe("brandTokens", () => {
 
   it("derives possessive with apostrophe-only when name ends in s", () => {
     const tokens = brandTokens("bts");
-    expect(tokens["brand"]).toBe("Build Test Scale");
+    expect(tokens["brand"]).toBe(`Build Test Scale${TM}`);
     expect(tokens["brand.possessive"]).toBe("Build Test Scale's");
     expect(tokens["brand.short"]).toBe("BTS");
     expect(tokens["brand.short.possessive"]).toBe("BTS'");
@@ -23,7 +25,7 @@ describe("brandTokens", () => {
 
   it("falls back to bts entry for an unknown slug", () => {
     const tokens = brandTokens("nonexistent_slug");
-    expect(tokens["brand"]).toBe(BRAND_TABLE.bts.full);
+    expect(tokens["brand"]).toBe(`${BRAND_TABLE.bts.full}${TM}`);
     expect(tokens["brand.short"]).toBe(BRAND_TABLE.bts.short);
   });
 
@@ -37,6 +39,36 @@ describe("brandTokens", () => {
       expect(typeof tokens["brand.short.possessive"]).toBe("string");
     }
   });
+
+  it("marks the full name with a trademark glyph for every brand", () => {
+    const slugs = Object.keys(BRAND_TABLE) as (keyof typeof BRAND_TABLE)[];
+    for (const slug of slugs) {
+      const tokens = brandTokens(slug);
+      expect(tokens["brand"]).toBe(`${BRAND_TABLE[slug].full}${TM}`);
+      expect(tokens["brand"].endsWith(TM)).toBe(true);
+    }
+  });
+
+  it("never marks the short form", () => {
+    const slugs = Object.keys(BRAND_TABLE) as (keyof typeof BRAND_TABLE)[];
+    for (const slug of slugs) {
+      const tokens = brandTokens(slug);
+      expect(tokens["brand.short"]).toBe(BRAND_TABLE[slug].short);
+      expect(tokens["brand.short"].includes(TM)).toBe(false);
+    }
+  });
+
+  it("derives the possessive from the UNMARKED name (no glyph mid-word)", () => {
+    const slugs = Object.keys(BRAND_TABLE) as (keyof typeof BRAND_TABLE)[];
+    for (const slug of slugs) {
+      const tokens = brandTokens(slug);
+      expect(tokens["brand.possessive"].includes(TM)).toBe(false);
+      const expected = BRAND_TABLE[slug].full.toLowerCase().endsWith("s")
+        ? `${BRAND_TABLE[slug].full}'`
+        : `${BRAND_TABLE[slug].full}'s`;
+      expect(tokens["brand.possessive"]).toBe(expected);
+    }
+  });
 });
 
 // ─── brandStrings ─────────────────────────────────────────────────────────────
@@ -44,7 +76,7 @@ describe("brandTokens", () => {
 describe("brandStrings", () => {
   it("returns structured strings for a known slug", () => {
     const s = brandStrings("backroad");
-    expect(s.full).toBe("The Backroad System");
+    expect(s.full).toBe(`The Backroad System${TM}`);
     expect(s.short).toBe("Backroad");
     expect(s.possessive).toBe("The Backroad System's");
     expect(s.shortPossessive).toBe("Backroad's");
@@ -52,8 +84,19 @@ describe("brandStrings", () => {
 
   it("falls back to bts for an unknown slug", () => {
     const s = brandStrings("unknown");
-    expect(s.full).toBe(BRAND_TABLE.bts.full);
+    expect(s.full).toBe(`${BRAND_TABLE.bts.full}${TM}`);
     expect(s.short).toBe(BRAND_TABLE.bts.short);
+  });
+
+  it("marks every brand's full name and keeps possessive forms unmarked", () => {
+    const slugs = Object.keys(BRAND_TABLE) as (keyof typeof BRAND_TABLE)[];
+    for (const slug of slugs) {
+      const s = brandStrings(slug);
+      expect(s.full).toBe(`${BRAND_TABLE[slug].full}${TM}`);
+      expect(s.short).toBe(BRAND_TABLE[slug].short);
+      expect(s.possessive.includes(TM)).toBe(false);
+      expect(s.shortPossessive.includes(TM)).toBe(false);
+    }
   });
 });
 
@@ -64,7 +107,7 @@ describe("substituteString", () => {
 
   it("replaces a known token", () => {
     expect(substituteString("Welcome to {{brand}}", yse)).toBe(
-      "Welcome to Your Second Engine",
+      `Welcome to Your Second Engine${TM}`,
     );
   });
 
@@ -78,13 +121,13 @@ describe("substituteString", () => {
       yse,
     );
     expect(result).toBe(
-      "Your Second Engine (YSE) is Your Second Engine's community",
+      `Your Second Engine${TM} (YSE) is Your Second Engine's community`,
     );
   });
 
   it("handles whitespace inside braces", () => {
     expect(substituteString("Hello {{ brand }}", yse)).toBe(
-      "Hello Your Second Engine",
+      `Hello Your Second Engine${TM}`,
     );
   });
 
@@ -139,7 +182,7 @@ describe("substituteTipTapDoc", () => {
   it("substitutes text in text nodes", () => {
     const result = substituteTipTapDoc(sampleDoc, yse);
     const para = result.content![0];
-    expect(para.content![0].text).toBe("Welcome to Your Second Engine");
+    expect(para.content![0].text).toBe(`Welcome to Your Second Engine${TM}`);
   });
 
   it("leaves the second text node text unchanged (no token)", () => {

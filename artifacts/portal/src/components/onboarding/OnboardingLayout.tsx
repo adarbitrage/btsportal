@@ -43,7 +43,7 @@ export function OnboardingLayout({
             className="h-10 w-10 object-contain"
           />
           <div>
-            <h1 className="font-bold text-sm tracking-tight text-foreground leading-tight">BUILD TEST SCALE</h1>
+            <h1 className="font-bold text-sm tracking-tight text-foreground leading-tight">BUILD TEST SCALE™</h1>
             <p className="text-[10px] text-muted-foreground tracking-widest uppercase">Member Setup</p>
           </div>
         </div>

@@ -8,7 +8,7 @@ import {
 
 const reveals = [
   { icon: Shield, text: "The exact entity structure that protects your assets AND saves you thousands" },
-  { icon: FileText, text: "How to write off your entire Build Test Scale investment (yes, really)" },
+  { icon: FileText, text: "How to write off your entire Build Test Scale™ investment (yes, really)" },
   { icon: DollarSign, text: "The 250+ deductions affiliate marketers miss every single year" },
   { icon: CreditCard, text: "How to build business credit without touching your personal score" },
   { icon: TrendingUp, text: "Why some affiliates pay 40% in taxes while others pay 15%" },

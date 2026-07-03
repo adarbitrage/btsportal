@@ -703,7 +703,7 @@ export function SidebarContent({ onNavClick }: { onNavClick?: () => void }) {
           />
           <div>
             <h1 className="font-bold text-sm tracking-tight text-foreground leading-tight">
-              BUILD TEST SCALE
+              BUILD TEST SCALE™
             </h1>
             <p className="text-[10px] text-muted-foreground tracking-widest uppercase">
               Member Portal

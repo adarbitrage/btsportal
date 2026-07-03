@@ -96,7 +96,7 @@ const APP_CATALOG: AppCatalogEntry[] = [
     category: "URL & Lander Rotator",
     tagline: "Stable, reliable URL rotation and campaign tracking.",
     description:
-      "A URL rotator and tracker built specifically for the affiliate workflows used inside the Build Test Scale system. Stable, reliable, and free to use.",
+      "A URL rotator and tracker built specifically for the affiliate workflows used inside the Build Test Scale™ system. Stable, reliable, and free to use.",
     highlights: [
       "Run Direct Link, Landing Page, Multi-Path, or Multi-Option campaigns",
       "Track, test, and optimize across multiple traffic sources with on-the-fly control",
