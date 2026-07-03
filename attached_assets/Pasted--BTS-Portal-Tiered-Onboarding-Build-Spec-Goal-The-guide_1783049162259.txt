@@ -1,0 +1,149 @@
+# BTS Portal — Tiered Onboarding (Build Spec)
+
+## Goal
+
+The guided onboarding currently shows to ALL members. Correct it to three tiers:
+
+- **Free / front-end-only** (any of the six branded offers, no backend product):
+  **no guided onboarding.** First login lands on the normal Welcome page
+  (brand-substituted, as it already works).
+- **LaunchPad:** five-step variant — Welcome → Profile → Book Kickoff → 7 Pillars
+  → complete. Kickoff books ONLY with coach **Neil** (his new dedicated LaunchPad
+  kickoff calendar). No partner steps, no partner assignment.
+- **3-Month and above:** the full six steps as built (kickoff round-robin across
+  Todd/Mark/Bruce, partner assignment + partner steps).
+
+Upgrades re-enter the flow (forced — the member temporarily loses normal
+navigation until complete; approved). Existing members are **grandfathered
+complete** — only genuinely new members and upgraders ever see the flow.
+
+## Locked decisions
+
+- Neil gets a **separate GHL LaunchPad-kickoff calendar** (Sandy: Build Test Scale
+  location, 45-min duration, 30-min interval; API ID relayed when live). His
+  partner calendar and partner cap are untouched.
+- LaunchPad completion trigger: **completing 7 Pillars** (explicit finish —
+  replaces "first partner call completed" for that variant).
+- Upgrade re-entry is **forced** via the guards (onboardingComplete flips false at
+  tier elevation).
+- Grandfathering: existing launchpad/3month+ members set **complete**; existing
+  free/front-end set **exempt/complete**. The partner-assignment backfill (already
+  specced, #16xx) still runs for all active 3-Month+ members — they get partners
+  silently, discover the panel on their dashboard.
+- Completion side effects become **tier-aware and once-only** (the diagnostic
+  caught double-fire on upgrade re-entry):
+  - Front-end: sequence handoff fires **at account creation** (they never enter a flow).
+  - LaunchPad completion: cancel onboarding sequences; enroll **sequence 31**
+    (launchpad→3month nurture). NEVER nurture_frontend_to_upgrade.
+  - 3-Month+ completion: cancel onboarding sequences; enroll nothing.
+  - An upgrader completing a second pass must not re-fire effects already applied
+    (idempotency key per effect per member).
+
+## Diagnostic anchors (verified)
+
+- Step contract is a single ordered array; stepper/guards/prerequisites derive
+  from it; event-advances reference steps **by key** (book_kickoff), not absolute
+  numbers → variants are per-tier arrays, no renumbering cascade.
+- No disjoint-set assumptions between partners and kickoff_coaches → Neil in both
+  is safe; partner cap counts only type=partner bookings.
+- Guards handle onboardingComplete flipping back to false; the double-fire risk
+  is only in completion side effects (fixed above).
+- Rank helpers (product-rank / getHighestProductLabel) give the tier bucket
+  cheaply at the guard seam.
+
+---
+
+# Tasks
+
+Tier A (parallel): TA1 tier resolver + variants · TA2 kickoff-coach tiering
+Tier B (after A): TB1 completion effects + upgrade hook · TB2 grandfather backfill
+
+---
+
+## TA1 — Tier resolver + variant step arrays
+
+- `resolveOnboardingVariant(userId) -> 'none' | 'launchpad' | 'full'` using the
+  existing rank helpers: rank 0/none → 'none'; launchpad → 'launchpad'; ≥3month →
+  'full'. Lives at the guard seam; guards route 'none' members straight past
+  onboarding (their state is complete at creation — see TB2 for creation-time
+  default).
+- Two step arrays: FULL (current six) and LAUNCHPAD (Welcome, Profile,
+  Book Kickoff, 7 Pillars) — one source module; stepper, prerequisites, and
+  event-advances all read the member's variant array. "Step X of N" derives from
+  the array length.
+- LaunchPad completion: finishing 7 Pillars completes onboarding (the
+  first_call event-advance simply doesn't exist in that variant).
+- New-member creation: set onboarding state by variant — 'none' → complete at
+  creation (+ fire the front-end sequence handoff there); others → step 1.
+- Acceptance: a free probe lands on Welcome with no stepper anywhere; a LaunchPad
+  probe sees "Step X of 5" wait — of 4 visible steps + complete... (render
+  exactly the LAUNCHPAD array length); a 3month probe sees the six-step flow
+  unchanged; event-advance by key verified in both variants.
+
+## TA2 — Kickoff-coach tiering (Neil for LaunchPad)
+
+- Add `tier` (enum: 'launchpad' | 'full') to kickoff_coaches. Todd/Mark/Bruce →
+  'full'. New row: Neil, tier 'launchpad', ghl_calendar_id = [Sandy's new
+  calendar — placeholder until relayed], ghl_location_id = 7XrT9sAfQ4rSyuk5QhhC,
+  photo/bio pending like the others.
+- Kickoff round-robin filters by the member's variant: launchpad → tier
+  'launchpad' rows only (Neil); full → tier 'full' rows. Booking, reminders,
+  webhooks, duration (from calendar config — already one-source) all flow
+  unchanged; only selection is tier-aware.
+- Guard: if the member's tier has NO active kickoff coach with a calendar ID
+  (e.g. Neil's ID not yet entered), the Book Kickoff step must fail loud with a
+  clear "kickoff scheduling is being set up" state — never fall back to the
+  other tier's coaches, never silently empty-slot.
+- Acceptance: LaunchPad probe's kickoff availability comes only from Neil's
+  LaunchPad calendar; 3month probe never sees Neil's; seed is idempotent and
+  rides to prod like the existing roster seed.
+
+## TB1 — Tier-aware, once-only completion effects + upgrade hook
+
+- Completion handler branches on variant per the Locked decisions table, with an
+  idempotency record per (member, effect) so an upgrader's second completion
+  cannot re-fire creation-time or prior-tier effects. Sequence 31 enrollment for
+  LaunchPad completers; nothing enrolled for full-tier completers;
+  nurture_frontend_to_upgrade is ONLY the at-creation front-end handoff.
+- Upgrade hook at the grant seam (same spot as the partner round-robin hook):
+  when a grant elevates the tier bucket (none→launchpad, none→full,
+  launchpad→full), flip onboardingComplete false and set the step to the FIRST
+  UNSATISFIED step of the new variant — satisfied steps carry: profile done
+  stays done; a launchpad→full upgrader with a completed kickoff lands directly
+  on Book Partner Call (kickoff satisfied), and the partner round-robin fires as
+  it already does on 3month+ grant. none→launchpad/full upgraders start at
+  Welcome (nothing satisfied but profile, if they had one — carry it).
+- Demotions/expiry: tier DECREASE never re-opens onboarding (expiry already
+  handles access; onboarding is entry ceremony only).
+- Acceptance: front-end→3month upgrade mid-membership drops the member into the
+  six-step flow at their first unsatisfied step; launchpad→3month lands on Book
+  Partner Call with kickoff shown complete; completing the second pass fires no
+  duplicate sequence effects; a downgrade/expiry changes nothing in onboarding.
+
+## TB2 — Grandfather backfill (deploy runbook item)
+
+- One-time idempotent script (pattern: the existing backfills): every EXISTING
+  member (created before this ships) → onboardingComplete = true, regardless of
+  tier or current mid-flight state; record grandfathered=true (audit column or
+  note) so they're distinguishable from organic completions. Mid-flight probes in
+  dev included (they're test data).
+- Pre-flight mode reports counts by tier bucket before executing. Run in dev on
+  confirmation; PROD run is a runbook step with its count stated out loud.
+- Creation-time defaults from TA1 take over for all members created after.
+- The separate partner-assignment backfill still runs for 3month+ (unchanged).
+- Acceptance: after dev run, zero pre-existing members are routed into
+  onboarding; a newly created free member is exempt; a newly created 3month
+  member enters the six-step flow.
+
+---
+
+## Runbook deltas (for the deploy)
+
+1. TB2 grandfather backfill joins the ordered steps (after deploy, before smoke).
+2. Neil's LaunchPad calendar ID must be entered before any real LaunchPad member
+   onboards — until then the loud "being set up" state guards the step.
+3. Sandy: new GHL calendar (BTS location, 45/30) → relay API ID → seed update.
+4. Smoke additions: create one probe per tier — free (no flow), launchpad
+   (five-step, Neil-only kickoff slots), 3month (six-step, Todd/Mark/Bruce) — and
+   one upgrade: flip the free probe to 3month, confirm forced re-entry at the
+   right step.

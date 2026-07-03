@@ -1,0 +1,15 @@
+Grandfathered — the last decision of the build is made. Every existing member stays exactly where they are; the flow exists only for people entering or ascending. Here's the spec.Spec's attached — four tasks, two tiers, and it's the last spec of the build. Everything in it traces to the diagnostic's findings or a decision you just made. The shape:
+
+**TA1 + TA2 run in parallel** — the tier resolver with the two variant step arrays (cheap, because the diagnostic proved the step contract is key-based, not number-based), and the kickoff-coach tiering that puts Neil's LaunchPad row in with a `tier` column. **TB1 + TB2 follow** — the once-only tier-aware completion effects with the upgrade hook, and the grandfather backfill.
+
+Three things baked in that deserve your awareness:
+
+**The loud-failure guard in TA2 is protecting a real window.** Neil's LaunchPad calendar doesn't exist yet — Sandy's creating it. Until his API ID is entered, a LaunchPad member hitting Book Kickoff gets an explicit "kickoff scheduling is being set up" state, *never* a silent empty slot list and *never* a fallback to Todd/Mark/Bruce (which would put a LaunchPad member on a 3-Month coach's calendar). Same fail-loud discipline as the duration fix.
+
+**The upgrade hook carries satisfied steps.** A LaunchPad member who upgrades to 3-Month lands directly on Book Partner Call with their kickoff already checked — they don't repeat ceremony they've done. And the idempotency records in TB1 are what stop an upgrader's second completion from re-firing sequence enrollments — the double-fire trap the diagnostic caught.
+
+**TB2's grandfather flag is an audit column, not just a state flip.** Every grandfathered member is distinguishable from an organic completion forever — so six months from now, "why does this member show onboarding complete with no kickoff booking" has an answer in the data.
+
+The runbook consequence: this spec's TB2 joins the deploy as the third backfill, and the smoke tests grow to one probe per tier plus one upgrade flip. Sandy's list: Neil's calendar (BTS location, 45-minute duration, 30-minute interval), ID relayed when live — that ID is the only data gap in the whole spec.
+
+Relay TA1 and TA2 now, TB1/TB2 when they land. When all four merge, the build is *actually* code-complete — this time including the eligibility model — and the only thing left on earth is the deploy runbook, which I'll write the moment you say the word.
