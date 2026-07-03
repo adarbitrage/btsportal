@@ -137,3 +137,4 @@
 - [Kickoff/partner call reminders](call-booking-reminders.md) — one SMS category covers both variants; per-member timezone formatter kept separate from group-coaching's fixed-zone one; dedup keyed per-booking.
 - [Backfill: rewrite stored old-brand refs in AI source content (#1605)](backfill-brand-refs.md) — rewrites old branding strings in AI corpus sources; idempotent backfill script.
 - [Fleet-wide alerter test isolation](partner-escalation-fleet-wide-test-isolation.md) — unscoped table-wide evaluator tests need per-test (not per-file) fixture cleanup AND temporary exclusion of pre-existing real seeded rows, or counts are flaky.
+- [Kickoff-coach tiering (LaunchPad vs full)](kickoff-coach-tiering.md) — tier column partitions round-robin pools; no-coach state must be a loud `setupPending` 200, never 404/empty/cross-tier fallback; seed never clobbers a real ghlCalendarId with a placeholder.

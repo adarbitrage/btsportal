@@ -4,7 +4,7 @@ import { useAuth } from "@/lib/auth";
 import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Calendar, Clock, Check, ChevronLeft, ChevronRight, PartyPopper } from "lucide-react";
+import { Calendar, Clock, Check, ChevronLeft, ChevronRight, PartyPopper, Hourglass } from "lucide-react";
 import {
   format,
   startOfMonth,
@@ -57,7 +57,11 @@ export default function OnboardingBookKickoff() {
   const startDate = format(monthStart, "yyyy-MM-dd");
   const endDate = format(monthEnd, "yyyy-MM-dd");
 
-  const { data: availability, isLoading: slotsLoading } = useKickoffAvailability(startDate, endDate);
+  const {
+    data: availability,
+    isLoading: slotsLoading,
+    refetch: refetchAvailability,
+  } = useKickoffAvailability(startDate, endDate);
   const coach = availability?.coach;
 
   const slotsByDate = useMemo(() => {
@@ -96,10 +100,30 @@ export default function OnboardingBookKickoff() {
     }
   };
 
+  // Setup-pending is polled explicitly, not auto-refreshed, so re-fetch
+  // availability (not just onboarding step) when the member asks to check
+  // again — a coach's calendar can go live without any step-advance event.
+  const handleCheckAvailabilityAgain = async () => {
+    setAdvancing(true);
+    try {
+      await refetchAvailability();
+    } finally {
+      setAdvancing(false);
+    }
+  };
+
   const handleConfirm = async () => {
     if (!selectedSlot) return;
     try {
-      await bookCall.mutateAsync({ startTime: selectedSlot.startTime });
+      const result = await bookCall.mutateAsync({ startTime: selectedSlot.startTime });
+      if (result.setupPending) {
+        toast({
+          title: "Kickoff booking isn't set up yet",
+          description: "Your coach's calendar is still being configured. Please check back shortly.",
+          variant: "destructive",
+        });
+        return;
+      }
       toast({ title: "Kickoff call booked!" });
       await advanceIfAhead();
     } catch (err) {
@@ -143,6 +167,29 @@ export default function OnboardingBookKickoff() {
           </p>
           <Button onClick={handleCheckStatus} disabled={advancing}>
             {advancing ? "Checking..." : "Continue"}
+          </Button>
+        </div>
+      </OnboardingLayout>
+    );
+  }
+
+  if (availability?.setupPending) {
+    // Task #1641: loud, explicit "still being set up" state — e.g. a
+    // LaunchPad member before Neil's dedicated calendar is configured. Never
+    // shown as a silently empty calendar and never falls back to another
+    // tier's coaches.
+    return (
+      <OnboardingLayout currentStep={THIS_STEP} onBack={() => navigate("/onboarding/profile")}>
+        <div className="space-y-6 max-w-lg mx-auto text-center">
+          <div className="w-14 h-14 mx-auto bg-primary/10 rounded-full flex items-center justify-center">
+            <Hourglass className="w-7 h-7 text-primary" />
+          </div>
+          <h2 className="text-2xl font-bold text-foreground">Kickoff Booking Is Almost Ready</h2>
+          <p className="text-sm text-muted-foreground">
+            We're finishing setup for your coach's calendar. Please check back shortly to book your kickoff call.
+          </p>
+          <Button onClick={handleCheckAvailabilityAgain} disabled={advancing}>
+            {advancing ? "Checking..." : "Check Again"}
           </Button>
         </div>
       </OnboardingLayout>

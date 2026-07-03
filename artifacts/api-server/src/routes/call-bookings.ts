@@ -12,7 +12,7 @@ import {
   COACHING_LOCATION_ID,
   type FreeSlot,
 } from "../lib/ghl-coaching-calendar";
-import { selectKickoffCoach } from "../lib/kickoff-assignment";
+import { selectKickoffCoach, getMemberKickoffTier } from "../lib/kickoff-assignment";
 import { getActiveAssignment } from "../lib/partner-assignment";
 import {
   advanceOnboardingAfterKickoffBooked,
@@ -133,15 +133,21 @@ function parseDateRange(req: { query: Record<string, unknown> }): { startMs: num
 // ---------------------------------------------------------------------------
 
 router.get("/onboarding/kickoff/availability", async (req, res): Promise<void> => {
+  const userId = req.userId!;
   const range = parseDateRange(req);
   if (!range) {
     res.status(400).json({ error: "Invalid date range" });
     return;
   }
 
-  const coach = await selectKickoffCoach();
+  const tier = await getMemberKickoffTier(userId);
+  const coach = await selectKickoffCoach(tier);
   if (!coach) {
-    res.status(404).json({ error: "No kickoff coaches are available right now." });
+    // Task #1641: no active, calendar-configured coach for this member's
+    // tier — e.g. LaunchPad before Neil's real calendar ID is entered. This
+    // is a loud, explicit "still being set up" signal, never a silent empty
+    // slot list, and NEVER a fallback to the other tier's coaches.
+    res.json({ setupPending: true, coach: null, slots: [], durationMinutes: null });
     return;
   }
 
@@ -213,9 +219,12 @@ router.post("/onboarding/kickoff/book", async (req, res): Promise<void> => {
     return;
   }
 
-  const coach = await selectKickoffCoach();
+  const tier = await getMemberKickoffTier(userId);
+  const coach = await selectKickoffCoach(tier);
   if (!coach) {
-    res.status(404).json({ error: "No kickoff coaches are available right now." });
+    // Task #1641: same loud "still being set up" signal as the availability
+    // endpoint — never fall back to the other tier's coaches.
+    res.status(200).json({ setupPending: true });
     return;
   }
 

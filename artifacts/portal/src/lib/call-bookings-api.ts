@@ -54,7 +54,16 @@ const PARTNER_KEY = "/api/onboarding/partner";
 // ---------------------------------------------------------------------------
 
 export function useKickoffAvailability(startDate: string, endDate: string) {
-  return useQuery<{ coach: StaffProfile; slots: CallSlot[]; durationMinutes: number }>({
+  // Task #1641: setupPending is true when the member's tier (e.g. LaunchPad)
+  // has no active, calendar-configured kickoff coach yet — coach/slots/
+  // durationMinutes are null in that case. This is a loud, explicit
+  // application-level state (still HTTP 200), never a silent empty calendar.
+  return useQuery<{
+    coach: StaffProfile | null;
+    slots: CallSlot[];
+    durationMinutes: number | null;
+    setupPending?: boolean;
+  }>({
     queryKey: [`${KICKOFF_KEY}/availability`, startDate, endDate],
     queryFn: () => callFetch(`/onboarding/kickoff/availability?startDate=${startDate}&endDate=${endDate}`),
     enabled: !!startDate && !!endDate,
@@ -70,7 +79,11 @@ export function useMyKickoffBooking() {
 
 export function useBookKickoffCall() {
   const queryClient = useQueryClient();
-  return useMutation<{ booking: CallBooking; alreadyBooked?: boolean; onboardingAdvanced?: boolean }, Error, { startTime: string }>({
+  return useMutation<
+    { booking: CallBooking; alreadyBooked?: boolean; onboardingAdvanced?: boolean; setupPending?: boolean },
+    Error,
+    { startTime: string }
+  >({
     mutationFn: (data) =>
       callFetch("/onboarding/kickoff/book", {
         method: "POST",

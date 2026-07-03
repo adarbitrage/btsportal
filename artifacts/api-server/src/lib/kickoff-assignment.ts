@@ -1,5 +1,6 @@
 import { db, kickoffCoachesTable, callBookingsTable } from "@workspace/db";
 import { eq, and, sql } from "drizzle-orm";
+import { getUserEntitlements, getHighestProductLabel } from "./entitlements";
 
 // Round-robin kickoff-coach selection (Task #1591 / Tier 2). Unlike
 // accountability partners, kickoff coaches have no persisted assignment-
@@ -21,7 +22,17 @@ export interface SelectedKickoffCoach {
   ghlLocationId: string;
 }
 
-export async function selectKickoffCoach(): Promise<SelectedKickoffCoach | null> {
+// Task #1641: which kickoff-coach roster a member draws from. 'launchpad'
+// members (rank 1, product-rank.ts) round-robin ONLY across coaches tiered
+// 'launchpad' (Neil, on his own dedicated calendar); everyone else eligible
+// for a kickoff call (3-Month+, rank >= 2) round-robins across 'full' tier
+// coaches (Todd/Mark/Bruce). There is deliberately no cross-tier fallback —
+// see the loud-failure guard in call-bookings.ts.
+export type KickoffCoachTier = "launchpad" | "full";
+
+export async function selectKickoffCoach(
+  tier: KickoffCoachTier,
+): Promise<SelectedKickoffCoach | null> {
   const candidates = await db
     .select({
       id: kickoffCoachesTable.id,
@@ -40,7 +51,7 @@ export async function selectKickoffCoach(): Promise<SelectedKickoffCoach | null>
         eq(callBookingsTable.staffType, "kickoff_coach"),
       ),
     )
-    .where(eq(kickoffCoachesTable.isActive, true))
+    .where(and(eq(kickoffCoachesTable.isActive, true), eq(kickoffCoachesTable.tier, tier)))
     .groupBy(kickoffCoachesTable.id)
     .orderBy(
       sql`count(${callBookingsTable.id}) filter (where ${callBookingsTable.status} <> 'canceled') asc`,
@@ -60,6 +71,16 @@ export async function selectKickoffCoach(): Promise<SelectedKickoffCoach | null>
     ghlCalendarId: chosen.ghlCalendarId as string,
     ghlLocationId: chosen.ghlLocationId,
   };
+}
+
+// Task #1641: map a member's current highest product to a kickoff-coach
+// tier bucket. LaunchPad (rank 1) is the only bucket that gets 'launchpad';
+// everything else (including 3-Month+, which is the only other cohort that
+// ever reaches kickoff booking) falls into 'full'.
+export async function getMemberKickoffTier(userId: number): Promise<KickoffCoachTier> {
+  const entitlements = await getUserEntitlements(userId);
+  const highest = getHighestProductLabel(entitlements);
+  return highest.slug === "launchpad" ? "launchpad" : "full";
 }
 
 export async function loadKickoffCoachById(coachId: number): Promise<SelectedKickoffCoach | null> {

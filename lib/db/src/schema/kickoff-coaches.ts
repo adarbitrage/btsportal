@@ -20,6 +20,14 @@ export const kickoffCoachesTable = pgTable("kickoff_coaches", {
   bio: text("bio"),
   isActive: boolean("is_active").notNull().default(true),
   sortOrder: integer("sort_order").notNull().default(0),
+  // Task #1641: which member tier bucket this coach's kickoff round-robin
+  // serves. 'launchpad' = LaunchPad-only members (currently Neil, on his own
+  // dedicated calendar); 'full' = 3-Month+ members (Todd/Mark/Bruce). Kept as
+  // free text (not a DB enum) to match the rest of this codebase's
+  // convention (see call_bookings.staff_type) — validated in application code
+  // instead. Defaults to 'full' so the existing roster's tier is unchanged by
+  // this additive column.
+  tier: text("tier").notNull().default("full"),
   // GHL calendar to book kickoff calls against (Tier 2). Nullable — a coach
   // without a calendar configured simply offers no bookable slots and is
   // skipped by round-robin selection.

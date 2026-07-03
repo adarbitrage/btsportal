@@ -9,6 +9,8 @@ import {
   partnersTable,
   partnerAssignmentsTable,
   callBookingsTable,
+  productsTable,
+  userProductsTable,
 } from "@workspace/db";
 import { and, eq, inArray, ne } from "drizzle-orm";
 
@@ -850,5 +852,141 @@ describe("call duration comes from calendar config, never slot-grid spacing (Tas
       .get(`/api/onboarding/kickoff/availability?startDate=${dateStr}&endDate=${dateStr}`)
       .set("Cookie", authCookie(memberId));
     expect(avail.status).toBe(502);
+  });
+});
+
+// Task #1641: kickoff-coach tiering. LaunchPad members must be routed ONLY
+// to LaunchPad-tier coaches (Neil); everyone else keeps the existing
+// full-tier round-robin. Cross-tier fallback and silent empty-slot responses
+// are both explicitly forbidden by the task — a missing tier coach must
+// surface as a loud `setupPending` state instead.
+describe("kickoff-coach tiering (Task #1641)", () => {
+  const PREFIX = `__kickoff_tier_test__${randomUUID().slice(0, 8)}`;
+  let launchpadProductId: number;
+  const userProductIds: number[] = [];
+  const tierCoachIds: number[] = [];
+
+  async function grantLaunchpad(memberId: number): Promise<void> {
+    const [up] = await db
+      .insert(userProductsTable)
+      .values({ userId: memberId, productId: launchpadProductId, status: "active", expiresAt: null })
+      .returning({ id: userProductsTable.id });
+    userProductIds.push(up.id);
+  }
+
+  beforeAll(async () => {
+    const [product] = await db
+      .insert(productsTable)
+      .values({
+        slug: `${PREFIX}-launchpad`,
+        name: "Kickoff Tier Test LaunchPad",
+        type: "frontend",
+        entitlementKeys: ["content:advanced"],
+      })
+      .returning({ id: productsTable.id });
+    launchpadProductId = product.id;
+  });
+
+  afterAll(async () => {
+    if (userProductIds.length > 0) {
+      await db.delete(userProductsTable).where(inArray(userProductsTable.id, userProductIds));
+    }
+    await db.delete(productsTable).where(eq(productsTable.id, launchpadProductId));
+    if (tierCoachIds.length > 0) {
+      await db.delete(kickoffCoachesTable).where(inArray(kickoffCoachesTable.id, tierCoachIds));
+    }
+  });
+
+  it("routes a LaunchPad member only to a launchpad-tier coach, never the full-tier roster", async () => {
+    const [launchpadCoach] = await db
+      .insert(kickoffCoachesTable)
+      .values({
+        displayName: `${PREFIX}-launchpad-coach`,
+        ghlCalendarId: `${TEST_TAG}-launchpad-cal`,
+        isActive: true,
+        tier: "launchpad",
+      })
+      .returning({ id: kickoffCoachesTable.id });
+
+    try {
+      const memberId = await makeMember(3);
+      await grantLaunchpad(memberId);
+      const startTime = gridAlignedFutureTime(60);
+      const dateStr = startTime.toISOString().slice(0, 10);
+
+      const avail = await request(app)
+        .get(`/api/onboarding/kickoff/availability?startDate=${dateStr}&endDate=${dateStr}`)
+        .set("Cookie", authCookie(memberId));
+      expect(avail.status).toBe(200);
+      expect(avail.body.setupPending).toBeFalsy();
+      expect(avail.body.coach.id).toBe(launchpadCoach.id);
+
+      const book = await request(app)
+        .post("/api/onboarding/kickoff/book")
+        .set("Cookie", authCookie(memberId))
+        .send({ startTime: startTime.toISOString() });
+      expect(book.status).toBe(201);
+      bookingIds.push(book.body.booking.id);
+      expect(book.body.booking.staffId).toBe(launchpadCoach.id);
+    } finally {
+      // Scoped to just this test — the next test relies on there being NO
+      // launchpad-tier coach in the roster to prove the setupPending path.
+      await db.delete(kickoffCoachesTable).where(eq(kickoffCoachesTable.id, launchpadCoach.id));
+    }
+  });
+
+  it("returns setupPending (never a 404, never a fallback to full-tier coaches) when no launchpad-tier coach exists", async () => {
+    // The default seeded/test roster is all tier "full" — a LaunchPad member
+    // with none of it (no launchpad-tier row inserted in this test) must get
+    // the explicit setup-pending state, not the existing full-tier coach.
+    const memberId = await makeMember(3);
+    await grantLaunchpad(memberId);
+    const startTime = gridAlignedFutureTime(61);
+    const dateStr = startTime.toISOString().slice(0, 10);
+
+    const avail = await request(app)
+      .get(`/api/onboarding/kickoff/availability?startDate=${dateStr}&endDate=${dateStr}`)
+      .set("Cookie", authCookie(memberId));
+    expect(avail.status).toBe(200);
+    expect(avail.body.setupPending).toBe(true);
+    expect(avail.body.coach).toBeNull();
+    expect(avail.body.slots).toEqual([]);
+
+    const book = await request(app)
+      .post("/api/onboarding/kickoff/book")
+      .set("Cookie", authCookie(memberId))
+      .send({ startTime: startTime.toISOString() });
+    expect(book.status).toBe(200);
+    expect(book.body.setupPending).toBe(true);
+
+    const rows = await db
+      .select({ id: callBookingsTable.id })
+      .from(callBookingsTable)
+      .where(and(eq(callBookingsTable.memberId, memberId), eq(callBookingsTable.type, "kickoff")));
+    expect(rows.length).toBe(0);
+  });
+
+  it("a full-tier (non-LaunchPad) member is never routed to a launchpad-tier coach even when one exists", async () => {
+    const [launchpadCoach] = await db
+      .insert(kickoffCoachesTable)
+      .values({
+        displayName: `${PREFIX}-launchpad-coach-2`,
+        ghlCalendarId: `${TEST_TAG}-launchpad-cal-2`,
+        isActive: true,
+        tier: "launchpad",
+      })
+      .returning({ id: kickoffCoachesTable.id });
+    tierCoachIds.push(launchpadCoach.id);
+
+    const memberId = await makeMember(3); // no product grant -> "free" -> full tier
+    const startTime = gridAlignedFutureTime(62);
+
+    const book = await request(app)
+      .post("/api/onboarding/kickoff/book")
+      .set("Cookie", authCookie(memberId))
+      .send({ startTime: startTime.toISOString() });
+    expect(book.status).toBe(201);
+    bookingIds.push(book.body.booking.id);
+    expect(book.body.booking.staffId).not.toBe(launchpadCoach.id);
   });
 });
