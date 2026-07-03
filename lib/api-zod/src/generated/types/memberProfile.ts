@@ -7,6 +7,7 @@
  */
 import type { AdminCancelledEmailChange } from "./adminCancelledEmailChange";
 import type { BrandStrings } from "./brandStrings";
+import type { MemberProfileOnboardingVariant } from "./memberProfileOnboardingVariant";
 import type { OwnedProduct } from "./ownedProduct";
 
 export interface MemberProfile {
@@ -35,6 +36,7 @@ cancelled themselves, or has a newer attempt in flight).
   role: string;
   onboardingComplete: boolean;
   onboardingStep: number;
+  onboardingVariant?: MemberProfileOnboardingVariant;
   /** @nullable */
   experienceLevel?: string | null;
   /** @nullable */

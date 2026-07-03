@@ -1,5 +1,6 @@
 import { getParam } from "../lib/params";
 import { PRODUCT_RANK } from "../lib/product-rank";
+import { applyCreationTimeOnboardingDefaults } from "../lib/onboarding-variant";
 import { getProductLabelByRank } from "../lib/entitlements";
 import { Router, type Request, type Response } from "express";
 import crypto from "crypto";
@@ -2485,6 +2486,13 @@ router.post("/admin/members", requirePermission("members:edit"), async (req: Req
     // Intentionally do NOT log the raw email here — admin actor + new member id
     // are sufficient to correlate this row with the audit log entry below, and
     // the audit log carries the email under structured PII redaction.
+    // Resolve + persist the onboarding variant for this brand-new member
+    // (Task #1640) — created with no products yet, so this resolves "none"
+    // and marks onboarding complete immediately; if the admin grants a
+    // product afterward, re-resolving that member's variant is out of scope
+    // here (see onboarding-variant.ts).
+    await applyCreationTimeOnboardingDefaults(user.id);
+
     console.log(`[Admin] Created member id=${user.id} via admin panel`);
     await CommunicationService.sendEmailNow({
       templateSlug: "password_reset",

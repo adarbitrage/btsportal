@@ -131,6 +131,7 @@ router.get("/members/me", async (req, res): Promise<void> => {
     role: user.role,
     onboardingComplete: user.onboardingComplete,
     onboardingStep: user.onboardingStep,
+    onboardingVariant: user.onboardingVariant,
     experienceLevel: user.experienceLevel,
     primaryGoal: user.primaryGoal,
     smsOptIn: user.smsOptIn,

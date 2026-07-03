@@ -1,4 +1,4 @@
-import { OnboardingLayout } from "@/components/onboarding/OnboardingLayout";
+import { OnboardingLayout, getStepNamesForVariant } from "@/components/onboarding/OnboardingLayout";
 import { PartnerRevealCard } from "@/components/onboarding/PartnerRevealCard";
 import { useAuth } from "@/lib/auth";
 import { usePatchOnboardingStep } from "@workspace/api-client-react";
@@ -8,10 +8,14 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { useState } from "react";
 
-// Step 5: watch the 7 Pillars training. This is CLIENT-ADVANCEABLE — a simple
-// click-to-confirm, no server-side prerequisite check (unlike profile).
+// "pillars_watched": the LAST step for launchpad (4) but the SECOND-TO-LAST
+// for full (5) — CLIENT-ADVANCEABLE in both variants, a simple click-to-
+// confirm with no server-side prerequisite check (unlike profile). The PATCH
+// endpoint itself decides whether this completes onboarding outright
+// (launchpad) or advances to the partner_call_completed step (full) — see
+// routes/onboarding.ts.
 export default function OnboardingWatchPillars() {
-  const { refreshAuth } = useAuth();
+  const { user, refreshAuth } = useAuth();
   const patchOnboarding = usePatchOnboardingStep();
   const { data: partnerInfo } = usePartnerInfo();
   const partner = partnerInfo?.partner ?? null;
@@ -19,13 +23,21 @@ export default function OnboardingWatchPillars() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
 
+  const stepNames = getStepNamesForVariant(user?.onboardingVariant);
+  const thisStep = stepNames.indexOf("pillars_watched") + 1;
+  const isLaunchpad = user?.onboardingVariant === "launchpad";
+
   const handleContinue = async () => {
     setError("");
     setSubmitting(true);
     try {
-      await patchOnboarding.mutateAsync({ data: { step: 5 } });
-      await refreshAuth();
-      navigate("/onboarding/partner-call-pending");
+      await patchOnboarding.mutateAsync({ data: { step: thisStep } });
+      const freshUser = await refreshAuth();
+      if (freshUser?.onboardingComplete) {
+        navigate("/");
+      } else {
+        navigate("/onboarding/partner-call-pending");
+      }
     } catch (err: any) {
       setError(err?.message || "Failed to advance. Please try again.");
     } finally {
@@ -34,7 +46,10 @@ export default function OnboardingWatchPillars() {
   };
 
   return (
-    <OnboardingLayout currentStep={5} onBack={() => navigate("/onboarding/book-partner-call")}>
+    <OnboardingLayout
+      stepName="pillars_watched"
+      onBack={() => navigate(isLaunchpad ? "/onboarding/book-kickoff" : "/onboarding/book-partner-call")}
+    >
       <div className="space-y-6">
         <div className="text-center mb-2">
           <h2 className="text-2xl font-bold text-foreground mb-2">Watch the 7 Pillars</h2>

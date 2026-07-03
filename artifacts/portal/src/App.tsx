@@ -87,7 +87,7 @@ import WinSubmit from "@/pages/wins/WinSubmit";
 import MyWins from "@/pages/wins/MyWins";
 import WinDetail from "@/pages/wins/WinDetail";
 import TestimonialSubmit from "@/pages/wins/TestimonialSubmit";
-import { ONBOARDING_STEP_ROUTES } from "@/components/onboarding/OnboardingLayout";
+import { getOnboardingRouteForStep, getStepNamesForVariant, type OnboardingStepName } from "@/components/onboarding/OnboardingLayout";
 import OnboardingWelcome from "@/pages/onboarding/Welcome";
 import OnboardingProfile from "@/pages/onboarding/Profile";
 import OnboardingBookKickoff from "@/pages/onboarding/BookKickoff";
@@ -187,8 +187,6 @@ const queryClient = new QueryClient({
   },
 });
 
-const STEP_ROUTES = ONBOARDING_STEP_ROUTES;
-
 export function ProtectedRoute({ component: Component }: { component: React.ComponentType<any> }) {
   const { user, loading } = useAuth();
   const [, navigate] = useLocation();
@@ -229,7 +227,7 @@ export function ProtectedRoute({ component: Component }: { component: React.Comp
   }
 
   if (!user.onboardingComplete && !isCoachRole(user.role) && !isPartnerRole(user.role)) {
-    const stepRoute = STEP_ROUTES[(user.onboardingStep || 1) - 1] || STEP_ROUTES[0];
+    const stepRoute = getOnboardingRouteForStep(user.onboardingStep || 1, user.onboardingVariant);
     return <Redirect to={stepRoute} />;
   }
 
@@ -276,7 +274,7 @@ export function EntitlementRoute({ component: Component, entitlement }: { compon
   }
 
   if (!user.onboardingComplete && !isCoachRole(user.role) && !isPartnerRole(user.role)) {
-    const stepRoute = STEP_ROUTES[(user.onboardingStep || 1) - 1] || STEP_ROUTES[0];
+    const stepRoute = getOnboardingRouteForStep(user.onboardingStep || 1, user.onboardingVariant);
     return <Redirect to={stepRoute} />;
   }
 
@@ -354,11 +352,13 @@ export function ContentAccessRoute({
   // allow it through for a member sitting exactly on that step so the CTA
   // isn't a dead-end loop back to onboarding. Every other page stays gated
   // until onboarding is complete.
+  const pillarsStepNames = getStepNamesForVariant(user.onboardingVariant);
+  const pillarsStepNum = pillarsStepNames.indexOf("pillars_watched") + 1;
   const isPillarsStepException =
-    pageKey === "seven-pillars" && user.onboardingStep === 5 && !user.onboardingComplete;
+    pageKey === "seven-pillars" && user.onboardingStep === pillarsStepNum && !user.onboardingComplete;
 
   if (!user.onboardingComplete && !isCoachRole(user.role) && !isPartnerRole(user.role) && !isPillarsStepException) {
-    const stepRoute = STEP_ROUTES[(user.onboardingStep || 1) - 1] || STEP_ROUTES[0];
+    const stepRoute = getOnboardingRouteForStep(user.onboardingStep || 1, user.onboardingVariant);
     return <Redirect to={stepRoute} />;
   }
 
@@ -379,7 +379,7 @@ export function ContentAccessRoute({
   return <Component />;
 }
 
-export function OnboardingRoute({ component: Component, step }: { component: React.ComponentType<any>; step: number }) {
+export function OnboardingRoute({ component: Component, stepName }: { component: React.ComponentType<any>; stepName: OnboardingStepName }) {
   const { user, loading } = useAuth();
 
   if (loading) {
@@ -417,8 +417,15 @@ export function OnboardingRoute({ component: Component, step }: { component: Rea
     return <Redirect to="/" />;
   }
 
+  const stepNames = getStepNamesForVariant(user.onboardingVariant);
+  const stepIndex = stepNames.indexOf(stepName);
+  // stepIndex === -1 means this route isn't part of the member's variant at
+  // all (e.g. a launchpad member on /onboarding/book-partner-call, which
+  // only exists in the full flow) — always bounce to their current step.
+  const step = stepIndex === -1 ? Infinity : stepIndex + 1;
+
   if (step > user.onboardingStep) {
-    const currentRoute = STEP_ROUTES[(user.onboardingStep || 1) - 1] || STEP_ROUTES[0];
+    const currentRoute = getOnboardingRouteForStep(user.onboardingStep || 1, user.onboardingVariant);
     return <Redirect to={currentRoute} />;
   }
 
@@ -435,7 +442,7 @@ export function GuestRoute({ component: Component }: { component: React.Componen
       return <Redirect to="/change-password" />;
     }
     if (!user.onboardingComplete && !isCoachRole(user.role) && !isPartnerRole(user.role)) {
-      const stepRoute = STEP_ROUTES[(user.onboardingStep || 1) - 1] || STEP_ROUTES[0];
+      const stepRoute = getOnboardingRouteForStep(user.onboardingStep || 1, user.onboardingVariant);
       return <Redirect to={stepRoute} />;
     }
     return <Redirect to="/" />;
@@ -474,12 +481,12 @@ function Router() {
       <Route path="/reset-password">{() => <ResetPassword />}</Route>
       <Route path="/verify-email">{() => <VerifyEmail />}</Route>
       <Route path="/verify-email-change">{() => <VerifyEmailChange />}</Route>
-      <Route path="/onboarding/welcome">{() => <OnboardingRoute component={OnboardingWelcome} step={1} />}</Route>
-      <Route path="/onboarding/profile">{() => <OnboardingRoute component={OnboardingProfile} step={2} />}</Route>
-      <Route path="/onboarding/book-kickoff">{() => <OnboardingRoute component={OnboardingBookKickoff} step={3} />}</Route>
-      <Route path="/onboarding/book-partner-call">{() => <OnboardingRoute component={OnboardingBookPartnerCall} step={4} />}</Route>
-      <Route path="/onboarding/pillars">{() => <OnboardingRoute component={OnboardingWatchPillars} step={5} />}</Route>
-      <Route path="/onboarding/partner-call-pending">{() => <OnboardingRoute component={OnboardingPartnerCallPending} step={6} />}</Route>
+      <Route path="/onboarding/welcome">{() => <OnboardingRoute component={OnboardingWelcome} stepName="welcome" />}</Route>
+      <Route path="/onboarding/profile">{() => <OnboardingRoute component={OnboardingProfile} stepName="profile" />}</Route>
+      <Route path="/onboarding/book-kickoff">{() => <OnboardingRoute component={OnboardingBookKickoff} stepName="kickoff_booked" />}</Route>
+      <Route path="/onboarding/book-partner-call">{() => <OnboardingRoute component={OnboardingBookPartnerCall} stepName="partner_call_booked" />}</Route>
+      <Route path="/onboarding/pillars">{() => <OnboardingRoute component={OnboardingWatchPillars} stepName="pillars_watched" />}</Route>
+      <Route path="/onboarding/partner-call-pending">{() => <OnboardingRoute component={OnboardingPartnerCallPending} stepName="partner_call_completed" />}</Route>
       <Route path="/terms-of-service">{() => <ProtectedRoute component={TermsOfService} />}</Route>
       <Route path="/">{() => <ProtectedRoute component={Home} />}</Route>
       <Route path="/dashboard">{() => <ProtectedRoute component={Dashboard} />}</Route>

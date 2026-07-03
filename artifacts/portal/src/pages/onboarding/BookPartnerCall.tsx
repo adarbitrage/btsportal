@@ -2,7 +2,7 @@ import { useState, useMemo } from "react";
 import { OnboardingLayout } from "@/components/onboarding/OnboardingLayout";
 import { useAuth } from "@/lib/auth";
 import { getMemberTimezone, formatMemberFullDateTime } from "@/lib/member-timezone";
-import { useLocation } from "wouter";
+import { useLocation, Redirect } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Calendar, Clock, Check, ChevronLeft, ChevronRight, Users, X } from "lucide-react";
@@ -94,7 +94,7 @@ export default function OnboardingBookPartnerCall() {
   const advanceIfAhead = async () => {
     const freshUser = await refreshAuth();
     if (freshUser && freshUser.onboardingStep > THIS_STEP) {
-      navigate(getOnboardingRouteForStep(freshUser.onboardingStep));
+      navigate(getOnboardingRouteForStep(freshUser.onboardingStep, freshUser.onboardingVariant));
     }
   };
 
@@ -157,12 +157,19 @@ export default function OnboardingBookPartnerCall() {
 
   const Wrapper = ({ children }: { children: React.ReactNode }) =>
     inOnboarding ? (
-      <OnboardingLayout currentStep={THIS_STEP} onBack={() => navigate("/onboarding/book-kickoff")}>
+      <OnboardingLayout stepName="partner_call_booked" onBack={() => navigate("/onboarding/book-kickoff")}>
         {children}
       </OnboardingLayout>
     ) : (
       <>{children}</>
     );
+
+  // LaunchPad members have no partner-call step at all (see onboarding-steps.ts) —
+  // this route should never be reachable for them. Defensively bounce them to
+  // wherever their variant's step array actually puts them.
+  if (inOnboarding && user?.onboardingVariant === "launchpad") {
+    return <Redirect to={getOnboardingRouteForStep(user.onboardingStep || 1, user.onboardingVariant)} />;
+  }
 
   if (partnerLoading || bookingsLoading) {
     return (

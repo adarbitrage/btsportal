@@ -8,6 +8,10 @@ interface User {
   role: string;
   onboardingComplete: boolean;
   onboardingStep: number;
+  // Per-tier onboarding step contract (Task #1640). Resolved once at account
+  // creation and persisted — never re-resolved live. See onboarding-steps.ts
+  // (api-server) / OnboardingLayout.tsx (portal) for the step arrays it selects.
+  onboardingVariant?: "none" | "launchpad" | "full";
   // IANA timezone (e.g. "America/New_York"). Always present for real member
   // rows (users.timezone has a DB default), but optional here defensively in
   // case a caller mocks a partial user object.

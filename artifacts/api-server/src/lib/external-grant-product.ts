@@ -17,6 +17,7 @@ import { CommunicationService } from "./communication-service";
 import { ensureAffiliateProfile } from "./commissions";
 import { emitWebhookEvent } from "./webhook-events";
 import { maybeAssignPartnerForGrant } from "./partner-assignment";
+import { applyCreationTimeOnboardingDefaults } from "./onboarding-variant";
 
 export const YSE_GRANT_EVENT_TYPE = "external.grant_product";
 export const YSE_GRANT_MAX_ATTEMPTS = 5;
@@ -613,6 +614,12 @@ export async function handleExternalGrantProduct(
   // GHL calls are NOT wrapped in .catch() — errors propagate to the caller,
   // matching ThriveCart behavior. Only ensureAffiliateProfile and commission
   // attribution use try/catch because their failures are non-fatal.
+
+  if (userCreated) {
+    // Resolve + persist the onboarding variant now that this brand-new
+    // user's initial product grant(s) have committed (Task #1640).
+    await applyCreationTimeOnboardingDefaults(userId);
+  }
 
   if (userCreated && tempPassword) {
     // Mirrors webhook-handler.ts findOrCreateUser(): welcome email + create_contact

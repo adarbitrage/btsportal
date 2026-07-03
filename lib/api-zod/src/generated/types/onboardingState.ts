@@ -5,11 +5,24 @@
  * BTS Member Portal API
  * OpenAPI spec version: 0.2.0
  */
+import type { OnboardingStateVariant } from "./onboardingStateVariant";
 import type { SignedDocumentSummary } from "./signedDocumentSummary";
 
 export interface OnboardingState {
   currentStep: number;
   onboardingComplete: boolean;
   completedSteps: string[];
+  /** Which onboarding step-contract this member follows (Task #1640).
+"none" members never see this route in practice (onboarding is
+already complete). "launchpad" follows a 4-step contract,
+"full" the original 6-step contract.
+ */
+  variant: OnboardingStateVariant;
+  /** The ordered step-name array for this member's variant (empty for
+"none"). Matches totalSteps in length.
+ */
+  stepNames: string[];
+  /** Total step count for this member's variant (0 for "none"). */
+  totalSteps: number;
   signedDocuments: SignedDocumentSummary[];
 }

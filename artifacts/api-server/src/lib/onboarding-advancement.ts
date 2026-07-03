@@ -59,8 +59,14 @@ export async function advanceOnboardingAfterKickoffBooked(userId: number): Promi
 }
 
 // Called once a member's first accountability-partner call is booked (Tier 2).
-// Advances step 4 -> 5.
+// Advances step 4 -> 5. NO-OP for "launchpad" variant members — LaunchPad has
+// no partner-call step at all, so step 4 for them means pillars_watched (a
+// client-advanceable step handled entirely by PATCH /members/me/onboarding,
+// never by this function).
 export async function advanceOnboardingAfterPartnerCallBooked(userId: number): Promise<boolean> {
+  const [user] = await db.select({ onboardingVariant: usersTable.onboardingVariant }).from(usersTable).where(eq(usersTable.id, userId));
+  if (!user || user.onboardingVariant !== "full") return false;
+
   const advanced = await advanceIfOnStep(userId, ONBOARDING_STEP.PARTNER_CALL_BOOKED, ONBOARDING_STEP.PILLARS_WATCHED);
   if (advanced) {
     console.log(`[Onboarding] User ${userId} advanced to step ${ONBOARDING_STEP.PILLARS_WATCHED} (partner call booked).`);
@@ -72,7 +78,12 @@ export async function advanceOnboardingAfterPartnerCallBooked(userId: number): P
 // (Tier 3 webhook). Completes onboarding from step 6 and fires the same
 // completion side effects the flow has always used: cancel the onboarding
 // nurture sequences, enroll the member in the post-onboarding upgrade nurture.
+// NO-OP for "launchpad" variant members (see advanceOnboardingAfterPartnerCallBooked)
+// — LaunchPad onboarding completes via a direct client PATCH instead.
 export async function completeOnboardingAfterPartnerCallDone(userId: number): Promise<boolean> {
+  const [existingUser] = await db.select({ onboardingVariant: usersTable.onboardingVariant }).from(usersTable).where(eq(usersTable.id, userId));
+  if (!existingUser || existingUser.onboardingVariant !== "full") return false;
+
   const result = await db
     .update(usersTable)
     .set({ onboardingStep: ONBOARDING_STEP.PARTNER_CALL_COMPLETED, onboardingComplete: true })

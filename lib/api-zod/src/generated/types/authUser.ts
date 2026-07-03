@@ -5,6 +5,7 @@
  * BTS Member Portal API
  * OpenAPI spec version: 0.2.0
  */
+import type { AuthUserOnboardingVariant } from "./authUserOnboardingVariant";
 
 export interface AuthUser {
   id: number;
@@ -13,5 +14,6 @@ export interface AuthUser {
   role: string;
   onboardingComplete?: boolean;
   onboardingStep?: number;
+  onboardingVariant?: AuthUserOnboardingVariant;
   timezone?: string;
 }

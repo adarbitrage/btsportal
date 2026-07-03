@@ -7,6 +7,7 @@ import { ensureAffiliateProfile, resolveUserCommissionTier } from "./commissions
 import { enrollInSequence } from "./sequence-helpers";
 import { emitWebhookEvent } from "./webhook-events";
 import { insertUserProductGrant } from "./external-grant-product";
+import { applyCreationTimeOnboardingDefaults } from "./onboarding-variant";
 
 const THRIVECART_WEBHOOK_SECRET = process.env.THRIVECART_WEBHOOK_SECRET || "";
 
@@ -283,6 +284,16 @@ async function handleOrderSuccess(payload: ThrivecartPayload, body: Record<strin
 
   if (alreadyGranted) {
     return { action: "skipped", reason: "User already has active entitlement for this product", userId, productId: product.id };
+  }
+
+  // Resolve + persist the onboarding variant now that this brand-new user's
+  // first product grant has committed (Task #1640). No-op in effect for
+  // existing users re-granting/renewing — only ever meaningfully changes
+  // state for a user whose variant hasn't been set since creation, since
+  // re-resolving an in-flight member's variant is explicitly out of scope
+  // here (see onboarding-variant.ts).
+  if (isNew) {
+    await applyCreationTimeOnboardingDefaults(userId);
   }
 
   console.log(`[Webhook] Granted product "${product.name}" to user ${email}`);

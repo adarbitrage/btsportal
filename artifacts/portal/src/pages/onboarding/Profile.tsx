@@ -79,7 +79,7 @@ export default function OnboardingProfile() {
 
   if (isLoading) {
     return (
-      <OnboardingLayout currentStep={2} onBack={() => navigate("/onboarding/welcome")}>
+      <OnboardingLayout stepName="profile" onBack={() => navigate("/onboarding/welcome")}>
         <div className="flex items-center justify-center h-64">
           <div className="animate-pulse text-muted-foreground">Loading...</div>
         </div>
@@ -88,7 +88,7 @@ export default function OnboardingProfile() {
   }
 
   return (
-    <OnboardingLayout currentStep={2} onBack={() => navigate("/onboarding/welcome")}>
+    <OnboardingLayout stepName="profile" onBack={() => navigate("/onboarding/welcome")}>
       <div className="space-y-6">
         <div className="text-center mb-2">
           <h2 className="text-2xl font-bold text-foreground mb-2">Set Up Your Profile</h2>

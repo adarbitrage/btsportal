@@ -14,6 +14,20 @@ export const usersTable = pgTable("users", {
   sourceProduct: text("source_product"),
   onboardingComplete: boolean("onboarding_complete").notNull().default(false),
   onboardingStep: integer("onboarding_step").notNull().default(1),
+  // Which onboarding step-contract array this member follows (Task #1640):
+  //   "none"      — no onboarding at all (no active product, or frontend-only
+  //                 rank-0 product); onboardingComplete is set true at creation.
+  //   "launchpad" — the 4-step LaunchPad contract (welcome, profile,
+  //                 kickoff_booked, pillars_watched).
+  //   "full"      — the original 6-step contract (unchanged numbering).
+  // Defaults to "full" so every pre-existing row (all created under the old
+  // single-contract flow) keeps its current behavior untouched. Resolved at
+  // creation time via resolveOnboardingVariant() based on the member's
+  // highest-ranked active product (see lib/onboarding-variant.ts in
+  // api-server) — NOT recomputed live on every read, so an upgrade mid-flow
+  // does not silently reshuffle an in-progress member's step array (that
+  // re-entry behavior is explicitly deferred to a later upgrade-hook task).
+  onboardingVariant: text("onboarding_variant").notNull().default("full"),
   experienceLevel: text("experience_level"),
   primaryGoal: text("primary_goal"),
   smsOptIn: boolean("sms_opt_in").notNull().default(false),

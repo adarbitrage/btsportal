@@ -11,6 +11,7 @@ import { CommunicationService } from "../lib/communication-service";
 import { emitWebhookEvent, type WebhookEventType } from "../lib/webhook-events";
 import { getRedis } from "../lib/redis";
 import { logAuditEvent } from "../lib/audit-log";
+import { applyCreationTimeOnboardingDefaults } from "../lib/onboarding-variant";
 
 // Shared identifiers for the new "rate limit hit" audit-log entries written
 // by the auth endpoints. The Audit Log UI filters on these values.
@@ -823,6 +824,15 @@ export async function processRegisterRequest(params: {
     console.error("[AUTH] Failed to send email_verification:", err),
   );
 
+  // A self-registered account has no product grants yet, so this always
+  // resolves to "none" — onboarding is bypassed and the member is enrolled
+  // in nurture_frontend_to_upgrade. Still must run for every new user (not
+  // just paid signups) so the persisted onboardingVariant/onboardingComplete
+  // state is always resolved exactly once at creation (Task #1640).
+  await applyCreationTimeOnboardingDefaults(user.id).catch((err) =>
+    console.error(`[AUTH] Failed to apply onboarding defaults for new user ${user.id}:`, err),
+  );
+
   emitWebhookEvent("member.created", {
     user_id: user.id,
     email: user.email,
@@ -1007,7 +1017,7 @@ router.post("/auth/login", loginIpLimiter, verifyCaptcha(), async (req, res): Pr
     );
   }
 
-  res.json({ id: user.id, email: user.email, name: user.name, role: user.role, onboardingComplete: user.onboardingComplete, onboardingStep: user.onboardingStep, mustChangePassword: user.mustChangePassword, timezone: user.timezone });
+  res.json({ id: user.id, email: user.email, name: user.name, role: user.role, onboardingComplete: user.onboardingComplete, onboardingStep: user.onboardingStep, onboardingVariant: user.onboardingVariant, mustChangePassword: user.mustChangePassword, timezone: user.timezone });
 });
 
 router.post("/auth/refresh", async (req, res): Promise<void> => {
@@ -1054,7 +1064,7 @@ router.post("/auth/refresh", async (req, res): Promise<void> => {
   const newRefreshToken = await createSession(user.id, req, session.createdAt);
   setAuthCookies(res, user.id, user.email, newRefreshToken);
 
-  res.json({ id: user.id, email: user.email, name: user.name, role: user.role, onboardingComplete: user.onboardingComplete, onboardingStep: user.onboardingStep, mustChangePassword: user.mustChangePassword, timezone: user.timezone });
+  res.json({ id: user.id, email: user.email, name: user.name, role: user.role, onboardingComplete: user.onboardingComplete, onboardingStep: user.onboardingStep, onboardingVariant: user.onboardingVariant, mustChangePassword: user.mustChangePassword, timezone: user.timezone });
 });
 
 router.post("/auth/logout", async (req, res): Promise<void> => {
@@ -1472,6 +1482,7 @@ router.get("/auth/me", async (req, res): Promise<void> => {
     role: usersTable.role,
     onboardingComplete: usersTable.onboardingComplete,
     onboardingStep: usersTable.onboardingStep,
+    onboardingVariant: usersTable.onboardingVariant,
     mustChangePassword: usersTable.mustChangePassword,
     timezone: usersTable.timezone,
   }).from(usersTable).where(eq(usersTable.id, req.userId));

@@ -7029,6 +7029,9 @@ components:
           type: boolean
         onboardingStep:
           type: integer
+        onboardingVariant:
+          type: string
+          enum: [none, launchpad, full]
         timezone:
           type: string
       required: [id, name, email, role]
@@ -7519,6 +7522,9 @@ components:
           type: boolean
         onboardingStep:
           type: integer
+        onboardingVariant:
+          type: string
+          enum: [none, launchpad, full]
         experienceLevel:
           type: ["string", "null"]
         primaryGoal:
@@ -8316,11 +8322,29 @@ components:
           type: array
           items:
             type: string
+        variant:
+          type: string
+          enum: [none, launchpad, full]
+          description: |
+            Which onboarding step-contract this member follows (Task #1640).
+            "none" members never see this route in practice (onboarding is
+            already complete). "launchpad" follows a 4-step contract,
+            "full" the original 6-step contract.
+        stepNames:
+          type: array
+          items:
+            type: string
+          description: |
+            The ordered step-name array for this member's variant (empty for
+            "none"). Matches totalSteps in length.
+        totalSteps:
+          type: integer
+          description: Total step count for this member's variant (0 for "none").
         signedDocuments:
           type: array
           items:
             $ref: "#/components/schemas/SignedDocumentSummary"
-      required: [currentStep, onboardingComplete, completedSteps, signedDocuments]
+      required: [currentStep, onboardingComplete, completedSteps, variant, stepNames, totalSteps, signedDocuments]
 
     SignedDocumentSummary:
       type: object

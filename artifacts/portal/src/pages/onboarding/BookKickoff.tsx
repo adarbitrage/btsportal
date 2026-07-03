@@ -87,7 +87,7 @@ export default function OnboardingBookKickoff() {
   const advanceIfAhead = async () => {
     const freshUser = await refreshAuth();
     if (freshUser && freshUser.onboardingStep > THIS_STEP) {
-      navigate(getOnboardingRouteForStep(freshUser.onboardingStep));
+      navigate(getOnboardingRouteForStep(freshUser.onboardingStep, freshUser.onboardingVariant));
     }
   };
 
@@ -137,7 +137,7 @@ export default function OnboardingBookKickoff() {
 
   if (mineLoading) {
     return (
-      <OnboardingLayout currentStep={THIS_STEP} onBack={() => navigate("/onboarding/profile")}>
+      <OnboardingLayout stepName="kickoff_booked" onBack={() => navigate("/onboarding/profile")}>
         <div className="animate-pulse h-64 bg-card rounded-xl" />
       </OnboardingLayout>
     );
@@ -145,7 +145,7 @@ export default function OnboardingBookKickoff() {
 
   if (existingBooking && existingBooking.status !== "canceled") {
     return (
-      <OnboardingLayout currentStep={THIS_STEP} onBack={() => navigate("/onboarding/profile")}>
+      <OnboardingLayout stepName="kickoff_booked" onBack={() => navigate("/onboarding/profile")}>
         <div className="space-y-6 max-w-lg mx-auto text-center">
           <div className="w-14 h-14 mx-auto bg-primary/10 rounded-full flex items-center justify-center">
             <PartyPopper className="w-7 h-7 text-primary" />
@@ -179,7 +179,7 @@ export default function OnboardingBookKickoff() {
     // shown as a silently empty calendar and never falls back to another
     // tier's coaches.
     return (
-      <OnboardingLayout currentStep={THIS_STEP} onBack={() => navigate("/onboarding/profile")}>
+      <OnboardingLayout stepName="kickoff_booked" onBack={() => navigate("/onboarding/profile")}>
         <div className="space-y-6 max-w-lg mx-auto text-center">
           <div className="w-14 h-14 mx-auto bg-primary/10 rounded-full flex items-center justify-center">
             <Hourglass className="w-7 h-7 text-primary" />
@@ -197,7 +197,7 @@ export default function OnboardingBookKickoff() {
   }
 
   return (
-    <OnboardingLayout currentStep={THIS_STEP} onBack={() => navigate("/onboarding/profile")}>
+    <OnboardingLayout stepName="kickoff_booked" onBack={() => navigate("/onboarding/profile")}>
       <div className="space-y-6">
         <div className="text-center mb-2">
           <h2 className="text-2xl font-bold text-foreground mb-2">Book Your Kickoff Call</h2>

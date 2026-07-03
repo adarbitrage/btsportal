@@ -1,18 +1,20 @@
-import { OnboardingLayout } from "@/components/onboarding/OnboardingLayout";
+import { OnboardingLayout, getOnboardingRouteForStep } from "@/components/onboarding/OnboardingLayout";
 import { PartnerRevealCard } from "@/components/onboarding/PartnerRevealCard";
 import { useAuth } from "@/lib/auth";
 import { usePartnerInfo } from "@/lib/call-bookings-api";
-import { useLocation } from "wouter";
+import { useLocation, Redirect } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { useState } from "react";
 
-// Step 6: waiting on the first partner call to actually happen. EVENT-
-// ADVANCED: only completeOnboardingAfterPartnerCallDone() (server-side,
-// triggered by the GHL webhook once the call is confirmed) completes
-// onboarding from here — there is no client PATCH for this step.
+// "partner_call_completed": full-tier only, waiting on the first partner call
+// to actually happen. EVENT-ADVANCED: only completeOnboardingAfterPartnerCallDone()
+// (server-side, triggered by the GHL webhook once the call is confirmed)
+// completes onboarding from here — there is no client PATCH for this step.
+// LaunchPad members have no such step at all (their onboarding completes
+// right after pillars_watched) — this page should never be reachable for them.
 export default function OnboardingPartnerCallPending() {
-  const { refreshAuth } = useAuth();
+  const { user, refreshAuth } = useAuth();
   const { data: partnerInfo } = usePartnerInfo();
   const partner = partnerInfo?.partner ?? null;
   const [, navigate] = useLocation();
@@ -27,8 +29,12 @@ export default function OnboardingPartnerCallPending() {
     }
   };
 
+  if (user?.onboardingVariant === "launchpad") {
+    return <Redirect to={getOnboardingRouteForStep(user.onboardingStep || 1, user.onboardingVariant)} />;
+  }
+
   return (
-    <OnboardingLayout currentStep={6} onBack={() => navigate("/onboarding/pillars")}>
+    <OnboardingLayout stepName="partner_call_completed" onBack={() => navigate("/onboarding/pillars")}>
       <div className="space-y-6">
         <div className="text-center mb-2">
           <h2 className="text-2xl font-bold text-foreground mb-2">Almost There!</h2>

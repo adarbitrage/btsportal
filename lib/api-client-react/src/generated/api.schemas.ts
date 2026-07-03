@@ -220,6 +220,15 @@ export interface LoginErrorResponse {
   emailRecentlyChanged?: boolean;
 }
 
+export type AuthUserOnboardingVariant =
+  (typeof AuthUserOnboardingVariant)[keyof typeof AuthUserOnboardingVariant];
+
+export const AuthUserOnboardingVariant = {
+  none: "none",
+  launchpad: "launchpad",
+  full: "full",
+} as const;
+
 export interface AuthUser {
   id: number;
   name: string;
@@ -227,6 +236,7 @@ export interface AuthUser {
   role: string;
   onboardingComplete?: boolean;
   onboardingStep?: number;
+  onboardingVariant?: AuthUserOnboardingVariant;
   timezone?: string;
 }
 
@@ -552,6 +562,15 @@ export interface HealthStatus {
   status: string;
 }
 
+export type MemberProfileOnboardingVariant =
+  (typeof MemberProfileOnboardingVariant)[keyof typeof MemberProfileOnboardingVariant];
+
+export const MemberProfileOnboardingVariant = {
+  none: "none",
+  launchpad: "launchpad",
+  full: "full",
+} as const;
+
 /**
  * Snapshot of the most recent email-change attempt that an admin
 cancelled on the member's behalf. Surfaced on /members/me so the
@@ -637,6 +656,7 @@ cancelled themselves, or has a newer attempt in flight).
   role: string;
   onboardingComplete: boolean;
   onboardingStep: number;
+  onboardingVariant?: MemberProfileOnboardingVariant;
   /** @nullable */
   experienceLevel?: string | null;
   /** @nullable */
@@ -1160,6 +1180,22 @@ export interface UpdateAnnouncementRequest {
   type?: UpdateAnnouncementRequestType;
 }
 
+/**
+ * Which onboarding step-contract this member follows (Task #1640).
+"none" members never see this route in practice (onboarding is
+already complete). "launchpad" follows a 4-step contract,
+"full" the original 6-step contract.
+
+ */
+export type OnboardingStateVariant =
+  (typeof OnboardingStateVariant)[keyof typeof OnboardingStateVariant];
+
+export const OnboardingStateVariant = {
+  none: "none",
+  launchpad: "launchpad",
+  full: "full",
+} as const;
+
 export interface SignedDocumentSummary {
   documentType: string;
   signedAt: string;
@@ -1169,6 +1205,18 @@ export interface OnboardingState {
   currentStep: number;
   onboardingComplete: boolean;
   completedSteps: string[];
+  /** Which onboarding step-contract this member follows (Task #1640).
+"none" members never see this route in practice (onboarding is
+already complete). "launchpad" follows a 4-step contract,
+"full" the original 6-step contract.
+ */
+  variant: OnboardingStateVariant;
+  /** The ordered step-name array for this member's variant (empty for
+"none"). Matches totalSteps in length.
+ */
+  stepNames: string[];
+  /** Total step count for this member's variant (0 for "none"). */
+  totalSteps: number;
   signedDocuments: SignedDocumentSummary[];
 }
 

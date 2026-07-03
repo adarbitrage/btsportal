@@ -58,6 +58,7 @@ export const GetCurrentMemberResponse = zod.object({
   role: zod.string(),
   onboardingComplete: zod.boolean(),
   onboardingStep: zod.number(),
+  onboardingVariant: zod.enum(["none", "launchpad", "full"]).optional(),
   experienceLevel: zod.string().nullish(),
   primaryGoal: zod.string().nullish(),
   smsOptIn: zod.boolean(),
@@ -190,6 +191,19 @@ export const GetOnboardingStateResponse = zod.object({
   currentStep: zod.number(),
   onboardingComplete: zod.boolean(),
   completedSteps: zod.array(zod.string()),
+  variant: zod
+    .enum(["none", "launchpad", "full"])
+    .describe(
+      'Which onboarding step-contract this member follows (Task #1640).\n\"none\" members never see this route in practice (onboarding is\nalready complete). \"launchpad\" follows a 4-step contract,\n\"full\" the original 6-step contract.\n',
+    ),
+  stepNames: zod
+    .array(zod.string())
+    .describe(
+      'The ordered step-name array for this member\'s variant (empty for\n\"none\"). Matches totalSteps in length.\n',
+    ),
+  totalSteps: zod
+    .number()
+    .describe('Total step count for this member\'s variant (0 for \"none\").'),
   signedDocuments: zod.array(
     zod.object({
       documentType: zod.string(),
@@ -4289,6 +4303,7 @@ export const LoginResponse = zod.object({
   role: zod.string(),
   onboardingComplete: zod.boolean().optional(),
   onboardingStep: zod.number().optional(),
+  onboardingVariant: zod.enum(["none", "launchpad", "full"]).optional(),
   timezone: zod.string().optional(),
 });
 
@@ -4302,6 +4317,7 @@ export const RefreshTokenResponse = zod.object({
   role: zod.string(),
   onboardingComplete: zod.boolean().optional(),
   onboardingStep: zod.number().optional(),
+  onboardingVariant: zod.enum(["none", "launchpad", "full"]).optional(),
   timezone: zod.string().optional(),
 });
 
@@ -4374,6 +4390,7 @@ export const GetAuthMeResponse = zod.object({
   role: zod.string(),
   onboardingComplete: zod.boolean().optional(),
   onboardingStep: zod.number().optional(),
+  onboardingVariant: zod.enum(["none", "launchpad", "full"]).optional(),
   timezone: zod.string().optional(),
 });
 

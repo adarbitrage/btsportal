@@ -116,7 +116,7 @@ describe("onboarding gate — OnboardingRoute keeps users on their current step"
     authStateMock.mockReturnValue({ user: completedUser, loading: false });
 
     const { getByTestId, queryByTestId } = render(
-      <OnboardingRoute component={Target} step={2} />,
+      <OnboardingRoute component={Target} stepName="profile" />,
     );
 
     expect(getByTestId("redirect")).toHaveAttribute("data-to", "/");
@@ -128,7 +128,7 @@ describe("onboarding gate — OnboardingRoute keeps users on their current step"
 
     // User is on step 3 (book-kickoff) but tries to open step 5 (pillars).
     const { getByTestId, queryByTestId } = render(
-      <OnboardingRoute component={Target} step={4} />,
+      <OnboardingRoute component={Target} stepName="partner_call_booked" />,
     );
 
     expect(getByTestId("redirect")).toHaveAttribute(
@@ -142,7 +142,7 @@ describe("onboarding gate — OnboardingRoute keeps users on their current step"
     authStateMock.mockReturnValue({ user: onboardingUser, loading: false });
 
     const { getByTestId, queryByTestId } = render(
-      <OnboardingRoute component={Target} step={2} />,
+      <OnboardingRoute component={Target} stepName="kickoff_booked" />,
     );
 
     expect(getByTestId("target-content")).toBeInTheDocument();
@@ -153,7 +153,7 @@ describe("onboarding gate — OnboardingRoute keeps users on their current step"
     authStateMock.mockReturnValue({ user: null, loading: false });
 
     const { getByTestId, queryByTestId } = render(
-      <OnboardingRoute component={Target} step={1} />,
+      <OnboardingRoute component={Target} stepName="welcome" />,
     );
 
     expect(getByTestId("redirect")).toHaveAttribute("data-to", "/login");
@@ -313,7 +313,7 @@ describe("route guards block the page while auth/entitlement data is still loadi
     authStateMock.mockReturnValue({ user: onboardingUser, loading: true });
 
     const { queryByTestId } = render(
-      <OnboardingRoute component={Target} step={3} />,
+      <OnboardingRoute component={Target} stepName="kickoff_booked" />,
     );
 
     expect(queryByTestId("target-content")).toBeNull();

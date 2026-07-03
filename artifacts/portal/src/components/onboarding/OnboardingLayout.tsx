@@ -1,37 +1,79 @@
 import { useAuth } from "@/lib/auth";
 import { useLocation } from "wouter";
 
-const STEPS = [
-  { label: "Welcome", path: "/onboarding/welcome" },
-  { label: "Profile", path: "/onboarding/profile" },
-  { label: "Book Kickoff", path: "/onboarding/book-kickoff" },
-  { label: "Book Partner Call", path: "/onboarding/book-partner-call" },
-  { label: "7 Pillars", path: "/onboarding/pillars" },
-  { label: "First Call", path: "/onboarding/partner-call-pending" },
+// Per-tier step-name arrays (Task #1640). MUST be kept in lockstep with
+// FULL_STEP_NAMES / LAUNCHPAD_STEP_NAMES in
+// artifacts/api-server/src/lib/onboarding-steps.ts — the frontend and
+// api-server are separate packages with no shared step-contract module, so
+// this is a deliberate, documented duplication rather than an import.
+export type OnboardingStepName =
+  | "welcome"
+  | "profile"
+  | "kickoff_booked"
+  | "partner_call_booked"
+  | "pillars_watched"
+  | "partner_call_completed";
+
+const FULL_STEP_NAMES: readonly OnboardingStepName[] = [
+  "welcome",
+  "profile",
+  "kickoff_booked",
+  "partner_call_booked",
+  "pillars_watched",
+  "partner_call_completed",
 ];
+
+const LAUNCHPAD_STEP_NAMES: readonly OnboardingStepName[] = [
+  "welcome",
+  "profile",
+  "kickoff_booked",
+  "pillars_watched",
+];
+
+const STEP_META: Record<OnboardingStepName, { label: string; path: string }> = {
+  welcome: { label: "Welcome", path: "/onboarding/welcome" },
+  profile: { label: "Profile", path: "/onboarding/profile" },
+  kickoff_booked: { label: "Book Kickoff", path: "/onboarding/book-kickoff" },
+  partner_call_booked: { label: "Book Partner Call", path: "/onboarding/book-partner-call" },
+  pillars_watched: { label: "7 Pillars", path: "/onboarding/pillars" },
+  partner_call_completed: { label: "First Call", path: "/onboarding/partner-call-pending" },
+};
+
+// "none" and unset/unknown variants fall back to "full" — every existing
+// member predates this column (default "full" server-side), and any brand
+// new render before the auth payload settles should not crash the stepper.
+export function getStepNamesForVariant(
+  variant: string | null | undefined,
+): readonly OnboardingStepName[] {
+  return variant === "launchpad" ? LAUNCHPAD_STEP_NAMES : FULL_STEP_NAMES;
+}
 
 // Shared 1-indexed step -> route lookup so any onboarding page can forward-
 // navigate a member to wherever the server says they currently are (e.g.
-// after a booking confirmation advances onboardingStep server-side). Kept
-// here since this file already owns the canonical step list used by the
-// stepper UI — a second hardcoded copy would drift from it.
-export const ONBOARDING_STEP_ROUTES = STEPS.map((s) => s.path);
-
-export function getOnboardingRouteForStep(step: number): string {
-  return ONBOARDING_STEP_ROUTES[step - 1] ?? ONBOARDING_STEP_ROUTES[0];
+// after a booking confirmation advances onboardingStep server-side). Must be
+// given the member's variant since the same step NUMBER maps to a different
+// page for launchpad vs full members past step 3.
+export function getOnboardingRouteForStep(step: number, variant?: string | null): string {
+  const names = getStepNamesForVariant(variant);
+  const name = names[step - 1] ?? names[0];
+  return STEP_META[name].path;
 }
 
 export function OnboardingLayout({
   children,
-  currentStep,
+  stepName,
   onBack,
 }: {
   children: React.ReactNode;
-  currentStep: number;
+  stepName: OnboardingStepName;
   onBack?: () => void;
 }) {
   const { user } = useAuth();
   const [, navigate] = useLocation();
+
+  const stepNames = getStepNamesForVariant(user?.onboardingVariant);
+  const STEPS = stepNames.map((name) => STEP_META[name]);
+  const currentStep = stepNames.indexOf(stepName) + 1 || 1;
 
   return (
     <div className="min-h-screen bg-[#faf9f7] flex flex-col">

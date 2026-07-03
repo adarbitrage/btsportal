@@ -8,15 +8,27 @@ import {
   PatchMemberProfileBody,
   PatchMemberProfileResponse,
 } from "@workspace/api-zod/schemas";
+import {
+  isSteppedVariant,
+  getStepNames,
+  getTotalSteps,
+  isClientAdvanceableStep,
+  type OnboardingVariant,
+  type SteppedOnboardingVariant,
+} from "../lib/onboarding-steps";
 
 const router: IRouter = Router();
 
-// The 6-step guided onboarding contract (renumbered from the prior 7-step
-// contract by removing the in-portal ToS signing step that previously lived
-// at step 2. Platform ToS now lives as a browsewrap link only; the
-// mentorship agreement is signed upstream in GHL before portal access, so no
-// in-portal signing step is needed here).
+// Per-tier guided onboarding step contracts (Task #1640). Which array a
+// member follows is decided once at creation time (see
+// lib/onboarding-variant.ts) and persisted on usersTable.onboardingVariant —
+// this route reads that persisted value, it never re-resolves it live.
 //
+// "full" (6 steps, numbering UNCHANGED from the original single-contract
+// flow — renumbered from the prior 7-step contract by removing the in-portal
+// ToS signing step that previously lived at step 2. Platform ToS now lives as
+// a browsewrap link only; the mentorship agreement is signed upstream in GHL
+// before portal access, so no in-portal signing step is needed here):
 //   1. welcome                 — intro + welcome video. Client-advanceable.
 //   2. profile                 — name/experience/goal. Client-advanceable
 //                                 (gated on those profile fields being filled).
@@ -34,33 +46,31 @@ const router: IRouter = Router();
 //                                 (Tier 3 GHL webhook) may complete onboarding
 //                                 from here.
 //
+// "launchpad" (4 steps — no partner-call tier exists for this product):
+//   1. welcome, 2. profile — identical meaning/prerequisites to "full".
+//   3. kickoff_booked      — EVENT-ADVANCED, same function as "full" (the
+//                             kickoff step means the same thing in both variants).
+//   4. pillars_watched     — the LAST step, and it IS client-advanceable:
+//                             completing it completes onboarding directly.
+//
+// "none" — no guided onboarding at all; onboardingComplete is set true at
+// creation (see applyCreationTimeOnboardingDefaults) and this route rejects
+// any GET/PATCH attempt for such a member.
+//
 // ToS signing is no longer part of the guided flow — signedDocumentsTable /
 // GET+POST /documents remain as legal infrastructure (see routes/documents.ts)
 // and the ToS is now surfaced as a browsewrap footer link instead of a gate.
 //
 // See lib/onboarding-advancement.ts for the internal advancement functions Tier 2
-// (booking) and Tier 3 (GHL webhook) call to move members through steps 3/4/6 —
-// this route intentionally REJECTS any client PATCH attempt to complete those
-// steps directly, so a member can never skip ahead of a real booking/webhook event.
+// (booking) and Tier 3 (GHL webhook) call to move members through event-only
+// steps — this route intentionally REJECTS any client PATCH attempt to
+// complete those steps directly, so a member can never skip ahead of a real
+// booking/webhook event.
 //
 // NOTE: the Documents page, /documents/sign endpoint, and signed_documents
 // table are intentionally NOT deleted — existing signature records remain
 // legal records — but they are no longer part of the onboarding sequence or
 // gated by it.
-const STEP_NAMES = [
-  "welcome",
-  "profile",
-  "kickoff_booked",
-  "partner_call_booked",
-  "pillars_watched",
-  "partner_call_completed",
-];
-
-// Steps a member may complete themselves via PATCH /members/me/onboarding.
-// Steps 3, 4, and 6 are intentionally excluded — they only ever advance via the
-// internal functions in lib/onboarding-advancement.ts, triggered by a real
-// booking (Tier 2) or a GHL webhook confirming the call happened (Tier 3).
-const CLIENT_ADVANCEABLE_STEPS = new Set([1, 2, 5]);
 
 async function validateStepPrerequisites(step: number, userId: number): Promise<string | null> {
   if (step === 2) {
@@ -82,18 +92,23 @@ router.get("/members/me/onboarding", async (req, res): Promise<void> => {
     return;
   }
 
+  const variant = (user.onboardingVariant as OnboardingVariant) ?? "full";
+
   const signedDocs = await db
     .select()
     .from(signedDocumentsTable)
     .where(eq(signedDocumentsTable.userId, userId));
 
+  const stepNames = isSteppedVariant(variant) ? getStepNames(variant) : [];
+  const totalSteps = stepNames.length;
+
   const completedSteps: string[] = [];
-  for (let i = 1; i < user.onboardingStep; i++) {
-    completedSteps.push(STEP_NAMES[i - 1]);
+  for (let i = 1; i < user.onboardingStep && i <= totalSteps; i++) {
+    completedSteps.push(stepNames[i - 1]);
   }
 
   if (user.onboardingComplete) {
-    for (const step of STEP_NAMES) {
+    for (const step of stepNames) {
       if (!completedSteps.includes(step)) {
         completedSteps.push(step);
       }
@@ -104,6 +119,9 @@ router.get("/members/me/onboarding", async (req, res): Promise<void> => {
     currentStep: user.onboardingStep,
     onboardingComplete: user.onboardingComplete,
     completedSteps,
+    variant,
+    stepNames,
+    totalSteps,
     signedDocuments: signedDocs.map((d) => ({
       documentType: d.documentType,
       signedAt: d.signedAt.toISOString(),
@@ -123,14 +141,22 @@ router.patch("/members/me/onboarding", async (req, res): Promise<void> => {
 
   const { step } = parsed.data;
 
-  if (step < 1 || step > 6) {
-    res.status(400).json({ error: "Step must be between 1 and 6" });
-    return;
-  }
-
   const [user] = await db.select().from(usersTable).where(eq(usersTable.id, userId));
   if (!user) {
     res.status(404).json({ error: "User not found" });
+    return;
+  }
+
+  const variant = (user.onboardingVariant as OnboardingVariant) ?? "full";
+  if (!isSteppedVariant(variant)) {
+    res.status(400).json({ error: "Onboarding is not applicable for this account" });
+    return;
+  }
+
+  const totalSteps = getTotalSteps(variant);
+
+  if (step < 1 || step > totalSteps) {
+    res.status(400).json({ error: `Step must be between 1 and ${totalSteps}` });
     return;
   }
 
@@ -144,7 +170,7 @@ router.patch("/members/me/onboarding", async (req, res): Promise<void> => {
     return;
   }
 
-  if (!CLIENT_ADVANCEABLE_STEPS.has(step)) {
+  if (!isClientAdvanceableStep(variant, step)) {
     res.status(400).json({
       error: `Step ${step} advances automatically and cannot be completed directly`,
     });
@@ -157,21 +183,25 @@ router.patch("/members/me/onboarding", async (req, res): Promise<void> => {
     return;
   }
 
-  // Client-advanceable steps never complete onboarding on their own — the last
-  // client-advanceable step (5) only hands off to step 6, which is
+  // The last client-advanceable step for a variant completes onboarding
+  // directly ONLY if it's also the LAST step overall for that variant
+  // (true for launchpad's step 4/pillars_watched). For "full", the last
+  // client-advanceable step (5) still hands off to step 6, which remains
   // event-advanced (see completeOnboardingAfterPartnerCallDone in
-  // lib/onboarding-advancement.ts).
-  const nextStep = step + 1;
+  // lib/onboarding-advancement.ts) — so it does not complete onboarding here.
+  const isLastStep = step === totalSteps;
+  const nextStep = isLastStep ? step : step + 1;
+  const onboardingComplete = isLastStep;
 
   await db
     .update(usersTable)
-    .set({ onboardingStep: nextStep })
+    .set({ onboardingStep: nextStep, onboardingComplete })
     .where(and(eq(usersTable.id, userId), eq(usersTable.onboardingStep, step)));
 
   res.json(
     PatchOnboardingStepResponse.parse({
       currentStep: nextStep,
-      onboardingComplete: false,
+      onboardingComplete,
     })
   );
 });

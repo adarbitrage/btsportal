@@ -33,7 +33,7 @@ export default function OnboardingWelcome() {
 
   if (isLoading || !member) {
     return (
-      <OnboardingLayout currentStep={1}>
+      <OnboardingLayout stepName="welcome">
         <div className="flex items-center justify-center h-64">
           <div className="animate-pulse text-muted-foreground">Loading...</div>
         </div>
@@ -42,7 +42,7 @@ export default function OnboardingWelcome() {
   }
 
   return (
-    <OnboardingLayout currentStep={1}>
+    <OnboardingLayout stepName="welcome">
       <div className="space-y-8">
         <div className="text-center">
           <h2 className="text-3xl font-bold text-foreground mb-3">
