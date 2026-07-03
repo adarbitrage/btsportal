@@ -96,7 +96,9 @@ export function usePartnerInfo() {
 }
 
 export function usePartnerAvailability(startDate: string, endDate: string) {
-  return useQuery<{ partnerId: number; slots: CallSlot[]; durationMinutes: number }>({
+  // durationMinutes is null when the partner has no calendar configured yet
+  // (no slots either way, so no calendar-config fetch is attempted).
+  return useQuery<{ partnerId: number; slots: CallSlot[]; durationMinutes: number | null }>({
     queryKey: [`${PARTNER_KEY}/availability`, startDate, endDate],
     queryFn: () => callFetch(`/onboarding/partner/availability?startDate=${startDate}&endDate=${endDate}`),
     enabled: !!startDate && !!endDate,

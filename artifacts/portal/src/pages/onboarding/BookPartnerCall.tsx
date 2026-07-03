@@ -204,7 +204,11 @@ export default function OnboardingBookPartnerCall() {
       {partner && (
         <PartnerRevealCard
           partner={partner}
-          subtitle={`Free ${availability?.durationMinutes ?? 30}-minute accountability call`}
+          subtitle={
+            availability?.durationMinutes
+              ? `Free ${availability.durationMinutes}-minute accountability call`
+              : "Free accountability call"
+          }
         />
       )}
 

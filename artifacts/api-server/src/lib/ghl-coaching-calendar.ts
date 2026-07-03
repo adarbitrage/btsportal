@@ -267,6 +267,65 @@ export async function getFreeSlots(
   return slots.map((startTime) => ({ startTime }));
 }
 
+interface CalendarConfigResponse {
+  calendar?: { slotDuration?: number; slotDurationUnit?: string };
+  slotDuration?: number;
+  slotDurationUnit?: string;
+}
+
+interface CalendarDurationCacheEntry {
+  minutes: number;
+  expiresAt: number;
+}
+
+// Short-lived (calendars are edited rarely, but never trust a value forever)
+// per-calendar cache so booking + availability calls made moments apart don't
+// each round-trip to GHL for the same config.
+const calendarDurationCache = new Map<string, CalendarDurationCacheEntry>();
+const CALENDAR_DURATION_CACHE_TTL_MS = 5 * 60 * 1000;
+
+function slotDurationToMinutes(slotDuration: number, unit: string | undefined): number {
+  const normalizedUnit = (unit ?? "mins").toLowerCase();
+  if (normalizedUnit.startsWith("hour")) return slotDuration * 60;
+  if (normalizedUnit.startsWith("day")) return slotDuration * 24 * 60;
+  return slotDuration;
+}
+
+/**
+ * Fetch a calendar's configured meeting duration (NOT the slot interval —
+ * `slotDuration` on GHL calendars is the actual appointment length; the
+ * bookable-start-time spacing is a separate `slotInterval` field that must
+ * never be used to infer duration). Throws explicitly if the calendar config
+ * can't be fetched or has no usable slotDuration — callers must fail the
+ * booking rather than silently defaulting.
+ */
+export async function getCalendarDurationMinutes(
+  calendarId: string,
+  locationId: string = COACHING_LOCATION_ID,
+): Promise<number> {
+  const cacheKey = `${locationId}:${calendarId}`;
+  const cached = calendarDurationCache.get(cacheKey);
+  if (cached && cached.expiresAt > Date.now()) {
+    return cached.minutes;
+  }
+  const data = await ghlRequest<CalendarConfigResponse>(
+    "GET",
+    `/calendars/${encodeURIComponent(calendarId)}`,
+    undefined,
+    locationId,
+  );
+  const cal = data.calendar ?? data;
+  const slotDuration = cal.slotDuration;
+  if (typeof slotDuration !== "number" || slotDuration <= 0) {
+    throw new Error(
+      `GHL calendar ${calendarId} returned no usable slotDuration: ${JSON.stringify(data)}`,
+    );
+  }
+  const minutes = slotDurationToMinutes(slotDuration, cal.slotDurationUnit);
+  calendarDurationCache.set(cacheKey, { minutes, expiresAt: Date.now() + CALENDAR_DURATION_CACHE_TTL_MS });
+  return minutes;
+}
+
 interface ContactResponse {
   contact?: { id?: string };
   id?: string;

@@ -175,7 +175,9 @@ export default function OnboardingBookKickoff() {
             <div className="text-left">
               <p className="font-semibold text-foreground">{coach.displayName}</p>
               <p className="text-xs text-muted-foreground">
-                Free {availability?.durationMinutes ?? 30}-minute kickoff call
+                {availability?.durationMinutes
+                  ? `Free ${availability.durationMinutes}-minute kickoff call`
+                  : "Free kickoff call"}
               </p>
             </div>
           </div>

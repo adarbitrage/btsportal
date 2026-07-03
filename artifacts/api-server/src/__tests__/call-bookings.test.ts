@@ -40,6 +40,11 @@ function gridAlignedFutureTime(daysAhead: number, hourOffset = 0): Date {
   return new Date(Math.ceil(raw / SLOT_STEP_MS) * SLOT_STEP_MS);
 }
 
+// Task #1631: duration must come from the calendar's configured
+// slotDuration, NEVER from the (30-min) slot-grid spacing above — the mock
+// below defaults every calendar to 30 min, and the dedicated duration-source
+// tests override it per-calendar (e.g. 45) to prove the two are independent.
+const DEFAULT_CALENDAR_DURATION_MINUTES = 30;
 vi.mock("../lib/ghl-coaching-calendar", () => ({
   getFreeSlots: vi.fn(async (_calendarId: string, startMs: number, endMs: number) =>
     gridSlotsBetween(startMs, endMs),
@@ -50,6 +55,7 @@ vi.mock("../lib/ghl-coaching-calendar", () => ({
     meetLink: "https://meet.example.test/call",
   })),
   cancelAppointment: vi.fn(async () => undefined),
+  getCalendarDurationMinutes: vi.fn(async (_calendarId: string) => 30),
   COACHING_TIMEZONE: "America/Chicago",
   COACHING_LOCATION_ID: "loc_test",
 }));
@@ -754,5 +760,95 @@ describe("kickoff call booking: concurrent double-submit produces a single booki
       .from(callBookingsTable)
       .where(and(eq(callBookingsTable.memberId, memberId), eq(callBookingsTable.type, "kickoff")));
     expect(rows.length).toBe(1);
+  });
+});
+
+describe("call duration comes from calendar config, never slot-grid spacing (Task #1631)", () => {
+  // The mocked slot grid (SLOT_STEP_MS) is fixed at 30 minutes for every
+  // calendar, on purpose — these tests configure a DIFFERENT slotDuration
+  // (45 min) via getCalendarDurationMinutes and assert the booked
+  // endAt/durationMinutes follow that config, not the 30-min grid spacing.
+  const durationMock = ghlCoachingCalendar.getCalendarDurationMinutes as unknown as ReturnType<typeof vi.fn>;
+
+  afterAll(() => {
+    durationMock.mockImplementation(async () => DEFAULT_CALENDAR_DURATION_MINUTES);
+  });
+
+  it("kickoff booking uses the calendar's configured 45-minute slotDuration, not the 30-minute slot grid", async () => {
+    durationMock.mockImplementationOnce(async () => 45).mockImplementationOnce(async () => 45);
+    const memberId = await makeMember(3);
+    const startTime = gridAlignedFutureTime(50);
+
+    const dateStr = startTime.toISOString().slice(0, 10);
+    const avail = await request(app)
+      .get(`/api/onboarding/kickoff/availability?startDate=${dateStr}&endDate=${dateStr}`)
+      .set("Cookie", authCookie(memberId));
+    expect(avail.status).toBe(200);
+    expect(avail.body.durationMinutes).toBe(45);
+
+    const book = await request(app)
+      .post("/api/onboarding/kickoff/book")
+      .set("Cookie", authCookie(memberId))
+      .send({ startTime: startTime.toISOString() });
+    expect(book.status).toBe(201);
+    bookingIds.push(book.body.booking.id);
+    expect(book.body.booking.durationMinutes).toBe(45);
+    const expectedEndAt = new Date(startTime.getTime() + 45 * 60 * 1000).getTime();
+    expect(new Date(book.body.booking.endAt).getTime()).toBe(expectedEndAt);
+    // Sanity: the mocked slot grid itself is 30-minute spaced, proving the
+    // 45-minute duration did NOT leak in from slot spacing.
+    expect(SLOT_STEP_MS).toBe(30 * 60 * 1000);
+  });
+
+  it("partner booking uses the calendar's own configured 30-minute slotDuration via the same generic mechanism (no special-casing)", async () => {
+    // Only one call site (book) is exercised here — no availability call —
+    // so exactly one queued mock implementation, or it leaks into the next test.
+    durationMock.mockImplementationOnce(async () => 30);
+    const memberId = await makeMember(6, true);
+    await assignPartner(memberId, partnerId);
+    const startTime = gridAlignedFutureTime(51);
+
+    const book = await request(app)
+      .post("/api/onboarding/partner/book")
+      .set("Cookie", authCookie(memberId))
+      .send({ startTime: startTime.toISOString() });
+    expect(book.status).toBe(201);
+    bookingIds.push(book.body.booking.id);
+    expect(book.body.booking.durationMinutes).toBe(30);
+    expect(durationMock).toHaveBeenCalled();
+  });
+
+  it("kickoff booking fails explicitly (502) when the calendar config fetch fails, with no silent 30-minute fallback", async () => {
+    durationMock.mockImplementationOnce(async () => {
+      throw new Error("GHL calendar config unreachable");
+    });
+    const memberId = await makeMember(3);
+    const startTime = gridAlignedFutureTime(52);
+
+    const book = await request(app)
+      .post("/api/onboarding/kickoff/book")
+      .set("Cookie", authCookie(memberId))
+      .send({ startTime: startTime.toISOString() });
+    expect(book.status).toBe(502);
+
+    const rows = await db
+      .select({ id: callBookingsTable.id })
+      .from(callBookingsTable)
+      .where(and(eq(callBookingsTable.memberId, memberId), eq(callBookingsTable.type, "kickoff")));
+    expect(rows.length).toBe(0);
+  });
+
+  it("kickoff availability fails explicitly (502) when the calendar config fetch fails, with no silent 30-minute fallback", async () => {
+    durationMock.mockImplementationOnce(async () => {
+      throw new Error("GHL calendar config unreachable");
+    });
+    const memberId = await makeMember(3);
+    const startTime = gridAlignedFutureTime(53);
+    const dateStr = startTime.toISOString().slice(0, 10);
+
+    const avail = await request(app)
+      .get(`/api/onboarding/kickoff/availability?startDate=${dateStr}&endDate=${dateStr}`)
+      .set("Cookie", authCookie(memberId));
+    expect(avail.status).toBe(502);
   });
 });

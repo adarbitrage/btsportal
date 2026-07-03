@@ -7,6 +7,7 @@ import {
   upsertContact,
   createAppointment,
   cancelAppointment,
+  getCalendarDurationMinutes,
   COACHING_TIMEZONE,
   COACHING_LOCATION_ID,
   type FreeSlot,
@@ -29,8 +30,11 @@ const router: IRouter = Router();
 // from GHL.
 // ===========================================================================
 
-const KICKOFF_CALL_DURATION_MINUTES = 30;
-const PARTNER_CALL_DURATION_MINUTES = 30;
+// Task #1631: call durations are NEVER hardcoded — they always come from the
+// GHL calendar's own configured `slotDuration` (see getCalendarDurationMinutes),
+// fetched fresh (short-cached) per booking/availability call. Kickoff and
+// partner calendars can be configured with different durations; there is no
+// special-casing here, just the same calendar-config read for both.
 const MIN_LEAD_TIME_MS = 60 * 60 * 1000; // 1 hour
 const DEFAULT_LOOKAHEAD_DAYS = 14;
 
@@ -142,12 +146,11 @@ router.get("/onboarding/kickoff/availability", async (req, res): Promise<void> =
   }
 
   try {
-    const slots = await getFreeSlots(
-      coach.ghlCalendarId,
-      range.startMs,
-      range.endMs,
-      coach.ghlLocationId ?? COACHING_LOCATION_ID,
-    );
+    const coachLocationId = coach.ghlLocationId ?? COACHING_LOCATION_ID;
+    const [slots, durationMinutes] = await Promise.all([
+      getFreeSlots(coach.ghlCalendarId, range.startMs, range.endMs, coachLocationId),
+      getCalendarDurationMinutes(coach.ghlCalendarId, coachLocationId),
+    ]);
     const cutoff = Date.now() + MIN_LEAD_TIME_MS;
     const usable = slots.filter((s) => new Date(s.startTime).getTime() >= cutoff);
     res.json({
@@ -158,7 +161,7 @@ router.get("/onboarding/kickoff/availability", async (req, res): Promise<void> =
         bio: coach.bio,
       },
       slots: usable,
-      durationMinutes: KICKOFF_CALL_DURATION_MINUTES,
+      durationMinutes,
     });
   } catch (err) {
     console.error("[call-bookings] kickoff availability failed:", err);
@@ -234,7 +237,15 @@ router.post("/onboarding/kickoff/book", async (req, res): Promise<void> => {
     return;
   }
 
-  const endAt = new Date(scheduledAt.getTime() + KICKOFF_CALL_DURATION_MINUTES * 60000);
+  let durationMinutes: number;
+  try {
+    durationMinutes = await getCalendarDurationMinutes(coach.ghlCalendarId, coachLocationId);
+  } catch (err) {
+    console.error("[call-bookings] failed to load kickoff calendar duration:", err);
+    res.status(502).json({ error: "Could not load calendar configuration. Please try again." });
+    return;
+  }
+  const endAt = new Date(scheduledAt.getTime() + durationMinutes * 60000);
   const endTimeIso = isoWithMatchingOffset(endAt, startTime);
 
   const client = await pool.connect();
@@ -301,7 +312,7 @@ router.post("/onboarding/kickoff/book", async (req, res): Promise<void> => {
         ghlContactId: contactId,
         scheduledAt,
         endAt,
-        durationMinutes: KICKOFF_CALL_DURATION_MINUTES,
+        durationMinutes,
         meetingUrl: appointment.meetLink,
         status: "booked",
       })
@@ -460,19 +471,18 @@ router.get("/onboarding/partner/availability", async (req, res): Promise<void> =
     return;
   }
   if (!partner.ghlCalendarId) {
-    res.json({ partnerId: partner.id, slots: [], durationMinutes: PARTNER_CALL_DURATION_MINUTES });
+    res.json({ partnerId: partner.id, slots: [], durationMinutes: null });
     return;
   }
 
   try {
-    const slots = await getFreeSlots(
-      partner.ghlCalendarId,
-      range.startMs,
-      range.endMs,
-      partner.ghlLocationId ?? COACHING_LOCATION_ID,
-    );
+    const partnerLocationId = partner.ghlLocationId ?? COACHING_LOCATION_ID;
+    const [slots, durationMinutes] = await Promise.all([
+      getFreeSlots(partner.ghlCalendarId, range.startMs, range.endMs, partnerLocationId),
+      getCalendarDurationMinutes(partner.ghlCalendarId, partnerLocationId),
+    ]);
     const filtered = await filterPartnerSlots(userId, partner, slots, range.startMs, range.endMs);
-    res.json({ partnerId: partner.id, slots: filtered, durationMinutes: PARTNER_CALL_DURATION_MINUTES });
+    res.json({ partnerId: partner.id, slots: filtered, durationMinutes });
   } catch (err) {
     console.error("[call-bookings] partner availability failed:", err);
     res.status(502).json({ error: "Could not load availability. Please try again." });
@@ -593,7 +603,15 @@ router.post("/onboarding/partner/book", async (req, res): Promise<void> => {
     return;
   }
 
-  const endAt = new Date(scheduledAt.getTime() + PARTNER_CALL_DURATION_MINUTES * 60000);
+  let durationMinutes: number;
+  try {
+    durationMinutes = await getCalendarDurationMinutes(partner.ghlCalendarId, partnerLocationId);
+  } catch (err) {
+    console.error("[call-bookings] failed to load partner calendar duration:", err);
+    res.status(502).json({ error: "Could not load calendar configuration. Please try again." });
+    return;
+  }
+  const endAt = new Date(scheduledAt.getTime() + durationMinutes * 60000);
   const endTimeIso = isoWithMatchingOffset(endAt, startTime);
 
   const client = await pool.connect();
@@ -654,7 +672,7 @@ router.post("/onboarding/partner/book", async (req, res): Promise<void> => {
         ghlContactId: contactId,
         scheduledAt,
         endAt,
-        durationMinutes: PARTNER_CALL_DURATION_MINUTES,
+        durationMinutes,
         meetingUrl: appointment.meetLink,
         status: "booked",
       })
@@ -759,7 +777,8 @@ router.patch("/onboarding/partner/:id/reschedule", async (req, res): Promise<voi
       return;
     }
 
-    const endAt = new Date(scheduledAt.getTime() + PARTNER_CALL_DURATION_MINUTES * 60000);
+    const durationMinutes = await getCalendarDurationMinutes(partner.ghlCalendarId, partnerLocationId);
+    const endAt = new Date(scheduledAt.getTime() + durationMinutes * 60000);
     const endTimeIso = isoWithMatchingOffset(endAt, startTime);
 
     // Reschedule = cancel the old GHL appointment, then create a fresh one
@@ -794,6 +813,7 @@ router.patch("/onboarding/partner/:id/reschedule", async (req, res): Promise<voi
       .set({
         scheduledAt,
         endAt,
+        durationMinutes,
         ghlLocationId: partnerLocationId,
         ghlAppointmentId: appointment.id,
         meetingUrl: appointment.meetLink,
