@@ -72,6 +72,7 @@ export default function Account() {
   const [billingSmsOptIn, setBillingSmsOptIn] = useState(true);
   const [coachingSmsOptIn, setCoachingSmsOptIn] = useState(true);
   const [contentSmsOptIn, setContentSmsOptIn] = useState(false);
+  const [partnerCallSmsOptIn, setPartnerCallSmsOptIn] = useState(true);
   const [marketingOptIn, setMarketingOptIn] = useState(true);
 
   const [profileSaving, setProfileSaving] = useState(false);
@@ -105,6 +106,7 @@ export default function Account() {
       setBillingSmsOptIn(member.billingSmsOptIn ?? true);
       setCoachingSmsOptIn(member.coachingSmsOptIn ?? true);
       setContentSmsOptIn(member.contentSmsOptIn ?? false);
+      setPartnerCallSmsOptIn(member.partnerCallSmsOptIn ?? true);
       setMarketingOptIn(member.marketingOptIn ?? true);
     }
   }, [member]);
@@ -184,6 +186,7 @@ export default function Account() {
       billingSmsOptIn !== (member.billingSmsOptIn ?? true) ||
       coachingSmsOptIn !== (member.coachingSmsOptIn ?? true) ||
       contentSmsOptIn !== (member.contentSmsOptIn ?? false) ||
+      partnerCallSmsOptIn !== (member.partnerCallSmsOptIn ?? true) ||
       marketingOptIn !== (member.marketingOptIn ?? true));
 
   const handleProfileSave = async () => {
@@ -222,6 +225,7 @@ export default function Account() {
           billingSmsOptIn,
           coachingSmsOptIn,
           contentSmsOptIn,
+          partnerCallSmsOptIn,
           marketingOptIn,
         },
       });
@@ -918,6 +922,23 @@ export default function Account() {
                 disabled={!smsOptIn}
                 onCheckedChange={setContentSmsOptIn}
                 aria-label="Toggle new content alert texts"
+              />
+            </div>
+
+            <div className="flex items-start justify-between gap-4 py-2 pl-4 border-l-2 border-border/60 ml-1">
+              <div className="flex-1">
+                <p className="font-medium text-sm">Kickoff & partner call reminders</p>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Texts reminding you about upcoming kickoff and accountability
+                  partner calls. Turn this off to silence reminder texts while
+                  keeping your other SMS alerts. You'll always get the email.
+                </p>
+              </div>
+              <Switch
+                checked={smsOptIn && partnerCallSmsOptIn}
+                disabled={!smsOptIn}
+                onCheckedChange={setPartnerCallSmsOptIn}
+                aria-label="Toggle kickoff and partner call reminder texts"
               />
             </div>
 

@@ -11,6 +11,9 @@ import {
   announcementsTable,
   sequenceEnrollmentsTable,
   sequencesTable,
+  callBookingsTable,
+  kickoffCoachesTable,
+  partnersTable,
 } from "@workspace/db";
 import { eq, and, lt, lte, gte, gt, isNotNull, sql } from "drizzle-orm";
 import { enrollInSequence } from "./sequence-helpers";
@@ -19,6 +22,7 @@ import { recordCommsDedupFailure } from "./comms-dedup-failure-tracker";
 import { evaluateCommsDedupFailureAlert } from "./comms-dedup-failure-alerter";
 import { CommunicationService } from "./communication-service";
 import { QUEUE_REDIS_OPTIONS, makeThrottledRedisErrorLogger } from "./redis";
+import { formatInMemberTimezone } from "./member-timezone";
 
 const REDIS_URL = process.env.REDIS_URL || "redis://localhost:6379";
 const QUEUE_NAME = "scheduled-comms";
@@ -239,6 +243,182 @@ export async function processCoachingCallReminders(): Promise<void> {
           err
         );
       }
+    }
+  }
+}
+
+// Kickoff calls and accountability-partner calls (Task #1628) are both rows
+// in `call_bookings`, discriminated by `type` ("kickoff" | "partner") and
+// `staffType` ("kickoff_coach" | "partner"), which resolves against
+// `staffId` polymorphically (see the comment on call-bookings.ts). Unlike
+// group coaching calls, these are 1:1 bookings tied to a single member — so
+// eligibility comes straight from the booking row rather than an entitlement
+// query, and the reminder renders in that member's OWN timezone via
+// `formatInMemberTimezone` (never `CALL_DISPLAY_TIMEZONE`, which stays
+// reserved for the group coaching reminder above).
+async function resolveCallBookingStaffName(
+  staffType: string,
+  staffId: number,
+): Promise<string> {
+  if (staffType === "kickoff_coach") {
+    const [row] = await db
+      .select({ name: kickoffCoachesTable.displayName })
+      .from(kickoffCoachesTable)
+      .where(eq(kickoffCoachesTable.id, staffId))
+      .limit(1);
+    return row?.name ?? "your kickoff coach";
+  }
+  const [row] = await db
+    .select({ name: partnersTable.displayName })
+    .from(partnersTable)
+    .where(eq(partnersTable.id, staffId))
+    .limit(1);
+  return row?.name ?? "your accountability partner";
+}
+
+function callBookingTemplateSlug(type: string): string {
+  return type === "kickoff" ? "kickoff_call_reminder" : "partner_call_reminder";
+}
+
+export async function processCallBookingReminders(): Promise<void> {
+  const now = new Date();
+  const oneHourFromNow = new Date(now.getTime() + 60 * 60 * 1000);
+  const twentyFourHoursFromNow = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+
+  // --- 24h EMAIL reminders ---
+  const bookings24h = await db
+    .select({
+      id: callBookingsTable.id,
+      memberId: callBookingsTable.memberId,
+      type: callBookingsTable.type,
+      staffType: callBookingsTable.staffType,
+      staffId: callBookingsTable.staffId,
+      scheduledAt: callBookingsTable.scheduledAt,
+    })
+    .from(callBookingsTable)
+    .where(
+      and(
+        eq(callBookingsTable.status, "booked"),
+        gt(callBookingsTable.scheduledAt, oneHourFromNow),
+        lte(callBookingsTable.scheduledAt, twentyFourHoursFromNow),
+      ),
+    );
+
+  for (const booking of bookings24h) {
+    const sendKey = `call_booking_reminder_24h_email_${booking.id}`;
+    const isNew = await reserveSend(sendKey, "email", "call booking reminder 24h email");
+    if (!isNew) continue;
+
+    // Re-check the booking's live status right before sending: the dedup
+    // reservation above is keyed on the booking id, not its status, so a
+    // booking that got canceled/rescheduled between being queried above and
+    // now must still be skipped rather than firing a stale reminder.
+    const [fresh] = await db
+      .select({ status: callBookingsTable.status })
+      .from(callBookingsTable)
+      .where(eq(callBookingsTable.id, booking.id))
+      .limit(1);
+    if (fresh?.status !== "booked") continue;
+
+    const [member] = await db
+      .select({ id: usersTable.id, email: usersTable.email, name: usersTable.name, timezone: usersTable.timezone })
+      .from(usersTable)
+      .where(eq(usersTable.id, booking.memberId))
+      .limit(1);
+    if (!member?.email) continue;
+
+    const staffName = await resolveCallBookingStaffName(booking.staffType, booking.staffId);
+    const { date: callDate, time: callTime } = formatInMemberTimezone(booking.scheduledAt, member.timezone);
+
+    try {
+      await CommunicationService.queueEmail({
+        templateSlug: callBookingTemplateSlug(booking.type),
+        to: member.email,
+        variables: {
+          member_name: member.name,
+          staff_name: staffName,
+          call_date: callDate,
+          call_time: callTime,
+        },
+        userId: member.id,
+      });
+    } catch (err) {
+      console.error(
+        `[Scheduled Comms] Failed to queue ${booking.type} call reminder email for user ${member.id}, booking ${booking.id}:`,
+        err,
+      );
+    }
+  }
+
+  // --- 1h SMS reminders ---
+  const bookings1h = await db
+    .select({
+      id: callBookingsTable.id,
+      memberId: callBookingsTable.memberId,
+      type: callBookingsTable.type,
+      staffType: callBookingsTable.staffType,
+      staffId: callBookingsTable.staffId,
+      scheduledAt: callBookingsTable.scheduledAt,
+    })
+    .from(callBookingsTable)
+    .where(
+      and(
+        eq(callBookingsTable.status, "booked"),
+        gt(callBookingsTable.scheduledAt, now),
+        lte(callBookingsTable.scheduledAt, oneHourFromNow),
+      ),
+    );
+
+  for (const booking of bookings1h) {
+    // Gate the text in the caller — queueSms only re-checks the master
+    // smsOptIn, never the per-category partnerCallSmsOptIn — so select all
+    // three (master + category + phone) here before queueing. One category
+    // covers both kickoff and partner variants (see schema comment).
+    const [member] = await db
+      .select({
+        id: usersTable.id,
+        phone: usersTable.phone,
+        smsOptIn: usersTable.smsOptIn,
+        partnerCallSmsOptIn: usersTable.partnerCallSmsOptIn,
+      })
+      .from(usersTable)
+      .where(eq(usersTable.id, booking.memberId))
+      .limit(1);
+    if (!member?.phone || !member.smsOptIn || !member.partnerCallSmsOptIn) continue;
+
+    const sendKey = `call_booking_reminder_1h_sms_${booking.id}`;
+    const isNew = await reserveSend(sendKey, "sms", "call booking reminder 1h SMS");
+    if (!isNew) continue;
+
+    const [fresh] = await db
+      .select({ status: callBookingsTable.status })
+      .from(callBookingsTable)
+      .where(eq(callBookingsTable.id, booking.id))
+      .limit(1);
+    if (fresh?.status !== "booked") continue;
+
+    const staffName = await resolveCallBookingStaffName(booking.staffType, booking.staffId);
+
+    try {
+      const outcome = await CommunicationService.queueSms({
+        templateSlug: callBookingTemplateSlug(booking.type),
+        to: member.phone,
+        variables: { staff_name: staffName },
+        userId: member.id,
+      });
+      // CommunicationService/Twilio isn't configured in every environment —
+      // degrade gracefully to email-only (the 24h email above still went
+      // out) and report the degradation instead of failing the run.
+      if (outcome.result === "skipped" && outcome.reason === "provider_not_configured") {
+        console.warn(
+          `[Scheduled Comms] SMS provider not configured — ${booking.type} call reminder for booking ${booking.id} sent email-only.`,
+        );
+      }
+    } catch (err) {
+      console.error(
+        `[Scheduled Comms] Failed to queue ${booking.type} call reminder SMS for user ${member.id}, booking ${booking.id}:`,
+        err,
+      );
     }
   }
 }
@@ -754,6 +934,7 @@ async function processScheduledComms(): Promise<void> {
   console.log("[Scheduled Comms] Running scheduled communications check");
 
   await processCoachingCallReminders();
+  await processCallBookingReminders();
   await processNewContentAlerts();
   await processMentorshipExpirationWarnings();
   await processSessionFeedbackPrompts();

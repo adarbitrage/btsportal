@@ -725,6 +725,36 @@ const marketingEmailTemplates = [
     variables: ["member_name", "announcement_title", "announcement_body", "portal_url", "current_year"],
   },
   {
+    slug: "kickoff_call_reminder",
+    name: "Kickoff Call Reminder",
+    subject: "Your kickoff call is tomorrow",
+    htmlBody: wrapHtml("Kickoff Call Reminder", `
+<h2 style="color:#1a1a2e;margin-top:0;">Your Kickoff Call Is Tomorrow</h2>
+<p>Hi {{member_name}},</p>
+<p>Don't forget — your kickoff call with {{staff_name}} is coming up:</p>
+<p style="background:#f0f0ff;padding:15px;border-radius:6px;"><strong>{{call_date}} at {{call_time}}</strong></p>
+<p><a href="{{portal_url}}/onboarding" style="display:inline-block;background:#4f46e5;color:#ffffff;padding:12px 24px;border-radius:6px;text-decoration:none;font-weight:bold;">View Details</a></p>
+<p>The BTS Team</p>`),
+    textBody: "Hi {{member_name}},\n\nYour kickoff call with {{staff_name}} is tomorrow: {{call_date}} at {{call_time}}.\n\nDetails: {{portal_url}}/onboarding\n\nThe BTS Team",
+    category: "marketing",
+    variables: ["member_name", "staff_name", "call_date", "call_time", "portal_url", "current_year"],
+  },
+  {
+    slug: "partner_call_reminder",
+    name: "Accountability Partner Call Reminder",
+    subject: "Your accountability partner call is tomorrow",
+    htmlBody: wrapHtml("Partner Call Reminder", `
+<h2 style="color:#1a1a2e;margin-top:0;">Your Partner Call Is Tomorrow</h2>
+<p>Hi {{member_name}},</p>
+<p>Don't forget — your accountability call with {{staff_name}} is coming up:</p>
+<p style="background:#f0f0ff;padding:15px;border-radius:6px;"><strong>{{call_date}} at {{call_time}}</strong></p>
+<p><a href="{{portal_url}}/accountability-partner" style="display:inline-block;background:#4f46e5;color:#ffffff;padding:12px 24px;border-radius:6px;text-decoration:none;font-weight:bold;">View Details</a></p>
+<p>The BTS Team</p>`),
+    textBody: "Hi {{member_name}},\n\nYour accountability call with {{staff_name}} is tomorrow: {{call_date}} at {{call_time}}.\n\nDetails: {{portal_url}}/accountability-partner\n\nThe BTS Team",
+    category: "marketing",
+    variables: ["member_name", "staff_name", "call_date", "call_time", "portal_url", "current_year"],
+  },
+  {
     slug: "event_invitation",
     name: "Event Invitation",
     subject: "You're invited: {{event_title}}",
@@ -813,6 +843,18 @@ const smsTemplates = [
     name: "Support Ticket Reply SMS",
     body: "BTS: Support just replied to your ticket #{{ticket_number}}. Read it: {{portal_url}}/support/tickets/{{ticket_id}}",
     variables: ["ticket_number", "ticket_id", "portal_url"],
+  },
+  {
+    slug: "kickoff_call_reminder",
+    name: "Kickoff Call Reminder SMS",
+    body: "BTS: Your kickoff call with {{staff_name}} starts soon. Details: {{portal_url}}/onboarding",
+    variables: ["staff_name", "portal_url"],
+  },
+  {
+    slug: "partner_call_reminder",
+    name: "Accountability Partner Call Reminder SMS",
+    body: "BTS: Your accountability call with {{staff_name}} starts soon. Details: {{portal_url}}/accountability-partner",
+    variables: ["staff_name", "portal_url"],
   },
 ];
 
@@ -926,6 +968,8 @@ export const REQUIRED_TEMPLATE_SLUGS = [
   "concierge_task_created",
   "compliance_review_created",
   "payment_failed_final",
+  "kickoff_call_reminder",
+  "partner_call_reminder",
 ] as const;
 
 /**
@@ -936,6 +980,8 @@ export const REQUIRED_TEMPLATE_SLUGS = [
  */
 export const REQUIRED_SMS_TEMPLATE_SLUGS = [
   "session_recording_ready",
+  "kickoff_call_reminder",
+  "partner_call_reminder",
 ] as const;
 
 /**

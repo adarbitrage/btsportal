@@ -134,3 +134,5 @@
 - [Partner dashboard scoping + shared mark-done](partner-dashboard-scoping.md) — partner sees own roster only, admin needs ?partnerId=, admin is read-only even with partners:view; call-done MUST go through markPartnerCallDone (a future webhook-driven completion path must reuse it).
 - [Per-row GHL location](ghl-per-row-location.md) — separate GHL sub-accounts per calendar-holder type; round-robin tests must isolate active rows in a shared dev DB.
 - [Call duration from GHL calendar config](call-duration-from-calendar-config.md) — appointment length must read the calendar's `slotDuration`, never the free-slot grid spacing (a separate `slotInterval`); mock stacking (`mockImplementationOnce`) leaks between tests if call counts per test aren't tracked exactly.
+- [Kickoff/partner call reminders](call-booking-reminders.md) — one SMS category covers both variants; per-member timezone formatter kept separate from group-coaching's fixed-zone one; dedup keyed per-booking.
+- [Backfill: rewrite stored old-brand refs in AI source content (#1605)](backfill-brand-refs.md) — rewrites old branding strings in AI corpus sources; idempotent backfill script.

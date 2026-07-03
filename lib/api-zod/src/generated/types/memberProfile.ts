@@ -67,6 +67,12 @@ under the master smsOptIn. Defaults off (marketing-ish). Email
 always sends regardless.
  */
   contentSmsOptIn: boolean;
+  /** Per-category SMS preference for kickoff-call AND accountability
+partner-call reminder texts (one category covers both). Gated
+under the master smsOptIn. Defaults on. Email always sends
+regardless.
+ */
+  partnerCallSmsOptIn: boolean;
   marketingOptIn: boolean;
   currentStreak: number;
   memberSince: string;

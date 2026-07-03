@@ -22,6 +22,11 @@ export const usersTable = pgTable("users", {
   billingSmsOptIn: boolean("billing_sms_opt_in").notNull().default(true),
   coachingSmsOptIn: boolean("coaching_sms_opt_in").notNull().default(true),
   contentSmsOptIn: boolean("content_sms_opt_in").notNull().default(false),
+  // Governs texts for BOTH kickoff-call and accountability-partner-call
+  // reminders (Task #1628) — one category covers both variants, matching how
+  // the call_bookings table itself treats them as one "call" concept with a
+  // `type` discriminator.
+  partnerCallSmsOptIn: boolean("partner_call_sms_opt_in").notNull().default(true),
   emailVerified: boolean("email_verified").notNull().default(false),
   emailVerifyToken: text("email_verify_token"),
   emailVerifyExpires: timestamp("email_verify_expires", { withTimezone: true }),
