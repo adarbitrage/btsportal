@@ -1,0 +1,13 @@
+Read-only question, change nothing. I need to learn how this app (BTS portal) successfully serves Vidalytics videos, because a sibling app (The Machine, getthemachine.com) has embedded the same Vidalytics account's videos but they render the player and then show "This video can't be played right now — if this is your video, log into your Vidalytics.com account to fix it" — even though the video is published and getthemachine.com + *.getthemachine.com are whitelisted in Vidalytics. On BTS, all Vidalytics videos play correctly. I want to know exactly what BTS does differently. Please report:
+
+1. HOW BTS EMBEDS VIDALYTICS: Show the exact Vidalytics embed implementation BTS uses — the embed snippet/loader, and how it's rendered (a React component? a raw script injection? an iframe?). Which Vidalytics loader URL pattern does it use (e.g. fast.vidalytics.com/embeds/<account>/<videoId>/...)? Show the file:line of the embed component and how a video id is passed in.
+
+2. DOMAIN / REFERRER: What domain does BTS serve Vidalytics embeds from (the actual page domain), and is that domain fronted by Cloudflare or served directly? Is there anything BTS does about the referrer/origin header sent to Vidalytics — any header manipulation, referrer-policy meta tag, or Cloudflare setting that affects what domain Vidalytics sees as the embedding origin? (The theory is Vidalytics may block playback if the origin/referrer it receives doesn't match the whitelist — e.g. if Cloudflare or a proxy changes what Vidalytics sees.)
+
+3. ANY VIDALYTICS-SPECIFIC CONFIG: Does BTS set any referrer-policy, Content-Security-Policy, or Permissions-Policy headers/meta that affect Vidalytics playback? Is there a specific referrerpolicy attribute on the embed, or a meta referrer tag in the HTML head? Anything in the Cloudflare/worker config that passes or preserves the Referer/Origin header to Vidalytics?
+
+4. WAS THIS EVER A PROBLEM ON BTS: Is there any record (code comments, memory, past task) of BTS having hit this exact "video can't be played" issue and fixing it? If so, what was the fix?
+
+5. THE EMBED METHOD SPECIFICALLY: Does BTS use the single-video embed loader or the multi-instance embed loader from Vidalytics? And does it load videos by embed id in a div, or via an iframe embed? (The Machine uses the multi-instance div-based embed with a per-instance-unique React wrapper — I want to know if BTS uses a different method that avoids the playback block.)
+
+Report findings with file:line and specifics. Change nothing.
