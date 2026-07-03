@@ -11,6 +11,7 @@ import {
   applyVaFilenameAutofill,
   type VaAutofillFields,
   titleFollowsGrammar,
+  coachOnlyPrivateCoachingTitle,
   detectRosterAuthority,
   extractJson,
   parseCleanerReply,
@@ -351,6 +352,43 @@ describe("titleFollowsGrammar", () => {
     expect(titleFollowsGrammar("1-on-1 VA — Website Setup", va)).toBe(true);
     // A title under the WRONG slug is rejected.
     expect(titleFollowsGrammar("Doc — Refund Policy", pc)).toBe(false);
+  });
+});
+
+describe("coachOnlyPrivateCoachingTitle (filed-transcript backfill, Task #1668)", () => {
+  it("drops the member name from an old member-bearing title", () => {
+    expect(
+      coachOnlyPrivateCoachingTitle("Private Coaching — Adam Field (Coach Sasha) — 2025-01-14"),
+    ).toBe("Private Coaching — Coach Sasha — 2025-01-14");
+    // No trailing date.
+    expect(
+      coachOnlyPrivateCoachingTitle("Private Coaching — Cheryl L Rodriguez (Coach Bruce)"),
+    ).toBe("Private Coaching — Coach Bruce");
+    // Bare authority (no coach name) still drops the member.
+    expect(
+      coachOnlyPrivateCoachingTitle("Private Coaching — Adam Field (Coach)"),
+    ).toBe("Private Coaching — Coach");
+    // VA authority is preserved.
+    expect(
+      coachOnlyPrivateCoachingTitle("Private Coaching — Adam Field (VA John) — 2025-03-02"),
+    ).toBe("Private Coaching — VA John — 2025-03-02");
+  });
+
+  it("is idempotent: leaves already coach-only titles untouched", () => {
+    expect(coachOnlyPrivateCoachingTitle("Private Coaching — Coach Sasha — 2025-01-14")).toBeNull();
+    expect(coachOnlyPrivateCoachingTitle("Private Coaching — Coach")).toBeNull();
+    expect(coachOnlyPrivateCoachingTitle("Private Coaching — VA John")).toBeNull();
+  });
+
+  it("leaves other / hand-edited / non-private titles untouched", () => {
+    // A private coaching title in some other shape (can't safely locate member).
+    expect(coachOnlyPrivateCoachingTitle("Private Coaching — Cheryl L Rodriguez")).toBeNull();
+    expect(coachOnlyPrivateCoachingTitle("Q1 Strategy Deep-Dive")).toBeNull();
+    // Other call types are never touched by this private-coaching-only backfill.
+    expect(coachOnlyPrivateCoachingTitle("1-on-1 VA — Donald Hayes (VA John)")).toBeNull();
+    expect(coachOnlyPrivateCoachingTitle("Group Coaching — Coach Sasha")).toBeNull();
+    expect(coachOnlyPrivateCoachingTitle("")).toBeNull();
+    expect(coachOnlyPrivateCoachingTitle(null)).toBeNull();
   });
 });
 

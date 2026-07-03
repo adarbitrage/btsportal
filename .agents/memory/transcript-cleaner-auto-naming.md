@@ -74,3 +74,13 @@ coach-first-name privacy convention (`Coach {First}` / `VA {First}`).
 - `retitleCleanedHoldingDocs()` is an idempotent boot hook (app.ts) that re-titles
   status=`cleaned` docs whose title doesn't yet follow the grammar; deterministic,
   no AI call, never blanks an existing title. Skips docs via `titleFollowsGrammar`.
+- FILED private coaching transcripts land in `ai_source_documents`
+  (source_type=`private_coaching`), NOT knowledgebase_docs. `retitleFiledPrivateCoachingDocs()`
+  is a separate boot hook that strips the member name from their OLD member-bearing
+  titles (`Private Coaching — {Member} (Coach {First})[ — date]` → coach-only). It's
+  pure TITLE SURGERY via `coachOnlyPrivateCoachingTitle(title)` — lifts the authority +
+  date verbatim from the existing title (no body/roster/AI), so it does NOT depend on
+  the coach roster seed and runs as its OWN independent top-level call in app.ts (the
+  roster seed frequently fails in dev on a coaches_user_id_unique dup, which would
+  otherwise skip anything chained behind it). Only the exact old member-bearing shape
+  is rewritten; already-conforming and any other/hand-edited title is left untouched.

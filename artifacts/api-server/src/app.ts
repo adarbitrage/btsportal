@@ -38,7 +38,7 @@ import { seedMediaMavens } from "./lib/seed-media-mavens";
 import { seedModerationWordlist } from "./lib/seed-moderation-wordlist";
 import { seedAssistantCards } from "./lib/seed-assistant-cards";
 import { seedCoachRoster, generateWeeklyQaCalls } from "./lib/coaching-roster";
-import { retitleCleanedHoldingDocs, resetStuckCleaningDocs } from "./lib/transcript-cleaner";
+import { retitleCleanedHoldingDocs, retitleFiledPrivateCoachingDocs, resetStuckCleaningDocs } from "./lib/transcript-cleaner";
 import { subscribeWordlistInvalidations } from "./lib/moderation/wordlist";
 // seedYseProducts is intentionally NOT imported/run here — it must complete
 // BEFORE the server starts accepting traffic (the /api/integrations/machine-purchase
@@ -151,6 +151,12 @@ seedCoachRoster()
   // after the roster is seeded — otherwise a fresh boot can miss coach names.
   .then(() => retitleCleanedHoldingDocs())
   .catch(err => console.error("[Seed] Failed to seed coaching roster / weekly calls / re-title transcripts:", err));
+// Strip member names from private coaching transcripts already FILED into the AI
+// Source Knowledge library (Task #1668). Deterministic title surgery with no AI
+// call and no roster dependency, so it runs independently of the roster seed.
+retitleFiledPrivateCoachingDocs()
+  .then(n => console.log(`[Bootstrap] Filed private coaching transcript titles: ${n} member-name(s) stripped.`))
+  .catch(err => console.error("[Seed] Failed to re-title filed private coaching transcripts:", err));
 // Recover any transcript-cleaner docs left mid-clean by a restart so they never
 // appear permanently stuck in `cleaning` (cleaning runs in-process, see the
 // clean-batch route). Idempotent — safe on every boot.

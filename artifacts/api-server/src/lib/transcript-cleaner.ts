@@ -29,7 +29,7 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { getAnthropicClient } from "@workspace/integrations-anthropic-ai";
-import { db, coachesTable, mediaMavensProductsTable, transcriptCleanerDocumentsTable } from "@workspace/db";
+import { db, coachesTable, mediaMavensProductsTable, transcriptCleanerDocumentsTable, aiSourceDocumentsTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import {
   OLD_BRAND_REBRAND_GUIDANCE,
@@ -1691,6 +1691,81 @@ export async function retitleCleanedHoldingDocs(): Promise<number> {
       .update(transcriptCleanerDocumentsTable)
       .set({ title, suggestedTitle: title, titleNeedsInput })
       .where(eq(transcriptCleanerDocumentsTable.id, doc.id));
+    updated++;
+  }
+  return updated;
+}
+
+/**
+ * The member-bearing shape old private coaching transcripts were filed with
+ * before Task #1667 made private coaching coach-only:
+ * `Private Coaching — {Member} (Coach {First})[ — YYYY-MM-DD]`. The parenthetical
+ * authority (never present in the coach-only shape) is what distinguishes it.
+ * Captures the authority (group 1, e.g. "Coach Sasha" / "VA") and the optional
+ * trailing ISO date part (group 2, incl. its leading " — ").
+ */
+const OLD_MEMBER_PRIVATE_COACHING_TITLE =
+  /^Private Coaching — .+ \(((?:Coach|VA)(?: [^)]+)?)\)( — \d{4}-\d{2}-\d{2})?$/;
+
+/**
+ * Given a filed private coaching title, return the coach-only rewrite
+ * (`Private Coaching — Coach {First}[ — YYYY-MM-DD]`) when — and only when — the
+ * title is the old member-bearing shape. Returns null for a title that already
+ * follows the coach-only grammar (idempotent) or any other / hand-edited shape
+ * (left untouched). Pure and deterministic — the DB backfill wraps it.
+ */
+export function coachOnlyPrivateCoachingTitle(
+  title: string | null | undefined,
+): string | null {
+  const current = (title ?? "").trim();
+  if (!current) return null;
+  const folder = resolveSourceFolder("private_coaching");
+  if (titleFollowsGrammar(current, folder)) return null;
+  const m = OLD_MEMBER_PRIVATE_COACHING_TITLE.exec(current);
+  if (!m) return null;
+  const authority = m[1].trim();
+  const datePart = m[2] ?? "";
+  const rewritten = `Private Coaching — ${authority}${datePart}`;
+  return rewritten === current ? null : rewritten;
+}
+
+/**
+ * Boot backfill (Task #1668): drop the member name from private coaching
+ * transcripts that were ALREADY FILED into the AI Source Knowledge library
+ * (`ai_source_documents`) before private coaching became coach-only. Their
+ * titles still carry the member name (`Private Coaching — {Member} (Coach …)`),
+ * which is searchable, so this rewrites them to the coach-only grammar
+ * `Private Coaching — Coach {First}[ — YYYY-MM-DD]`.
+ *
+ * - Only touches `source_type = 'private_coaching'` rows (1-on-1 VA and Group
+ *   Coaching filed titles are untouched).
+ * - Deterministic title surgery, no AI call: the authority + date are lifted
+ *   verbatim from the existing title, so the coach-first-name privacy shape the
+ *   system already produced is preserved exactly, minus the member.
+ * - Idempotent: titles already following the coach-only grammar are skipped, and
+ *   after a rewrite the title no longer matches the member-bearing shape.
+ * - Only the known member-bearing shape is rewritten; any other / admin
+ *   hand-edited title is left untouched (we can't safely locate the member name
+ *   in an unknown shape).
+ *
+ * Returns the number of docs updated.
+ */
+export async function retitleFiledPrivateCoachingDocs(): Promise<number> {
+  const folder = resolveSourceFolder("private_coaching");
+  const docs = await db
+    .select()
+    .from(aiSourceDocumentsTable)
+    .where(eq(aiSourceDocumentsTable.sourceType, "private_coaching"));
+
+  let updated = 0;
+  for (const doc of docs) {
+    const title = coachOnlyPrivateCoachingTitle(doc.title);
+    if (!title) continue;
+
+    await db
+      .update(aiSourceDocumentsTable)
+      .set({ title })
+      .where(eq(aiSourceDocumentsTable.id, doc.id));
     updated++;
   }
   return updated;
