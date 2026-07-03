@@ -28,6 +28,14 @@ export const usersTable = pgTable("users", {
   // does not silently reshuffle an in-progress member's step array (that
   // re-entry behavior is explicitly deferred to a later upgrade-hook task).
   onboardingVariant: text("onboarding_variant").notNull().default("full"),
+  // Durable audit marker (Task #1643, TB2): true only for members who were
+  // force-completed by the one-time grandfather backfill, never for members
+  // who organically completed onboarding through the real flow. Lets support
+  // answer "why does this member show onboarding complete with no kickoff
+  // booking" from the data forever, even after onboardingComplete/step no
+  // longer show any trace of how completion happened. See
+  // lib/grandfather-backfill.ts in api-server for the backfill itself.
+  grandfathered: boolean("grandfathered").notNull().default(false),
   experienceLevel: text("experience_level"),
   primaryGoal: text("primary_goal"),
   smsOptIn: boolean("sms_opt_in").notNull().default(false),
