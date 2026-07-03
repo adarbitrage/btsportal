@@ -129,6 +129,7 @@ async function affectedNodesWithLiveDocs(sourceDocIds: number[]): Promise<string
       AND ${aiLiveDocumentsTable.docClass} IN ('curated','overview')
       AND ${aiLiveDocumentsTable.lastVerified} IS NOT NULL
       AND ${aiLiveDocumentsTable.audience} <> 'admin'
+      AND ${aiLiveDocumentsTable.deletedAt} IS NULL
       AND ${aiLiveDocumentsTable.title} NOT ILIKE 'What is %'
     `);
   return [

@@ -66,6 +66,16 @@ export const aiLiveDocumentsTable = pgTable(
     handoff: text("handoff"),
     // Human-verification stamp — the citable gate. NULL = held / not yet citable.
     lastVerified: timestamp("last_verified", { withTimezone: true }),
+    // Soft-delete tombstone (Task #1665). NULL = live. When set, the doc is
+    // excluded from every retrieval path but the row (and its version history)
+    // is preserved so an admin can restore it. Nothing is ever hard-deleted.
+    deletedAt: timestamp("deleted_at", { withTimezone: true }),
+    // Automated "source changed" signal (Task #1665). Stamped when a scan detects
+    // that the source material feeding this doc's topic node materially changed,
+    // so the admin UI can badge it "likely needs updating". Cleared when an
+    // approved revision supersedes the doc (or the admin dismisses the flag).
+    flaggedStaleAt: timestamp("flagged_stale_at", { withTimezone: true }),
+    flaggedReason: text("flagged_reason"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true })
       .notNull()

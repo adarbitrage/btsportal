@@ -787,7 +787,7 @@ export function reloadKnowledgeBaseCache() {
   return adminFetch<{ success: boolean; message: string }>("/admin/chat/knowledgebase/reload", { method: "POST" });
 }
 
-// ── Live AI Documents (AI Knowledgebase — phase-1 clean corpus) ──────────────
+// ── Live AI Documents (AI Knowledgebase — the assistant's citable corpus) ────
 export interface AiLiveDocument {
   id: number;
   title: string;
@@ -795,14 +795,19 @@ export interface AiLiveDocument {
   category: string;
   content: string;
   chunkCount: number;
+  node: string | null;
+  deletedAt: string | null;
+  flaggedStaleAt: string | null;
+  flaggedReason: string | null;
   createdAt: string;
   updatedAt: string;
 }
 
-export function fetchAiLiveDocuments(params?: { category?: string; search?: string }) {
+export function fetchAiLiveDocuments(params?: { category?: string; search?: string; deleted?: boolean }) {
   const qs = new URLSearchParams();
   if (params?.category) qs.set("category", params.category);
   if (params?.search) qs.set("search", params.search);
+  if (params?.deleted) qs.set("deleted", "true");
   return adminFetch<AiLiveDocument[]>(`/admin/ai-live-documents?${qs.toString()}`);
 }
 
@@ -813,6 +818,8 @@ export function createAiLiveDocument(data: { title: string; category: string; co
   });
 }
 
+// Direct edit — the admin escape hatch (bypasses the review loop + version
+// snapshot). The UI gates this behind an explicit confirmation.
 export function updateAiLiveDocument(id: number, data: { title?: string; category?: string; content?: string; slug?: string }) {
   return adminFetch<AiLiveDocument>(`/admin/ai-live-documents/${id}`, {
     method: "PUT",
@@ -820,8 +827,41 @@ export function updateAiLiveDocument(id: number, data: { title?: string; categor
   });
 }
 
+// Soft-delete (reversible).
 export function deleteAiLiveDocument(id: number) {
   return adminFetch<{ success: boolean }>(`/admin/ai-live-documents/${id}`, { method: "DELETE" });
+}
+
+export function restoreAiLiveDocument(id: number) {
+  return adminFetch<AiLiveDocument>(`/admin/ai-live-documents/${id}/restore`, { method: "POST" });
+}
+
+// Primary edit path: create a revision draft in the review queue.
+export function sendAiLiveDocumentToReview(id: number, note?: string) {
+  return adminFetch<{ success: boolean; draftId: number }>(`/admin/ai-live-documents/${id}/send-to-review`, {
+    method: "POST",
+    body: JSON.stringify({ note: note ?? "" }),
+  });
+}
+
+export interface AiLiveSourceScanResult {
+  scanned: number;
+  changed: number;
+  material: number;
+  affectedNodes: string[];
+  flaggedDocIds: number[];
+}
+
+export function scanAiLiveSourceChanges() {
+  return adminFetch<AiLiveSourceScanResult>(`/admin/ai-live-documents/scan-source-changes`, { method: "POST" });
+}
+
+export function dismissAiLiveDocumentFlag(id: number) {
+  return adminFetch<AiLiveDocument>(`/admin/ai-live-documents/${id}/dismiss-flag`, { method: "POST" });
+}
+
+export function proposeAiLiveDocumentUpdate(id: number) {
+  return adminFetch<{ success: boolean; draftId: number | null }>(`/admin/ai-live-documents/${id}/propose-update`, { method: "POST" });
 }
 
 // ── AI Source Knowledge (the raw-source mining layer) ───────────────────────

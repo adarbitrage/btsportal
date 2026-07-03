@@ -709,6 +709,9 @@ router.post("/push-approved", async (_req: Request, res: Response) => {
                 handoff: doc.handoff,
                 lastVerified: sql`NOW()`,
                 updatedAt: sql`NOW()`,
+                // An approved revision resolves any "source changed" stale flag.
+                flaggedStaleAt: null,
+                flaggedReason: null,
               })
               .where(eq(aiLiveDocumentsTable.id, target.id));
 

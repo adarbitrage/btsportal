@@ -8,7 +8,12 @@ import { CITABLE_DOC_CLASSES } from "./kb-taxonomy";
  * A doc is CITABLE only when:
  *   - its `doc_class` is a citable class (curated / overview) — this excludes
  *     `transcript` training material outright; AND
- *   - a human has verified it (`last_verified IS NOT NULL`).
+ *   - a human has verified it (`last_verified IS NOT NULL`); AND
+ *   - it has not been soft-deleted (`deleted_at IS NULL`) — Task #1665.
+ *
+ * NOTE: this fragment is used ONLY against `ai_live_documents` (the assistant's
+ * corpus), which is the sole table carrying `deleted_at`. Keep it that way; if a
+ * future caller applies it to another table, split the soft-delete predicate out.
  *
  * This realises the pre-launch clean slate: with every row currently held
  * (last_verified NULL), the citable set starts effectively empty and is rebuilt
@@ -24,5 +29,5 @@ export function citableDocFilter(): SQL {
     CITABLE_DOC_CLASSES.map((c) => sql`${c}`),
     sql`, `,
   );
-  return sql`doc_class IN (${classes}) AND last_verified IS NOT NULL`;
+  return sql`doc_class IN (${classes}) AND last_verified IS NOT NULL AND deleted_at IS NULL`;
 }

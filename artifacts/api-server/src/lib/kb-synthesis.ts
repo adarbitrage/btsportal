@@ -443,6 +443,7 @@ async function findLiveDocForNode(nodeSlug: string): Promise<LiveDocMatch | null
       AND ${aiLiveDocumentsTable.docClass} IN ('curated','overview')
       AND ${aiLiveDocumentsTable.lastVerified} IS NOT NULL
       AND ${aiLiveDocumentsTable.audience} <> 'admin'
+      AND ${aiLiveDocumentsTable.deletedAt} IS NULL
       AND ${aiLiveDocumentsTable.title} NOT ILIKE 'What is %'
     `)
     .orderBy(desc(aiLiveDocumentsTable.updatedAt))
@@ -464,6 +465,7 @@ async function findLiveDocByTitle(title: string): Promise<LiveDocMatch | null> {
       AND ${aiLiveDocumentsTable.docClass} IN ('curated','overview')
       AND ${aiLiveDocumentsTable.lastVerified} IS NOT NULL
       AND ${aiLiveDocumentsTable.audience} <> 'admin'
+      AND ${aiLiveDocumentsTable.deletedAt} IS NULL
     `)
     .limit(1);
   return rows[0] ?? null;

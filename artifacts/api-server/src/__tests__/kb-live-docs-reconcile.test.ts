@@ -3,16 +3,17 @@ import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
 import { syncCitableDocsToLiveDocuments } from "../lib/bootstrap-critical-prerequisites";
 
-// Regression guard for the AUTHORITATIVE legacy -> ai_live_documents mirror.
+// Regression guard for the legacy -> ai_live_documents seed (Task #1665).
 //
-// The assistant retrieves from `ai_live_documents`, but several paths (admin KB
-// CRUD, seeders, kb-flags) keep writing the citable set into legacy
-// `knowledgebase_docs`. `syncCitableDocsToLiveDocuments()` reconciles the two.
-// It must be authoritative (upsert + prune), NOT append-only: when a legacy doc
-// stops being citable (verification cleared / doc_class demoted / deleted), the
-// mirror row has to disappear so the assistant stops citing a stale doc. Docs
-// published DIRECTLY into ai_live by the staging push (which records a
-// kb_doc_provenance row) must survive the prune.
+// The assistant retrieves from `ai_live_documents`, which is now the
+// AUTHORITATIVE, editable home for its corpus (edited via the review loop, the
+// direct escape hatch, or soft-delete). `syncCitableDocsToLiveDocuments()` is a
+// FILL-IF-EMPTY seed, NOT an authoritative mirror:
+//   1. It INSERTS only docs that are missing (ON CONFLICT (title) DO NOTHING) —
+//      it must never overwrite the content of an existing Live AI Document, so
+//      approved revisions and manual edits survive every restart.
+//   2. It NEVER PRUNES — a legacy revocation must not silently hard-delete a
+//      Live AI Document. Retiring a doc is the soft-delete path's job.
 
 const TOKEN = "zzqxreconciletoken";
 const MIRROR_TITLE = `Reconcile Mirror ${TOKEN}`;
@@ -32,7 +33,14 @@ async function aiLiveTitles(): Promise<string[]> {
   return (rows.rows ?? []).map((r) => r.title);
 }
 
-describe("syncCitableDocsToLiveDocuments is authoritative (upsert + prune)", () => {
+async function aiLiveContent(title: string): Promise<string | null> {
+  const rows = await db.execute<{ content: string }>(
+    sql`SELECT content FROM ai_live_documents WHERE title = ${title} LIMIT 1`,
+  );
+  return rows.rows[0]?.content ?? null;
+}
+
+describe("syncCitableDocsToLiveDocuments is a fill-if-empty seed (no overwrite, no prune)", () => {
   beforeEach(async () => {
     await cleanup();
   });
@@ -41,25 +49,35 @@ describe("syncCitableDocsToLiveDocuments is authoritative (upsert + prune)", () 
     await cleanup();
   });
 
-  it("mirrors a newly-citable legacy doc, then prunes it when it stops being citable", async () => {
-    // A human-verified curated legacy doc becomes citable.
+  it("seeds a newly-citable legacy doc that has no Live AI Document yet", async () => {
     await db.execute(sql`
       INSERT INTO knowledgebase_docs (title, category, content, audience, doc_class, last_verified)
       VALUES (${MIRROR_TITLE}, 'operations', ${"A verified answer about " + TOKEN}, 'member', 'curated', NOW())
     `);
     await syncCitableDocsToLiveDocuments();
     expect(await aiLiveTitles()).toContain(MIRROR_TITLE);
-
-    // Simulate an admin edit that revokes citability (clear last_verified). The
-    // assistant must stop seeing it after the next reconcile — proving prune.
-    await db.execute(sql`
-      UPDATE knowledgebase_docs SET last_verified = NULL WHERE title = ${MIRROR_TITLE}
-    `);
-    await syncCitableDocsToLiveDocuments();
-    expect(await aiLiveTitles()).not.toContain(MIRROR_TITLE);
   });
 
-  it("prunes the mirror row when the legacy doc is deleted outright", async () => {
+  it("never overwrites the content of an existing Live AI Document", async () => {
+    // Legacy doc + its seeded mirror.
+    await db.execute(sql`
+      INSERT INTO knowledgebase_docs (title, category, content, audience, doc_class, last_verified)
+      VALUES (${MIRROR_TITLE}, 'operations', ${"Original legacy content " + TOKEN}, 'member', 'curated', NOW())
+    `);
+    await syncCitableDocsToLiveDocuments();
+
+    // Simulate an admin edit / approved revision applied directly to the Live doc.
+    const EDITED = `Admin-edited content ${TOKEN}`;
+    await db.execute(sql`UPDATE ai_live_documents SET content = ${EDITED} WHERE title = ${MIRROR_TITLE}`);
+
+    // Legacy content drifts (or a boot re-runs the seed). The edit must survive.
+    await db.execute(sql`UPDATE knowledgebase_docs SET content = ${"Legacy changed " + TOKEN} WHERE title = ${MIRROR_TITLE}`);
+    await syncCitableDocsToLiveDocuments();
+
+    expect(await aiLiveContent(MIRROR_TITLE)).toBe(EDITED);
+  });
+
+  it("does NOT prune a Live AI Document when its legacy source stops being citable", async () => {
     await db.execute(sql`
       INSERT INTO knowledgebase_docs (title, category, content, audience, doc_class, last_verified)
       VALUES (${MIRROR_TITLE}, 'operations', ${"Another verified answer about " + TOKEN}, 'member', 'curated', NOW())
@@ -67,14 +85,18 @@ describe("syncCitableDocsToLiveDocuments is authoritative (upsert + prune)", () 
     await syncCitableDocsToLiveDocuments();
     expect(await aiLiveTitles()).toContain(MIRROR_TITLE);
 
+    // Legacy revocation (verification cleared) then legacy deletion. Neither may
+    // hard-delete the Live AI Document — retirement is the soft-delete path.
+    await db.execute(sql`UPDATE knowledgebase_docs SET last_verified = NULL WHERE title = ${MIRROR_TITLE}`);
+    await syncCitableDocsToLiveDocuments();
+    expect(await aiLiveTitles()).toContain(MIRROR_TITLE);
+
     await db.execute(sql`DELETE FROM knowledgebase_docs WHERE title = ${MIRROR_TITLE}`);
     await syncCitableDocsToLiveDocuments();
-    expect(await aiLiveTitles()).not.toContain(MIRROR_TITLE);
+    expect(await aiLiveTitles()).toContain(MIRROR_TITLE);
   });
 
-  it("preserves push-published ai_live docs (provenance-backed) across prune", async () => {
-    // A doc published DIRECTLY into ai_live by the staging push: it has NO legacy
-    // twin, but it DOES get a kb_doc_provenance row. It must survive the prune.
+  it("preserves push-published ai_live docs (provenance-backed) across the seed", async () => {
     const inserted = await db.execute<{ id: number }>(sql`
       INSERT INTO ai_live_documents (title, category, content, audience, doc_class, last_verified)
       VALUES (${PUBLISHED_TITLE}, 'operations', ${"A published answer about " + TOKEN}, 'member', 'curated', NOW())
@@ -83,10 +105,8 @@ describe("syncCitableDocsToLiveDocuments is authoritative (upsert + prune)", () 
     const docId = inserted.rows[0].id;
     await db.execute(sql`INSERT INTO kb_doc_provenance (doc_id, relation) VALUES (${docId}, 'source')`);
 
-    // Run the reconcile with no matching legacy doc for this title.
     await syncCitableDocsToLiveDocuments();
 
-    // The provenance discriminator keeps it: still present after prune.
     expect(await aiLiveTitles()).toContain(PUBLISHED_TITLE);
   });
 });

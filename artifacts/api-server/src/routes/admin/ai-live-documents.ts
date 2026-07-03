@@ -1,14 +1,26 @@
 import { Router, type IRouter } from "express";
-import { db, aiLiveDocumentsTable } from "@workspace/db";
-import { eq, and, desc, sql } from "drizzle-orm";
+import { db, aiLiveDocumentsTable, kbStagingDocsTable } from "@workspace/db";
+import { eq, and, desc, sql, inArray, isNull, isNotNull } from "drizzle-orm";
 import { requirePermission } from "../../middleware/rbac";
 import { scrubPrivateContent } from "../../lib/content-privacy-filter";
 import { getParam } from "../../lib/params";
+import {
+  synthesizeNode,
+  isSynthesisRunning,
+  isValidSynthesisNode,
+} from "../../lib/kb-synthesis.js";
+import { runTriageBackground } from "../../lib/kb-triage.js";
+import { scanCoreTrainingSourceChanges } from "../../lib/kb-source-change-scan.js";
 
-// Phase-1 CRUD for the cleanly-separated "Live AI Documents" corpus. Mounted at
-// /admin/ai-live-documents. This is intentionally standalone from the legacy
-// /admin/chat/knowledgebase routes — it reads/writes ONLY the new
-// ai_live_documents table and is not wired into any retrieval path yet.
+// Lifecycle management for the "Live AI Documents" corpus — the assistant's
+// citable set (Task #1665). Mounted at /admin/ai-live-documents. Reads/writes
+// ONLY the ai_live_documents table.
+//
+// The corpus is READ-MOSTLY: the intended edit path is the human-gated review
+// loop (send-to-review → review queue → push-approved supersede), which snapshots
+// version history. Direct PUT edits remain as a clearly-labelled, confirmation-
+// gated admin escape hatch. Deletes are SOFT (reversible); nothing is ever
+// hard-deleted.
 const router: IRouter = Router();
 
 const chunkCount = (content: string) => Math.ceil(content.length / 500);
@@ -16,8 +28,13 @@ const chunkCount = (content: string) => Math.ceil(content.length / 500);
 router.get("/admin/ai-live-documents", requirePermission("chat:view"), async (req, res): Promise<void> => {
   const category = req.query.category as string | undefined;
   const search = req.query.search as string | undefined;
+  // By default the admin list shows only LIVE docs. `?deleted=true` returns the
+  // soft-deleted "trash" view so an admin can review and restore.
+  const showDeleted = req.query.deleted === "true";
 
   const conditions: any[] = [];
+
+  conditions.push(showDeleted ? isNotNull(aiLiveDocumentsTable.deletedAt) : isNull(aiLiveDocumentsTable.deletedAt));
 
   if (category) {
     conditions.push(eq(aiLiveDocumentsTable.category, category));
@@ -104,6 +121,9 @@ router.post("/admin/ai-live-documents", requirePermission("chat:manage"), async 
   }
 });
 
+// Direct edit — the ADMIN ESCAPE HATCH. The primary edit path is send-to-review
+// (below); this bypasses the review loop and version snapshot, so the client
+// gates it behind an explicit confirmation.
 router.put("/admin/ai-live-documents/:id", requirePermission("chat:manage"), async (req, res): Promise<void> => {
   const id = parseInt(getParam(req.params.id));
   if (isNaN(id)) {
@@ -150,6 +170,75 @@ router.put("/admin/ai-live-documents/:id", requirePermission("chat:manage"), asy
   }
 });
 
+// Manual "send back to review" — the primary edit trigger. Creates a revision
+// draft in the staging queue (kb_staging_docs) linked to this live doc via
+// update_kind='update' + target_live_doc_id, seeded with the doc's CURRENT
+// content so the reviewer edits from the live version. It then flows through the
+// existing review → push-approved supersede path (which snapshots version
+// history). Non-destructive: the live doc is untouched until an approval is
+// pushed.
+router.post("/admin/ai-live-documents/:id/send-to-review", requirePermission("chat:manage"), async (req, res): Promise<void> => {
+  const id = parseInt(getParam(req.params.id));
+  if (isNaN(id)) {
+    res.status(400).json({ error: "Invalid document ID" });
+    return;
+  }
+
+  const [doc] = await db.select().from(aiLiveDocumentsTable).where(eq(aiLiveDocumentsTable.id, id));
+  if (!doc) {
+    res.status(404).json({ error: "Document not found" });
+    return;
+  }
+  if (doc.deletedAt) {
+    res.status(409).json({ error: "Cannot send a deleted document to review; restore it first" });
+    return;
+  }
+
+  const note = typeof req.body?.note === "string" ? req.body.note.trim() : "";
+
+  // Avoid piling up duplicate open revision drafts for the same live doc.
+  const [openDraft] = await db
+    .select({ id: kbStagingDocsTable.id })
+    .from(kbStagingDocsTable)
+    .where(and(
+      eq(kbStagingDocsTable.targetLiveDocId, id),
+      eq(kbStagingDocsTable.updateKind, "update"),
+      inArray(kbStagingDocsTable.status, ["pending_review", "needs_review", "processing"]),
+    ))
+    .limit(1);
+  if (openDraft) {
+    res.status(409).json({ error: "This document already has an open revision in the review queue", draftId: openDraft.id });
+    return;
+  }
+
+  const [draft] = await db
+    .insert(kbStagingDocsTable)
+    .values({
+      title: doc.title,
+      category: doc.category,
+      content: doc.content,
+      audience: doc.audience,
+      status: "needs_review",
+      docType: "existing_doc",
+      originType: "manual_entry",
+      docClassTarget: doc.docClass ?? "curated",
+      homeRoot: doc.homeRoot ?? null,
+      node: doc.node ?? null,
+      ceiling: doc.ceiling ?? null,
+      handoff: doc.handoff ?? null,
+      updateKind: "update",
+      targetLiveDocId: id,
+      updateSummary:
+        (note ? note + "\n\n" : "") +
+        "Manually sent back to review from Live AI Documents. Edit and approve to supersede the live version.",
+    })
+    .returning({ id: kbStagingDocsTable.id });
+
+  res.status(201).json({ success: true, draftId: draft.id });
+});
+
+// Soft-delete (reversible). Sets the tombstone so the doc drops out of every
+// retrieval path, but preserves the row + its version history for restore.
 router.delete("/admin/ai-live-documents/:id", requirePermission("chat:manage"), async (req, res): Promise<void> => {
   const id = parseInt(getParam(req.params.id));
   if (isNaN(id)) {
@@ -162,10 +251,148 @@ router.delete("/admin/ai-live-documents/:id", requirePermission("chat:manage"), 
     res.status(404).json({ error: "Document not found" });
     return;
   }
+  if (existing.deletedAt) {
+    res.json({ success: true, alreadyDeleted: true });
+    return;
+  }
 
-  await db.delete(aiLiveDocumentsTable).where(eq(aiLiveDocumentsTable.id, id));
+  await db
+    .update(aiLiveDocumentsTable)
+    .set({ deletedAt: new Date() })
+    .where(eq(aiLiveDocumentsTable.id, id));
 
   res.json({ success: true });
+});
+
+// Restore a soft-deleted doc back into the live/citable corpus.
+router.post("/admin/ai-live-documents/:id/restore", requirePermission("chat:manage"), async (req, res): Promise<void> => {
+  const id = parseInt(getParam(req.params.id));
+  if (isNaN(id)) {
+    res.status(400).json({ error: "Invalid document ID" });
+    return;
+  }
+
+  const [existing] = await db.select().from(aiLiveDocumentsTable).where(eq(aiLiveDocumentsTable.id, id));
+  if (!existing) {
+    res.status(404).json({ error: "Document not found" });
+    return;
+  }
+
+  const [restored] = await db
+    .update(aiLiveDocumentsTable)
+    .set({ deletedAt: null })
+    .where(eq(aiLiveDocumentsTable.id, id))
+    .returning();
+
+  res.json({ ...restored, chunkCount: chunkCount(restored.content) });
+});
+
+// On-demand "source changed" scan (Task #1665). Reuses the core-training source
+// change detection and STAMPS a persistent stale flag on every published live
+// doc whose topic node is fed by a materially-changed source, so the admin UI
+// can badge it "likely needs updating" (survives reloads). Human-gated: it only
+// flags — proposing/approving a revision stays a separate, explicit action.
+router.post("/admin/ai-live-documents/scan-source-changes", requirePermission("chat:manage"), async (_req, res): Promise<void> => {
+  try {
+    const scan = await scanCoreTrainingSourceChanges();
+
+    let flaggedDocIds: number[] = [];
+    if (scan.affectedNodes.length > 0) {
+      const materialTitles = scan.material.map((m) => m.title);
+      const reason =
+        `Linked source material changed (${new Date().toISOString().slice(0, 10)})` +
+        (materialTitles.length > 0 ? `: ${materialTitles.slice(0, 5).join("; ")}${materialTitles.length > 5 ? "; …" : ""}` : "") +
+        ". Review whether this document needs updating.";
+      const flagged = await db
+        .update(aiLiveDocumentsTable)
+        .set({ flaggedStaleAt: new Date(), flaggedReason: reason })
+        .where(and(
+          isNull(aiLiveDocumentsTable.deletedAt),
+          inArray(aiLiveDocumentsTable.node, scan.affectedNodes),
+          sql`${aiLiveDocumentsTable.docClass} IN ('curated','overview')`,
+          isNotNull(aiLiveDocumentsTable.lastVerified),
+        ))
+        .returning({ id: aiLiveDocumentsTable.id });
+      flaggedDocIds = flagged.map((f) => f.id);
+    }
+
+    res.json({
+      scanned: scan.scanned,
+      changed: scan.changed.length,
+      material: scan.material.length,
+      affectedNodes: scan.affectedNodes,
+      flaggedDocIds,
+    });
+  } catch (err: unknown) {
+    res.status(500).json({ error: err instanceof Error ? err.message : "Source-change scan failed" });
+  }
+});
+
+// Clear the stale flag without proposing an update (admin dismisses the signal).
+router.post("/admin/ai-live-documents/:id/dismiss-flag", requirePermission("chat:manage"), async (req, res): Promise<void> => {
+  const id = parseInt(getParam(req.params.id));
+  if (isNaN(id)) {
+    res.status(400).json({ error: "Invalid document ID" });
+    return;
+  }
+  const [updated] = await db
+    .update(aiLiveDocumentsTable)
+    .set({ flaggedStaleAt: null, flaggedReason: null })
+    .where(eq(aiLiveDocumentsTable.id, id))
+    .returning();
+  if (!updated) {
+    res.status(404).json({ error: "Document not found" });
+    return;
+  }
+  res.json({ ...updated, chunkCount: chunkCount(updated.content) });
+});
+
+// Propose an update for a (typically flagged) doc: re-synthesize its topic node
+// through the EXISTING supersede path, which authors an update draft
+// (update_kind='update', target_live_doc_id) into the review queue. Human-gated:
+// this only creates a draft — the flag clears when an approval is pushed.
+router.post("/admin/ai-live-documents/:id/propose-update", requirePermission("chat:manage"), async (req, res): Promise<void> => {
+  const id = parseInt(getParam(req.params.id));
+  if (isNaN(id)) {
+    res.status(400).json({ error: "Invalid document ID" });
+    return;
+  }
+
+  const [doc] = await db.select().from(aiLiveDocumentsTable).where(eq(aiLiveDocumentsTable.id, id));
+  if (!doc) {
+    res.status(404).json({ error: "Document not found" });
+    return;
+  }
+  if (!doc.node || !isValidSynthesisNode(doc.node)) {
+    res.status(400).json({ error: "This document has no synthesizable topic node; use 'Send to Review' instead" });
+    return;
+  }
+  if (isSynthesisRunning()) {
+    res.status(409).json({ error: "A synthesis run is already in progress; try again shortly" });
+    return;
+  }
+
+  try {
+    const result = await synthesizeNode(doc.node);
+    const newDraftIds = [
+      ...(result.draftId ? [result.draftId] : []),
+      ...result.atomicDraftIds,
+    ];
+    if (newDraftIds.length > 0) {
+      const drafts = await db
+        .select()
+        .from(kbStagingDocsTable)
+        .where(inArray(kbStagingDocsTable.id, newDraftIds));
+      if (drafts.length > 0) {
+        runTriageBackground(drafts).catch((err) =>
+          console.error("[ai-live-documents] propose-update triage error:", err),
+        );
+      }
+    }
+    res.json({ success: true, ...result });
+  } catch (err: unknown) {
+    res.status(500).json({ error: err instanceof Error ? err.message : "Synthesis failed" });
+  }
 });
 
 export default router;

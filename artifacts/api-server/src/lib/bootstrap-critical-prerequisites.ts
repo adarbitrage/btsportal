@@ -693,71 +693,41 @@ async function runAiLiveDocumentsParityMigration(): Promise<void> {
 }
 
 /**
- * Reconcile the human-verified citable set (doc_class IN curated/overview AND
+ * Seed the human-verified citable set (doc_class IN curated/overview AND
  * last_verified IS NOT NULL) from the legacy `knowledgebase_docs` table into
- * `ai_live_documents`, which the assistant now retrieves from.
+ * `ai_live_documents`, which the assistant retrieves from.
  *
- * This is AUTHORITATIVE over the legacy-mirrored subset, not append-only:
- *  1. UPSERT — every currently-citable legacy doc is inserted/updated by title
- *     (both tables enforce a unique title). `last_verified` and the
- *     created/updated timestamps are copied VERBATIM so the mirror never resets
- *     the aging clock.
- *  2. PRUNE — any previously-mirrored row whose legacy source is no longer
- *     citable (verification cleared, doc_class demoted) OR was deleted from the
- *     legacy table is removed, so a revocation in legacy propagates and the
- *     citable filter stops retrieving a stale doc.
+ * FILL-IF-EMPTY, NOT AUTHORITATIVE (Task #1665). `ai_live_documents` is now the
+ * authoritative, editable home for the assistant's corpus — edited only through
+ * the human-gated review loop (revision → review → push-approved), the direct
+ * escape hatch, or soft-delete. So this sync:
+ *  1. INSERTS only docs that are MISSING (ON CONFLICT (title) DO NOTHING). It
+ *     never overwrites the content, taxonomy or verification stamp of an
+ *     existing Live AI Document, so approved revisions and manual edits survive
+ *     every restart. Timestamps are copied VERBATIM so the aging clock is not
+ *     reset for freshly-seeded rows.
+ *  2. NEVER PRUNES. Legacy is only the initial seed source; once a Live AI
+ *     Document exists it is governed by the admin lifecycle (review + soft
+ *     delete), not by legacy coupling — so a legacy revocation no longer
+ *     silently hard-deletes a Live AI Document. Stale docs are retired via the
+ *     soft-delete path instead, which is reversible.
  *
- * Rows published DIRECTLY into `ai_live_documents` by the staging push are
- * preserved: the push writes a `kb_doc_provenance` row for every published doc
- * (relation='source'), whereas this mirror never writes provenance. So the
- * presence of a provenance row is the discriminator that keeps push-approved
- * docs from being pruned. Both steps run in one transaction so retrieval never
- * observes a partially-reconciled corpus.
+ * Net effect: a fresh database still fully populates on first boot, but restarts
+ * are non-destructive — nothing an admin approved, edited or deleted is reverted.
  */
 export async function syncCitableDocsToLiveDocuments(): Promise<void> {
-  await db.transaction(async (tx) => {
-    await tx.execute(sql`
-      INSERT INTO ai_live_documents
-        (title, slug, category, content, audience, source_path, source_label,
-         doc_class, home_root, node, tags, blitz_section, ceiling, handoff,
-         last_verified, created_at, updated_at)
-      SELECT
-        k.title, k.slug, k.category, k.content, k.audience, k.source_path, k.source_label,
-        k.doc_class, k.home_root, k.node, k.tags, k.blitz_section, k.ceiling, k.handoff,
-        k.last_verified, k.created_at, k.updated_at
-      FROM knowledgebase_docs k
-      WHERE k.doc_class IN ('curated', 'overview') AND k.last_verified IS NOT NULL
-      ON CONFLICT (title) DO UPDATE SET
-        slug = EXCLUDED.slug,
-        category = EXCLUDED.category,
-        content = EXCLUDED.content,
-        audience = EXCLUDED.audience,
-        source_path = EXCLUDED.source_path,
-        source_label = EXCLUDED.source_label,
-        doc_class = EXCLUDED.doc_class,
-        home_root = EXCLUDED.home_root,
-        node = EXCLUDED.node,
-        tags = EXCLUDED.tags,
-        blitz_section = EXCLUDED.blitz_section,
-        ceiling = EXCLUDED.ceiling,
-        handoff = EXCLUDED.handoff,
-        last_verified = EXCLUDED.last_verified,
-        updated_at = EXCLUDED.updated_at`);
-
-    // Prune stale mirror rows: not published-direct (no provenance row) AND no
-    // longer backed by a currently-citable legacy doc of the same title.
-    await tx.execute(sql`
-      DELETE FROM ai_live_documents al
-      WHERE NOT EXISTS (
-              SELECT 1 FROM kb_doc_provenance p WHERE p.doc_id = al.id
-            )
-        AND NOT EXISTS (
-              SELECT 1 FROM knowledgebase_docs k
-              WHERE k.title = al.title
-                AND k.doc_class IN ('curated', 'overview')
-                AND k.last_verified IS NOT NULL
-            )`);
-  });
+  await db.execute(sql`
+    INSERT INTO ai_live_documents
+      (title, slug, category, content, audience, source_path, source_label,
+       doc_class, home_root, node, tags, blitz_section, ceiling, handoff,
+       last_verified, created_at, updated_at)
+    SELECT
+      k.title, k.slug, k.category, k.content, k.audience, k.source_path, k.source_label,
+      k.doc_class, k.home_root, k.node, k.tags, k.blitz_section, k.ceiling, k.handoff,
+      k.last_verified, k.created_at, k.updated_at
+    FROM knowledgebase_docs k
+    WHERE k.doc_class IN ('curated', 'overview') AND k.last_verified IS NOT NULL
+    ON CONFLICT (title) DO NOTHING`);
 }
 
 async function runTicketDeliveryColumnMigration(): Promise<void> {

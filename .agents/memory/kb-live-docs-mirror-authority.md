@@ -5,29 +5,32 @@ description: The legacy->ai_live citable mirror must reconcile removals; and nev
 
 Two durable lessons from cutting the AI assistant onto `ai_live_documents`.
 
-## The citable mirror must be authoritative, not append-only
-`syncCitableDocsToLiveDocuments()` mirrors the human-verified citable set
-(doc_class IN curated/overview AND last_verified NOT NULL) from legacy
-`knowledgebase_docs` into `ai_live_documents` (what the assistant retrieves).
-An append-only upsert silently leaves revoked/demoted/deleted docs citable
-forever. It MUST also prune.
+## The boot mirror is now FILL-IF-EMPTY, not authoritative (REVERSED)
+Once `ai_live_documents` became directly editable (send-to-review supersede,
+soft-delete/restore, direct-edit escape hatch, source-change flags — the
+"Live AI Documents Lifecycle" work), the boot mirror can no longer be
+authoritative: an authoritative upsert+prune would clobber human edits and
+un-delete restored docs on every restart.
 
-**Why:** several writers stay on legacy (seeders, admin-chat CRUD, kb-flags), so
-legacy citability changes at runtime; without a prune the assistant corpus
-diverges from "current citable legacy set" and cites stale docs.
+**Now:** `syncCitableDocsToLiveDocuments()` is a single `INSERT ... ON CONFLICT
+(title) DO NOTHING` (no transaction wrapper, NO prune, NO content overwrite). It
+only seeds MISSING titles from the citable legacy set — a fill-if-empty backstop,
+not a source of truth. The doc comment says so explicitly.
 
-**How to apply:** run upsert + prune in ONE transaction. Distinguish the two
-origins in `ai_live_documents`: push-approved (staging publish) docs each get a
-`kb_doc_provenance` row (relation='source'); the mirror never writes provenance.
-So prune = delete ai_live rows that have NO provenance row AND no
-currently-citable legacy twin (same title). That preserves direct-published docs
-while removing dead mirror rows.
+**Why:** durability of admin edits across restart/deploy is the whole point of the
+lifecycle work; overwriting/pruning at boot silently reverts them.
 
-A boot-only sync is NOT enough: any RUNTIME writer to legacy citable docs (admin
-KB CRUD is the live one; kb-flags is read-only, seeders run at boot) must call the
-reconcile after its write, or the assistant lags legacy until the next restart.
-Wire it best-effort (legacy write already committed; boot sync is the backstop) so
-a mirror hiccup never fails the admin request.
+**How to apply:** never reintroduce prune or `ON CONFLICT DO UPDATE` here. If you
+need the corpus to reflect a legacy demotion/removal, do it through the doc's own
+lifecycle (soft-delete / send-to-review supersede), not the mirror. Historical
+note: the mirror USED to be authoritative (upsert+prune in one tx, provenance-row
+protected direct-published docs) — that design is gone by design.
+
+## Retrieval excludes soft-deleted via the shared citable filter
+`citableDocFilter()` (kb-citable-filter.ts) now appends `deleted_at IS NULL`.
+It is used ONLY against `ai_live_documents` (kb-retrieval nav/primary/fallback +
+rag-retriever), the sole table with `deleted_at`. Don't apply it to another table
+without splitting the soft-delete predicate out.
 
 ## Never regenerate expected-drift.json against a broken/empty DB
 `lib/db/src/__fixtures__/expected-drift.json` records EXPECTED schema-vs-migration
