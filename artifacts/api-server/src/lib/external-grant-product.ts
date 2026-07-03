@@ -17,7 +17,7 @@ import { CommunicationService } from "./communication-service";
 import { ensureAffiliateProfile } from "./commissions";
 import { emitWebhookEvent } from "./webhook-events";
 import { maybeAssignPartnerForGrant } from "./partner-assignment";
-import { applyCreationTimeOnboardingDefaults } from "./onboarding-variant";
+import { applyCreationTimeOnboardingDefaults, maybeForceOnboardingReentry } from "./onboarding-variant";
 
 export const YSE_GRANT_EVENT_TYPE = "external.grant_product";
 export const YSE_GRANT_MAX_ATTEMPTS = 5;
@@ -202,6 +202,15 @@ export async function insertUserProductGrant(params: {
     // 3-month grant. Non-fatal: maybeAssignPartnerForGrant swallows its own
     // errors so a partner-assignment hiccup never blocks the purchase.
     await maybeAssignPartnerForGrant(userId, productId);
+    // Tier-aware upgrade hook (Task #1642): if this grant elevated the
+    // member's resolved product tier bucket (none->launchpad, none->full,
+    // launchpad->full), force re-entry into the new variant's guided
+    // onboarding flow at the first unsatisfied step. Same seam as the
+    // partner-assignment hook above so NMI checkout (checkout-core.ts) and
+    // admin/ops grants (routes/ops.ts) — both of which call this function —
+    // get identical upgrade behavior. Never throws; a same-or-lower resolved
+    // bucket (extension, renewal, adding a lower-rank product) is a no-op.
+    await maybeForceOnboardingReentry(userId);
     return { alreadyGranted: false };
   } catch (err: unknown) {
     const e = err as { code?: string; cause?: { code?: string } };
@@ -687,6 +696,16 @@ export async function handleExternalGrantProduct(
     if (grant.alreadyGranted) continue;
     await maybeAssignPartnerForGrant(userId, grant.productId);
   }
+
+  // Tier-aware upgrade hook (Task #1642 / TB1). Called ONCE per batch (not
+  // per grant) since resolveOnboardingVariant is a live re-computation over
+  // ALL of the member's currently-active products — evaluating it after
+  // every grant in the batch has committed is both correct and sufficient.
+  // For a brand-new user (userCreated=true), applyCreationTimeOnboardingDefaults
+  // above already persisted the resolved variant, so old===new here and this
+  // is a natural no-op — it only actually fires for an EXISTING member whose
+  // new grant(s) elevated their tier bucket.
+  await maybeForceOnboardingReentry(userId);
 
   try {
     await attributeYseCommission(payload, userId, grants);

@@ -48,6 +48,7 @@ export * from "./sequences";
 export * from "./revenue-metrics-cache";
 export * from "./revenue-manual-entries";
 export * from "./member-health-scores";
+export * from "./onboarding-effects";
 export * from "./wins";
 export * from "./tools";
 export * from "./webhook-subscriptions";

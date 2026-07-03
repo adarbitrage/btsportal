@@ -16,6 +16,7 @@ import {
   type OnboardingVariant,
   type SteppedOnboardingVariant,
 } from "../lib/onboarding-steps";
+import { fireOnboardingCompletionEffects } from "../lib/onboarding-advancement";
 
 const router: IRouter = Router();
 
@@ -193,10 +194,21 @@ router.patch("/members/me/onboarding", async (req, res): Promise<void> => {
   const nextStep = isLastStep ? step : step + 1;
   const onboardingComplete = isLastStep;
 
-  await db
+  const updated = await db
     .update(usersTable)
     .set({ onboardingStep: nextStep, onboardingComplete })
-    .where(and(eq(usersTable.id, userId), eq(usersTable.onboardingStep, step)));
+    .where(and(eq(usersTable.id, userId), eq(usersTable.onboardingStep, step)))
+    .returning({ id: usersTable.id });
+
+  // Tier-aware completion (Task #1642 / TB1): this is the ONLY completion
+  // path for "launchpad" variant members (pillars_watched is client-
+  // advanceable and IS the last step for launchpad, unlike "full"). Fires
+  // the same shared completion effects "full" uses via
+  // completeOnboardingAfterPartnerCallDone — cancel onboarding sequences,
+  // enroll in nothing.
+  if (updated.length > 0 && onboardingComplete) {
+    await fireOnboardingCompletionEffects(userId);
+  }
 
   res.json(
     PatchOnboardingStepResponse.parse({

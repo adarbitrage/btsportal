@@ -498,3 +498,18 @@ if [ -n "$DATABASE_URL" ]; then
     -f lib/db/drizzle/0097_kb_tool_tags.sql \
     >/dev/null
 fi
+
+# Onboarding tier-aware completion effects idempotency ledger (Task #1642 /
+# TB1). New, empty, additive table `onboarding_effects` (per-(member, effect)
+# claim ledger for the one-time creation-time nurture enrollment + completion-
+# time sequence cancellation). Applying it explicitly here keeps the
+# live-schema-drift gate below green so the conditional push stays skipped on
+# the common merge instead of triggering a slow whole-DB
+# `drizzle-kit push --force` just to create one table (same pattern as steps
+# 7/10/11/15/18-24/27/29-34). Idempotent (CREATE TABLE/INDEX IF NOT EXISTS).
+if [ -n "$DATABASE_URL" ]; then
+  psql "$DATABASE_URL" \
+    -v ON_ERROR_STOP=1 \
+    -f lib/db/drizzle/0102_onboarding_effects.sql \
+    >/dev/null
+fi

@@ -1,6 +1,7 @@
 import { db, usersTable, systemSettingsTable } from "@workspace/db";
 import { eq, and, inArray, sql } from "drizzle-orm";
-import { cancelSequence, enrollInSequence } from "./sequence-helpers";
+import { cancelSequence } from "./sequence-helpers";
+import { claimOnboardingEffect, ONBOARDING_EFFECT } from "./onboarding-effects";
 
 // Internal, server-only advancement functions for the 6-step onboarding
 // contract's three EVENT-ADVANCED steps (renumbered from the prior 7-step
@@ -74,10 +75,41 @@ export async function advanceOnboardingAfterPartnerCallBooked(userId: number): P
   return advanced;
 }
 
+// Shared, tier-aware onboarding-completion side effects (Task #1642 / TB1).
+// Called for BOTH variants the moment a member finishes onboarding — "full"
+// via completeOnboardingAfterPartnerCallDone below, and "launchpad" via the
+// isLastStep branch of PATCH /members/me/onboarding (routes/onboarding.ts).
+//
+// Completion now ONLY cancels the onboarding nurture sequences
+// (onboarding_frontend, onboarding_mentorship) — it no longer enrolls the
+// member in anything. nurture_frontend_to_upgrade is fired exclusively at
+// CREATION time for "none"-variant members (see
+// applyCreationTimeOnboardingDefaults in onboarding-variant.ts); a member who
+// actually completes launchpad/full onboarding already holds a paid tier and
+// has no reason to be nudged toward one. No launchpad/YSE "sequence 31" is
+// ever enrolled here or anywhere else in this flow.
+//
+// Guarded by a per-(member, effect) idempotency claim so calling this twice
+// for the same member (e.g. a retried webhook, or the same member later
+// re-completing a HIGHER variant after an upgrade re-entry) only ever fires
+// the sequence cancellation once — cancelSequence itself is safe to call
+// repeatedly, but this keeps the effect ledger authoritative and avoids
+// redundant work.
+export async function fireOnboardingCompletionEffects(userId: number): Promise<void> {
+  const claimed = await claimOnboardingEffect(userId, ONBOARDING_EFFECT.COMPLETION_CANCEL_SEQUENCES);
+  if (!claimed) {
+    console.log(`[Onboarding] Completion effects already fired for user ${userId}; skipping.`);
+    return;
+  }
+
+  await cancelSequence(userId, "onboarding_frontend");
+  await cancelSequence(userId, "onboarding_mentorship");
+  console.log(`[Onboarding] Fired completion effects for user ${userId} (cancelled onboarding sequences).`);
+}
+
 // Called once GHL confirms the member's first partner call actually happened
-// (Tier 3 webhook). Completes onboarding from step 6 and fires the same
-// completion side effects the flow has always used: cancel the onboarding
-// nurture sequences, enroll the member in the post-onboarding upgrade nurture.
+// (Tier 3 webhook). Completes onboarding from step 6 and fires the shared
+// tier-aware completion effects (see fireOnboardingCompletionEffects above).
 // NO-OP for "launchpad" variant members (see advanceOnboardingAfterPartnerCallBooked)
 // — LaunchPad onboarding completes via a direct client PATCH instead.
 export async function completeOnboardingAfterPartnerCallDone(userId: number): Promise<boolean> {
@@ -98,9 +130,7 @@ export async function completeOnboardingAfterPartnerCallDone(userId: number): Pr
 
   if (result.length === 0) return false;
 
-  await cancelSequence(userId, "onboarding_frontend");
-  await cancelSequence(userId, "onboarding_mentorship");
-  await enrollInSequence(userId, "nurture_frontend_to_upgrade");
+  await fireOnboardingCompletionEffects(userId);
 
   console.log(`[Onboarding] User ${userId} completed onboarding (first partner call done).`);
   return true;

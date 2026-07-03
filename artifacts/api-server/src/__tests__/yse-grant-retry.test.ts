@@ -6,6 +6,8 @@ import {
   productsTable,
   userProductsTable,
   webhookLogsTable,
+  onboardingEffectsTable,
+  sequenceEnrollmentsTable,
 } from "@workspace/db";
 import { eq, inArray, sql } from "drizzle-orm";
 
@@ -115,6 +117,8 @@ afterAll(async () => {
     await db.delete(webhookLogsTable).where(inArray(webhookLogsTable.id, ourLogIds));
   }
   if (seededUserIds.length > 0) {
+    await db.delete(sequenceEnrollmentsTable).where(inArray(sequenceEnrollmentsTable.userId, seededUserIds));
+    await db.delete(onboardingEffectsTable).where(inArray(onboardingEffectsTable.userId, seededUserIds));
     await db.delete(userProductsTable).where(inArray(userProductsTable.userId, seededUserIds));
     await db.delete(usersTable).where(inArray(usersTable.id, seededUserIds));
   }
@@ -125,6 +129,8 @@ afterAll(async () => {
     .where(sql`${usersTable.email} LIKE ${"%" + TAG + "%"}`);
   if (usersByTag.length > 0) {
     const ids = usersByTag.map((u) => u.id);
+    await db.delete(sequenceEnrollmentsTable).where(inArray(sequenceEnrollmentsTable.userId, ids));
+    await db.delete(onboardingEffectsTable).where(inArray(onboardingEffectsTable.userId, ids));
     await db.delete(userProductsTable).where(inArray(userProductsTable.userId, ids));
     await db.delete(usersTable).where(inArray(usersTable.id, ids));
   }

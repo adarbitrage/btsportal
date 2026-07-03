@@ -9,6 +9,7 @@ import {
   sequencesTable,
   sequenceEnrollmentsTable,
   systemSettingsTable,
+  onboardingEffectsTable,
 } from "@workspace/db";
 import { eq, and, inArray } from "drizzle-orm";
 
@@ -18,6 +19,7 @@ import {
   advanceOnboardingAfterKickoffBooked,
   advanceOnboardingAfterPartnerCallBooked,
   completeOnboardingAfterPartnerCallDone,
+  fireOnboardingCompletionEffects,
   migrateOnboardingStepsToSixStepContract,
   ONBOARDING_STEP,
 } from "../lib/onboarding-advancement";
@@ -106,6 +108,7 @@ beforeAll(() => {
 afterAll(async () => {
   if (seededUserIds.length > 0) {
     await db.delete(sequenceEnrollmentsTable).where(inArray(sequenceEnrollmentsTable.userId, seededUserIds));
+    await db.delete(onboardingEffectsTable).where(inArray(onboardingEffectsTable.userId, seededUserIds));
     await db.delete(usersTable).where(inArray(usersTable.id, seededUserIds));
   }
 });
@@ -257,7 +260,11 @@ describe("Internal event-advancement functions — idempotency and guards", () =
 });
 
 describe("Onboarding completion side effects", () => {
-  it("cancels both onboarding nurture sequences and enrolls the member in the upgrade nurture", async () => {
+  // Task #1642 (TB1): completion now ONLY cancels the onboarding nurture
+  // sequences — it no longer enrolls the member in anything.
+  // nurture_frontend_to_upgrade is fired exclusively at CREATION time for
+  // "none"-variant members (see onboarding-effects.test.ts), never here.
+  it("cancels both onboarding nurture sequences and enrolls the member in NOTHING", async () => {
     const { id } = await seedMember({ onboardingStep: 6 });
 
     const [frontendSeq] = await db.select().from(sequencesTable).where(eq(sequencesTable.slug, "onboarding_frontend"));
@@ -279,7 +286,18 @@ describe("Onboarding completion side effects", () => {
     expect(mentorshipCancelled).toBeTruthy();
 
     const upgradeEnrollment = await activeEnrollment(id, "nurture_frontend_to_upgrade");
-    expect(upgradeEnrollment).toBeTruthy();
+    expect(upgradeEnrollment).toBeFalsy();
+  });
+
+  it("is idempotent: calling it again after a forced re-completion does not double-cancel or throw", async () => {
+    const { id } = await seedMember({ onboardingStep: 6 });
+    const completed = await completeOnboardingAfterPartnerCallDone(id);
+    expect(completed).toBe(true);
+
+    // Directly invoke the shared completion-effects helper a second time
+    // (simulating an upgrade re-entry later re-completing this member) —
+    // it must be a safe no-op guarded by the onboarding_effects ledger.
+    await expect(fireOnboardingCompletionEffects(id)).resolves.toBeUndefined();
   });
 });
 

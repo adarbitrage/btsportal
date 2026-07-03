@@ -10,6 +10,7 @@ import {
   userProductsTable,
   sequencesTable,
   sequenceEnrollmentsTable,
+  onboardingEffectsTable,
 } from "@workspace/db";
 import { eq, and, inArray } from "drizzle-orm";
 
@@ -102,6 +103,7 @@ beforeAll(async () => {
 afterAll(async () => {
   if (seededUserIds.length > 0) {
     await db.delete(sequenceEnrollmentsTable).where(inArray(sequenceEnrollmentsTable.userId, seededUserIds));
+    await db.delete(onboardingEffectsTable).where(inArray(onboardingEffectsTable.userId, seededUserIds));
     await db.delete(userProductsTable).where(inArray(userProductsTable.userId, seededUserIds));
     await db.delete(usersTable).where(inArray(usersTable.id, seededUserIds));
   }
