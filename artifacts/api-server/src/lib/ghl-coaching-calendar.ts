@@ -268,9 +268,55 @@ export async function getFreeSlots(
 }
 
 interface CalendarConfigResponse {
-  calendar?: { slotDuration?: number; slotDurationUnit?: string };
+  calendar?: {
+    slotDuration?: number;
+    slotDurationUnit?: string;
+    slotInterval?: number;
+    slotIntervalUnit?: string;
+    calendarType?: string;
+    locationId?: string;
+  };
   slotDuration?: number;
   slotDurationUnit?: string;
+  slotInterval?: number;
+  slotIntervalUnit?: string;
+  calendarType?: string;
+  locationId?: string;
+}
+
+export interface CalendarDetails {
+  calendarType: string | undefined;
+  slotDuration: number | undefined;
+  slotDurationUnit: string | undefined;
+  slotInterval: number | undefined;
+  slotIntervalUnit: string | undefined;
+  locationId: string | undefined;
+}
+
+/**
+ * Read-only fetch of a GHL calendar's raw configuration (type, duration,
+ * interval, owning location). Used to verify a relayed calendar ID before
+ * arming a coach roster row with it — never writes anything.
+ */
+export async function getCalendarDetails(
+  calendarId: string,
+  locationId: string = COACHING_LOCATION_ID,
+): Promise<CalendarDetails> {
+  const data = await ghlRequest<CalendarConfigResponse>(
+    "GET",
+    `/calendars/${encodeURIComponent(calendarId)}`,
+    undefined,
+    locationId,
+  );
+  const cal = data.calendar ?? data;
+  return {
+    calendarType: cal.calendarType,
+    slotDuration: cal.slotDuration,
+    slotDurationUnit: cal.slotDurationUnit,
+    slotInterval: cal.slotInterval,
+    slotIntervalUnit: cal.slotIntervalUnit,
+    locationId: cal.locationId,
+  };
 }
 
 interface CalendarDurationCacheEntry {

@@ -45,14 +45,13 @@ const KICKOFF_COACH_ROSTER: KickoffCoachRosterEntry[] = [
   { displayName: "Todd", ghlCalendarId: "Nx8nzFJxkxHQlQyx5ZSW", isActive: true, tier: "full" },
   { displayName: "Mark", ghlCalendarId: "wvSF5RfAi8FlsgHRo8IQ", isActive: true, tier: "full" },
   { displayName: "Bruce", ghlCalendarId: "wLvil3ING3i1d4oX7vg5", isActive: true, tier: "full" },
-  // Task #1641: Neil is the dedicated (and currently sole) LaunchPad kickoff
-  // coach, on his own new calendar under the BTS location. Sandy will relay
-  // the real GHL calendar ID once it's live — until then ghlCalendarId stays
-  // null on purpose so selectKickoffCoach() (which filters out coaches with
-  // no calendar) returns null for LaunchPad members and the loud-failure
-  // guard in call-bookings.ts fires, instead of silently offering no slots
-  // or falling back to the full-tier round-robin.
-  { displayName: "Neil", ghlCalendarId: null, isActive: true, tier: "launchpad" },
+  // Task #1655: Sandy relayed the real GHL calendar ID for Neil's dedicated
+  // LaunchPad kickoff calendar ("BTS LaunchPad Kickoff with Neil"). Verified
+  // read-only via probe-neil-launchpad-calendar.ts before arming this row:
+  // calendarType = personal (not class_booking), slotDuration = 45,
+  // slotInterval = 30, and it lives under the shared BTS location
+  // (7XrT9sAfQ4rSyuk5QhhC), so no per-row location override is needed.
+  { displayName: "Neil", ghlCalendarId: "oU93ZehoQfngqPQYVB7n", isActive: true, tier: "launchpad" },
 ];
 
 export async function seedCallBookingRoster(): Promise<void> {

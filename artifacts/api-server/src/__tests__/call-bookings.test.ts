@@ -1095,7 +1095,33 @@ describe("kickoff-coach tiering (Task #1641)", () => {
     }
   });
 
+  // Task #1655: Neil's real launchpad-tier roster row now carries a real,
+  // armed GHL calendar ID (it used to be a null placeholder that
+  // selectKickoffCoach/listKickoffCoachPool filtered out on its own). These
+  // two tests need the launchpad pool scoped to just their own fixture
+  // coach(es), so they deactivate every OTHER active launchpad-tier coach
+  // (i.e. Neil) for their duration and restore it afterward — same pattern
+  // used above for the full-tier "every coach fails" isolation test.
+  async function deactivateOtherLaunchpadCoaches(): Promise<number[]> {
+    const others = await db
+      .select({ id: kickoffCoachesTable.id })
+      .from(kickoffCoachesTable)
+      .where(and(eq(kickoffCoachesTable.tier, "launchpad"), eq(kickoffCoachesTable.isActive, true)));
+    const ids = others.map((c) => c.id);
+    if (ids.length > 0) {
+      await db.update(kickoffCoachesTable).set({ isActive: false }).where(inArray(kickoffCoachesTable.id, ids));
+    }
+    return ids;
+  }
+
+  async function reactivateLaunchpadCoaches(ids: number[]): Promise<void> {
+    if (ids.length > 0) {
+      await db.update(kickoffCoachesTable).set({ isActive: true }).where(inArray(kickoffCoachesTable.id, ids));
+    }
+  }
+
   it("routes a LaunchPad member only to a launchpad-tier coach, never the full-tier roster", async () => {
+    const deactivatedIds = await deactivateOtherLaunchpadCoaches();
     const [launchpadCoach] = await db
       .insert(kickoffCoachesTable)
       .values({
@@ -1132,38 +1158,44 @@ describe("kickoff-coach tiering (Task #1641)", () => {
       // Scoped to just this test — the next test relies on there being NO
       // launchpad-tier coach in the roster to prove the setupPending path.
       await db.delete(kickoffCoachesTable).where(eq(kickoffCoachesTable.id, launchpadCoach.id));
+      await reactivateLaunchpadCoaches(deactivatedIds);
     }
   });
 
   it("returns setupPending (never a 404, never a fallback to full-tier coaches) when no launchpad-tier coach exists", async () => {
-    // The default seeded/test roster is all tier "full" — a LaunchPad member
-    // with none of it (no launchpad-tier row inserted in this test) must get
-    // the explicit setup-pending state, not the existing full-tier coach.
-    const memberId = await makeMember(3);
-    await grantLaunchpad(memberId);
-    const startTime = gridAlignedFutureTime(61);
-    const dateStr = startTime.toISOString().slice(0, 10);
+    // The default seeded/test roster is all tier "full" except Neil's real
+    // launchpad row — deactivate it for this test so no launchpad-tier row
+    // is bookable, proving the explicit setup-pending state.
+    const deactivatedIds = await deactivateOtherLaunchpadCoaches();
+    try {
+      const memberId = await makeMember(3);
+      await grantLaunchpad(memberId);
+      const startTime = gridAlignedFutureTime(61);
+      const dateStr = startTime.toISOString().slice(0, 10);
 
-    const avail = await request(app)
-      .get(`/api/onboarding/kickoff/availability?startDate=${dateStr}&endDate=${dateStr}`)
-      .set("Cookie", authCookie(memberId));
-    expect(avail.status).toBe(200);
-    expect(avail.body.setupPending).toBe(true);
-    expect(avail.body.coaches).toEqual([]);
-    expect(avail.body.slots).toEqual([]);
+      const avail = await request(app)
+        .get(`/api/onboarding/kickoff/availability?startDate=${dateStr}&endDate=${dateStr}`)
+        .set("Cookie", authCookie(memberId));
+      expect(avail.status).toBe(200);
+      expect(avail.body.setupPending).toBe(true);
+      expect(avail.body.coaches).toEqual([]);
+      expect(avail.body.slots).toEqual([]);
 
-    const book = await request(app)
-      .post("/api/onboarding/kickoff/book")
-      .set("Cookie", authCookie(memberId))
-      .send({ startTime: startTime.toISOString(), coachId: 99999999 });
-    expect(book.status).toBe(200);
-    expect(book.body.setupPending).toBe(true);
+      const book = await request(app)
+        .post("/api/onboarding/kickoff/book")
+        .set("Cookie", authCookie(memberId))
+        .send({ startTime: startTime.toISOString(), coachId: 99999999 });
+      expect(book.status).toBe(200);
+      expect(book.body.setupPending).toBe(true);
 
-    const rows = await db
-      .select({ id: callBookingsTable.id })
-      .from(callBookingsTable)
-      .where(and(eq(callBookingsTable.memberId, memberId), eq(callBookingsTable.type, "kickoff")));
-    expect(rows.length).toBe(0);
+      const rows = await db
+        .select({ id: callBookingsTable.id })
+        .from(callBookingsTable)
+        .where(and(eq(callBookingsTable.memberId, memberId), eq(callBookingsTable.type, "kickoff")));
+      expect(rows.length).toBe(0);
+    } finally {
+      await reactivateLaunchpadCoaches(deactivatedIds);
+    }
   });
 
   it("a full-tier (non-LaunchPad) member is never routed to a launchpad-tier coach even when one exists", async () => {
