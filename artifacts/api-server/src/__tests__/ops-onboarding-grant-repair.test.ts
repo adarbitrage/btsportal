@@ -54,6 +54,7 @@ const seededUserIds: number[] = [];
 const seededPartnerIds: number[] = [];
 
 let threeMonthProductId: number;
+let launchpadProductId: number;
 
 function authHeaders() {
   return { Authorization: `Bearer ${OPS_KEY}` };
@@ -127,6 +128,12 @@ beforeAll(async () => {
     throw new Error("Expected dev-seeded '3month' product to exist for ops-onboarding-grant-repair tests");
   }
   threeMonthProductId = threeMonth.id;
+
+  const [launchpad] = await db.select({ id: productsTable.id }).from(productsTable).where(eq(productsTable.slug, "launchpad"));
+  if (!launchpad) {
+    throw new Error("Expected dev-seeded 'launchpad' product to exist for ops-onboarding-grant-repair tests");
+  }
+  launchpadProductId = launchpad.id;
 });
 
 afterAll(async () => {
@@ -156,6 +163,46 @@ describe("POST /api/ops/onboarding/repair-admin-grants — auth", () => {
       .set("Authorization", "Bearer wrong-key")
       .send({});
     expect(res.status).toBe(401);
+  });
+});
+
+describe("POST /api/ops/onboarding/repair-admin-grants — rank-1 launchpad candidates", () => {
+  it("surfaces a launchpad-only (rank 1) grant as a candidate and repairs it without assigning a partner", async () => {
+    __resetOpsRateLimitStateForTests();
+    const memberId = await insertMember("launchpad");
+    await grantBypassedProduct(memberId, launchpadProductId);
+
+    const dryRun = await request(app)
+      .post("/api/ops/onboarding/repair-admin-grants")
+      .set(authHeaders())
+      .send({});
+    expect(dryRun.status).toBe(200);
+    const candidate = dryRun.body.repairCandidates.find((c: { userId: number }) => c.userId === memberId);
+    expect(candidate).toBeTruthy();
+    expect(candidate.persistedVariant).toBe("none");
+    expect(candidate.resolvedVariant).toBe("launchpad");
+    expect(candidate.wouldAssignPartner).toBe(false);
+
+    __resetOpsRateLimitStateForTests();
+    const confirmed = await request(app)
+      .post("/api/ops/onboarding/repair-admin-grants")
+      .set(authHeaders())
+      .send({ confirm: true });
+    expect(confirmed.status).toBe(200);
+    const repairedEntry = confirmed.body.repaired.find((r: { userId: number }) => r.userId === memberId);
+    expect(repairedEntry).toBeTruthy();
+    expect(repairedEntry.onboardingVariantAfter).toBe("launchpad");
+    expect(repairedEntry.partnerAssigned).toBe(false);
+
+    const after = await getUser(memberId);
+    expect(after.onboardingVariant).toBe("launchpad");
+    expect(after.onboardingComplete).toBe(false);
+
+    const assignments = await db
+      .select()
+      .from(partnerAssignmentsTable)
+      .where(eq(partnerAssignmentsTable.memberId, memberId));
+    expect(assignments).toHaveLength(0);
   });
 });
 

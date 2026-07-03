@@ -22,7 +22,12 @@ import { eq, and, or, isNull, gte } from "drizzle-orm";
 import { PRODUCT_RANK } from "./product-rank";
 import { VARIANT_RANK, maybeForceOnboardingReentry } from "./onboarding-variant";
 import type { OnboardingVariant } from "./onboarding-steps";
-import { assignRoundRobin, getActiveAssignment, isPartnerEligibleRank } from "./partner-assignment";
+import {
+  assignRoundRobin,
+  getActiveAssignment,
+  isPartnerEligibleRank,
+  PARTNER_INELIGIBLE_SLUGS,
+} from "./partner-assignment";
 
 export interface OnboardingRepairCandidate {
   userId: number;
@@ -77,18 +82,29 @@ export async function findOnboardingRepairCandidates(): Promise<OnboardingRepair
     // Highest rank among ALL held slugs, used only for reporting/telemetry
     // (`maxActiveProductRank`) — never for variant resolution.
     maxRank: number;
-    // Highest rank among slugs that ACTUALLY carry coaching/onboarding
-    // entitlements — excludes pure status products like `vip` (Task #1660),
-    // via the SAME `isPartnerEligibleRank`/`PARTNER_INELIGIBLE_SLUGS` rule
-    // `resolveOnboardingVariant` (onboarding-variant.ts) uses, so a repair
-    // candidate here always matches what the live re-entry hook would
-    // actually do. Holding VIP alone (rank 6) must never resolve to "full".
-    eligibleRank: number;
+    // Highest rank among slugs that count toward ONBOARDING VARIANT
+    // resolution — excludes pure status products like `vip` (Task #1660) via
+    // the same `PARTNER_INELIGIBLE_SLUGS` exclusion `resolveOnboardingVariant`
+    // (onboarding-variant.ts) uses, but otherwise takes the raw PRODUCT_RANK
+    // with NO minimum-rank floor. This must NOT be conflated with partner
+    // *assignment* eligibility (see `partnerEligibleRank` below): a bug fixed
+    // here (Task #1663) previously ran this through `isPartnerEligibleRank`,
+    // whose `rank >= PARTNER_ELIGIBLE_MIN_RANK` (2) floor silently zeroed out
+    // rank-1 `launchpad` grants, making launchpad-only members invisible to
+    // this finder even though `resolveOnboardingVariant` correctly elevates
+    // them. Holding VIP alone (rank 6) must still never resolve to "full".
+    resolutionRank: number;
+    // Highest rank among slugs that ACTUALLY qualify for accountability
+    // PARTNER ASSIGNMENT (rank >= PARTNER_ELIGIBLE_MIN_RANK, vip excluded) —
+    // used ONLY to decide `wouldAssignPartner` below, never for variant
+    // resolution.
+    partnerEligibleRank: number;
   }
   const byUser = new Map<number, Agg>();
   for (const row of rows) {
     const rank = PRODUCT_RANK[row.slug] ?? 0;
-    const eligibleRank = isPartnerEligibleRank(rank, row.slug) ? rank : 0;
+    const resolutionRank = PARTNER_INELIGIBLE_SLUGS.has(row.slug) ? 0 : rank;
+    const partnerEligibleRank = isPartnerEligibleRank(rank, row.slug) ? rank : 0;
     const existing = byUser.get(row.userId);
     if (!existing) {
       byUser.set(row.userId, {
@@ -97,21 +113,23 @@ export async function findOnboardingRepairCandidates(): Promise<OnboardingRepair
         onboardingVariant: row.onboardingVariant,
         onboardingComplete: row.onboardingComplete,
         maxRank: rank,
-        eligibleRank,
+        resolutionRank,
+        partnerEligibleRank,
       });
     } else {
       existing.maxRank = Math.max(existing.maxRank, rank);
-      existing.eligibleRank = Math.max(existing.eligibleRank, eligibleRank);
+      existing.resolutionRank = Math.max(existing.resolutionRank, resolutionRank);
+      existing.partnerEligibleRank = Math.max(existing.partnerEligibleRank, partnerEligibleRank);
     }
   }
 
   const candidates: OnboardingRepairCandidate[] = [];
   for (const [userId, info] of byUser) {
     const persisted = (info.onboardingVariant as OnboardingVariant) ?? "full";
-    const resolved = resolveVariantFromRank(info.eligibleRank);
+    const resolved = resolveVariantFromRank(info.resolutionRank);
     if (VARIANT_RANK[resolved] <= VARIANT_RANK[persisted]) continue;
 
-    const partnerEligible = isPartnerEligibleRank(info.eligibleRank);
+    const partnerEligible = isPartnerEligibleRank(info.partnerEligibleRank);
     const existingAssignment = partnerEligible ? await getActiveAssignment(userId) : null;
 
     candidates.push({
