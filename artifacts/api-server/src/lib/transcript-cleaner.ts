@@ -276,6 +276,188 @@ export async function loadCanonicalTerms(): Promise<string[]> {
 }
 
 // ───────────────────────────────────────────────────────────────────────────
+// BTS HOUSE TERMS — the small, CLOSED, BTS-OWNED set of proprietary product /
+// tool / app names (Task #1674). Because BTS owns this set and members do not
+// coin brands that collide with it, a near-miss variant of one of THESE terms
+// ("Flexi" for "Flexy") is safe to correct aggressively/deterministically — the
+// exact opposite of a member's own niche proper noun, which we only tidy and
+// never force onto a house spelling. This is the single source of truth for the
+// aggressive normalisation pass AND the tiered LLM guidance below.
+// ───────────────────────────────────────────────────────────────────────────
+
+/**
+ * Extra BTS house/product/app names that are house-owned but NOT tagged in the
+ * glossary. Kept as an explicit, editable list so a new BTS app name is a
+ * one-line addition. Empty today (the glossary covers the current tool set).
+ */
+const EXTRA_BTS_HOUSE_TERMS: readonly string[] = [];
+
+let BTS_HOUSE_TERMS_CACHE: string[] | null = null;
+
+/**
+ * The closed BTS house-term set: every glossary row whose notes flag it as BTS
+ * proprietary (e.g. DIYTrax, MetricMover, Flexy, PixelPress, NoEscape, CropBot,
+ * ScrapeBot, Gifster, MediaMavens), plus {@link EXTRA_BTS_HOUSE_TERMS}. Derived
+ * live from the glossary so it never drifts from a hardcoded duplicate. Cached
+ * per-process; returns just the extras (never throws) if the glossary is absent.
+ */
+export function loadBtsHouseTerms(): string[] {
+  if (BTS_HOUSE_TERMS_CACHE) return BTS_HOUSE_TERMS_CACHE;
+  const terms: string[] = [];
+  const seen = new Set<string>();
+  const add = (t: string) => {
+    const term = t.trim();
+    if (!term) return;
+    const key = term.toLowerCase();
+    if (seen.has(key)) return;
+    seen.add(key);
+    terms.push(term);
+  };
+  let raw = "";
+  try {
+    raw = readFileSync(join(__dirname, "..", "knowledge-base", "glossary.txt"), "utf8");
+  } catch {
+    raw = "";
+  }
+  for (const line of raw.split("\n")) {
+    if (!line.includes("|")) continue;
+    const cells = line.split("|").map((c) => c.trim());
+    const term = cells[1] ?? "";
+    if (!term || term === "Item") continue;
+    if (term.length < 3 || term.length > 40) continue;
+    // The notes/definition cells carry the "BTS proprietary …" categorisation.
+    const notes = cells.slice(2).join(" ").toLowerCase();
+    if (!notes.includes("bts proprietary")) continue;
+    add(term);
+  }
+  for (const t of EXTRA_BTS_HOUSE_TERMS) add(t);
+  BTS_HOUSE_TERMS_CACHE = terms;
+  return terms;
+}
+
+/**
+ * Editable known-misspelling → canonical alias map (Task #1674). This is the
+ * SELF-HEALING hook: when a new mistranscription of a BTS house term (or a known
+ * traffic source) is discovered, add ONE line here and it is corrected on every
+ * transcript from then on. Keys are matched case-insensitively as whole words
+ * (multi-word keys are matched as a phrase). Seeded with the real observed
+ * misses. Keep entries UNAMBIGUOUS — never add an ordinary English word/phrase
+ * (e.g. "no escape") as a key, or it will clobber legitimate prose.
+ */
+export const BTS_TERM_ALIASES: Readonly<Record<string, string>> = {
+  // Flexy — the tool that kept coming through as "Flexi".
+  flexi: "Flexy",
+  flexie: "Flexy",
+  flexxy: "Flexy",
+  flexey: "Flexy",
+  // Caterpillar traffic source.
+  catapiller: "Caterpillar",
+  caterpiller: "Caterpillar",
+  catterpillar: "Caterpillar",
+  // Spaced/garbled forms of the camelCase tools (the LLM usually catches these;
+  // this is the deterministic backstop). All are unambiguous product references.
+  "diy trax": "DIYTrax",
+  "diytrax": "DIYTrax",
+  "metric mover": "MetricMover",
+  "pixel press": "PixelPress",
+  "crop bot": "CropBot",
+  "scrape bot": "ScrapeBot",
+  "media mavens": "MediaMavens",
+};
+
+/** Escape a string for use as a literal inside a RegExp. */
+function escapeRegExp(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+/** Bounded Levenshtein edit distance between two (already-lowercased) strings. */
+function editDistance(a: string, b: string): number {
+  const m = a.length;
+  const n = b.length;
+  if (m === 0) return n;
+  if (n === 0) return m;
+  let prev = new Array(n + 1);
+  let curr = new Array(n + 1);
+  for (let j = 0; j <= n; j++) prev[j] = j;
+  for (let i = 1; i <= m; i++) {
+    curr[0] = i;
+    for (let j = 1; j <= n; j++) {
+      const cost = a[i - 1] === b[j - 1] ? 0 : 1;
+      curr[j] = Math.min(prev[j] + 1, curr[j - 1] + 1, prev[j - 1] + cost);
+    }
+    [prev, curr] = [curr, prev];
+  }
+  return prev[n];
+}
+
+/**
+ * Find the canonical BTS house term a single token corresponds to, or null when
+ * it is not a house term. Two ways a token matches:
+ *   1. Exact case-insensitive match to a house term → normalise CASE only (e.g.
+ *      "flexy" → "Flexy"); returns null when already exact (no change).
+ *   2. A safe near-miss: same first letter, and a small edit distance under a
+ *      length-scaled threshold. To avoid clobbering ordinary English words, a
+ *      short house term (<= 8 chars) only accepts an EQUAL-LENGTH substitution
+ *      variant ("Flexi"→"Flexy", never "flex"→"Flexy"); a longer coined term
+ *      allows one insertion/deletion as well.
+ * Never near-misses house terms shorter than 5 chars (too ambiguous).
+ */
+function matchBtsHouseTerm(token: string, houseTerms: readonly string[]): string | null {
+  const lower = token.toLowerCase();
+  for (const term of houseTerms) {
+    if (term.toLowerCase() === lower) return term === token ? null : term;
+  }
+  if (token.length < 4) return null;
+  let best: string | null = null;
+  let bestDist = Infinity;
+  for (const term of houseTerms) {
+    if (term.length < 5) continue;
+    if (term[0].toLowerCase() !== token[0].toLowerCase()) continue;
+    const threshold = term.length <= 8 ? 1 : 2;
+    // Cap indels so a shorter ordinary word (a pure deletion) is never coerced:
+    // threshold-1 terms accept substitutions only, threshold-2 accept one indel.
+    if (Math.abs(token.length - term.length) > threshold - 1) continue;
+    const dist = editDistance(lower, term.toLowerCase());
+    if (dist >= 1 && dist <= threshold && dist < bestDist) {
+      best = term;
+      bestDist = dist;
+    }
+  }
+  return best;
+}
+
+/**
+ * Deterministic post-clean normalisation of BTS HOUSE terms only (Task #1674).
+ * Runs after the LLM clean/refine so a near-miss the model left behind ("Flexi")
+ * still comes out canonical ("Flexy"), with no admin instruction needed. Two
+ * passes, both guarded hard against touching member-owned proper nouns:
+ *   1. the explicit {@link BTS_TERM_ALIASES} map (whole-word/phrase, case-insensitive), then
+ *   2. single-token near-miss correction against the CLOSED house-term set (see
+ *      {@link matchBtsHouseTerm}).
+ * Pure + idempotent: applying it twice yields the same result. Member terms,
+ * ordinary English words, and already-canonical spellings are left untouched.
+ */
+export function normalizeBtsHouseTerms(text: string): string {
+  if (!text) return text;
+  const houseTerms = loadBtsHouseTerms();
+  let out = text;
+
+  // Pass 1 — explicit aliases (whole word / phrase, case-insensitive). Longest
+  // keys first so a multi-word alias wins over any single-word overlap.
+  const aliasKeys = Object.keys(BTS_TERM_ALIASES).sort((a, b) => b.length - a.length);
+  for (const key of aliasKeys) {
+    const re = new RegExp(`\\b${escapeRegExp(key)}\\b`, "gi");
+    out = out.replace(re, BTS_TERM_ALIASES[key]);
+  }
+
+  // Pass 2 — near-miss single tokens (camelCase tokens like "DIYTrex" included).
+  if (houseTerms.length > 0) {
+    out = out.replace(/[A-Za-z][A-Za-z0-9]*/g, (token) => matchBtsHouseTerm(token, houseTerms) ?? token);
+  }
+  return out;
+}
+
+// ───────────────────────────────────────────────────────────────────────────
 // Result shapes.
 // ───────────────────────────────────────────────────────────────────────────
 
@@ -829,6 +1011,33 @@ export const STAFF_FIRST_NAME_GUIDANCE = buildStaffFirstNameGuidance(
   [...COACHING_ROSTER, ...VA_ROSTER].map((s) => s.name),
 );
 
+/**
+ * Tiered spelling guidance shared by the clean + both refine prompts (Task
+ * #1674). It teaches the model the crucial distinction between the CLOSED,
+ * BTS-owned house-term set (correct any near-miss aggressively, like a rebrand)
+ * and a member's OWN niche proper nouns (tidy typos only, never force onto a
+ * house spelling). Built from the live {@link loadBtsHouseTerms} list so it never
+ * drifts. A deterministic post-clean pass ({@link normalizeBtsHouseTerms}) is the
+ * backstop, but the model doing it first keeps the prose natural.
+ */
+export function buildBtsHouseTermGuidance(): string {
+  const houseTerms = loadBtsHouseTerms();
+  const list = houseTerms.length > 0 ? houseTerms.join(", ") : "(none configured)";
+  return [
+    "BTS HOUSE/PROPRIETARY terms are a small CLOSED set BTS owns — treat ANY",
+    "phonetic / near-miss / garbled variant of one as a mistranscription and",
+    "correct it to the EXACT canonical spelling, as aggressively as you rebrand",
+    "old-program names (e.g. 'Flexi'/'Flexie'/'Flexxy' -> 'Flexy', 'Catapiller' ->",
+    "'Caterpillar', 'DIY trax'/'Metric Mover' -> 'DIYTrax'/'MetricMover'). Do NOT",
+    `flag these corrections. The house terms are: ${list}. This is the OPPOSITE of`,
+    "a member's OWN niche proper nouns (their brands, products, campaigns, offers)",
+    "— those are EXPECTED and legitimate: fix only an obvious typo, keep them",
+    "consistent, and NEVER force a member term onto a house spelling or flag it.",
+  ].join(" ");
+}
+
+export const BTS_HOUSE_TERM_GUIDANCE = buildBtsHouseTermGuidance();
+
 const CLEAN_SYSTEM_PROMPT = [
   "You are a meticulous transcript-cleaning assistant for an affiliate-marketing",
   "coaching membership (BTS). You clean RAW call/video transcripts that come from",
@@ -861,16 +1070,18 @@ const CLEAN_SYSTEM_PROMPT = [
   "     who the authority is — go by who is teaching/answering vs asking. The",
   "     person the admin named is the ONE authority; do not crown anyone else.",
   "   Report your confidence + the evidence for the turn split.",
-  "3. AUTO-CORRECT SPELLING — do this silently, do NOT flag it:",
-  "   - Normalise any term that matches the supplied canonical list to its EXACT",
-  "     canonical spelling (e.g. 'DIY trax' -> 'DIYTrax').",
+  "3. AUTO-CORRECT SPELLING — do this silently, do NOT flag it. There are TWO",
+  "   tiers, and the difference matters:",
+  `   - ${BTS_HOUSE_TERM_GUIDANCE}`,
   "   - Members operate in MANY different niches and constantly use their OWN brand,",
-  "     product, campaign, offer and traffic-source names (e.g. 'Barkchester',",
-  "     'Caterpillar'). Unfamiliar proper nouns are EXPECTED and legitimate — fix",
-  "     obvious mistranscriptions, pick the single most likely spelling, and use it",
+  "     product, campaign, offer and traffic-source names (e.g. 'Barkchester').",
+  "     Unfamiliar proper nouns are EXPECTED and legitimate — fix obvious",
+  "     mistranscriptions, pick the single most likely spelling, and use it",
   "     CONSISTENTLY throughout. NEVER flag a proper noun just because you don't",
   "     recognise it. Do not otherwise reword what people said (but SEE the",
   "     REBRAND exception below).",
+  "   - Also normalise any term matching the supplied canonical list to its EXACT",
+  "     canonical spelling.",
   "4. REBRAND OLD-PROGRAM REFERENCES — a DELIBERATE exception to the",
   "   'do not otherwise reword' rule above. Transcripts come from the old program",
   "   and still name the old brand and founder; convert these to BTS wording so",
@@ -1052,6 +1263,7 @@ function buildCleanUserMessage(args: {
     // only authority job is to decide WHICH turns are theirs, by conversational
     // role, and to guard against the name-collision hazard.
     `AUTHORITY (set by an admin — this is ground truth, do NOT second-guess it): this call has EXACTLY ONE source of authority, the ${label}${namePhrase}. Label EVERY turn where that person is teaching / answering / directing as "${label}". Label EVERY other speaker simply "Member" — never a number, never a personal name. Decide who the ${label} is by CONVERSATIONAL ROLE (who teaches and answers vs who asks and describes their situation), NOT by whose name is spoken: a member may mention ${collisionRef} name, and that must NOT make them the ${label}.`,
+    BTS_HOUSE_TERM_GUIDANCE,
     canonicalTerms.length > 0
       ? `Canonical BTS / Media Mavens / traffic-source terms — normalise spelling to these EXACT forms when referenced. Any OTHER proper noun is a member's own niche term: correct obvious typos, keep it consistent, and do NOT flag it. Terms: ${canonicalTerms.join(", ")}`
       : null,
@@ -1164,21 +1376,25 @@ export async function cleanTranscript(args: {
   );
 
   const allParsed = [firstParsed, ...restParsed];
-  // Deterministic privacy backstop (Task #1607): pass the assembled body through
-  // the coach-name privacy scrub so any staff surname the model left in is
-  // reduced to a first name (and old-brand references / PII are caught), even on
-  // the fallback path that reuses the raw chunk. The prompt's roster guidance is
-  // the primary mechanism; this is the safety net that keeps the two aligned.
+  // Deterministic backstops applied to the assembled body:
+  //  - normalizeBtsHouseTerms (Task #1674): correct any near-miss of a CLOSED
+  //    BTS house term ("Flexi" -> "Flexy") the model left behind — the prompt's
+  //    tiered guidance is primary, this guarantees the canonical spelling.
+  //  - scrubPrivateContent (Task #1607): reduce any staff surname to a first name
+  //    (and catch old-brand references / PII), even on the fallback path that
+  //    reuses the raw chunk. The prompt's roster guidance is the primary mechanism.
   const cleanedContent = scrubPrivateContent(
-    allParsed
-      .map((p, i) => {
-        // Fall back to the original chunk if the model returns an empty/whitespace
-        // cleaned value — never silently drop a chunk's content.
-        const cleaned = typeof p.cleanedTranscript === "string" ? p.cleanedTranscript.trim() : "";
-        return cleaned.length > 0 ? cleaned : chunks[i].trim();
-      })
-      .filter((s) => s.length > 0)
-      .join("\n\n"),
+    normalizeBtsHouseTerms(
+      allParsed
+        .map((p, i) => {
+          // Fall back to the original chunk if the model returns an empty/whitespace
+          // cleaned value — never silently drop a chunk's content.
+          const cleaned = typeof p.cleanedTranscript === "string" ? p.cleanedTranscript.trim() : "";
+          return cleaned.length > 0 ? cleaned : chunks[i].trim();
+        })
+        .filter((s) => s.length > 0)
+        .join("\n\n"),
+    ),
   );
   const flags = dedupeFlags(allParsed.flatMap((p) => mapModelFlags(p.flags)));
 
@@ -1390,6 +1606,10 @@ const REFINE_PATCH_SYSTEM_PROMPT = [
   ...OLD_BRAND_REBRAND_GUIDANCE.map((g) => `  - ${g}`),
   `  - ${STAFF_FIRST_NAME_GUIDANCE}`,
   "",
+  "ALSO CORRECT BTS HOUSE TERMS whenever you touch or notice them (emit",
+  "find/replace edits; do NOT flag):",
+  `  - ${BTS_HOUSE_TERM_GUIDANCE}`,
+  "",
   "Return STRICT JSON only with keys:",
   "- edits: array of { find, replace, all? }. `find` MUST be an EXACT, VERBATIM",
   "  substring copied character-for-character from the current transcript",
@@ -1424,6 +1644,10 @@ const REFINE_FULL_SYSTEM_PROMPT = [
   "phonetic/garbled variants:",
   ...OLD_BRAND_REBRAND_GUIDANCE.map((g) => `  - ${g}`),
   `  - ${STAFF_FIRST_NAME_GUIDANCE}`,
+  "",
+  "ALSO CORRECT BTS HOUSE TERMS automatically whenever you touch or notice them",
+  "(do NOT flag):",
+  `  - ${BTS_HOUSE_TERM_GUIDANCE}`,
   "",
   "OUTPUT FORMAT — return your reply in TWO parts, in this exact order:",
   "PART A — a SINGLE strict JSON object with METADATA ONLY (do NOT put the",
@@ -1473,10 +1697,11 @@ export function applyRefineEdits(current: string, rawEdits: unknown): string | n
 /** Build the shared refine result (flags + authority + message) for either path. */
 function buildRefineResult(parsed: any, cleanedContent: string): RefineTranscriptResult {
   const result: RefineTranscriptResult = {
-    // Deterministic privacy backstop (Task #1607): the refined body passes
-    // through the same coach-name scrub as the initial clean so a surname
-    // reintroduced by a refine edit is still reduced to a first name.
-    cleanedContent: scrubPrivateContent(cleanedContent),
+    // Deterministic backstops (Task #1674 + #1607): the refined body passes
+    // through the same BTS house-term normalisation and coach-name scrub as the
+    // initial clean, so a "Flexi" or a surname reintroduced by a refine edit is
+    // still corrected/reduced.
+    cleanedContent: scrubPrivateContent(normalizeBtsHouseTerms(cleanedContent)),
     flags: mapModelFlags(parsed.flags),
     assistantMessage: typeof parsed.message === "string" ? parsed.message : "Transcript updated.",
   };
