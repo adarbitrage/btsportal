@@ -8,6 +8,8 @@ import {
 import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { TimezoneField } from "@/components/onboarding/TimezoneField";
+import { mapToUsTimezone } from "@/lib/us-timezones";
 import { useState, useEffect } from "react";
 
 const EXPERIENCE_LEVELS = [
@@ -44,7 +46,12 @@ export default function OnboardingProfile() {
     if (member) {
       setName(member.name || "");
       setPhone(member.phone || "");
-      setTimezone(member.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone);
+      if (member.timezone) {
+        setTimezone(member.timezone);
+      } else {
+        const detected = Intl.DateTimeFormat().resolvedOptions().timeZone;
+        setTimezone(mapToUsTimezone(detected) ?? detected);
+      }
       setExperienceLevel(member.experienceLevel || "");
       setPrimaryGoal(member.primaryGoal || "");
       setSmsOptIn(member.smsOptIn || false);
@@ -125,17 +132,7 @@ export default function OnboardingProfile() {
 
             <div>
               <label className="text-sm font-medium text-muted-foreground block mb-1.5">Timezone</label>
-              <select
-                value={timezone}
-                onChange={(e) => setTimezone(e.target.value)}
-                className="w-full px-3 py-2 border border-border rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
-              >
-                {Intl.supportedValuesOf("timeZone").map((tz) => (
-                  <option key={tz} value={tz}>
-                    {tz.replace(/_/g, " ")}
-                  </option>
-                ))}
-              </select>
+              <TimezoneField value={timezone} onChange={setTimezone} />
             </div>
           </CardContent>
         </Card>
