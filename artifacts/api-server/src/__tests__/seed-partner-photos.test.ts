@@ -131,8 +131,9 @@ describe("seedPartnerPhotos", () => {
   it("sets kickoff-coach photo_url only where NULL, never clobbers", async () => {
     const bruceId = await createKickoffIfAbsent("Bruce", null);
     const markId = await createKickoffIfAbsent("Mark", CUSTOM_URL); // pre-set: must survive
+    const neilId = await createKickoffIfAbsent("Neil", null);
     // Todd intentionally absent: seed must no-op for him without inserting.
-    if (bruceId === null || markId === null) {
+    if (bruceId === null || markId === null || neilId === null) {
       // A real roster row already exists in this DB — skip rather than
       // mutate data we don't own.
       return;
@@ -147,12 +148,13 @@ describe("seedPartnerPhotos", () => {
         photoUrl: kickoffCoachesTable.photoUrl,
       })
       .from(kickoffCoachesTable)
-      .where(inArray(kickoffCoachesTable.id, [bruceId, markId]));
+      .where(inArray(kickoffCoachesTable.id, [bruceId, markId, neilId]));
     const byName = new Map(rows.map((r) => [r.displayName, r]));
 
     expect(byName.get("Bruce")?.photoUrl).toBe(KICKOFF_COACH_PHOTO_PATHS.Bruce);
     // Non-null photo_url is never clobbered (admin replacement survives boots).
     expect(byName.get("Mark")?.photoUrl).toBe(CUSTOM_URL);
+    expect(byName.get("Neil")?.photoUrl).toBe(KICKOFF_COACH_PHOTO_PATHS.Neil);
 
     // Todd was never inserted by the seed.
     const todd = await db
@@ -161,5 +163,13 @@ describe("seedPartnerPhotos", () => {
       .where(eq(kickoffCoachesTable.displayName, "Todd"));
     const toddCreatedByUs = todd.filter((r) => createdKickoffIds.includes(r.id));
     expect(toddCreatedByUs.length).toBe(0);
+
+    // Idempotent: second run changes nothing.
+    await seedPartnerPhotos();
+    const [neilAgain] = await db
+      .select({ photoUrl: kickoffCoachesTable.photoUrl })
+      .from(kickoffCoachesTable)
+      .where(eq(kickoffCoachesTable.id, neilId));
+    expect(neilAgain.photoUrl).toBe(KICKOFF_COACH_PHOTO_PATHS.Neil);
   });
 });

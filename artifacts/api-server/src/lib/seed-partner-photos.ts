@@ -20,6 +20,10 @@ export const KICKOFF_COACH_PHOTO_PATHS: Record<string, string> = {
   Bruce: "/kickoff-photos/bruce.jpg",
   Mark: "/kickoff-photos/mark.jpg",
   Todd: "/kickoff-photos/todd.jpg",
+  // Task #1686: Neil's kickoff-coach row has no photo yet; reuse the already-
+  // hosted headshot from his accountability-partner row rather than
+  // uploading a new asset.
+  Neil: "/partner-photos/neil.png",
 };
 
 // Idempotent boot hook: set photo_url for the mapped roster rows wherever
