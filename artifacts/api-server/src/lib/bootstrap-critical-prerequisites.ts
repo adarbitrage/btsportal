@@ -43,7 +43,7 @@ import {
   migrateOnboardingStepsToSixStepContract,
   migrateOnboardingStepsToSendOffContract,
 } from "./onboarding-advancement";
-import { seedSendoffVideoSettings } from "./sendoff-video-settings";
+import { seedSendoffVideoSettings, seedDevSendoffDummyVideo } from "./sendoff-video-settings";
 import { seedCallBookingRoster } from "./seed-call-booking-roster";
 import { seedPartnerPhotos } from "./seed-partner-photos";
 import { runGrandfatherBackfillBootHook } from "./grandfather-backfill";
@@ -449,6 +449,21 @@ export async function bootstrapCriticalPrerequisites(): Promise<PrerequisiteResu
   } catch (err) {
     console.error("[Bootstrap] seedSendoffVideoSettings() threw:", err);
     missing.push("seedSendoffVideoSettings");
+  }
+
+  // 11e. Task #1687: DEV/PREVIEW-ONLY — auto-fill both send-off video slots
+  //      with a temporary DUMMY video (an internal, brand-neutral, already-
+  //      hosted portal clip) so the owner can preview the send_off step's
+  //      real iframe player before real send-off videos are uploaded. Gated
+  //      out of production entirely so the dummy can never silently ship as
+  //      final; never overwrites a real value if one is ever set.
+  if (process.env.NODE_ENV !== "production") {
+    try {
+      await seedDevSendoffDummyVideo();
+    } catch (err) {
+      console.error("[Bootstrap] seedDevSendoffDummyVideo() threw:", err);
+      missing.push("seedDevSendoffDummyVideo");
+    }
   }
 
   // 12. Seed the verified accountability-partner and kickoff-coach GHL
