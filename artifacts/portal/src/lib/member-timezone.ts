@@ -73,3 +73,10 @@ export function formatMemberFullDateTime(date: Date | string, timeZone: string):
   }).format(d);
   return `${datePart} at ${formatMemberTime(d, timeZone)}`;
 }
+
+/** True when `date` falls on the current calendar day in the member's own timezone. */
+export function isMemberToday(date: Date | string, timeZone: string): boolean {
+  const d = toDate(date);
+  const dayKey = (dt: Date) => new Intl.DateTimeFormat("en-CA", { timeZone }).format(dt);
+  return dayKey(d) === dayKey(new Date());
+}

@@ -149,5 +149,9 @@
 - [Entitlement key exhaustive metadata map](entitlement-key-exhaustive-metadata.md) — a new ENTITLEMENT_KEYS entry needs a matching seed.ts ENTITLEMENT_METADATA row or `tsc` fails; adding the key alone compiles fine until you actually typecheck.
 - [VIP pure-status product mechanics](vip-status-product-mechanics.md) — vip:status is rank-6 badge-only, always co-granted with 1year, both expiry clocks independent; excluded from mentorship/partner rank checks via one shared PARTNER_INELIGIBLE_SLUGS list.
 - [Transcript Cleaner house-term normalization](transcript-cleaner-house-term-normalization.md) — closed BTS tool set (glossary-derived) gets aggressive near-miss auto-correct (Flexi→Flexy) via prompt tier + deterministic normalizeBtsHouseTerms backstop; equal-length-substitution guard protects member/ordinary words.
+<<<<<<< HEAD
 - [Vidalytics not plain-iframe embeddable](vidalytics-not-plain-iframe-embeddable.md) — Vidalytics needs its JS loader; direct embed base URL 403s. Use an internal static mp4 (portal public/videos) for anything needing a real `<iframe src>`.
 - [Headless chromium missing libgbm in this env](headless-chromium-libgbm-workaround.md) — bundled Playwright chromium/chromium_headless_shell fails to launch (`libgbm.so.1` missing); launch with `executablePath` pointed at the nix-provided `chromium` binary (`which chromium`) + `--no-sandbox` instead.
+=======
+- [Next-call panel source of truth](next-call-panel-source-of-truth.md) — persistent "next call" UI must query call_bookings directly (any type), never the partner-assignment endpoint, which is null for LaunchPad members by design; kickoff+partner can overlap.
+>>>>>>> 3f4f7c71 (Backfill: rewrite stored old-brand refs in AI source content (#1605))

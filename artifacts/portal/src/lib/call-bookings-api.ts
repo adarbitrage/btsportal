@@ -204,3 +204,27 @@ export function useTodayCallBooking() {
     refetchInterval: 5 * 60 * 1000,
   });
 }
+
+// ---------------------------------------------------------------------------
+// Persistent next-call panel (Task #1688). Source of truth for "what's my
+// next booked call" across BOTH kickoff and partner types, independent of
+// partner assignment — a LaunchPad member with a booked kickoff call and no
+// partner assignment still gets a result here (unlike usePartnerPanel above,
+// which stays null for them by design).
+// ---------------------------------------------------------------------------
+
+export interface NextCall {
+  type: "kickoff" | "partner";
+  scheduledAt: string;
+  endAt: string;
+  meetingUrl: string | null;
+  staff: { displayName: string; photoUrl: string | null } | null;
+}
+
+export function useNextCallBooking() {
+  return useQuery<{ call: NextCall | null }>({
+    queryKey: ["/api/call-bookings/next"],
+    queryFn: () => callFetch("/call-bookings/next"),
+    refetchInterval: 5 * 60 * 1000,
+  });
+}

@@ -1222,3 +1222,105 @@ describe("kickoff-coach tiering (Task #1641)", () => {
     expect(book.body.booking.staffId).not.toBe(launchpadCoach.id);
   });
 });
+
+// Task #1688: the persistent sidebar "next call" panel must find a member's
+// soonest booked call across BOTH kickoff and partner types, independent of
+// partner assignment — a LaunchPad member with a booked kickoff call and NO
+// partner assignment must still get a result here.
+describe("GET /call-bookings/next", () => {
+  it("returns null when the member has no upcoming booked call and no partner assignment", async () => {
+    const memberId = await makeMember(6, true);
+
+    const res = await request(app)
+      .get("/api/call-bookings/next")
+      .set("Cookie", authCookie(memberId));
+
+    expect(res.status).toBe(200);
+    expect(res.body.call).toBeNull();
+  });
+
+  it("returns an upcoming kickoff call for a member with no partner assignment (LaunchPad case)", async () => {
+    const memberId = await makeMember(5, true);
+    const scheduledAt = gridAlignedFutureTime(10);
+    await seedPartnerBooking({
+      memberId,
+      pId: kickoffCoachId,
+      scheduledAt,
+      type: "kickoff",
+    });
+
+    const res = await request(app)
+      .get("/api/call-bookings/next")
+      .set("Cookie", authCookie(memberId));
+
+    expect(res.status).toBe(200);
+    expect(res.body.call).not.toBeNull();
+    expect(res.body.call.type).toBe("kickoff");
+    expect(res.body.call.staff.displayName).toBe("Kickoff Coach Test");
+    expect(new Date(res.body.call.scheduledAt).getTime()).toBe(scheduledAt.getTime());
+  });
+
+  it("returns an upcoming partner call for an assigned member", async () => {
+    const memberId = await makeMember(6, true);
+    await assignPartner(memberId, partnerId);
+    const scheduledAt = gridAlignedFutureTime(11);
+    await seedPartnerBooking({
+      memberId,
+      pId: partnerId,
+      scheduledAt,
+      type: "partner",
+    });
+
+    const res = await request(app)
+      .get("/api/call-bookings/next")
+      .set("Cookie", authCookie(memberId));
+
+    expect(res.status).toBe(200);
+    expect(res.body.call.type).toBe("partner");
+    expect(res.body.call.staff.displayName).toBe("Cap Test Partner");
+  });
+
+  it("picks the soonest of multiple upcoming calls and ignores past/canceled ones", async () => {
+    const memberId = await makeMember(6, true);
+    await assignPartner(memberId, partnerId);
+    const soon = gridAlignedFutureTime(3);
+    const later = gridAlignedFutureTime(20);
+    const past = new Date(Date.now() - 24 * 60 * 60 * 1000);
+
+    await seedPartnerBooking({ memberId, pId: partnerId, scheduledAt: later, type: "partner" });
+    await seedPartnerBooking({ memberId, pId: kickoffCoachId, scheduledAt: soon, type: "kickoff" });
+    await seedPartnerBooking({ memberId, pId: partnerId, scheduledAt: past, type: "partner" });
+    await seedPartnerBooking({
+      memberId,
+      pId: partnerId,
+      scheduledAt: gridAlignedFutureTime(1),
+      type: "partner",
+      status: "canceled",
+    });
+
+    const res = await request(app)
+      .get("/api/call-bookings/next")
+      .set("Cookie", authCookie(memberId));
+
+    expect(res.status).toBe(200);
+    expect(res.body.call.type).toBe("kickoff");
+    expect(new Date(res.body.call.scheduledAt).getTime()).toBe(soon.getTime());
+  });
+
+  it("does not leak internal GHL fields to the member-facing response", async () => {
+    const memberId = await makeMember(6, true);
+    await seedPartnerBooking({
+      memberId,
+      pId: kickoffCoachId,
+      scheduledAt: gridAlignedFutureTime(15),
+      type: "kickoff",
+    });
+
+    const res = await request(app)
+      .get("/api/call-bookings/next")
+      .set("Cookie", authCookie(memberId));
+
+    expect(res.body.call).not.toHaveProperty("ghlCalendarId");
+    expect(res.body.call).not.toHaveProperty("ghlAppointmentId");
+  });
+});

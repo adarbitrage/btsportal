@@ -57,14 +57,11 @@ function AccountabilityPartnerCard() {
           </span>
         </div>
 
-        {nextCall ? (
-          <div className="flex items-center gap-2 text-xs text-muted-foreground">
-            <Calendar className="w-3.5 h-3.5" />
-            <span>Next call {formatMemberDateTime(nextCall.scheduledAt, timeZone)}</span>
-          </div>
-        ) : (
-          <p className="text-xs text-muted-foreground">No call scheduled yet.</p>
-        )}
+        {/* Next-call date/time now lives in the persistent sidebar panel
+            (Task #1688) — shown on every page, not just here. This card
+            keeps only the "no call yet" nudge, since that's the one state
+            the sidebar panel doesn't surface (it simply hides itself). */}
+        {!nextCall && <p className="text-xs text-muted-foreground">No call scheduled yet.</p>}
 
         <Link href="/onboarding/book-partner-call">
           <Button variant="outline" className="w-full">

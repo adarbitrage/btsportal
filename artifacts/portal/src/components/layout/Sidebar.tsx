@@ -92,6 +92,7 @@ import {
 import { useContentAccess } from "@/hooks/use-content-access";
 import { hasPermission } from "@/lib/permissions";
 import { UpgradeFeaturesCard } from "@/components/upgrade/UpgradeFeaturesCard";
+import { NextCallPanel } from "./NextCallPanel";
 
 function ModerationPendingBadge() {
   const { data } = useAdminModerationPendingCount({ refetchInterval: 30_000 });
@@ -710,6 +711,10 @@ export function SidebarContent({ onNavClick }: { onNavClick?: () => void }) {
             </p>
           </div>
         </div>
+      </div>
+
+      <div className="pt-4">
+        <NextCallPanel />
       </div>
 
       <div ref={scrollRef} data-testid="member-sidebar-scroll" className="flex-1 min-h-0 py-4 px-3 space-y-0.5 overflow-y-auto">

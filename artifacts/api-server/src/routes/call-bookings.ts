@@ -1,5 +1,13 @@
 import { Router, type IRouter } from "express";
-import { db, pool, usersTable, partnersTable, partnerAssignmentsTable, callBookingsTable } from "@workspace/db";
+import {
+  db,
+  pool,
+  usersTable,
+  partnersTable,
+  partnerAssignmentsTable,
+  callBookingsTable,
+  kickoffCoachesTable,
+} from "@workspace/db";
 import { eq, and, ne, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/node-postgres";
 import {
@@ -927,6 +935,65 @@ router.get("/call-bookings/today", async (req, res): Promise<void> => {
 
   const todays = bookings.filter((b) => dayKeyInTz(b.scheduledAt) === todayKey);
   res.json({ booking: todays[0] ?? null });
+});
+
+// ---------------------------------------------------------------------------
+// Persistent next-call panel — /call-bookings/next (Task #1688).
+//
+// Unlike /partner/me (partner-assignment-only, Task #1593) and
+// /call-bookings/today (today-only), this is the single source of truth for
+// "what's my next booked call" across BOTH call types (kickoff or partner) —
+// a LaunchPad member with a booked kickoff call and NO partner assignment
+// gets a result here even though /partner/me returns null for them. Staff
+// display info is resolved from the right roster per staffType so the panel
+// never has to special-case kickoff vs. partner display.
+// ---------------------------------------------------------------------------
+
+router.get("/call-bookings/next", async (req, res): Promise<void> => {
+  const userId = req.userId!;
+
+  const [booking] = await db
+    .select(MEMBER_CALL_BOOKING_COLUMNS)
+    .from(callBookingsTable)
+    .where(
+      and(
+        eq(callBookingsTable.memberId, userId),
+        eq(callBookingsTable.status, "booked"),
+        sql`${callBookingsTable.scheduledAt} >= now()`,
+      ),
+    )
+    .orderBy(sql`${callBookingsTable.scheduledAt} asc`)
+    .limit(1);
+
+  if (!booking) {
+    res.json({ call: null });
+    return;
+  }
+
+  let staff: { displayName: string; photoUrl: string | null } | null = null;
+  if (booking.staffType === "kickoff_coach") {
+    const [coach] = await db
+      .select({ displayName: kickoffCoachesTable.displayName, photoUrl: kickoffCoachesTable.photoUrl })
+      .from(kickoffCoachesTable)
+      .where(eq(kickoffCoachesTable.id, booking.staffId));
+    staff = coach ?? null;
+  } else if (booking.staffType === "partner") {
+    const [partner] = await db
+      .select({ displayName: partnersTable.displayName, photoUrl: partnersTable.photoUrl })
+      .from(partnersTable)
+      .where(eq(partnersTable.id, booking.staffId));
+    staff = partner ?? null;
+  }
+
+  res.json({
+    call: {
+      type: booking.type,
+      scheduledAt: booking.scheduledAt.toISOString(),
+      endAt: booking.endAt.toISOString(),
+      meetingUrl: booking.meetingUrl,
+      staff,
+    },
+  });
 });
 
 export default router;
