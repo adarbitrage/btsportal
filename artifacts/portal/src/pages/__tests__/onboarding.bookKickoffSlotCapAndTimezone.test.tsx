@@ -109,3 +109,47 @@ describe("kickoff slot cap + expander", () => {
     expect(screen.queryByText(/America\/New_York/)).not.toBeInTheDocument();
   });
 });
+
+// Task #1695: the kickoff coach selection card renders the coach's bio,
+// matching the accountability partner card's treatment (own line, only when
+// the bio is non-null — no empty block or gap for null-bio coaches).
+describe("kickoff coach card bio", () => {
+  it("shows the selected coach's bio once a slot is selected", () => {
+    const today = new Date();
+    const dateStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-18`;
+    useKickoffAvailability.mockReturnValue({
+      data: {
+        slots: buildSlots(1, dateStr),
+        coaches: [{ id: 1, displayName: "Coach A", photoUrl: null, bio: "I've helped dozens of members hit their goals." }],
+      },
+      isLoading: false,
+      refetch: vi.fn(),
+    });
+
+    render(<OnboardingBookKickoff />);
+    selectFirstAvailableDay();
+    fireEvent.click(screen.getByTestId(/^kickoff-slot-/));
+
+    expect(screen.getByText("I've helped dozens of members hit their goals.")).toBeInTheDocument();
+  });
+
+  it("renders no empty bio block when the selected coach's bio is null", () => {
+    const today = new Date();
+    const dateStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-19`;
+    useKickoffAvailability.mockReturnValue({
+      data: {
+        slots: buildSlots(1, dateStr),
+        coaches: [{ id: 1, displayName: "Neil", photoUrl: null, bio: null }],
+      },
+      isLoading: false,
+      refetch: vi.fn(),
+    });
+
+    const { container } = render(<OnboardingBookKickoff />);
+    selectFirstAvailableDay();
+    fireEvent.click(screen.getByTestId(/^kickoff-slot-/));
+
+    expect(screen.getAllByText("Neil").length).toBeGreaterThan(0);
+    expect(container.querySelector("p.leading-relaxed")).not.toBeInTheDocument();
+  });
+});

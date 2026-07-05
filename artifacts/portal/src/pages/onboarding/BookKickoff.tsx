@@ -248,6 +248,9 @@ export default function OnboardingBookKickoff() {
             </div>
           </div>
         )}
+        {selectedCoach && selectedSlot && selectedCoach.bio && (
+          <p className="text-xs text-muted-foreground leading-relaxed">{selectedCoach.bio}</p>
+        )}
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           <Card>
