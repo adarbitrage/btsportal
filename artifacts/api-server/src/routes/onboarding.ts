@@ -212,7 +212,23 @@ router.patch("/members/me/onboarding", async (req, res): Promise<void> => {
     return;
   }
 
-  if (step !== user.onboardingStep) {
+  if (step < user.onboardingStep) {
+    // The member already passed this step (e.g. they clicked Back to re-edit
+    // an earlier page and hit Save & Continue). Treat re-saving an
+    // already-passed step as an idempotent no-op success rather than a 400 —
+    // the member's edits to the underlying data (e.g. their profile fields)
+    // are persisted by whichever endpoint owns that data; this endpoint's
+    // only job is step advancement, which does not need to move.
+    res.json(
+      PatchOnboardingStepResponse.parse({
+        currentStep: user.onboardingStep,
+        onboardingComplete: user.onboardingComplete,
+      })
+    );
+    return;
+  }
+
+  if (step > user.onboardingStep) {
     res.status(400).json({ error: `Cannot complete step ${step}. Current step is ${user.onboardingStep}` });
     return;
   }
@@ -352,6 +368,12 @@ router.patch("/members/me/profile", async (req, res): Promise<void> => {
 
   const { name, phone, timezone, experienceLevel, primaryGoal, smsOptIn, ticketReplySmsOptIn, securitySmsOptIn, billingSmsOptIn, coachingSmsOptIn, contentSmsOptIn, partnerCallSmsOptIn, marketingOptIn } = parsed.data;
 
+  const [existing] = await db.select().from(usersTable).where(eq(usersTable.id, userId));
+  if (!existing) {
+    res.status(404).json({ error: "User not found" });
+    return;
+  }
+
   const updateData: Record<string, any> = {};
   if (name !== undefined) updateData.name = name;
   if (phone !== undefined) updateData.phone = phone;
@@ -372,16 +394,48 @@ router.patch("/members/me/profile", async (req, res): Promise<void> => {
     return;
   }
 
+  // SMS/phone gate (Task #1690): a member can never be left with SMS
+  // notifications on and no phone on file, or the promised text reminders
+  // silently never go out. This is the shared gate for both the onboarding
+  // Profile step and the post-onboarding Account page — compute the
+  // member's RESULTING state (incoming fields merged over the current row)
+  // and reject if it would leave an empty phone while any SMS opt-in — the
+  // master opt-in or a per-category opt-in such as the partner-call one —
+  // is enabled.
+  //
+  // "Enabled" is evaluated the same way the send path evaluates it: a
+  // per-category flag only ever results in an actual text when the master
+  // smsOptIn is ALSO on (every send site checks `smsOptIn && <category>`,
+  // and the account UI disables every category checkbox while the master
+  // toggle is off), so a category can only become "enabled" together with
+  // the master flag. Checking `resultingMaster && (resultingMaster ||
+  // anyCategory)` therefore reduces to checking the master flag alone for
+  // every real, UI-reachable combination — but doing it this way (instead
+  // of a flat OR across the raw per-category columns) deliberately avoids
+  // a schema landmine: ticketReply/security/billing/coaching/partnerCall
+  // all DEFAULT TO TRUE at the DB level, while master smsOptIn and phone
+  // default to false/null. A flat "any column true" OR would treat every
+  // untouched, phone-less signup as already in the blocked state and 400
+  // on their very first Profile save (or any later unrelated field edit),
+  // which contradicts "unchecking SMS clears the block" and would break
+  // onboarding wholesale. See the two tests below covering both the
+  // legitimate partner-call block and the safe default-state non-block.
+  const resultingPhone = (phone !== undefined ? phone : existing.phone) ?? "";
+  const resultingMaster = smsOptIn !== undefined ? smsOptIn : existing.smsOptIn;
+  const resultingAnySmsOptIn = resultingMaster === true;
+  if (!resultingPhone.trim() && resultingAnySmsOptIn) {
+    res.status(400).json({
+      error: "Add a phone number to receive text reminders — or uncheck SMS notifications",
+    });
+    return;
+  }
+
   await db.transaction(async (tx) => {
     // If the phone number is being changed (and there was a real prior value
     // to remember), record the old number so the admin global search can
     // still find this member by the phone they used to have on file.
     if (phone !== undefined) {
-      const [current] = await tx
-        .select({ phone: usersTable.phone })
-        .from(usersTable)
-        .where(eq(usersTable.id, userId));
-      const oldPhone = current?.phone ?? null;
+      const oldPhone = existing.phone ?? null;
       if (oldPhone && oldPhone !== phone) {
         await tx.insert(phoneChangeHistoryTable).values({
           userId,

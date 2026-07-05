@@ -66,7 +66,10 @@ beforeAll(async () => {
       emailVerified: true,
       onboardingComplete: true,
       // Seed with schema defaults flipped to a known starting point so the
-      // PATCH below provably changes every field.
+      // PATCH below provably changes every field. A phone is required here
+      // because smsOptIn is on — Task #1690 added a server-side gate
+      // rejecting any save that would leave SMS on with no phone on file.
+      phone: "+15550001111",
       smsOptIn: true,
       securitySmsOptIn: true,
       billingSmsOptIn: true,
@@ -170,5 +173,63 @@ describe("PATCH /api/members/me/profile — per-category SMS preferences round-t
       coachingSmsOptIn: true,
       contentSmsOptIn: true,
     });
+  });
+});
+
+describe("PATCH /api/members/me/profile — SMS/phone gate (Task #1690)", () => {
+  it("rejects clearing the phone while the master SMS opt-in AND a per-category opt-in (partner-call) remain on", async () => {
+    const res = await request(app)
+      .patch("/api/members/me/profile")
+      .set("Cookie", signCookie(member.id, member.email))
+      .send({ phone: "", smsOptIn: true, partnerCallSmsOptIn: true });
+
+    expect(res.status).toBe(400);
+    expect(res.body.error).toMatch(/phone number/i);
+
+    const [row] = await db
+      .select({ phone: usersTable.phone })
+      .from(usersTable)
+      .where(eq(usersTable.id, member.id));
+    // The reject must be atomic — phone stays at its prior (non-empty) value.
+    expect(row.phone).not.toBe("");
+  });
+
+  it("does NOT block an unrelated save for a phone-less member whose per-category flags are still at their schema default (true) but whose master SMS opt-in is off", async () => {
+    // A brand-new signup: no phone, master smsOptIn defaults false, but
+    // ticketReply/security/billing/coaching/partnerCall all default true at
+    // the DB level. None of those categories can ever fire a text without
+    // the master flag also being on, so this must NOT be treated as an
+    // "SMS-on + no-phone" violation — otherwise every phone-less member's
+    // very first (or any later) unrelated profile edit would 400 forever.
+    const email = `${TEST_TAG}-default-state@example.test`;
+    const passwordHash = await bcrypt.hash("irrelevant-test-password", 4);
+    const [row] = await db
+      .insert(usersTable)
+      .values({
+        email,
+        name: "Default State Member",
+        passwordHash,
+        sourceProduct: "lifetime",
+        emailVerified: true,
+        onboardingComplete: true,
+        // phone / smsOptIn intentionally left at their schema defaults.
+      })
+      .returning({ id: usersTable.id });
+    seededUserIds.push(row.id);
+
+    const [before] = await db
+      .select({ phone: usersTable.phone, smsOptIn: usersTable.smsOptIn, partnerCallSmsOptIn: usersTable.partnerCallSmsOptIn })
+      .from(usersTable)
+      .where(eq(usersTable.id, row.id));
+    expect(before.phone).toBeFalsy();
+    expect(before.smsOptIn).toBe(false);
+    expect(before.partnerCallSmsOptIn).toBe(true);
+
+    const res = await request(app)
+      .patch("/api/members/me/profile")
+      .set("Cookie", signCookie(row.id, email))
+      .send({ name: "Renamed" });
+
+    expect(res.status).toBe(200);
   });
 });

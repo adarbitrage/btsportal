@@ -1,4 +1,4 @@
-import { OnboardingLayout } from "@/components/onboarding/OnboardingLayout";
+import { OnboardingLayout, getOnboardingRouteForStep } from "@/components/onboarding/OnboardingLayout";
 import { useAuth } from "@/lib/auth";
 import {
   useGetCurrentMember,
@@ -58,10 +58,17 @@ export default function OnboardingProfile() {
     }
   }, [member]);
 
-  const canSubmit = name.trim() && experienceLevel && primaryGoal && !submitting;
+  const smsPhoneBlocked = smsOptIn && !phone.trim();
+  const smsPhoneBlockedMessage =
+    "Add a phone number to receive text reminders — or uncheck SMS notifications";
+
+  const canSubmit = name.trim() && experienceLevel && primaryGoal && !smsPhoneBlocked && !submitting;
 
   const handleSubmit = async () => {
     setError("");
+    if (smsPhoneBlocked) {
+      return;
+    }
     setSubmitting(true);
     try {
       await patchProfile.mutateAsync({
@@ -74,9 +81,13 @@ export default function OnboardingProfile() {
           smsOptIn,
         },
       });
-      await patchOnboarding.mutateAsync({ data: { step: 2 } });
+      const stepResult = await patchOnboarding.mutateAsync({ data: { step: 2 } });
       await refreshAuth();
-      navigate("/onboarding/book-kickoff");
+      // A member who went Back to re-edit an already-passed Profile step is
+      // now saved idempotently server-side (their step counter doesn't move
+      // backward), so navigate them forward to wherever they actually are
+      // instead of always assuming step 2 -> book-kickoff.
+      navigate(getOnboardingRouteForStep(stepResult.currentStep, user?.onboardingVariant));
     } catch (err: any) {
       setError(err?.message || "Failed to save profile. Please try again.");
     } finally {
@@ -125,8 +136,13 @@ export default function OnboardingProfile() {
                   value={phone}
                   onChange={(e) => setPhone(e.target.value)}
                   placeholder="+1 (555) 000-0000"
-                  className="w-full px-3 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                  className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary ${
+                    smsPhoneBlocked ? "border-red-400" : "border-border"
+                  }`}
                 />
+                {smsPhoneBlocked && (
+                  <p className="text-xs text-red-600 mt-1.5">{smsPhoneBlockedMessage}</p>
+                )}
               </div>
             </div>
 

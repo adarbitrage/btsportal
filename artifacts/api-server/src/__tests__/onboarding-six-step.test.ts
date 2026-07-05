@@ -224,6 +224,54 @@ describe("5-step (full) onboarding contract — blocked skip attempts", () => {
     expect(res.status).toBe(400);
   });
 
+  // Task #1690 regression: a member who is already on step 3 (kickoff_booked)
+  // clicks Back to re-edit the step 2 (profile) page, tweaks a field, then
+  // hits Save & Continue. The profile save itself (PATCH /members/me/profile)
+  // always succeeds — it isn't gated on onboarding step at all — but the
+  // subsequent PATCH /members/me/onboarding {step:2} used to 400 because the
+  // member's step counter had already moved to 3. That must now be an
+  // idempotent no-op success that reports the member's REAL current step so
+  // the client can navigate forward correctly instead of getting stuck.
+  it("re-saving an already-passed step (Back -> edit -> Save & Continue) is an idempotent success, not a 400", async () => {
+    const { id, cookie } = await seedMember({
+      onboardingStep: 1,
+      onboardingVariant: "full",
+      experienceLevel: "complete_beginner",
+      primaryGoal: "first_sale",
+    });
+
+    // Walk forward past profile (step 2) to kickoff_booked (step 3), same as
+    // the normal flow in the test above.
+    let res = await request(app).patch("/api/members/me/onboarding").set("Cookie", cookie).send({ step: 1 });
+    expect(res.status).toBe(200);
+    res = await request(app).patch("/api/members/me/onboarding").set("Cookie", cookie).send({ step: 2 });
+    expect(res.status).toBe(200);
+    expect(res.body.currentStep).toBe(3);
+    expect((await getUser(id)).onboardingStep).toBe(3);
+
+    // Member clicks Back to re-edit their profile (a real edit, via the
+    // profile endpoint — unaffected by onboarding step) then Save & Continue,
+    // which re-fires the step-2 completion PATCH.
+    const profileRes = await request(app)
+      .patch("/api/members/me/profile")
+      .set("Cookie", cookie)
+      .send({ name: "Updated After Back" });
+    expect(profileRes.status).toBe(200);
+
+    res = await request(app).patch("/api/members/me/onboarding").set("Cookie", cookie).send({ step: 2 });
+    expect(res.status).toBe(200);
+    // Reports the member's real (already-advanced) step, not step 2, so the
+    // client navigates forward correctly instead of re-showing profile.
+    expect(res.body.currentStep).toBe(3);
+    expect(res.body.onboardingComplete).toBe(false);
+
+    // The step counter itself must not have moved (no-op), and the edit made
+    // via the profile endpoint before the re-save must still be persisted.
+    const after = await getUser(id);
+    expect(after.onboardingStep).toBe(3);
+    expect(after.name).toBe("Updated After Back");
+  });
+
   it("rejects any PATCH once onboarding is already complete", async () => {
     const { id, cookie } = await seedMember({ onboardingStep: 5, onboardingComplete: true, onboardingVariant: "full" });
     const res = await request(app).patch("/api/members/me/onboarding").set("Cookie", cookie).send({ step: 5 });

@@ -178,6 +178,14 @@ export default function Account() {
       (phone.trim() || null) !== (member.phone || null) ||
       (timezone || null) !== (member.timezone || null));
 
+  // Clearing the phone number while SMS notifications are on would silently
+  // break text delivery (the same triangle guarded on the onboarding Profile
+  // step) — block the save client-side with the same message; the profile
+  // PATCH endpoint enforces this server-side regardless.
+  const smsPhoneBlocked = smsOptIn && !phone.trim();
+  const smsPhoneBlockedMessage =
+    "Add a phone number to receive text reminders — or uncheck SMS notifications";
+
   const notifDirty =
     !!member &&
     (smsOptIn !== (member.smsOptIn ?? false) ||
@@ -193,6 +201,10 @@ export default function Account() {
     setProfileError("");
     if (!name.trim()) {
       setProfileError("Name is required.");
+      return;
+    }
+    if (smsPhoneBlocked) {
+      setProfileError(smsPhoneBlockedMessage);
       return;
     }
     setProfileSaving(true);
@@ -572,8 +584,13 @@ export default function Account() {
                   value={phone}
                   onChange={(e) => setPhone(e.target.value)}
                   placeholder="+1 (555) 000-0000"
-                  className="mt-1.5"
+                  className={`mt-1.5 ${smsPhoneBlocked ? "border-red-400" : ""}`}
                 />
+                {smsPhoneBlocked && (
+                  <p className="text-xs text-red-600 mt-1.5" data-testid="text-sms-phone-blocked">
+                    {smsPhoneBlockedMessage}
+                  </p>
+                )}
               </div>
               <div>
                 <Label htmlFor="account-timezone">Timezone</Label>
@@ -599,7 +616,7 @@ export default function Account() {
             )}
 
             <div className="flex justify-end">
-              <Button onClick={handleProfileSave} disabled={!profileDirty || profileSaving}>
+              <Button onClick={handleProfileSave} disabled={!profileDirty || profileSaving || smsPhoneBlocked}>
                 {profileSaving ? "Saving..." : "Save profile"}
               </Button>
             </div>
