@@ -9,9 +9,20 @@
 // Falls back to the browser's local timezone when the member has none set
 // (e.g. pre-Profile-step, or a partner/coach viewing their own dashboard).
 
+import { getUsTimezoneLabel } from "@/lib/us-timezones";
+
 export function getMemberTimezone(userTimezone?: string | null): string {
   if (userTimezone && userTimezone.trim()) return userTimezone;
   return Intl.DateTimeFormat().resolvedOptions().timeZone;
+}
+
+/**
+ * Friendly label for an IANA zone (e.g. "Eastern Time (ET)"), falling back to
+ * the raw IANA id for zones outside the curated US list (Task #1691). Use
+ * this anywhere a member-facing surface prints their timezone.
+ */
+export function getFriendlyTimezoneLabel(ianaZone: string): string {
+  return getUsTimezoneLabel(ianaZone) ?? ianaZone;
 }
 
 function toDate(date: Date | string): Date {

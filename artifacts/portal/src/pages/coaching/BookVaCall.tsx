@@ -28,6 +28,7 @@ import {
   addMinutes,
 } from "date-fns";
 import { Link, useLocation, useSearch } from "wouter";
+import { getFriendlyTimezoneLabel } from "@/lib/member-timezone";
 import {
   useVaList,
   useVaSlots,
@@ -44,6 +45,7 @@ import { cn } from "@/lib/utils";
 import { resolveCoachPhotoUrl } from "@/lib/coaches-admin-api";
 
 const VA_CALL_DURATION_MINUTES = 30;
+const SLOT_DISPLAY_CAP = 8;
 
 const REQUEST_TYPES = [
   "General Question",
@@ -91,6 +93,7 @@ export default function BookVaCall() {
   const [selectedVa, setSelectedVa] = useState<Va | null>(null);
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
+  const [showAllSlots, setShowAllSlots] = useState(false);
   const [selectedSlot, setSelectedSlot] = useState<VaSlot | null>(null);
   const [typeOfRequest, setTypeOfRequest] = useState("");
   const [concernArea, setConcernArea] = useState("");
@@ -181,6 +184,9 @@ export default function BookVaCall() {
   const slotsForSelectedDate = selectedDate
     ? slotsByDate.get(format(selectedDate, "yyyy-MM-dd")) ?? []
     : [];
+  const visibleSlotsForSelectedDate = showAllSlots
+    ? slotsForSelectedDate
+    : slotsForSelectedDate.slice(0, SLOT_DISPLAY_CAP);
 
   const selectedSlotConflicts = selectedSlot
     ? conflictingSlotStartTimes.has(selectedSlot.startTime)
@@ -428,6 +434,7 @@ export default function BookVaCall() {
                           onClick={() => {
                             setSelectedDate(day);
                             setSelectedSlot(null);
+                            setShowAllSlots(false);
                           }}
                           className={cn(
                             "h-10 rounded-lg text-sm font-medium transition-colors relative",
@@ -459,41 +466,52 @@ export default function BookVaCall() {
                         Available Times for {format(selectedDate, "MMMM d")}
                       </h3>
                       <p className="text-xs text-muted-foreground mb-4">
-                        Times shown in your local timezone ({memberTimezone})
+                        Times shown in your local timezone ({getFriendlyTimezoneLabel(memberTimezone)})
                       </p>
                       {slotsForSelectedDate.length > 0 ? (
-                        <div className="grid grid-cols-2 gap-2">
-                          {slotsForSelectedDate.map((slot) => {
-                            const isSelected = selectedSlot?.startTime === slot.startTime;
-                            const isConflict = conflictingSlotStartTimes.has(slot.startTime);
-                            return (
-                              <button
-                                key={slot.startTime}
-                                onClick={() => setSelectedSlot(slot)}
-                                data-testid={`slot-${slot.startTime}`}
-                                data-conflict={isConflict ? "true" : undefined}
-                                title={
-                                  isConflict
-                                    ? "The VA may be busy at this time"
-                                    : undefined
-                                }
-                                className={cn(
-                                  "px-4 py-2.5 rounded-lg text-sm font-medium transition-colors border flex items-center justify-center gap-1.5",
-                                  isSelected
-                                    ? isConflict
-                                      ? "bg-amber-500 text-white border-amber-500"
-                                      : "bg-primary text-white border-primary"
-                                    : isConflict
-                                      ? "border-amber-300 bg-amber-50 text-amber-900 hover:border-amber-400"
-                                      : "border-border hover:border-primary hover:bg-primary/5 text-foreground",
-                                )}
-                              >
-                                {isConflict && <AlertTriangle className="w-3.5 h-3.5 shrink-0" />}
-                                {format(new Date(slot.startTime), "h:mm a")}
-                              </button>
-                            );
-                          })}
-                        </div>
+                        <>
+                          <div className="grid grid-cols-2 gap-2">
+                            {visibleSlotsForSelectedDate.map((slot) => {
+                              const isSelected = selectedSlot?.startTime === slot.startTime;
+                              const isConflict = conflictingSlotStartTimes.has(slot.startTime);
+                              return (
+                                <button
+                                  key={slot.startTime}
+                                  onClick={() => setSelectedSlot(slot)}
+                                  data-testid={`slot-${slot.startTime}`}
+                                  data-conflict={isConflict ? "true" : undefined}
+                                  title={
+                                    isConflict
+                                      ? "The VA may be busy at this time"
+                                      : undefined
+                                  }
+                                  className={cn(
+                                    "px-4 py-2.5 rounded-lg text-sm font-medium transition-colors border flex items-center justify-center gap-1.5",
+                                    isSelected
+                                      ? isConflict
+                                        ? "bg-amber-500 text-white border-amber-500"
+                                        : "bg-primary text-white border-primary"
+                                      : isConflict
+                                        ? "border-amber-300 bg-amber-50 text-amber-900 hover:border-amber-400"
+                                        : "border-border hover:border-primary hover:bg-primary/5 text-foreground",
+                                  )}
+                                >
+                                  {isConflict && <AlertTriangle className="w-3.5 h-3.5 shrink-0" />}
+                                  {format(new Date(slot.startTime), "h:mm a")}
+                                </button>
+                              );
+                            })}
+                          </div>
+                          {!showAllSlots && slotsForSelectedDate.length > SLOT_DISPLAY_CAP && (
+                            <button
+                              onClick={() => setShowAllSlots(true)}
+                              data-testid="show-more-times"
+                              className="w-full mt-3 text-sm font-medium text-primary hover:underline"
+                            >
+                              Show more times ({slotsForSelectedDate.length - SLOT_DISPLAY_CAP} more)
+                            </button>
+                          )}
+                        </>
                       ) : (
                         <p className="text-sm text-muted-foreground text-center py-4">
                           No available time slots for this date.
@@ -587,7 +605,7 @@ export default function BookVaCall() {
                         )}
                       </span>
                     </div>
-                    <p className="text-xs text-muted-foreground">{memberTimezone}</p>
+                    <p className="text-xs text-muted-foreground">{getFriendlyTimezoneLabel(memberTimezone)}</p>
                   </div>
 
                   {selectedSlotConflicts && (

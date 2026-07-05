@@ -23,7 +23,9 @@ import { useToast } from "@/hooks/use-toast";
 import { resolveCoachPhotoUrl } from "@/lib/coaches-admin-api";
 import { useKickoffAvailability, useMyKickoffBooking, useBookKickoffCall } from "@/lib/call-bookings-api";
 import { getOnboardingRouteForStep } from "@/components/onboarding/OnboardingLayout";
-import { getMemberTimezone, formatMemberFullDateTime } from "@/lib/member-timezone";
+import { getMemberTimezone, formatMemberFullDateTime, getFriendlyTimezoneLabel } from "@/lib/member-timezone";
+
+const SLOT_DISPLAY_CAP = 8;
 
 function initials(name: string): string {
   return name
@@ -44,6 +46,7 @@ export default function OnboardingBookKickoff() {
 
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
+  const [showAllSlots, setShowAllSlots] = useState(false);
   const [selectedSlot, setSelectedSlot] = useState<{ startTime: string; coachId: number; durationMinutes: number } | null>(
     null,
   );
@@ -88,6 +91,9 @@ export default function OnboardingBookKickoff() {
   }, [availability]);
 
   const slotsForSelectedDate = selectedDate ? slotsByDate.get(format(selectedDate, "yyyy-MM-dd")) ?? [] : [];
+  const visibleSlotsForSelectedDate = showAllSlots
+    ? slotsForSelectedDate
+    : slotsForSelectedDate.slice(0, SLOT_DISPLAY_CAP);
 
   const bookCall = useBookKickoffCall();
 
@@ -291,6 +297,7 @@ export default function OnboardingBookKickoff() {
                       onClick={() => {
                         setSelectedDate(day);
                         setSelectedSlot(null);
+                        setShowAllSlots(false);
                       }}
                       className={cn(
                         "h-10 rounded-lg text-sm font-medium transition-colors relative",
@@ -322,41 +329,52 @@ export default function OnboardingBookKickoff() {
                     Available Times for {format(selectedDate, "MMMM d")}
                   </h3>
                   <p className="text-xs text-muted-foreground mb-4">
-                    Times shown in your local timezone ({memberTimezone})
+                    Times shown in your local timezone ({getFriendlyTimezoneLabel(memberTimezone)})
                   </p>
                   {slotsForSelectedDate.length > 0 ? (
-                    <div className="grid grid-cols-2 gap-2">
-                      {slotsForSelectedDate.map((slot) => {
-                        const isSelected =
-                          selectedSlot?.startTime === slot.startTime && selectedSlot?.coachId === slot.coachId;
-                        const slotCoach = coachesById.get(slot.coachId);
-                        return (
-                          <button
-                            key={`${slot.coachId}-${slot.startTime}`}
-                            onClick={() => setSelectedSlot(slot)}
-                            data-testid={`kickoff-slot-${slot.startTime}`}
-                            className={cn(
-                              "px-4 py-2.5 rounded-lg text-sm font-medium transition-colors border flex flex-col items-center",
-                              isSelected
-                                ? "bg-primary text-white border-primary"
-                                : "border-border hover:border-primary hover:bg-primary/5 text-foreground",
-                            )}
-                          >
-                            <span>{format(new Date(slot.startTime), "h:mm a")}</span>
-                            {slotCoach && (
-                              <span
-                                className={cn(
-                                  "text-[10px] font-normal",
-                                  isSelected ? "text-white/80" : "text-muted-foreground",
-                                )}
-                              >
-                                {slotCoach.displayName}
-                              </span>
-                            )}
-                          </button>
-                        );
-                      })}
-                    </div>
+                    <>
+                      <div className="grid grid-cols-2 gap-2">
+                        {visibleSlotsForSelectedDate.map((slot) => {
+                          const isSelected =
+                            selectedSlot?.startTime === slot.startTime && selectedSlot?.coachId === slot.coachId;
+                          const slotCoach = coachesById.get(slot.coachId);
+                          return (
+                            <button
+                              key={`${slot.coachId}-${slot.startTime}`}
+                              onClick={() => setSelectedSlot(slot)}
+                              data-testid={`kickoff-slot-${slot.startTime}`}
+                              className={cn(
+                                "px-4 py-2.5 rounded-lg text-sm font-medium transition-colors border flex flex-col items-center",
+                                isSelected
+                                  ? "bg-primary text-white border-primary"
+                                  : "border-border hover:border-primary hover:bg-primary/5 text-foreground",
+                              )}
+                            >
+                              <span>{format(new Date(slot.startTime), "h:mm a")}</span>
+                              {slotCoach && (
+                                <span
+                                  className={cn(
+                                    "text-[10px] font-normal",
+                                    isSelected ? "text-white/80" : "text-muted-foreground",
+                                  )}
+                                >
+                                  {slotCoach.displayName}
+                                </span>
+                              )}
+                            </button>
+                          );
+                        })}
+                      </div>
+                      {!showAllSlots && slotsForSelectedDate.length > SLOT_DISPLAY_CAP && (
+                        <button
+                          onClick={() => setShowAllSlots(true)}
+                          data-testid="show-more-times"
+                          className="w-full mt-3 text-sm font-medium text-primary hover:underline"
+                        >
+                          Show more times ({slotsForSelectedDate.length - SLOT_DISPLAY_CAP} more)
+                        </button>
+                      )}
+                    </>
                   ) : (
                     <p className="text-sm text-muted-foreground text-center py-4">
                       No available time slots for this date.

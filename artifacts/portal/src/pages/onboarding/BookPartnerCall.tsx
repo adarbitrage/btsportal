@@ -1,7 +1,7 @@
 import { useState, useMemo } from "react";
 import { OnboardingLayout } from "@/components/onboarding/OnboardingLayout";
 import { useAuth } from "@/lib/auth";
-import { getMemberTimezone, formatMemberFullDateTime } from "@/lib/member-timezone";
+import { getMemberTimezone, formatMemberFullDateTime, getFriendlyTimezoneLabel } from "@/lib/member-timezone";
 import { useLocation, Redirect } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -32,6 +32,7 @@ import {
 } from "@/lib/call-bookings-api";
 import { getOnboardingRouteForStep } from "@/components/onboarding/OnboardingLayout";
 
+const SLOT_DISPLAY_CAP = 8;
 const THIS_STEP = 4;
 
 export default function OnboardingBookPartnerCall() {
@@ -46,6 +47,7 @@ export default function OnboardingBookPartnerCall() {
   const [reschedulingBookingId, setReschedulingBookingId] = useState<number | null>(null);
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
+  const [showAllSlots, setShowAllSlots] = useState(false);
   const [selectedSlot, setSelectedSlot] = useState<{ startTime: string } | null>(null);
   const [advancing, setAdvancing] = useState(false);
 
@@ -81,6 +83,9 @@ export default function OnboardingBookPartnerCall() {
   }, [availability]);
 
   const slotsForSelectedDate = selectedDate ? slotsByDate.get(format(selectedDate, "yyyy-MM-dd")) ?? [] : [];
+  const visibleSlotsForSelectedDate = showAllSlots
+    ? slotsForSelectedDate
+    : slotsForSelectedDate.slice(0, SLOT_DISPLAY_CAP);
 
   const bookCall = useBookPartnerCall();
   const rescheduleCall = useReschedulePartnerCall();
@@ -267,6 +272,7 @@ export default function OnboardingBookPartnerCall() {
                     onClick={() => {
                       setSelectedDate(day);
                       setSelectedSlot(null);
+                      setShowAllSlots(false);
                     }}
                     className={cn(
                       "h-10 rounded-lg text-sm font-medium transition-colors relative",
@@ -298,29 +304,40 @@ export default function OnboardingBookPartnerCall() {
                   Available Times for {format(selectedDate, "MMMM d")}
                 </h3>
                 <p className="text-xs text-muted-foreground mb-4">
-                  Times shown in your local timezone ({memberTimezone})
+                  Times shown in your local timezone ({getFriendlyTimezoneLabel(memberTimezone)})
                 </p>
                 {slotsForSelectedDate.length > 0 ? (
-                  <div className="grid grid-cols-2 gap-2">
-                    {slotsForSelectedDate.map((slot) => {
-                      const isSelected = selectedSlot?.startTime === slot.startTime;
-                      return (
-                        <button
-                          key={slot.startTime}
-                          onClick={() => setSelectedSlot(slot)}
-                          data-testid={`partner-slot-${slot.startTime}`}
-                          className={cn(
-                            "px-4 py-2.5 rounded-lg text-sm font-medium transition-colors border",
-                            isSelected
-                              ? "bg-primary text-white border-primary"
-                              : "border-border hover:border-primary hover:bg-primary/5 text-foreground",
-                          )}
-                        >
-                          {format(new Date(slot.startTime), "h:mm a")}
-                        </button>
-                      );
-                    })}
-                  </div>
+                  <>
+                    <div className="grid grid-cols-2 gap-2">
+                      {visibleSlotsForSelectedDate.map((slot) => {
+                        const isSelected = selectedSlot?.startTime === slot.startTime;
+                        return (
+                          <button
+                            key={slot.startTime}
+                            onClick={() => setSelectedSlot(slot)}
+                            data-testid={`partner-slot-${slot.startTime}`}
+                            className={cn(
+                              "px-4 py-2.5 rounded-lg text-sm font-medium transition-colors border",
+                              isSelected
+                                ? "bg-primary text-white border-primary"
+                                : "border-border hover:border-primary hover:bg-primary/5 text-foreground",
+                            )}
+                          >
+                            {format(new Date(slot.startTime), "h:mm a")}
+                          </button>
+                        );
+                      })}
+                    </div>
+                    {!showAllSlots && slotsForSelectedDate.length > SLOT_DISPLAY_CAP && (
+                      <button
+                        onClick={() => setShowAllSlots(true)}
+                        data-testid="show-more-times"
+                        className="w-full mt-3 text-sm font-medium text-primary hover:underline"
+                      >
+                        Show more times ({slotsForSelectedDate.length - SLOT_DISPLAY_CAP} more)
+                      </button>
+                    )}
+                  </>
                 ) : (
                   <p className="text-sm text-muted-foreground text-center py-4">
                     No available time slots for this date.
