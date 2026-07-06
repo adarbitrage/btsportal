@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { TimezoneField } from "@/components/onboarding/TimezoneField";
 import { mapToUsTimezone } from "@/lib/us-timezones";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 
 const EXPERIENCE_LEVELS = [
   { value: "complete_beginner", label: "Complete Beginner", desc: "I've never done affiliate marketing" },
@@ -41,6 +41,7 @@ export default function OnboardingProfile() {
   const [smsOptIn, setSmsOptIn] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
+  const phoneInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (member) {
@@ -62,11 +63,31 @@ export default function OnboardingProfile() {
   const smsPhoneBlockedMessage =
     "Add a phone number to receive text reminders — or uncheck SMS notifications";
 
-  const canSubmit = name.trim() && experienceLevel && primaryGoal && !smsPhoneBlocked && !submitting;
+  // On mobile, a disabled button can't be tapped and therefore can't tell the
+  // member why they're stuck. So the SMS/phone conflict is deliberately left
+  // OUT of the disabled condition below — the button stays tappable, and
+  // tapping it (or checking the SMS box with an empty phone) scrolls the
+  // phone field into view and focuses it instead of silently doing nothing.
+  const canSubmit = Boolean(name.trim() && experienceLevel && primaryGoal && !submitting);
+
+  const scrollToAndFocusPhone = () => {
+    const el = phoneInputRef.current;
+    if (!el) return;
+    el.scrollIntoView({ behavior: "smooth", block: "center" });
+    el.focus();
+  };
+
+  const handleSmsOptInChange = (checked: boolean) => {
+    setSmsOptIn(checked);
+    if (checked && !phone.trim()) {
+      scrollToAndFocusPhone();
+    }
+  };
 
   const handleSubmit = async () => {
     setError("");
     if (smsPhoneBlocked) {
+      scrollToAndFocusPhone();
       return;
     }
     setSubmitting(true);
@@ -132,6 +153,7 @@ export default function OnboardingProfile() {
               <div>
                 <label className="text-sm font-medium text-muted-foreground block mb-1.5">Phone (optional)</label>
                 <input
+                  ref={phoneInputRef}
                   type="tel"
                   value={phone}
                   onChange={(e) => setPhone(e.target.value)}
@@ -221,7 +243,7 @@ export default function OnboardingProfile() {
               <input
                 type="checkbox"
                 checked={smsOptIn}
-                onChange={(e) => setSmsOptIn(e.target.checked)}
+                onChange={(e) => handleSmsOptInChange(e.target.checked)}
                 className="mt-0.5 w-4 h-4 rounded border-gray-300 text-primary focus:ring-primary"
               />
               <div>
