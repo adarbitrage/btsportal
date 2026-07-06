@@ -513,3 +513,19 @@ if [ -n "$DATABASE_URL" ]; then
     -f lib/db/drizzle/0102_onboarding_effects.sql \
     >/dev/null
 fi
+
+# Coaching-transcript VALUE SCREENER durable store (Task #1702). Three new,
+# empty, additive tables (kb_call_screenings, kb_screened_exchanges,
+# kb_calibration_examples) for the value-screening layer that sits between the
+# existing source screening/mining gates and the synthesis engine. Applying it
+# explicitly here keeps the live-schema-drift gate green so the conditional push
+# stays skipped on the common merge instead of triggering a slow whole-DB
+# `drizzle-kit push --force` just to create three tables (same pattern as the
+# other additive-table steps above). Idempotent (CREATE TABLE/INDEX IF NOT
+# EXISTS), so on a fresh DB / re-run it is a harmless no-op.
+if [ -n "$DATABASE_URL" ]; then
+  psql "$DATABASE_URL" \
+    -v ON_ERROR_STOP=1 \
+    -f lib/db/drizzle/0105_kb_value_screener.sql \
+    >/dev/null
+fi

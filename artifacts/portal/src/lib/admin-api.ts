@@ -2425,3 +2425,142 @@ export function runTranscriptImport() {
     body: JSON.stringify({ confirm: true }),
   });
 }
+
+// ── Coaching-transcript VALUE SCREENER (Task #1702) ─────────────────────────
+
+export interface ScreenerSourceSummary {
+  id: number;
+  title: string;
+  sourceType: string;
+  sourceName: string | null;
+  updatedAt: string;
+  screening: {
+    dedupStatus: string;
+    duplicateOfSourceId: number | null;
+    similarityScore: number | null;
+    exchangeCount: number;
+    keptCount: number;
+    droppedCount: number;
+    flaggedCount: number;
+    calibrationVersion: string;
+    stale: boolean;
+    screenedAt: string;
+  } | null;
+}
+
+export interface ScreenerProgress {
+  running: boolean;
+  total: number;
+  processed: number;
+  kept: number;
+  dropped: number;
+  flagged: number;
+  duplicates: number;
+  startedAt: string | null;
+  finishedAt: string | null;
+  error: string | null;
+  calibrationVersion: string;
+}
+
+export interface ScreenedExchange {
+  id: number;
+  screeningId: number;
+  sourceDocId: number;
+  orderIndex: number;
+  memberPrompt: string;
+  coachResponse: string;
+  valueType: string;
+  disposition: string;
+  dropReason: string | null;
+  situationalNumber: boolean;
+  rationale: string | null;
+  overrideDisposition: string | null;
+  effectiveDisposition: string;
+}
+
+export interface CalibrationExample {
+  id: number;
+  memberPrompt: string;
+  coachResponse: string;
+  label: string;
+  valueType: string | null;
+  note: string | null;
+  sourceExchangeId: number | null;
+  active: boolean;
+  createdAt: string;
+}
+
+export function listScreenerSources() {
+  return adminFetch<{ calibrationVersion: string; sources: ScreenerSourceSummary[] }>(
+    "/admin/kb-value-screener/sources",
+  );
+}
+
+export function getScreenerStatus() {
+  return adminFetch<ScreenerProgress>("/admin/kb-value-screener/status");
+}
+
+export function runScreener(sourceDocIds: number[], force = false) {
+  return adminFetch<{ started: boolean; total: number }>("/admin/kb-value-screener/run", {
+    method: "POST",
+    body: JSON.stringify({ sourceDocIds, force }),
+  });
+}
+
+export function getScreenerResults(sourceDocId: number) {
+  return adminFetch<{
+    source: { id: number; title: string };
+    screening: (ScreenerSourceSummary["screening"] & { id: number; normalizedHash: string }) | null;
+    exchanges: ScreenedExchange[];
+  }>(`/admin/kb-value-screener/results/${sourceDocId}`);
+}
+
+export function overrideScreenedExchange(id: number, disposition: string, feedToCalibration: boolean) {
+  return adminFetch<{ ok: boolean }>(`/admin/kb-value-screener/exchanges/${id}/override`, {
+    method: "POST",
+    body: JSON.stringify({ disposition, feedToCalibration }),
+  });
+}
+
+export function listCalibration() {
+  return adminFetch<{
+    version: string;
+    activeCount: number;
+    goldCount: number;
+    noiseCount: number;
+    examples: CalibrationExample[];
+    valueTypes: string[];
+  }>("/admin/kb-value-screener/calibration");
+}
+
+export function listCalibrationCandidates() {
+  return adminFetch<{ candidates: Array<Pick<ScreenedExchange, "id" | "sourceDocId" | "memberPrompt" | "coachResponse" | "valueType" | "disposition" | "rationale">> }>(
+    "/admin/kb-value-screener/calibration/candidates",
+  );
+}
+
+export function addCalibrationExample(input: {
+  memberPrompt?: string;
+  coachResponse: string;
+  label: "gold" | "noise";
+  valueType?: string;
+  note?: string;
+}) {
+  return adminFetch<CalibrationExample>("/admin/kb-value-screener/calibration", {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
+}
+
+export function updateCalibrationExample(id: number, patch: { active?: boolean; note?: string }) {
+  return adminFetch<CalibrationExample>(`/admin/kb-value-screener/calibration/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify(patch),
+  });
+}
+
+export function deleteCalibrationExample(id: number) {
+  return adminFetch<{ ok: boolean }>(`/admin/kb-value-screener/calibration/${id}`, {
+    method: "DELETE",
+  });
+}

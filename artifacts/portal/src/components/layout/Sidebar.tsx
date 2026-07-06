@@ -302,6 +302,8 @@ export const ADMIN_CHILDREN: NavNode[] = [
       { kind: "leaf", href: "/admin/ai-knowledgebase/live-documents", label: "Live AI Documents", icon: Sparkles, requiredPermission: "chat:manage" },
       { kind: "leaf", href: "/admin/ai-knowledgebase/source-knowledge", label: "AI Source Knowledge", icon: Library, requiredPermission: "chat:manage" },
       { kind: "leaf", href: "/admin/ai-knowledgebase/transcript-cleaner", label: "Transcript Cleaner", icon: Wand2, requiredPermission: "chat:manage" },
+      { kind: "leaf", href: "/admin/ai-knowledgebase/value-screener", label: "Value Screener", icon: ShieldCheck, requiredPermission: "chat:manage" },
+      { kind: "leaf", href: "/admin/ai-knowledgebase/value-screener/calibration", label: "Screener Calibration", icon: Sparkles, requiredPermission: "chat:manage" },
       { kind: "leaf", href: "/admin/ai-knowledgebase/tool-tags", label: "Tool Tags", icon: Tags, requiredPermission: "chat:manage" },
       { kind: "leaf", href: "/admin/chat/knowledgebase/review", label: "Document Review", icon: Eye, requiredPermission: "chat:manage" },
       { kind: "leaf", href: "/admin/chat/knowledgebase/archivebackup", label: "Archive Backup", icon: Archive, requiredPermission: "chat:manage" },

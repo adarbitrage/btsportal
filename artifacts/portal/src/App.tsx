@@ -79,6 +79,8 @@ import KnowledgeBaseReview from "@/pages/admin/KnowledgeBaseReview";
 import LiveAIDocuments from "@/pages/admin/LiveAIDocuments";
 import AiSourceKnowledge from "@/pages/admin/AiSourceKnowledge";
 import TranscriptCleaner from "@/pages/admin/TranscriptCleaner";
+import KbValueScreener from "@/pages/admin/KbValueScreener";
+import KbScreenerCalibration from "@/pages/admin/KbScreenerCalibration";
 import ToolTags from "@/pages/admin/ToolTags";
 import KnowledgeBaseArchive from "@/pages/admin/KnowledgeBaseArchive";
 import RateLimits from "@/pages/admin/RateLimits";
@@ -593,6 +595,8 @@ function Router() {
       <Route path="/admin/ai-knowledgebase/live-documents">{() => <AdminRoute component={LiveAIDocuments} permission="chat:manage" />}</Route>
       <Route path="/admin/ai-knowledgebase/source-knowledge">{() => <AdminRoute component={AiSourceKnowledge} permission="chat:manage" />}</Route>
       <Route path="/admin/ai-knowledgebase/transcript-cleaner">{() => <AdminRoute component={TranscriptCleaner} permission="chat:manage" />}</Route>
+      <Route path="/admin/ai-knowledgebase/value-screener">{() => <AdminRoute component={KbValueScreener} permission="chat:manage" />}</Route>
+      <Route path="/admin/ai-knowledgebase/value-screener/calibration">{() => <AdminRoute component={KbScreenerCalibration} permission="chat:manage" />}</Route>
       <Route path="/admin/ai-knowledgebase/tool-tags">{() => <AdminRoute component={ToolTags} permission="chat:manage" />}</Route>
       <Route path="/admin/chat/content-gaps">{() => <AdminRoute component={ContentGaps} permission="chat:manage" />}</Route>
       <Route path="/admin/chat/rate-limits">{() => <AdminRoute component={RateLimits} permission="chat:manage" />}</Route>
