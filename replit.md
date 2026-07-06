@@ -19,6 +19,14 @@ No specific user preferences were provided in the original document.
 - The in-guide video review counter marked `TEMP: REMOVE BEFORE GO-LIVE` is intentionally **kept for now** — remove only when the user asks.
 - `/blitz-archive` is a frozen, admin-only backup the user intends to delete before launch; its lesson library reads a static snapshot, not the live DB. Leave it alone unless asked.
 
+## Standing directive: publish + canary is a required close-out
+
+Any task that changes **member-visible behavior** (portal UI, member-facing API responses, emails/SMS members receive, or anything else a member sees or experiences) is not complete until:
+1. It is **published to production**, and
+2. The **served bundle/response is canary-verified** to actually contain the change (not just "deploy succeeded").
+
+This is expected **by default**, without the user needing to ask. A "Done looks like" for a member-visible task plan should include an explicit publish + canary-verify step. Canary technique: grep the live content-hashed asset for a changed string/identifier as a fast check, with rebuild-and-match-hash as the gold standard for byte-for-byte proof. (This directive exists because a past task shipped merged-but-never-published-or-verified.)
+
 ## System Architecture
 
 The project is structured as a pnpm workspace monorepo using Node.js 24 and TypeScript 5.9.
