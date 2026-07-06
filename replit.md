@@ -19,13 +19,17 @@ No specific user preferences were provided in the original document.
 - The in-guide video review counter marked `TEMP: REMOVE BEFORE GO-LIVE` is intentionally **kept for now** — remove only when the user asks.
 - `/blitz-archive` is a frozen, admin-only backup the user intends to delete before launch; its lesson library reads a static snapshot, not the live DB. Leave it alone unless asked.
 
-## Standing directive: publish + canary is a required close-out
+## Standing directive: publish + canary is a required close-out (split responsibility)
 
-Any task that changes **member-visible behavior** (portal UI, member-facing API responses, emails/SMS members receive, or anything else a member sees or experiences) is not complete until:
+Any task that changes **member-visible behavior** (portal UI, member-facing API responses, emails/SMS members receive, or anything else a member sees or experiences) is not complete overall until:
 1. It is **published to production**, and
 2. The **served bundle/response is canary-verified** to actually contain the change (not just "deploy succeeded").
 
-This is expected **by default**, without the user needing to ask. A "Done looks like" for a member-visible task plan should include an explicit publish + canary-verify step. Canary technique: grep the live content-hashed asset for a changed string/identifier as a fast check, with rebuild-and-match-hash as the gold standard for byte-for-byte proof. (This directive exists because a past task shipped merged-but-never-published-or-verified.)
+This is expected **by default**, without the user needing to ask — but the two halves belong to different actors, because isolated task agents cannot publish (`suggestDeploy()` no-ops there; the Publish click is the user's):
+- **Task agents** finish a member-visible task by merging correct code AND writing a **canary spec** in the completion report — the exact strings/greps/screens that would prove the change is live (e.g. `served bundle contains "Meet Your Accountability Partner"`). Task agents do not publish and do not claim the change is live.
+- **Main agent / merge flow** publishes after merging member-visible branch(es) and runs every accumulated canary spec against the served bundle, reporting PASS/FAIL per item. Batch-publishing several merged tasks in one publish is expected practice.
+
+Canary technique: grep the live content-hashed asset for a changed string/identifier as a fast check, with rebuild-and-match-hash as the gold standard for byte-for-byte proof; unhashed `public/` assets (images) need a live screenshot + cache-header check instead. (This directive exists because a past task shipped merged-but-never-published-or-verified; it was later amended to this split after the single-actor version left another task stuck unable to publish.)
 
 ## System Architecture
 
