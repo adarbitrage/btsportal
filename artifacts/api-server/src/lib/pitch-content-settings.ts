@@ -1,0 +1,235 @@
+/**
+ * Storage and retrieval for the four editable pitch-block content blocks
+ * (Task #1715) consumed by `pitch-resolver.ts`'s `renderPitchStackHtml`.
+ * Values live in `system_settings` under reserved `pitch.*` keys so an admin
+ * can change the copy/URL for any block from the Settings UI without a
+ * deploy — mirrors the DB-value-over-shipped-default pattern used for
+ * on-call destinations (`oncall-settings.ts`).
+ *
+ * Each block is heading + one line + a button label + a button URL. A saved
+ * DB row may set only some fields; any field it omits falls back to the
+ * shipped placeholder default (computed fresh each read so the default
+ * button URL always points at the current portal's `/plans` page, even if
+ * the portal URL setting changes later).
+ */
+
+import { db, systemSettingsTable } from "@workspace/db";
+import { eq, inArray } from "drizzle-orm";
+import { getPortalUrl } from "./portal-url-settings";
+
+export type PitchBlockKey =
+  | "LAUNCHPAD_PITCH"
+  | "MENTORSHIP_PITCH"
+  | "MACHINE_PITCH"
+  | "VIP_PITCH";
+
+export const PITCH_BLOCK_KEYS: PitchBlockKey[] = [
+  "LAUNCHPAD_PITCH",
+  "MENTORSHIP_PITCH",
+  "MACHINE_PITCH",
+  "VIP_PITCH",
+];
+
+export interface PitchContent {
+  heading: string;
+  line: string;
+  buttonLabel: string;
+  buttonUrl: string;
+}
+
+const SETTING_KEYS: Record<PitchBlockKey, string> = {
+  LAUNCHPAD_PITCH: "pitch.launchpad",
+  MENTORSHIP_PITCH: "pitch.mentorship",
+  MACHINE_PITCH: "pitch.machine",
+  VIP_PITCH: "pitch.vip",
+};
+
+const CATEGORY = "pitch";
+
+export function isPitchContentSettingKey(key: string): boolean {
+  return (Object.values(SETTING_KEYS) as string[]).includes(key);
+}
+
+export function getPitchContentSettingKeys(): string[] {
+  return Object.values(SETTING_KEYS);
+}
+
+// Placeholder copy only — the owner supplies real copy later via the admin
+// Settings UI. Marked clearly so nobody mistakes these for final copy.
+function defaultContentFor(key: PitchBlockKey, plansUrl: string): PitchContent {
+  switch (key) {
+    case "LAUNCHPAD_PITCH":
+      return {
+        heading: "[Placeholder] Ready to get started with LaunchPad?",
+        line: "Unlock software access and your first coaching calls with a LaunchPad upgrade.",
+        buttonLabel: "Explore LaunchPad",
+        buttonUrl: plansUrl,
+      };
+    case "MENTORSHIP_PITCH":
+      return {
+        heading: "[Placeholder] Take the next step with Mentorship",
+        line: "Get group coaching, community access, and affiliate commissions with a Mentorship plan.",
+        buttonLabel: "View Mentorship Plans",
+        buttonUrl: plansUrl,
+      };
+    case "MACHINE_PITCH":
+      return {
+        heading: "[Placeholder] Automate it with Machine",
+        line: "Let Machine handle the busywork so you can focus on growth.",
+        buttonLabel: "Learn About Machine",
+        buttonUrl: plansUrl,
+      };
+    case "VIP_PITCH":
+      return {
+        heading: "[Placeholder] Go all-in with VIP",
+        line: "Unlock VIP status for the top-tier BTS experience.",
+        buttonLabel: "See VIP Status",
+        buttonUrl: plansUrl,
+      };
+  }
+}
+
+function parseStoredContent(raw: unknown): Partial<PitchContent> | null {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
+  const obj = raw as Record<string, unknown>;
+  const out: Partial<PitchContent> = {};
+  for (const field of ["heading", "line", "buttonLabel", "buttonUrl"] as const) {
+    if (typeof obj[field] === "string") out[field] = obj[field] as string;
+  }
+  return out;
+}
+
+interface CachedContent {
+  loadedAt: number;
+  rows: Partial<Record<PitchBlockKey, Partial<PitchContent>>>;
+}
+
+// Copy can tolerate a short cache (unlike tier resolution, which must be
+// read fresh from the DB on every send — see pitch-resolver.ts).
+const CACHE_TTL_MS = 10 * 1000;
+let cache: CachedContent | null = null;
+
+/** Test-only: drop the cached content so the next read re-queries the DB. */
+export function __invalidatePitchContentCacheForTests(): void {
+  cache = null;
+}
+
+async function readDbValues(): Promise<
+  Partial<Record<PitchBlockKey, Partial<PitchContent>>>
+> {
+  const rows = await db
+    .select({ key: systemSettingsTable.key, value: systemSettingsTable.value })
+    .from(systemSettingsTable)
+    .where(inArray(systemSettingsTable.key, Object.values(SETTING_KEYS)));
+  const out: Partial<Record<PitchBlockKey, Partial<PitchContent>>> = {};
+  for (const [blockKey, settingKey] of Object.entries(SETTING_KEYS) as Array<
+    [PitchBlockKey, string]
+  >) {
+    const row = rows.find((r) => r.key === settingKey);
+    if (!row) continue;
+    const parsed = parseStoredContent(row.value);
+    if (parsed) out[blockKey] = parsed;
+  }
+  return out;
+}
+
+async function resolvePlansUrl(): Promise<string> {
+  const portalUrl = await getPortalUrl();
+  return portalUrl ? `${portalUrl.replace(/\/+$/, "")}/plans` : "/plans";
+}
+
+function mergeWithDefault(
+  key: PitchBlockKey,
+  stored: Partial<PitchContent> | undefined,
+  plansUrl: string,
+): PitchContent {
+  const def = defaultContentFor(key, plansUrl);
+  return stored ? { ...def, ...stored } : def;
+}
+
+/**
+ * Resolve all four pitch content blocks, DB value (per-field) over shipped
+ * default. Safe to call on every send that needs a pitch slot — cached for a
+ * few seconds so per-send reads don't hammer the DB.
+ */
+export async function getAllPitchContent(): Promise<
+  Record<PitchBlockKey, PitchContent>
+> {
+  const now = Date.now();
+  let dbValues: Partial<Record<PitchBlockKey, Partial<PitchContent>>>;
+  if (cache && now - cache.loadedAt < CACHE_TTL_MS) {
+    dbValues = cache.rows;
+  } else {
+    try {
+      dbValues = await readDbValues();
+    } catch (err) {
+      console.error("[PitchContentSettings] Failed to load pitch content from DB:", err);
+      dbValues = {};
+    }
+    cache = { loadedAt: now, rows: dbValues };
+  }
+  const plansUrl = await resolvePlansUrl();
+  const out = {} as Record<PitchBlockKey, PitchContent>;
+  for (const key of PITCH_BLOCK_KEYS) {
+    out[key] = mergeWithDefault(key, dbValues[key], plansUrl);
+  }
+  return out;
+}
+
+export async function getPitchContent(key: PitchBlockKey): Promise<PitchContent> {
+  const all = await getAllPitchContent();
+  return all[key];
+}
+
+export function validatePitchContentUpdate(
+  input: unknown,
+): { ok: true; content: PitchContent } | { ok: false; error: string } {
+  if (!input || typeof input !== "object" || Array.isArray(input)) {
+    return { ok: false, error: "Body must be an object" };
+  }
+  const obj = input as Record<string, unknown>;
+  for (const field of ["heading", "line", "buttonLabel", "buttonUrl"] as const) {
+    const val = obj[field];
+    if (typeof val !== "string" || !val.trim()) {
+      return { ok: false, error: `${field} is required and must be a non-empty string` };
+    }
+  }
+  return {
+    ok: true,
+    content: {
+      heading: (obj.heading as string).trim(),
+      line: (obj.line as string).trim(),
+      buttonLabel: (obj.buttonLabel as string).trim(),
+      buttonUrl: (obj.buttonUrl as string).trim(),
+    },
+  };
+}
+
+/** Upsert one pitch content block. Invalidates the read cache. */
+export async function setPitchContent(
+  key: PitchBlockKey,
+  content: PitchContent,
+  updatedBy: string | null,
+): Promise<void> {
+  const settingKey = SETTING_KEYS[key];
+  const existing = await db
+    .select({ id: systemSettingsTable.id })
+    .from(systemSettingsTable)
+    .where(eq(systemSettingsTable.key, settingKey))
+    .limit(1);
+  if (existing.length > 0) {
+    await db
+      .update(systemSettingsTable)
+      .set({ value: content, updatedBy: updatedBy ?? undefined })
+      .where(eq(systemSettingsTable.key, settingKey));
+  } else {
+    await db.insert(systemSettingsTable).values({
+      key: settingKey,
+      value: content,
+      category: CATEGORY,
+      description: `Pitch content block: ${key}`,
+      updatedBy: updatedBy ?? undefined,
+    });
+  }
+  cache = null;
+}

@@ -97,6 +97,8 @@ export default function AdminSettings() {
 
         <OnCallDestinationsCard />
 
+        <PitchContentCard />
+
         <AuthRateLimitAlertConfigCard />
 
         <MachineMismatchAlertConfigCard />
@@ -1247,6 +1249,157 @@ function alertConfigActorDisplay(event: AlertConfigHistoryEvent): string {
   if (event.actorName) return event.actorName;
   if (event.actorEmail) return event.actorEmail;
   return "System";
+}
+
+type PitchBlockKey = "LAUNCHPAD_PITCH" | "MENTORSHIP_PITCH" | "MACHINE_PITCH" | "VIP_PITCH";
+
+interface PitchContentValue {
+  heading: string;
+  line: string;
+  buttonLabel: string;
+  buttonUrl: string;
+}
+
+const PITCH_BLOCK_LABELS: Record<PitchBlockKey, string> = {
+  LAUNCHPAD_PITCH: "LaunchPad Pitch",
+  MENTORSHIP_PITCH: "Mentorship Pitch",
+  MACHINE_PITCH: "Machine Pitch",
+  VIP_PITCH: "VIP Pitch",
+};
+
+const PITCH_BLOCK_ORDER: PitchBlockKey[] = [
+  "LAUNCHPAD_PITCH",
+  "MENTORSHIP_PITCH",
+  "MACHINE_PITCH",
+  "VIP_PITCH",
+];
+
+const EMPTY_PITCH_CONTENT: PitchContentValue = { heading: "", line: "", buttonLabel: "", buttonUrl: "" };
+
+/**
+ * Task #1715: editable content for the four tier-based upgrade pitch blocks
+ * (LaunchPad/Mentorship/Machine/VIP) that the email pitch resolver stacks
+ * into the `pitch_block_html` slot at send time based on the recipient's
+ * product rank. Copy-only — which block(s) a given member sees is decided
+ * server-side by `pitch-resolver.ts`'s rank matrix, not here.
+ */
+function PitchContentCard() {
+  const { toast } = useToast();
+  const [content, setContent] = useState<Record<PitchBlockKey, PitchContentValue> | null>(null);
+  const [drafts, setDrafts] = useState<Record<PitchBlockKey, PitchContentValue>>({
+    LAUNCHPAD_PITCH: EMPTY_PITCH_CONTENT,
+    MENTORSHIP_PITCH: EMPTY_PITCH_CONTENT,
+    MACHINE_PITCH: EMPTY_PITCH_CONTENT,
+    VIP_PITCH: EMPTY_PITCH_CONTENT,
+  });
+  const [loading, setLoading] = useState(true);
+  const [savingKey, setSavingKey] = useState<PitchBlockKey | null>(null);
+
+  const load = async () => {
+    try {
+      setLoading(true);
+      const data = await adminPanelApi.getPitchContent();
+      setContent(data);
+      setDrafts(data);
+    } catch (err: any) {
+      toast({ title: "Error", description: err.message, variant: "destructive" });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => { load(); }, []);
+
+  const updateDraft = (key: PitchBlockKey, field: keyof PitchContentValue, value: string) => {
+    setDrafts((prev) => ({ ...prev, [key]: { ...prev[key], [field]: value } }));
+  };
+
+  const isDirty = (key: PitchBlockKey) => {
+    if (!content) return false;
+    const a = content[key];
+    const b = drafts[key];
+    return a.heading !== b.heading || a.line !== b.line || a.buttonLabel !== b.buttonLabel || a.buttonUrl !== b.buttonUrl;
+  };
+
+  const handleSave = async (key: PitchBlockKey) => {
+    try {
+      setSavingKey(key);
+      const data = await adminPanelApi.updatePitchContent(key, drafts[key]);
+      setContent(data);
+      setDrafts(data);
+      toast({ title: "Pitch content saved" });
+    } catch (err: any) {
+      toast({ title: "Error", description: err.message, variant: "destructive" });
+    } finally {
+      setSavingKey(null);
+    }
+  };
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-base flex items-center gap-2">
+          <Send className="w-4 h-4" /> Email Upgrade Pitches
+        </CardTitle>
+        <p className="text-xs text-muted-foreground mt-1">
+          Content for the tier-based upgrade pitch shown at the bottom of lifecycle emails. Which block(s) a
+          member sees depends on their current product tier — this only controls the copy and link for each
+          block. Changes take effect on the next send, no deploy needed.
+        </p>
+      </CardHeader>
+      <CardContent className="space-y-6">
+        {loading || !content ? (
+          <p className="text-sm text-muted-foreground">Loading...</p>
+        ) : (
+          PITCH_BLOCK_ORDER.map((key) => (
+            <div key={key} className="space-y-2 border rounded-md p-4">
+              <h4 className="text-sm font-semibold">{PITCH_BLOCK_LABELS[key]}</h4>
+              <div className="grid gap-2">
+                <label className="text-xs text-muted-foreground">Heading</label>
+                <Input
+                  value={drafts[key].heading}
+                  onChange={(e) => updateDraft(key, "heading", e.target.value)}
+                />
+              </div>
+              <div className="grid gap-2">
+                <label className="text-xs text-muted-foreground">Body line</label>
+                <Input
+                  value={drafts[key].line}
+                  onChange={(e) => updateDraft(key, "line", e.target.value)}
+                />
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="grid gap-2">
+                  <label className="text-xs text-muted-foreground">Button label</label>
+                  <Input
+                    value={drafts[key].buttonLabel}
+                    onChange={(e) => updateDraft(key, "buttonLabel", e.target.value)}
+                  />
+                </div>
+                <div className="grid gap-2">
+                  <label className="text-xs text-muted-foreground">Button URL</label>
+                  <Input
+                    value={drafts[key].buttonUrl}
+                    onChange={(e) => updateDraft(key, "buttonUrl", e.target.value)}
+                  />
+                </div>
+              </div>
+              <div className="flex justify-end">
+                <Button
+                  size="sm"
+                  disabled={!isDirty(key) || savingKey === key}
+                  onClick={() => handleSave(key)}
+                >
+                  <Save className="w-3.5 h-3.5 mr-1.5" />
+                  {savingKey === key ? "Saving..." : "Save"}
+                </Button>
+              </div>
+            </div>
+          ))
+        )}
+      </CardContent>
+    </Card>
+  );
 }
 
 type MachineMismatchAlertField = "threshold" | "windowHours";

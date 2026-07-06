@@ -21,6 +21,7 @@ import {
 } from "./portal-url-settings";
 import { brandStrings } from "@workspace/brand-config";
 import { DEFAULT_TICKETDESK_URL } from "@workspace/support-config";
+import { renderPitchStackHtml } from "./pitch-resolver";
 
 // Queue-fallback events are persisted to the audit log inside
 // `recordQueueFallback` (entityType="queue"). We used to also write a
@@ -713,6 +714,35 @@ async function sendSmsDirect(params: {
   }
 }
 
+/**
+ * Task #1715: resolve the `pitch_block_html` variable for a lifecycle send,
+ * unless the caller already supplied one explicitly (booking/scheduled sends
+ * that want to control the slot themselves stay untouched) or this is a
+ * marketing/broadcast send (`queueBroadcastEmail` always passes
+ * category: "marketing" — out of scope per the task's "marketing-blast-only
+ * injection paths" exclusion) or there's no `userId` to resolve a tier for
+ * (e.g. an address-only notification with no member record).
+ *
+ * A resolver failure is treated the same as an empty stack (renders
+ * nothing) rather than blocking the send — a broken pitch lookup should
+ * never prevent a lifecycle email from going out.
+ */
+async function resolvePitchBlockHtmlForSend(
+  variables: Record<string, string>,
+  userId: number | undefined,
+  emailCategory: string,
+): Promise<string | undefined> {
+  if (variables.pitch_block_html !== undefined) return undefined;
+  if (!userId) return undefined;
+  if (emailCategory === "marketing") return undefined;
+  try {
+    return await renderPitchStackHtml(userId);
+  } catch (err) {
+    console.error(`[Comms] Pitch resolver failed for user ${userId}:`, err);
+    return "";
+  }
+}
+
 export const CommunicationService = {
   async queueEmail(params: {
     templateSlug: string;
@@ -752,11 +782,14 @@ export const CommunicationService = {
       return { result: "skipped", reason: SKIP_REASON_PORTAL_URL_UNCONFIGURED };
     }
 
-    const allVars = await getCommonVariables(variables);
+    const emailCategory = category || template.category;
+    const pitchBlockHtml = await resolvePitchBlockHtmlForSend(variables, userId, emailCategory);
+    const allVars = await getCommonVariables(
+      pitchBlockHtml !== undefined ? { ...variables, pitch_block_html: pitchBlockHtml } : variables,
+    );
     const subject = replaceVariables(template.subject, allVars);
     const html = replaceVariables(template.htmlBody, allVars);
     const text = replaceVariables(template.textBody, allVars);
-    const emailCategory = category || template.category;
 
     const jobData = {
       to,
@@ -908,7 +941,11 @@ export const CommunicationService = {
       return { status: "skipped", reason: SKIP_REASON_PORTAL_URL_UNCONFIGURED, logId };
     }
 
-    const allVars = await getCommonVariables(variables);
+    const emailCategory = category || template.category;
+    const pitchBlockHtml = await resolvePitchBlockHtmlForSend(variables, userId, emailCategory);
+    const allVars = await getCommonVariables(
+      pitchBlockHtml !== undefined ? { ...variables, pitch_block_html: pitchBlockHtml } : variables,
+    );
     const subject = replaceVariables(template.subject, allVars);
     const html = replaceVariables(template.htmlBody, allVars);
     const text = replaceVariables(template.textBody, allVars);

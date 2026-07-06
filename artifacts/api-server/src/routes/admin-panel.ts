@@ -76,6 +76,14 @@ import {
   isAuthRateLimitAlertSettingKey,
 } from "../lib/auth-rate-limit-alert-settings";
 import {
+  getAllPitchContent,
+  setPitchContent,
+  validatePitchContentUpdate,
+  isPitchContentSettingKey,
+  PITCH_BLOCK_KEYS,
+  type PitchBlockKey,
+} from "../lib/pitch-content-settings";
+import {
   getMachineMismatchAlertConfigStatus,
   applyMachineMismatchAlertConfigUpdate,
   validateUpdate as validateMachineMismatchAlertUpdate,
@@ -4688,7 +4696,8 @@ router.get("/admin/settings", requirePermission("settings:view"), async (_req: R
         !isMachineMismatchAlertSettingKey(s.key) &&
         !isChangeHistoryRetentionSettingKey(s.key) &&
         !isPortalUrlSettingKey(s.key) &&
-        !isAiModerationThresholdSettingKey(s.key),
+        !isAiModerationThresholdSettingKey(s.key) &&
+        !isPitchContentSettingKey(s.key),
     );
     res.json(filtered);
   } catch (error) {
@@ -4727,6 +4736,10 @@ router.put("/admin/settings/:key", requirePermission("settings:manage"), async (
     }
     if (isChangeHistoryRetentionSettingKey(key)) {
       res.status(400).json({ error: "Use /admin/change-history-retention-config to manage change-history retention windows" });
+      return;
+    }
+    if (isPitchContentSettingKey(key)) {
+      res.status(400).json({ error: "Use /admin/pitch-content/:key to manage email pitch content blocks" });
       return;
     }
     if (isPortalUrlSettingKey(key)) {
@@ -4878,6 +4891,48 @@ router.put("/admin/oncall-destinations", requirePermission("settings:manage"), a
   } catch (error) {
     console.error("[Admin] Update on-call destinations error:", error);
     res.status(500).json({ error: "Failed to update on-call destinations" });
+  }
+});
+
+// Task #1715: editable pitch content blocks (LaunchPad/Mentorship/Machine/VIP)
+// consumed by the email pitch resolver. Content-only — no send-time logic
+// lives here; see pitch-resolver.ts for the rank/stack matrix.
+router.get("/admin/pitch-content", requirePermission("settings:view"), async (_req: Request, res: Response) => {
+  try {
+    const content = await getAllPitchContent();
+    res.json(content);
+  } catch (error) {
+    console.error("[Admin] Get pitch content error:", error);
+    res.status(500).json({ error: "Failed to fetch pitch content" });
+  }
+});
+
+router.put("/admin/pitch-content/:key", requirePermission("settings:manage"), async (req: Request, res: Response) => {
+  try {
+    const key = getParam(req.params.key) as PitchBlockKey;
+    if (!PITCH_BLOCK_KEYS.includes(key)) {
+      res.status(400).json({ error: `Unknown pitch content key: ${key}` });
+      return;
+    }
+    const validated = validatePitchContentUpdate(req.body);
+    if (!validated.ok) {
+      res.status(400).json({ error: validated.error });
+      return;
+    }
+    await setPitchContent(key, validated.content, req.userEmail || (req.userId ? String(req.userId) : null));
+    await logAdminAction(
+      req,
+      "update_setting",
+      key,
+      "pitch",
+      `Updated pitch content block: ${key}`,
+      { key, content: validated.content },
+    );
+    const content = await getAllPitchContent();
+    res.json(content);
+  } catch (error) {
+    console.error("[Admin] Update pitch content error:", error);
+    res.status(500).json({ error: "Failed to update pitch content" });
   }
 });
 

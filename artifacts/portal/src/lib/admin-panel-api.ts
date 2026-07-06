@@ -1311,6 +1311,38 @@ export const adminPanelApi = {
     }>;
   },
 
+  /** Task #1715: editable email pitch content blocks. */
+  async getPitchContent() {
+    const res = await authFetch("/admin/pitch-content");
+    if (!res.ok) throw new Error("Failed to fetch pitch content");
+    return res.json() as Promise<
+      Record<
+        "LAUNCHPAD_PITCH" | "MENTORSHIP_PITCH" | "MACHINE_PITCH" | "VIP_PITCH",
+        { heading: string; line: string; buttonLabel: string; buttonUrl: string }
+      >
+    >;
+  },
+
+  async updatePitchContent(
+    key: "LAUNCHPAD_PITCH" | "MENTORSHIP_PITCH" | "MACHINE_PITCH" | "VIP_PITCH",
+    content: { heading: string; line: string; buttonLabel: string; buttonUrl: string },
+  ) {
+    const res = await authFetch(`/admin/pitch-content/${encodeURIComponent(key)}`, {
+      method: "PUT",
+      body: JSON.stringify(content),
+    });
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      throw new Error(body.error || "Failed to update pitch content");
+    }
+    return res.json() as Promise<
+      Record<
+        "LAUNCHPAD_PITCH" | "MENTORSHIP_PITCH" | "MACHINE_PITCH" | "VIP_PITCH",
+        { heading: string; line: string; buttonLabel: string; buttonUrl: string }
+      >
+    >;
+  },
+
   /**
    * Re-run the per-channel reachability probe against the currently-stored
    * destination value, without requiring the admin to retype the secret.
