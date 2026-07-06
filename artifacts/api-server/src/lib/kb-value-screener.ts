@@ -372,7 +372,11 @@ Return STRICT JSON: {"results":[{"index":<0-based>,"valueType":"...","dispositio
   let lastErr: unknown;
   for (let attempt = 1; attempt <= CLASSIFY_MAX_ATTEMPTS; attempt++) {
     try {
-      const rawResp = await callLLM(system, user, Math.min(4000, 300 + chunk.length * 180), true);
+      // gpt-5 is a reasoning model: hidden reasoning tokens count against
+      // max_completion_tokens, so the budget must leave generous headroom or
+      // the response comes back EMPTY (finish_reason=length) and every
+      // segment errors out. Keep this floor high.
+      const rawResp = await callLLM(system, user, 4000 + chunk.length * 300, true);
       const parsed = JSON.parse(rawResp) as { results?: unknown };
       const results = Array.isArray(parsed.results) ? parsed.results : null;
       if (!results) throw new Error("classifier response missing results array");
@@ -388,6 +392,9 @@ Return STRICT JSON: {"results":[{"index":<0-based>,"valueType":"...","dispositio
       return map;
     } catch (err) {
       lastErr = err;
+      console.warn(
+        `[ValueScreener] classify attempt ${attempt}/${CLASSIFY_MAX_ATTEMPTS} failed: ${err instanceof Error ? err.message : String(err)}`,
+      );
       if (attempt < CLASSIFY_MAX_ATTEMPTS) await sleep(CLASSIFY_RETRY_BASE_MS * attempt);
     }
   }
