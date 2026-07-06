@@ -214,14 +214,18 @@ export default function OnboardingBookPartnerCall() {
         </div>
       )}
       {partner && (
-        <PartnerRevealCard
-          partner={partner}
-          subtitle={
-            availability?.durationMinutes
-              ? `Free ${availability.durationMinutes}-minute accountability call`
-              : "Free accountability call"
-          }
-        />
+        <div className="space-y-3">
+          <PartnerRevealCard
+            partner={partner}
+            headline="Meet Your Accountability Partner"
+            description={`${partner.displayName.split(/\s+/)[0]} is your personal accountability partner for the whole program — they'll check in on your progress and keep you moving toward your goals. This first ${availability?.durationMinutes ?? 30}-minute call is just to meet them and set your pace together.`}
+          />
+          {partner.bio && (
+            <p className="text-xs text-muted-foreground leading-relaxed text-center max-w-md mx-auto">
+              {partner.bio}
+            </p>
+          )}
+        </div>
       )}
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">

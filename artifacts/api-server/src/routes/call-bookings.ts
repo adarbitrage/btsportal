@@ -949,10 +949,15 @@ router.get("/call-bookings/today", async (req, res): Promise<void> => {
 // never has to special-case kickoff vs. partner display.
 // ---------------------------------------------------------------------------
 
+// Task #1696: returns EVERY upcoming booked call (chronological), not just
+// the soonest one, so the sidebar can render one card per call (e.g. a
+// 1-year member with both a kickoff call AND an accountability call booked
+// at the same time sees two distinct cards instead of one panel that mixes
+// the two people together).
 router.get("/call-bookings/next", async (req, res): Promise<void> => {
   const userId = req.userId!;
 
-  const [booking] = await db
+  const bookings = await db
     .select(MEMBER_CALL_BOOKING_COLUMNS)
     .from(callBookingsTable)
     .where(
@@ -962,38 +967,36 @@ router.get("/call-bookings/next", async (req, res): Promise<void> => {
         sql`${callBookingsTable.scheduledAt} >= now()`,
       ),
     )
-    .orderBy(sql`${callBookingsTable.scheduledAt} asc`)
-    .limit(1);
+    .orderBy(sql`${callBookingsTable.scheduledAt} asc`);
 
-  if (!booking) {
-    res.json({ call: null });
-    return;
-  }
+  const calls = await Promise.all(
+    bookings.map(async (booking) => {
+      let staff: { displayName: string; photoUrl: string | null } | null = null;
+      if (booking.staffType === "kickoff_coach") {
+        const [coach] = await db
+          .select({ displayName: kickoffCoachesTable.displayName, photoUrl: kickoffCoachesTable.photoUrl })
+          .from(kickoffCoachesTable)
+          .where(eq(kickoffCoachesTable.id, booking.staffId));
+        staff = coach ?? null;
+      } else if (booking.staffType === "partner") {
+        const [partner] = await db
+          .select({ displayName: partnersTable.displayName, photoUrl: partnersTable.photoUrl })
+          .from(partnersTable)
+          .where(eq(partnersTable.id, booking.staffId));
+        staff = partner ?? null;
+      }
 
-  let staff: { displayName: string; photoUrl: string | null } | null = null;
-  if (booking.staffType === "kickoff_coach") {
-    const [coach] = await db
-      .select({ displayName: kickoffCoachesTable.displayName, photoUrl: kickoffCoachesTable.photoUrl })
-      .from(kickoffCoachesTable)
-      .where(eq(kickoffCoachesTable.id, booking.staffId));
-    staff = coach ?? null;
-  } else if (booking.staffType === "partner") {
-    const [partner] = await db
-      .select({ displayName: partnersTable.displayName, photoUrl: partnersTable.photoUrl })
-      .from(partnersTable)
-      .where(eq(partnersTable.id, booking.staffId));
-    staff = partner ?? null;
-  }
+      return {
+        type: booking.type,
+        scheduledAt: booking.scheduledAt.toISOString(),
+        endAt: booking.endAt.toISOString(),
+        meetingUrl: booking.meetingUrl,
+        staff,
+      };
+    }),
+  );
 
-  res.json({
-    call: {
-      type: booking.type,
-      scheduledAt: booking.scheduledAt.toISOString(),
-      endAt: booking.endAt.toISOString(),
-      meetingUrl: booking.meetingUrl,
-      staff,
-    },
-  });
+  res.json({ calls });
 });
 
 export default router;

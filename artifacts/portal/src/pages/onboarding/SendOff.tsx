@@ -3,11 +3,34 @@ import { PartnerRevealCard } from "@/components/onboarding/PartnerRevealCard";
 import { useAuth } from "@/lib/auth";
 import { usePatchOnboardingStep, useGetOnboardingSendOff } from "@workspace/api-client-react";
 import { usePartnerInfo } from "@/lib/call-bookings-api";
+import { resolveCoachPhotoUrl } from "@/lib/coaches-admin-api";
 import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Calendar, Clock } from "lucide-react";
 import { useState } from "react";
+
+function initials(name: string): string {
+  return name
+    .split(/\s+/)
+    .map((p) => p[0])
+    .join("")
+    .slice(0, 2)
+    .toUpperCase();
+}
+
+// Small null-graceful avatar for a "Your Booked Calls" recap card (Task
+// #1696), matching the sidebar next-call panel's one-card-per-call look.
+function CallAvatar({ name, photoUrl }: { name: string; photoUrl: string | null }) {
+  const resolved = resolveCoachPhotoUrl(photoUrl);
+  if (resolved) {
+    return <img src={resolved} alt={name} className="w-9 h-9 rounded-full object-cover shrink-0" />;
+  }
+  return (
+    <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center text-xs font-bold text-primary shrink-0">
+      {initials(name)}
+    </div>
+  );
+}
 
 // "send_off" (Task #1666): the LAST step for both variants — LAUNCHPAD (4)
 // and FULL (5). Replaces the old pillars_watched + partner_call_completed
@@ -80,7 +103,7 @@ export default function OnboardingSendOffPage() {
 
                 {sendOff?.kickoff ? (
                   <div className="flex items-start gap-3 p-4 bg-secondary/50 rounded-lg border border-border/50">
-                    <Calendar className="w-5 h-5 text-primary mt-0.5" />
+                    <CallAvatar name={sendOff.kickoff.coachName} photoUrl={sendOff.kickoff.photoUrl} />
                     <div>
                       <p className="font-medium text-foreground">Kickoff Call with {sendOff.kickoff.coachName}</p>
                       <p className="text-sm text-muted-foreground">
@@ -95,7 +118,7 @@ export default function OnboardingSendOffPage() {
                 {!isLaunchpad &&
                   (sendOff?.partnerCall ? (
                     <div className="flex items-start gap-3 p-4 bg-secondary/50 rounded-lg border border-border/50">
-                      <Clock className="w-5 h-5 text-primary mt-0.5" />
+                      <CallAvatar name={sendOff.partnerCall.coachName} photoUrl={sendOff.partnerCall.photoUrl} />
                       <div>
                         <p className="font-medium text-foreground">
                           Partner Call with {sendOff.partnerCall.coachName}

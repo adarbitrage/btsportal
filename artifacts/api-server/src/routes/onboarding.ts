@@ -318,17 +318,22 @@ router.get("/members/me/onboarding/send-off", async (req, res): Promise<void> =>
     .orderBy(desc(callBookingsTable.createdAt))
     .limit(1);
 
-  let kickoff: { coachName: string; date: string; time: string } | null = null;
+  let kickoff: { coachName: string; date: string; time: string; photoUrl: string | null } | null = null;
   if (kickoffBooking) {
     const [coach] = await db
-      .select({ displayName: kickoffCoachesTable.displayName })
+      .select({ displayName: kickoffCoachesTable.displayName, photoUrl: kickoffCoachesTable.photoUrl })
       .from(kickoffCoachesTable)
       .where(eq(kickoffCoachesTable.id, kickoffBooking.staffId));
     const parts = formatInMemberTimezone(kickoffBooking.scheduledAt, user.timezone);
-    kickoff = { coachName: coach?.displayName ?? "your coach", date: parts.date, time: parts.time };
+    kickoff = {
+      coachName: coach?.displayName ?? "your coach",
+      date: parts.date,
+      time: parts.time,
+      photoUrl: coach?.photoUrl ?? null,
+    };
   }
 
-  let partnerCall: { coachName: string; date: string; time: string } | null = null;
+  let partnerCall: { coachName: string; date: string; time: string; photoUrl: string | null } | null = null;
   if (variant === "full") {
     const [partnerBooking] = await db
       .select({
@@ -347,11 +352,16 @@ router.get("/members/me/onboarding/send-off", async (req, res): Promise<void> =>
       .limit(1);
     if (partnerBooking) {
       const [partner] = await db
-        .select({ displayName: partnersTable.displayName })
+        .select({ displayName: partnersTable.displayName, photoUrl: partnersTable.photoUrl })
         .from(partnersTable)
         .where(eq(partnersTable.id, partnerBooking.staffId));
       const parts = formatInMemberTimezone(partnerBooking.scheduledAt, user.timezone);
-      partnerCall = { coachName: partner?.displayName ?? "your accountability partner", date: parts.date, time: parts.time };
+      partnerCall = {
+        coachName: partner?.displayName ?? "your accountability partner",
+        date: parts.date,
+        time: parts.time,
+        photoUrl: partner?.photoUrl ?? null,
+      };
     }
   }
 

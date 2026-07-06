@@ -1,12 +1,13 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen } from "@testing-library/react";
 
-// Task #1688: the persistent sidebar "next call" panel. Must show for a
-// LaunchPad member with a booked kickoff call and NO partner assignment
-// (source of truth is /call-bookings/next, not /partner/me), must show the
-// partner relationship line without duplicating the headline photo/name
-// when the next call itself is the partner call, and must render nothing
-// when there is neither an upcoming call nor a partner assignment.
+// Task #1696: the sidebar next-call panel renders ONE card per upcoming
+// booked call, in chronological order (source of truth is
+// /call-bookings/next, which now returns every upcoming call — not just the
+// soonest). Below the cards, a single optional "Your accountability
+// partner: {Name}" line appears only when an active assignment exists AND
+// none of the shown cards is a partner call. Must still render nothing when
+// there is neither an upcoming call nor a partner assignment.
 
 const useNextCallBooking = vi.fn();
 const usePartnerPanel = vi.fn();
@@ -32,7 +33,7 @@ beforeEach(() => {
 
 describe("NextCallPanel", () => {
   it("renders nothing when there is no upcoming call and no partner assignment", () => {
-    useNextCallBooking.mockReturnValue({ data: { call: null }, isLoading: false });
+    useNextCallBooking.mockReturnValue({ data: { calls: [] }, isLoading: false });
     usePartnerPanel.mockReturnValue({ data: { assignment: null }, isLoading: false });
 
     const { container } = render(<NextCallPanel />);
@@ -52,13 +53,15 @@ describe("NextCallPanel", () => {
   it("shows a LaunchPad member's kickoff call even with no partner assignment", () => {
     useNextCallBooking.mockReturnValue({
       data: {
-        call: {
-          type: "kickoff",
-          scheduledAt: new Date(Date.now() + 5 * 24 * 60 * 60 * 1000).toISOString(),
-          endAt: new Date(Date.now() + 5 * 24 * 60 * 60 * 1000 + 30 * 60 * 1000).toISOString(),
-          meetingUrl: "https://meet.example.test/kickoff",
-          staff: { displayName: "Neil", photoUrl: null },
-        },
+        calls: [
+          {
+            type: "kickoff",
+            scheduledAt: new Date(Date.now() + 5 * 24 * 60 * 60 * 1000).toISOString(),
+            endAt: new Date(Date.now() + 5 * 24 * 60 * 60 * 1000 + 30 * 60 * 1000).toISOString(),
+            meetingUrl: "https://meet.example.test/kickoff",
+            staff: { displayName: "Neil", photoUrl: null },
+          },
+        ],
       },
       isLoading: false,
     });
@@ -67,8 +70,8 @@ describe("NextCallPanel", () => {
     render(<NextCallPanel />);
 
     expect(screen.getByTestId("next-call-panel")).toBeInTheDocument();
-    expect(screen.getByText("Neil")).toBeInTheDocument();
-    expect(screen.getByText("Kickoff Call")).toBeInTheDocument();
+    expect(screen.getAllByTestId("next-call-panel-card")).toHaveLength(1);
+    expect(screen.getByText("Kickoff Call with Neil")).toBeInTheDocument();
     expect(screen.queryByTestId("next-call-panel-partner-line")).not.toBeInTheDocument();
     const joinLink = screen.getByTestId("next-call-panel-join-link");
     expect(joinLink).toHaveAttribute("href", "https://meet.example.test/kickoff");
@@ -77,13 +80,15 @@ describe("NextCallPanel", () => {
   it("emphasizes 'Join Call Now' when the call is today", () => {
     useNextCallBooking.mockReturnValue({
       data: {
-        call: {
-          type: "kickoff",
-          scheduledAt: new Date().toISOString(),
-          endAt: new Date(Date.now() + 30 * 60 * 1000).toISOString(),
-          meetingUrl: "https://meet.example.test/kickoff",
-          staff: { displayName: "Neil", photoUrl: null },
-        },
+        calls: [
+          {
+            type: "kickoff",
+            scheduledAt: new Date().toISOString(),
+            endAt: new Date(Date.now() + 30 * 60 * 1000).toISOString(),
+            meetingUrl: "https://meet.example.test/kickoff",
+            staff: { displayName: "Neil", photoUrl: null },
+          },
+        ],
       },
       isLoading: false,
     });
@@ -94,23 +99,32 @@ describe("NextCallPanel", () => {
     expect(screen.getByText(/Join Call Now/i)).toBeInTheDocument();
   });
 
-  it("shows the partner relationship line for an assigned member with an upcoming partner call, without duplicating the name", () => {
+  it("renders TWO cards, one per call, for a member with both a kickoff and an accountability call booked", () => {
     useNextCallBooking.mockReturnValue({
       data: {
-        call: {
-          type: "partner",
-          scheduledAt: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000).toISOString(),
-          endAt: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000 + 30 * 60 * 1000).toISOString(),
-          meetingUrl: "https://meet.example.test/partner",
-          staff: { displayName: "Alex Partner", photoUrl: null },
-        },
+        calls: [
+          {
+            type: "kickoff",
+            scheduledAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+            endAt: new Date(Date.now() + 24 * 60 * 60 * 1000 + 30 * 60 * 1000).toISOString(),
+            meetingUrl: "https://meet.example.test/kickoff",
+            staff: { displayName: "Todd", photoUrl: null },
+          },
+          {
+            type: "partner",
+            scheduledAt: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000).toISOString(),
+            endAt: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000 + 30 * 60 * 1000).toISOString(),
+            meetingUrl: "https://meet.example.test/partner",
+            staff: { displayName: "John", photoUrl: null },
+          },
+        ],
       },
       isLoading: false,
     });
     usePartnerPanel.mockReturnValue({
       data: {
         assignment: {
-          partner: { id: 1, displayName: "Alex Partner", photoUrl: null, bio: null },
+          partner: { id: 1, displayName: "John", photoUrl: null, bio: null },
           cadencePerWeek: 2,
           nextCall: null,
           completedCallCount: 3,
@@ -121,23 +135,26 @@ describe("NextCallPanel", () => {
 
     render(<NextCallPanel />);
 
-    expect(screen.getAllByText("Alex Partner")).toHaveLength(1);
-    expect(screen.getByTestId("next-call-panel-partner-line")).toHaveTextContent(
-      "Your Accountability Partner",
-    );
-    expect(screen.getByTestId("next-call-panel-partner-line")).toHaveTextContent("2x per week");
+    expect(screen.getAllByTestId("next-call-panel-card")).toHaveLength(2);
+    expect(screen.getByText("Kickoff Call with Todd")).toBeInTheDocument();
+    expect(screen.getByText("Accountability Call with John")).toBeInTheDocument();
+    // The relationship line must NOT duplicate, since one of the cards is
+    // already the partner call.
+    expect(screen.queryByTestId("next-call-panel-partner-line")).not.toBeInTheDocument();
   });
 
-  it("names the real partner separately when the next call is a kickoff call but a partner is also assigned", () => {
+  it("shows the partner relationship line when an assignment exists but no shown card is the partner call", () => {
     useNextCallBooking.mockReturnValue({
       data: {
-        call: {
-          type: "kickoff",
-          scheduledAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
-          endAt: new Date(Date.now() + 24 * 60 * 60 * 1000 + 30 * 60 * 1000).toISOString(),
-          meetingUrl: null,
-          staff: { displayName: "Neil", photoUrl: null },
-        },
+        calls: [
+          {
+            type: "kickoff",
+            scheduledAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+            endAt: new Date(Date.now() + 24 * 60 * 60 * 1000 + 30 * 60 * 1000).toISOString(),
+            meetingUrl: null,
+            staff: { displayName: "Neil", photoUrl: null },
+          },
+        ],
       },
       isLoading: false,
     });
@@ -155,12 +172,12 @@ describe("NextCallPanel", () => {
 
     render(<NextCallPanel />);
 
-    expect(screen.getByText("Neil")).toBeInTheDocument();
+    expect(screen.getAllByTestId("next-call-panel-card")).toHaveLength(1);
     expect(screen.getByTestId("next-call-panel-partner-line")).toHaveTextContent("Alex Partner");
   });
 
-  it("shows the partner relationship with no call info when there is an assignment but no upcoming call", () => {
-    useNextCallBooking.mockReturnValue({ data: { call: null }, isLoading: false });
+  it("shows the partner relationship line with no call cards when there is an assignment but no upcoming call", () => {
+    useNextCallBooking.mockReturnValue({ data: { calls: [] }, isLoading: false });
     usePartnerPanel.mockReturnValue({
       data: {
         assignment: {
@@ -176,8 +193,7 @@ describe("NextCallPanel", () => {
     render(<NextCallPanel />);
 
     expect(screen.getByTestId("next-call-panel")).toBeInTheDocument();
-    expect(screen.getAllByText("Alex Partner").length).toBeGreaterThan(0);
-    expect(screen.queryByText("Kickoff Call")).not.toBeInTheDocument();
-    expect(screen.queryByText("Accountability Partner Call")).not.toBeInTheDocument();
+    expect(screen.queryAllByTestId("next-call-panel-card")).toHaveLength(0);
+    expect(screen.getByTestId("next-call-panel-partner-line")).toHaveTextContent("Alex Partner");
   });
 });

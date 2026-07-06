@@ -1228,6 +1228,16 @@ export interface OnboardingSendOffCallSummary {
   date: string;
   /** Human-readable time (with zone abbreviation) formatted in the member's own timezone, e.g. "2:00 PM EDT". */
   time: string;
+  /**
+   * Raw stored photo value (absolute URL or internal "/objects/..."
+path) for the resolved kickoff coach / partner, for a small avatar
+on the send-off recap card (Task #1696). Resolve on the client via
+resolveCoachPhotoUrl. Null when the staff member has no photo on
+file.
+
+   * @nullable
+   */
+  photoUrl: string | null;
 }
 
 export interface OnboardingSendOff {

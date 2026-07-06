@@ -221,8 +221,11 @@ export interface NextCall {
   staff: { displayName: string; photoUrl: string | null } | null;
 }
 
+// Task #1696: every upcoming booked call, chronological — a member can have
+// BOTH a kickoff call and an accountability call booked at once, and each
+// gets its own card in the sidebar rather than one panel mixing the two.
 export function useNextCallBooking() {
-  return useQuery<{ call: NextCall | null }>({
+  return useQuery<{ calls: NextCall[] }>({
     queryKey: ["/api/call-bookings/next"],
     queryFn: () => callFetch("/call-bookings/next"),
     refetchInterval: 5 * 60 * 1000,

@@ -248,6 +248,12 @@ export const GetOnboardingSendOffResponse = zod.object({
           .describe(
             'Human-readable time (with zone abbreviation) formatted in the member\'s own timezone, e.g. \"2:00 PM EDT\".',
           ),
+        photoUrl: zod
+          .string()
+          .nullable()
+          .describe(
+            'Raw stored photo value (absolute URL or internal \"\/objects\/...\"\npath) for the resolved kickoff coach \/ partner, for a small avatar\non the send-off recap card (Task #1696). Resolve on the client via\nresolveCoachPhotoUrl. Null when the staff member has no photo on\nfile.\n',
+          ),
       }),
       zod.null(),
     ])
@@ -265,6 +271,12 @@ export const GetOnboardingSendOffResponse = zod.object({
           .string()
           .describe(
             'Human-readable time (with zone abbreviation) formatted in the member\'s own timezone, e.g. \"2:00 PM EDT\".',
+          ),
+        photoUrl: zod
+          .string()
+          .nullable()
+          .describe(
+            'Raw stored photo value (absolute URL or internal \"\/objects\/...\"\npath) for the resolved kickoff coach \/ partner, for a small avatar\non the send-off recap card (Task #1696). Resolve on the client via\nresolveCoachPhotoUrl. Null when the staff member has no photo on\nfile.\n',
           ),
       }),
       zod.null(),

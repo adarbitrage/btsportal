@@ -1223,12 +1223,13 @@ describe("kickoff-coach tiering (Task #1641)", () => {
   });
 });
 
-// Task #1688: the persistent sidebar "next call" panel must find a member's
-// soonest booked call across BOTH kickoff and partner types, independent of
-// partner assignment — a LaunchPad member with a booked kickoff call and NO
-// partner assignment must still get a result here.
+// Task #1688/#1696: the persistent sidebar "next call" panel must find ALL of
+// a member's upcoming booked calls (chronological), across BOTH kickoff and
+// partner types, independent of partner assignment — a LaunchPad member with
+// a booked kickoff call and NO partner assignment must still get a result
+// here, and a member with both a kickoff and partner call booked gets both.
 describe("GET /call-bookings/next", () => {
-  it("returns null when the member has no upcoming booked call and no partner assignment", async () => {
+  it("returns an empty list when the member has no upcoming booked call and no partner assignment", async () => {
     const memberId = await makeMember(6, true);
 
     const res = await request(app)
@@ -1236,7 +1237,7 @@ describe("GET /call-bookings/next", () => {
       .set("Cookie", authCookie(memberId));
 
     expect(res.status).toBe(200);
-    expect(res.body.call).toBeNull();
+    expect(res.body.calls).toEqual([]);
   });
 
   it("returns an upcoming kickoff call for a member with no partner assignment (LaunchPad case)", async () => {
@@ -1254,10 +1255,10 @@ describe("GET /call-bookings/next", () => {
       .set("Cookie", authCookie(memberId));
 
     expect(res.status).toBe(200);
-    expect(res.body.call).not.toBeNull();
-    expect(res.body.call.type).toBe("kickoff");
-    expect(res.body.call.staff.displayName).toBe("Kickoff Coach Test");
-    expect(new Date(res.body.call.scheduledAt).getTime()).toBe(scheduledAt.getTime());
+    expect(res.body.calls).toHaveLength(1);
+    expect(res.body.calls[0].type).toBe("kickoff");
+    expect(res.body.calls[0].staff.displayName).toBe("Kickoff Coach Test");
+    expect(new Date(res.body.calls[0].scheduledAt).getTime()).toBe(scheduledAt.getTime());
   });
 
   it("returns an upcoming partner call for an assigned member", async () => {
@@ -1276,11 +1277,12 @@ describe("GET /call-bookings/next", () => {
       .set("Cookie", authCookie(memberId));
 
     expect(res.status).toBe(200);
-    expect(res.body.call.type).toBe("partner");
-    expect(res.body.call.staff.displayName).toBe("Cap Test Partner");
+    expect(res.body.calls).toHaveLength(1);
+    expect(res.body.calls[0].type).toBe("partner");
+    expect(res.body.calls[0].staff.displayName).toBe("Cap Test Partner");
   });
 
-  it("picks the soonest of multiple upcoming calls and ignores past/canceled ones", async () => {
+  it("returns every upcoming call in chronological order and ignores past/canceled ones", async () => {
     const memberId = await makeMember(6, true);
     await assignPartner(memberId, partnerId);
     const soon = gridAlignedFutureTime(3);
@@ -1303,8 +1305,11 @@ describe("GET /call-bookings/next", () => {
       .set("Cookie", authCookie(memberId));
 
     expect(res.status).toBe(200);
-    expect(res.body.call.type).toBe("kickoff");
-    expect(new Date(res.body.call.scheduledAt).getTime()).toBe(soon.getTime());
+    expect(res.body.calls).toHaveLength(2);
+    expect(res.body.calls[0].type).toBe("kickoff");
+    expect(new Date(res.body.calls[0].scheduledAt).getTime()).toBe(soon.getTime());
+    expect(res.body.calls[1].type).toBe("partner");
+    expect(new Date(res.body.calls[1].scheduledAt).getTime()).toBe(later.getTime());
   });
 
   it("does not leak internal GHL fields to the member-facing response", async () => {
@@ -1320,7 +1325,7 @@ describe("GET /call-bookings/next", () => {
       .get("/api/call-bookings/next")
       .set("Cookie", authCookie(memberId));
 
-    expect(res.body.call).not.toHaveProperty("ghlCalendarId");
-    expect(res.body.call).not.toHaveProperty("ghlAppointmentId");
+    expect(res.body.calls[0]).not.toHaveProperty("ghlCalendarId");
+    expect(res.body.calls[0]).not.toHaveProperty("ghlAppointmentId");
   });
 });
