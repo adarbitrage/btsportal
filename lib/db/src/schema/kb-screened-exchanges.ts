@@ -6,8 +6,8 @@ import { aiSourceDocumentsTable } from "./ai-source-documents";
 
 /**
  * The durable SCREENED-OUTPUT store for the coaching-transcript value screener
- * (Task #1702). One row per segmented EXCHANGE (a member prompt + the coach
- * response to it) within a screened source.
+ * (Task #1702, refined #1707). One row per topic-threaded SEGMENT (the member
+ * prompt/context + the coach teaching for one topic) within a screened source.
  *
  * Deliberately stores KEPT **and** DROPPED units (nothing is discarded): the
  * `disposition` column records the verdict and `dropReason` records WHY a unit
@@ -40,17 +40,19 @@ export const kbScreenedExchangesTable = pgTable("kb_screened_exchanges", {
   // LLM value-type classification (e.g. principle, framework, worked_example,
   // troubleshooting, chitchat, logistics, situational_answer). Plain text.
   valueType: text("value_type").notNull().default("unclassified"),
-  // AI disposition: 'keep' | 'drop' | 'flag'.
+  // Disposition: 'keep' | 'drop' | 'flag' verdicts, plus 'error' (a reliability
+  // status meaning classification failed after retries — NOT a real verdict).
   disposition: text("disposition").notNull().default("flag"),
-  // Why a unit was dropped/flagged (audit trail; NULL for clean keeps).
+  // Why a unit was dropped/flagged/errored (audit trail; NULL for clean keeps).
   dropReason: text("drop_reason"),
   // TRUE when the answer is anchored to THIS member's specific numbers/situation
-  // (spend, ROI, account state) and so is context-bound, not a general lesson.
+  // (spend, ROI, account state) OR is time-sensitive, and so is context-bound
+  // rather than a general lesson. Such units are KEPT with their context.
   situationalNumber: boolean("situational_number").notNull().default(false),
   // Short model rationale for the disposition (preview transparency).
   rationale: text("rationale"),
-  // Admin overrule (feeds calibration). NULL = no overrule; the AI disposition
-  // stands. When set, it wins over `disposition` for downstream reads.
+  // Admin overrule. NULL = no overrule; the AI disposition stands. When set, it
+  // wins over `disposition` for downstream reads.
   overrideDisposition: text("override_disposition"),
   overrideBy: integer("override_by"),
   overrideAt: timestamp("override_at", { withTimezone: true }),

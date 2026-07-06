@@ -12,14 +12,12 @@ import { aiSourceDocumentsTable } from "./ai-source-documents";
  * records:
  *  - the DEDUP verdict for the whole source (exact content-hash match or a
  *    near-duplicate of an earlier source), and
- *  - the cache-invalidation stamps so an unchanged source is not re-screened.
+ *  - the content-fingerprint cache stamp so an unchanged source is not
+ *    re-screened.
  *
- * Cache invalidation mirrors the kb_source_node_extracts pattern but is
- * TWO-dimensional: a screening is fresh only when BOTH
- *   (a) `contentFingerprint` still matches the source's current content, AND
- *   (b) `calibrationVersion` still matches the live coach-calibration set.
- * A change to either the source content OR the calibration exemplars makes the
- * screening stale and it is re-run.
+ * Cache invalidation mirrors the kb_source_node_extracts pattern: a screening
+ * is fresh while `contentFingerprint` still matches the source's current
+ * content; a content change makes it stale and it is re-run.
  *
  * `dedupStatus` and `valueType`/`disposition` (on kb_screened_exchanges) are
  * deliberately plain `text` (a small closed vocabulary owned by the api-server
@@ -39,9 +37,6 @@ export const kbCallScreeningsTable = pgTable("kb_call_screenings", {
     .references(() => aiSourceDocumentsTable.id, { onDelete: "cascade" }),
   // Hash of the source content at screening time — the content-side cache key.
   contentFingerprint: text("content_fingerprint").notNull(),
-  // Fingerprint of the active coach-calibration exemplar set at screening time
-  // — the calibration-side cache key (see computeCalibrationVersion).
-  calibrationVersion: text("calibration_version").notNull(),
   // Whole-source dedup verdict: 'unique' | 'exact_duplicate' | 'near_duplicate'.
   dedupStatus: text("dedup_status").notNull().default("unique"),
   // Normalized-content hash used for exact-duplicate detection (post
@@ -52,7 +47,8 @@ export const kbCallScreeningsTable = pgTable("kb_call_screenings", {
   duplicateOfSourceId: integer("duplicate_of_source_id"),
   // Similarity (0..1, x1000 int) to duplicateOfSourceId for near-duplicates.
   similarityScore: integer("similarity_score"),
-  // Roll-up counts across this source's exchanges (audit / preview headline).
+  // Roll-up counts across this source's segments (audit / preview headline).
+  // The errored count is derived: exchangeCount - kept - dropped - flagged.
   exchangeCount: integer("exchange_count").notNull().default(0),
   keptCount: integer("kept_count").notNull().default(0),
   droppedCount: integer("dropped_count").notNull().default(0),

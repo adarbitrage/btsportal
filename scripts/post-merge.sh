@@ -514,18 +514,32 @@ if [ -n "$DATABASE_URL" ]; then
     >/dev/null
 fi
 
-# Coaching-transcript VALUE SCREENER durable store (Task #1702). Three new,
-# empty, additive tables (kb_call_screenings, kb_screened_exchanges,
-# kb_calibration_examples) for the value-screening layer that sits between the
-# existing source screening/mining gates and the synthesis engine. Applying it
-# explicitly here keeps the live-schema-drift gate green so the conditional push
-# stays skipped on the common merge instead of triggering a slow whole-DB
-# `drizzle-kit push --force` just to create three tables (same pattern as the
-# other additive-table steps above). Idempotent (CREATE TABLE/INDEX IF NOT
-# EXISTS), so on a fresh DB / re-run it is a harmless no-op.
+# Coaching-transcript VALUE SCREENER durable store (Task #1702). New, empty,
+# additive tables (kb_call_screenings, kb_screened_exchanges) for the
+# value-screening layer that sits between the existing source screening/mining
+# gates and the synthesis engine. Applying it explicitly here keeps the
+# live-schema-drift gate green so the conditional push stays skipped on the
+# common merge instead of triggering a slow whole-DB `drizzle-kit push --force`
+# just to create these tables (same pattern as the other additive-table steps
+# above). Idempotent (CREATE TABLE/INDEX IF NOT EXISTS), so on a fresh DB /
+# re-run it is a harmless no-op.
 if [ -n "$DATABASE_URL" ]; then
   psql "$DATABASE_URL" \
     -v ON_ERROR_STOP=1 \
     -f lib/db/drizzle/0105_kb_value_screener.sql \
+    >/dev/null
+fi
+
+# Value-screener CALIBRATION removal (Task #1707). The screener is now a
+# recall-biased de-noiser with no few-shot calibration loop, so 0105's
+# kb_calibration_examples table and the kb_call_screenings.calibration_version
+# stamp are dropped. This is a table/column REMOVAL: the live-schema-drift gate
+# only checks schema ⊆ DB, so the conditional push never fires to DROP them —
+# they must be dropped explicitly here or they linger in prod. Idempotent
+# (DROP ... IF EXISTS), so a fresh DB / re-run is a harmless no-op.
+if [ -n "$DATABASE_URL" ]; then
+  psql "$DATABASE_URL" \
+    -v ON_ERROR_STOP=1 \
+    -f lib/db/drizzle/0106_drop_kb_screener_calibration.sql \
     >/dev/null
 fi

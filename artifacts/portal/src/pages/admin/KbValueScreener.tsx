@@ -13,7 +13,7 @@ import {
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog";
-import { Loader2, Play, ShieldCheck, Copy, CheckCircle2, XCircle, Flag, Filter } from "lucide-react";
+import { Loader2, Play, ShieldCheck, Copy, CheckCircle2, XCircle, Flag, Filter, AlertTriangle } from "lucide-react";
 import {
   listScreenerSources,
   getScreenerStatus,
@@ -23,12 +23,17 @@ import {
   type ScreenerSourceSummary,
   type ScreenedExchange,
 } from "@/lib/admin-api";
-import { format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
 
 const dispositionBadge = (d: string) => {
   if (d === "keep") return <Badge className="bg-emerald-600 hover:bg-emerald-600">keep</Badge>;
   if (d === "drop") return <Badge variant="destructive">drop</Badge>;
+  if (d === "error")
+    return (
+      <Badge className="bg-slate-500 hover:bg-slate-500">
+        <AlertTriangle className="mr-1 h-3 w-3" /> error
+      </Badge>
+    );
   return <Badge className="bg-amber-500 hover:bg-amber-500">flag</Badge>;
 };
 
@@ -93,16 +98,13 @@ export default function KbValueScreener() {
               <ShieldCheck className="h-6 w-6 text-primary" /> Coaching Value Screener
             </h1>
             <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
-              Screens cleared coaching-call transcripts for durable teaching value BEFORE the
-              knowledge base indexes them — dedups near-identical calls, splits each call into
-              member-question/coach-answer moments, and keeps, drops, or flags each one. Nothing is
-              published; kept moments are what the topic index later reads, and the raw transcript is
-              kept for audit.
+              A recall-biased de-noiser that runs over cleared coaching-call transcripts BEFORE the
+              knowledge base indexes them. It drops near-identical whole calls, threads each call into
+              topic segments, and keeps anything with teaching value — dropping only obvious noise and
+              flagging the genuinely uncertain for a human. Nothing is published; kept segments are what
+              the topic index later reads, and the raw transcript is kept for audit.
             </p>
           </div>
-          <Badge variant="outline" className="shrink-0 font-mono text-xs">
-            calibration {sourcesQ.data?.calibrationVersion ?? "…"}
-          </Badge>
         </div>
 
         {/* Run controls */}
@@ -137,7 +139,8 @@ export default function KbValueScreener() {
                 ) : (
                   <span className="text-muted-foreground">
                     Last run: {statusQ.data.kept} kept · {statusQ.data.dropped} dropped ·{" "}
-                    {statusQ.data.flagged} flagged · {statusQ.data.duplicates} dups
+                    {statusQ.data.flagged} flagged · {statusQ.data.errors} errors ·{" "}
+                    {statusQ.data.duplicates} dups
                   </span>
                 )}
                 {statusQ.data.error && (
@@ -173,6 +176,7 @@ export default function KbValueScreener() {
                     <TableHead className="text-right">Kept</TableHead>
                     <TableHead className="text-right">Dropped</TableHead>
                     <TableHead className="text-right">Flagged</TableHead>
+                    <TableHead className="text-right">Errors</TableHead>
                     <TableHead></TableHead>
                   </TableRow>
                 </TableHeader>
@@ -203,16 +207,22 @@ export default function KbValueScreener() {
                       <TableCell className="text-right tabular-nums">
                         {s.screening ? s.screening.flaggedCount : "—"}
                       </TableCell>
+                      <TableCell className="text-right tabular-nums">
+                        {s.screening ? (
+                          s.screening.errorCount > 0 ? (
+                            <span className="font-medium text-slate-500">{s.screening.errorCount}</span>
+                          ) : (
+                            0
+                          )
+                        ) : (
+                          "—"
+                        )}
+                      </TableCell>
                       <TableCell className="text-right">
                         <div className="flex items-center justify-end gap-2">
-                          {s.screening?.stale && (
-                            <Badge variant="outline" className="text-amber-600">
-                              stale
-                            </Badge>
-                          )}
                           {s.screening && (
                             <Button size="sm" variant="ghost" onClick={() => setPreviewId(s.id)}>
-                              Preview
+                              Audit
                             </Button>
                           )}
                         </div>
@@ -234,7 +244,7 @@ export default function KbValueScreener() {
 function PreviewDialog({ sourceDocId, onClose }: { sourceDocId: number | null; onClose: () => void }) {
   const { toast } = useToast();
   const qc = useQueryClient();
-  const [filter, setFilter] = useState<"all" | "keep" | "drop" | "flag">("all");
+  const [filter, setFilter] = useState<"all" | "keep" | "drop" | "flag" | "error">("all");
 
   const resultsQ = useQuery({
     queryKey: ["screener-results", sourceDocId],
@@ -243,12 +253,12 @@ function PreviewDialog({ sourceDocId, onClose }: { sourceDocId: number | null; o
   });
 
   const overrideM = useMutation({
-    mutationFn: (v: { id: number; disposition: string; feed: boolean }) =>
-      overrideScreenedExchange(v.id, v.disposition, v.feed),
+    mutationFn: (v: { id: number; disposition: string }) =>
+      overrideScreenedExchange(v.id, v.disposition),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["screener-results", sourceDocId] });
       qc.invalidateQueries({ queryKey: ["screener-sources"] });
-      toast({ title: "Overruled", description: "The moment's verdict was updated." });
+      toast({ title: "Overruled", description: "The segment's verdict was updated." });
     },
     onError: (e: Error) => toast({ title: "Failed", description: e.message, variant: "destructive" }),
   });
@@ -263,10 +273,11 @@ function PreviewDialog({ sourceDocId, onClose }: { sourceDocId: number | null; o
     <Dialog open={sourceDocId !== null} onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="max-h-[85vh] max-w-4xl overflow-hidden">
         <DialogHeader>
-          <DialogTitle>{resultsQ.data?.source.title ?? "Screening preview"}</DialogTitle>
+          <DialogTitle>{resultsQ.data?.source.title ?? "Screening audit"}</DialogTitle>
           <DialogDescription>
-            Each moment below was kept, dropped, or flagged. Overrule the AI to correct it — optionally
-            teaching the screener by adding your correction to the calibration set.
+            Each topic segment below was kept, dropped, flagged, or errored. Overrule the AI verdict to
+            correct it — an errored segment (classification failed after retries) is safe to keep or drop
+            by hand.
           </DialogDescription>
         </DialogHeader>
 
@@ -278,7 +289,7 @@ function PreviewDialog({ sourceDocId, onClose }: { sourceDocId: number | null; o
           <>
             <div className="flex items-center gap-2 border-b pb-3 text-sm">
               <Filter className="h-4 w-4 text-muted-foreground" />
-              {(["all", "keep", "drop", "flag"] as const).map((f) => (
+              {(["all", "keep", "drop", "flag", "error"] as const).map((f) => (
                 <Button
                   key={f}
                   size="sm"
@@ -290,14 +301,14 @@ function PreviewDialog({ sourceDocId, onClose }: { sourceDocId: number | null; o
               ))}
               {resultsQ.data?.screening && (
                 <span className="ml-auto font-mono text-xs text-muted-foreground">
-                  {resultsQ.data.screening.dedupStatus} · cal {resultsQ.data.screening.calibrationVersion}
+                  {resultsQ.data.screening.dedupStatus}
                 </span>
               )}
             </div>
 
             <div className="space-y-3 overflow-y-auto pr-1" style={{ maxHeight: "55vh" }}>
               {filtered.length === 0 ? (
-                <div className="p-6 text-center text-sm text-muted-foreground">No moments in this view.</div>
+                <div className="p-6 text-center text-sm text-muted-foreground">No segments in this view.</div>
               ) : (
                 filtered.map((ex: ScreenedExchange) => (
                   <div key={ex.id} className="rounded-lg border p-3">
@@ -308,7 +319,7 @@ function PreviewDialog({ sourceDocId, onClose }: { sourceDocId: number | null; o
                       )}
                       <Badge variant="secondary" className="text-xs">{ex.valueType.replace(/_/g, " ")}</Badge>
                       {ex.situationalNumber && (
-                        <Badge variant="outline" className="text-xs text-amber-600">situational numbers</Badge>
+                        <Badge variant="outline" className="text-xs text-amber-600">situational / time-bound</Badge>
                       )}
                     </div>
                     {ex.memberPrompt && (
@@ -333,23 +344,23 @@ function PreviewDialog({ sourceDocId, onClose }: { sourceDocId: number | null; o
                         size="sm"
                         variant="outline"
                         disabled={overrideM.isPending}
-                        onClick={() => overrideM.mutate({ id: ex.id, disposition: "keep", feed: true })}
+                        onClick={() => overrideM.mutate({ id: ex.id, disposition: "keep" })}
                       >
-                        <CheckCircle2 className="mr-1 h-3.5 w-3.5" /> Keep + teach
+                        <CheckCircle2 className="mr-1 h-3.5 w-3.5" /> Keep
                       </Button>
                       <Button
                         size="sm"
                         variant="outline"
                         disabled={overrideM.isPending}
-                        onClick={() => overrideM.mutate({ id: ex.id, disposition: "drop", feed: true })}
+                        onClick={() => overrideM.mutate({ id: ex.id, disposition: "drop" })}
                       >
-                        <XCircle className="mr-1 h-3.5 w-3.5" /> Drop + teach
+                        <XCircle className="mr-1 h-3.5 w-3.5" /> Drop
                       </Button>
                       <Button
                         size="sm"
                         variant="ghost"
                         disabled={overrideM.isPending}
-                        onClick={() => overrideM.mutate({ id: ex.id, disposition: "flag", feed: false })}
+                        onClick={() => overrideM.mutate({ id: ex.id, disposition: "flag" })}
                       >
                         <Flag className="mr-1 h-3.5 w-3.5" /> Flag
                       </Button>

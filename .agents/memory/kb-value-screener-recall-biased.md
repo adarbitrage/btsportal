@@ -1,0 +1,35 @@
+---
+name: KB value screener = recall-biased de-noiser
+description: Design contract for the coaching-transcript value screener (its job, its statuses, what it must NOT do).
+---
+
+# KB value screener is a recall-biased de-noiser, NOT a gold-picker
+
+The value screener sits at the FRONT of the KB pipeline: it segments coaching-call
+transcripts (topic-threaded), classifies each segment, and writes a screened-output
+store that the synthesis engine + human review gate consume downstream.
+
+## The rules (design decisions — keep future work consistent)
+- **Recall-biased / keep-by-default.** The rubric errs toward KEEPING borderline
+  content and FLAGGING doubt, never dropping to hit a quality bar. It is a de-noiser
+  + flagger, not a "gold-picker". Dropping should be reserved for clear noise.
+- **`error` is a reliability status, distinct from the keep/drop/flag verdicts.**
+  Per-segment classification runs in isolation with retries; a whole-chunk failure
+  becomes an explicit `error` disposition (surfaced + counted), never a silent drop.
+  The model must NOT be able to self-assign `error` as a verdict.
+- **Dedup is narrow.** Only near-identical WHOLE calls are deduped (length-ratio gate
+  + shingle Jaccard threshold). Do not dedup at the segment level — that destroys recall.
+- **No PII step here.** PII scrubbing is the downstream review gate's job, not the
+  screener's. Don't reintroduce a screener PII module.
+- **No calibration.** Calibration was removed ENTIRELY (table, schema field, routes,
+  admin page). Do not reintroduce a calibration/teach/feedback loop.
+- **The admin page is a run-and-audit console only** — trigger a run, watch progress,
+  audit dispositions (incl. an error filter/badge). Not a curation/teaching surface.
+
+**Why:** the screener's value is high recall so nothing citable is lost before humans
+review; a strict picker would silently discard usable coaching content, and a
+self-reported `error` verdict would let LLM failures masquerade as editorial drops.
+
+**How to apply:** any change to screener classification/rubric/dedup must preserve
+keep-by-default bias and the isolated-per-segment `error` path. Synthesis (#1703) and
+review gate (#1704) own quality + PII; don't push those responsibilities upstream.

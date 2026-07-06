@@ -2426,7 +2426,7 @@ export function runTranscriptImport() {
   });
 }
 
-// ── Coaching-transcript VALUE SCREENER (Task #1702) ─────────────────────────
+// ── Coaching-transcript VALUE SCREENER (Task #1702, refined #1707) ──────────
 
 export interface ScreenerSourceSummary {
   id: number;
@@ -2442,8 +2442,7 @@ export interface ScreenerSourceSummary {
     keptCount: number;
     droppedCount: number;
     flaggedCount: number;
-    calibrationVersion: string;
-    stale: boolean;
+    errorCount: number;
     screenedAt: string;
   } | null;
 }
@@ -2455,11 +2454,11 @@ export interface ScreenerProgress {
   kept: number;
   dropped: number;
   flagged: number;
+  errors: number;
   duplicates: number;
   startedAt: string | null;
   finishedAt: string | null;
   error: string | null;
-  calibrationVersion: string;
 }
 
 export interface ScreenedExchange {
@@ -2478,22 +2477,8 @@ export interface ScreenedExchange {
   effectiveDisposition: string;
 }
 
-export interface CalibrationExample {
-  id: number;
-  memberPrompt: string;
-  coachResponse: string;
-  label: string;
-  valueType: string | null;
-  note: string | null;
-  sourceExchangeId: number | null;
-  active: boolean;
-  createdAt: string;
-}
-
 export function listScreenerSources() {
-  return adminFetch<{ calibrationVersion: string; sources: ScreenerSourceSummary[] }>(
-    "/admin/kb-value-screener/sources",
-  );
+  return adminFetch<{ sources: ScreenerSourceSummary[] }>("/admin/kb-value-screener/sources");
 }
 
 export function getScreenerStatus() {
@@ -2515,52 +2500,9 @@ export function getScreenerResults(sourceDocId: number) {
   }>(`/admin/kb-value-screener/results/${sourceDocId}`);
 }
 
-export function overrideScreenedExchange(id: number, disposition: string, feedToCalibration: boolean) {
+export function overrideScreenedExchange(id: number, disposition: string) {
   return adminFetch<{ ok: boolean }>(`/admin/kb-value-screener/exchanges/${id}/override`, {
     method: "POST",
-    body: JSON.stringify({ disposition, feedToCalibration }),
-  });
-}
-
-export function listCalibration() {
-  return adminFetch<{
-    version: string;
-    activeCount: number;
-    goldCount: number;
-    noiseCount: number;
-    examples: CalibrationExample[];
-    valueTypes: string[];
-  }>("/admin/kb-value-screener/calibration");
-}
-
-export function listCalibrationCandidates() {
-  return adminFetch<{ candidates: Array<Pick<ScreenedExchange, "id" | "sourceDocId" | "memberPrompt" | "coachResponse" | "valueType" | "disposition" | "rationale">> }>(
-    "/admin/kb-value-screener/calibration/candidates",
-  );
-}
-
-export function addCalibrationExample(input: {
-  memberPrompt?: string;
-  coachResponse: string;
-  label: "gold" | "noise";
-  valueType?: string;
-  note?: string;
-}) {
-  return adminFetch<CalibrationExample>("/admin/kb-value-screener/calibration", {
-    method: "POST",
-    body: JSON.stringify(input),
-  });
-}
-
-export function updateCalibrationExample(id: number, patch: { active?: boolean; note?: string }) {
-  return adminFetch<CalibrationExample>(`/admin/kb-value-screener/calibration/${id}`, {
-    method: "PATCH",
-    body: JSON.stringify(patch),
-  });
-}
-
-export function deleteCalibrationExample(id: number) {
-  return adminFetch<{ ok: boolean }>(`/admin/kb-value-screener/calibration/${id}`, {
-    method: "DELETE",
+    body: JSON.stringify({ disposition }),
   });
 }

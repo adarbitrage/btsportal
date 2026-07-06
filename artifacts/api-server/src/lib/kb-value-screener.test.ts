@@ -1,16 +1,29 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+
+// The core lib imports callLLM from "./kb-synthesis.js"; mock it so the
+// reliability/classification tests never hit a real model. The dedup/segment
+// helpers under test are pure and never call it.
+const callLLMMock = vi.fn();
+vi.mock("./kb-synthesis.js", () => ({ callLLM: (...args: unknown[]) => callLLMMock(...args) }));
+
 import {
   normalizeForDedup,
   exactDedupHash,
   contentShingles,
   jaccardSimilarity,
   looksLikeQuestion,
-  segmentExchanges,
-  computeCalibrationVersion,
+  segmentTranscript,
+  classifySegments,
   effectiveDisposition,
   detectDuplicate,
 } from "./kb-value-screener";
-import { buildMemberPiiScrubber, parseMemberName } from "./kb-member-pii";
+
+beforeEach(() => {
+  callLLMMock.mockReset();
+});
+afterEach(() => {
+  vi.restoreAllMocks();
+});
 
 describe("normalizeForDedup / exactDedupHash", () => {
   it("normalizes casing, whitespace and punctuation to the same string", () => {
@@ -70,8 +83,10 @@ describe("looksLikeQuestion", () => {
   });
 });
 
-describe("segmentExchanges", () => {
-  it("segments speaker-labeled dialogue into prompt/response units", () => {
+describe("segmentTranscript (topic-threaded)", () => {
+  it("threads a topic (question + answer + follow-ups) into ONE segment", () => {
+    // A short exchange stays a single segment because the follow-up member turn
+    // only opens a new segment once the current one has passed minChars.
     const content = [
       "Member: How do I pick my first offer?",
       "Coach: Start with a proven vertical you understand.",
@@ -79,53 +94,110 @@ describe("segmentExchanges", () => {
       "Member: What about my budget?",
       "Coach: Keep test budgets small and disciplined.",
     ].join("\n");
-    const ex = segmentExchanges(content);
-    expect(ex.length).toBe(2);
-    expect(ex[0].memberPrompt).toContain("first offer");
-    expect(ex[0].coachResponse).toContain("proven vertical");
-    expect(ex[0].coachResponse).toContain("validate demand");
-    expect(ex[1].memberPrompt).toContain("budget");
-    expect(ex.map((e) => e.orderIndex)).toEqual([0, 1]);
+    const segs = segmentTranscript(content);
+    expect(segs.length).toBe(1);
+    expect(segs[0].memberPrompt).toContain("first offer");
+    expect(segs[0].coachResponse).toContain("validate demand");
   });
 
-  it("segments prose with question paragraphs", () => {
-    const content =
-      "How do I know when to scale?\n\nScale once you have three profitable days in a row. Watch your margins closely.\n\nWhat is a good starting budget?\n\nUse a small daily cap while testing.";
-    const ex = segmentExchanges(content);
-    expect(ex.length).toBe(2);
-    expect(ex[0].memberPrompt).toContain("scale");
-    expect(ex[0].coachResponse).toContain("three profitable days");
+  it("opens a NEW segment on a member turn once past minChars", () => {
+    // With a tiny minChars, each new member turn (after a coach reply) starts a
+    // fresh topic segment while roles stay preserved.
+    const content = [
+      "Member: How do I pick my first offer?",
+      "Coach: Start with a proven vertical you understand and validate demand first.",
+      "Member: What about my budget?",
+      "Coach: Keep test budgets small and disciplined until you see signal.",
+    ].join("\n");
+    const segs = segmentTranscript(content, { minChars: 20, maxChars: 2500 });
+    expect(segs.length).toBe(2);
+    expect(segs[0].memberPrompt).toContain("first offer");
+    expect(segs[1].memberPrompt).toContain("budget");
+    expect(segs.map((s) => s.orderIndex)).toEqual([0, 1]);
   });
 
-  it("falls back to per-block response-only units when there are no questions", () => {
-    const content =
-      "Focus on one traffic source first.\n\nMaster it before adding another. Diversify later.\n\nTrack every dollar you spend.";
-    const ex = segmentExchanges(content);
-    expect(ex.length).toBe(3);
-    expect(ex.every((e) => e.memberPrompt === "")).toBe(true);
+  it("caps runaway monologues at maxChars even without questions", () => {
+    const long = Array.from({ length: 12 }, (_, i) => `Point number ${i} about disciplined scaling.`).join(" ");
+    const segs = segmentTranscript(long, { minChars: 50, maxChars: 120 });
+    expect(segs.length).toBeGreaterThan(1);
+    for (const s of segs) {
+      expect(s.coachResponse.length).toBeLessThanOrEqual(300);
+    }
   });
 
   it("returns nothing for empty content", () => {
-    expect(segmentExchanges("")).toEqual([]);
-    expect(segmentExchanges("   ")).toEqual([]);
+    expect(segmentTranscript("")).toEqual([]);
+    expect(segmentTranscript("   ")).toEqual([]);
   });
 });
 
-describe("computeCalibrationVersion", () => {
-  it("returns a stable cold constant for an empty set", () => {
-    expect(computeCalibrationVersion([])).toBe("cold-v1");
+describe("classifySegments (reliability + error disposition)", () => {
+  const seg = (i: number) => ({ orderIndex: i, memberPrompt: `q${i}`, coachResponse: `a${i}` });
+
+  it("maps a clean model response to real verdicts", async () => {
+    callLLMMock.mockResolvedValueOnce(
+      JSON.stringify({
+        results: [
+          { index: 0, valueType: "principle", disposition: "keep", situationalNumber: false, rationale: "solid" },
+          { index: 1, valueType: "chitchat", disposition: "drop", dropReason: "greeting", rationale: "filler" },
+        ],
+      }),
+    );
+    const out = await classifySegments([seg(0), seg(1)]);
+    expect(out.map((c) => c.disposition)).toEqual(["keep", "drop"]);
+    expect(out[0].dropReason).toBeNull();
+    expect(out[1].dropReason).toBe("greeting");
   });
 
-  it("is order-independent", () => {
-    const a = { id: 1, label: "gold", valueType: "principle", memberPrompt: "q", coachResponse: "a" };
-    const b = { id: 2, label: "noise", valueType: null, memberPrompt: "", coachResponse: "b" };
-    expect(computeCalibrationVersion([a, b])).toBe(computeCalibrationVersion([b, a]));
+  it("marks a segment the model OMITS with the distinct 'error' disposition", async () => {
+    callLLMMock.mockResolvedValueOnce(
+      JSON.stringify({
+        results: [{ index: 0, valueType: "principle", disposition: "keep", rationale: "ok" }],
+      }),
+    );
+    const out = await classifySegments([seg(0), seg(1)]);
+    expect(out[0].disposition).toBe("keep");
+    expect(out[1].disposition).toBe("error");
   });
 
-  it("changes when the exemplar set changes", () => {
-    const a = { id: 1, label: "gold", valueType: "principle", memberPrompt: "q", coachResponse: "a" };
-    const b = { id: 2, label: "noise", valueType: null, memberPrompt: "", coachResponse: "b" };
-    expect(computeCalibrationVersion([a])).not.toBe(computeCalibrationVersion([a, b]));
+  it("isolates a whole-chunk failure to 'error' (never a silent drop) after retries", async () => {
+    callLLMMock.mockRejectedValue(new Error("model down"));
+    const out = await classifySegments([seg(0), seg(1)]);
+    expect(out.every((c) => c.disposition === "error")).toBe(true);
+    // Retried CLASSIFY_MAX_ATTEMPTS (3) times for the single chunk.
+    expect(callLLMMock).toHaveBeenCalledTimes(3);
+  });
+
+  it("recovers on a later retry attempt", async () => {
+    callLLMMock
+      .mockRejectedValueOnce(new Error("transient"))
+      .mockResolvedValueOnce(
+        JSON.stringify({ results: [{ index: 0, valueType: "framework", disposition: "keep", rationale: "good" }] }),
+      );
+    const out = await classifySegments([seg(0)]);
+    expect(out[0].disposition).toBe("keep");
+    expect(callLLMMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("downgrades a model-assigned 'error' verdict to 'flag' (model may not self-error)", async () => {
+    callLLMMock.mockResolvedValueOnce(
+      JSON.stringify({ results: [{ index: 0, valueType: "principle", disposition: "error", rationale: "?" }] }),
+    );
+    const out = await classifySegments([seg(0)]);
+    expect(out[0].disposition).toBe("flag");
+  });
+
+  it("keeps situational/time-sensitive answers rather than dropping them", async () => {
+    callLLMMock.mockResolvedValueOnce(
+      JSON.stringify({
+        results: [
+          { index: 0, valueType: "situational_answer", disposition: "keep", situationalNumber: true, rationale: "member-specific" },
+        ],
+      }),
+    );
+    const out = await classifySegments([seg(0)]);
+    expect(out[0].disposition).toBe("keep");
+    expect(out[0].situationalNumber).toBe(true);
   });
 });
 
@@ -133,13 +205,15 @@ describe("effectiveDisposition", () => {
   it("prefers the admin overrule over the AI verdict", () => {
     expect(effectiveDisposition({ disposition: "drop", overrideDisposition: "keep" })).toBe("keep");
     expect(effectiveDisposition({ disposition: "keep", overrideDisposition: null })).toBe("keep");
+    expect(effectiveDisposition({ disposition: "error", overrideDisposition: "drop" })).toBe("drop");
   });
 });
 
-describe("detectDuplicate", () => {
+describe("detectDuplicate (narrowed to near-identical WHOLE calls)", () => {
   const mk = (id: number, content: string) => ({
     id,
     content,
+    length: normalizeForDedup(content).length,
     normalizedHash: exactDedupHash(content),
     shingles: contentShingles(content),
   });
@@ -152,12 +226,28 @@ describe("detectDuplicate", () => {
     expect(v.duplicateOfSourceId).toBe(2);
   });
 
-  it("flags a near duplicate above threshold", () => {
-    const base = Array.from({ length: 80 }, (_, i) => `token${i}`).join(" ");
-    const near = base.replace("token79", "tokenX").replace("token0", "tokenY");
+  it("flags a near-verbatim re-upload above the HIGH threshold", () => {
+    const base = Array.from({ length: 120 }, (_, i) => `token${i}`).join(" ");
+    const near = base.replace("token119", "tokenX").replace("token0", "tokenY");
     const v = detectDuplicate(mk(1, base), [mk(2, near)]);
     expect(v.status).toBe("near_duplicate");
-    expect(v.similarityScore).toBeGreaterThan(820);
+    expect(v.similarityScore).toBeGreaterThan(900);
+  });
+
+  it("does NOT flag two distinct calls that merely share a topic", () => {
+    // Substantial but sub-threshold overlap (same topic words, different call).
+    const shared = Array.from({ length: 30 }, (_, i) => `topic${i}`).join(" ");
+    const a = `${shared} ${Array.from({ length: 40 }, (_, i) => `aonly${i}`).join(" ")}`;
+    const b = `${shared} ${Array.from({ length: 40 }, (_, i) => `bonly${i}`).join(" ")}`;
+    const v = detectDuplicate(mk(1, a), [mk(2, b)]);
+    expect(v.status).toBe("unique");
+  });
+
+  it("does NOT flag a short excerpt against a full call (length-ratio guard)", () => {
+    const full = Array.from({ length: 200 }, (_, i) => `word${i}`).join(" ");
+    const excerpt = Array.from({ length: 20 }, (_, i) => `word${i}`).join(" ");
+    const v = detectDuplicate(mk(2, excerpt), [mk(1, full)]);
+    expect(v.status).toBe("unique");
   });
 
   it("reports unique when nothing is similar", () => {
@@ -166,42 +256,5 @@ describe("detectDuplicate", () => {
     ]);
     expect(v.status).toBe("unique");
     expect(v.duplicateOfSourceId).toBeNull();
-  });
-});
-
-describe("member PII backstop", () => {
-  it("parses names and rejects non-name values", () => {
-    expect(parseMemberName("Jordan Rivera")?.first).toBe("Jordan");
-    expect(parseMemberName("Jordan Rivera")?.last).toBe("Rivera");
-    expect(parseMemberName("  ")).toBeNull();
-    expect(parseMemberName("x")).toBeNull();
-    expect(parseMemberName("user@example.com")).toBeNull();
-  });
-
-  it("redacts full member names", () => {
-    const s = buildMemberPiiScrubber(["Jordan Rivera"]);
-    expect(s.scrub("So Jordan Rivera, here's the plan.")).toBe("So [member], here's the plan.");
-  });
-
-  it("redacts a bare first name ONLY when the full name also appears", () => {
-    const s = buildMemberPiiScrubber(["Jordan Rivera"]);
-    const withFull = s.scrub("Jordan Rivera asked, and Jordan, my answer is yes.");
-    expect(withFull).not.toContain("Jordan");
-    // Without the full name present, a bare first name is left alone.
-    const bare = buildMemberPiiScrubber(["Jordan Rivera"]).scrub("Jordan, my answer is yes.");
-    expect(bare).toContain("Jordan");
-  });
-
-  it("does not redact ambiguous common first names on their own", () => {
-    const s = buildMemberPiiScrubber(["Mark Twain"]);
-    // 'mark' is ambiguous; only the full name is redacted.
-    expect(s.scrub("Mark Twain said to mark your calendar.")).toBe("[member] said to mark your calendar.");
-  });
-
-  it("leaves ordinary content untouched", () => {
-    const s = buildMemberPiiScrubber(["Jordan Rivera"]);
-    expect(s.scrub("Set up your campaign and test the offer.")).toBe(
-      "Set up your campaign and test the offer.",
-    );
   });
 });

@@ -3,37 +3,44 @@ import {
   aiSourceDocumentsTable,
   kbCallScreeningsTable,
   kbScreenedExchangesTable,
-  kbCalibrationExamplesTable,
-  type KbCalibrationExample,
 } from "@workspace/db/schema";
-import { eq, inArray, desc } from "drizzle-orm";
+import { eq, inArray } from "drizzle-orm";
 import { createHash } from "crypto";
 import { callLLM } from "./kb-synthesis.js";
-import { fingerprintContent, mapWithConcurrency } from "./kb-source-windows.js";
-import { loadMemberPiiScrubber, type MemberPiiScrubber } from "./kb-member-pii.js";
+import { fingerprintContent } from "./kb-source-windows.js";
 import { SOURCE_FOLDERS } from "./kb-taxonomy.js";
 
 /**
- * Coaching-transcript VALUE SCREENER (Task #1702).
+ * Coaching-transcript VALUE SCREENER (Task #1702, refined #1707).
  *
- * A NEW value-screening layer that sits BETWEEN the existing source-level
- * screening/mining gates and the synthesis engine (synthesis itself is NOT
- * modified). For each already-cleared coaching-call source it:
- *   1. DEDUP gate — exact content-hash + near-duplicate similarity.
- *   2. Exchange segmentation — member prompt + coach response units.
- *   3. LLM value-type classification with keep/drop/flag disposition and a
- *      situational-number flag; works COLD with a default rubric and gets
- *      sharper as the coach-calibration set (few-shot exemplars) grows.
- *   4. Residual member-PII backstop (matches the live users roster).
- *   5. Durable screened-output store (kept AND dropped, with reasons) stamped
- *      with a per-source content fingerprint + calibration version (mirrors the
- *      kb_source_node_extracts cache pattern).
+ * A RECALL-BIASED de-noiser/flagger that sits BETWEEN the existing source-level
+ * screening/mining gates and the synthesis engine (synthesis is NOT modified).
+ * It is deliberately NOT a "gold picker": its job is to strip confidently
+ * worthless noise and surface anything uncertain for a human — never to hunt for
+ * only the best moments. For each already-cleared coaching-call source it:
+ *   1. DEDUP gate — flags a source ONLY when it is a near-identical WHOLE call
+ *      (a re-upload of an earlier call). Topical overlap across distinct calls
+ *      is NOT a duplicate.
+ *   2. TOPIC-THREADED segmentation — groups the call into multi-turn segments
+ *      that keep a topic (question + answer + follow-ups) together, preserving
+ *      speaker roles, instead of fragmenting it into per-question atoms.
+ *   3. LLM value screen per segment with a recall-biased rubric: KEEP anything
+ *      plausibly instructional, DROP only confidently worthless chatter, FLAG
+ *      the genuinely uncertain. Situational-number / time-sensitive answers are
+ *      flagged (the `situationalNumber` signal) and KEPT with their context,
+ *      never silently dropped.
+ *   4. Reliability — segments are classified in small isolated chunks with
+ *      retries; a segment whose classification truly fails after retries gets a
+ *      distinct "error" disposition (NOT a fake "flag"), so a single failure
+ *      never cascades into dropping real content.
+ *   5. Durable screened-output store (kept + dropped + flagged + errored, with
+ *      reasons) stamped with a per-source content fingerprint for cache reuse.
  *
- * DESIGN DECISION (recommended default, documented, not asked): the screened,
- * de-duplicated, member-PII-scrubbed representation (the KEPT exchanges) is what
- * the later topic-index/extract phase (Task 2) reads; the raw
- * ai_source_documents.content is retained untouched for audit. See
- * getScreenedRepresentation. Nothing here is auto-published.
+ * DESIGN DECISION (documented, not asked): the screened, de-duplicated
+ * representation (the KEPT segments) is what the later topic-index/extract phase
+ * reads; the raw ai_source_documents.content is retained untouched for audit.
+ * Member-PII scrubbing and coach-name handling live in the downstream review
+ * gate, NOT here. Nothing here is auto-published. See getScreenedRepresentation.
  */
 
 // ── Closed vocabularies (plain text, owned here — NOT pg enums) ──────────────
@@ -54,14 +61,14 @@ export const VALUE_TYPES = [
 ] as const;
 export type ValueType = (typeof VALUE_TYPES)[number];
 
-export const DISPOSITIONS = ["keep", "drop", "flag"] as const;
+// "error" is a RELIABILITY status (classification failed after retries), kept
+// distinct from the genuine keep/drop/flag verdicts so a failure is never
+// mistaken for a real "drop this" or "review this" decision.
+export const DISPOSITIONS = ["keep", "drop", "flag", "error"] as const;
 export type Disposition = (typeof DISPOSITIONS)[number];
 
 export const DEDUP_STATUSES = ["unique", "exact_duplicate", "near_duplicate"] as const;
 export type DedupStatus = (typeof DEDUP_STATUSES)[number];
-
-// Value types the DEFAULT cold rubric treats as low/no durable value.
-const LOW_VALUE_TYPES = new Set<ValueType>(["logistics", "chitchat", "motivation"]);
 
 // The coaching source folders this screener operates over (cleared coaching
 // calls only — Blitz video / reference docs / VA transcripts are out of scope).
@@ -69,8 +76,25 @@ export const SCREENER_SOURCE_FOLDERS = SOURCE_FOLDERS.filter(
   (f) => f.slug === "group_coaching" || f.slug === "private_coaching",
 ).map((f) => f.slug);
 
-// Near-duplicate similarity threshold (Jaccard over word 5-shingles).
-const NEAR_DUP_THRESHOLD = 0.82;
+// Near-duplicate similarity threshold (Jaccard over word 5-shingles). Set HIGH
+// so only a near-verbatim re-upload of the SAME whole call trips it; two
+// distinct calls that merely cover the same topic score well below this.
+const NEAR_DUP_THRESHOLD = 0.9;
+// A near-duplicate must also be a comparable-LENGTH whole call, not a short
+// excerpt that happens to overlap. Guards against subset/superset false hits.
+const NEAR_DUP_MIN_LENGTH_RATIO = 0.6;
+
+// Topic-thread sizing (characters). A new member turn only starts a NEW segment
+// once the current one has a coach response and has grown past MIN — so short
+// follow-ups stay threaded with their topic. MAX caps runaway monologues so a
+// no-question transcript still splits into auditable, droppable chunks.
+const DEFAULT_MIN_SEGMENT_CHARS = 600;
+const DEFAULT_MAX_SEGMENT_CHARS = 2500;
+
+// Reliability knobs for LLM classification.
+export const CLASSIFY_CHUNK_SIZE = 8;
+const CLASSIFY_MAX_ATTEMPTS = 3;
+const CLASSIFY_RETRY_BASE_MS = 200;
 
 // ── Pure helpers (unit-tested) ──────────────────────────────────────────────
 
@@ -78,6 +102,8 @@ const isValueType = (v: unknown): v is ValueType =>
   typeof v === "string" && (VALUE_TYPES as readonly string[]).includes(v);
 const isDisposition = (v: unknown): v is Disposition =>
   typeof v === "string" && (DISPOSITIONS as readonly string[]).includes(v);
+
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 /** Normalize content for EXACT-duplicate detection: lowercase, collapse
  *  whitespace, strip punctuation. Two transcripts that differ only in casing /
@@ -133,36 +159,49 @@ export function looksLikeQuestion(text: string): boolean {
 
 const SPEAKER_LINE = /^\s*([\p{L}][\p{L} .'\-]{0,30}?):\s+(\S.*)$/u;
 
-/** A segmented member-prompt + coach-response unit. */
-export interface Exchange {
+type Role = "member" | "coach";
+
+/** A topic-threaded segment: the member turns (context) and the coach turns
+ *  (teaching) for one coherent stretch of the call. Roles are preserved. */
+export interface Segment {
   orderIndex: number;
   memberPrompt: string;
   coachResponse: string;
 }
 
-interface Turn {
-  speaker: string | null;
+interface RoledTurn {
+  role: Role;
   text: string;
 }
 
-/** Parse speaker-labeled dialogue lines into turns; returns null when the
+/** Infer whether a turn is the member or the coach speaking. Prefers an
+ *  explicit speaker label, falling back to question-likeness. */
+function inferRole(speaker: string | null, text: string): Role {
+  const s = (speaker || "").toLowerCase();
+  if (/\b(coach|mentor|instructor|host|trainer|facilitator|teacher|expert)\b/.test(s)) return "coach";
+  if (/\b(member|student|mentee|guest|caller|attendee|participant|question|audience)\b/.test(s)) return "member";
+  return looksLikeQuestion(text) ? "member" : "coach";
+}
+
+/** Parse speaker-labeled dialogue lines into roled turns; returns null when the
  *  content is not speaker-labeled (fewer than 3 labeled lines). */
-function parseDialogueTurns(content: string): Turn[] | null {
+function parseDialogueTurns(content: string): RoledTurn[] | null {
   const lines = content.split(/\r?\n/);
   let labeled = 0;
-  const turns: Turn[] = [];
+  const raw: { speaker: string | null; text: string }[] = [];
   for (const line of lines) {
     const m = line.match(SPEAKER_LINE);
     if (m) {
       labeled++;
-      turns.push({ speaker: m[1].trim(), text: m[2].trim() });
+      raw.push({ speaker: m[1].trim(), text: m[2].trim() });
     } else if (line.trim()) {
       // Continuation of the previous turn (wrapped line).
-      if (turns.length > 0) turns[turns.length - 1].text += " " + line.trim();
-      else turns.push({ speaker: null, text: line.trim() });
+      if (raw.length > 0) raw[raw.length - 1].text += " " + line.trim();
+      else raw.push({ speaker: null, text: line.trim() });
     }
   }
-  return labeled >= 3 ? turns : null;
+  if (labeled < 3) return null;
+  return raw.map((t) => ({ role: inferRole(t.speaker, t.text), text: t.text }));
 }
 
 /** Split prose into paragraph blocks (blank-line separated, falling back to
@@ -173,7 +212,7 @@ function proseBlocks(content: string): string[] {
     .map((p) => p.replace(/\s+/g, " ").trim())
     .filter(Boolean);
   if (paras.length > 1) return paras;
-  // Single blob: group into ~3-sentence blocks so exchanges stay bounded.
+  // Single blob: group into ~3-sentence blocks so segments stay bounded.
   const sentences = (content.replace(/\s+/g, " ").trim().match(/[^.!?]+[.!?]+|\S+$/g) ?? []).map((s) =>
     s.trim(),
   );
@@ -184,97 +223,74 @@ function proseBlocks(content: string): string[] {
   return blocks.filter(Boolean);
 }
 
-/**
- * Deterministically segment a cleared coaching source into member-prompt +
- * coach-response EXCHANGES. Two shapes are handled:
- *  - speaker-labeled dialogue ("Name: …") — a question-like turn opens an
- *    exchange, following turns become the response until the next question, and
- *  - prose (the Transcript Cleaner's structured output) — a question-like
- *    paragraph opens an exchange; non-question paragraphs are responses. Prose
- *    with no questions yields coach-response-only exchanges (empty prompt).
- */
-export function segmentExchanges(content: string): Exchange[] {
-  const raw = (content || "").trim();
-  if (!raw) return [];
+/** Group roled turns into topic-threaded segments. A member turn opens a NEW
+ *  segment only once the current one already holds a coach response and has
+ *  grown past `minChars`; a hard `maxChars` cap forces a split at any boundary
+ *  so runaway monologues still break into auditable chunks. */
+function groupTurnsIntoSegments(turns: RoledTurn[], minChars: number, maxChars: number): Segment[] {
+  const segments: Segment[] = [];
+  let memberParts: string[] = [];
+  let coachParts: string[] = [];
+  let chars = 0;
+  let hasCoach = false;
 
-  const turns = parseDialogueTurns(raw);
-  const exchanges: Exchange[] = [];
-
-  if (turns) {
-    let prompt = "";
-    let response: string[] = [];
-    const flush = () => {
-      if (prompt || response.length) {
-        exchanges.push({
-          orderIndex: exchanges.length,
-          memberPrompt: prompt.trim(),
-          coachResponse: response.join(" ").trim(),
-        });
-      }
-      prompt = "";
-      response = [];
-    };
-    for (const turn of turns) {
-      if (looksLikeQuestion(turn.text)) {
-        // A new question opens a new exchange.
-        flush();
-        prompt = turn.text;
-      } else {
-        response.push(turn.text);
-      }
-    }
-    flush();
-    return exchanges.map((e, i) => ({ ...e, orderIndex: i }));
-  }
-
-  // Prose path.
-  const blocks = proseBlocks(raw);
-  let prompt = "";
-  let response: string[] = [];
   const flush = () => {
-    if (prompt || response.length) {
-      exchanges.push({
-        orderIndex: exchanges.length,
-        memberPrompt: prompt.trim(),
-        coachResponse: response.join(" ").trim(),
+    if (memberParts.length || coachParts.length) {
+      segments.push({
+        orderIndex: segments.length,
+        memberPrompt: memberParts.join(" ").trim(),
+        coachResponse: coachParts.join(" ").trim(),
       });
     }
-    prompt = "";
-    response = [];
+    memberParts = [];
+    coachParts = [];
+    chars = 0;
+    hasCoach = false;
   };
-  for (const block of blocks) {
-    if (looksLikeQuestion(block)) {
-      flush();
-      prompt = block;
-    } else {
-      response.push(block);
-      // A response-only stretch is a complete unit once it has content and the
-      // next block would start fresh; keep accumulating until a question.
+
+  for (const t of turns) {
+    if (!t.text) continue;
+    const hasContent = memberParts.length > 0 || coachParts.length > 0;
+    const memberOpensNewTopic = t.role === "member" && hasCoach && chars >= minChars;
+    const overHardCap = hasContent && chars >= maxChars;
+    if (memberOpensNewTopic || overHardCap) flush();
+
+    if (t.role === "member") memberParts.push(t.text);
+    else {
+      coachParts.push(t.text);
+      hasCoach = true;
     }
+    chars += t.text.length;
   }
   flush();
-
-  // If prose produced one giant response-only unit, keep the per-block units
-  // instead so downstream classification stays granular.
-  if (exchanges.length === 1 && !exchanges[0].memberPrompt && blocks.length > 1) {
-    return blocks.map((b, i) => ({ orderIndex: i, memberPrompt: "", coachResponse: b }));
-  }
-  return exchanges.map((e, i) => ({ ...e, orderIndex: i }));
+  return segments.map((s, i) => ({ ...s, orderIndex: i }));
 }
 
 /**
- * Deterministic fingerprint of the ACTIVE calibration exemplar set — the
- * "version" stamped onto each screening. Adding/removing/toggling an exemplar
- * changes this, invalidating prior screenings so they re-run against the new
- * calibration. Order-independent (sorted). Empty set → a stable cold constant.
+ * Deterministically split a cleared coaching source into TOPIC-THREADED
+ * segments (member context + coach teaching), preserving speaker roles. Two
+ * shapes are handled:
+ *  - speaker-labeled dialogue ("Name: …") — turns are role-tagged and threaded, and
+ *  - prose (the Transcript Cleaner's structured output) — paragraphs are
+ *    role-tagged (question-like → member) and threaded the same way.
+ * A topic (question + answer + follow-ups) stays in ONE segment rather than
+ * being fragmented into per-question atoms.
  */
-export function computeCalibrationVersion(examples: Pick<KbCalibrationExample, "id" | "label" | "valueType" | "memberPrompt" | "coachResponse">[]): string {
-  const active = [...examples].sort((a, b) => a.id - b.id);
-  if (active.length === 0) return "cold-v1";
-  const canonical = active
-    .map((e) => `${e.id}|${e.label}|${e.valueType ?? ""}|${e.memberPrompt}|${e.coachResponse}`)
-    .join("\n");
-  return "cal-" + fingerprintContent(canonical).slice(0, 16);
+export function segmentTranscript(
+  content: string,
+  opts: { minChars?: number; maxChars?: number } = {},
+): Segment[] {
+  const raw = (content || "").trim();
+  if (!raw) return [];
+  const minChars = opts.minChars ?? DEFAULT_MIN_SEGMENT_CHARS;
+  const maxChars = opts.maxChars ?? DEFAULT_MAX_SEGMENT_CHARS;
+
+  const dialogue = parseDialogueTurns(raw);
+  const turns: RoledTurn[] = dialogue
+    ? dialogue
+    : proseBlocks(raw).map((b) => ({ role: looksLikeQuestion(b) ? "member" : "coach", text: b }) as RoledTurn);
+
+  return groupTurnsIntoSegments(turns, minChars, maxChars);
 }
 
 /** The disposition that downstream reads honor: an admin overrule wins over the
@@ -285,7 +301,7 @@ export function effectiveDisposition(row: { disposition: string; overrideDisposi
 
 // ── LLM classification ──────────────────────────────────────────────────────
 
-interface ExchangeClassification {
+interface SegmentClassification {
   valueType: ValueType;
   disposition: Disposition;
   dropReason: string | null;
@@ -293,111 +309,119 @@ interface ExchangeClassification {
   rationale: string;
 }
 
-const COLD_RUBRIC = `You screen exchanges from a Build Test Scale (BTS) affiliate-marketing COACHING CALL for durable teaching value, to decide what belongs in the knowledge base.
+const SCREENER_RUBRIC = `You screen segments of a Build Test Scale (BTS) affiliate-marketing COACHING CALL to strip out confidently worthless noise before the knowledge base indexes them.
 
-Each exchange is a MEMBER prompt (may be empty) plus the COACH response.
+Each segment is a topic thread: a MEMBER prompt/context (may be empty) plus the COACH response(s) on that topic.
 
-Classify the exchange:
+YOUR BIAS: this is a RECALL-FIRST de-noiser, NOT a "best moments" picker. Keep anything that is plausibly instructional. Only drop what is confidently, obviously worthless. False DROPS are far worse than keeping something mediocre — when unsure, KEEP; only when you genuinely cannot tell, FLAG.
+
+Classify each segment:
 - valueType: one of ${VALUE_TYPES.join(", ")}.
 - disposition:
-  - "keep": durable, generalizable teaching — a principle, framework, repeatable process/step, decision criteria, a worked example that illustrates a general method, or a troubleshooting pattern that recurs.
-  - "drop": no durable value — greetings/scheduling/logistics, pure encouragement with no substance, off-topic chit-chat, or an answer that ONLY makes sense for this one member's private situation with no extractable general lesson.
-  - "flag": genuinely borderline or you are unsure. IMPORTANT: never "drop" something that MIGHT be valuable — when in doubt use "flag". Minimizing false drops matters more than minimizing flags.
-- situationalNumber: true when the answer is anchored to THIS member's specific numbers or account state (their spend, their ROI, their specific campaign) such that it is context-bound rather than a general lesson. This can be true even for a "keep" (a good worked example) — it is an independent signal, not the same as "drop".
+  - "keep": has ANY plausible durable teaching value — a principle, framework, process/step, decision criteria, worked example, troubleshooting pattern, useful resource pointer, or even partial/rough guidance. This is the DEFAULT.
+  - "drop": ONLY for content that is confidently worthless with no teaching value at all — greetings, scheduling/logistics, "can you hear me"/tech checks, pure filler encouragement, or off-topic chit-chat. If it teaches anything, do NOT drop it.
+  - "flag": you genuinely cannot tell whether it has value. Use sparingly.
+- situationalNumber: true when the answer is anchored to a time-sensitive detail OR to THIS member's specific numbers/account state (their spend, ROI, a current platform rule, a "right now" tactic). Such content is still KEPT (usually "keep", never a silent "drop") but marked so a human sees its context-bound nature. This is an INDEPENDENT signal.
 - dropReason: a short reason, required when disposition is "drop" or "flag"; null for "keep".
 - rationale: one concise sentence explaining the call.`;
 
-/** Build the few-shot block from the active calibration set (gold = keep-worthy,
- *  noise = drop-worthy). Capped so the prompt stays bounded. */
-function buildFewShot(examples: KbCalibrationExample[]): string {
-  if (examples.length === 0) return "";
-  const cap = 24;
-  const gold = examples.filter((e) => e.label === "gold").slice(0, cap / 2);
-  const noise = examples.filter((e) => e.label === "noise").slice(0, cap / 2);
-  const fmt = (e: KbCalibrationExample, verdict: string) =>
-    `- verdict=${verdict}${e.valueType ? ` valueType=${e.valueType}` : ""}\n  MEMBER: ${e.memberPrompt || "(none)"}\n  COACH: ${e.coachResponse.slice(0, 400)}`;
-  const lines: string[] = ["\nCALIBRATION EXAMPLES (this team's judgement — weight these heavily):"];
-  for (const e of gold) lines.push(fmt(e, "keep"));
-  for (const e of noise) lines.push(fmt(e, "drop"));
-  return lines.join("\n");
+const errorClassification = (reason: string): SegmentClassification => ({
+  valueType: "unclassified",
+  disposition: "error",
+  dropReason: reason,
+  situationalNumber: false,
+  rationale: "The classifier did not return a usable verdict for this segment — needs a re-run.",
+});
+
+/** Coerce one raw LLM result into a recall-biased classification. A result that
+ *  came back but is malformed defaults to "flag" (a human decision), NEVER an
+ *  automatic drop and NEVER "error" (which is reserved for true failures). */
+function normalizeResult(r: Record<string, unknown>): SegmentClassification {
+  // The model must never assign the reliability status itself.
+  const disposition: Disposition =
+    isDisposition(r.disposition) && r.disposition !== "error" ? r.disposition : "flag";
+  const valueType = isValueType(r.valueType) ? r.valueType : "unclassified";
+  const situationalNumber =
+    r.situationalNumber === true || r.timeSensitive === true || r.situational === true;
+  const rationale = typeof r.rationale === "string" ? r.rationale.slice(0, 500) : "";
+  let dropReason: string | null =
+    typeof r.dropReason === "string" && r.dropReason.trim() ? r.dropReason.trim().slice(0, 500) : null;
+  if (disposition === "keep") dropReason = null;
+  else if (!dropReason) dropReason = disposition === "drop" ? "confidently low value (logistics/chatter)" : "borderline — needs review";
+  return { valueType, disposition, dropReason, situationalNumber, rationale };
 }
 
-/**
- * Classify a batch of exchanges in one LLM call (JSON mode). Returns a
- * per-exchange classification aligned to the input order. On any parse/shape
- * failure the affected exchange defaults to a conservative "flag" (never a
- * silent drop).
- */
-export async function classifyExchanges(
-  exchanges: Exchange[],
-  calibration: KbCalibrationExample[],
-): Promise<ExchangeClassification[]> {
-  if (exchanges.length === 0) return [];
+/** Classify ONE chunk in a single LLM call, with retries. Returns a map from
+ *  the chunk-local index to its classification (only for indices the model
+ *  actually returned). Throws if every attempt fails. */
+async function classifyChunk(chunk: Segment[]): Promise<Map<number, SegmentClassification>> {
+  const system =
+    SCREENER_RUBRIC +
+    `
 
-  const system = COLD_RUBRIC + buildFewShot(calibration) + `
-
-Return STRICT JSON: {"results":[{"index":<0-based>,"valueType":"...","disposition":"keep|drop|flag","situationalNumber":true|false,"dropReason":"..."|null,"rationale":"..."}]}. Return exactly one result per input exchange, same order.`;
+Return STRICT JSON: {"results":[{"index":<0-based>,"valueType":"...","disposition":"keep|drop|flag","situationalNumber":true|false,"dropReason":"..."|null,"rationale":"..."}]}. Return exactly one result per input segment, same order.`;
 
   const user =
-    "Classify these exchanges:\n\n" +
-    exchanges
+    "Screen these segments:\n\n" +
+    chunk
       .map(
-        (e, i) =>
-          `[${i}] MEMBER: ${e.memberPrompt || "(none)"}\n    COACH: ${e.coachResponse.slice(0, 1500)}`,
+        (s, i) => `[${i}] MEMBER: ${s.memberPrompt || "(none)"}\n    COACH: ${s.coachResponse.slice(0, 1800)}`,
       )
       .join("\n\n");
 
-  const fallback = (): ExchangeClassification => ({
-    valueType: "unclassified",
-    disposition: "flag",
-    dropReason: "classifier unavailable — needs human review",
-    situationalNumber: false,
-    rationale: "Automatic fallback: the classifier did not return a usable verdict.",
-  });
-
-  let parsed: { results?: Array<Record<string, unknown>> };
-  try {
-    const raw = await callLLM(system, user, Math.min(8000, 400 + exchanges.length * 160), true);
-    parsed = JSON.parse(raw);
-  } catch {
-    return exchanges.map(fallback);
-  }
-
-  const byIndex = new Map<number, Record<string, unknown>>();
-  for (const r of parsed.results ?? []) {
-    const idx = typeof r.index === "number" ? r.index : Number(r.index);
-    if (Number.isInteger(idx)) byIndex.set(idx, r);
-  }
-
-  return exchanges.map((_, i) => {
-    const r = byIndex.get(i);
-    if (!r) return fallback();
-    const disposition = isDisposition(r.disposition) ? r.disposition : "flag";
-    const valueType = isValueType(r.valueType) ? r.valueType : "unclassified";
-    const situationalNumber = r.situationalNumber === true;
-    const rationale = typeof r.rationale === "string" ? r.rationale.slice(0, 500) : "";
-    let dropReason: string | null =
-      typeof r.dropReason === "string" && r.dropReason.trim() ? r.dropReason.trim().slice(0, 500) : null;
-    if (disposition !== "keep" && !dropReason) {
-      dropReason = disposition === "drop" ? "no durable value" : "borderline — needs review";
+  let lastErr: unknown;
+  for (let attempt = 1; attempt <= CLASSIFY_MAX_ATTEMPTS; attempt++) {
+    try {
+      const rawResp = await callLLM(system, user, Math.min(4000, 300 + chunk.length * 180), true);
+      const parsed = JSON.parse(rawResp) as { results?: unknown };
+      const results = Array.isArray(parsed.results) ? parsed.results : null;
+      if (!results) throw new Error("classifier response missing results array");
+      const map = new Map<number, SegmentClassification>();
+      for (const item of results) {
+        if (!item || typeof item !== "object") continue;
+        const r = item as Record<string, unknown>;
+        const idx = typeof r.index === "number" ? r.index : Number(r.index);
+        if (!Number.isInteger(idx) || idx < 0 || idx >= chunk.length) continue;
+        map.set(idx, normalizeResult(r));
+      }
+      if (map.size === 0) throw new Error("classifier returned no usable results");
+      return map;
+    } catch (err) {
+      lastErr = err;
+      if (attempt < CLASSIFY_MAX_ATTEMPTS) await sleep(CLASSIFY_RETRY_BASE_MS * attempt);
     }
-    if (disposition === "keep") dropReason = null;
-    return { valueType, disposition, dropReason, situationalNumber, rationale };
-  });
+  }
+  throw lastErr ?? new Error("classification failed");
 }
 
-// ── Calibration set ─────────────────────────────────────────────────────────
+/**
+ * Classify segments reliably: process them in small ISOLATED chunks so one bad
+ * chunk cannot poison the rest. A chunk that fails all retries, or a single
+ * segment the model omits from an otherwise-good response, is marked with the
+ * distinct "error" disposition (never a silent drop, never a fake "flag").
+ */
+export async function classifySegments(segments: Segment[]): Promise<SegmentClassification[]> {
+  if (segments.length === 0) return [];
+  const out: SegmentClassification[] = new Array(segments.length);
 
-export async function loadActiveCalibration(): Promise<KbCalibrationExample[]> {
-  return db
-    .select()
-    .from(kbCalibrationExamplesTable)
-    .where(eq(kbCalibrationExamplesTable.active, true))
-    .orderBy(desc(kbCalibrationExamplesTable.createdAt));
-}
-
-export async function getCalibrationVersion(): Promise<string> {
-  return computeCalibrationVersion(await loadActiveCalibration());
+  for (let start = 0; start < segments.length; start += CLASSIFY_CHUNK_SIZE) {
+    const chunk = segments.slice(start, start + CLASSIFY_CHUNK_SIZE);
+    let map: Map<number, SegmentClassification> | null = null;
+    try {
+      map = await classifyChunk(chunk);
+    } catch {
+      map = null; // whole chunk failed after retries — isolate to these segments
+    }
+    for (let j = 0; j < chunk.length; j++) {
+      const global = start + j;
+      if (map && map.has(j)) out[global] = map.get(j)!;
+      else
+        out[global] = errorClassification(
+          map === null ? "classifier error after retries" : "classifier omitted this segment",
+        );
+    }
+  }
+  return out;
 }
 
 // ── Dedup ───────────────────────────────────────────────────────────────────
@@ -405,6 +429,7 @@ export async function getCalibrationVersion(): Promise<string> {
 interface CorpusDoc {
   id: number;
   content: string;
+  length: number;
   normalizedHash: string;
   shingles: Set<string>;
 }
@@ -416,7 +441,8 @@ interface DedupVerdict {
 }
 
 /** Compare a source against the rest of the coaching corpus. `others` excludes
- *  the source itself. */
+ *  the source itself. Only a near-VERBATIM re-upload of the same whole call is
+ *  treated as a near-duplicate; distinct calls on the same topic stay unique. */
 export function detectDuplicate(self: CorpusDoc, others: CorpusDoc[]): DedupVerdict {
   for (const o of others) {
     if (o.normalizedHash === self.normalizedHash) {
@@ -426,6 +452,10 @@ export function detectDuplicate(self: CorpusDoc, others: CorpusDoc[]): DedupVerd
   let best = 0;
   let bestId: number | null = null;
   for (const o of others) {
+    // Require comparable length so a short excerpt can't near-match a full call.
+    const lo = Math.min(self.length, o.length);
+    const hi = Math.max(self.length, o.length);
+    if (hi === 0 || lo / hi < NEAR_DUP_MIN_LENGTH_RATIO) continue;
     const sim = jaccardSimilarity(self.shingles, o.shingles);
     if (sim > best) {
       best = sim;
@@ -449,6 +479,7 @@ export interface ScreenSourceResult {
   keptCount: number;
   droppedCount: number;
   flaggedCount: number;
+  errorCount: number;
 }
 
 /** Load the coaching-source corpus (id + content) used for dedup comparison. */
@@ -460,6 +491,7 @@ async function loadCoachingCorpus(): Promise<CorpusDoc[]> {
   return rows.map((r) => ({
     id: r.id,
     content: r.content,
+    length: normalizeForDedup(r.content).length,
     normalizedHash: exactDedupHash(r.content),
     shingles: contentShingles(r.content),
   }));
@@ -467,19 +499,16 @@ async function loadCoachingCorpus(): Promise<CorpusDoc[]> {
 
 /**
  * Screen a single source. Idempotent + cache-aware: if a screening already
- * exists whose content fingerprint AND calibration version both still match, it
- * is a no-op (skipped) unless `force`. Persists the whole screened output
- * (kept + dropped exchanges) transactionally.
+ * exists whose content fingerprint still matches, it is a no-op (skipped)
+ * unless `force`. Persists the whole screened output (kept + dropped + flagged
+ * + errored segments, with reasons) transactionally.
  */
 export async function screenSource(opts: {
   sourceDocId: number;
-  calibration: KbCalibrationExample[];
-  calibrationVersion: string;
-  scrubber: MemberPiiScrubber;
   corpus: CorpusDoc[];
   force?: boolean;
 }): Promise<ScreenSourceResult> {
-  const { sourceDocId, calibration, calibrationVersion, scrubber, corpus, force } = opts;
+  const { sourceDocId, corpus, force } = opts;
 
   const [source] = await db
     .select({ id: aiSourceDocumentsTable.id, content: aiSourceDocumentsTable.content })
@@ -494,12 +523,11 @@ export async function screenSource(opts: {
     .from(kbCallScreeningsTable)
     .where(eq(kbCallScreeningsTable.sourceDocId, sourceDocId));
 
-  if (
-    existing &&
-    !force &&
-    existing.contentFingerprint === contentFingerprint &&
-    existing.calibrationVersion === calibrationVersion
-  ) {
+  if (existing && !force && existing.contentFingerprint === contentFingerprint) {
+    const errorCount = Math.max(
+      0,
+      existing.exchangeCount - existing.keptCount - existing.droppedCount - existing.flaggedCount,
+    );
     return {
       sourceDocId,
       screeningId: existing.id,
@@ -509,76 +537,92 @@ export async function screenSource(opts: {
       keptCount: existing.keptCount,
       droppedCount: existing.droppedCount,
       flaggedCount: existing.flaggedCount,
+      errorCount,
     };
   }
 
+  // Dedup verdict against the rest of the coaching corpus.
   const self: CorpusDoc = {
-    id: sourceDocId,
+    id: source.id,
     content: source.content,
+    length: normalizeForDedup(source.content).length,
     normalizedHash: exactDedupHash(source.content),
     shingles: contentShingles(source.content),
   };
-  const dedup = detectDuplicate(self, corpus.filter((c) => c.id !== sourceDocId));
+  const others = corpus.filter((c) => c.id !== source.id);
+  const dedup = detectDuplicate(self, others);
 
-  // A whole-source duplicate is not re-mined into exchanges: record the verdict
-  // and store zero exchanges (nothing new to add downstream), but keep the row
-  // for audit. Unique + near-dup sources are still segmented + classified
-  // (near-dup is a soft signal for the admin, not an auto-skip).
-  const exchanges = dedup.status === "exact_duplicate" ? [] : segmentExchanges(source.content);
+  // Segment + classify (skip classification for exact duplicates — the earlier
+  // source already carries the content).
+  const segments = dedup.status === "exact_duplicate" ? [] : segmentTranscript(source.content);
+  const classifications = await classifySegments(segments);
 
-  const classifications = await classifyExchanges(exchanges, calibration);
-
-  let kept = 0;
-  let dropped = 0;
-  let flagged = 0;
-  const rows = exchanges.map((ex, i) => {
-    const c = classifications[i];
-    if (c.disposition === "keep") kept++;
-    else if (c.disposition === "drop") dropped++;
-    else flagged++;
-    // PII backstop: scrub member names out of KEPT + flagged text (the material
-    // that may flow downstream / be shown). Dropped text is retained verbatim
-    // for audit but also scrubbed so no member PII lingers in the store.
-    return {
-      orderIndex: ex.orderIndex,
-      memberPrompt: scrubber.scrub(ex.memberPrompt),
-      coachResponse: scrubber.scrub(ex.coachResponse),
-      valueType: c.valueType,
-      disposition: c.disposition,
-      dropReason: c.dropReason,
-      situationalNumber: c.situationalNumber,
-      rationale: c.rationale,
-    };
-  });
+  let keptCount = 0;
+  let droppedCount = 0;
+  let flaggedCount = 0;
+  let errorCount = 0;
+  for (const c of classifications) {
+    if (c.disposition === "keep") keptCount++;
+    else if (c.disposition === "drop") droppedCount++;
+    else if (c.disposition === "flag") flaggedCount++;
+    else errorCount++;
+  }
 
   const screeningId = await db.transaction(async (tx) => {
-    // Replace any prior screening for this source (re-run supersedes).
-    if (existing) {
-      await tx.delete(kbCallScreeningsTable).where(eq(kbCallScreeningsTable.id, existing.id));
-    }
-    const [screening] = await tx
+    const [row] = await tx
       .insert(kbCallScreeningsTable)
       .values({
         sourceDocId,
         contentFingerprint,
-        calibrationVersion,
         dedupStatus: dedup.status,
         normalizedHash: self.normalizedHash,
         duplicateOfSourceId: dedup.duplicateOfSourceId,
         similarityScore: dedup.similarityScore,
-        exchangeCount: exchanges.length,
-        keptCount: kept,
-        droppedCount: dropped,
-        flaggedCount: flagged,
+        exchangeCount: segments.length,
+        keptCount,
+        droppedCount,
+        flaggedCount,
+      })
+      .onConflictDoUpdate({
+        target: kbCallScreeningsTable.sourceDocId,
+        set: {
+          contentFingerprint,
+          dedupStatus: dedup.status,
+          normalizedHash: self.normalizedHash,
+          duplicateOfSourceId: dedup.duplicateOfSourceId,
+          similarityScore: dedup.similarityScore,
+          exchangeCount: segments.length,
+          keptCount,
+          droppedCount,
+          flaggedCount,
+          updatedAt: new Date(),
+        },
       })
       .returning({ id: kbCallScreeningsTable.id });
 
-    if (rows.length > 0) {
+    // Replace any prior screened output for this source (re-run is authoritative).
+    await tx.delete(kbScreenedExchangesTable).where(eq(kbScreenedExchangesTable.screeningId, row.id));
+
+    if (segments.length > 0) {
       await tx.insert(kbScreenedExchangesTable).values(
-        rows.map((r) => ({ ...r, screeningId: screening.id, sourceDocId })),
+        segments.map((s, i) => {
+          const c = classifications[i];
+          return {
+            screeningId: row.id,
+            sourceDocId,
+            orderIndex: i,
+            memberPrompt: s.memberPrompt,
+            coachResponse: s.coachResponse,
+            valueType: c.valueType,
+            disposition: c.disposition,
+            dropReason: c.dropReason,
+            situationalNumber: c.situationalNumber,
+            rationale: c.rationale,
+          };
+        }),
       );
     }
-    return screening.id;
+    return row.id;
   });
 
   return {
@@ -586,26 +630,26 @@ export async function screenSource(opts: {
     screeningId,
     skipped: false,
     dedupStatus: dedup.status,
-    exchangeCount: exchanges.length,
-    keptCount: kept,
-    droppedCount: dropped,
-    flaggedCount: flagged,
+    exchangeCount: segments.length,
+    keptCount,
+    droppedCount,
+    flaggedCount,
+    errorCount,
   };
 }
 
 /**
- * The SCREENED REPRESENTATION a later topic-index/extract phase (Task 2) reads:
- * the KEPT (effective-disposition) exchanges of a source, member-PII already
- * scrubbed, concatenated in order. Returns null when the source was never
- * screened (caller should fall back to raw only deliberately). This is the
- * documented seam of the design decision — raw content stays untouched for audit.
+ * The screened representation a downstream reader consumes: the KEPT segments
+ * (honoring admin overrides) joined back into a compact transcript. Dropped,
+ * flagged, and errored segments are excluded. The raw source content is left
+ * untouched for audit.
  */
-export async function getScreenedRepresentation(sourceDocId: number): Promise<string | null> {
+export async function getScreenedRepresentation(sourceDocId: number): Promise<string> {
   const [screening] = await db
-    .select({ id: kbCallScreeningsTable.id })
+    .select()
     .from(kbCallScreeningsTable)
     .where(eq(kbCallScreeningsTable.sourceDocId, sourceDocId));
-  if (!screening) return null;
+  if (!screening) return "";
 
   const rows = await db
     .select()
@@ -613,13 +657,13 @@ export async function getScreenedRepresentation(sourceDocId: number): Promise<st
     .where(eq(kbScreenedExchangesTable.screeningId, screening.id))
     .orderBy(kbScreenedExchangesTable.orderIndex);
 
-  const kept = rows.filter((r) => effectiveDisposition(r) === "keep");
-  return kept
+  return rows
+    .filter((r) => effectiveDisposition(r) === "keep")
     .map((r) => (r.memberPrompt ? `Q: ${r.memberPrompt}\nA: ${r.coachResponse}` : r.coachResponse))
     .join("\n\n");
 }
 
-// ── Background pilot runner ──────────────────────────────────────────────────
+// ── Background pilot run state ───────────────────────────────────────────────
 
 export interface ScreenerProgress {
   running: boolean;
@@ -628,19 +672,21 @@ export interface ScreenerProgress {
   kept: number;
   dropped: number;
   flagged: number;
+  errors: number;
   duplicates: number;
   startedAt: string | null;
   finishedAt: string | null;
   error: string | null;
 }
 
-let _state: ScreenerProgress = {
+let state: ScreenerProgress = {
   running: false,
   total: 0,
   processed: 0,
   kept: 0,
   dropped: 0,
   flagged: 0,
+  errors: 0,
   duplicates: 0,
   startedAt: null,
   finishedAt: null,
@@ -648,25 +694,30 @@ let _state: ScreenerProgress = {
 };
 
 export function getScreenerState(): ScreenerProgress {
-  return { ..._state };
+  return { ...state };
 }
+
 export function isScreenerRunning(): boolean {
-  return _state.running;
+  return state.running;
 }
 
 /**
- * Screen a chosen SUBSET of sources in the background (the pilot). Fire-and-
- * forget; progress is polled via getScreenerState.
+ * Screen a chosen subset of sources in the background (fire-and-forget). Each
+ * source is screened in isolation so one failure does not abort the run.
  */
-export async function screenSourcesBackground(sourceDocIds: number[], opts: { force?: boolean } = {}): Promise<void> {
-  if (_state.running) return;
-  _state = {
+export async function screenSourcesBackground(
+  sourceDocIds: number[],
+  opts: { force?: boolean } = {},
+): Promise<void> {
+  if (state.running) return;
+  state = {
     running: true,
     total: sourceDocIds.length,
     processed: 0,
     kept: 0,
     dropped: 0,
     flagged: 0,
+    errors: 0,
     duplicates: 0,
     startedAt: new Date().toISOString(),
     finishedAt: null,
@@ -674,38 +725,26 @@ export async function screenSourcesBackground(sourceDocIds: number[], opts: { fo
   };
 
   try {
-    const calibration = await loadActiveCalibration();
-    const calibrationVersion = computeCalibrationVersion(calibration);
-    const scrubber = await loadMemberPiiScrubber();
     const corpus = await loadCoachingCorpus();
-
-    // Concurrency 2 to be gentle on the LLM endpoint.
-    await mapWithConcurrency(sourceDocIds, 2, async (id) => {
+    for (const id of sourceDocIds) {
       try {
-        const r = await screenSource({
-          sourceDocId: id,
-          calibration,
-          calibrationVersion,
-          scrubber,
-          corpus,
-          force: opts.force,
-        });
-        _state.kept += r.keptCount;
-        _state.dropped += r.droppedCount;
-        _state.flagged += r.flaggedCount;
-        if (r.dedupStatus !== "unique") _state.duplicates += 1;
+        const r = await screenSource({ sourceDocId: id, corpus, force: opts.force });
+        state.kept += r.keptCount;
+        state.dropped += r.droppedCount;
+        state.flagged += r.flaggedCount;
+        state.errors += r.errorCount;
+        if (r.dedupStatus !== "unique") state.duplicates += 1;
       } catch (err) {
-        // Per-source failure should not abort the whole pilot.
-        _state.error = err instanceof Error ? err.message : "Unknown error";
+        // Isolate a per-source failure; keep going.
+        state.error = err instanceof Error ? err.message : String(err);
       } finally {
-        _state.processed += 1;
+        state.processed += 1;
       }
-      return null;
-    });
+    }
   } catch (err) {
-    _state.error = err instanceof Error ? err.message : "Unknown error";
+    state.error = err instanceof Error ? err.message : String(err);
   } finally {
-    _state.running = false;
-    _state.finishedAt = new Date().toISOString();
+    state.running = false;
+    state.finishedAt = new Date().toISOString();
   }
 }
