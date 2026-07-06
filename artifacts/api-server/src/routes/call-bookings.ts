@@ -27,6 +27,10 @@ import {
   advanceOnboardingAfterKickoffBooked,
   advanceOnboardingAfterPartnerCallBooked,
 } from "../lib/onboarding-advancement";
+import { checkAndRecordSend } from "../lib/comms-dedup";
+import { CommunicationService } from "../lib/communication-service";
+import { renderPersonBlock } from "../lib/seed-templates";
+import { formatInMemberTimezone } from "../lib/member-timezone";
 
 const router: IRouter = Router();
 
@@ -66,6 +70,95 @@ const MEMBER_CALL_BOOKING_COLUMNS = {
   updatedAt: callBookingsTable.updatedAt,
   cancelledAt: callBookingsTable.cancelledAt,
 } as const;
+
+const CALL_TYPE_LABELS: Record<"kickoff" | "partner", string> = {
+  kickoff: "Kickoff Call",
+  partner: "Accountability Partner Call",
+};
+
+/**
+ * Task #1714 step 6: fires one of the six booking-lifecycle emails
+ * (confirmation/reschedule/cancel × kickoff/partner). Called ONLY after the
+ * corresponding GHL operation has already succeeded and the local
+ * `call_bookings` row is committed — never speculatively before, so a member
+ * is never emailed about an appointment that ultimately failed to create.
+ * Fire-and-forget (errors are logged, never thrown) so a transient email
+ * failure can't turn a successful booking into a 500 for the member.
+ * Deduped via `checkAndRecordSend` keyed on booking id + event, so a retried
+ * route call (e.g. a client retry after a timed-out response) never
+ * double-sends the same lifecycle email.
+ */
+async function sendCallBookingLifecycleEmail(params: {
+  event: "confirmation" | "reschedule" | "cancel";
+  callType: "kickoff" | "partner";
+  bookingId: number;
+  memberId: number;
+  memberEmail: string;
+  memberName: string;
+  memberTimezone: string | null;
+  staffName: string;
+  staffPhotoUrl: string | null;
+  staffBio: string | null;
+  scheduledAt: Date;
+  previousScheduledAt?: Date;
+  meetingUrl?: string | null;
+}): Promise<void> {
+  // Reschedule can legitimately happen more than once for the same booking,
+  // so its key must discriminate by the NEW scheduledAt instant — otherwise
+  // the first reschedule would permanently block every later reschedule of
+  // the same booking. Confirmation/cancel are each one-directional lifecycle
+  // events (a booking is created once, canceled once), so bookingId alone is
+  // still the right key for those two.
+  const dedupKey =
+    params.event === "reschedule"
+      ? `call_booking_reschedule_email_${params.bookingId}_${params.scheduledAt.getTime()}`
+      : `call_booking_${params.event}_email_${params.bookingId}`;
+  const outcome = await checkAndRecordSend(dedupKey, "email");
+  if (outcome !== "recorded") {
+    if (outcome === "error") {
+      console.error(
+        `[call-bookings] Dedup store unavailable while reserving "${dedupKey}"; skipping this send to avoid an uncontrolled double-send.`,
+      );
+    }
+    return;
+  }
+
+  const callTypeLabel = CALL_TYPE_LABELS[params.callType];
+  const { date: callDate, time: callTime } = formatInMemberTimezone(params.scheduledAt, params.memberTimezone);
+  const dateTimeLabel = `${callDate} at ${callTime}`;
+  const personBlockHtml = renderPersonBlock({
+    name: params.staffName,
+    photoUrl: params.staffPhotoUrl,
+    bio: params.staffBio,
+    callTypeLabel,
+    dateTimeLabel,
+  });
+
+  const variables: Record<string, string> = {
+    member_name: params.memberName,
+    person_block_html: personBlockHtml,
+  };
+  if (params.event === "confirmation" || params.event === "reschedule") {
+    variables.meeting_url = params.meetingUrl ?? "";
+  }
+  if (params.event === "reschedule" && params.previousScheduledAt) {
+    const previous = formatInMemberTimezone(params.previousScheduledAt, params.memberTimezone);
+    variables.previous_datetime_label = `${previous.date} at ${previous.time}`;
+    variables.new_datetime_label = dateTimeLabel;
+  }
+
+  const slug = `${params.callType}_call_${params.event}`;
+  try {
+    await CommunicationService.queueEmail({
+      templateSlug: slug,
+      to: params.memberEmail,
+      variables,
+      userId: params.memberId,
+    });
+  } catch (err) {
+    console.error(`[call-bookings] failed to send ${slug} email for booking ${params.bookingId}:`, err);
+  }
+}
 
 function hashCode(str: string): number {
   let hash = 0;
@@ -280,7 +373,7 @@ router.post("/onboarding/kickoff/book", async (req, res): Promise<void> => {
   }
 
   const [member] = await db
-    .select({ name: usersTable.name, email: usersTable.email })
+    .select({ name: usersTable.name, email: usersTable.email, timezone: usersTable.timezone })
     .from(usersTable)
     .where(eq(usersTable.id, userId));
   if (!member) {
@@ -380,6 +473,21 @@ router.post("/onboarding/kickoff/book", async (req, res): Promise<void> => {
 
     await client.query("COMMIT");
 
+    void sendCallBookingLifecycleEmail({
+      event: "confirmation",
+      callType: "kickoff",
+      bookingId: booking.id,
+      memberId: userId,
+      memberEmail: member.email,
+      memberName: member.name,
+      memberTimezone: member.timezone,
+      staffName: coach.displayName,
+      staffPhotoUrl: coach.photoUrl,
+      staffBio: coach.bio,
+      scheduledAt,
+      meetingUrl: booking.meetingUrl,
+    });
+
     const advanced = await advanceOnboardingAfterKickoffBooked(userId);
     res.status(201).json({ booking, onboardingAdvanced: advanced });
   } catch (err) {
@@ -395,6 +503,219 @@ router.post("/onboarding/kickoff/book", async (req, res): Promise<void> => {
     res.status(500).json({ error: "Could not complete booking. Please try again." });
   } finally {
     client.release();
+  }
+});
+
+async function loadOwnKickoffBooking(userId: number, bookingId: number) {
+  const [booking] = await db
+    .select()
+    .from(callBookingsTable)
+    .where(
+      and(
+        eq(callBookingsTable.id, bookingId),
+        eq(callBookingsTable.memberId, userId),
+        eq(callBookingsTable.type, "kickoff"),
+      ),
+    );
+  return booking ?? null;
+}
+
+router.patch("/onboarding/kickoff/:id/reschedule", async (req, res): Promise<void> => {
+  const userId = req.userId!;
+  const bookingId = parseInt(req.params.id, 10);
+  if (!Number.isInteger(bookingId) || bookingId <= 0) {
+    res.status(400).json({ error: "Invalid booking id" });
+    return;
+  }
+  const { startTime } = req.body || {};
+  if (typeof startTime !== "string" || Number.isNaN(Date.parse(startTime))) {
+    res.status(400).json({ error: "Invalid start time" });
+    return;
+  }
+  const scheduledAt = new Date(startTime);
+
+  const existing = await loadOwnKickoffBooking(userId, bookingId);
+  if (!existing) {
+    res.status(404).json({ error: "Booking not found" });
+    return;
+  }
+  if (existing.status !== "booked") {
+    res.status(400).json({ error: "Only booked calls can be rescheduled" });
+    return;
+  }
+
+  const tier = await getMemberKickoffTier(userId);
+  const coach = await loadKickoffCoachById(existing.staffId, tier);
+  if (!coach || !coach.ghlCalendarId) {
+    res.status(409).json({ error: "This booking's coach is no longer bookable." });
+    return;
+  }
+  const [member] = await db
+    .select({ name: usersTable.name, email: usersTable.email, timezone: usersTable.timezone })
+    .from(usersTable)
+    .where(eq(usersTable.id, userId));
+  if (!member) {
+    res.status(404).json({ error: "Member not found" });
+    return;
+  }
+
+  const previousScheduledAt = existing.scheduledAt;
+  const coachLocationId = coach.ghlLocationId ?? COACHING_LOCATION_ID;
+  const dayMs = scheduledAt.getTime();
+  const client = await pool.connect();
+  let newAppointmentId: string | null = null;
+  try {
+    await client.query("BEGIN");
+    const txDb = drizzle(client);
+    await txDb.execute(sql`SELECT pg_advisory_xact_lock(${kickoffCoachLockKey(coach.id)})`);
+
+    const recheck = await getFreeSlots(coach.ghlCalendarId, dayMs - 60_000, dayMs + 60_000, coachLocationId);
+    if (!recheck.some((s) => new Date(s.startTime).getTime() === scheduledAt.getTime())) {
+      await client.query("ROLLBACK");
+      res.status(409).json({ error: "That time slot is no longer available" });
+      return;
+    }
+
+    const durationMinutes = await getCalendarDurationMinutes(coach.ghlCalendarId, coachLocationId);
+    const endAt = new Date(scheduledAt.getTime() + durationMinutes * 60000);
+    const endTimeIso = isoWithMatchingOffset(endAt, startTime);
+
+    // Reschedule = cancel the old GHL appointment, then create a fresh one
+    // (matches the partner reschedule pattern), rather than an in-place GHL
+    // update. Fail closed if the old appointment can't be canceled: proceeding
+    // would create a second real GHL appointment while the old one is still
+    // live.
+    if (existing.ghlAppointmentId) {
+      try {
+        await cancelAppointment(existing.ghlAppointmentId, existing.ghlLocationId ?? COACHING_LOCATION_ID);
+      } catch (err) {
+        await client.query("ROLLBACK");
+        console.error("[call-bookings] failed to cancel old kickoff appointment during reschedule:", err);
+        res.status(502).json({ error: "Could not reschedule with the calendar provider. Please try again." });
+        return;
+      }
+    }
+    const contactId =
+      existing.ghlContactId ??
+      (await upsertContact({ email: member.email, ...splitName(member.name), locationId: coachLocationId }));
+    const appointment = await createAppointment({
+      calendarId: coach.ghlCalendarId,
+      contactId,
+      startTime,
+      endTime: endTimeIso,
+      title: `Kickoff Call with ${coach.displayName}`,
+      locationId: coachLocationId,
+    });
+    newAppointmentId = appointment.id;
+
+    const [booking] = await txDb
+      .update(callBookingsTable)
+      .set({
+        scheduledAt,
+        endAt,
+        durationMinutes,
+        ghlLocationId: coachLocationId,
+        ghlAppointmentId: appointment.id,
+        meetingUrl: appointment.meetLink,
+      })
+      .where(eq(callBookingsTable.id, bookingId))
+      .returning(MEMBER_CALL_BOOKING_COLUMNS);
+
+    await client.query("COMMIT");
+
+    void sendCallBookingLifecycleEmail({
+      event: "reschedule",
+      callType: "kickoff",
+      bookingId: booking.id,
+      memberId: userId,
+      memberEmail: member.email,
+      memberName: member.name,
+      memberTimezone: member.timezone,
+      staffName: coach.displayName,
+      staffPhotoUrl: coach.photoUrl,
+      staffBio: coach.bio,
+      scheduledAt,
+      previousScheduledAt,
+      meetingUrl: booking.meetingUrl,
+    });
+
+    res.json({ booking });
+  } catch (err) {
+    await client.query("ROLLBACK");
+    if (newAppointmentId) {
+      try {
+        await cancelAppointment(newAppointmentId, coach.ghlLocationId ?? COACHING_LOCATION_ID);
+      } catch (cancelErr) {
+        console.error("[call-bookings] failed to roll back rescheduled kickoff appointment:", cancelErr);
+      }
+    }
+    console.error("[call-bookings] kickoff reschedule failed:", err);
+    res.status(500).json({ error: "Could not reschedule the call. Please try again." });
+  } finally {
+    client.release();
+  }
+});
+
+router.patch("/onboarding/kickoff/:id/cancel", async (req, res): Promise<void> => {
+  const userId = req.userId!;
+  const bookingId = parseInt(req.params.id, 10);
+  if (!Number.isInteger(bookingId) || bookingId <= 0) {
+    res.status(400).json({ error: "Invalid booking id" });
+    return;
+  }
+
+  const existing = await loadOwnKickoffBooking(userId, bookingId);
+  if (!existing) {
+    res.status(404).json({ error: "Booking not found" });
+    return;
+  }
+  if (existing.status !== "booked") {
+    res.status(400).json({ error: "Only booked calls can be canceled" });
+    return;
+  }
+
+  if (existing.ghlAppointmentId) {
+    try {
+      await cancelAppointment(existing.ghlAppointmentId, existing.ghlLocationId ?? COACHING_LOCATION_ID);
+    } catch (err) {
+      // Fail closed: if GHL cancel fails, the appointment may still be
+      // active there, so the local row must stay "booked" to avoid a
+      // local/GHL desync. No local mutation on this path.
+      console.error("[call-bookings] failed to cancel kickoff GHL appointment:", err);
+      res.status(502).json({ error: "Could not cancel the call with the calendar provider. Please try again." });
+      return;
+    }
+  }
+
+  const [booking] = await db
+    .update(callBookingsTable)
+    .set({ status: "canceled", cancelledAt: new Date() })
+    .where(eq(callBookingsTable.id, bookingId))
+    .returning(MEMBER_CALL_BOOKING_COLUMNS);
+  res.json({ booking });
+
+  const [member] = await db
+    .select({ name: usersTable.name, email: usersTable.email, timezone: usersTable.timezone })
+    .from(usersTable)
+    .where(eq(usersTable.id, userId));
+  const [coach] = await db
+    .select({ displayName: kickoffCoachesTable.displayName, photoUrl: kickoffCoachesTable.photoUrl, bio: kickoffCoachesTable.bio })
+    .from(kickoffCoachesTable)
+    .where(eq(kickoffCoachesTable.id, existing.staffId));
+  if (member && coach) {
+    void sendCallBookingLifecycleEmail({
+      event: "cancel",
+      callType: "kickoff",
+      bookingId,
+      memberId: userId,
+      memberEmail: member.email,
+      memberName: member.name,
+      memberTimezone: member.timezone,
+      staffName: coach.displayName,
+      staffPhotoUrl: coach.photoUrl,
+      staffBio: coach.bio,
+      scheduledAt: existing.scheduledAt,
+    });
   }
 });
 
@@ -621,7 +942,7 @@ router.post("/onboarding/partner/book", async (req, res): Promise<void> => {
   }
 
   const [member] = await db
-    .select({ name: usersTable.name, email: usersTable.email })
+    .select({ name: usersTable.name, email: usersTable.email, timezone: usersTable.timezone })
     .from(usersTable)
     .where(eq(usersTable.id, userId));
   if (!member) {
@@ -716,6 +1037,21 @@ router.post("/onboarding/partner/book", async (req, res): Promise<void> => {
 
     await client.query("COMMIT");
 
+    void sendCallBookingLifecycleEmail({
+      event: "confirmation",
+      callType: "partner",
+      bookingId: booking.id,
+      memberId: userId,
+      memberEmail: member.email,
+      memberName: member.name,
+      memberTimezone: member.timezone,
+      staffName: partner.displayName,
+      staffPhotoUrl: partner.photoUrl,
+      staffBio: partner.bio,
+      scheduledAt,
+      meetingUrl: booking.meetingUrl,
+    });
+
     const advanced = await advanceOnboardingAfterPartnerCallBooked(userId);
     res.status(201).json({ booking, onboardingAdvanced: advanced });
   } catch (err) {
@@ -778,7 +1114,7 @@ router.patch("/onboarding/partner/:id/reschedule", async (req, res): Promise<voi
     return;
   }
   const [member] = await db
-    .select({ name: usersTable.name, email: usersTable.email })
+    .select({ name: usersTable.name, email: usersTable.email, timezone: usersTable.timezone })
     .from(usersTable)
     .where(eq(usersTable.id, userId));
   if (!member) {
@@ -786,6 +1122,7 @@ router.patch("/onboarding/partner/:id/reschedule", async (req, res): Promise<voi
     return;
   }
 
+  const previousScheduledAt = existing.scheduledAt;
   const partnerLocationId = partner.ghlLocationId ?? COACHING_LOCATION_ID;
   const dayMs = scheduledAt.getTime();
   const client = await pool.connect();
@@ -858,6 +1195,23 @@ router.patch("/onboarding/partner/:id/reschedule", async (req, res): Promise<voi
       .returning(MEMBER_CALL_BOOKING_COLUMNS);
 
     await client.query("COMMIT");
+
+    void sendCallBookingLifecycleEmail({
+      event: "reschedule",
+      callType: "partner",
+      bookingId: booking.id,
+      memberId: userId,
+      memberEmail: member.email,
+      memberName: member.name,
+      memberTimezone: member.timezone,
+      staffName: partner.displayName,
+      staffPhotoUrl: partner.photoUrl,
+      staffBio: partner.bio,
+      scheduledAt,
+      previousScheduledAt,
+      meetingUrl: booking.meetingUrl,
+    });
+
     res.json({ booking });
   } catch (err) {
     await client.query("ROLLBACK");
@@ -916,6 +1270,30 @@ router.patch("/onboarding/partner/:id/cancel", async (req, res): Promise<void> =
     .where(eq(callBookingsTable.id, bookingId))
     .returning(MEMBER_CALL_BOOKING_COLUMNS);
   res.json({ booking });
+
+  const [member] = await db
+    .select({ name: usersTable.name, email: usersTable.email, timezone: usersTable.timezone })
+    .from(usersTable)
+    .where(eq(usersTable.id, userId));
+  const [partner] = await db
+    .select({ displayName: partnersTable.displayName, photoUrl: partnersTable.photoUrl, bio: partnersTable.bio })
+    .from(partnersTable)
+    .where(eq(partnersTable.id, existing.staffId));
+  if (member && partner) {
+    void sendCallBookingLifecycleEmail({
+      event: "cancel",
+      callType: "partner",
+      bookingId,
+      memberId: userId,
+      memberEmail: member.email,
+      memberName: member.name,
+      memberTimezone: member.timezone,
+      staffName: partner.displayName,
+      staffPhotoUrl: partner.photoUrl,
+      staffBio: partner.bio,
+      scheduledAt: existing.scheduledAt,
+    });
+  }
 });
 
 // ---------------------------------------------------------------------------

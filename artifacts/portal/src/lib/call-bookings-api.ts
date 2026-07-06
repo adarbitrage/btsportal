@@ -108,6 +108,33 @@ export function useBookKickoffCall() {
   });
 }
 
+function invalidateKickoff(queryClient: ReturnType<typeof useQueryClient>) {
+  queryClient.invalidateQueries({
+    predicate: (q) => typeof q.queryKey[0] === "string" && (q.queryKey[0] as string).startsWith(KICKOFF_KEY),
+  });
+}
+
+export function useRescheduleKickoffCall() {
+  const queryClient = useQueryClient();
+  return useMutation<{ booking: CallBooking }, Error, { bookingId: number; startTime: string }>({
+    mutationFn: ({ bookingId, startTime }) =>
+      callFetch(`/onboarding/kickoff/${bookingId}/reschedule`, {
+        method: "PATCH",
+        body: JSON.stringify({ startTime }),
+      }),
+    onSuccess: () => invalidateKickoff(queryClient),
+  });
+}
+
+export function useCancelKickoffCall() {
+  const queryClient = useQueryClient();
+  return useMutation<{ booking: CallBooking }, Error, { bookingId: number }>({
+    mutationFn: ({ bookingId }) =>
+      callFetch(`/onboarding/kickoff/${bookingId}/cancel`, { method: "PATCH" }),
+    onSuccess: () => invalidateKickoff(queryClient),
+  });
+}
+
 // ---------------------------------------------------------------------------
 // Partner call
 // ---------------------------------------------------------------------------

@@ -11,7 +11,8 @@
     "verify:flexy": "tsx ./src/scripts/verify-flexy-provisioning.ts",
     "cleanup:queue-fallback-duplicates": "tsx ./src/scripts/cleanup-legacy-queue-fallback-duplicates.ts",
     "grandfather-backfill:preflight": "tsx ./src/scripts/grandfather-backfill.ts",
-    "grandfather-backfill:execute": "tsx ./src/scripts/grandfather-backfill.ts --execute --confirm"
+    "grandfather-backfill:execute": "tsx ./src/scripts/grandfather-backfill.ts --execute --confirm",
+    "preview:emails": "tsx ./src/scripts/preview-emails.ts"
   },
   "dependencies": {
     "@google-cloud/storage": "^7.19.0",

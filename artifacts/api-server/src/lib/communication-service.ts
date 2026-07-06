@@ -20,6 +20,7 @@ import {
   PORTAL_URL_SETTING_KEY,
 } from "./portal-url-settings";
 import { brandStrings } from "@workspace/brand-config";
+import { DEFAULT_TICKETDESK_URL } from "@workspace/support-config";
 
 // Queue-fallback events are persisted to the audit log inside
 // `recordQueueFallback` (entityType="queue"). We used to also write a
@@ -422,12 +423,38 @@ async function getCommonVariables(
       `[Comms] No portal URL configured (set ${PORTAL_URL_SETTING_KEY} in admin settings or the PORTAL_URL env var). Emails using {{portal_url}} will render with an empty value.`,
     );
   }
+  // Task #1714: header brand resolution lives here (the seam that already
+  // knows the brand at render time), driven through single-brace tokens
+  // since the substitution pass only matches `{{word}}` (not the dotted
+  // `brand.short`-style tokens `@workspace/brand-config` exposes elsewhere).
+  // Every caller today is BTS-only (no brand-substituted nurture send exists
+  // yet — the sequence engine that would drive one is stubbed/out of scope),
+  // so `brand` always resolves to "bts" and `logo_html` always renders the
+  // hosted logo image. A future nurture-send caller can override `brand` in
+  // `extra` to get the resolved brand's marked wordmark as styled text
+  // instead — only `bts` has a logo asset; front-end brands are text marks.
+  const brand = extra?.brand ?? "bts";
+  const brandInfo = brandStrings(brand);
+  const logoHtml =
+    brand === "bts"
+      ? `<img src="${portalUrl ?? ""}/images/bts-logo.png" alt="${brandInfo.full}" width="160" style="display:inline-block;max-width:160px;height:auto;border:0;">`
+      : `<span style="font-size:22px;font-weight:bold;color:#1a1a2e;letter-spacing:0.3px;">${brandInfo.full}</span>`;
+
   return {
     portal_url: portalUrl ?? "",
     support_email: FROM_EMAIL_TRANSACTIONAL,
     // Trademark-marked per Task #1635 — this is the full brand display name
     // used in every transactional email's {{company_name}} token.
-    company_name: brandStrings("bts").full,
+    company_name: brandInfo.full,
+    logo_html: logoHtml,
+    ticketdesk_url: DEFAULT_TICKETDESK_URL,
+    // Empty-safe defaults for the Task #1714 layout slots — most templates
+    // never populate these, so they must resolve to "" rather than leaving
+    // a literal `{{person_block_html}}`/`{{pitch_block_html}}` in the sent
+    // email. Booking sends (call-bookings.ts, scheduled-comms.ts) override
+    // both via `extra`.
+    person_block_html: "",
+    pitch_block_html: "",
     current_year: new Date().getFullYear().toString(),
     ...extra,
   };

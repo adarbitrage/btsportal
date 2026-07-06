@@ -2,28 +2,136 @@ import { db, emailTemplatesTable, emailTemplateVersionsTable, smsTemplatesTable 
 import { sql, eq, inArray, desc } from "drizzle-orm";
 import crypto from "node:crypto";
 
+// Task #1714: single-source brand accent, reused by the layout below and by
+// any future non-BTS wordmark rendering (see communication-service.ts's
+// `logo_html`/`company_name` tokens, which choose between the hosted BTS
+// logo image and a styled text wordmark per-brand at render time).
+const BTS_ACCENT_COLOR = "#1a56db";
+
+// Verbatim copy of the portal footer's disclaimer (Home.tsx) — reused, not
+// re-authored, per Task #1714 step 2.
+export const NO_GUARANTEE_DISCLAIMER =
+  "*DISCLAIMER: There is NO GUARANTEE and NO WARRANTY that employing the same techniques, ideas, strategies, products or services detailed here will produce the same results. Your earning potential is entirely dependent upon you, your skills, financial resources, marketing knowledge and the time you devote. THE LEVEL OF SUCCESS YOU REACH IS ENTIRELY DEPENDENT UPON YOUR OWN EFFORT AND DEDICATION.";
+
+/**
+ * The shared branded HTML layout. Every member-facing DB template's
+ * `htmlBody` is built by wrapping an inner-body fragment with this function,
+ * so redesigning it here re-skins all starter templates at once (Task
+ * #1714). Two optional slots are always emitted as `{{...}}` tokens (never
+ * baked-in HTML) so per-send data — which isn't known at module-load time —
+ * can be threaded in later via `communication-service.ts`'s variable
+ * substitution:
+ *   - `{{person_block_html}}` — booking person-block card (see
+ *     `renderPersonBlock`), empty string when not a booking send.
+ *   - `{{pitch_block_html}}` — footer-adjacent pitch slot (see
+ *     `renderPitchBlock`), empty string when unpopulated. This task builds
+ *     only the empty-safe slot; the resolver that fills it is out of scope.
+ * `getCommonVariables` supplies `""` defaults for both tokens so templates
+ * that never pass them render cleanly instead of leaking a literal
+ * `{{person_block_html}}` into the email.
+ *
+ * The header logo is itself a token (`{{logo_html}}`) resolved by
+ * `getCommonVariables`: lifecycle sends (the only case today) render the
+ * hosted BTS logo image; a future brand-substituted nurture send would
+ * resolve to a styled text wordmark instead (see the doc comment there).
+ */
 function wrapHtml(title: string, body: string): string {
   return `<!DOCTYPE html>
 <html>
 <head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>${title}</title></head>
-<body style="margin:0;padding:0;background:#f5f5f5;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
-<table width="100%" cellpadding="0" cellspacing="0" style="background:#f5f5f5;padding:40px 20px;">
+<body style="margin:0;padding:0;background:#ffffff;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
+<table width="100%" cellpadding="0" cellspacing="0" style="background:#ffffff;padding:40px 20px;">
 <tr><td align="center">
-<table width="600" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:8px;overflow:hidden;">
-<tr><td style="background:#1a1a2e;padding:30px;text-align:center;">
-<h1 style="color:#ffffff;margin:0;font-size:24px;">Build Test Scale™</h1>
+<table width="600" cellpadding="0" cellspacing="0" style="background:#ffffff;border:1px solid #e5e7eb;border-radius:8px;overflow:hidden;">
+<tr><td style="padding:28px 30px;text-align:center;border-bottom:3px solid ${BTS_ACCENT_COLOR};">
+{{logo_html}}
 </td></tr>
-<tr><td style="padding:30px;">
+<tr><td style="padding:30px;color:#1a1a2e;">
 ${body}
+{{person_block_html}}
+{{pitch_block_html}}
 </td></tr>
-<tr><td style="background:#f8f8f8;padding:20px;text-align:center;font-size:12px;color:#999;">
-<p style="margin:0;">&copy; {{current_year}} Build Test Scale™. All rights reserved.</p>
+<tr><td style="background:#f8f9fb;padding:24px 30px;text-align:center;font-size:12px;color:#6b7280;border-top:1px solid #e5e7eb;">
+<p style="margin:0 0 10px;">
+<a href="{{portal_url}}/terms-of-service" style="color:${BTS_ACCENT_COLOR};text-decoration:none;margin:0 10px;">Terms of Service</a>
+<span style="color:#d1d5db;">|</span>
+<a href="{{ticketdesk_url}}" style="color:${BTS_ACCENT_COLOR};text-decoration:none;margin:0 10px;">Support</a>
+</p>
+<p style="margin:0 0 12px;">&copy; {{current_year}} {{company_name}}. All rights reserved.</p>
+<p style="margin:0;color:#9ca3af;font-style:italic;line-height:1.5;">${NO_GUARANTEE_DISCLAIMER}</p>
 </td></tr>
 </table>
 </td></tr>
 </table>
 </body>
 </html>`;
+}
+
+/**
+ * Booking person-block card: photo, name, call type + labeled datetime, and
+ * bio when present. Null-graceful — a missing photo simply omits the `<img>`
+ * and a missing bio simply omits the bio paragraph; nothing renders at all
+ * when `params` is `null`. Matches the portal's one-card-per-call visual
+ * language (rounded card, avatar + name row).
+ *
+ * Called at SEND TIME (not module load) by `scheduled-comms.ts` and
+ * `call-bookings.ts`, since the staff photo/bio/call time are per-send data
+ * unknown when the starter template strings are built. The resulting HTML
+ * string is passed as the `person_block_html` template variable.
+ */
+export function renderPersonBlock(params: {
+  name: string;
+  photoUrl?: string | null;
+  bio?: string | null;
+  callTypeLabel: string;
+  dateTimeLabel: string;
+} | null): string {
+  if (!params) return "";
+  const { name, photoUrl, bio, callTypeLabel, dateTimeLabel } = params;
+  const avatar = photoUrl
+    ? `<img src="${photoUrl}" alt="${name}" width="56" height="56" style="width:56px;height:56px;border-radius:50%;object-fit:cover;display:block;border:0;">`
+    : `<div style="width:56px;height:56px;border-radius:50%;background:${BTS_ACCENT_COLOR};color:#ffffff;font-size:22px;font-weight:bold;text-align:center;line-height:56px;">${(name || "?").trim().charAt(0).toUpperCase()}</div>`;
+  const bioHtml = bio
+    ? `<p style="margin:10px 0 0;font-size:13px;color:#4b5563;line-height:1.5;">${bio}</p>`
+    : "";
+  return `
+<table width="100%" cellpadding="0" cellspacing="0" style="margin:20px 0;background:#f8f9fb;border:1px solid #e5e7eb;border-radius:8px;">
+<tr><td style="padding:18px 20px;">
+<table cellpadding="0" cellspacing="0"><tr>
+<td style="width:56px;vertical-align:top;">${avatar}</td>
+<td style="padding-left:14px;vertical-align:top;">
+<p style="margin:0;font-size:15px;font-weight:bold;color:#1a1a2e;">${name}</p>
+<p style="margin:4px 0 0;font-size:13px;color:${BTS_ACCENT_COLOR};font-weight:600;">${callTypeLabel}</p>
+<p style="margin:2px 0 0;font-size:13px;color:#4b5563;">${dateTimeLabel}</p>
+</td>
+</tr></table>
+${bioHtml}
+</td></tr>
+</table>`;
+}
+
+/**
+ * Optional footer-adjacent pitch slot: small heading, one line of copy, one
+ * button. Renders nothing when `params` is `null` — this task builds only
+ * the empty-safe slot; the resolver that decides what pitch to show (if any)
+ * for a given send is a separate future task.
+ */
+export function renderPitchBlock(params: {
+  heading: string;
+  line: string;
+  buttonLabel: string;
+  buttonUrl: string;
+} | null): string {
+  if (!params) return "";
+  const { heading, line, buttonLabel, buttonUrl } = params;
+  return `
+<table width="100%" cellpadding="0" cellspacing="0" style="margin:24px 0 0;border-top:1px solid #e5e7eb;">
+<tr><td style="padding:20px 0 0;text-align:center;">
+<p style="margin:0 0 4px;font-size:15px;font-weight:bold;color:#1a1a2e;">${heading}</p>
+<p style="margin:0 0 14px;font-size:14px;color:#4b5563;">${line}</p>
+<a href="${buttonUrl}" style="display:inline-block;background:${BTS_ACCENT_COLOR};color:#ffffff;padding:10px 22px;border-radius:6px;text-decoration:none;font-weight:bold;font-size:14px;">${buttonLabel}</a>
+</td></tr>
+</table>`;
 }
 
 const transactionalEmailTemplates = [
@@ -495,6 +603,107 @@ const transactionalEmailTemplates = [
     category: "transactional",
     variables: ["member_name", "ticket_number", "task_subject", "portal_url", "current_year"],
   },
+  // Task #1714 step 6: the three missing booking-lifecycle emails, ×2 call
+  // types. Each is fired from call-bookings.ts only after the corresponding
+  // GHL operation succeeds, populates the person-block via `variables`, and
+  // is deduped via the checkAndRecordSend pattern so a retried route call
+  // does not double-send. Email-only (no SMS variant per task scope).
+  {
+    slug: "kickoff_call_confirmation",
+    name: "Kickoff Call Confirmation",
+    subject: "Your kickoff call is confirmed",
+    htmlBody: wrapHtml("Kickoff Call Confirmed", `
+<h2 style="color:#1a1a2e;margin-top:0;">Your Kickoff Call is Confirmed</h2>
+<p>Hi {{member_name}},</p>
+<p>You're all set! Here are the details for your upcoming kickoff call.</p>
+<p><a href="{{meeting_url}}" style="display:inline-block;background:#1a56db;color:#ffffff;padding:12px 24px;border-radius:6px;text-decoration:none;font-weight:bold;">Join Your Call</a></p>
+<p>Need to make a change? You can reschedule or cancel from your dashboard at any time.</p>
+<p>The BTS Team</p>`),
+    textBody: "Hi {{member_name}},\n\nYour kickoff call is confirmed. Join here: {{meeting_url}}\n\nNeed to make a change? You can reschedule or cancel from your dashboard at any time.\n\nThe BTS Team",
+    category: "transactional",
+    variables: ["member_name", "meeting_url", "portal_url", "current_year"],
+  },
+  {
+    slug: "kickoff_call_reschedule",
+    name: "Kickoff Call Rescheduled",
+    subject: "Your kickoff call has been rescheduled",
+    htmlBody: wrapHtml("Kickoff Call Rescheduled", `
+<h2 style="color:#1a1a2e;margin-top:0;">Your Kickoff Call Has Been Rescheduled</h2>
+<p>Hi {{member_name}},</p>
+<p>Your kickoff call has moved to a new time.</p>
+<p style="background:#f0f4ff;padding:15px;border-radius:6px;">
+<strong>Previous time:</strong> {{previous_datetime_label}}<br>
+<strong>New time:</strong> {{new_datetime_label}}
+</p>
+<p><a href="{{meeting_url}}" style="display:inline-block;background:#1a56db;color:#ffffff;padding:12px 24px;border-radius:6px;text-decoration:none;font-weight:bold;">Join Your Call</a></p>
+<p>The BTS Team</p>`),
+    textBody: "Hi {{member_name}},\n\nYour kickoff call has been rescheduled.\n\nPrevious time: {{previous_datetime_label}}\nNew time: {{new_datetime_label}}\n\nJoin here: {{meeting_url}}\n\nThe BTS Team",
+    category: "transactional",
+    variables: ["member_name", "previous_datetime_label", "new_datetime_label", "meeting_url", "portal_url", "current_year"],
+  },
+  {
+    slug: "kickoff_call_cancel",
+    name: "Kickoff Call Cancelled",
+    subject: "Your kickoff call has been cancelled",
+    htmlBody: wrapHtml("Kickoff Call Cancelled", `
+<h2 style="color:#1a1a2e;margin-top:0;">Your Kickoff Call Has Been Cancelled</h2>
+<p>Hi {{member_name}},</p>
+<p>Your kickoff call has been cancelled as requested. No further action is needed.</p>
+<p>Whenever you're ready, you can book a new time from your dashboard.</p>
+<p><a href="{{portal_url}}/dashboard" style="display:inline-block;background:#1a56db;color:#ffffff;padding:12px 24px;border-radius:6px;text-decoration:none;font-weight:bold;">Book a New Call</a></p>
+<p>The BTS Team</p>`),
+    textBody: "Hi {{member_name}},\n\nYour kickoff call has been cancelled as requested.\n\nWhenever you're ready, book a new time from your dashboard: {{portal_url}}/dashboard\n\nThe BTS Team",
+    category: "transactional",
+    variables: ["member_name", "portal_url", "current_year"],
+  },
+  {
+    slug: "partner_call_confirmation",
+    name: "Partner Call Confirmation",
+    subject: "Your partner call is confirmed",
+    htmlBody: wrapHtml("Partner Call Confirmed", `
+<h2 style="color:#1a1a2e;margin-top:0;">Your Partner Call is Confirmed</h2>
+<p>Hi {{member_name}},</p>
+<p>You're all set! Here are the details for your upcoming partner call.</p>
+<p><a href="{{meeting_url}}" style="display:inline-block;background:#1a56db;color:#ffffff;padding:12px 24px;border-radius:6px;text-decoration:none;font-weight:bold;">Join Your Call</a></p>
+<p>Need to make a change? You can reschedule or cancel from your dashboard at any time.</p>
+<p>The BTS Team</p>`),
+    textBody: "Hi {{member_name}},\n\nYour partner call is confirmed. Join here: {{meeting_url}}\n\nNeed to make a change? You can reschedule or cancel from your dashboard at any time.\n\nThe BTS Team",
+    category: "transactional",
+    variables: ["member_name", "meeting_url", "portal_url", "current_year"],
+  },
+  {
+    slug: "partner_call_reschedule",
+    name: "Partner Call Rescheduled",
+    subject: "Your partner call has been rescheduled",
+    htmlBody: wrapHtml("Partner Call Rescheduled", `
+<h2 style="color:#1a1a2e;margin-top:0;">Your Partner Call Has Been Rescheduled</h2>
+<p>Hi {{member_name}},</p>
+<p>Your partner call has moved to a new time.</p>
+<p style="background:#f0f4ff;padding:15px;border-radius:6px;">
+<strong>Previous time:</strong> {{previous_datetime_label}}<br>
+<strong>New time:</strong> {{new_datetime_label}}
+</p>
+<p><a href="{{meeting_url}}" style="display:inline-block;background:#1a56db;color:#ffffff;padding:12px 24px;border-radius:6px;text-decoration:none;font-weight:bold;">Join Your Call</a></p>
+<p>The BTS Team</p>`),
+    textBody: "Hi {{member_name}},\n\nYour partner call has been rescheduled.\n\nPrevious time: {{previous_datetime_label}}\nNew time: {{new_datetime_label}}\n\nJoin here: {{meeting_url}}\n\nThe BTS Team",
+    category: "transactional",
+    variables: ["member_name", "previous_datetime_label", "new_datetime_label", "meeting_url", "portal_url", "current_year"],
+  },
+  {
+    slug: "partner_call_cancel",
+    name: "Partner Call Cancelled",
+    subject: "Your partner call has been cancelled",
+    htmlBody: wrapHtml("Partner Call Cancelled", `
+<h2 style="color:#1a1a2e;margin-top:0;">Your Partner Call Has Been Cancelled</h2>
+<p>Hi {{member_name}},</p>
+<p>Your partner call has been cancelled as requested. No further action is needed.</p>
+<p>Whenever you're ready, you can book a new time from your dashboard.</p>
+<p><a href="{{portal_url}}/dashboard" style="display:inline-block;background:#1a56db;color:#ffffff;padding:12px 24px;border-radius:6px;text-decoration:none;font-weight:bold;">Book a New Call</a></p>
+<p>The BTS Team</p>`),
+    textBody: "Hi {{member_name}},\n\nYour partner call has been cancelled as requested.\n\nWhenever you're ready, book a new time from your dashboard: {{portal_url}}/dashboard\n\nThe BTS Team",
+    category: "transactional",
+    variables: ["member_name", "portal_url", "current_year"],
+  },
 ];
 
 const marketingEmailTemplates = [
@@ -885,10 +1094,56 @@ export function templateContentHash(t: StarterContent): string {
 }
 
 /**
+ * Frozen copy of `wrapHtml()` exactly as it existed immediately before Task
+ * #1714's branded-layout redesign (dark-navy header, `#f5f5f5` page
+ * background, `#4f46e5`/`#1a56db` buttons). Used ONLY to reconstruct legacy
+ * row content below for `priorStarterRevisions` — deliberately NOT kept in
+ * sync with the live `wrapHtml()` above, since its entire purpose is to
+ * represent a specific historical wrapper version.
+ */
+/**
+ * Frozen copy of `wrapHtml()` exactly as it existed immediately before Task
+ * #1714's branded-layout redesign (dark-navy header, `#f5f5f5` page
+ * background, `#4f46e5`/`#1a56db` buttons). Used ONLY to reconstruct legacy
+ * row content below for `priorStarterRevisions` — deliberately NOT kept in
+ * sync with the live `wrapHtml()` above, since its entire purpose is to
+ * represent a specific historical wrapper version.
+ */
+function oldWrapHtmlV1(title: string, body: string): string {
+  return `<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>${title}</title></head>
+<body style="margin:0;padding:0;background:#f5f5f5;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
+<table width="100%" cellpadding="0" cellspacing="0" style="background:#f5f5f5;padding:40px 20px;">
+<tr><td align="center">
+<table width="600" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:8px;overflow:hidden;">
+<tr><td style="background:#1a1a2e;padding:30px;text-align:center;">
+<h1 style="color:#ffffff;margin:0;font-size:24px;">Build Test Scale</h1>
+</td></tr>
+<tr><td style="padding:30px;">
+${body}
+</td></tr>
+<tr><td style="background:#f8f8f8;padding:20px;text-align:center;font-size:12px;color:#999;">
+<p style="margin:0;">&copy; {{current_year}} Build Test Scale. All rights reserved.</p>
+</td></tr>
+</table>
+</td></tr>
+</table>
+</body>
+</html>`;
+}
+
+/**
  * Earlier versions of starter copy that we still want to recognize as
  * "untouched" on existing deployments where the row was seeded before the
  * `starter_hash` column existed (so the column is NULL but the content still
  * matches a previous starter — meaning no admin has customized it).
+ *
+ * Entries below are full pre-rendered HTML documents (not calls into the
+ * live `wrapHtml()`), captured verbatim from the actual historical starter
+ * content so they stay frozen even as `wrapHtml()` itself evolves. Legacy
+ * rows on this deployment predate the "™" trademark symbol being added to
+ * the brand name, so most of these entries omit it to match exactly.
  *
  * Keep in chronological order; only add an entry when the live starter copy
  * for a slug actually changes. Slugs whose copy has never changed don't need
@@ -897,12 +1152,14 @@ export function templateContentHash(t: StarterContent): string {
  */
 export const priorStarterRevisions: Record<string, StarterContent[]> = {
   // Pre-Task #152 copy: button colors used #1a56db and the "no need to create
-  // a new account" sub-clause was missing.
+  // a new account" sub-clause was missing. Plus the immediately-pre-Task
+  // #1714 copy (identical body, wrapped in the pre-redesign dark-navy/gray
+  // layout instead of the new white/BTS-blue layout).
   signup_attempted: [
     {
       name: "Signup Attempted on Existing Email",
       subject: "Someone tried to sign up with your email",
-      htmlBody: wrapHtml("Signup Attempted", `
+      htmlBody: oldWrapHtmlV1("Signup Attempted", `
 <h2 style="color:#1a1a2e;margin-top:0;">Signup Attempt on Your Account</h2>
 <p>Hi {{member_name}},</p>
 <p>Someone just tried to create a new Build Test Scale account using <strong>{{member_email}}</strong>. Since this address already has an account, no new account was created.</p>
@@ -915,14 +1172,51 @@ export const priorStarterRevisions: Record<string, StarterContent[]> = {
 <p>The BTS Team</p>`),
       textBody: "Hi {{member_name}},\n\nSomeone just tried to create a new Build Test Scale account using {{member_email}}. Since this address already has an account, no new account was created.\n\nIf this was you, sign in: {{portal_url}}/login\nOr reset your password: {{portal_url}}/forgot-password\n\nIf this wasn't you, you can ignore this email — your account is unchanged.\n\nThe BTS Team",
     },
+    {
+      name: "Signup Attempted on Existing Email",
+      subject: "Someone tried to sign up with your email",
+      htmlBody: `<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Signup Attempted</title></head>
+<body style="margin:0;padding:0;background:#f5f5f5;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
+<table width="100%" cellpadding="0" cellspacing="0" style="background:#f5f5f5;padding:40px 20px;">
+<tr><td align="center">
+<table width="600" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:8px;overflow:hidden;">
+<tr><td style="background:#1a1a2e;padding:30px;text-align:center;">
+<h1 style="color:#ffffff;margin:0;font-size:24px;">Build Test Scale</h1>
+</td></tr>
+<tr><td style="padding:30px;">
+
+<h2 style="color:#1a1a2e;margin-top:0;">Signup Attempt on Your Account</h2>
+<p>Hi {{member_name}},</p>
+<p>Someone just tried to create a new Build Test Scale account using <strong>{{member_email}}</strong>. Since this address already has an account, no new account was created.</p>
+<p>If this was you, you can sign in or reset your password instead — there's no need to create a new account:</p>
+<p>
+<a href="{{portal_url}}/login?email={{member_email_encoded}}" style="display:inline-block;background:#4f46e5;color:#ffffff;padding:12px 24px;border-radius:6px;text-decoration:none;font-weight:bold;margin-right:8px;">Sign In</a>
+<a href="{{portal_url}}/forgot-password?email={{member_email_encoded}}" style="display:inline-block;background:#ffffff;color:#4f46e5;border:1px solid #4f46e5;padding:12px 24px;border-radius:6px;text-decoration:none;font-weight:bold;">Reset Password</a>
+</p>
+<p style="margin-top:24px;padding:12px 16px;background:#fef2f2;border-left:4px solid #dc2626;color:#991b1b;">If this <strong>wasn't you</strong>, you can safely ignore this email — your account is unchanged. If you're seeing repeated attempts, contact <a href="mailto:{{support_email}}" style="color:#4f46e5;">{{support_email}}</a>.</p>
+<p>The BTS Team</p>
+</td></tr>
+<tr><td style="background:#f8f8f8;padding:20px;text-align:center;font-size:12px;color:#999;">
+<p style="margin:0;">&copy; {{current_year}} Build Test Scale. All rights reserved.</p>
+</td></tr>
+</table>
+</td></tr>
+</table>
+</body>
+</html>`,
+      textBody: "Hi {{member_name}},\n\nSomeone just tried to create a new Build Test Scale account using {{member_email}}. Since this address already has an account, no new account was created.\n\nIf this was you, sign in: {{portal_url}}/login?email={{member_email_encoded}}\nOr reset your password: {{portal_url}}/forgot-password?email={{member_email_encoded}}\n\nIf this wasn't you, you can ignore this email \u2014 your account is unchanged.\n\nThe BTS Team",
+    },
   ],
-  // Earlier copy: linked to the generic /support ticket list instead of a
-  // deep link to the specific ticket, and had no `ticket_id` variable.
+  // Earlier copy: linked to the generic /support page instead of a deep link
+  // to the specific ticket. Plus the immediately-pre-Task #1714 copy
+  // (identical body, old wrapper).
   ticket_reply: [
     {
       name: "Support Ticket Reply",
       subject: "New reply on ticket #{{ticket_number}}",
-      htmlBody: wrapHtml("Ticket Reply", `
+      htmlBody: oldWrapHtmlV1("Ticket Reply", `
 <h2 style="color:#1a1a2e;margin-top:0;">New Reply on Your Ticket</h2>
 <p>Hi {{member_name}},</p>
 <p>There's a new reply on your support ticket <strong>#{{ticket_number}}</strong>.</p>
@@ -930,14 +1224,46 @@ export const priorStarterRevisions: Record<string, StarterContent[]> = {
 <p>The BTS Team</p>`),
       textBody: "Hi {{member_name}},\n\nNew reply on ticket #{{ticket_number}}. View it at {{portal_url}}/support\n\nThe BTS Team",
     },
+    {
+      name: "Support Ticket Reply",
+      subject: "New reply on ticket #{{ticket_number}}",
+      htmlBody: `<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Ticket Reply</title></head>
+<body style="margin:0;padding:0;background:#f5f5f5;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
+<table width="100%" cellpadding="0" cellspacing="0" style="background:#f5f5f5;padding:40px 20px;">
+<tr><td align="center">
+<table width="600" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:8px;overflow:hidden;">
+<tr><td style="background:#1a1a2e;padding:30px;text-align:center;">
+<h1 style="color:#ffffff;margin:0;font-size:24px;">Build Test Scale</h1>
+</td></tr>
+<tr><td style="padding:30px;">
+
+<h2 style="color:#1a1a2e;margin-top:0;">New Reply on Your Ticket</h2>
+<p>Hi {{member_name}},</p>
+<p>Our support team just replied to your ticket <strong>#{{ticket_number}}</strong>. Open it in your portal to read the response and continue the conversation.</p>
+<p><a href="{{portal_url}}/support/tickets/{{ticket_id}}" style="display:inline-block;background:#4f46e5;color:#ffffff;padding:12px 24px;border-radius:6px;text-decoration:none;font-weight:bold;">View Reply</a></p>
+<p>The BTS Team</p>
+</td></tr>
+<tr><td style="background:#f8f8f8;padding:20px;text-align:center;font-size:12px;color:#999;">
+<p style="margin:0;">&copy; {{current_year}} Build Test Scale. All rights reserved.</p>
+</td></tr>
+</table>
+</td></tr>
+</table>
+</body>
+</html>`,
+      textBody: "Hi {{member_name}},\n\nOur support team just replied to your ticket #{{ticket_number}}. Read it at {{portal_url}}/support/tickets/{{ticket_id}}\n\nThe BTS Team",
+    },
   ],
   // Pre-Task #242 copy: pointed members at /settings instead of the dedicated
-  // restart link (no `restart_url` variable yet).
+  // restart link (no `restart_url` variable yet). Plus the
+  // immediately-pre-Task #1714 copy (identical body, old wrapper).
   email_change_cancelled_by_admin: [
     {
       name: "Email Change Cancelled by Admin",
       subject: "Your pending email change was cancelled by Build Test Scale support",
-      htmlBody: wrapHtml("Pending Email Change Cancelled", `
+      htmlBody: oldWrapHtmlV1("Pending Email Change Cancelled", `
 <h2 style="color:#1a1a2e;margin-top:0;">Pending Email Change Cancelled</h2>
 <p>Hi {{member_name}},</p>
 <p>Our support team has cancelled the pending email change on your Build Test Scale account. The address we had queued — <strong>{{cancelled_pending_email}}</strong> — has been discarded and was never activated.</p>
@@ -948,31 +1274,1588 @@ export const priorStarterRevisions: Record<string, StarterContent[]> = {
 <p>Thanks,<br>The BTS Team</p>`),
       textBody: "Hi {{member_name}},\n\nOur support team has cancelled the pending email change on your Build Test Scale account. The address we had queued — {{cancelled_pending_email}} — has been discarded and was never activated.\n\nYour account email remains {{member_email}}, which is the address you should keep using to sign in. No further action is required from you.\n\nIf you still want to switch your account to a different email address, you can start a new request anytime from your account settings: {{portal_url}}/settings\n\nIf you weren't expecting this, contact {{support_email}}.\n\nThe BTS Team",
     },
+    {
+      name: "Email Change Cancelled by Admin",
+      subject: "Your pending email change was cancelled by Build Test Scale support",
+      htmlBody: `<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Pending Email Change Cancelled</title></head>
+<body style="margin:0;padding:0;background:#f5f5f5;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
+<table width="100%" cellpadding="0" cellspacing="0" style="background:#f5f5f5;padding:40px 20px;">
+<tr><td align="center">
+<table width="600" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:8px;overflow:hidden;">
+<tr><td style="background:#1a1a2e;padding:30px;text-align:center;">
+<h1 style="color:#ffffff;margin:0;font-size:24px;">Build Test Scale</h1>
+</td></tr>
+<tr><td style="padding:30px;">
+
+<h2 style="color:#1a1a2e;margin-top:0;">Pending Email Change Cancelled</h2>
+<p>Hi {{member_name}},</p>
+<p>Our support team has cancelled the pending email change on your Build Test Scale account. The address we had queued — <strong>{{cancelled_pending_email}}</strong> — has been discarded and was never activated.</p>
+<p>Your account email remains <strong>{{member_email}}</strong>, which is the address you should keep using to sign in. <strong>No further action is required from you.</strong></p>
+<p>If you still meant to switch your account to <strong>{{cancelled_pending_email}}</strong> (or another address), use the button below — we'll drop you straight onto the email-change form with the previously requested address pre-filled so you don't have to retype it. You'll still need to sign in and re-enter your password to confirm the change.</p>
+<p><a href="{{restart_url}}" style="display:inline-block;background:#1a56db;color:#ffffff;padding:12px 24px;border-radius:6px;text-decoration:none;font-weight:bold;">Start a new email change</a></p>
+<p style="margin-top:24px;padding:12px 16px;background:#fef2f2;border-left:4px solid #dc2626;color:#991b1b;">If you weren't expecting support to cancel this change, or you have any questions, please reply to this email or reach out to <a href="mailto:{{support_email}}" style="color:#1a56db;">{{support_email}}</a>.</p>
+<p>Thanks,<br>The BTS Team</p>
+</td></tr>
+<tr><td style="background:#f8f8f8;padding:20px;text-align:center;font-size:12px;color:#999;">
+<p style="margin:0;">&copy; {{current_year}} Build Test Scale. All rights reserved.</p>
+</td></tr>
+</table>
+</td></tr>
+</table>
+</body>
+</html>`,
+      textBody: "Hi {{member_name}},\n\nOur support team has cancelled the pending email change on your Build Test Scale account. The address we had queued \u2014 {{cancelled_pending_email}} \u2014 has been discarded and was never activated.\n\nYour account email remains {{member_email}}, which is the address you should keep using to sign in. No further action is required from you.\n\nIf you still meant to switch your account to {{cancelled_pending_email}} (or another address), open this link to jump straight to the email-change form with the previous address pre-filled (you'll still need to sign in and re-enter your password):\n{{restart_url}}\n\nIf you weren't expecting this, contact {{support_email}}.\n\nThe BTS Team",
+    },
+  ],
+  // Oldest known copy: minified single-line HTML with no <head>/meta tags,
+  // predating even the pre-Task #1714 pretty-printed wrapper. Plus the
+  // immediately-pre-Task #1714 copy (pretty-printed, no trademark symbol).
+  flexy_password_reset: [
+    {
+      name: "Flexy Password Reset",
+      subject: "Your new Flexy password",
+      htmlBody: `<!DOCTYPE html><html><body style="margin:0;padding:0;background:#f5f5f5;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
+<table width="100%" cellpadding="0" cellspacing="0" style="background:#f5f5f5;padding:40px 20px;"><tr><td align="center">
+<table width="600" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:8px;overflow:hidden;">
+<tr><td style="background:#1a1a2e;padding:30px;text-align:center;"><h1 style="color:#ffffff;margin:0;font-size:24px;">Build Test Scale</h1></td></tr>
+<tr><td style="padding:30px;">
+<h2 style="color:#1a1a2e;margin-top:0;">Your Flexy password has been reset</h2>
+<p>Hi {{member_name}},</p>
+<p>Our support team just generated a new password for your Flexy login. Use the credentials below the next time you sign in.</p>
+<p style="background:#f0f0ff;padding:15px;border-radius:6px;font-family:monospace;"><strong>Login email:</strong> {{flexy_email}}<br><strong>New password:</strong> {{flexy_password}}</p>
+<p>For your security, change this password to something only you know after you log in. If you did not request this reset, contact us right away at {{support_email}}.</p>
+<p><a href="{{flexy_login_url}}" style="display:inline-block;background:#4f46e5;color:#ffffff;padding:12px 24px;border-radius:6px;text-decoration:none;font-weight:bold;">Open Flexy Login</a></p>
+<p>The BTS Team</p>
+</td></tr>
+<tr><td style="background:#f8f8f8;padding:20px;text-align:center;font-size:12px;color:#999;"><p style="margin:0;">&copy; {{current_year}} Build Test Scale. All rights reserved.</p></td></tr>
+</table></td></tr></table></body></html>`,
+      textBody: "Hi {{member_name}},\n\nOur support team just generated a new password for your Flexy login.\n\nLogin email: {{flexy_email}}\nNew password: {{flexy_password}}\n\nFor your security, change this password after you log in. If you did not request this reset, contact {{support_email}} right away.\n\nLog in at {{flexy_login_url}}\n\nThe BTS Team",
+    },
+    {
+      name: "Flexy Password Reset",
+      subject: "Your new Flexy password",
+      htmlBody: `<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Flexy Password Reset</title></head>
+<body style="margin:0;padding:0;background:#f5f5f5;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
+<table width="100%" cellpadding="0" cellspacing="0" style="background:#f5f5f5;padding:40px 20px;">
+<tr><td align="center">
+<table width="600" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:8px;overflow:hidden;">
+<tr><td style="background:#1a1a2e;padding:30px;text-align:center;">
+<h1 style="color:#ffffff;margin:0;font-size:24px;">Build Test Scale</h1>
+</td></tr>
+<tr><td style="padding:30px;">
+
+<h2 style="color:#1a1a2e;margin-top:0;">Your Flexy password has been reset</h2>
+<p>Hi {{member_name}},</p>
+<p>Our support team just generated a new password for your Flexy login. Use the credentials below the next time you sign in.</p>
+<p style="background:#f0f0ff;padding:15px;border-radius:6px;font-family:monospace;">
+<strong>Login email:</strong> {{flexy_email}}<br>
+<strong>New password:</strong> {{flexy_password}}
+</p>
+<p>For your security, change this password to something only you know after you log in. If you did not request this reset, contact us right away at {{support_email}}.</p>
+<p><a href="{{flexy_login_url}}" style="display:inline-block;background:#4f46e5;color:#ffffff;padding:12px 24px;border-radius:6px;text-decoration:none;font-weight:bold;">Open Flexy Login</a></p>
+<p>The BTS Team</p>
+</td></tr>
+<tr><td style="background:#f8f8f8;padding:20px;text-align:center;font-size:12px;color:#999;">
+<p style="margin:0;">&copy; {{current_year}} Build Test Scale. All rights reserved.</p>
+</td></tr>
+</table>
+</td></tr>
+</table>
+</body>
+</html>`,
+      textBody: "Hi {{member_name}},\n\nOur support team just generated a new password for your Flexy login.\n\nLogin email: {{flexy_email}}\nNew password: {{flexy_password}}\n\nFor your security, change this password after you log in. If you did not request this reset, contact {{support_email}} right away.\n\nLog in at {{flexy_login_url}}\n\nThe BTS Team",
+    },
+  ],
+  // Task #1714: immediately-pre-redesign copy for every other slug whose
+  // body text is unchanged by the branded-layout redesign — only the shared
+  // wrapper changed. Full pre-rendered HTML captured verbatim (not a call
+  // into `oldWrapHtmlV1`) so it stays frozen exactly as it looked pre-1714,
+  // with the trademark symbol stripped to match how these rows were
+  // actually seeded on existing deployments. Needed so legacy
+  // NULL-starter-hash rows are recognized as untouched starter copy, not
+  // admin customization, and get refreshed to the new branded layout on
+  // next boot.
+  welcome: [
+    {
+      name: "Welcome Email",
+      subject: "Welcome to Build Test Scale, {{member_name}}!",
+      htmlBody: `<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Welcome</title></head>
+<body style="margin:0;padding:0;background:#f5f5f5;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
+<table width="100%" cellpadding="0" cellspacing="0" style="background:#f5f5f5;padding:40px 20px;">
+<tr><td align="center">
+<table width="600" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:8px;overflow:hidden;">
+<tr><td style="background:#1a1a2e;padding:30px;text-align:center;">
+<h1 style="color:#ffffff;margin:0;font-size:24px;">Build Test Scale</h1>
+</td></tr>
+<tr><td style="padding:30px;">
+
+<h2 style="color:#1a1a2e;margin-top:0;">Welcome to Build Test Scale!</h2>
+<p>Hi {{member_name}},</p>
+<p>We're thrilled to have you join the BTS community. Your account has been created and you're ready to start your journey.</p>
+<p>Your temporary password is: <strong>{{temp_password}}</strong></p>
+<p>Please log in and change your password as soon as possible.</p>
+<p><a href="{{portal_url}}" style="display:inline-block;background:#4f46e5;color:#ffffff;padding:12px 24px;border-radius:6px;text-decoration:none;font-weight:bold;">Log In to Your Portal</a></p>
+<p>If you have any questions, reply to this email or reach out to {{support_email}}.</p>
+<p>Welcome aboard!<br>The BTS Team</p>
+</td></tr>
+<tr><td style="background:#f8f8f8;padding:20px;text-align:center;font-size:12px;color:#999;">
+<p style="margin:0;">&copy; {{current_year}} Build Test Scale. All rights reserved.</p>
+</td></tr>
+</table>
+</td></tr>
+</table>
+</body>
+</html>`,
+      textBody: "Welcome to Build Test Scale, {{member_name}}!\n\nYour temporary password is: {{temp_password}}\n\nLog in at {{portal_url}} and change your password.\n\nWelcome aboard!\nThe BTS Team",
+    },
+  ],
+  email_verification: [
+    {
+      name: "Email Verification",
+      subject: "Verify your email address",
+      htmlBody: `<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Email Verification</title></head>
+<body style="margin:0;padding:0;background:#f5f5f5;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
+<table width="100%" cellpadding="0" cellspacing="0" style="background:#f5f5f5;padding:40px 20px;">
+<tr><td align="center">
+<table width="600" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:8px;overflow:hidden;">
+<tr><td style="background:#1a1a2e;padding:30px;text-align:center;">
+<h1 style="color:#ffffff;margin:0;font-size:24px;">Build Test Scale</h1>
+</td></tr>
+<tr><td style="padding:30px;">
+
+<h2 style="color:#1a1a2e;margin-top:0;">Verify Your Email</h2>
+<p>Hi {{member_name}},</p>
+<p>Please verify your email address to complete your account setup.</p>
+<p><a href="{{portal_url}}/verify-email?token={{verify_token}}" style="display:inline-block;background:#4f46e5;color:#ffffff;padding:12px 24px;border-radius:6px;text-decoration:none;font-weight:bold;">Verify Email</a></p>
+<p>This link expires in 24 hours. If you didn't create an account, you can ignore this email.</p>
+<p>Thanks,<br>The BTS Team</p>
+</td></tr>
+<tr><td style="background:#f8f8f8;padding:20px;text-align:center;font-size:12px;color:#999;">
+<p style="margin:0;">&copy; {{current_year}} Build Test Scale. All rights reserved.</p>
+</td></tr>
+</table>
+</td></tr>
+</table>
+</body>
+</html>`,
+      textBody: "Hi {{member_name}},\n\nVerify your email: {{portal_url}}/verify-email?token={{verify_token}}\n\nThis link expires in 24 hours.\n\nThe BTS Team",
+    },
+  ],
+  password_reset: [
+    {
+      name: "Password Reset",
+      subject: "Reset your password",
+      htmlBody: `<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Password Reset</title></head>
+<body style="margin:0;padding:0;background:#f5f5f5;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
+<table width="100%" cellpadding="0" cellspacing="0" style="background:#f5f5f5;padding:40px 20px;">
+<tr><td align="center">
+<table width="600" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:8px;overflow:hidden;">
+<tr><td style="background:#1a1a2e;padding:30px;text-align:center;">
+<h1 style="color:#ffffff;margin:0;font-size:24px;">Build Test Scale</h1>
+</td></tr>
+<tr><td style="padding:30px;">
+
+<h2 style="color:#1a1a2e;margin-top:0;">Reset Your Password</h2>
+<p>Hi {{member_name}},</p>
+<p>We received a request to reset your password. Click the button below to set a new password.</p>
+<p><a href="{{portal_url}}/reset-password?token={{reset_token}}" style="display:inline-block;background:#4f46e5;color:#ffffff;padding:12px 24px;border-radius:6px;text-decoration:none;font-weight:bold;">Reset Password</a></p>
+<p>This link expires in 1 hour. If you didn't request this, you can safely ignore this email.</p>
+<p>Thanks,<br>The BTS Team</p>
+</td></tr>
+<tr><td style="background:#f8f8f8;padding:20px;text-align:center;font-size:12px;color:#999;">
+<p style="margin:0;">&copy; {{current_year}} Build Test Scale. All rights reserved.</p>
+</td></tr>
+</table>
+</td></tr>
+</table>
+</body>
+</html>`,
+      textBody: "Hi {{member_name}},\n\nReset your password: {{portal_url}}/reset-password?token={{reset_token}}\n\nThis link expires in 1 hour.\n\nThe BTS Team",
+    },
+  ],
+  new_device_signin: [
+    {
+      name: "New Sign-in Detected",
+      subject: "New sign-in to your Build Test Scale account",
+      htmlBody: `<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>New Sign-in Detected</title></head>
+<body style="margin:0;padding:0;background:#f5f5f5;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
+<table width="100%" cellpadding="0" cellspacing="0" style="background:#f5f5f5;padding:40px 20px;">
+<tr><td align="center">
+<table width="600" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:8px;overflow:hidden;">
+<tr><td style="background:#1a1a2e;padding:30px;text-align:center;">
+<h1 style="color:#ffffff;margin:0;font-size:24px;">Build Test Scale</h1>
+</td></tr>
+<tr><td style="padding:30px;">
+
+<h2 style="color:#1a1a2e;margin-top:0;">New Sign-in Detected</h2>
+<p>Hi {{member_name}},</p>
+<p>Your Build Test Scale account was just signed in to from a device we haven't seen before:</p>
+<p style="background:#f0f0ff;padding:15px;border-radius:6px;">
+<strong>Device:</strong> {{device_description}}<br>
+<strong>IP address:</strong> {{ip_address}}<br>
+<strong>When:</strong> {{sign_in_time}}
+</p>
+<p>If this was you, no action is needed.</p>
+<p style="margin-top:24px;padding:12px 16px;background:#fef2f2;border-left:4px solid #dc2626;color:#991b1b;">If this <strong>wasn't you</strong>, your account may be compromised. Review where you're signed in and sign out the device you don't recognize, then change your password right away.</p>
+<p><a href="{{portal_url}}/account#sessions" style="display:inline-block;background:#4f46e5;color:#ffffff;padding:12px 24px;border-radius:6px;text-decoration:none;font-weight:bold;">Review your devices</a></p>
+<p>Questions? Contact <a href="mailto:{{support_email}}" style="color:#4f46e5;">{{support_email}}</a>.</p>
+<p>Thanks,<br>The BTS Team</p>
+</td></tr>
+<tr><td style="background:#f8f8f8;padding:20px;text-align:center;font-size:12px;color:#999;">
+<p style="margin:0;">&copy; {{current_year}} Build Test Scale. All rights reserved.</p>
+</td></tr>
+</table>
+</td></tr>
+</table>
+</body>
+</html>`,
+      textBody: "Hi {{member_name}},\n\nYour Build Test Scale account was just signed in to from a device we haven't seen before:\n\nDevice: {{device_description}}\nIP address: {{ip_address}}\nWhen: {{sign_in_time}}\n\nIf this was you, no action is needed.\n\nIf this wasn't you, your account may be compromised. Review where you're signed in and sign out the device you don't recognize, then change your password right away:\n{{portal_url}}/account#sessions\n\nQuestions? Contact {{support_email}}.\n\nThe BTS Team",
+    },
+  ],
+  email_change_verify: [
+    {
+      name: "Email Change Verification",
+      subject: "Confirm your new Build Test Scale email address",
+      htmlBody: `<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Confirm New Email</title></head>
+<body style="margin:0;padding:0;background:#f5f5f5;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
+<table width="100%" cellpadding="0" cellspacing="0" style="background:#f5f5f5;padding:40px 20px;">
+<tr><td align="center">
+<table width="600" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:8px;overflow:hidden;">
+<tr><td style="background:#1a1a2e;padding:30px;text-align:center;">
+<h1 style="color:#ffffff;margin:0;font-size:24px;">Build Test Scale</h1>
+</td></tr>
+<tr><td style="padding:30px;">
+
+<h2 style="color:#1a1a2e;margin-top:0;">Confirm Your New Email</h2>
+<p>Hi {{member_name}},</p>
+<p>We received a request to change the email address on your Build Test Scale account from <strong>{{old_email}}</strong> to <strong>{{new_email}}</strong>.</p>
+<p>Click the button below within 24 hours to confirm this change. After confirming, you'll need to sign in again using your new email address.</p>
+<p><a href="{{portal_url}}/verify-email-change?token={{verify_token}}" style="display:inline-block;background:#1a56db;color:#ffffff;padding:12px 24px;border-radius:6px;text-decoration:none;font-weight:bold;">Confirm New Email</a></p>
+<p>If you didn't request this change, you can safely ignore this email — your address will stay the same.</p>
+<p>Thanks,<br>The BTS Team</p>
+</td></tr>
+<tr><td style="background:#f8f8f8;padding:20px;text-align:center;font-size:12px;color:#999;">
+<p style="margin:0;">&copy; {{current_year}} Build Test Scale. All rights reserved.</p>
+</td></tr>
+</table>
+</td></tr>
+</table>
+</body>
+</html>`,
+      textBody: "Hi {{member_name}},\n\nConfirm changing your Build Test Scale email from {{old_email}} to {{new_email}}:\n{{portal_url}}/verify-email-change?token={{verify_token}}\n\nThis link expires in 24 hours. If you didn't request this, ignore this email.\n\nThe BTS Team",
+    },
+  ],
+  email_change_notice: [
+    {
+      name: "Email Change Notice (Old Address)",
+      subject: "Email change requested on your Build Test Scale account",
+      htmlBody: `<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Email Change Requested</title></head>
+<body style="margin:0;padding:0;background:#f5f5f5;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
+<table width="100%" cellpadding="0" cellspacing="0" style="background:#f5f5f5;padding:40px 20px;">
+<tr><td align="center">
+<table width="600" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:8px;overflow:hidden;">
+<tr><td style="background:#1a1a2e;padding:30px;text-align:center;">
+<h1 style="color:#ffffff;margin:0;font-size:24px;">Build Test Scale</h1>
+</td></tr>
+<tr><td style="padding:30px;">
+
+<h2 style="color:#1a1a2e;margin-top:0;">Email Change Requested</h2>
+<p>Hi {{member_name}},</p>
+<p>We received a request to change the email address on your Build Test Scale account to <strong>{{new_email}}</strong>. The change will only take effect once it's confirmed from the new address.</p>
+<p>If this was you, no further action is needed at this address — just confirm the change from your new inbox.</p>
+<p style="margin-top:24px;padding:12px 16px;background:#fef2f2;border-left:4px solid #dc2626;color:#991b1b;">If this <strong>wasn't you</strong>, please sign in and reset your password immediately, then contact <a href="mailto:{{support_email}}" style="color:#1a56db;">{{support_email}}</a>. Your current email address will keep working until the new one is confirmed.</p>
+<p>Thanks,<br>The BTS Team</p>
+</td></tr>
+<tr><td style="background:#f8f8f8;padding:20px;text-align:center;font-size:12px;color:#999;">
+<p style="margin:0;">&copy; {{current_year}} Build Test Scale. All rights reserved.</p>
+</td></tr>
+</table>
+</td></tr>
+</table>
+</body>
+</html>`,
+      textBody: "Hi {{member_name}},\n\nWe received a request to change your Build Test Scale email to {{new_email}}. The change only takes effect after it's confirmed from the new address.\n\nIf this wasn't you, sign in and reset your password immediately, then contact {{support_email}}.\n\nThe BTS Team",
+    },
+  ],
+  email_change_cancelled_by_admin_pending: [
+    {
+      name: "Email Change Cancelled by Admin (Pending Address)",
+      subject: "A pending email change to this address was cancelled by Build Test Scale support",
+      htmlBody: `<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Pending Email Change Cancelled</title></head>
+<body style="margin:0;padding:0;background:#f5f5f5;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
+<table width="100%" cellpadding="0" cellspacing="0" style="background:#f5f5f5;padding:40px 20px;">
+<tr><td align="center">
+<table width="600" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:8px;overflow:hidden;">
+<tr><td style="background:#1a1a2e;padding:30px;text-align:center;">
+<h1 style="color:#ffffff;margin:0;font-size:24px;">Build Test Scale</h1>
+</td></tr>
+<tr><td style="padding:30px;">
+
+<h2 style="color:#1a1a2e;margin-top:0;">Pending Email Change Cancelled</h2>
+<p>Hello,</p>
+<p>Someone recently asked us to switch the email address on a Build Test Scale account to <strong>{{cancelled_pending_email}}</strong> — this inbox. Our support team has since cancelled that pending change, so this address was never linked to the account and the verification link we sent earlier no longer works.</p>
+<p><strong>No action is required from you.</strong> You don't need to click anything, sign in, or reply.</p>
+<p style="margin-top:24px;padding:12px 16px;background:#f3f4f6;border-left:4px solid #6b7280;color:#374151;">If you weren't expecting any messages from us, you can safely ignore this email — this address has not been added to any account. If you have questions or believe you're receiving these messages by mistake, contact <a href="mailto:{{support_email}}" style="color:#1a56db;">{{support_email}}</a>.</p>
+<p>Thanks,<br>The BTS Team</p>
+</td></tr>
+<tr><td style="background:#f8f8f8;padding:20px;text-align:center;font-size:12px;color:#999;">
+<p style="margin:0;">&copy; {{current_year}} Build Test Scale. All rights reserved.</p>
+</td></tr>
+</table>
+</td></tr>
+</table>
+</body>
+</html>`,
+      textBody: "Hello,\n\nSomeone recently asked us to switch the email address on a Build Test Scale account to {{cancelled_pending_email}} \u2014 this inbox. Our support team has since cancelled that pending change, so this address was never linked to the account and the verification link we sent earlier no longer works.\n\nNo action is required from you. You don't need to click anything, sign in, or reply.\n\nIf you weren't expecting any messages from us, you can safely ignore this email \u2014 this address has not been added to any account. If you have questions, contact {{support_email}}.\n\nThe BTS Team",
+    },
+  ],
+  email_change_cancelled_by_member: [
+    {
+      name: "Email Change Cancelled by Member",
+      subject: "Your pending email change was cancelled",
+      htmlBody: `<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Pending Email Change Cancelled</title></head>
+<body style="margin:0;padding:0;background:#f5f5f5;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
+<table width="100%" cellpadding="0" cellspacing="0" style="background:#f5f5f5;padding:40px 20px;">
+<tr><td align="center">
+<table width="600" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:8px;overflow:hidden;">
+<tr><td style="background:#1a1a2e;padding:30px;text-align:center;">
+<h1 style="color:#ffffff;margin:0;font-size:24px;">Build Test Scale</h1>
+</td></tr>
+<tr><td style="padding:30px;">
+
+<h2 style="color:#1a1a2e;margin-top:0;">Pending Email Change Cancelled</h2>
+<p>Hi {{member_name}},</p>
+<p>You just cancelled the pending email change on your Build Test Scale account. The address we had queued — <strong>{{cancelled_pending_email}}</strong> — has been discarded and was never activated.</p>
+<p>Your account email remains <strong>{{member_email}}</strong>, which is the address you should keep using to sign in. <strong>No further action is required from you.</strong></p>
+<p>Changed your mind, or made a typo the first time? Use the button below — we'll drop you straight onto the email-change form with the previously requested address pre-filled so you don't have to retype it. You'll still need to sign in and re-enter your password to confirm the change.</p>
+<p><a href="{{restart_url}}" style="display:inline-block;background:#1a56db;color:#ffffff;padding:12px 24px;border-radius:6px;text-decoration:none;font-weight:bold;">Start a new email change</a></p>
+<p style="margin-top:24px;padding:12px 16px;background:#fef2f2;border-left:4px solid #dc2626;color:#991b1b;">If you <strong>didn't</strong> cancel this change yourself, sign in and reset your password immediately, then contact <a href="mailto:{{support_email}}" style="color:#1a56db;">{{support_email}}</a>.</p>
+<p>Thanks,<br>The BTS Team</p>
+</td></tr>
+<tr><td style="background:#f8f8f8;padding:20px;text-align:center;font-size:12px;color:#999;">
+<p style="margin:0;">&copy; {{current_year}} Build Test Scale. All rights reserved.</p>
+</td></tr>
+</table>
+</td></tr>
+</table>
+</body>
+</html>`,
+      textBody: "Hi {{member_name}},\n\nYou just cancelled the pending email change on your Build Test Scale account. The address we had queued \u2014 {{cancelled_pending_email}} \u2014 has been discarded and was never activated.\n\nYour account email remains {{member_email}}, which is the address you should keep using to sign in. No further action is required from you.\n\nChanged your mind, or made a typo the first time? Open this link to jump straight to the email-change form with the previous address pre-filled (you'll still need to sign in and re-enter your password):\n{{restart_url}}\n\nIf you didn't cancel this change yourself, sign in and reset your password immediately, then contact {{support_email}}.\n\nThe BTS Team",
+    },
+  ],
+  email_change_cancelled_by_member_pending: [
+    {
+      name: "Email Change Cancelled (Pending Address)",
+      subject: "A pending email change to this address was cancelled",
+      htmlBody: `<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Pending Email Change Cancelled</title></head>
+<body style="margin:0;padding:0;background:#f5f5f5;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
+<table width="100%" cellpadding="0" cellspacing="0" style="background:#f5f5f5;padding:40px 20px;">
+<tr><td align="center">
+<table width="600" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:8px;overflow:hidden;">
+<tr><td style="background:#1a1a2e;padding:30px;text-align:center;">
+<h1 style="color:#ffffff;margin:0;font-size:24px;">Build Test Scale</h1>
+</td></tr>
+<tr><td style="padding:30px;">
+
+<h2 style="color:#1a1a2e;margin-top:0;">Pending Email Change Cancelled</h2>
+<p>Hello,</p>
+<p>Someone recently asked us to switch the email address on a Build Test Scale account to <strong>{{cancelled_pending_email}}</strong> — this inbox. That request has since been withdrawn, so this address was never linked to the account and the verification link we sent earlier no longer works.</p>
+<p><strong>No action is required from you.</strong> You don't need to click anything, sign in, or reply.</p>
+<p style="margin-top:24px;padding:12px 16px;background:#f3f4f6;border-left:4px solid #6b7280;color:#374151;">If you weren't expecting any messages from us, you can safely ignore this email — this address has not been added to any account. If you have questions or believe you're receiving these messages by mistake, contact <a href="mailto:{{support_email}}" style="color:#1a56db;">{{support_email}}</a>.</p>
+<p>Thanks,<br>The BTS Team</p>
+</td></tr>
+<tr><td style="background:#f8f8f8;padding:20px;text-align:center;font-size:12px;color:#999;">
+<p style="margin:0;">&copy; {{current_year}} Build Test Scale. All rights reserved.</p>
+</td></tr>
+</table>
+</td></tr>
+</table>
+</body>
+</html>`,
+      textBody: "Hello,\n\nSomeone recently asked us to switch the email address on a Build Test Scale account to {{cancelled_pending_email}} \u2014 this inbox. That request has since been withdrawn, so this address was never linked to the account and the verification link we sent earlier no longer works.\n\nNo action is required from you. You don't need to click anything, sign in, or reply.\n\nIf you weren't expecting any messages from us, you can safely ignore this email \u2014 this address has not been added to any account. If you have questions, contact {{support_email}}.\n\nThe BTS Team",
+    },
+  ],
+  purchase_confirmation: [
+    {
+      name: "Purchase Confirmation",
+      subject: "Your purchase of {{product_name}} is confirmed!",
+      htmlBody: `<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Purchase Confirmation</title></head>
+<body style="margin:0;padding:0;background:#f5f5f5;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
+<table width="100%" cellpadding="0" cellspacing="0" style="background:#f5f5f5;padding:40px 20px;">
+<tr><td align="center">
+<table width="600" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:8px;overflow:hidden;">
+<tr><td style="background:#1a1a2e;padding:30px;text-align:center;">
+<h1 style="color:#ffffff;margin:0;font-size:24px;">Build Test Scale</h1>
+</td></tr>
+<tr><td style="padding:30px;">
+
+<h2 style="color:#1a1a2e;margin-top:0;">Purchase Confirmed!</h2>
+<p>Hi {{member_name}},</p>
+<p>Great news — your purchase of <strong>{{product_name}}</strong> has been confirmed and your access is now active.</p>
+<p><a href="{{portal_url}}/dashboard" style="display:inline-block;background:#4f46e5;color:#ffffff;padding:12px 24px;border-radius:6px;text-decoration:none;font-weight:bold;">Go to Dashboard</a></p>
+<p>If you have any questions about getting started, our support team is here to help.</p>
+<p>Let's build something great!<br>The BTS Team</p>
+</td></tr>
+<tr><td style="background:#f8f8f8;padding:20px;text-align:center;font-size:12px;color:#999;">
+<p style="margin:0;">&copy; {{current_year}} Build Test Scale. All rights reserved.</p>
+</td></tr>
+</table>
+</td></tr>
+</table>
+</body>
+</html>`,
+      textBody: "Hi {{member_name}},\n\nYour purchase of {{product_name}} is confirmed! Access is now active.\n\nLog in at {{portal_url}}/dashboard\n\nThe BTS Team",
+    },
+  ],
+  payment_failed: [
+    {
+      name: "Payment Failed",
+      subject: "Action required: Payment failed for {{product_name}}",
+      htmlBody: `<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Payment Failed</title></head>
+<body style="margin:0;padding:0;background:#f5f5f5;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
+<table width="100%" cellpadding="0" cellspacing="0" style="background:#f5f5f5;padding:40px 20px;">
+<tr><td align="center">
+<table width="600" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:8px;overflow:hidden;">
+<tr><td style="background:#1a1a2e;padding:30px;text-align:center;">
+<h1 style="color:#ffffff;margin:0;font-size:24px;">Build Test Scale</h1>
+</td></tr>
+<tr><td style="padding:30px;">
+
+<h2 style="color:#dc2626;margin-top:0;">Payment Failed</h2>
+<p>Hi {{member_name}},</p>
+<p>We were unable to process your payment for <strong>{{product_name}}</strong>.</p>
+<p>Your access will remain active until <strong>{{grace_date}}</strong> while we retry your payment. Please update your payment information to avoid losing access.</p>
+<p><a href="{{portal_url}}/settings/billing" style="display:inline-block;background:#dc2626;color:#ffffff;padding:12px 24px;border-radius:6px;text-decoration:none;font-weight:bold;">Update Payment Info</a></p>
+<p>If you need help, contact us at {{support_email}}.</p>
+<p>The BTS Team</p>
+</td></tr>
+<tr><td style="background:#f8f8f8;padding:20px;text-align:center;font-size:12px;color:#999;">
+<p style="margin:0;">&copy; {{current_year}} Build Test Scale. All rights reserved.</p>
+</td></tr>
+</table>
+</td></tr>
+</table>
+</body>
+</html>`,
+      textBody: "Hi {{member_name}},\n\nPayment failed for {{product_name}}. Your access continues until {{grace_date}}.\n\nPlease update your payment info at {{portal_url}}/settings/billing\n\nThe BTS Team",
+    },
+  ],
+  payment_recovered: [
+    {
+      name: "Payment Recovered",
+      subject: "Payment successful \u2014 {{product_name}} access restored",
+      htmlBody: `<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Payment Recovered</title></head>
+<body style="margin:0;padding:0;background:#f5f5f5;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
+<table width="100%" cellpadding="0" cellspacing="0" style="background:#f5f5f5;padding:40px 20px;">
+<tr><td align="center">
+<table width="600" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:8px;overflow:hidden;">
+<tr><td style="background:#1a1a2e;padding:30px;text-align:center;">
+<h1 style="color:#ffffff;margin:0;font-size:24px;">Build Test Scale</h1>
+</td></tr>
+<tr><td style="padding:30px;">
+
+<h2 style="color:#16a34a;margin-top:0;">Payment Successful!</h2>
+<p>Hi {{member_name}},</p>
+<p>Great news — your payment for <strong>{{product_name}}</strong> has been successfully processed and your access continues uninterrupted.</p>
+<p><a href="{{portal_url}}/dashboard" style="display:inline-block;background:#4f46e5;color:#ffffff;padding:12px 24px;border-radius:6px;text-decoration:none;font-weight:bold;">Go to Dashboard</a></p>
+<p>The BTS Team</p>
+</td></tr>
+<tr><td style="background:#f8f8f8;padding:20px;text-align:center;font-size:12px;color:#999;">
+<p style="margin:0;">&copy; {{current_year}} Build Test Scale. All rights reserved.</p>
+</td></tr>
+</table>
+</td></tr>
+</table>
+</body>
+</html>`,
+      textBody: "Hi {{member_name}},\n\nYour payment for {{product_name}} was successful. Access continues.\n\nThe BTS Team",
+    },
+  ],
+  refund_processed: [
+    {
+      name: "Refund Processed",
+      subject: "Your refund for {{product_name}} has been processed",
+      htmlBody: `<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Refund Processed</title></head>
+<body style="margin:0;padding:0;background:#f5f5f5;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
+<table width="100%" cellpadding="0" cellspacing="0" style="background:#f5f5f5;padding:40px 20px;">
+<tr><td align="center">
+<table width="600" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:8px;overflow:hidden;">
+<tr><td style="background:#1a1a2e;padding:30px;text-align:center;">
+<h1 style="color:#ffffff;margin:0;font-size:24px;">Build Test Scale</h1>
+</td></tr>
+<tr><td style="padding:30px;">
+
+<h2 style="color:#1a1a2e;margin-top:0;">Refund Processed</h2>
+<p>Hi {{member_name}},</p>
+<p>Your refund for <strong>{{product_name}}</strong> has been processed. Your access to this product has been removed.</p>
+<p>If you have questions or believe this was a mistake, contact us at {{support_email}}.</p>
+<p>The BTS Team</p>
+</td></tr>
+<tr><td style="background:#f8f8f8;padding:20px;text-align:center;font-size:12px;color:#999;">
+<p style="margin:0;">&copy; {{current_year}} Build Test Scale. All rights reserved.</p>
+</td></tr>
+</table>
+</td></tr>
+</table>
+</body>
+</html>`,
+      textBody: "Hi {{member_name}},\n\nYour refund for {{product_name}} has been processed. Access removed.\n\nContact {{support_email}} with questions.\n\nThe BTS Team",
+    },
+  ],
+  subscription_cancelled: [
+    {
+      name: "Subscription Cancelled",
+      subject: "Your {{product_name}} subscription has been cancelled",
+      htmlBody: `<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Subscription Cancelled</title></head>
+<body style="margin:0;padding:0;background:#f5f5f5;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
+<table width="100%" cellpadding="0" cellspacing="0" style="background:#f5f5f5;padding:40px 20px;">
+<tr><td align="center">
+<table width="600" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:8px;overflow:hidden;">
+<tr><td style="background:#1a1a2e;padding:30px;text-align:center;">
+<h1 style="color:#ffffff;margin:0;font-size:24px;">Build Test Scale</h1>
+</td></tr>
+<tr><td style="padding:30px;">
+
+<h2 style="color:#1a1a2e;margin-top:0;">Subscription Cancelled</h2>
+<p>Hi {{member_name}},</p>
+<p>Your subscription for <strong>{{product_name}}</strong> has been cancelled. You'll continue to have access until the end of your current billing period.</p>
+<p>Changed your mind? You can resubscribe at any time.</p>
+<p><a href="{{portal_url}}/settings" style="display:inline-block;background:#4f46e5;color:#ffffff;padding:12px 24px;border-radius:6px;text-decoration:none;font-weight:bold;">Manage Account</a></p>
+<p>We're sorry to see you go.<br>The BTS Team</p>
+</td></tr>
+<tr><td style="background:#f8f8f8;padding:20px;text-align:center;font-size:12px;color:#999;">
+<p style="margin:0;">&copy; {{current_year}} Build Test Scale. All rights reserved.</p>
+</td></tr>
+</table>
+</td></tr>
+</table>
+</body>
+</html>`,
+      textBody: "Hi {{member_name}},\n\nYour {{product_name}} subscription has been cancelled. Access continues until end of billing period.\n\nThe BTS Team",
+    },
+  ],
+  mentorship_expiring_warning: [
+    {
+      name: "Mentorship Expiring Warning (30 days)",
+      subject: "Your {{product_name}} expires in less than 30 days",
+      htmlBody: `<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Expiring Soon</title></head>
+<body style="margin:0;padding:0;background:#f5f5f5;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
+<table width="100%" cellpadding="0" cellspacing="0" style="background:#f5f5f5;padding:40px 20px;">
+<tr><td align="center">
+<table width="600" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:8px;overflow:hidden;">
+<tr><td style="background:#1a1a2e;padding:30px;text-align:center;">
+<h1 style="color:#ffffff;margin:0;font-size:24px;">Build Test Scale</h1>
+</td></tr>
+<tr><td style="padding:30px;">
+
+<h2 style="color:#f59e0b;margin-top:0;">Your Access is Expiring Soon</h2>
+<p>Hi {{member_name}},</p>
+<p>Your <strong>{{product_name}}</strong> access expires on <strong>{{expiration_date}}</strong>.</p>
+<p>Don't lose access to your training, coaching calls, and community. Renew now to continue your journey.</p>
+<p><a href="{{portal_url}}/settings" style="display:inline-block;background:#4f46e5;color:#ffffff;padding:12px 24px;border-radius:6px;text-decoration:none;font-weight:bold;">Renew Now</a></p>
+<p>The BTS Team</p>
+</td></tr>
+<tr><td style="background:#f8f8f8;padding:20px;text-align:center;font-size:12px;color:#999;">
+<p style="margin:0;">&copy; {{current_year}} Build Test Scale. All rights reserved.</p>
+</td></tr>
+</table>
+</td></tr>
+</table>
+</body>
+</html>`,
+      textBody: "Hi {{member_name}},\n\nYour {{product_name}} expires on {{expiration_date}}. Renew at {{portal_url}}/settings\n\nThe BTS Team",
+    },
+  ],
+  mentorship_expiring_urgent: [
+    {
+      name: "Mentorship Expiring Urgent (7 days)",
+      subject: "URGENT: Your {{product_name}} expires in less than 7 days!",
+      htmlBody: `<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Expiring Urgently</title></head>
+<body style="margin:0;padding:0;background:#f5f5f5;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
+<table width="100%" cellpadding="0" cellspacing="0" style="background:#f5f5f5;padding:40px 20px;">
+<tr><td align="center">
+<table width="600" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:8px;overflow:hidden;">
+<tr><td style="background:#1a1a2e;padding:30px;text-align:center;">
+<h1 style="color:#ffffff;margin:0;font-size:24px;">Build Test Scale</h1>
+</td></tr>
+<tr><td style="padding:30px;">
+
+<h2 style="color:#dc2626;margin-top:0;">Your Access Expires This Week!</h2>
+<p>Hi {{member_name}},</p>
+<p>Your <strong>{{product_name}}</strong> access expires on <strong>{{expiration_date}}</strong> — that's less than 7 days away!</p>
+<p>Act now to avoid losing access to all your training materials, coaching calls, and community.</p>
+<p><a href="{{portal_url}}/settings" style="display:inline-block;background:#dc2626;color:#ffffff;padding:12px 24px;border-radius:6px;text-decoration:none;font-weight:bold;">Renew Now — Don't Lose Access</a></p>
+<p>The BTS Team</p>
+</td></tr>
+<tr><td style="background:#f8f8f8;padding:20px;text-align:center;font-size:12px;color:#999;">
+<p style="margin:0;">&copy; {{current_year}} Build Test Scale. All rights reserved.</p>
+</td></tr>
+</table>
+</td></tr>
+</table>
+</body>
+</html>`,
+      textBody: "URGENT: Hi {{member_name}}, your {{product_name}} expires on {{expiration_date}}! Renew now at {{portal_url}}/settings to keep your access.\n\nThe BTS Team",
+    },
+  ],
+  mentorship_expired: [
+    {
+      name: "Mentorship Expired",
+      subject: "Your {{product_name}} access has expired",
+      htmlBody: `<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Access Expired</title></head>
+<body style="margin:0;padding:0;background:#f5f5f5;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
+<table width="100%" cellpadding="0" cellspacing="0" style="background:#f5f5f5;padding:40px 20px;">
+<tr><td align="center">
+<table width="600" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:8px;overflow:hidden;">
+<tr><td style="background:#1a1a2e;padding:30px;text-align:center;">
+<h1 style="color:#ffffff;margin:0;font-size:24px;">Build Test Scale</h1>
+</td></tr>
+<tr><td style="padding:30px;">
+
+<h2 style="color:#dc2626;margin-top:0;">Your Access Has Expired</h2>
+<p>Hi {{member_name}},</p>
+<p>Your <strong>{{product_name}}</strong> access expired on {{expiration_date}}.</p>
+<p>To regain access to your training, coaching, and community, please renew your membership.</p>
+<p><a href="{{portal_url}}" style="display:inline-block;background:#4f46e5;color:#ffffff;padding:12px 24px;border-radius:6px;text-decoration:none;font-weight:bold;">Renew Membership</a></p>
+<p>The BTS Team</p>
+</td></tr>
+<tr><td style="background:#f8f8f8;padding:20px;text-align:center;font-size:12px;color:#999;">
+<p style="margin:0;">&copy; {{current_year}} Build Test Scale. All rights reserved.</p>
+</td></tr>
+</table>
+</td></tr>
+</table>
+</body>
+</html>`,
+      textBody: "Hi {{member_name}},\n\nYour {{product_name}} access has expired. Renew at {{portal_url}}\n\nThe BTS Team",
+    },
+  ],
+  ticket_created: [
+    {
+      name: "Support Ticket Created",
+      subject: "Ticket #{{ticket_number}} received \u2014 we'll get back to you soon",
+      htmlBody: `<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Ticket Created</title></head>
+<body style="margin:0;padding:0;background:#f5f5f5;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
+<table width="100%" cellpadding="0" cellspacing="0" style="background:#f5f5f5;padding:40px 20px;">
+<tr><td align="center">
+<table width="600" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:8px;overflow:hidden;">
+<tr><td style="background:#1a1a2e;padding:30px;text-align:center;">
+<h1 style="color:#ffffff;margin:0;font-size:24px;">Build Test Scale</h1>
+</td></tr>
+<tr><td style="padding:30px;">
+
+<h2 style="color:#1a1a2e;margin-top:0;">We Received Your Ticket</h2>
+<p>Hi {{member_name}},</p>
+<p>Your support ticket <strong>#{{ticket_number}}</strong> has been received. Our team will review it and respond as soon as possible.</p>
+<p><strong>Subject:</strong> {{ticket_subject}}</p>
+<p><a href="{{portal_url}}/support" style="display:inline-block;background:#4f46e5;color:#ffffff;padding:12px 24px;border-radius:6px;text-decoration:none;font-weight:bold;">View Tickets</a></p>
+<p>The BTS Team</p>
+</td></tr>
+<tr><td style="background:#f8f8f8;padding:20px;text-align:center;font-size:12px;color:#999;">
+<p style="margin:0;">&copy; {{current_year}} Build Test Scale. All rights reserved.</p>
+</td></tr>
+</table>
+</td></tr>
+</table>
+</body>
+</html>`,
+      textBody: "Hi {{member_name}},\n\nTicket #{{ticket_number}} received. Subject: {{ticket_subject}}\n\nWe'll respond soon.\n\nThe BTS Team",
+    },
+  ],
+  account_locked: [
+    {
+      name: "Account Locked",
+      subject: "Your account has been temporarily locked",
+      htmlBody: `<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Account Locked</title></head>
+<body style="margin:0;padding:0;background:#f5f5f5;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
+<table width="100%" cellpadding="0" cellspacing="0" style="background:#f5f5f5;padding:40px 20px;">
+<tr><td align="center">
+<table width="600" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:8px;overflow:hidden;">
+<tr><td style="background:#1a1a2e;padding:30px;text-align:center;">
+<h1 style="color:#ffffff;margin:0;font-size:24px;">Build Test Scale</h1>
+</td></tr>
+<tr><td style="padding:30px;">
+
+<h2 style="color:#dc2626;margin-top:0;">Account Temporarily Locked</h2>
+<p>Hi {{member_name}},</p>
+<p>Your account has been temporarily locked due to too many failed login attempts. It will automatically unlock in 15 minutes.</p>
+<p>If you've forgotten your password, you can reset it below.</p>
+<p><a href="{{portal_url}}/forgot-password" style="display:inline-block;background:#4f46e5;color:#ffffff;padding:12px 24px;border-radius:6px;text-decoration:none;font-weight:bold;">Reset Password</a></p>
+<p>The BTS Team</p>
+</td></tr>
+<tr><td style="background:#f8f8f8;padding:20px;text-align:center;font-size:12px;color:#999;">
+<p style="margin:0;">&copy; {{current_year}} Build Test Scale. All rights reserved.</p>
+</td></tr>
+</table>
+</td></tr>
+</table>
+</body>
+</html>`,
+      textBody: "Hi {{member_name}},\n\nYour account has been temporarily locked due to failed login attempts. It will unlock in 15 minutes. Reset password: {{portal_url}}/forgot-password\n\nThe BTS Team",
+    },
+  ],
+  password_changed: [
+    {
+      name: "Password Changed",
+      subject: "Your password has been changed",
+      htmlBody: `<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Password Changed</title></head>
+<body style="margin:0;padding:0;background:#f5f5f5;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
+<table width="100%" cellpadding="0" cellspacing="0" style="background:#f5f5f5;padding:40px 20px;">
+<tr><td align="center">
+<table width="600" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:8px;overflow:hidden;">
+<tr><td style="background:#1a1a2e;padding:30px;text-align:center;">
+<h1 style="color:#ffffff;margin:0;font-size:24px;">Build Test Scale</h1>
+</td></tr>
+<tr><td style="padding:30px;">
+
+<h2 style="color:#1a1a2e;margin-top:0;">Password Changed Successfully</h2>
+<p>Hi {{member_name}},</p>
+<p>Your password has been successfully changed. All existing sessions have been logged out for security.</p>
+<p>If you didn't make this change, please contact us immediately at {{support_email}}.</p>
+<p>The BTS Team</p>
+</td></tr>
+<tr><td style="background:#f8f8f8;padding:20px;text-align:center;font-size:12px;color:#999;">
+<p style="margin:0;">&copy; {{current_year}} Build Test Scale. All rights reserved.</p>
+</td></tr>
+</table>
+</td></tr>
+</table>
+</body>
+</html>`,
+      textBody: "Hi {{member_name}},\n\nYour password has been changed. If you didn't do this, contact {{support_email}} immediately.\n\nThe BTS Team",
+    },
+  ],
+  tier_upgrade: [
+    {
+      name: "Tier Upgrade Confirmation",
+      subject: "Welcome to {{product_name}} \u2014 you've been upgraded!",
+      htmlBody: `<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Tier Upgrade</title></head>
+<body style="margin:0;padding:0;background:#f5f5f5;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
+<table width="100%" cellpadding="0" cellspacing="0" style="background:#f5f5f5;padding:40px 20px;">
+<tr><td align="center">
+<table width="600" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:8px;overflow:hidden;">
+<tr><td style="background:#1a1a2e;padding:30px;text-align:center;">
+<h1 style="color:#ffffff;margin:0;font-size:24px;">Build Test Scale</h1>
+</td></tr>
+<tr><td style="padding:30px;">
+
+<h2 style="color:#16a34a;margin-top:0;">You've Been Upgraded!</h2>
+<p>Hi {{member_name}},</p>
+<p>Congratulations! Your access has been upgraded to <strong>{{product_name}}</strong>.</p>
+<p>You now have access to additional training, coaching, and tools. Log in to explore everything that's new.</p>
+<p><a href="{{portal_url}}/dashboard" style="display:inline-block;background:#4f46e5;color:#ffffff;padding:12px 24px;border-radius:6px;text-decoration:none;font-weight:bold;">Explore Your New Access</a></p>
+<p>The BTS Team</p>
+</td></tr>
+<tr><td style="background:#f8f8f8;padding:20px;text-align:center;font-size:12px;color:#999;">
+<p style="margin:0;">&copy; {{current_year}} Build Test Scale. All rights reserved.</p>
+</td></tr>
+</table>
+</td></tr>
+</table>
+</body>
+</html>`,
+      textBody: "Hi {{member_name}},\n\nYou've been upgraded to {{product_name}}! Log in at {{portal_url}}/dashboard to explore.\n\nThe BTS Team",
+    },
+  ],
+  role_changed: [
+    {
+      name: "Admin Role Changed",
+      subject: "Your Build Test Scale role is now {{new_role_label}}",
+      htmlBody: `<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Role Changed</title></head>
+<body style="margin:0;padding:0;background:#f5f5f5;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
+<table width="100%" cellpadding="0" cellspacing="0" style="background:#f5f5f5;padding:40px 20px;">
+<tr><td align="center">
+<table width="600" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:8px;overflow:hidden;">
+<tr><td style="background:#1a1a2e;padding:30px;text-align:center;">
+<h1 style="color:#ffffff;margin:0;font-size:24px;">Build Test Scale</h1>
+</td></tr>
+<tr><td style="padding:30px;">
+
+<h2 style="color:#1a1a2e;margin-top:0;">Your role was updated</h2>
+<p>Hi {{member_name}},</p>
+<p>{{actor_name}} just updated your access on Build Test Scale.</p>
+<p style="background:#f0f0ff;padding:15px;border-radius:6px;">
+<strong>Previous role:</strong> {{previous_role_label}}<br>
+<strong>New role:</strong> {{new_role_label}}
+</p>
+<p>This change takes effect the next time you sign in. You may notice that some admin tools you used before are no longer visible, or that new ones have appeared.</p>
+<p><a href="{{portal_url}}/dashboard" style="display:inline-block;background:#4f46e5;color:#ffffff;padding:12px 24px;border-radius:6px;text-decoration:none;font-weight:bold;">Open Your Dashboard</a></p>
+<p style="margin-top:24px;padding:12px 16px;background:#fef2f2;border-left:4px solid #dc2626;color:#991b1b;">If you weren't expecting this change, please reach out to <a href="mailto:{{support_email}}" style="color:#1a56db;">{{support_email}}</a>.</p>
+<p>Thanks,<br>The BTS Team</p>
+</td></tr>
+<tr><td style="background:#f8f8f8;padding:20px;text-align:center;font-size:12px;color:#999;">
+<p style="margin:0;">&copy; {{current_year}} Build Test Scale. All rights reserved.</p>
+</td></tr>
+</table>
+</td></tr>
+</table>
+</body>
+</html>`,
+      textBody: "Hi {{member_name}},\n\n{{actor_name}} just updated your access on Build Test Scale.\n\nPrevious role: {{previous_role_label}}\nNew role: {{new_role_label}}\n\nThis change takes effect the next time you sign in. Open your dashboard at {{portal_url}}/dashboard.\n\nIf you weren't expecting this change, contact {{support_email}}.\n\nThe BTS Team",
+    },
+  ],
+  concierge_task_created: [
+    {
+      name: "Concierge Task Submitted",
+      subject: "Your Concierge task {{ticket_number}} has been received",
+      htmlBody: `<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Concierge Task Received</title></head>
+<body style="margin:0;padding:0;background:#f5f5f5;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
+<table width="100%" cellpadding="0" cellspacing="0" style="background:#f5f5f5;padding:40px 20px;">
+<tr><td align="center">
+<table width="600" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:8px;overflow:hidden;">
+<tr><td style="background:#1a1a2e;padding:30px;text-align:center;">
+<h1 style="color:#ffffff;margin:0;font-size:24px;">Build Test Scale</h1>
+</td></tr>
+<tr><td style="padding:30px;">
+
+<h2 style="color:#1a1a2e;margin-top:0;">Concierge Task Received</h2>
+<p>Hi {{member_name}},</p>
+<p>Your BTS Concierge task has been received and logged under reference <strong>{{ticket_number}}</strong>.</p>
+<p style="background:#f0f0ff;padding:15px;border-radius:6px;">
+<strong>Task:</strong> {{task_subject}}<br>
+<strong>Reference:</strong> {{ticket_number}}
+</p>
+<p>Our Concierge team typically turns tasks around within <strong>24–72 hours</strong>. We'll reach out if we need any additional information.</p>
+<p><a href="{{portal_url}}/support" style="display:inline-block;background:#4f46e5;color:#ffffff;padding:12px 24px;border-radius:6px;text-decoration:none;font-weight:bold;">View Your Submission</a></p>
+<p>Thank you for using the BTS Concierge!<br>The BTS Team</p>
+</td></tr>
+<tr><td style="background:#f8f8f8;padding:20px;text-align:center;font-size:12px;color:#999;">
+<p style="margin:0;">&copy; {{current_year}} Build Test Scale. All rights reserved.</p>
+</td></tr>
+</table>
+</td></tr>
+</table>
+</body>
+</html>`,
+      textBody: "Hi {{member_name}},\n\nYour BTS Concierge task has been received.\n\nTask: {{task_subject}}\nReference: {{ticket_number}}\n\nOur team will turn this around within 24-72 hours.\n\nView it at {{portal_url}}/support\n\nThe BTS Team",
+    },
+  ],
+  compliance_review_created: [
+    {
+      name: "Compliance Review Submitted",
+      subject: "Your compliance review {{ticket_number}} has been received",
+      htmlBody: `<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Compliance Review Received</title></head>
+<body style="margin:0;padding:0;background:#f5f5f5;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
+<table width="100%" cellpadding="0" cellspacing="0" style="background:#f5f5f5;padding:40px 20px;">
+<tr><td align="center">
+<table width="600" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:8px;overflow:hidden;">
+<tr><td style="background:#1a1a2e;padding:30px;text-align:center;">
+<h1 style="color:#ffffff;margin:0;font-size:24px;">Build Test Scale</h1>
+</td></tr>
+<tr><td style="padding:30px;">
+
+<h2 style="color:#1a1a2e;margin-top:0;">Compliance Review Received</h2>
+<p>Hi {{member_name}},</p>
+<p>Your compliance review submission has been received and logged under reference <strong>{{ticket_number}}</strong>.</p>
+<p style="background:#f0f0ff;padding:15px;border-radius:6px;">
+<strong>Offer:</strong> {{task_subject}}<br>
+<strong>Reference:</strong> {{ticket_number}}
+</p>
+<p>Our compliance team will review your creative within <strong>24 hours</strong>. Please do <strong>not</strong> run the creative on any traffic source until you have received our approval.</p>
+<p><a href="{{portal_url}}/support" style="display:inline-block;background:#4f46e5;color:#ffffff;padding:12px 24px;border-radius:6px;text-decoration:none;font-weight:bold;">View Your Submission</a></p>
+<p>Thank you,<br>The BTS Team</p>
+</td></tr>
+<tr><td style="background:#f8f8f8;padding:20px;text-align:center;font-size:12px;color:#999;">
+<p style="margin:0;">&copy; {{current_year}} Build Test Scale. All rights reserved.</p>
+</td></tr>
+</table>
+</td></tr>
+</table>
+</body>
+</html>`,
+      textBody: "Hi {{member_name}},\n\nYour compliance review has been received.\n\nOffer: {{task_subject}}\nReference: {{ticket_number}}\n\nOur team will review within 24 hours. Do NOT run the creative until you receive approval.\n\nView it at {{portal_url}}/support\n\nThe BTS Team",
+    },
+  ],
+  onboarding_day1: [
+    {
+      name: "Onboarding Day 1 \u2014 Getting Started",
+      subject: "Your first step inside Build Test Scale",
+      htmlBody: `<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Getting Started</title></head>
+<body style="margin:0;padding:0;background:#f5f5f5;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
+<table width="100%" cellpadding="0" cellspacing="0" style="background:#f5f5f5;padding:40px 20px;">
+<tr><td align="center">
+<table width="600" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:8px;overflow:hidden;">
+<tr><td style="background:#1a1a2e;padding:30px;text-align:center;">
+<h1 style="color:#ffffff;margin:0;font-size:24px;">Build Test Scale</h1>
+</td></tr>
+<tr><td style="padding:30px;">
+
+<h2 style="color:#1a1a2e;margin-top:0;">Let's Get You Started</h2>
+<p>Hi {{member_name}},</p>
+<p>Welcome to Day 1! Here's the fastest way to get value from your BTS membership:</p>
+<ol>
+<li>Complete your profile and onboarding</li>
+<li>Watch the first lesson in your training track</li>
+<li>Check out the upcoming coaching calls</li>
+</ol>
+<p><a href="{{portal_url}}/dashboard" style="display:inline-block;background:#4f46e5;color:#ffffff;padding:12px 24px;border-radius:6px;text-decoration:none;font-weight:bold;">Start Now</a></p>
+<p>The BTS Team</p>
+</td></tr>
+<tr><td style="background:#f8f8f8;padding:20px;text-align:center;font-size:12px;color:#999;">
+<p style="margin:0;">&copy; {{current_year}} Build Test Scale. All rights reserved.</p>
+</td></tr>
+</table>
+</td></tr>
+</table>
+</body>
+</html>`,
+      textBody: "Hi {{member_name}},\n\nWelcome to Day 1! Get started:\n1. Complete your profile\n2. Watch your first lesson\n3. Check coaching calls\n\nStart at {{portal_url}}/dashboard\n\nThe BTS Team",
+    },
+  ],
+  onboarding_day3: [
+    {
+      name: "Onboarding Day 3 \u2014 First Lesson Nudge",
+      subject: "Have you started your first lesson yet?",
+      htmlBody: `<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>First Lesson</title></head>
+<body style="margin:0;padding:0;background:#f5f5f5;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
+<table width="100%" cellpadding="0" cellspacing="0" style="background:#f5f5f5;padding:40px 20px;">
+<tr><td align="center">
+<table width="600" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:8px;overflow:hidden;">
+<tr><td style="background:#1a1a2e;padding:30px;text-align:center;">
+<h1 style="color:#ffffff;margin:0;font-size:24px;">Build Test Scale</h1>
+</td></tr>
+<tr><td style="padding:30px;">
+
+<h2 style="color:#1a1a2e;margin-top:0;">Time to Dive In</h2>
+<p>Hi {{member_name}},</p>
+<p>It's been a few days since you joined. The members who see results fastest are the ones who start their training right away.</p>
+<p>Your first lesson is waiting — it only takes 15 minutes.</p>
+<p><a href="{{portal_url}}/training" style="display:inline-block;background:#4f46e5;color:#ffffff;padding:12px 24px;border-radius:6px;text-decoration:none;font-weight:bold;">Start Your First Lesson</a></p>
+<p>The BTS Team</p>
+</td></tr>
+<tr><td style="background:#f8f8f8;padding:20px;text-align:center;font-size:12px;color:#999;">
+<p style="margin:0;">&copy; {{current_year}} Build Test Scale. All rights reserved.</p>
+</td></tr>
+</table>
+</td></tr>
+</table>
+</body>
+</html>`,
+      textBody: "Hi {{member_name}},\n\nHave you started your first lesson? It only takes 15 minutes. Start at {{portal_url}}/training\n\nThe BTS Team",
+    },
+  ],
+  onboarding_day7: [
+    {
+      name: "Onboarding Day 7 \u2014 Week 1 Recap",
+      subject: "Your first week at BTS \u2014 here's what's next",
+      htmlBody: `<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Week 1 Recap</title></head>
+<body style="margin:0;padding:0;background:#f5f5f5;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
+<table width="100%" cellpadding="0" cellspacing="0" style="background:#f5f5f5;padding:40px 20px;">
+<tr><td align="center">
+<table width="600" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:8px;overflow:hidden;">
+<tr><td style="background:#1a1a2e;padding:30px;text-align:center;">
+<h1 style="color:#ffffff;margin:0;font-size:24px;">Build Test Scale</h1>
+</td></tr>
+<tr><td style="padding:30px;">
+
+<h2 style="color:#1a1a2e;margin-top:0;">Your First Week Recap</h2>
+<p>Hi {{member_name}},</p>
+<p>You've been a BTS member for a week now. Here's what you should focus on next:</p>
+<ul>
+<li>Continue working through your training track</li>
+<li>Join a live coaching call this week</li>
+<li>Ask questions in the community</li>
+</ul>
+<p><a href="{{portal_url}}/dashboard" style="display:inline-block;background:#4f46e5;color:#ffffff;padding:12px 24px;border-radius:6px;text-decoration:none;font-weight:bold;">Check Your Progress</a></p>
+<p>The BTS Team</p>
+</td></tr>
+<tr><td style="background:#f8f8f8;padding:20px;text-align:center;font-size:12px;color:#999;">
+<p style="margin:0;">&copy; {{current_year}} Build Test Scale. All rights reserved.</p>
+</td></tr>
+</table>
+</td></tr>
+</table>
+</body>
+</html>`,
+      textBody: "Hi {{member_name}},\n\nYour first week recap. Next steps: continue training, join a coaching call, engage with community.\n\n{{portal_url}}/dashboard\n\nThe BTS Team",
+    },
+  ],
+  coaching_reminder: [
+    {
+      name: "Coaching Call Reminder",
+      subject: "Live coaching call tomorrow: {{call_title}}",
+      htmlBody: `<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Coaching Reminder</title></head>
+<body style="margin:0;padding:0;background:#f5f5f5;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
+<table width="100%" cellpadding="0" cellspacing="0" style="background:#f5f5f5;padding:40px 20px;">
+<tr><td align="center">
+<table width="600" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:8px;overflow:hidden;">
+<tr><td style="background:#1a1a2e;padding:30px;text-align:center;">
+<h1 style="color:#ffffff;margin:0;font-size:24px;">Build Test Scale</h1>
+</td></tr>
+<tr><td style="padding:30px;">
+
+<h2 style="color:#1a1a2e;margin-top:0;">Coaching Call Tomorrow</h2>
+<p>Hi {{member_name}},</p>
+<p>Don't forget — there's a live coaching call happening tomorrow:</p>
+<p style="background:#f0f0ff;padding:15px;border-radius:6px;"><strong>{{call_title}}</strong><br>{{call_date}} at {{call_time}}</p>
+<p><a href="{{portal_url}}/coaching" style="display:inline-block;background:#4f46e5;color:#ffffff;padding:12px 24px;border-radius:6px;text-decoration:none;font-weight:bold;">View Details</a></p>
+<p>The BTS Team</p>
+</td></tr>
+<tr><td style="background:#f8f8f8;padding:20px;text-align:center;font-size:12px;color:#999;">
+<p style="margin:0;">&copy; {{current_year}} Build Test Scale. All rights reserved.</p>
+</td></tr>
+</table>
+</td></tr>
+</table>
+</body>
+</html>`,
+      textBody: "Hi {{member_name}},\n\nCoaching call tomorrow: {{call_title}} at {{call_time}}.\n\nDetails: {{portal_url}}/coaching\n\nThe BTS Team",
+    },
+  ],
+  session_feedback: [
+    {
+      name: "Session Feedback Prompt",
+      subject: "How was {{call_title}}? We'd love your feedback",
+      htmlBody: `<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Session Feedback</title></head>
+<body style="margin:0;padding:0;background:#f5f5f5;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
+<table width="100%" cellpadding="0" cellspacing="0" style="background:#f5f5f5;padding:40px 20px;">
+<tr><td align="center">
+<table width="600" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:8px;overflow:hidden;">
+<tr><td style="background:#1a1a2e;padding:30px;text-align:center;">
+<h1 style="color:#ffffff;margin:0;font-size:24px;">Build Test Scale</h1>
+</td></tr>
+<tr><td style="padding:30px;">
+
+<h2 style="color:#1a1a2e;margin-top:0;">How Was Your Session?</h2>
+<p>Hi {{member_name}},</p>
+<p>Thanks for being part of <strong>{{call_title}}</strong>. We'd love to hear how it went — your feedback helps us make every coaching session better.</p>
+<p>It only takes a minute, and the recording is also available if you'd like to revisit anything.</p>
+<p><a href="{{portal_url}}/coaching" style="display:inline-block;background:#4f46e5;color:#ffffff;padding:12px 24px;border-radius:6px;text-decoration:none;font-weight:bold;">Share Your Feedback</a></p>
+<p>The BTS Team</p>
+</td></tr>
+<tr><td style="background:#f8f8f8;padding:20px;text-align:center;font-size:12px;color:#999;">
+<p style="margin:0;">&copy; {{current_year}} Build Test Scale. All rights reserved.</p>
+</td></tr>
+</table>
+</td></tr>
+</table>
+</body>
+</html>`,
+      textBody: "Hi {{member_name}},\n\nThanks for being part of {{call_title}}. We'd love your feedback \u2014 it helps us make every coaching session better. The recording is also available if you'd like to revisit anything.\n\nShare your feedback: {{portal_url}}/coaching\n\nThe BTS Team",
+    },
+  ],
+  session_recording_ready: [
+    {
+      name: "Private Coaching Session Recording Ready",
+      subject: "Your Private Coaching recording is ready",
+      htmlBody: `<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Recording Ready</title></head>
+<body style="margin:0;padding:0;background:#f5f5f5;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
+<table width="100%" cellpadding="0" cellspacing="0" style="background:#f5f5f5;padding:40px 20px;">
+<tr><td align="center">
+<table width="600" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:8px;overflow:hidden;">
+<tr><td style="background:#1a1a2e;padding:30px;text-align:center;">
+<h1 style="color:#ffffff;margin:0;font-size:24px;">Build Test Scale</h1>
+</td></tr>
+<tr><td style="padding:30px;">
+
+<h2 style="color:#1a1a2e;margin-top:0;">Your Recording Is Ready</h2>
+<p>Hi {{member_name}},</p>
+<p>The recording from your recent Private Coaching session is now available. Want to revisit something? You can watch it any time.</p>
+<p><a href="{{portal_url}}{{recording_path}}" style="display:inline-block;background:#4f46e5;color:#ffffff;padding:12px 24px;border-radius:6px;text-decoration:none;font-weight:bold;">Watch the Recording</a></p>
+<p>The BTS Team</p>
+</td></tr>
+<tr><td style="background:#f8f8f8;padding:20px;text-align:center;font-size:12px;color:#999;">
+<p style="margin:0;">&copy; {{current_year}} Build Test Scale. All rights reserved.</p>
+</td></tr>
+</table>
+</td></tr>
+</table>
+</body>
+</html>`,
+      textBody: "Hi {{member_name}},\n\nThe recording from your recent Private Coaching session is now available. Watch it any time: {{portal_url}}{{recording_path}}\n\nThe BTS Team",
+    },
+  ],
+  new_content_alert: [
+    {
+      name: "New Content Available",
+      subject: "New content just dropped: {{content_title}}",
+      htmlBody: `<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>New Content</title></head>
+<body style="margin:0;padding:0;background:#f5f5f5;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
+<table width="100%" cellpadding="0" cellspacing="0" style="background:#f5f5f5;padding:40px 20px;">
+<tr><td align="center">
+<table width="600" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:8px;overflow:hidden;">
+<tr><td style="background:#1a1a2e;padding:30px;text-align:center;">
+<h1 style="color:#ffffff;margin:0;font-size:24px;">Build Test Scale</h1>
+</td></tr>
+<tr><td style="padding:30px;">
+
+<h2 style="color:#1a1a2e;margin-top:0;">New Content Available!</h2>
+<p>Hi {{member_name}},</p>
+<p>We just published new content that's available to you:</p>
+<p style="background:#f0f0ff;padding:15px;border-radius:6px;"><strong>{{content_title}}</strong><br>{{content_description}}</p>
+<p><a href="{{portal_url}}/training" style="display:inline-block;background:#4f46e5;color:#ffffff;padding:12px 24px;border-radius:6px;text-decoration:none;font-weight:bold;">Check It Out</a></p>
+<p>The BTS Team</p>
+</td></tr>
+<tr><td style="background:#f8f8f8;padding:20px;text-align:center;font-size:12px;color:#999;">
+<p style="margin:0;">&copy; {{current_year}} Build Test Scale. All rights reserved.</p>
+</td></tr>
+</table>
+</td></tr>
+</table>
+</body>
+</html>`,
+      textBody: "Hi {{member_name}},\n\nNew content: {{content_title}} \u2014 {{content_description}}\n\nView at {{portal_url}}/training\n\nThe BTS Team",
+    },
+  ],
+  streak_milestone: [
+    {
+      name: "Streak Milestone",
+      subject: "You're on a {{streak_count}}-day streak! Keep it up!",
+      htmlBody: `<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Streak Milestone</title></head>
+<body style="margin:0;padding:0;background:#f5f5f5;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
+<table width="100%" cellpadding="0" cellspacing="0" style="background:#f5f5f5;padding:40px 20px;">
+<tr><td align="center">
+<table width="600" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:8px;overflow:hidden;">
+<tr><td style="background:#1a1a2e;padding:30px;text-align:center;">
+<h1 style="color:#ffffff;margin:0;font-size:24px;">Build Test Scale</h1>
+</td></tr>
+<tr><td style="padding:30px;">
+
+<h2 style="color:#16a34a;margin-top:0;">{{streak_count}}-Day Streak!</h2>
+<p>Hi {{member_name}},</p>
+<p>You've been consistently learning for <strong>{{streak_count}} days</strong> straight. That's the kind of consistency that builds real results.</p>
+<p>Keep it going — momentum is everything in this business.</p>
+<p><a href="{{portal_url}}/training" style="display:inline-block;background:#4f46e5;color:#ffffff;padding:12px 24px;border-radius:6px;text-decoration:none;font-weight:bold;">Continue Learning</a></p>
+<p>The BTS Team</p>
+</td></tr>
+<tr><td style="background:#f8f8f8;padding:20px;text-align:center;font-size:12px;color:#999;">
+<p style="margin:0;">&copy; {{current_year}} Build Test Scale. All rights reserved.</p>
+</td></tr>
+</table>
+</td></tr>
+</table>
+</body>
+</html>`,
+      textBody: "Hi {{member_name}},\n\nYou're on a {{streak_count}}-day streak! Keep it going at {{portal_url}}/training\n\nThe BTS Team",
+    },
+  ],
+  win_of_the_week: [
+    {
+      name: "Win of the Week",
+      subject: "This week's biggest wins from the BTS community",
+      htmlBody: `<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Win of the Week</title></head>
+<body style="margin:0;padding:0;background:#f5f5f5;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
+<table width="100%" cellpadding="0" cellspacing="0" style="background:#f5f5f5;padding:40px 20px;">
+<tr><td align="center">
+<table width="600" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:8px;overflow:hidden;">
+<tr><td style="background:#1a1a2e;padding:30px;text-align:center;">
+<h1 style="color:#ffffff;margin:0;font-size:24px;">Build Test Scale</h1>
+</td></tr>
+<tr><td style="padding:30px;">
+
+<h2 style="color:#1a1a2e;margin-top:0;">This Week's Wins</h2>
+<p>Hi {{member_name}},</p>
+<p>Check out what members accomplished this week:</p>
+<p>{{wins_content}}</p>
+<p>Your win could be featured next! Keep pushing forward.</p>
+<p><a href="{{portal_url}}/dashboard" style="display:inline-block;background:#4f46e5;color:#ffffff;padding:12px 24px;border-radius:6px;text-decoration:none;font-weight:bold;">Back to Your Dashboard</a></p>
+<p>The BTS Team</p>
+</td></tr>
+<tr><td style="background:#f8f8f8;padding:20px;text-align:center;font-size:12px;color:#999;">
+<p style="margin:0;">&copy; {{current_year}} Build Test Scale. All rights reserved.</p>
+</td></tr>
+</table>
+</td></tr>
+</table>
+</body>
+</html>`,
+      textBody: "Hi {{member_name}},\n\nThis week's wins:\n{{wins_content}}\n\nYour win could be next!\n\nThe BTS Team",
+    },
+  ],
+  monthly_progress: [
+    {
+      name: "Monthly Progress Report",
+      subject: "Your monthly progress report is ready",
+      htmlBody: `<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Monthly Progress</title></head>
+<body style="margin:0;padding:0;background:#f5f5f5;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
+<table width="100%" cellpadding="0" cellspacing="0" style="background:#f5f5f5;padding:40px 20px;">
+<tr><td align="center">
+<table width="600" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:8px;overflow:hidden;">
+<tr><td style="background:#1a1a2e;padding:30px;text-align:center;">
+<h1 style="color:#ffffff;margin:0;font-size:24px;">Build Test Scale</h1>
+</td></tr>
+<tr><td style="padding:30px;">
+
+<h2 style="color:#1a1a2e;margin-top:0;">Your Monthly Progress</h2>
+<p>Hi {{member_name}},</p>
+<p>Here's your progress for {{month_name}}:</p>
+<ul>
+<li>Lessons completed: {{lessons_completed}}</li>
+<li>Coaching calls attended: {{calls_attended}}</li>
+<li>Current streak: {{streak_count}} days</li>
+</ul>
+<p><a href="{{portal_url}}/dashboard" style="display:inline-block;background:#4f46e5;color:#ffffff;padding:12px 24px;border-radius:6px;text-decoration:none;font-weight:bold;">View Full Dashboard</a></p>
+<p>The BTS Team</p>
+</td></tr>
+<tr><td style="background:#f8f8f8;padding:20px;text-align:center;font-size:12px;color:#999;">
+<p style="margin:0;">&copy; {{current_year}} Build Test Scale. All rights reserved.</p>
+</td></tr>
+</table>
+</td></tr>
+</table>
+</body>
+</html>`,
+      textBody: "Hi {{member_name}},\n\nYour {{month_name}} progress: {{lessons_completed}} lessons, {{calls_attended}} calls, {{streak_count}}-day streak.\n\nThe BTS Team",
+    },
+  ],
+  upgrade_offer: [
+    {
+      name: "Upgrade Offer",
+      subject: "Ready for the next level? Upgrade to {{upgrade_product}}",
+      htmlBody: `<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Upgrade Offer</title></head>
+<body style="margin:0;padding:0;background:#f5f5f5;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
+<table width="100%" cellpadding="0" cellspacing="0" style="background:#f5f5f5;padding:40px 20px;">
+<tr><td align="center">
+<table width="600" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:8px;overflow:hidden;">
+<tr><td style="background:#1a1a2e;padding:30px;text-align:center;">
+<h1 style="color:#ffffff;margin:0;font-size:24px;">Build Test Scale</h1>
+</td></tr>
+<tr><td style="padding:30px;">
+
+<h2 style="color:#1a1a2e;margin-top:0;">Ready to Level Up?</h2>
+<p>Hi {{member_name}},</p>
+<p>You've been crushing it with your current access. Want to unlock even more?</p>
+<p><strong>{{upgrade_product}}</strong> gives you:</p>
+<ul>
+<li>Advanced training modules</li>
+<li>Live coaching calls</li>
+<li>Community access</li>
+<li>And much more</li>
+</ul>
+<p><a href="{{portal_url}}/upgrade" style="display:inline-block;background:#4f46e5;color:#ffffff;padding:12px 24px;border-radius:6px;text-decoration:none;font-weight:bold;">See Upgrade Options</a></p>
+<p>The BTS Team</p>
+</td></tr>
+<tr><td style="background:#f8f8f8;padding:20px;text-align:center;font-size:12px;color:#999;">
+<p style="margin:0;">&copy; {{current_year}} Build Test Scale. All rights reserved.</p>
+</td></tr>
+</table>
+</td></tr>
+</table>
+</body>
+</html>`,
+      textBody: "Hi {{member_name}},\n\nReady for the next level? Upgrade to {{upgrade_product}} for advanced training, coaching, and more.\n\n{{portal_url}}/upgrade\n\nThe BTS Team",
+    },
+  ],
+  re_engagement: [
+    {
+      name: "Re-engagement \u2014 We Miss You",
+      subject: "We miss you, {{member_name}}!",
+      htmlBody: `<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>We Miss You</title></head>
+<body style="margin:0;padding:0;background:#f5f5f5;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
+<table width="100%" cellpadding="0" cellspacing="0" style="background:#f5f5f5;padding:40px 20px;">
+<tr><td align="center">
+<table width="600" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:8px;overflow:hidden;">
+<tr><td style="background:#1a1a2e;padding:30px;text-align:center;">
+<h1 style="color:#ffffff;margin:0;font-size:24px;">Build Test Scale</h1>
+</td></tr>
+<tr><td style="padding:30px;">
+
+<h2 style="color:#1a1a2e;margin-top:0;">We Miss You!</h2>
+<p>Hi {{member_name}},</p>
+<p>It's been a while since you logged in. Your training is waiting, and new content has been added since your last visit.</p>
+<p>Jump back in — even 15 minutes a day can make a difference.</p>
+<p><a href="{{portal_url}}/dashboard" style="display:inline-block;background:#4f46e5;color:#ffffff;padding:12px 24px;border-radius:6px;text-decoration:none;font-weight:bold;">Get Back to Learning</a></p>
+<p>The BTS Team</p>
+</td></tr>
+<tr><td style="background:#f8f8f8;padding:20px;text-align:center;font-size:12px;color:#999;">
+<p style="margin:0;">&copy; {{current_year}} Build Test Scale. All rights reserved.</p>
+</td></tr>
+</table>
+</td></tr>
+</table>
+</body>
+</html>`,
+      textBody: "Hi {{member_name}},\n\nWe miss you! New content has been added. Jump back in at {{portal_url}}/dashboard\n\nThe BTS Team",
+    },
+  ],
+  community_announcement: [
+    {
+      name: "Community Announcement",
+      subject: "{{announcement_title}}",
+      htmlBody: `<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Announcement</title></head>
+<body style="margin:0;padding:0;background:#f5f5f5;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
+<table width="100%" cellpadding="0" cellspacing="0" style="background:#f5f5f5;padding:40px 20px;">
+<tr><td align="center">
+<table width="600" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:8px;overflow:hidden;">
+<tr><td style="background:#1a1a2e;padding:30px;text-align:center;">
+<h1 style="color:#ffffff;margin:0;font-size:24px;">Build Test Scale</h1>
+</td></tr>
+<tr><td style="padding:30px;">
+
+<h2 style="color:#1a1a2e;margin-top:0;">{{announcement_title}}</h2>
+<p>Hi {{member_name}},</p>
+<p>{{announcement_body}}</p>
+<p><a href="{{portal_url}}/announcements" style="display:inline-block;background:#4f46e5;color:#ffffff;padding:12px 24px;border-radius:6px;text-decoration:none;font-weight:bold;">Read More</a></p>
+<p>The BTS Team</p>
+</td></tr>
+<tr><td style="background:#f8f8f8;padding:20px;text-align:center;font-size:12px;color:#999;">
+<p style="margin:0;">&copy; {{current_year}} Build Test Scale. All rights reserved.</p>
+</td></tr>
+</table>
+</td></tr>
+</table>
+</body>
+</html>`,
+      textBody: "Hi {{member_name}},\n\n{{announcement_title}}\n\n{{announcement_body}}\n\nRead more at {{portal_url}}/announcements\n\nThe BTS Team",
+    },
+  ],
+  kickoff_call_reminder: [
+    {
+      name: "Kickoff Call Reminder",
+      subject: "Your kickoff call is tomorrow",
+      htmlBody: `<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Kickoff Call Reminder</title></head>
+<body style="margin:0;padding:0;background:#f5f5f5;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
+<table width="100%" cellpadding="0" cellspacing="0" style="background:#f5f5f5;padding:40px 20px;">
+<tr><td align="center">
+<table width="600" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:8px;overflow:hidden;">
+<tr><td style="background:#1a1a2e;padding:30px;text-align:center;">
+<h1 style="color:#ffffff;margin:0;font-size:24px;">Build Test Scale</h1>
+</td></tr>
+<tr><td style="padding:30px;">
+
+<h2 style="color:#1a1a2e;margin-top:0;">Your Kickoff Call Is Tomorrow</h2>
+<p>Hi {{member_name}},</p>
+<p>Don't forget — your kickoff call with {{staff_name}} is coming up:</p>
+<p style="background:#f0f0ff;padding:15px;border-radius:6px;"><strong>{{call_date}} at {{call_time}}</strong></p>
+<p><a href="{{portal_url}}/onboarding" style="display:inline-block;background:#4f46e5;color:#ffffff;padding:12px 24px;border-radius:6px;text-decoration:none;font-weight:bold;">View Details</a></p>
+<p>The BTS Team</p>
+</td></tr>
+<tr><td style="background:#f8f8f8;padding:20px;text-align:center;font-size:12px;color:#999;">
+<p style="margin:0;">&copy; {{current_year}} Build Test Scale. All rights reserved.</p>
+</td></tr>
+</table>
+</td></tr>
+</table>
+</body>
+</html>`,
+      textBody: "Hi {{member_name}},\n\nYour kickoff call with {{staff_name}} is tomorrow: {{call_date}} at {{call_time}}.\n\nDetails: {{portal_url}}/onboarding\n\nThe BTS Team",
+    },
+  ],
+  partner_call_reminder: [
+    {
+      name: "Accountability Partner Call Reminder",
+      subject: "Your accountability partner call is tomorrow",
+      htmlBody: `<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Partner Call Reminder</title></head>
+<body style="margin:0;padding:0;background:#f5f5f5;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
+<table width="100%" cellpadding="0" cellspacing="0" style="background:#f5f5f5;padding:40px 20px;">
+<tr><td align="center">
+<table width="600" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:8px;overflow:hidden;">
+<tr><td style="background:#1a1a2e;padding:30px;text-align:center;">
+<h1 style="color:#ffffff;margin:0;font-size:24px;">Build Test Scale</h1>
+</td></tr>
+<tr><td style="padding:30px;">
+
+<h2 style="color:#1a1a2e;margin-top:0;">Your Partner Call Is Tomorrow</h2>
+<p>Hi {{member_name}},</p>
+<p>Don't forget — your accountability call with {{staff_name}} is coming up:</p>
+<p style="background:#f0f0ff;padding:15px;border-radius:6px;"><strong>{{call_date}} at {{call_time}}</strong></p>
+<p><a href="{{portal_url}}/accountability-partner" style="display:inline-block;background:#4f46e5;color:#ffffff;padding:12px 24px;border-radius:6px;text-decoration:none;font-weight:bold;">View Details</a></p>
+<p>The BTS Team</p>
+</td></tr>
+<tr><td style="background:#f8f8f8;padding:20px;text-align:center;font-size:12px;color:#999;">
+<p style="margin:0;">&copy; {{current_year}} Build Test Scale. All rights reserved.</p>
+</td></tr>
+</table>
+</td></tr>
+</table>
+</body>
+</html>`,
+      textBody: "Hi {{member_name}},\n\nYour accountability call with {{staff_name}} is tomorrow: {{call_date}} at {{call_time}}.\n\nDetails: {{portal_url}}/accountability-partner\n\nThe BTS Team",
+    },
+  ],
+  event_invitation: [
+    {
+      name: "Event Invitation",
+      subject: "You're invited: {{event_title}}",
+      htmlBody: `<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Event Invitation</title></head>
+<body style="margin:0;padding:0;background:#f5f5f5;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
+<table width="100%" cellpadding="0" cellspacing="0" style="background:#f5f5f5;padding:40px 20px;">
+<tr><td align="center">
+<table width="600" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:8px;overflow:hidden;">
+<tr><td style="background:#1a1a2e;padding:30px;text-align:center;">
+<h1 style="color:#ffffff;margin:0;font-size:24px;">Build Test Scale</h1>
+</td></tr>
+<tr><td style="padding:30px;">
+
+<h2 style="color:#1a1a2e;margin-top:0;">You're Invited!</h2>
+<p>Hi {{member_name}},</p>
+<p>We'd love for you to join us:</p>
+<p style="background:#f0f0ff;padding:15px;border-radius:6px;"><strong>{{event_title}}</strong><br>{{event_date}} at {{event_time}}<br>{{event_description}}</p>
+<p><a href="{{portal_url}}/events" style="display:inline-block;background:#4f46e5;color:#ffffff;padding:12px 24px;border-radius:6px;text-decoration:none;font-weight:bold;">RSVP Now</a></p>
+<p>The BTS Team</p>
+</td></tr>
+<tr><td style="background:#f8f8f8;padding:20px;text-align:center;font-size:12px;color:#999;">
+<p style="margin:0;">&copy; {{current_year}} Build Test Scale. All rights reserved.</p>
+</td></tr>
+</table>
+</td></tr>
+</table>
+</body>
+</html>`,
+      textBody: "Hi {{member_name}},\n\nYou're invited: {{event_title}} on {{event_date}} at {{event_time}}.\n\n{{event_description}}\n\nRSVP at {{portal_url}}/events\n\nThe BTS Team",
+    },
+  ],
+  payment_failed_final: [
+    {
+      name: "Payment Failed \u2014 Access Ended",
+      subject: "Your access to {{product_name}} has ended",
+      htmlBody: `<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Access Ended</title></head>
+<body style="margin:0;padding:0;background:#f5f5f5;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
+<table width="100%" cellpadding="0" cellspacing="0" style="background:#f5f5f5;padding:40px 20px;">
+<tr><td align="center">
+<table width="600" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:8px;overflow:hidden;">
+<tr><td style="background:#1a1a2e;padding:30px;text-align:center;">
+<h1 style="color:#ffffff;margin:0;font-size:24px;">Build Test Scale</h1>
+</td></tr>
+<tr><td style="padding:30px;">
+
+<h2 style="color:#dc2626;margin-top:0;">Access Has Ended</h2>
+<p>Hi {{member_name}},</p>
+<p>We were unable to process your payment for <strong>{{product_name}}</strong> after multiple attempts, and your access has now ended.</p>
+<p>To restore your access, please update your payment information and resubscribe.</p>
+<p><a href="{{portal_url}}/settings/billing" style="display:inline-block;background:#dc2626;color:#ffffff;padding:12px 24px;border-radius:6px;text-decoration:none;font-weight:bold;">Restore Access</a></p>
+<p>If you need help or believe this was an error, contact us at {{support_email}}.</p>
+<p>The BTS Team</p>
+</td></tr>
+<tr><td style="background:#f8f8f8;padding:20px;text-align:center;font-size:12px;color:#999;">
+<p style="margin:0;">&copy; {{current_year}} Build Test Scale. All rights reserved.</p>
+</td></tr>
+</table>
+</td></tr>
+</table>
+</body>
+</html>`,
+      textBody: "Hi {{member_name}},\n\nWe were unable to process your payment for {{product_name}} after multiple attempts. Your access has ended.\n\nTo restore access, update your payment info at {{portal_url}}/settings/billing\n\nContact {{support_email}} with questions.\n\nThe BTS Team",
+    },
   ],
 };
 
-/** Slugs that the seed routine guarantees exist in every deployment. */
+/**
+ * Slugs that the seed routine guarantees exist in every deployment. This was
+ * previously a curated subset; Task #1714 (branded layout redesign) expanded
+ * it to cover EVERY starter slug so the `wrapHtml()` redesign re-skins all
+ * ~46 templates on the next boot, not just this curated list. This is safe:
+ * `ensureRequiredEmailTemplates` never overwrites a row whose content no
+ * longer matches a known starter hash (admin-customized rows), it only
+ * refreshes rows still proven to be untouched starter copy.
+ */
 export const REQUIRED_TEMPLATE_SLUGS = [
-  "email_change_verify",
-  "email_change_notice",
-  "email_change_cancelled_by_admin",
-  "email_change_cancelled_by_admin_pending",
-  "email_change_cancelled_by_member",
-  "email_change_cancelled_by_member_pending",
-  "signup_attempted",
-  "new_device_signin",
-  "role_changed",
-  "ticket_reply",
-  "mentorship_expiring_warning",
-  "mentorship_expiring_urgent",
-  "mentorship_expired",
-  "session_feedback",
-  "session_recording_ready",
-  "concierge_task_created",
-  "compliance_review_created",
-  "payment_failed_final",
-  "kickoff_call_reminder",
-  "partner_call_reminder",
+  ...new Set([
+    "email_change_verify",
+    "email_change_notice",
+    "email_change_cancelled_by_admin",
+    "email_change_cancelled_by_admin_pending",
+    "email_change_cancelled_by_member",
+    "email_change_cancelled_by_member_pending",
+    "signup_attempted",
+    "new_device_signin",
+    "role_changed",
+    "ticket_reply",
+    "mentorship_expiring_warning",
+    "mentorship_expiring_urgent",
+    "mentorship_expired",
+    "session_feedback",
+    "session_recording_ready",
+    "concierge_task_created",
+    "compliance_review_created",
+    "payment_failed_final",
+    "kickoff_call_reminder",
+    "partner_call_reminder",
+    "kickoff_call_confirmation",
+    "kickoff_call_reschedule",
+    "kickoff_call_cancel",
+    "partner_call_confirmation",
+    "partner_call_reschedule",
+    "partner_call_cancel",
+    ...transactionalEmailTemplates.map(t => t.slug),
+    ...marketingEmailTemplates.map(t => t.slug),
+  ]),
 ] as const;
 
 /**

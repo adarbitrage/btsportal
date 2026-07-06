@@ -23,6 +23,7 @@ import { evaluateCommsDedupFailureAlert } from "./comms-dedup-failure-alerter";
 import { CommunicationService } from "./communication-service";
 import { QUEUE_REDIS_OPTIONS, makeThrottledRedisErrorLogger } from "./redis";
 import { formatInMemberTimezone } from "./member-timezone";
+import { renderPersonBlock } from "./seed-templates";
 
 const REDIS_URL = process.env.REDIS_URL || "redis://localhost:6379";
 const QUEUE_NAME = "scheduled-comms";
@@ -256,25 +257,56 @@ export async function processCoachingCallReminders(): Promise<void> {
 // query, and the reminder renders in that member's OWN timezone via
 // `formatInMemberTimezone` (never `CALL_DISPLAY_TIMEZONE`, which stays
 // reserved for the group coaching reminder above).
-async function resolveCallBookingStaffName(
+interface CallBookingStaffInfo {
+  name: string;
+  photoUrl: string | null;
+  bio: string | null;
+}
+
+// Task #1714: enriched to also carry photo/bio so the 24h reminder (and the
+// new booking confirmation/reschedule/cancel emails) can populate the
+// person-block, resolved from the SAME staff source as the name — kickoff ->
+// kickoff-coaches, partner -> partners.
+async function resolveCallBookingStaffInfo(
   staffType: string,
   staffId: number,
-): Promise<string> {
+): Promise<CallBookingStaffInfo> {
   if (staffType === "kickoff_coach") {
     const [row] = await db
-      .select({ name: kickoffCoachesTable.displayName })
+      .select({
+        name: kickoffCoachesTable.displayName,
+        photoUrl: kickoffCoachesTable.photoUrl,
+        bio: kickoffCoachesTable.bio,
+      })
       .from(kickoffCoachesTable)
       .where(eq(kickoffCoachesTable.id, staffId))
       .limit(1);
-    return row?.name ?? "your kickoff coach";
+    return {
+      name: row?.name ?? "your kickoff coach",
+      photoUrl: row?.photoUrl ?? null,
+      bio: row?.bio ?? null,
+    };
   }
   const [row] = await db
-    .select({ name: partnersTable.displayName })
+    .select({
+      name: partnersTable.displayName,
+      photoUrl: partnersTable.photoUrl,
+      bio: partnersTable.bio,
+    })
     .from(partnersTable)
     .where(eq(partnersTable.id, staffId))
     .limit(1);
-  return row?.name ?? "your accountability partner";
+  return {
+    name: row?.name ?? "your accountability partner",
+    photoUrl: row?.photoUrl ?? null,
+    bio: row?.bio ?? null,
+  };
 }
+
+const CALL_TYPE_LABELS: Record<string, string> = {
+  kickoff: "Kickoff Call",
+  partner: "Accountability Partner Call",
+};
 
 function callBookingTemplateSlug(type: string): string {
   return type === "kickoff" ? "kickoff_call_reminder" : "partner_call_reminder";
@@ -327,8 +359,16 @@ export async function processCallBookingReminders(): Promise<void> {
       .limit(1);
     if (!member?.email) continue;
 
-    const staffName = await resolveCallBookingStaffName(booking.staffType, booking.staffId);
+    const staffInfo = await resolveCallBookingStaffInfo(booking.staffType, booking.staffId);
     const { date: callDate, time: callTime } = formatInMemberTimezone(booking.scheduledAt, member.timezone);
+    const callTypeLabel = CALL_TYPE_LABELS[booking.type] ?? "Call";
+    const personBlockHtml = renderPersonBlock({
+      name: staffInfo.name,
+      photoUrl: staffInfo.photoUrl,
+      bio: staffInfo.bio,
+      callTypeLabel,
+      dateTimeLabel: `${callDate} at ${callTime}`,
+    });
 
     try {
       await CommunicationService.queueEmail({
@@ -336,9 +376,10 @@ export async function processCallBookingReminders(): Promise<void> {
         to: member.email,
         variables: {
           member_name: member.name,
-          staff_name: staffName,
+          staff_name: staffInfo.name,
           call_date: callDate,
           call_time: callTime,
+          person_block_html: personBlockHtml,
         },
         userId: member.id,
       });
@@ -397,13 +438,13 @@ export async function processCallBookingReminders(): Promise<void> {
       .limit(1);
     if (fresh?.status !== "booked") continue;
 
-    const staffName = await resolveCallBookingStaffName(booking.staffType, booking.staffId);
+    const staffInfo = await resolveCallBookingStaffInfo(booking.staffType, booking.staffId);
 
     try {
       const outcome = await CommunicationService.queueSms({
         templateSlug: callBookingTemplateSlug(booking.type),
         to: member.phone,
-        variables: { staff_name: staffName },
+        variables: { staff_name: staffInfo.name },
         userId: member.id,
       });
       // CommunicationService/Twilio isn't configured in every environment —
