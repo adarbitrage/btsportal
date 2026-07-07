@@ -577,6 +577,15 @@ export async function classifySegments(segments: Segment[]): Promise<SegmentClas
 }
 
 /**
+ * The recorded drop reason for a fold — the STRUCTURED marker the reviewer
+ * surface keys on (never string-match passage text to detect a fold).
+ */
+export const QA_FOLD_DROP_REASON = "member question folded into the following kept segment as anchor context";
+
+/** The anchor-question slot cap applied when folding (chars). */
+export const QA_FOLD_ANCHOR_MAX_CHARS = 2000;
+
+/**
  * Q/A pairing rule (post-classification): a member-only question segment is
  * NEVER dropped independently of its answer. When the FOLLOWING segment is a
  * kept coach segment, the member question is folded into it as anchor context
@@ -595,13 +604,38 @@ export function applyQaPairing(
     const nextCls = classifications[i + 1];
     if (next.memberOnly || nextCls.disposition !== "keep") continue;
 
-    const question = (seg.anchorQuestion ?? seg.passage.replace(/^Member:\s*/gm, "").trim()).slice(0, 2000);
+    const question = foldQuestionText(seg).slice(0, QA_FOLD_ANCHOR_MAX_CHARS);
     next.anchorQuestion = next.anchorQuestion
-      ? `${question} ${next.anchorQuestion}`.slice(0, 2000)
+      ? `${question} ${next.anchorQuestion}`.slice(0, QA_FOLD_ANCHOR_MAX_CHARS)
       : question;
-    cls.dropReason = "member question folded into the following kept segment as anchor context";
+    cls.dropReason = QA_FOLD_DROP_REASON;
   }
   return { segments, classifications };
+}
+
+/** The member question text a fold carries over (pre-cap). */
+function foldQuestionText(seg: { passage: string; anchorQuestion: string | null }): string {
+  return seg.anchorQuestion ?? seg.passage.replace(/^Member:\s*/gm, "").trim();
+}
+
+/**
+ * Structured fold signals for the reviewer surface, derived from the recorded
+ * fold marker (dropReason) — NOT from string-matching passage text.
+ *  - foldedIntoNext: this dropped row is a Q/A fold; its question lives on in
+ *    the following kept segment's anchor slot (merged, nothing discarded).
+ *  - foldTruncated: the original member text was longer than the anchor-slot
+ *    cap, so the cleaned transcript will NOT carry the full question.
+ */
+export function deriveFoldSignals(e: {
+  dropReason: string | null;
+  passage: string;
+  anchorQuestion: string | null;
+}): { foldedIntoNext: boolean; foldTruncated: boolean } {
+  const foldedIntoNext = e.dropReason === QA_FOLD_DROP_REASON;
+  return {
+    foldedIntoNext,
+    foldTruncated: foldedIntoNext && foldQuestionText(e).length > QA_FOLD_ANCHOR_MAX_CHARS,
+  };
 }
 
 // ── Anomaly signals (audit surface) ─────────────────────────────────────────
@@ -614,8 +648,11 @@ export type AnomalyFlag = (typeof ANOMALY_FLAGS)[number];
 /**
  * Per-screening anomaly signals for the admin audit surface. A screening with
  * an anomalous shape is flagged for attention rather than silently passing:
- *  - oversized_segment: some segment exceeds the max-char cap (the splitter's
- *    safety net failed — usually a format the parser misread);
+ *  - oversized_segment: some segment exceeds ~2x the max-char cap — genuine
+ *    mega-segment / parser-failure territory. Trivial overshoots (a few chars
+ *    past the cap) are harmless: synthesis joins kept segments and reads them
+ *    in its own windows, so size only matters once a single keep/drop verdict
+ *    becomes meaningless;
  *  - low_segment_count: a full-length call yielded implausibly few segments
  *    (the mega-segment signature);
  *  - all_error: every segment errored (e.g. an unresolved token-budget run).
@@ -630,7 +667,7 @@ export function computeAnomalyFlags(sc: {
   dedupStatus?: string;
 }): AnomalyFlag[] {
   const flags: AnomalyFlag[] = [];
-  if (sc.maxSegmentChars > SEGMENT_MAX_CHARS) flags.push("oversized_segment");
+  if (sc.maxSegmentChars > SEGMENT_MAX_CHARS * 2) flags.push("oversized_segment");
   // Expect at least one segment per ~4x the max cap of content; a 50k-char
   // call that yields 2 segments is anomalous. Exact duplicates legitimately
   // have zero segments, so skip the check for them.

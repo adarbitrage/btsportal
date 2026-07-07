@@ -42,3 +42,9 @@ self-reported `error` verdict would let LLM failures masquerade as editorial dro
 **How to apply:** any change to screener classification/rubric/dedup must preserve
 keep-by-default bias and the isolated-per-segment `error` path. Synthesis (#1703) and
 review gate (#1704) own quality + PII; don't push those responsibilities upstream.
+
+## Reviewer fold display + oversized flag (2026-07)
+- Fold-dropped member questions carry an exported structured marker constant as dropReason; the reviewer surface derives `foldedIntoNext`/`foldTruncated` from exact marker match (deriveFoldSignals) — NEVER detect folds by passage string-matching.
+- Anchor cap is 2,000 chars; truncation warning derives from original member text length vs cap.
+- `oversized_segment` anomaly fires only above 2× SEGMENT_MAX_CHARS (trivial overshoots are harmless to synthesis); when it fires, payload lists offending segments with overBy.
+- **How to apply:** if the fold marker string ever changes, keep it exported from the lib and matched exactly in results route + tests in lockstep.

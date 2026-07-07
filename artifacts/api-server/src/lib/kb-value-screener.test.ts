@@ -17,7 +17,10 @@ import {
   parseDialogueTurns,
   splitOversizeText,
   applyQaPairing,
+  deriveFoldSignals,
   computeAnomalyFlags,
+  QA_FOLD_DROP_REASON,
+  QA_FOLD_ANCHOR_MAX_CHARS,
   classifySegments,
   effectiveDisposition,
   detectDuplicate,
@@ -293,6 +296,49 @@ describe("applyQaPairing (orphan member question never dropped alone)", () => {
     expect(segments[1].anchorQuestion).toBeNull();
     expect(classifications[0].dropReason).toBe("logistics");
   });
+
+  it("records the structured fold marker (QA_FOLD_DROP_REASON) verbatim", () => {
+    const segments = [memberSeg(0, "How do I set my daily budget?"), coachSeg(1, "Start at fifty dollars.")];
+    const classifications = [cls("drop", "no coach instruction present"), cls("keep")];
+    applyQaPairing(segments, classifications);
+    expect(classifications[0].dropReason).toBe(QA_FOLD_DROP_REASON);
+  });
+});
+
+describe("deriveFoldSignals (reviewer-surface fold contract)", () => {
+  it("marks a fold-dropped row and detects an untruncated question", () => {
+    const s = deriveFoldSignals({
+      dropReason: QA_FOLD_DROP_REASON,
+      passage: "Member: How do I set my daily budget?",
+      anchorQuestion: "How do I set my daily budget?",
+    });
+    expect(s.foldedIntoNext).toBe(true);
+    expect(s.foldTruncated).toBe(false);
+  });
+
+  it("flags truncation when the original member text exceeds the anchor cap", () => {
+    const long = "x".repeat(QA_FOLD_ANCHOR_MAX_CHARS + 1);
+    const s = deriveFoldSignals({ dropReason: QA_FOLD_DROP_REASON, passage: `Member: ${long}`, anchorQuestion: long });
+    expect(s.foldedIntoNext).toBe(true);
+    expect(s.foldTruncated).toBe(true);
+  });
+
+  it("derives the question from the passage when anchorQuestion is null", () => {
+    const long = "y".repeat(QA_FOLD_ANCHOR_MAX_CHARS + 50);
+    const s = deriveFoldSignals({ dropReason: QA_FOLD_DROP_REASON, passage: `Member: ${long}`, anchorQuestion: null });
+    expect(s.foldTruncated).toBe(true);
+  });
+
+  it("never marks a real drop as a fold (exact marker match, not passage text)", () => {
+    const s = deriveFoldSignals({
+      dropReason: "tech check",
+      passage: "Member: folded into the following kept segment as anchor context",
+      anchorQuestion: null,
+    });
+    expect(s.foldedIntoNext).toBe(false);
+    expect(s.foldTruncated).toBe(false);
+    expect(deriveFoldSignals({ dropReason: null, passage: "Coach: hi", anchorQuestion: null }).foldedIntoNext).toBe(false);
+  });
 });
 
 describe("computeAnomalyFlags", () => {
@@ -309,8 +355,16 @@ describe("computeAnomalyFlags", () => {
     expect(computeAnomalyFlags(base)).toEqual([]);
   });
 
-  it("flags an oversized segment", () => {
-    expect(computeAnomalyFlags({ ...base, maxSegmentChars: SEGMENT_MAX_CHARS + 1 })).toContain("oversized_segment");
+  it("does NOT flag a trivial overshoot of the segment cap", () => {
+    // The Sasha-call case: 5 chars over the cap is harmless to synthesis.
+    expect(computeAnomalyFlags({ ...base, maxSegmentChars: SEGMENT_MAX_CHARS + 5 })).toEqual([]);
+    expect(computeAnomalyFlags({ ...base, maxSegmentChars: SEGMENT_MAX_CHARS * 2 })).toEqual([]);
+  });
+
+  it("flags a genuinely oversized (mega) segment above 2x the cap", () => {
+    expect(computeAnomalyFlags({ ...base, maxSegmentChars: SEGMENT_MAX_CHARS * 2 + 1 })).toContain(
+      "oversized_segment",
+    );
   });
 
   it("flags a full-length call with implausibly few segments", () => {

@@ -9,6 +9,8 @@ import {
   isScreenerRunning,
   effectiveDisposition,
   computeAnomalyFlags,
+  deriveFoldSignals,
+  SEGMENT_MAX_CHARS,
   SCREENER_SOURCE_FOLDERS,
 } from "../../lib/kb-value-screener.js";
 
@@ -158,14 +160,36 @@ router.get("/admin/kb-value-screener/results/:sourceDocId", requirePermission("c
     .where(eq(kbScreenedExchangesTable.screeningId, screening.id))
     .orderBy(kbScreenedExchangesTable.orderIndex);
 
+  const anomalies = computeAnomalyFlags(screening);
+  // When the oversized flag fires, identify WHICH segment(s) tripped it and by
+  // how much, so the admin knows what to look at.
+  const oversizedSegments = anomalies.includes("oversized_segment")
+    ? exchanges
+        .filter((e) => e.passage.length > SEGMENT_MAX_CHARS)
+        .map((e) => ({
+          id: e.id,
+          orderIndex: e.orderIndex,
+          chars: e.passage.length,
+          overBy: e.passage.length - SEGMENT_MAX_CHARS,
+        }))
+    : [];
+
   res.json({
     source,
     screening: {
       ...screening,
       errorCount: errorCountOf(screening),
-      anomalies: computeAnomalyFlags(screening),
+      anomalies,
+      maxSegmentCap: SEGMENT_MAX_CHARS,
+      oversizedSegments,
     },
-    exchanges: exchanges.map((e) => ({ ...e, effectiveDisposition: effectiveDisposition(e) })),
+    exchanges: exchanges.map((e) => ({
+      ...e,
+      effectiveDisposition: effectiveDisposition(e),
+      // Structured fold signal (derived from the recorded fold marker) so the
+      // reviewer UI never string-matches passage text.
+      ...deriveFoldSignals(e),
+    })),
   });
 });
 

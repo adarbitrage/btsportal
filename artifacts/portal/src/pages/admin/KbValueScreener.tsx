@@ -417,10 +417,25 @@ function PreviewDialog({ sourceDocId, onClose }: { sourceDocId: number | null; o
   });
 
   const exchanges = resultsQ.data?.exchanges ?? [];
-  const filtered = useMemo(
-    () => (filter === "all" ? exchanges : exchanges.filter((e) => e.effectiveDisposition === filter)),
-    [exchanges, filter],
-  );
+
+  // A fold-dropped question row (member question merged into the FOLLOWING
+  // kept segment's anchor slot) is NOT a real drop — render it as a collapsed
+  // carry-over note on that kept segment instead of a standalone dropped card.
+  // An overridden fold row (admin gave it a real verdict) surfaces normally.
+  const isCollapsedFold = (e: ScreenedExchange) =>
+    e.foldedIntoNext && e.effectiveDisposition === "drop";
+  const foldsByNextOrder = useMemo(() => {
+    const m = new Map<number, ScreenedExchange>();
+    for (const e of exchanges) if (isCollapsedFold(e)) m.set(e.orderIndex + 1, e);
+    return m;
+  }, [exchanges]);
+  const filtered = useMemo(() => {
+    const standalone = exchanges.filter((e) => !isCollapsedFold(e));
+    return filter === "all" ? standalone : standalone.filter((e) => e.effectiveDisposition === filter);
+  }, [exchanges, filter]);
+
+  const oversized = resultsQ.data?.screening?.oversizedSegments ?? [];
+  const maxSegmentCap = resultsQ.data?.screening?.maxSegmentCap ?? 0;
 
   return (
     <Dialog open={sourceDocId !== null} onOpenChange={(o) => !o && onClose()}>
@@ -462,6 +477,22 @@ function PreviewDialog({ sourceDocId, onClose }: { sourceDocId: number | null; o
               )}
             </div>
 
+            {oversized.length > 0 && (
+              <div className="rounded-md border border-destructive/40 bg-destructive/5 p-3 text-xs">
+                <div className="mb-1 flex items-center gap-1 font-medium text-destructive">
+                  <AlertTriangle className="h-3.5 w-3.5" /> Oversized segment{oversized.length > 1 ? "s" : ""} (cap{" "}
+                  {maxSegmentCap.toLocaleString()} chars)
+                </div>
+                <ul className="space-y-0.5 text-muted-foreground">
+                  {oversized.map((o) => (
+                    <li key={o.id}>
+                      Segment #{o.orderIndex + 1}: {o.chars.toLocaleString()} chars ({o.overBy.toLocaleString()} over the cap)
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
             <div className="space-y-3 overflow-y-auto pr-1" style={{ maxHeight: "55vh" }}>
               {filtered.length === 0 ? (
                 <div className="p-6 text-center text-sm text-muted-foreground">No segments in this view.</div>
@@ -486,6 +517,13 @@ function PreviewDialog({ sourceDocId, onClose }: { sourceDocId: number | null; o
                         <span className="font-medium text-muted-foreground">Anchor question: </span>
                         {ex.anchorQuestion}
                       </p>
+                    )}
+                    {foldsByNextOrder.has(ex.orderIndex) && (
+                      <FoldNote
+                        fold={foldsByNextOrder.get(ex.orderIndex)!}
+                        overridePending={overrideM.isPending}
+                        onOverride={(id, disposition) => overrideM.mutate({ id, disposition })}
+                      />
                     )}
                     <p className="whitespace-pre-line text-sm">{ex.passage}</p>
                     {(ex.rationale || ex.dropReason) && (
@@ -541,5 +579,59 @@ function PreviewDialog({ sourceDocId, onClose }: { sourceDocId: number | null; o
         )}
       </DialogContent>
     </Dialog>
+  );
+}
+
+/**
+ * Collapsed carry-over note for a Q/A-fold: the member question was merged into
+ * this kept segment's anchor slot (nothing discarded). The original dropped row
+ * stays available behind an expander for audit and override.
+ */
+function FoldNote({
+  fold,
+  overridePending,
+  onOverride,
+}: {
+  fold: ScreenedExchange;
+  overridePending: boolean;
+  onOverride: (id: number, disposition: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="mb-2 rounded-md border border-dashed bg-muted/40 p-2" data-fold-note>
+      <p className="text-xs italic text-muted-foreground">
+        Member question carried over from the preceding exchange — merged, nothing discarded.{" "}
+        <button
+          type="button"
+          className="not-italic font-medium text-primary underline-offset-2 hover:underline"
+          onClick={() => setOpen((v) => !v)}
+        >
+          {open ? "Hide original" : "Show original"}
+        </button>
+      </p>
+      {open && (
+        <div className="mt-2 space-y-2">
+          {fold.foldTruncated && (
+            <p className="flex items-center gap-1 text-xs font-medium text-amber-600">
+              <AlertTriangle className="h-3.5 w-3.5" /> The original question was longer than the
+              2,000-character anchor slot — the cleaned transcript will NOT carry the full question.
+            </p>
+          )}
+          <p className="whitespace-pre-line text-sm">{fold.passage}</p>
+          <div className="flex flex-wrap items-center gap-2 border-t pt-2">
+            <span className="text-xs text-muted-foreground">Overrule:</span>
+            <Button size="sm" variant="outline" disabled={overridePending} onClick={() => onOverride(fold.id, "keep")}>
+              <CheckCircle2 className="mr-1 h-3.5 w-3.5" /> Keep
+            </Button>
+            <Button size="sm" variant="outline" disabled={overridePending} onClick={() => onOverride(fold.id, "drop")}>
+              <XCircle className="mr-1 h-3.5 w-3.5" /> Drop
+            </Button>
+            <Button size="sm" variant="ghost" disabled={overridePending} onClick={() => onOverride(fold.id, "flag")}>
+              <Flag className="mr-1 h-3.5 w-3.5" /> Flag
+            </Button>
+          </div>
+        </div>
+      )}
+    </div>
   );
 }

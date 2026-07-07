@@ -2485,6 +2485,19 @@ export interface ScreenedExchange {
   rationale: string | null;
   overrideDisposition: string | null;
   effectiveDisposition: string;
+  // Structured Q/A-fold signals derived server-side from the recorded fold
+  // marker: this dropped row's question was merged into the FOLLOWING kept
+  // segment's anchor slot (nothing discarded). foldTruncated means the
+  // original member text exceeded the anchor cap and was clipped.
+  foldedIntoNext: boolean;
+  foldTruncated: boolean;
+}
+
+export interface OversizedSegmentDetail {
+  id: number;
+  orderIndex: number;
+  chars: number;
+  overBy: number;
 }
 
 export function listScreenerSources() {
@@ -2505,7 +2518,14 @@ export function runScreener(sourceDocIds: number[], force = false) {
 export function getScreenerResults(sourceDocId: number) {
   return adminFetch<{
     source: { id: number; title: string };
-    screening: (ScreenerSourceSummary["screening"] & { id: number; normalizedHash: string }) | null;
+    screening:
+      | (ScreenerSourceSummary["screening"] & {
+          id: number;
+          normalizedHash: string;
+          maxSegmentCap: number;
+          oversizedSegments: OversizedSegmentDetail[];
+        })
+      | null;
     exchanges: ScreenedExchange[];
   }>(`/admin/kb-value-screener/results/${sourceDocId}`);
 }

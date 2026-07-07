@@ -27,6 +27,14 @@ vi.mock("wouter", () => ({
   ),
 }));
 
+vi.mock("@/lib/auth", () => ({
+  useAuth: () => ({
+    user: { id: 99, email: "partner@example.com", role: "partner" },
+    isAuthenticated: true,
+    isLoading: false,
+  }),
+}));
+
 vi.mock("@/components/layout/AppLayout", () => ({
   AppLayout: ({ children }: { children: ReactNode }) => (
     <div data-testid="app-layout-stub">{children}</div>
