@@ -782,6 +782,20 @@ export function parseCleanerReply(text: string): any {
   return extractJson(text);
 }
 
+/**
+ * Typed truncation signal (Task #1742): thrown when the model stopped at the
+ * output-token limit (stop_reason="max_tokens"). The chunk-clean path CATCHES
+ * this and recovers by re-cleaning the chunk in smaller sub-chunks — partial
+ * output is never stitched in silently. Other callers (refine paths) still see
+ * it as a plain, clearly-worded Error.
+ */
+export class CleanerTruncationError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "CleanerTruncationError";
+  }
+}
+
 /** Classify a parse failure so the stored error message names the cause. */
 function describeParseFailure(err: unknown): string {
   const msg = err instanceof Error ? err.message : String(err);
@@ -815,7 +829,7 @@ async function requestCleanerCompletion<T>(
       messages: [{ role: "user", content: args.userMessage }],
     });
     if (response.stop_reason === "max_tokens") {
-      throw new Error(
+      throw new CleanerTruncationError(
         "AI response hit the output token limit before completing — the transcript is too large to clean in a single pass (truncation).",
       );
     }
@@ -1554,6 +1568,104 @@ function buildCleanUserMessage(args: {
   return lines.filter((l) => l !== null).join("\n");
 }
 
+// ── Truncation recovery (Task #1742) ────────────────────────────────────────
+//
+// A cleaned chunk can come back TRUNCATED two ways: the hard signal
+// (stop_reason="max_tokens" → CleanerTruncationError) and the soft signal (the
+// call "succeeded" but the cleaned body is drastically shorter than the input
+// — the reply was cut inside the body markers or the model silently gave up).
+// Either way the chunk is re-cleaned in smaller sub-chunks and the sub-results
+// merged; partial text is NEVER stitched into the final transcript silently.
+
+// Below this input size a suspiciously short output is more likely legitimate
+// cruft-removal than truncation, so the soft check stays quiet.
+export const CLEAN_SHORT_CHECK_MIN_INPUT_CHARS = 6000;
+// Cleaning removes filler but reproduces all dialogue: output under ~35% of the
+// input length on a large chunk means content went missing.
+export const CLEAN_SHORT_OUTPUT_RATIO = 0.35;
+// Recovery floor: never split below this size (a truncated reply on a chunk
+// this small is a genuine model failure, not a size problem) and never recurse
+// deeper than the depth cap (each level halves the chunk).
+export const CLEAN_RECOVERY_MIN_CHARS = 3000;
+export const CLEAN_RECOVERY_MAX_DEPTH = 3;
+
+/** Soft truncation signal: a big chunk whose cleaned body came back drastically
+ *  short. Empty output is NOT flagged here — the assembly-time raw-chunk
+ *  fallback already handles the all-or-nothing case explicitly. */
+export function isSuspiciouslyShortClean(inputChars: number, cleanedChars: number): boolean {
+  return (
+    inputChars >= CLEAN_SHORT_CHECK_MIN_INPUT_CHARS &&
+    cleanedChars > 0 &&
+    cleanedChars < inputChars * CLEAN_SHORT_OUTPUT_RATIO
+  );
+}
+
+/** Merge recovered sub-chunk results back into ONE chunk result: metadata from
+ *  the first sub-chunk, bodies joined in order, flags unioned. */
+export function mergeRecoveredChunkResults(parts: any[]): any {
+  return {
+    ...parts[0],
+    cleanedTranscript: parts
+      .map((p) => (typeof p.cleanedTranscript === "string" ? p.cleanedTranscript.trim() : ""))
+      .filter((s) => s.length > 0)
+      .join("\n\n"),
+    flags: parts.flatMap((p) => (Array.isArray(p.flags) ? p.flags : [])),
+  };
+}
+
+/**
+ * Clean ONE chunk with truncation recovery: on a hard truncation
+ * (CleanerTruncationError) or a suspiciously short cleaned body, split the
+ * chunk in half at a clean boundary (via splitTranscriptForCleaning — the
+ * sub-chunks always concatenate back to the chunk verbatim) and recursively
+ * re-clean each half, then merge. Bottoms out at CLEAN_RECOVERY_MIN_CHARS /
+ * CLEAN_RECOVERY_MAX_DEPTH, where the truncation error propagates loudly —
+ * never a silent partial stitch. `request` is injectable for tests.
+ */
+export async function cleanChunkWithRecovery(opts: {
+  chunkText: string;
+  buildMessage: (chunkText: string) => string;
+  request?: (args: { system: string; userMessage: string }) => Promise<any>;
+  depth?: number;
+}): Promise<any> {
+  const { chunkText, buildMessage } = opts;
+  const request = opts.request ?? requestCleanerCompletionWithBody;
+  const depth = opts.depth ?? 0;
+
+  let truncated: CleanerTruncationError | null = null;
+  try {
+    const parsed = await request({ system: CLEAN_SYSTEM_PROMPT, userMessage: buildMessage(chunkText) });
+    const cleaned = typeof parsed.cleanedTranscript === "string" ? parsed.cleanedTranscript.trim() : "";
+    if (!isSuspiciouslyShortClean(chunkText.trim().length, cleaned.length)) return parsed;
+    truncated = new CleanerTruncationError(
+      `AI cleaned output was drastically shorter than the input (${cleaned.length} of ${chunkText.trim().length} chars) — treated as truncation.`,
+    );
+    console.warn(`[TranscriptCleaner] ${truncated.message} Re-cleaning in smaller sub-chunks (depth ${depth}).`);
+  } catch (err) {
+    if (!(err instanceof CleanerTruncationError)) throw err;
+    truncated = err;
+    console.warn(
+      `[TranscriptCleaner] chunk clean truncated at depth ${depth} (${chunkText.length} chars) — re-cleaning in smaller sub-chunks.`,
+    );
+  }
+
+  if (depth >= CLEAN_RECOVERY_MAX_DEPTH || chunkText.length <= CLEAN_RECOVERY_MIN_CHARS) {
+    throw new CleanerTruncationError(
+      `AI output stayed truncated even after splitting into minimum-size sub-chunks (${chunkText.length} chars at depth ${depth}): ${truncated.message}`,
+    );
+  }
+
+  const subTarget = Math.max(1, Math.ceil(chunkText.length / 2));
+  const subChunks = splitTranscriptForCleaning(chunkText, { threshold: subTarget, target: subTarget });
+  if (subChunks.length < 2) throw truncated;
+
+  const parts: any[] = [];
+  for (const sub of subChunks) {
+    parts.push(await cleanChunkWithRecovery({ chunkText: sub, buildMessage, request, depth: depth + 1 }));
+  }
+  return mergeRecoveredChunkResults(parts);
+}
+
 export async function cleanTranscript(args: {
   rawText: string;
   transcriptType?: string | null;
@@ -1597,37 +1709,32 @@ export async function cleanTranscript(args: {
   // Part 1 is cleaned first because it establishes the title building blocks and
   // the speaker-label convention the remaining parts must match. Given that
   // convention the remaining parts are independent, so they are cleaned in
-  // parallel to keep wall-clock down on big files.
-  const firstParsed = await requestCleanerCompletionWithBody({
-    system: CLEAN_SYSTEM_PROMPT,
-    userMessage: buildCleanUserMessage({
-      chunkText: chunks[0],
+  // parallel to keep wall-clock down on big files. Every chunk goes through the
+  // truncation-recovery wrapper (Task #1742): a truncated or drastically-short
+  // reply is re-cleaned in smaller sub-chunks, never stitched in partially.
+  const messageFor = (chunkIndex: number) => (chunkText: string) =>
+    buildCleanUserMessage({
+      chunkText,
       folder,
       authorityLabel: label,
       providedAuthorityName: providedName,
       canonicalTerms,
       sourceName,
       proposedTitle,
-      chunkIndex: 0,
+      chunkIndex,
       chunkCount: chunks.length,
-    }),
+    });
+
+  const firstParsed = await cleanChunkWithRecovery({
+    chunkText: chunks[0],
+    buildMessage: messageFor(0),
   });
 
   const restParsed = await Promise.all(
     chunks.slice(1).map((chunkText, i) =>
-      requestCleanerCompletionWithBody({
-        system: CLEAN_SYSTEM_PROMPT,
-        userMessage: buildCleanUserMessage({
-          chunkText,
-          folder,
-          authorityLabel: label,
-          providedAuthorityName: providedName,
-          canonicalTerms,
-          sourceName,
-          proposedTitle,
-          chunkIndex: i + 1,
-          chunkCount: chunks.length,
-        }),
+      cleanChunkWithRecovery({
+        chunkText,
+        buildMessage: messageFor(i + 1),
       }),
     ),
   );

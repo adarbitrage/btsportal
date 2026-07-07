@@ -86,13 +86,31 @@ const NEAR_DUP_MIN_LENGTH_RATIO = 0.6;
 
 // Topic-thread sizing (characters). A new member turn only starts a NEW segment
 // once the current one has a coach response and has grown past MIN — so short
-// follow-ups stay threaded with their topic. MAX caps runaway monologues so a
-// no-question transcript still splits into auditable, droppable chunks.
+// follow-ups stay threaded with their topic. Topic boundaries are the ONLY
+// normal split trigger (Task #1742): a single coherent thread (member question
+// → coach explanation → resolution) must live in ONE segment, never fragmented
+// by a character count. The EMERGENCY ceiling below is a safety valve for
+// pathological input only (unlabeled monologues, parser misreads): once a
+// segment grows past it, it is closed at the next MEMBER-TURN boundary (never
+// mid-sentence) and marked as an anomaly for auditability. A hard fallback at
+// 1.5x the ceiling closes at ANY turn boundary so a member-less monologue
+// cannot grow without bound (turn boundaries are sentence boundaries — the
+// oversize-turn pre-split only cuts at sentence/paragraph ends).
 const DEFAULT_MIN_SEGMENT_CHARS = 600;
-const DEFAULT_MAX_SEGMENT_CHARS = 2500;
+const DEFAULT_EMERGENCY_SEGMENT_CHARS = 12000;
+const EMERGENCY_HARD_FACTOR = 1.5;
 
-// Reliability knobs for LLM classification.
+// Reliability knobs for LLM classification. Chunks are bounded by BOTH a
+// segment count and a total-passage char budget: with topic-threaded segments
+// now allowed to grow to the emergency ceiling, eight ceiling-size segments
+// would make one enormous prompt — the char budget keeps each classify call's
+// input bounded regardless of segment size.
 export const CLASSIFY_CHUNK_SIZE = 8;
+export const CLASSIFY_CHUNK_CHAR_BUDGET = 30000;
+// Per-segment passage cap in the classify prompt — must comfortably exceed the
+// emergency ceiling so even an anomaly-size segment is classified on its FULL
+// text, never a truncated view.
+export const CLASSIFY_PASSAGE_MAX_CHARS = 13000;
 const CLASSIFY_MAX_ATTEMPTS = 3;
 const CLASSIFY_RETRY_BASE_MS = 200;
 
@@ -178,6 +196,10 @@ export interface Segment {
   // by the Q/A pairing rule so an orphan question is never dropped
   // independently of its answer.
   memberOnly: boolean;
+  // TRUE when this segment was closed by the EMERGENCY size ceiling (or still
+  // overran it at the end of the transcript) rather than a topic boundary —
+  // pathological-input territory, surfaced as an anomaly for auditability.
+  emergencySplit: boolean;
 }
 
 interface RoledTurn {
@@ -329,7 +351,7 @@ export function splitOversizeText(text: string, maxChars: number): string[] {
 /** Render turns as ONE role-labeled passage (inline speaker labels, one turn
  *  per line) and derive the anchor question (member speech before the first
  *  coach turn). */
-function turnsToSegment(turns: RoledTurn[]): Omit<Segment, "orderIndex"> {
+function turnsToSegment(turns: RoledTurn[]): Omit<Segment, "orderIndex" | "emergencySplit"> {
   const passage = turns
     .map((t) => `${t.role === "coach" ? "Coach" : "Member"}: ${t.text}`)
     .join("\n");
@@ -346,19 +368,30 @@ function turnsToSegment(turns: RoledTurn[]): Omit<Segment, "orderIndex"> {
   };
 }
 
-/** Group roled turns into topic-threaded segments. A member turn opens a NEW
- *  segment only once the current one already holds a coach response and has
- *  grown past `minChars`; the hard `maxChars` cap is enforced BEFORE a turn is
- *  added, so (with oversized turns pre-split) no segment exceeds the cap. */
-function groupTurnsIntoSegments(turns: RoledTurn[], minChars: number, maxChars: number): Segment[] {
+/** Group roled turns into topic-threaded segments. A member turn opening a new
+ *  topic (once the current segment already holds a coach response and has
+ *  grown past `minChars`) is the ONLY normal split trigger — a coherent thread
+ *  is never fragmented by size. The `emergencyChars` ceiling is a safety valve
+ *  for pathological input: once the current segment exceeds it, it is closed at
+ *  the next MEMBER-TURN boundary (preferred) or — past 1.5x the ceiling — at
+ *  ANY turn boundary (never mid-sentence, since turns only ever start at
+ *  sentence/paragraph boundaries), and the closed segment is marked
+ *  `emergencySplit` as an audit anomaly. */
+function groupTurnsIntoSegments(turns: RoledTurn[], minChars: number, emergencyChars: number): Segment[] {
   const segments: Segment[] = [];
   let current: RoledTurn[] = [];
   let chars = 0;
   let hasCoach = false;
 
-  const flush = () => {
+  const flush = (emergency: boolean) => {
     if (current.length) {
-      segments.push({ orderIndex: segments.length, ...turnsToSegment(current) });
+      segments.push({
+        orderIndex: segments.length,
+        ...turnsToSegment(current),
+        // A segment that still overran the ceiling at flush time (e.g. end of
+        // transcript) is anomalous even when the flush itself wasn't forced.
+        emergencySplit: emergency || chars > emergencyChars,
+      });
     }
     current = [];
     chars = 0;
@@ -368,14 +401,19 @@ function groupTurnsIntoSegments(turns: RoledTurn[], minChars: number, maxChars: 
   for (const t of turns) {
     if (!t.text) continue;
     const memberOpensNewTopic = t.role === "member" && hasCoach && chars >= minChars;
-    const wouldExceedCap = current.length > 0 && chars + t.text.length > maxChars;
-    if (memberOpensNewTopic || wouldExceedCap) flush();
+    // Emergency ceiling (pathological input only): close at a member-turn
+    // boundary once past the ceiling; past the hard fallback (1.5x), close at
+    // any turn boundary so a member-less monologue stays bounded.
+    const emergencyMemberBoundary = t.role === "member" && current.length > 0 && chars > emergencyChars;
+    const emergencyHard = current.length > 0 && chars > emergencyChars * EMERGENCY_HARD_FACTOR;
+    if (emergencyMemberBoundary || emergencyHard) flush(true);
+    else if (memberOpensNewTopic) flush(false);
 
     current.push(t);
     if (t.role === "coach") hasCoach = true;
     chars += t.text.length;
   }
-  flush();
+  flush(false);
   return segments;
 }
 
@@ -390,31 +428,35 @@ function groupTurnsIntoSegments(turns: RoledTurn[], minChars: number, maxChars: 
  *     into giant pseudo-turns;
  *  3. prose fallback — paragraphs role-guessed by question-likeness (last
  *     resort for truly unlabeled content).
- * Oversized turns are pre-split at sentence/paragraph boundaries so no segment
- * exceeds `maxChars`.
+ * Segments split ONLY at topic boundaries; the emergency ceiling (with an
+ * oversize-turn pre-split at sentence/paragraph boundaries as a last-resort
+ * safety net) bounds pathological input, marking such segments as anomalies.
  */
 export function segmentTranscript(
   content: string,
-  opts: { minChars?: number; maxChars?: number } = {},
+  opts: { minChars?: number; emergencyChars?: number } = {},
 ): Segment[] {
   const raw = (content || "").trim();
   if (!raw) return [];
   const minChars = opts.minChars ?? DEFAULT_MIN_SEGMENT_CHARS;
-  const maxChars = opts.maxChars ?? DEFAULT_MAX_SEGMENT_CHARS;
+  const emergencyChars = opts.emergencyChars ?? DEFAULT_EMERGENCY_SEGMENT_CHARS;
 
   const turns: RoledTurn[] =
     parseBareLabelTurns(raw) ??
     parseDialogueTurns(raw) ??
     proseBlocks(raw).map((b) => ({ role: looksLikeQuestion(b) ? "member" : "coach", text: b }) as RoledTurn);
 
-  // Hard cap safety net: no single turn may exceed maxChars.
+  // Last-resort safety net: no single TURN may exceed the emergency ceiling
+  // (a parser misread can glue an entire call into one pseudo-turn). The
+  // pre-split cuts only at sentence/paragraph boundaries, so downstream turn
+  // boundaries are never mid-sentence.
   const bounded = turns.flatMap((t) =>
-    t.text.length <= maxChars
+    t.text.length <= emergencyChars
       ? [t]
-      : splitOversizeText(t.text, maxChars).map((text) => ({ role: t.role, text })),
+      : splitOversizeText(t.text, emergencyChars).map((text) => ({ role: t.role, text })),
   );
 
-  return groupTurnsIntoSegments(bounded, minChars, maxChars);
+  return groupTurnsIntoSegments(bounded, minChars, emergencyChars);
 }
 
 /** The disposition that downstream reads honor: an admin overrule wins over the
@@ -500,7 +542,7 @@ Return STRICT JSON: {"results":[{"index":<0-based>,"valueType":"...","dispositio
     chunk
       .map(
         (s, i) =>
-          `[${i}]${s.anchorQuestion ? ` ANCHOR QUESTION: ${s.anchorQuestion.slice(0, 400)}\n    ` : " "}PASSAGE:\n${s.passage.slice(0, 2600)}`,
+          `[${i}]${s.anchorQuestion ? ` ANCHOR QUESTION: ${s.anchorQuestion.slice(0, 400)}\n    ` : " "}PASSAGE:\n${s.passage.slice(0, CLASSIFY_PASSAGE_MAX_CHARS)}`,
       )
       .join("\n\n");
 
@@ -510,8 +552,9 @@ Return STRICT JSON: {"results":[{"index":<0-based>,"valueType":"...","dispositio
       // gpt-5 is a reasoning model: hidden reasoning tokens count against
       // max_completion_tokens, so the budget must leave generous headroom or
       // the response comes back EMPTY (finish_reason=length) and every
-      // segment errors out. Keep this floor high.
-      const rawResp = await callLLM(system, user, 4000 + chunk.length * 300, true);
+      // segment errors out. Keep this floor high — larger (emergency-ceiling)
+      // segments also demand more reasoning headroom, hence the raised base.
+      const rawResp = await callLLM(system, user, 6000 + chunk.length * 300, true);
       // An EMPTY completion is a token-budget failure, NOT a parse failure —
       // record and log it distinctly so it is diagnosable.
       if (!rawResp || !rawResp.trim()) {
@@ -552,8 +595,30 @@ export async function classifySegments(segments: Segment[]): Promise<SegmentClas
   if (segments.length === 0) return [];
   const out: SegmentClassification[] = new Array(segments.length);
 
-  for (let start = 0; start < segments.length; start += CLASSIFY_CHUNK_SIZE) {
-    const chunk = segments.slice(start, start + CLASSIFY_CHUNK_SIZE);
+  // Chunk by BOTH segment count and total passage chars: segments can now run
+  // up to the emergency ceiling, so a count-only chunk could balloon the
+  // prompt. A chunk always takes at least one segment (progress guarantee).
+  const chunkStarts: number[] = [];
+  {
+    let start = 0;
+    while (start < segments.length) {
+      chunkStarts.push(start);
+      let end = start + 1;
+      let chars = Math.min(segments[start].passage.length, CLASSIFY_PASSAGE_MAX_CHARS);
+      while (end < segments.length && end - start < CLASSIFY_CHUNK_SIZE) {
+        const next = Math.min(segments[end].passage.length, CLASSIFY_PASSAGE_MAX_CHARS);
+        if (chars + next > CLASSIFY_CHUNK_CHAR_BUDGET) break;
+        chars += next;
+        end++;
+      }
+      start = end;
+    }
+  }
+
+  for (let c = 0; c < chunkStarts.length; c++) {
+    const start = chunkStarts[c];
+    const chunkEnd = c + 1 < chunkStarts.length ? chunkStarts[c + 1] : segments.length;
+    const chunk = segments.slice(start, chunkEnd);
     let map: Map<number, SegmentClassification> | null = null;
     let chunkFailReason = "classifier error after retries";
     try {
@@ -641,9 +706,15 @@ export function deriveFoldSignals(e: {
 
 // ── Anomaly signals (audit surface) ─────────────────────────────────────────
 
-export const SEGMENT_MAX_CHARS = DEFAULT_MAX_SEGMENT_CHARS;
+export const SEGMENT_MAX_CHARS = DEFAULT_EMERGENCY_SEGMENT_CHARS;
 
-export const ANOMALY_FLAGS = ["oversized_segment", "low_segment_count", "all_error"] as const;
+// Expected content-per-segment yardstick for the low_segment_count check.
+// Deliberately DECOUPLED from the emergency ceiling: topic-threaded segments
+// typically run far smaller than the ceiling, so "one segment per ~10k chars"
+// remains the plausibility floor for a full-length call.
+const LOW_COUNT_CHARS_PER_SEGMENT = 10000;
+
+export const ANOMALY_FLAGS = ["oversized_segment", "low_segment_count", "all_error", "emergency_split"] as const;
 export type AnomalyFlag = (typeof ANOMALY_FLAGS)[number];
 
 /**
@@ -656,7 +727,10 @@ export type AnomalyFlag = (typeof ANOMALY_FLAGS)[number];
  *    becomes meaningless;
  *  - low_segment_count: a full-length call yielded implausibly few segments
  *    (the mega-segment signature);
- *  - all_error: every segment errored (e.g. an unresolved token-budget run).
+ *  - all_error: every segment errored (e.g. an unresolved token-budget run);
+ *  - emergency_split: one or more segments were closed by the EMERGENCY size
+ *    ceiling rather than a topic boundary (pathological input — unlabeled
+ *    monologue or a parser misread) and deserve a human look.
  */
 export function computeAnomalyFlags(sc: {
   exchangeCount: number;
@@ -666,21 +740,23 @@ export function computeAnomalyFlags(sc: {
   maxSegmentChars: number;
   sourceCharCount: number;
   dedupStatus?: string;
+  emergencySplitCount?: number;
 }): AnomalyFlag[] {
   const flags: AnomalyFlag[] = [];
   if (sc.maxSegmentChars > SEGMENT_MAX_CHARS * 2) flags.push("oversized_segment");
-  // Expect at least one segment per ~4x the max cap of content; a 50k-char
-  // call that yields 2 segments is anomalous. Exact duplicates legitimately
-  // have zero segments, so skip the check for them.
+  // Expect at least one segment per ~10k chars of content; a 50k-char call
+  // that yields 2 segments is anomalous. Exact duplicates legitimately have
+  // zero segments, so skip the check for them.
   if (
     sc.dedupStatus !== "exact_duplicate" &&
     sc.sourceCharCount >= 8000 &&
-    sc.exchangeCount < Math.ceil(sc.sourceCharCount / (SEGMENT_MAX_CHARS * 4))
+    sc.exchangeCount < Math.ceil(sc.sourceCharCount / LOW_COUNT_CHARS_PER_SEGMENT)
   ) {
     flags.push("low_segment_count");
   }
   const errors = sc.exchangeCount - sc.keptCount - sc.droppedCount - sc.flaggedCount;
   if (sc.exchangeCount > 0 && errors >= sc.exchangeCount) flags.push("all_error");
+  if ((sc.emergencySplitCount ?? 0) > 0) flags.push("emergency_split");
   return flags;
 }
 
@@ -820,6 +896,7 @@ export async function screenSource(opts: {
   applyQaPairing(segments, classifications);
   const maxSegmentChars = segments.reduce((m, s) => Math.max(m, s.passage.length), 0);
   const sourceCharCount = source.content.trim().length;
+  const emergencySplitCount = segments.filter((s) => s.emergencySplit).length;
 
   let keptCount = 0;
   let droppedCount = 0;
@@ -848,6 +925,7 @@ export async function screenSource(opts: {
         flaggedCount,
         maxSegmentChars,
         sourceCharCount,
+        emergencySplitCount,
       })
       .onConflictDoUpdate({
         target: kbCallScreeningsTable.sourceDocId,
@@ -863,6 +941,7 @@ export async function screenSource(opts: {
           flaggedCount,
           maxSegmentChars,
           sourceCharCount,
+          emergencySplitCount,
           updatedAt: new Date(),
         },
       })
@@ -887,6 +966,7 @@ export async function screenSource(opts: {
             situationalNumber: c.situationalNumber,
             contextBound: c.contextBound,
             rationale: c.rationale,
+            emergencySplit: s.emergencySplit,
           };
         }),
       );

@@ -61,6 +61,10 @@ export const kbScreenedExchangesTable = pgTable("kb_screened_exchanges", {
   situationalNumber: boolean("situational_number").notNull().default(false),
   // Short model rationale for the disposition (preview transparency).
   rationale: text("rationale"),
+  // TRUE when this segment was closed by the segmenter's EMERGENCY size
+  // ceiling (or overran it) rather than a normal topic boundary — a
+  // pathological-input audit anomaly (Task #1742), surfaced to the admin.
+  emergencySplit: boolean("emergency_split").notNull().default(false),
   // Admin overrule. NULL = no overrule; the AI disposition stands. When set, it
   // wins over `disposition` for downstream reads.
   overrideDisposition: text("override_disposition"),

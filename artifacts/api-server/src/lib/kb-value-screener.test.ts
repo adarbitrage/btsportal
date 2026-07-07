@@ -120,17 +120,31 @@ describe("segmentTranscript (topic-threaded, role-labeled passages)", () => {
       "Member: What about my budget?",
       "Coach: Keep test budgets small and disciplined until you see signal.",
     ].join("\n");
-    const segs = segmentTranscript(content, { minChars: 20, maxChars: 2500 });
+    const segs = segmentTranscript(content, { minChars: 20 });
     expect(segs.length).toBe(2);
     expect(segs[0].anchorQuestion).toContain("first offer");
     expect(segs[1].anchorQuestion).toContain("budget");
     expect(segs.map((s) => s.orderIndex)).toEqual([0, 1]);
+    // Topic-boundary splits are NOT emergency splits.
+    expect(segs.every((s) => s.emergencySplit === false)).toBe(true);
   });
 
-  it("caps runaway monologues at maxChars even without questions", () => {
-    const long = Array.from({ length: 12 }, (_, i) => `Point number ${i} about disciplined scaling.`).join(" ");
-    const segs = segmentTranscript(long, { minChars: 50, maxChars: 120 });
+  it("never fragments a coherent thread by size below the emergency ceiling", () => {
+    // One member question followed by a LONG coach explanation (well past any
+    // old-style char cap, but under the emergency ceiling) stays ONE segment.
+    const longAnswer = Array.from({ length: 80 }, (_, i) => `Detail ${i} about disciplined scaling and budgets.`).join(" ");
+    const content = [`Member: How should I scale?`, `Coach: ${longAnswer}`].join("\n");
+    const segs = segmentTranscript(content, { minChars: 20 });
+    expect(segs.length).toBe(1);
+    expect(segs[0].passage.length).toBeGreaterThan(3000);
+    expect(segs[0].emergencySplit).toBe(false);
+  });
+
+  it("emergency ceiling still bounds runaway monologues and marks them as anomalies", () => {
+    const long = Array.from({ length: 40 }, (_, i) => `Point number ${i} about disciplined scaling.`).join(" ");
+    const segs = segmentTranscript(long, { minChars: 50, emergencyChars: 120 });
     expect(segs.length).toBeGreaterThan(1);
+    expect(segs.some((s) => s.emergencySplit)).toBe(true);
   });
 
   it("returns nothing for empty content", () => {
@@ -152,7 +166,7 @@ describe("segmentTranscript (topic-threaded, role-labeled passages)", () => {
       "Member",
       "Got it, thank you.",
     ].join("\n");
-    const segs = segmentTranscript(content, { minChars: 20, maxChars: 2500 });
+    const segs = segmentTranscript(content, { minChars: 20 });
     expect(segs.length).toBeGreaterThanOrEqual(1);
     const joined = segs.map((s) => s.passage).join("\n");
     // Real labels drive roles — the coach's non-question opener is Coach, the
@@ -175,20 +189,24 @@ describe("segmentTranscript (topic-threaded, role-labeled passages)", () => {
       if (i % 10 === 0) lines.push("Warning: do not overspend on day one.");
     }
     const content = lines.join("\n");
-    const segs = segmentTranscript(content, { minChars: 200, maxChars: 800 });
+    const segs = segmentTranscript(content, { minChars: 200, emergencyChars: 800 });
     expect(segs.length).toBeGreaterThan(3);
-    for (const s of segs) expect(s.passage.length).toBeLessThanOrEqual(900);
+    // Emergency ceiling + oversize-turn pre-split keep every segment bounded:
+    // at most the 1.5x hard fallback plus one pre-split turn (≤ ceiling).
+    for (const s of segs) expect(s.passage.length).toBeLessThanOrEqual(800 * 1.5 + 800 + 50);
+    expect(segs.some((s) => s.emergencySplit)).toBe(true);
   });
 
-  it("never emits a segment above the max-char cap even for one giant labeled turn", () => {
+  it("bounds one giant labeled turn via the emergency ceiling and flags it", () => {
     const giant = Array.from({ length: 200 }, (_, i) => `Sentence ${i} about disciplined testing.`).join(" ");
     const content = ["Coach", giant, "Member", "Thanks!", "Coach", "You're welcome."].join("\n");
-    const segs = segmentTranscript(content, { minChars: 100, maxChars: 500 });
+    const segs = segmentTranscript(content, { minChars: 100, emergencyChars: 500 });
     expect(segs.length).toBeGreaterThan(3);
     for (const s of segs) {
-      // passage adds "Coach: " labels; allow small labeling overhead only.
-      expect(s.passage.length).toBeLessThanOrEqual(520);
+      // Bounded by the 1.5x hard fallback plus one pre-split turn + label overhead.
+      expect(s.passage.length).toBeLessThanOrEqual(500 * 1.5 + 500 + 50);
     }
+    expect(segs.some((s) => s.emergencySplit)).toBe(true);
   });
 });
 
@@ -266,12 +284,14 @@ describe("applyQaPairing (orphan member question never dropped alone)", () => {
     passage: `Member: ${q}`,
     anchorQuestion: q,
     memberOnly: true,
+    emergencySplit: false,
   });
   const coachSeg = (i: number, a: string): Segment => ({
     orderIndex: i,
     passage: `Coach: ${a}`,
     anchorQuestion: null,
     memberOnly: false,
+    emergencySplit: false,
   });
 
   it("folds a dropped member-only question into the following kept coach segment", () => {
@@ -368,6 +388,12 @@ describe("computeAnomalyFlags", () => {
     );
   });
 
+  it("flags a screening that needed emergency splits", () => {
+    expect(computeAnomalyFlags({ ...base, emergencySplitCount: 1 })).toContain("emergency_split");
+    expect(computeAnomalyFlags({ ...base, emergencySplitCount: 0 })).toEqual([]);
+    expect(computeAnomalyFlags(base)).toEqual([]); // absent field = no flag
+  });
+
   it("flags a full-length call with implausibly few segments", () => {
     expect(
       computeAnomalyFlags({ ...base, exchangeCount: 2, keptCount: 1, droppedCount: 1, flaggedCount: 0, sourceCharCount: 51000 }),
@@ -400,6 +426,7 @@ describe("classifySegments (reliability + error disposition)", () => {
     passage: `Member: q${i}\nCoach: a${i}`,
     anchorQuestion: `q${i}`,
     memberOnly: false,
+    emergencySplit: false,
   });
 
   it("maps a clean model response to real verdicts", async () => {
@@ -517,6 +544,7 @@ describe("SCREENER_RUBRIC grievance flag rule (contract)", () => {
         passage: "Member: I was told there is a 90-day guarantee and support never answered me.\nCoach: I hear you, reach out to support.",
         anchorQuestion: null,
         memberOnly: false,
+        emergencySplit: false,
       },
     ]);
     expect(out[0].disposition).toBe("flag");
