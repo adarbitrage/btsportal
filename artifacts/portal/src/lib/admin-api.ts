@@ -2459,6 +2459,8 @@ export interface ScreenerProgress {
   flagged: number;
   errors: number;
   duplicates: number;
+  /** The source doc id currently being screened (null when idle / between sources). */
+  currentSourceId: number | null;
   startedAt: string | null;
   finishedAt: string | null;
   error: string | null;

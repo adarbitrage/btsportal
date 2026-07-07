@@ -31,6 +31,7 @@ import {
   getNodeSourceIncorporationCounts,
   type NodeSource,
 } from "./kb-topic-index.js";
+import { resolveSourceContentForSynthesis } from "./kb-value-screener.js";
 
 /**
  * Synthesis Engine (Task #1533, Part 1).
@@ -194,7 +195,16 @@ async function extractForNode(node: TaxonomyNode, source: SourceDoc): Promise<st
 // upsert. This is what keeps incremental re-runs cheap now that the map phase
 // reads the whole source and the reduce folds in every linked source.
 async function getOrExtractForNode(node: TaxonomyNode, source: SourceDoc): Promise<string> {
-  const fingerprint = fingerprintContent(source.content ?? "");
+  // Resolve the screened kept-segments representation (raw when no valid
+  // screening exists). The cache fingerprint is computed on the RESOLVED text
+  // so an admin keep/drop overrule or a re-screen invalidates the extract and
+  // it is re-run against the new content on the next synthesis.
+  const { content: resolvedContent } = await resolveSourceContentForSynthesis(
+    source.id,
+    source.content ?? "",
+  );
+  const resolvedSource: SourceDoc = { ...source, content: resolvedContent };
+  const fingerprint = fingerprintContent(resolvedContent);
   try {
     const cached = await db
       .select({
@@ -217,7 +227,7 @@ async function getOrExtractForNode(node: TaxonomyNode, source: SourceDoc): Promi
     console.error(`[Synthesis] extract-cache read failed for source ${source.id} / node ${node.slug}:`, err instanceof Error ? err.message : err);
   }
 
-  const extract = await extractForNode(node, source);
+  const extract = await extractForNode(node, resolvedSource);
 
   try {
     await db

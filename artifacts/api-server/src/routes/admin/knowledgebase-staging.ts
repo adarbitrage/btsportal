@@ -14,6 +14,7 @@ import { CITABLE_DOC_CLASSES } from "../../lib/kb-taxonomy.js";
 import { detectLegacyRefs } from "../../lib/kb-mining.js";
 import { blocksBulkConfirm, type RiskFlag } from "../../lib/kb-flags.js";
 import { applyRefineEdits } from "../../lib/transcript-cleaner.js";
+import { resolveSourceContentForSynthesis } from "../../lib/kb-value-screener.js";
 
 export { runTriageBackground } from "../../lib/kb-triage.js";
 
@@ -1026,7 +1027,15 @@ router.post("/:id/refine", async (req: Request, res: Response) => {
         })
         .from(aiSourceDocumentsTable)
         .where(inArray(aiSourceDocumentsTable.id, topSourceIds));
-      const byId = new Map(sourceRows.map((r) => [r.id, r]));
+      // Screened calls: reach back into the kept-segments representation, not
+      // the raw transcript (raw fallback when no valid screening exists).
+      const resolvedRows = await Promise.all(
+        sourceRows.map(async (r) => ({
+          ...r,
+          content: (await resolveSourceContentForSynthesis(r.id, r.content)).content,
+        })),
+      );
+      const byId = new Map(resolvedRows.map((r) => [r.id, r]));
       const PER_SOURCE_CHARS = Math.floor(24000 / Math.max(topSourceIds.length, 1));
       sourceMaterial = topSourceIds
         .map((sid, i) => {

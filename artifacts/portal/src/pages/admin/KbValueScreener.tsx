@@ -63,11 +63,17 @@ export default function KbValueScreener() {
   const [force, setForce] = useState(false);
   const [previewId, setPreviewId] = useState<number | null>(null);
 
-  const sourcesQ = useQuery({ queryKey: ["screener-sources"], queryFn: listScreenerSources });
   const statusQ = useQuery({
     queryKey: ["screener-status"],
     queryFn: getScreenerStatus,
     refetchInterval: (q) => (q.state.data?.running ? 1500 : false),
+  });
+  // While a batch is running, keep the source rows live too so freshly-screened
+  // calls move into the "Screened" section as they finish.
+  const sourcesQ = useQuery({
+    queryKey: ["screener-sources"],
+    queryFn: listScreenerSources,
+    refetchInterval: statusQ.data?.running ? 3000 : false,
   });
 
   // When a run finishes, refresh the source summaries.
@@ -89,6 +95,20 @@ export default function KbValueScreener() {
 
   const sources = sourcesQ.data?.sources ?? [];
   const running = statusQ.data?.running ?? false;
+  const currentSourceId = running ? statusQ.data?.currentSourceId ?? null : null;
+
+  const unscreened = useMemo(() => sources.filter((s) => !s.screening), [sources]);
+  const screened = useMemo(
+    () =>
+      sources
+        .filter((s) => s.screening)
+        .slice()
+        .sort(
+          (a, b) =>
+            new Date(b.screening!.screenedAt).getTime() - new Date(a.screening!.screenedAt).getTime(),
+        ),
+    [sources],
+  );
 
   const toggle = (id: number) =>
     setSelected((prev) => {
@@ -97,10 +117,6 @@ export default function KbValueScreener() {
       else next.add(id);
       return next;
     });
-
-  const allSelected = sources.length > 0 && sources.every((s) => selected.has(s.id));
-  const toggleAll = () =>
-    setSelected(allSelected ? new Set() : new Set(sources.map((s) => s.id)));
 
   return (
     <AppLayout>
@@ -164,98 +180,217 @@ export default function KbValueScreener() {
           </CardContent>
         </Card>
 
-        {/* Source list */}
-        <Card>
-          <CardContent className="p-0">
-            {sourcesQ.isLoading ? (
-              <div className="flex items-center justify-center p-10 text-muted-foreground">
-                <Loader2 className="mr-2 h-5 w-5 animate-spin" /> Loading sources…
-              </div>
-            ) : sources.length === 0 ? (
-              <div className="p-10 text-center text-sm text-muted-foreground">
-                No cleared coaching sources found. Clear coaching transcripts in the Transcript
-                Cleaner first.
-              </div>
-            ) : (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="w-10">
-                      <Checkbox checked={allSelected} onCheckedChange={toggleAll} />
-                    </TableHead>
-                    <TableHead>Source</TableHead>
-                    <TableHead>Type</TableHead>
-                    <TableHead>Dedup</TableHead>
-                    <TableHead className="text-right">Kept</TableHead>
-                    <TableHead className="text-right">Dropped</TableHead>
-                    <TableHead className="text-right">Flagged</TableHead>
-                    <TableHead className="text-right">Errors</TableHead>
-                    <TableHead></TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {sources.map((s: ScreenerSourceSummary) => (
-                    <TableRow key={s.id}>
-                      <TableCell>
-                        <Checkbox checked={selected.has(s.id)} onCheckedChange={() => toggle(s.id)} />
-                      </TableCell>
-                      <TableCell className="max-w-xs">
-                        <div className="truncate font-medium">{s.title}</div>
-                        {s.sourceName && (
-                          <div className="truncate text-xs text-muted-foreground">{s.sourceName}</div>
-                        )}
-                        {s.screening && s.screening.anomalies.length > 0 && (
-                          <div className="mt-1 flex flex-wrap gap-1">
-                            {anomalyBadges(s.screening.anomalies)}
-                          </div>
-                        )}
-                      </TableCell>
-                      <TableCell className="text-xs text-muted-foreground">
-                        {s.sourceType.replace(/_/g, " ")}
-                      </TableCell>
-                      <TableCell>
-                        {s.screening ? dedupBadge(s.screening.dedupStatus) : <span className="text-xs text-muted-foreground">—</span>}
-                      </TableCell>
-                      <TableCell className="text-right tabular-nums">
-                        {s.screening ? s.screening.keptCount : "—"}
-                      </TableCell>
-                      <TableCell className="text-right tabular-nums text-muted-foreground">
-                        {s.screening ? s.screening.droppedCount : "—"}
-                      </TableCell>
-                      <TableCell className="text-right tabular-nums">
-                        {s.screening ? s.screening.flaggedCount : "—"}
-                      </TableCell>
-                      <TableCell className="text-right tabular-nums">
-                        {s.screening ? (
-                          s.screening.errorCount > 0 ? (
-                            <span className="font-medium text-slate-500">{s.screening.errorCount}</span>
-                          ) : (
-                            0
-                          )
-                        ) : (
-                          "—"
-                        )}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <div className="flex items-center justify-end gap-2">
-                          {s.screening && (
-                            <Button size="sm" variant="ghost" onClick={() => setPreviewId(s.id)}>
-                              Audit
-                            </Button>
-                          )}
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            )}
-          </CardContent>
-        </Card>
+        {/* Source lists */}
+        {sourcesQ.isLoading ? (
+          <Card>
+            <CardContent className="flex items-center justify-center p-10 text-muted-foreground">
+              <Loader2 className="mr-2 h-5 w-5 animate-spin" /> Loading sources…
+            </CardContent>
+          </Card>
+        ) : sources.length === 0 ? (
+          <Card>
+            <CardContent className="p-10 text-center text-sm text-muted-foreground">
+              No cleared coaching sources found. Clear coaching transcripts in the Transcript
+              Cleaner first.
+            </CardContent>
+          </Card>
+        ) : (
+          <>
+            <div>
+              <h2 className="mb-2 text-sm font-semibold text-muted-foreground">
+                Not yet screened ({unscreened.length})
+              </h2>
+              <Card>
+                <CardContent className="p-0">
+                  {unscreened.length === 0 ? (
+                    <div className="p-6 text-center text-sm text-muted-foreground">
+                      Every cleared coaching call has been screened.
+                    </div>
+                  ) : (
+                    <SourceTable
+                      sources={unscreened}
+                      selected={selected}
+                      toggle={toggle}
+                      allSelected={unscreened.every((s) => selected.has(s.id))}
+                      toggleAll={() =>
+                        setSelected((prev) => {
+                          const next = new Set(prev);
+                          const all = unscreened.every((s) => next.has(s.id));
+                          for (const s of unscreened) {
+                            if (all) next.delete(s.id);
+                            else next.add(s.id);
+                          }
+                          return next;
+                        })
+                      }
+                      currentSourceId={currentSourceId}
+                      onAudit={setPreviewId}
+                    />
+                  )}
+                </CardContent>
+              </Card>
+            </div>
+
+            <div>
+              <h2 className="mb-2 text-sm font-semibold text-muted-foreground">
+                Screened ({screened.length})
+              </h2>
+              <Card>
+                <CardContent className="p-0">
+                  {screened.length === 0 ? (
+                    <div className="p-6 text-center text-sm text-muted-foreground">
+                      Nothing screened yet — select calls above and run the screener.
+                    </div>
+                  ) : (
+                    <SourceTable
+                      sources={screened}
+                      selected={selected}
+                      toggle={toggle}
+                      allSelected={screened.every((s) => selected.has(s.id))}
+                      toggleAll={() =>
+                        setSelected((prev) => {
+                          const next = new Set(prev);
+                          const all = screened.every((s) => next.has(s.id));
+                          for (const s of screened) {
+                            if (all) next.delete(s.id);
+                            else next.add(s.id);
+                          }
+                          return next;
+                        })
+                      }
+                      currentSourceId={currentSourceId}
+                      onAudit={setPreviewId}
+                      showResults
+                    />
+                  )}
+                </CardContent>
+              </Card>
+            </div>
+          </>
+        )}
       </div>
 
       <PreviewDialog sourceDocId={previewId} onClose={() => setPreviewId(null)} />
     </AppLayout>
+  );
+}
+
+const fmtScreenedAt = (iso: string) => {
+  const d = new Date(iso);
+  return isNaN(d.getTime())
+    ? "—"
+    : d.toLocaleString(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
+};
+
+function SourceTable({
+  sources,
+  selected,
+  toggle,
+  allSelected,
+  toggleAll,
+  currentSourceId,
+  onAudit,
+  showResults = false,
+}: {
+  sources: ScreenerSourceSummary[];
+  selected: Set<number>;
+  toggle: (id: number) => void;
+  allSelected: boolean;
+  toggleAll: () => void;
+  currentSourceId: number | null;
+  onAudit: (id: number) => void;
+  showResults?: boolean;
+}) {
+  return (
+    <Table>
+      <TableHeader>
+        <TableRow>
+          <TableHead className="w-10">
+            <Checkbox checked={allSelected} onCheckedChange={toggleAll} />
+          </TableHead>
+          <TableHead>Source</TableHead>
+          <TableHead>Type</TableHead>
+          {showResults && (
+            <>
+              <TableHead>Dedup</TableHead>
+              <TableHead className="text-right">Kept</TableHead>
+              <TableHead className="text-right">Dropped</TableHead>
+              <TableHead className="text-right">Flagged</TableHead>
+              <TableHead className="text-right">Errors</TableHead>
+              <TableHead>Last screened</TableHead>
+            </>
+          )}
+          <TableHead></TableHead>
+        </TableRow>
+      </TableHeader>
+      <TableBody>
+        {sources.map((s) => (
+          <TableRow key={s.id} data-screening={s.id === currentSourceId ? "true" : undefined}>
+            <TableCell>
+              <Checkbox checked={selected.has(s.id)} onCheckedChange={() => toggle(s.id)} />
+            </TableCell>
+            <TableCell className="max-w-xs">
+              <div className="flex items-center gap-2">
+                <div className="truncate font-medium">{s.title}</div>
+                {s.id === currentSourceId && (
+                  <span className="flex shrink-0 items-center gap-1 text-xs font-medium text-primary">
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" /> Screening…
+                  </span>
+                )}
+              </div>
+              {s.sourceName && (
+                <div className="truncate text-xs text-muted-foreground">{s.sourceName}</div>
+              )}
+              {s.screening && s.screening.anomalies.length > 0 && (
+                <div className="mt-1 flex flex-wrap gap-1">{anomalyBadges(s.screening.anomalies)}</div>
+              )}
+            </TableCell>
+            <TableCell className="text-xs text-muted-foreground">
+              {s.sourceType.replace(/_/g, " ")}
+            </TableCell>
+            {showResults && (
+              <>
+                <TableCell>
+                  {s.screening ? dedupBadge(s.screening.dedupStatus) : <span className="text-xs text-muted-foreground">—</span>}
+                </TableCell>
+                <TableCell className="text-right tabular-nums">
+                  {s.screening ? s.screening.keptCount : "—"}
+                </TableCell>
+                <TableCell className="text-right tabular-nums text-muted-foreground">
+                  {s.screening ? s.screening.droppedCount : "—"}
+                </TableCell>
+                <TableCell className="text-right tabular-nums">
+                  {s.screening ? s.screening.flaggedCount : "—"}
+                </TableCell>
+                <TableCell className="text-right tabular-nums">
+                  {s.screening ? (
+                    s.screening.errorCount > 0 ? (
+                      <span className="font-medium text-slate-500">{s.screening.errorCount}</span>
+                    ) : (
+                      0
+                    )
+                  ) : (
+                    "—"
+                  )}
+                </TableCell>
+                <TableCell className="whitespace-nowrap text-xs text-muted-foreground">
+                  {s.screening ? fmtScreenedAt(s.screening.screenedAt) : "—"}
+                </TableCell>
+              </>
+            )}
+            <TableCell className="text-right">
+              <div className="flex items-center justify-end gap-2">
+                {s.screening && (
+                  <Button size="sm" variant="ghost" onClick={() => onAudit(s.id)}>
+                    Audit
+                  </Button>
+                )}
+              </div>
+            </TableCell>
+          </TableRow>
+        ))}
+      </TableBody>
+    </Table>
   );
 }
 

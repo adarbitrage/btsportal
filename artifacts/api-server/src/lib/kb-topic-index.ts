@@ -8,6 +8,7 @@ import {
   type TaxonomyNode,
 } from "./kb-taxonomy.js";
 import { contentWindows, mapWithConcurrency } from "./kb-source-windows.js";
+import { resolveSourceContentForSynthesis } from "./kb-value-screener.js";
 
 // Full-source read (Task #1561): classification walks the WHOLE document in
 // overlapping windows instead of a single truncated prefix, so topics discussed
@@ -280,13 +281,18 @@ async function classifyWithLLM(doc: SourceDoc): Promise<NodeLink[]> {
  * lexical fallback when the model is unavailable / returns nothing.
  */
 export async function classifySourceDocument(doc: SourceDoc): Promise<NodeLink[]> {
+  // Screened calls: classify against the kept-segments representation so
+  // indexing doesn't spend tokens on chatter (falls back to raw when no valid
+  // screening exists — see resolveSourceContentForSynthesis).
+  const { content } = await resolveSourceContentForSynthesis(doc.id, doc.content);
+  const resolved: SourceDoc = { ...doc, content };
   try {
-    const llm = await classifyWithLLM(doc);
+    const llm = await classifyWithLLM(resolved);
     if (llm.length > 0) return llm;
   } catch (err) {
     console.error(`[TopicIndex] LLM classify failed for source ${doc.id}, using lexical:`, err instanceof Error ? err.message : err);
   }
-  return classifyLexical(doc);
+  return classifyLexical(resolved);
 }
 
 /** Replace the persisted links for one source document with a freshly classified set. */

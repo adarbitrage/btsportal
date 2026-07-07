@@ -898,6 +898,36 @@ export async function getScreenedRepresentation(sourceDocId: number): Promise<st
     .join("\n\n");
 }
 
+/**
+ * The single content-resolution seam for synthesis-side readers (topic
+ * indexing, per-node extraction, the refine chat's source-material fetch).
+ *
+ * Returns the screened kept-segments representation when the source has a
+ * completed screening with at least one effectively-kept segment carrying
+ * non-empty passage text; otherwise returns the raw content unchanged.
+ * Fallback guards (never feed empty/garbage content into synthesis):
+ *  - no screening row → raw
+ *  - zero kept segments (incl. all-error screenings) → raw
+ *  - kept segments but empty passage text (pre-overhaul runs stored the
+ *    passage elsewhere) → raw
+ * A DB failure here must never block synthesis — it also falls back to raw.
+ */
+export async function resolveSourceContentForSynthesis(
+  sourceDocId: number,
+  rawContent: string,
+): Promise<{ content: string; screened: boolean }> {
+  try {
+    const screened = await getScreenedRepresentation(sourceDocId);
+    if (screened.trim().length > 0) return { content: screened, screened: true };
+  } catch (err) {
+    console.error(
+      `[ValueScreener] screened-content resolution failed for source ${sourceDocId}, using raw:`,
+      err instanceof Error ? err.message : err,
+    );
+  }
+  return { content: rawContent, screened: false };
+}
+
 // ── Background pilot run state ───────────────────────────────────────────────
 
 export interface ScreenerProgress {
@@ -909,6 +939,8 @@ export interface ScreenerProgress {
   flagged: number;
   errors: number;
   duplicates: number;
+  /** The source doc id currently being screened (null when idle / between sources). */
+  currentSourceId: number | null;
   startedAt: string | null;
   finishedAt: string | null;
   error: string | null;
@@ -923,6 +955,7 @@ let state: ScreenerProgress = {
   flagged: 0,
   errors: 0,
   duplicates: 0,
+  currentSourceId: null,
   startedAt: null,
   finishedAt: null,
   error: null,
@@ -954,6 +987,7 @@ export async function screenSourcesBackground(
     flagged: 0,
     errors: 0,
     duplicates: 0,
+    currentSourceId: null,
     startedAt: new Date().toISOString(),
     finishedAt: null,
     error: null,
@@ -962,6 +996,7 @@ export async function screenSourcesBackground(
   try {
     const corpus = await loadCoachingCorpus();
     for (const id of sourceDocIds) {
+      state.currentSourceId = id;
       try {
         const r = await screenSource({ sourceDocId: id, corpus, force: opts.force });
         state.kept += r.keptCount;
@@ -980,6 +1015,7 @@ export async function screenSourcesBackground(
     state.error = err instanceof Error ? err.message : String(err);
   } finally {
     state.running = false;
+    state.currentSourceId = null;
     state.finishedAt = new Date().toISOString();
   }
 }
