@@ -499,6 +499,19 @@ if [ -n "$DATABASE_URL" ]; then
     >/dev/null
 fi
 
+# Admin-manageable BTS house-term auto-correct overrides (Task #1676). New,
+# empty, additive table `bts_house_term_aliases` (admin-added misspelling →
+# canonical pairs merged with the code baseline at clean/refine time). The drift
+# gate fires push --force for a new table, but apply the companion .sql
+# explicitly and idempotently so prod picks it up on merge regardless. The
+# api-server boot runs the same DDL — belt-and-suspenders.
+if [ -n "$DATABASE_URL" ]; then
+  psql "$DATABASE_URL" \
+    -v ON_ERROR_STOP=1 \
+    -f lib/db/drizzle/0105_bts_house_term_aliases.sql \
+    >/dev/null
+fi
+
 # Onboarding tier-aware completion effects idempotency ledger (Task #1642 /
 # TB1). New, empty, additive table `onboarding_effects` (per-(member, effect)
 # claim ledger for the one-time creation-time nurture enrollment + completion-

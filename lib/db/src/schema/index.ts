@@ -90,6 +90,7 @@ export * from "./content-access-map";
 export * from "./content-gap-questions";
 export * from "./subscriptions";
 export * from "./bts-orders";
+export * from "./bts-house-term-aliases";
 export * from "./checkout-idempotency";
 export * from "./refund-idempotency";
 export * from "./member-refund-events";

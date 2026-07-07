@@ -365,6 +365,33 @@ export const BTS_TERM_ALIASES: Readonly<Record<string, string>> = {
   "media mavens": "MediaMavens",
 };
 
+/**
+ * The EFFECTIVE alias map actually applied by {@link normalizeBtsHouseTerms}.
+ * Defaults to the code baseline ({@link BTS_TERM_ALIASES}); the DB-backed
+ * override layer (Task #1676, api-server lib/bts-house-terms) merges the
+ * baseline with admin-added rows at boot / after every admin mutation and
+ * registers the result here via {@link setEffectiveHouseTermAliases}. Keeping
+ * the seam a simple module-level map means normalize stays synchronous + pure
+ * (deterministic given the registered map) and has NO database dependency, so
+ * the pure-function tests run without a DB. With no overrides registered the
+ * behaviour is byte-for-byte identical to the code baseline.
+ */
+let effectiveHouseTermAliases: Readonly<Record<string, string>> = BTS_TERM_ALIASES;
+
+/**
+ * Register the merged (baseline + DB overrides) alias map. Keys are matched
+ * case-insensitively, so callers should pass lowercased keys. Passing a falsy
+ * value resets to the code baseline.
+ */
+export function setEffectiveHouseTermAliases(map: Readonly<Record<string, string>> | null | undefined): void {
+  effectiveHouseTermAliases = map && Object.keys(map).length > 0 ? map : BTS_TERM_ALIASES;
+}
+
+/** The alias map currently in effect (baseline unless overrides were registered). */
+export function getEffectiveHouseTermAliases(): Readonly<Record<string, string>> {
+  return effectiveHouseTermAliases;
+}
+
 /** Escape a string for use as a literal inside a RegExp. */
 function escapeRegExp(s: string): string {
   return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -443,11 +470,13 @@ export function normalizeBtsHouseTerms(text: string): string {
   let out = text;
 
   // Pass 1 — explicit aliases (whole word / phrase, case-insensitive). Longest
-  // keys first so a multi-word alias wins over any single-word overlap.
-  const aliasKeys = Object.keys(BTS_TERM_ALIASES).sort((a, b) => b.length - a.length);
+  // keys first so a multi-word alias wins over any single-word overlap. Reads
+  // the EFFECTIVE map (code baseline merged with any DB-backed admin overrides).
+  const aliases = effectiveHouseTermAliases;
+  const aliasKeys = Object.keys(aliases).sort((a, b) => b.length - a.length);
   for (const key of aliasKeys) {
     const re = new RegExp(`\\b${escapeRegExp(key)}\\b`, "gi");
-    out = out.replace(re, BTS_TERM_ALIASES[key]);
+    out = out.replace(re, aliases[key]);
   }
 
   // Pass 2 — near-miss single tokens (camelCase tokens like "DIYTrex" included).
@@ -455,6 +484,125 @@ export function normalizeBtsHouseTerms(text: string): string {
     out = out.replace(/[A-Za-z][A-Za-z0-9]*/g, (token) => matchBtsHouseTerm(token, houseTerms) ?? token);
   }
   return out;
+}
+
+// ───────────────────────────────────────────────────────────────────────────
+// Review diagnostics (Task #1676) — surface what the auto-correct did, and the
+// near-house tokens it deliberately left alone (candidates a human can promote
+// into the alias override table). All PURE — no DB, safe for unit tests.
+// ───────────────────────────────────────────────────────────────────────────
+
+/** A single house-term correction that a normalize pass would apply to a text. */
+export interface HouseTermCorrection {
+  /** The token/phrase as found in the source (lowercased for aliases). */
+  from: string;
+  /** The canonical form it is rewritten to. */
+  to: string;
+  /** Which mechanism caught it. */
+  via: "alias" | "near-miss";
+  /** How many times it occurs in the analysed text. */
+  count: number;
+}
+
+/**
+ * A near-house token that was NOT auto-corrected — a review candidate. These are
+ * tokens close enough to a house term to be a likely mistranscription, yet
+ * outside the conservative auto-correct guard (e.g. an insertion variant of a
+ * short term like "Flexii"→"Flexy"). Adding one to the alias override table
+ * makes it correct forever, exactly the "self-healing" hook the map is for.
+ */
+export interface HouseTermReviewCandidate {
+  /** The uncorrected token, as seen (original casing). */
+  token: string;
+  /** The nearest house term (the likely intended canonical). */
+  suggestedCanonical: string;
+  /** Edit distance from the token to the suggested canonical. */
+  distance: number;
+}
+
+/** True when normalize's alias/near-miss passes already handle this token. */
+function isAlreadyHandled(token: string, houseTerms: readonly string[]): boolean {
+  const lower = token.toLowerCase();
+  if (effectiveHouseTermAliases[lower]) return true;
+  // An exact (case-insensitive) house term, or a safe near-miss, is handled.
+  return matchBtsHouseTerm(token, houseTerms) !== null;
+}
+
+/**
+ * List the house-term corrections a {@link normalizeBtsHouseTerms} pass WOULD
+ * apply to a text (deterministic; does not mutate the text). Used by the admin
+ * review surface to show "corrections applied to recent cleaned documents".
+ * Alias hits are matched whole-word/phrase; near-miss hits are per-token and
+ * only reported when they change the spelling (a pure case fix is ignored).
+ */
+export function listHouseTermCorrections(text: string): HouseTermCorrection[] {
+  if (!text) return [];
+  const houseTerms = loadBtsHouseTerms();
+  const byKey = new Map<string, HouseTermCorrection>();
+
+  // Alias pass — count whole-word/phrase matches per key.
+  for (const [key, canonical] of Object.entries(effectiveHouseTermAliases)) {
+    const re = new RegExp(`\\b${escapeRegExp(key)}\\b`, "gi");
+    const matches = text.match(re);
+    if (matches && matches.length > 0) {
+      byKey.set(`alias:${key}`, { from: key, to: canonical, via: "alias", count: matches.length });
+    }
+  }
+
+  // Near-miss pass — per-token spelling fixes only (skip pure case fixes and
+  // anything an alias already covers, to avoid double-counting).
+  const tokens = text.match(/[A-Za-z][A-Za-z0-9]*/g) ?? [];
+  for (const token of tokens) {
+    const lower = token.toLowerCase();
+    if (effectiveHouseTermAliases[lower]) continue;
+    const canonical = matchBtsHouseTerm(token, houseTerms);
+    if (!canonical) continue;
+    if (canonical.toLowerCase() === lower) continue; // pure case normalisation
+    const mapKey = `near:${lower}->${canonical}`;
+    const existing = byKey.get(mapKey);
+    if (existing) existing.count += 1;
+    else byKey.set(mapKey, { from: lower, to: canonical, via: "near-miss", count: 1 });
+  }
+
+  return [...byKey.values()].sort((a, b) => b.count - a.count);
+}
+
+/**
+ * Find near-house tokens the auto-correct deliberately left alone — the review
+ * candidates an admin can confirm into the alias override table. Uses a LOOSER
+ * distance window than {@link matchBtsHouseTerm} (which is intentionally
+ * conservative), so it surfaces the misses the fuzzy pass won't touch. Guards
+ * against noise: token ≥4 chars, shares the house term's first letter, within a
+ * length-scaled distance, and not already handled or already canonical.
+ * De-duplicated by lowercased token (best/nearest suggestion kept).
+ */
+export function findUnrecognizedHouseTokens(text: string): HouseTermReviewCandidate[] {
+  if (!text) return [];
+  const houseTerms = loadBtsHouseTerms().filter((t) => t.length >= 5);
+  if (houseTerms.length === 0) return [];
+  const seen = new Map<string, HouseTermReviewCandidate>();
+  const tokens = text.match(/[A-Za-z][A-Za-z0-9]*/g) ?? [];
+  for (const token of tokens) {
+    if (token.length < 4) continue;
+    const lower = token.toLowerCase();
+    if (isAlreadyHandled(token, houseTerms)) continue;
+    let best: HouseTermReviewCandidate | null = null;
+    for (const term of houseTerms) {
+      if (term[0].toLowerCase() !== lower[0]) continue;
+      if (Math.abs(term.length - lower.length) > 2) continue;
+      // Review window: up to 2 edits for shorter terms, 3 for longer coined ones.
+      const window = term.length > 8 ? 3 : 2;
+      const dist = editDistance(lower, term.toLowerCase());
+      if (dist >= 1 && dist <= window && (best === null || dist < best.distance)) {
+        best = { token, suggestedCanonical: term, distance: dist };
+      }
+    }
+    if (best) {
+      const prev = seen.get(lower);
+      if (!prev || best.distance < prev.distance) seen.set(lower, best);
+    }
+  }
+  return [...seen.values()].sort((a, b) => a.distance - b.distance);
 }
 
 // ───────────────────────────────────────────────────────────────────────────

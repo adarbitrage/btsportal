@@ -1,8 +1,11 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, afterEach } from "vitest";
 import {
   normalizeBtsHouseTerms,
   loadBtsHouseTerms,
   buildBtsHouseTermGuidance,
+  setEffectiveHouseTermAliases,
+  listHouseTermCorrections,
+  findUnrecognizedHouseTokens,
   BTS_TERM_ALIASES,
 } from "../lib/transcript-cleaner";
 
@@ -124,5 +127,92 @@ describe("BTS house-term guidance + alias map integrity", () => {
     expect(BTS_TERM_ALIASES["flexie"]).toBe("Flexy");
     expect(BTS_TERM_ALIASES["flexxy"]).toBe("Flexy");
     expect(BTS_TERM_ALIASES["catapiller"]).toBe("Caterpillar");
+  });
+});
+
+describe("setEffectiveHouseTermAliases — admin DB overrides (no deploy)", () => {
+  // Always restore the code baseline after each test so nothing leaks.
+  afterEach(() => setEffectiveHouseTermAliases(null));
+
+  it("applies a new admin-added misspelling that the code baseline lacks", () => {
+    // "flexii" (double-i insertion) is NOT in the shipped baseline.
+    expect(BTS_TERM_ALIASES["flexii"]).toBeUndefined();
+    expect(normalizeBtsHouseTerms("Open Flexii now.")).toBe("Open Flexii now.");
+
+    setEffectiveHouseTermAliases({ ...BTS_TERM_ALIASES, flexii: "Flexy" });
+    expect(normalizeBtsHouseTerms("Open Flexii now.")).toBe("Open Flexy now.");
+  });
+
+  it("an override wins over the baseline canonical for the same key", () => {
+    setEffectiveHouseTermAliases({ ...BTS_TERM_ALIASES, flexi: "FlexyPro" });
+    expect(normalizeBtsHouseTerms("We used Flexi.")).toBe("We used FlexyPro.");
+  });
+
+  it("null/empty resets to the shipped code baseline (byte-for-byte)", () => {
+    setEffectiveHouseTermAliases({ zzz: " Zzz" });
+    setEffectiveHouseTermAliases(null);
+    // Baseline behaviour restored.
+    expect(normalizeBtsHouseTerms("We used Flexi.")).toBe("We used Flexy.");
+    setEffectiveHouseTermAliases({});
+    expect(normalizeBtsHouseTerms("We used Flexi.")).toBe("We used Flexy.");
+  });
+});
+
+describe("listHouseTermCorrections — diagnostics for the admin review surface", () => {
+  afterEach(() => setEffectiveHouseTermAliases(null));
+
+  it("reports alias hits with a per-key count", () => {
+    const out = listHouseTermCorrections("Flexi today, then flexi again, and Catapiller.");
+    const flexi = out.find((c) => c.from === "flexi");
+    expect(flexi).toBeDefined();
+    expect(flexi?.to).toBe("Flexy");
+    expect(flexi?.via).toBe("alias");
+    expect(flexi?.count).toBe(2);
+    expect(out.some((c) => c.from === "catapiller" && c.to === "Caterpillar")).toBe(true);
+  });
+
+  it("reports near-miss spelling fixes (not pure case fixes)", () => {
+    const out = listHouseTermCorrections("Check DIYTrex stats.");
+    const nearMiss = out.find((c) => c.via === "near-miss");
+    expect(nearMiss?.to).toBe("DIYTrax");
+    // A pure case fix is NOT reported as a correction.
+    const caseOnly = listHouseTermCorrections("we used cropbot");
+    expect(caseOnly.length).toBe(0);
+  });
+
+  it("reflects an admin override in the reported corrections", () => {
+    setEffectiveHouseTermAliases({ ...BTS_TERM_ALIASES, flexii: "Flexy" });
+    const out = listHouseTermCorrections("Open Flexii please.");
+    expect(out.some((c) => c.from === "flexii" && c.to === "Flexy" && c.via === "alias")).toBe(true);
+  });
+
+  it("returns nothing for clean text", () => {
+    expect(listHouseTermCorrections("A perfectly ordinary sentence.")).toEqual([]);
+  });
+});
+
+describe("findUnrecognizedHouseTokens — surfaces slipped-through candidates", () => {
+  afterEach(() => setEffectiveHouseTermAliases(null));
+
+  it("surfaces a near-house token the conservative auto-correct left alone", () => {
+    // "PixelPraxz" is distance-3 from PixelPress — beyond the conservative
+    // auto-correct guard (threshold 2), so normalize leaves it as-is, but inside
+    // the looser review window (3 for long coined terms), so review flags it.
+    expect(normalizeBtsHouseTerms("Open PixelPraxz now.")).toBe("Open PixelPraxz now.");
+    const candidates = findUnrecognizedHouseTokens("Open PixelPraxz now.");
+    const hit = candidates.find((c) => c.token === "PixelPraxz");
+    expect(hit).toBeDefined();
+    expect(hit?.suggestedCanonical).toBe("PixelPress");
+    expect(hit?.distance).toBeGreaterThanOrEqual(1);
+  });
+
+  it("does NOT surface tokens already handled by an alias override", () => {
+    setEffectiveHouseTermAliases({ ...BTS_TERM_ALIASES, pixelpraxz: "PixelPress" });
+    const candidates = findUnrecognizedHouseTokens("Open PixelPraxz now.");
+    expect(candidates.some((c) => c.token.toLowerCase() === "pixelpraxz")).toBe(false);
+  });
+
+  it("does NOT surface ordinary words far from any house term", () => {
+    expect(findUnrecognizedHouseTokens("The quick brown fox jumped.")).toEqual([]);
   });
 });

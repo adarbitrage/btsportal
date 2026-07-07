@@ -36,6 +36,7 @@ import {
 } from "./chat-system-prompt";
 import { ensureFoundingSuperAdmins } from "./ensure-founding-superadmins";
 import { seedToolTags } from "./kb-tool-tags";
+import { refreshHouseTermAliasCache } from "./bts-house-terms";
 import { backfillUndeliveredTickets } from "./ticketdesk-queue";
 import { migrateOneOffCoachingCallsToTemplates } from "./coaching-call-migrate-oneoffs";
 import {
@@ -138,6 +139,19 @@ export async function bootstrapCriticalPrerequisites(): Promise<PrerequisiteResu
   } catch (err) {
     console.error("[Bootstrap] kb tool-tags migration/seed threw:", err);
     missing.push("kbToolTagsSeed");
+  }
+
+  // 0a-6. Admin-manageable BTS house-term auto-correct overrides (Task #1676).
+  //       The Transcript Cleaner reads a MERGED effective alias map (code
+  //       baseline + enabled DB overrides). Create the table before the refresh
+  //       so a fresh dev DB (no companion .sql yet) still works, then warm the
+  //       in-memory map and register it with the cleaner.
+  try {
+    await runBtsHouseTermAliasesMigration();
+    await refreshHouseTermAliasCache();
+  } catch (err) {
+    console.error("[Bootstrap] bts house-term aliases migration/refresh threw:", err);
+    missing.push("btsHouseTermAliases");
   }
 
   // 0b. Backfill undelivered tickets — runs in the background after the HTTP
@@ -685,6 +699,22 @@ async function runKbToolTagsMigration(): Promise<void> {
       last_seen_at timestamp with time zone NOT NULL DEFAULT now()
     )`);
   await db.execute(sql`CREATE INDEX IF NOT EXISTS kb_proposed_tool_tags_status_idx ON kb_proposed_tool_tags (status)`);
+}
+
+async function runBtsHouseTermAliasesMigration(): Promise<void> {
+  await db.execute(sql`
+    CREATE TABLE IF NOT EXISTS bts_house_term_aliases (
+      id serial PRIMARY KEY,
+      misspelling text NOT NULL UNIQUE,
+      canonical text NOT NULL,
+      enabled boolean NOT NULL DEFAULT true,
+      source text NOT NULL DEFAULT 'admin',
+      note text,
+      created_by integer REFERENCES users(id) ON DELETE SET NULL,
+      created_at timestamp with time zone NOT NULL DEFAULT now(),
+      updated_at timestamp with time zone NOT NULL DEFAULT now()
+    )`);
+  await db.execute(sql`CREATE INDEX IF NOT EXISTS bts_house_term_aliases_enabled_idx ON bts_house_term_aliases (enabled)`);
 }
 
 async function runAiLiveDocumentsParityMigration(): Promise<void> {
