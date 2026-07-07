@@ -159,13 +159,35 @@ export async function callLLM(system: string, user: string, maxTokens: number, j
   return (json.choices?.[0]?.message?.content ?? "").trim();
 }
 
+// ── Hearsay guard (Task: keep member hearsay out of truth docs) ──────────────
+//
+// Coaching-call transcripts contain MEMBER speech. A member's recollection of
+// policy/billing/refund/guarantee terms is HEARSAY, not fact — it must never be
+// extracted into a truth doc. Only COACH-stated guidance counts. The guard text
+// is shared by the map (extraction) and reduce (consolidation) prompts so
+// hearsay can neither enter an extract nor be reintroduced during consolidation.
+export const HEARSAY_GUARD = `HEARSAY GUARD: transcript sources may contain MEMBER speech (lines labeled "Member:" or member questions). Member-reported claims about policies, billing, refunds, guarantees, pricing, or support terms (e.g. "I was told there's a 90-day guarantee", "they charged me twice") are HEARSAY — NEVER extract or state them as facts, even when the coach does not dispute them. Only guidance, facts and policy statements the COACH themselves states are usable. This changes nothing about extracting general teaching content.`;
+
+// Bump this version whenever the map/reduce extraction prompts change in a way
+// that should invalidate previously-cached extracts. It is folded into the
+// per-(source,node) extract-cache fingerprint, so a prompt change automatically
+// forces re-extraction on the next run — no manual DB surgery. (The fingerprint
+// is otherwise content-based, so a prompt-only change would NOT bust the cache.)
+export const EXTRACT_PROMPT_VERSION = "v2-hearsay-guard";
+
 // Map phase (one window): pull the node-relevant knowledge out of one slice of a
 // source, discarding the rest. Keeps each extraction focused and within budget.
-async function extractWindowForNode(node: TaxonomyNode, source: SourceDoc, window: string): Promise<string> {
-  const system = `You extract ONLY the material relevant to a specific topic from a BTS (Build Test Scale) affiliate-marketing source document.
+// Exported prompt builder so the hearsay-guard contract is unit-testable.
+export function buildMapExtractSystemPrompt(node: TaxonomyNode): string {
+  return `You extract ONLY the material relevant to a specific topic from a BTS (Build Test Scale) affiliate-marketing source document.
 TOPIC: "${node.label}".
 Return a tight bullet list of the concrete, usable facts / steps / guidance this source gives about that topic. Omit anything off-topic, pleasantries and filler. If the source says nothing usable about the topic, return exactly "NONE".
+${HEARSAY_GUARD}
 No preamble. Under ${MAP_EXTRACT_CHARS} characters.`;
+}
+
+async function extractWindowForNode(node: TaxonomyNode, source: SourceDoc, window: string): Promise<string> {
+  const system = buildMapExtractSystemPrompt(node);
   const user = `SOURCE TITLE: ${source.title}\n\nSOURCE CONTENT:\n${window}`;
   const out = await callLLM(system, user, 700);
   return out;
@@ -204,7 +226,11 @@ async function getOrExtractForNode(node: TaxonomyNode, source: SourceDoc): Promi
     source.content ?? "",
   );
   const resolvedSource: SourceDoc = { ...source, content: resolvedContent };
-  const fingerprint = fingerprintContent(resolvedContent);
+  // Fingerprint = prompt version + resolved (screened) content, so BOTH a
+  // content/overrule change AND an extraction-prompt change invalidate the
+  // cached extract. Content-only fingerprints would keep serving extracts
+  // produced under a superseded prompt (e.g. pre-hearsay-guard).
+  const fingerprint = fingerprintContent(`${EXTRACT_PROMPT_VERSION}\n${resolvedContent}`);
   try {
     const cached = await db
       .select({
@@ -278,6 +304,7 @@ ${depthGuidance}
 RULES:
 - Consolidate — merge overlapping points, resolve small redundancies, present the collective best understanding. Do NOT just concatenate the sources.
 - Where sources genuinely disagree, note the disagreement plainly rather than picking silently.
+- ${HEARSAY_GUARD}
 - Layer the doc: a summary/orientation first, then the detail.
 - Add brief cross-links in prose to closely related topics where natural (related here: ${relatedNodes || "n/a"}).
 - BRAND RULES: say "Build Test Scale" / "BTS" (never "TCE" or "Cherrington"); no coach surnames; support email is support@buildtestscale.com.

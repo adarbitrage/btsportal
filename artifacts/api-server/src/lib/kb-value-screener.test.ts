@@ -22,6 +22,7 @@ import {
   QA_FOLD_DROP_REASON,
   QA_FOLD_ANCHOR_MAX_CHARS,
   classifySegments,
+  SCREENER_RUBRIC,
   effectiveDisposition,
   detectDuplicate,
   EMPTY_COMPLETION_REASON,
@@ -473,6 +474,53 @@ describe("classifySegments (reliability + error disposition)", () => {
     const out = await classifySegments([seg(0)]);
     expect(out[0].disposition).toBe("keep");
     expect(out[0].situationalNumber).toBe(true);
+  });
+});
+
+describe("SCREENER_RUBRIC grievance flag rule (contract)", () => {
+  it("instructs the model to FLAG pure member grievance/billing-dispute segments", () => {
+    // The grievance rule must live under the "flag" disposition — grievances
+    // are pre-sorted for human review, never dropped and never kept as facts.
+    expect(SCREENER_RUBRIC).toMatch(/GRIEVANCE/);
+    expect(SCREENER_RUBRIC).toMatch(/billing/i);
+    expect(SCREENER_RUBRIC).toMatch(/refunds?/i);
+    expect(SCREENER_RUBRIC).toMatch(/support responsiveness/i);
+    expect(SCREENER_RUBRIC).toMatch(/hearsay/i);
+    // Mixed segments with genuine coach guidance stay keeps.
+    expect(SCREENER_RUBRIC).toMatch(/genuine guidance or teaching in the same segment, "keep"/);
+  });
+
+  it("preserves the recall-biased keep-by-default contract", () => {
+    expect(SCREENER_RUBRIC).toContain("RECALL-FIRST");
+    expect(SCREENER_RUBRIC).toContain("This is the DEFAULT.");
+    // Grievances must be flagged, not dropped — the drop rubric is unchanged.
+    expect(SCREENER_RUBRIC).toContain('NOT dropped');
+  });
+
+  it("maps a model 'flag' verdict on a grievance segment straight through", async () => {
+    callLLMMock.mockResolvedValueOnce(
+      JSON.stringify({
+        results: [
+          {
+            index: 0,
+            valueType: "logistics",
+            disposition: "flag",
+            dropReason: "member billing grievance — no coach teaching",
+            rationale: "pure refund complaint",
+          },
+        ],
+      }),
+    );
+    const out = await classifySegments([
+      {
+        orderIndex: 0,
+        passage: "Member: I was told there is a 90-day guarantee and support never answered me.\nCoach: I hear you, reach out to support.",
+        anchorQuestion: null,
+        memberOnly: false,
+      },
+    ]);
+    expect(out[0].disposition).toBe("flag");
+    expect(out[0].dropReason).toContain("grievance");
   });
 });
 

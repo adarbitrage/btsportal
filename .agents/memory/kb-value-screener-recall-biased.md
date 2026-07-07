@@ -43,6 +43,17 @@ self-reported `error` verdict would let LLM failures masquerade as editorial dro
 keep-by-default bias and the isolated-per-segment `error` path. Synthesis (#1703) and
 review gate (#1704) own quality + PII; don't push those responsibilities upstream.
 
+## Grievance rule + synthesis hearsay guard (2026-07)
+- Pure member grievance/billing-dispute/support-complaint segments are `flag` — never
+  keep-as-fact (member policy/refund/guarantee claims are hearsay), never drop (recall
+  bias). Mixed segments with genuine coach guidance stay keeps. Rule lives in the
+  exported SCREENER_RUBRIC; contract-tested.
+- Synthesis map/reduce extraction has a matching exported HEARSAY_GUARD (only
+  COACH-stated policy/billing facts extractable, even undisputed member claims are out).
+- Extract-cache fingerprint = `EXTRACT_PROMPT_VERSION + "\n" + resolved content`; bump
+  EXTRACT_PROMPT_VERSION whenever the extraction prompt materially changes, or cached
+  extracts keep serving output from the superseded prompt.
+
 ## Reviewer fold display + oversized flag (2026-07)
 - Fold-dropped member questions carry an exported structured marker constant as dropReason; the reviewer surface derives `foldedIntoNext`/`foldTruncated` from exact marker match (deriveFoldSignals) — NEVER detect folds by passage string-matching.
 - Anchor cap is 2,000 chars; truncation warning derives from original member text length vs cap.

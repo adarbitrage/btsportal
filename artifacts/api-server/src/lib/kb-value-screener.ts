@@ -439,7 +439,7 @@ interface SegmentClassification {
 // Recorded distinctly so it is never mistaken for a JSON parse failure.
 export const EMPTY_COMPLETION_REASON = "empty response — token budget exhausted";
 
-const SCREENER_RUBRIC = `You screen segments of a Build Test Scale (BTS) affiliate-marketing COACHING CALL to strip out confidently worthless noise before the knowledge base indexes them.
+export const SCREENER_RUBRIC = `You screen segments of a Build Test Scale (BTS) affiliate-marketing COACHING CALL to strip out confidently worthless noise before the knowledge base indexes them.
 
 Each segment is a topic thread: a role-labeled transcript passage (inline Coach:/Member: speaker labels), optionally preceded by the ANCHOR member question that prompted it.
 
@@ -451,6 +451,7 @@ Classify each segment:
   - "keep": has ANY plausible durable teaching value — a principle, framework, process/step, decision criteria, worked example, troubleshooting pattern, useful resource pointer, or even partial/rough guidance. This is the DEFAULT.
   - "drop": ONLY for content that is confidently worthless with no teaching value at all — greetings, scheduling/logistics, "can you hear me"/tech checks, pure filler encouragement, or off-topic chit-chat. If it teaches anything, do NOT drop it.
   - "flag": you genuinely cannot tell whether it has value. Use sparingly.
+    ALSO "flag" (never "keep", never "drop"): member GRIEVANCE segments — a member complaining about or disputing billing, charges, refunds, guarantees, cancellations, or support responsiveness, or recounting what they were told about such policies, where the coach gives NO real teaching in response (only acknowledges, sympathizes, or redirects to support). A member's recollection of policy/billing/refund/guarantee terms is hearsay, not knowledge — such segments are pre-sorted for human review, NOT dropped. BUT if the coach responds with genuine guidance or teaching in the same segment, "keep" it as usual.
 - situationalNumber: true when the answer is anchored to a time-sensitive detail OR to THIS member's specific numbers/account state (their spend, ROI, a current platform rule, a "right now" tactic). Such content is still KEPT (usually "keep", never a silent "drop") but marked so a human sees its context-bound nature. This is an INDEPENDENT signal.
 - contextBound: true when the segment is live screen-share WALKTHROUGH NARRATION — the coach navigating a tool on screen ("click the edit button…", "you see my screen?", "now scroll down here"). Such keeps are topic evidence but NOT standalone quotable teaching; mark them so downstream synthesis treats them as evidence, not quotes. This is an INDEPENDENT signal and never a reason to drop.
 - dropReason: a short reason, required when disposition is "drop" or "flag"; null for "keep".
