@@ -25,6 +25,15 @@ store that the synthesis engine + human review gate consume downstream.
   admin page). Do not reintroduce a calibration/teach/feedback loop.
 - **The admin page is a run-and-audit console only** — trigger a run, watch progress,
   audit dispositions (incl. an error filter/badge). Not a curation/teaching surface.
+- **Segment shape = one role-labeled `passage` (+ optional `anchorQuestion`), NOT
+  member-prompt/coach-response pairs.** Real transcripts use bare labels (Coach/Member
+  alone on a line) as often as `Name:` colons; parsing needs both a bare-label pass and
+  MAJORITY-RULE colon detection (a few `word:` lines in prose must not trigger dialogue
+  mode, or a whole call collapses into one giant segment → LLM token-budget exhaustion
+  → all-error screening). Enforce a hard max-chars cap with sentence-boundary splits;
+  fold orphan member questions into the following kept coach segment (Q/A pairing);
+  mark screen-share walkthroughs `contextBound`. An EMPTY LLM completion is its own
+  distinct error reason (token budget), not a generic parse failure.
 
 **Why:** the screener's value is high recall so nothing citable is lost before humans
 review; a strict picker would silently discard usable coaching content, and a

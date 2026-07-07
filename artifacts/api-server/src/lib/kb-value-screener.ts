@@ -158,15 +158,26 @@ export function looksLikeQuestion(text: string): boolean {
 }
 
 const SPEAKER_LINE = /^\s*([\p{L}][\p{L} .'\-]{0,30}?):\s+(\S.*)$/u;
+// A bare speaker label on its OWN line (the Transcript Cleaner's real output
+// format: "Coach" / "Member" alone on a line, speech on the following lines).
+// An optional trailing colon is tolerated; no other punctuation.
+const BARE_LABEL_LINE = /^\s*([\p{L}][\p{L} .'\-]{0,30}?):?\s*$/u;
 
 type Role = "member" | "coach";
 
-/** A topic-threaded segment: the member turns (context) and the coach turns
- *  (teaching) for one coherent stretch of the call. Roles are preserved. */
+/** A topic-threaded segment: ONE role-labeled transcript passage (inline
+ *  "Coach:"/"Member:" speaker labels preserved) plus the member question that
+ *  prompted the teaching (anchor context), when one exists. */
 export interface Segment {
   orderIndex: number;
-  memberPrompt: string;
-  coachResponse: string;
+  // The full passage with inline speaker labels, one turn per line.
+  passage: string;
+  // The member question/context that opened this topic (null when none).
+  anchorQuestion: string | null;
+  // TRUE when the segment contains ONLY member speech (no coach turn) — used
+  // by the Q/A pairing rule so an orphan question is never dropped
+  // independently of its answer.
+  memberOnly: boolean;
 }
 
 interface RoledTurn {
@@ -174,22 +185,82 @@ interface RoledTurn {
   text: string;
 }
 
-/** Infer whether a turn is the member or the coach speaking. Prefers an
- *  explicit speaker label, falling back to question-likeness. */
-function inferRole(speaker: string | null, text: string): Role {
+/** Map an explicit speaker label to a role, or null when unrecognized. */
+function roleFromLabel(speaker: string | null): Role | null {
   const s = (speaker || "").toLowerCase();
   if (/\b(coach|mentor|instructor|host|trainer|facilitator|teacher|expert)\b/.test(s)) return "coach";
   if (/\b(member|student|mentee|guest|caller|attendee|participant|question|audience)\b/.test(s)) return "member";
-  return looksLikeQuestion(text) ? "member" : "coach";
+  return null;
 }
 
-/** Parse speaker-labeled dialogue lines into roled turns; returns null when the
- *  content is not speaker-labeled (fewer than 3 labeled lines). */
-function parseDialogueTurns(content: string): RoledTurn[] | null {
+/** Infer whether a turn is the member or the coach speaking. Prefers an
+ *  explicit speaker label; question-likeness is a LAST resort for truly
+ *  unlabeled prose. */
+function inferRole(speaker: string | null, text: string): Role {
+  return roleFromLabel(speaker) ?? (looksLikeQuestion(text) ? "member" : "coach");
+}
+
+/**
+ * Parse the Transcript Cleaner's real output format: a bare speaker label
+ * ("Coach" / "Member" / a name) on its OWN line, with the speech on the
+ * following lines. Returns null when the content does not look bare-labeled:
+ * we require at least 3 label lines AND every distinct label to either be a
+ * recognized role word or recur (a one-off capitalized line is a heading, not
+ * a speaker).
+ */
+export function parseBareLabelTurns(content: string): RoledTurn[] | null {
+  const lines = content.split(/\r?\n/);
+
+  // First pass: count how often each candidate bare-label line occurs. A real
+  // speaker label recurs (Coach/Member alternate); a heading appears once.
+  const occurrences = new Map<string, number>();
+  for (const line of lines) {
+    const m = line.match(BARE_LABEL_LINE);
+    if (m) {
+      const key = m[1].trim().toLowerCase();
+      occurrences.set(key, (occurrences.get(key) ?? 0) + 1);
+    }
+  }
+  const isLabelLine = (line: string): string | null => {
+    const m = line.match(BARE_LABEL_LINE);
+    if (!m) return null;
+    const label = m[1].trim();
+    if (roleFromLabel(label) !== null) return label;
+    if ((occurrences.get(label.toLowerCase()) ?? 0) >= 2) return label;
+    return null;
+  };
+
+  // Second pass: build turns.
+  const turns: { speaker: string; parts: string[] }[] = [];
+  let labeled = 0;
+  for (const line of lines) {
+    const label = isLabelLine(line);
+    if (label !== null) {
+      labeled++;
+      turns.push({ speaker: label, parts: [] });
+    } else if (line.trim()) {
+      if (turns.length > 0) turns[turns.length - 1].parts.push(line.trim());
+      // Preamble before the first label is kept as an unlabeled turn.
+      else turns.push({ speaker: "", parts: [line.trim()] });
+    }
+  }
+  if (labeled < 3) return null;
+  return turns
+    .map((t) => ({ speaker: t.speaker, text: t.parts.join(" ").trim() }))
+    .filter((t) => t.text)
+    .map((t) => ({ role: inferRole(t.speaker || null, t.text), text: t.text }));
+}
+
+/** Parse colon-labeled dialogue lines ("Name: text") into roled turns; returns
+ *  null unless a MAJORITY of non-empty lines are colon-labeled (incidental
+ *  colons inside speech must not flip a prose transcript into dialogue mode). */
+export function parseDialogueTurns(content: string): RoledTurn[] | null {
   const lines = content.split(/\r?\n/);
   let labeled = 0;
+  let nonEmpty = 0;
   const raw: { speaker: string | null; text: string }[] = [];
   for (const line of lines) {
+    if (line.trim()) nonEmpty++;
     const m = line.match(SPEAKER_LINE);
     if (m) {
       labeled++;
@@ -200,7 +271,7 @@ function parseDialogueTurns(content: string): RoledTurn[] | null {
       else raw.push({ speaker: null, text: line.trim() });
     }
   }
-  if (labeled < 3) return null;
+  if (labeled < 3 || labeled * 2 <= nonEmpty) return null;
   return raw.map((t) => ({ role: inferRole(t.speaker, t.text), text: t.text }));
 }
 
@@ -223,58 +294,104 @@ function proseBlocks(content: string): string[] {
   return blocks.filter(Boolean);
 }
 
+/**
+ * Split one over-long text into sub-texts at sentence (or paragraph)
+ * boundaries, each at most `maxChars` (a single sentence longer than the cap
+ * stays whole — the anomaly flag catches that pathological case). Safety net
+ * for any format the parser still misreads: no single turn may glue an entire
+ * call into one giant pseudo-turn.
+ */
+export function splitOversizeText(text: string, maxChars: number): string[] {
+  const t = (text || "").trim();
+  if (t.length <= maxChars) return t ? [t] : [];
+  // Prefer paragraph boundaries, then sentences.
+  const units: string[] = [];
+  for (const para of t.split(/\n\s*\n/)) {
+    const p = para.replace(/\s+/g, " ").trim();
+    if (!p) continue;
+    if (p.length <= maxChars) units.push(p);
+    else units.push(...(p.match(/[^.!?]+[.!?]+(?:\s|$)|[^.!?]+$/g) ?? [p]).map((s) => s.trim()).filter(Boolean));
+  }
+  const out: string[] = [];
+  let cur = "";
+  for (const u of units) {
+    if (cur && cur.length + 1 + u.length > maxChars) {
+      out.push(cur);
+      cur = u;
+    } else {
+      cur = cur ? cur + " " + u : u;
+    }
+  }
+  if (cur) out.push(cur);
+  return out;
+}
+
+/** Render turns as ONE role-labeled passage (inline speaker labels, one turn
+ *  per line) and derive the anchor question (member speech before the first
+ *  coach turn). */
+function turnsToSegment(turns: RoledTurn[]): Omit<Segment, "orderIndex"> {
+  const passage = turns
+    .map((t) => `${t.role === "coach" ? "Coach" : "Member"}: ${t.text}`)
+    .join("\n");
+  const firstCoach = turns.findIndex((t) => t.role === "coach");
+  const anchor = turns
+    .filter((t, i) => t.role === "member" && (firstCoach === -1 || i < firstCoach))
+    .map((t) => t.text)
+    .join(" ")
+    .trim();
+  return {
+    passage,
+    anchorQuestion: anchor ? anchor.slice(0, 2000) : null,
+    memberOnly: firstCoach === -1 && turns.length > 0,
+  };
+}
+
 /** Group roled turns into topic-threaded segments. A member turn opens a NEW
  *  segment only once the current one already holds a coach response and has
- *  grown past `minChars`; a hard `maxChars` cap forces a split at any boundary
- *  so runaway monologues still break into auditable chunks. */
+ *  grown past `minChars`; the hard `maxChars` cap is enforced BEFORE a turn is
+ *  added, so (with oversized turns pre-split) no segment exceeds the cap. */
 function groupTurnsIntoSegments(turns: RoledTurn[], minChars: number, maxChars: number): Segment[] {
   const segments: Segment[] = [];
-  let memberParts: string[] = [];
-  let coachParts: string[] = [];
+  let current: RoledTurn[] = [];
   let chars = 0;
   let hasCoach = false;
 
   const flush = () => {
-    if (memberParts.length || coachParts.length) {
-      segments.push({
-        orderIndex: segments.length,
-        memberPrompt: memberParts.join(" ").trim(),
-        coachResponse: coachParts.join(" ").trim(),
-      });
+    if (current.length) {
+      segments.push({ orderIndex: segments.length, ...turnsToSegment(current) });
     }
-    memberParts = [];
-    coachParts = [];
+    current = [];
     chars = 0;
     hasCoach = false;
   };
 
   for (const t of turns) {
     if (!t.text) continue;
-    const hasContent = memberParts.length > 0 || coachParts.length > 0;
     const memberOpensNewTopic = t.role === "member" && hasCoach && chars >= minChars;
-    const overHardCap = hasContent && chars >= maxChars;
-    if (memberOpensNewTopic || overHardCap) flush();
+    const wouldExceedCap = current.length > 0 && chars + t.text.length > maxChars;
+    if (memberOpensNewTopic || wouldExceedCap) flush();
 
-    if (t.role === "member") memberParts.push(t.text);
-    else {
-      coachParts.push(t.text);
-      hasCoach = true;
-    }
+    current.push(t);
+    if (t.role === "coach") hasCoach = true;
     chars += t.text.length;
   }
   flush();
-  return segments.map((s, i) => ({ ...s, orderIndex: i }));
+  return segments;
 }
 
 /**
  * Deterministically split a cleared coaching source into TOPIC-THREADED
- * segments (member context + coach teaching), preserving speaker roles. Two
- * shapes are handled:
- *  - speaker-labeled dialogue ("Name: …") — turns are role-tagged and threaded, and
- *  - prose (the Transcript Cleaner's structured output) — paragraphs are
- *    role-tagged (question-like → member) and threaded the same way.
- * A topic (question + answer + follow-ups) stays in ONE segment rather than
- * being fragmented into per-question atoms.
+ * segments — ONE role-labeled passage each, with the member question that
+ * opened the topic as anchor context. Three shapes are handled, in order:
+ *  1. bare speaker-label-on-own-line (the Transcript Cleaner's real output:
+ *     "Coach" / "Member" alone on a line, speech on the following lines);
+ *  2. colon-labeled dialogue ("Name: …") — engaged only when a MAJORITY of
+ *     lines are labeled, so incidental colons in speech can't glue the call
+ *     into giant pseudo-turns;
+ *  3. prose fallback — paragraphs role-guessed by question-likeness (last
+ *     resort for truly unlabeled content).
+ * Oversized turns are pre-split at sentence/paragraph boundaries so no segment
+ * exceeds `maxChars`.
  */
 export function segmentTranscript(
   content: string,
@@ -285,12 +402,19 @@ export function segmentTranscript(
   const minChars = opts.minChars ?? DEFAULT_MIN_SEGMENT_CHARS;
   const maxChars = opts.maxChars ?? DEFAULT_MAX_SEGMENT_CHARS;
 
-  const dialogue = parseDialogueTurns(raw);
-  const turns: RoledTurn[] = dialogue
-    ? dialogue
-    : proseBlocks(raw).map((b) => ({ role: looksLikeQuestion(b) ? "member" : "coach", text: b }) as RoledTurn);
+  const turns: RoledTurn[] =
+    parseBareLabelTurns(raw) ??
+    parseDialogueTurns(raw) ??
+    proseBlocks(raw).map((b) => ({ role: looksLikeQuestion(b) ? "member" : "coach", text: b }) as RoledTurn);
 
-  return groupTurnsIntoSegments(turns, minChars, maxChars);
+  // Hard cap safety net: no single turn may exceed maxChars.
+  const bounded = turns.flatMap((t) =>
+    t.text.length <= maxChars
+      ? [t]
+      : splitOversizeText(t.text, maxChars).map((text) => ({ role: t.role, text })),
+  );
+
+  return groupTurnsIntoSegments(bounded, minChars, maxChars);
 }
 
 /** The disposition that downstream reads honor: an admin overrule wins over the
@@ -306,12 +430,18 @@ interface SegmentClassification {
   disposition: Disposition;
   dropReason: string | null;
   situationalNumber: boolean;
+  contextBound: boolean;
   rationale: string;
 }
 
+// Distinct marker for an EMPTY LLM completion (typically a reasoning model
+// exhausting max_completion_tokens on hidden reasoning: finish_reason=length).
+// Recorded distinctly so it is never mistaken for a JSON parse failure.
+export const EMPTY_COMPLETION_REASON = "empty response — token budget exhausted";
+
 const SCREENER_RUBRIC = `You screen segments of a Build Test Scale (BTS) affiliate-marketing COACHING CALL to strip out confidently worthless noise before the knowledge base indexes them.
 
-Each segment is a topic thread: a MEMBER prompt/context (may be empty) plus the COACH response(s) on that topic.
+Each segment is a topic thread: a role-labeled transcript passage (inline Coach:/Member: speaker labels), optionally preceded by the ANCHOR member question that prompted it.
 
 YOUR BIAS: this is a RECALL-FIRST de-noiser, NOT a "best moments" picker. Keep anything that is plausibly instructional. Only drop what is confidently, obviously worthless. False DROPS are far worse than keeping something mediocre — when unsure, KEEP; only when you genuinely cannot tell, FLAG.
 
@@ -322,6 +452,7 @@ Classify each segment:
   - "drop": ONLY for content that is confidently worthless with no teaching value at all — greetings, scheduling/logistics, "can you hear me"/tech checks, pure filler encouragement, or off-topic chit-chat. If it teaches anything, do NOT drop it.
   - "flag": you genuinely cannot tell whether it has value. Use sparingly.
 - situationalNumber: true when the answer is anchored to a time-sensitive detail OR to THIS member's specific numbers/account state (their spend, ROI, a current platform rule, a "right now" tactic). Such content is still KEPT (usually "keep", never a silent "drop") but marked so a human sees its context-bound nature. This is an INDEPENDENT signal.
+- contextBound: true when the segment is live screen-share WALKTHROUGH NARRATION — the coach navigating a tool on screen ("click the edit button…", "you see my screen?", "now scroll down here"). Such keeps are topic evidence but NOT standalone quotable teaching; mark them so downstream synthesis treats them as evidence, not quotes. This is an INDEPENDENT signal and never a reason to drop.
 - dropReason: a short reason, required when disposition is "drop" or "flag"; null for "keep".
 - rationale: one concise sentence explaining the call.`;
 
@@ -330,6 +461,7 @@ const errorClassification = (reason: string): SegmentClassification => ({
   disposition: "error",
   dropReason: reason,
   situationalNumber: false,
+  contextBound: false,
   rationale: "The classifier did not return a usable verdict for this segment — needs a re-run.",
 });
 
@@ -343,12 +475,13 @@ function normalizeResult(r: Record<string, unknown>): SegmentClassification {
   const valueType = isValueType(r.valueType) ? r.valueType : "unclassified";
   const situationalNumber =
     r.situationalNumber === true || r.timeSensitive === true || r.situational === true;
+  const contextBound = r.contextBound === true || r.walkthrough === true;
   const rationale = typeof r.rationale === "string" ? r.rationale.slice(0, 500) : "";
   let dropReason: string | null =
     typeof r.dropReason === "string" && r.dropReason.trim() ? r.dropReason.trim().slice(0, 500) : null;
   if (disposition === "keep") dropReason = null;
   else if (!dropReason) dropReason = disposition === "drop" ? "confidently low value (logistics/chatter)" : "borderline — needs review";
-  return { valueType, disposition, dropReason, situationalNumber, rationale };
+  return { valueType, disposition, dropReason, situationalNumber, contextBound, rationale };
 }
 
 /** Classify ONE chunk in a single LLM call, with retries. Returns a map from
@@ -359,13 +492,14 @@ async function classifyChunk(chunk: Segment[]): Promise<Map<number, SegmentClass
     SCREENER_RUBRIC +
     `
 
-Return STRICT JSON: {"results":[{"index":<0-based>,"valueType":"...","disposition":"keep|drop|flag","situationalNumber":true|false,"dropReason":"..."|null,"rationale":"..."}]}. Return exactly one result per input segment, same order.`;
+Return STRICT JSON: {"results":[{"index":<0-based>,"valueType":"...","disposition":"keep|drop|flag","situationalNumber":true|false,"contextBound":true|false,"dropReason":"..."|null,"rationale":"..."}]}. Return exactly one result per input segment, same order.`;
 
   const user =
     "Screen these segments:\n\n" +
     chunk
       .map(
-        (s, i) => `[${i}] MEMBER: ${s.memberPrompt || "(none)"}\n    COACH: ${s.coachResponse.slice(0, 1800)}`,
+        (s, i) =>
+          `[${i}]${s.anchorQuestion ? ` ANCHOR QUESTION: ${s.anchorQuestion.slice(0, 400)}\n    ` : " "}PASSAGE:\n${s.passage.slice(0, 2600)}`,
       )
       .join("\n\n");
 
@@ -377,6 +511,12 @@ Return STRICT JSON: {"results":[{"index":<0-based>,"valueType":"...","dispositio
       // the response comes back EMPTY (finish_reason=length) and every
       // segment errors out. Keep this floor high.
       const rawResp = await callLLM(system, user, 4000 + chunk.length * 300, true);
+      // An EMPTY completion is a token-budget failure, NOT a parse failure —
+      // record and log it distinctly so it is diagnosable.
+      if (!rawResp || !rawResp.trim()) {
+        console.warn(`[ValueScreener] ${EMPTY_COMPLETION_REASON} (attempt ${attempt}/${CLASSIFY_MAX_ATTEMPTS})`);
+        throw new Error(EMPTY_COMPLETION_REASON);
+      }
       const parsed = JSON.parse(rawResp) as { results?: unknown };
       const results = Array.isArray(parsed.results) ? parsed.results : null;
       if (!results) throw new Error("classifier response missing results array");
@@ -414,21 +554,96 @@ export async function classifySegments(segments: Segment[]): Promise<SegmentClas
   for (let start = 0; start < segments.length; start += CLASSIFY_CHUNK_SIZE) {
     const chunk = segments.slice(start, start + CLASSIFY_CHUNK_SIZE);
     let map: Map<number, SegmentClassification> | null = null;
+    let chunkFailReason = "classifier error after retries";
     try {
       map = await classifyChunk(chunk);
-    } catch {
+    } catch (err) {
       map = null; // whole chunk failed after retries — isolate to these segments
+      const msg = err instanceof Error ? err.message : String(err);
+      chunkFailReason = msg.includes(EMPTY_COMPLETION_REASON)
+        ? EMPTY_COMPLETION_REASON
+        : `classifier error after retries: ${msg.slice(0, 200)}`;
     }
     for (let j = 0; j < chunk.length; j++) {
       const global = start + j;
       if (map && map.has(j)) out[global] = map.get(j)!;
       else
         out[global] = errorClassification(
-          map === null ? "classifier error after retries" : "classifier omitted this segment",
+          map === null ? chunkFailReason : "classifier omitted this segment",
         );
     }
   }
   return out;
+}
+
+/**
+ * Q/A pairing rule (post-classification): a member-only question segment is
+ * NEVER dropped independently of its answer. When the FOLLOWING segment is a
+ * kept coach segment, the member question is folded into it as anchor context
+ * (and the question row's dropReason records the fold); the question is only
+ * truly dropped when its answer is dropped too. Mutates and returns the inputs.
+ */
+export function applyQaPairing(
+  segments: Segment[],
+  classifications: SegmentClassification[],
+): { segments: Segment[]; classifications: SegmentClassification[] } {
+  for (let i = 0; i + 1 < segments.length; i++) {
+    const seg = segments[i];
+    const cls = classifications[i];
+    if (!seg.memberOnly || cls.disposition !== "drop") continue;
+    const next = segments[i + 1];
+    const nextCls = classifications[i + 1];
+    if (next.memberOnly || nextCls.disposition !== "keep") continue;
+
+    const question = (seg.anchorQuestion ?? seg.passage.replace(/^Member:\s*/gm, "").trim()).slice(0, 2000);
+    next.anchorQuestion = next.anchorQuestion
+      ? `${question} ${next.anchorQuestion}`.slice(0, 2000)
+      : question;
+    cls.dropReason = "member question folded into the following kept segment as anchor context";
+  }
+  return { segments, classifications };
+}
+
+// ── Anomaly signals (audit surface) ─────────────────────────────────────────
+
+export const SEGMENT_MAX_CHARS = DEFAULT_MAX_SEGMENT_CHARS;
+
+export const ANOMALY_FLAGS = ["oversized_segment", "low_segment_count", "all_error"] as const;
+export type AnomalyFlag = (typeof ANOMALY_FLAGS)[number];
+
+/**
+ * Per-screening anomaly signals for the admin audit surface. A screening with
+ * an anomalous shape is flagged for attention rather than silently passing:
+ *  - oversized_segment: some segment exceeds the max-char cap (the splitter's
+ *    safety net failed — usually a format the parser misread);
+ *  - low_segment_count: a full-length call yielded implausibly few segments
+ *    (the mega-segment signature);
+ *  - all_error: every segment errored (e.g. an unresolved token-budget run).
+ */
+export function computeAnomalyFlags(sc: {
+  exchangeCount: number;
+  keptCount: number;
+  droppedCount: number;
+  flaggedCount: number;
+  maxSegmentChars: number;
+  sourceCharCount: number;
+  dedupStatus?: string;
+}): AnomalyFlag[] {
+  const flags: AnomalyFlag[] = [];
+  if (sc.maxSegmentChars > SEGMENT_MAX_CHARS) flags.push("oversized_segment");
+  // Expect at least one segment per ~4x the max cap of content; a 50k-char
+  // call that yields 2 segments is anomalous. Exact duplicates legitimately
+  // have zero segments, so skip the check for them.
+  if (
+    sc.dedupStatus !== "exact_duplicate" &&
+    sc.sourceCharCount >= 8000 &&
+    sc.exchangeCount < Math.ceil(sc.sourceCharCount / (SEGMENT_MAX_CHARS * 4))
+  ) {
+    flags.push("low_segment_count");
+  }
+  const errors = sc.exchangeCount - sc.keptCount - sc.droppedCount - sc.flaggedCount;
+  if (sc.exchangeCount > 0 && errors >= sc.exchangeCount) flags.push("all_error");
+  return flags;
 }
 
 // ── Dedup ───────────────────────────────────────────────────────────────────
@@ -563,6 +778,10 @@ export async function screenSource(opts: {
   // source already carries the content).
   const segments = dedup.status === "exact_duplicate" ? [] : segmentTranscript(source.content);
   const classifications = await classifySegments(segments);
+  // Q/A pairing: never drop a member-only question independently of its answer.
+  applyQaPairing(segments, classifications);
+  const maxSegmentChars = segments.reduce((m, s) => Math.max(m, s.passage.length), 0);
+  const sourceCharCount = source.content.trim().length;
 
   let keptCount = 0;
   let droppedCount = 0;
@@ -589,6 +808,8 @@ export async function screenSource(opts: {
         keptCount,
         droppedCount,
         flaggedCount,
+        maxSegmentChars,
+        sourceCharCount,
       })
       .onConflictDoUpdate({
         target: kbCallScreeningsTable.sourceDocId,
@@ -602,6 +823,8 @@ export async function screenSource(opts: {
           keptCount,
           droppedCount,
           flaggedCount,
+          maxSegmentChars,
+          sourceCharCount,
           updatedAt: new Date(),
         },
       })
@@ -618,12 +841,13 @@ export async function screenSource(opts: {
             screeningId: row.id,
             sourceDocId,
             orderIndex: i,
-            memberPrompt: s.memberPrompt,
-            coachResponse: s.coachResponse,
+            passage: s.passage,
+            anchorQuestion: s.anchorQuestion,
             valueType: c.valueType,
             disposition: c.disposition,
             dropReason: c.dropReason,
             situationalNumber: c.situationalNumber,
+            contextBound: c.contextBound,
             rationale: c.rationale,
           };
         }),
@@ -666,7 +890,11 @@ export async function getScreenedRepresentation(sourceDocId: number): Promise<st
 
   return rows
     .filter((r) => effectiveDisposition(r) === "keep")
-    .map((r) => (r.memberPrompt ? `Q: ${r.memberPrompt}\nA: ${r.coachResponse}` : r.coachResponse))
+    .map((r) =>
+      r.anchorQuestion && !r.passage.includes(r.anchorQuestion)
+        ? `[Anchor question] ${r.anchorQuestion}\n${r.passage}`
+        : r.passage,
+    )
     .join("\n\n");
 }
 

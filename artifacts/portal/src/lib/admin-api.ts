@@ -2443,6 +2443,9 @@ export interface ScreenerSourceSummary {
     droppedCount: number;
     flaggedCount: number;
     errorCount: number;
+    maxSegmentChars: number;
+    sourceCharCount: number;
+    anomalies: string[];
     screenedAt: string;
   } | null;
 }
@@ -2466,8 +2469,13 @@ export interface ScreenedExchange {
   screeningId: number;
   sourceDocId: number;
   orderIndex: number;
-  memberPrompt: string;
-  coachResponse: string;
+  // ONE role-labeled transcript passage (inline "Coach:"/"Member:" labels)
+  // plus the member question that prompted the teaching, when one exists.
+  passage: string;
+  anchorQuestion: string | null;
+  // Live screen-share walkthrough narration marker (topic evidence, not
+  // standalone quotable teaching).
+  contextBound: boolean;
   valueType: string;
   disposition: string;
   dropReason: string | null;

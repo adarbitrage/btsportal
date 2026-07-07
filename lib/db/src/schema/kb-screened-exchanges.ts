@@ -33,10 +33,20 @@ export const kbScreenedExchangesTable = pgTable("kb_screened_exchanges", {
     .references(() => aiSourceDocumentsTable.id, { onDelete: "cascade" }),
   // 0-based position of this exchange within the source (stable ordering).
   orderIndex: integer("order_index").notNull(),
-  // The member's question/prompt text (may be empty for a coach-only aside).
-  memberPrompt: text("member_prompt").notNull().default(""),
-  // The coach's response text — the substance that carries teaching value.
-  coachResponse: text("coach_response").notNull().default(""),
+  // ONE role-labeled transcript passage (inline "Coach:"/"Member:" speaker
+  // labels preserved). This replaced the old memberPrompt/coachResponse split,
+  // which misrepresented topic-threaded segments (coach speech routinely landed
+  // in memberPrompt and vice versa). The legacy member_prompt/coach_response
+  // columns still exist in the DB (defaults '') but are no longer written.
+  passage: text("passage").notNull().default(""),
+  // The member question that prompted this teaching (anchor context), when one
+  // exists — kept separate so retrieval/synthesis can anchor an answer to its
+  // question even when the question turn was folded in from a prior segment.
+  anchorQuestion: text("anchor_question"),
+  // TRUE for keeps that are live screen-share walkthrough narration ("click the
+  // edit button…") — topic evidence but not standalone quotable teaching; the
+  // downstream synthesis/extract phase down-weights these.
+  contextBound: boolean("context_bound").notNull().default(false),
   // LLM value-type classification (e.g. principle, framework, worked_example,
   // troubleshooting, chitchat, logistics, situational_answer). Plain text.
   valueType: text("value_type").notNull().default("unclassified"),

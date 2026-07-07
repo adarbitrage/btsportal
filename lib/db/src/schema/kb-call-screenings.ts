@@ -53,6 +53,13 @@ export const kbCallScreeningsTable = pgTable("kb_call_screenings", {
   keptCount: integer("kept_count").notNull().default(0),
   droppedCount: integer("dropped_count").notNull().default(0),
   flaggedCount: integer("flagged_count").notNull().default(0),
+  // Anomaly-signal inputs persisted at screening time (see computeAnomalyFlags
+  // in the api-server kb-value-screener module): the longest segment passage
+  // (chars) and the source content length (chars). A screening with an
+  // oversized segment or implausibly few segments for its length is flagged
+  // for admin attention rather than silently passing.
+  maxSegmentChars: integer("max_segment_chars").notNull().default(0),
+  sourceCharCount: integer("source_char_count").notNull().default(0),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 }, (table) => [

@@ -8,6 +8,7 @@ import {
   getScreenerState,
   isScreenerRunning,
   effectiveDisposition,
+  computeAnomalyFlags,
   SCREENER_SOURCE_FOLDERS,
 } from "../../lib/kb-value-screener.js";
 
@@ -70,6 +71,11 @@ router.get("/admin/kb-value-screener/sources", requirePermission("chat:manage"),
               droppedCount: sc.droppedCount,
               flaggedCount: sc.flaggedCount,
               errorCount: errorCountOf(sc),
+              maxSegmentChars: sc.maxSegmentChars,
+              sourceCharCount: sc.sourceCharCount,
+              // Anomalous shapes (oversized segment / implausibly few segments
+              // / all-error) are surfaced for admin attention, never silent.
+              anomalies: computeAnomalyFlags(sc),
               screenedAt: sc.updatedAt,
             }
           : null,
@@ -154,7 +160,11 @@ router.get("/admin/kb-value-screener/results/:sourceDocId", requirePermission("c
 
   res.json({
     source,
-    screening: { ...screening, errorCount: errorCountOf(screening) },
+    screening: {
+      ...screening,
+      errorCount: errorCountOf(screening),
+      anomalies: computeAnomalyFlags(screening),
+    },
     exchanges: exchanges.map((e) => ({ ...e, effectiveDisposition: effectiveDisposition(e) })),
   });
 });

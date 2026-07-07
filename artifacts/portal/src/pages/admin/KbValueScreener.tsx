@@ -37,6 +37,19 @@ const dispositionBadge = (d: string) => {
   return <Badge className="bg-amber-500 hover:bg-amber-500">flag</Badge>;
 };
 
+const ANOMALY_LABELS: Record<string, string> = {
+  oversized_segment: "oversized segment",
+  low_segment_count: "too few segments",
+  all_error: "all errored",
+};
+
+const anomalyBadges = (anomalies: string[]) =>
+  anomalies.map((a) => (
+    <Badge key={a} variant="destructive" className="text-xs">
+      <AlertTriangle className="mr-1 h-3 w-3" /> {ANOMALY_LABELS[a] ?? a}
+    </Badge>
+  ));
+
 const dedupBadge = (s: string) => {
   if (s === "exact_duplicate") return <Badge variant="destructive">exact dup</Badge>;
   if (s === "near_duplicate") return <Badge className="bg-amber-500 hover:bg-amber-500">near dup</Badge>;
@@ -191,6 +204,11 @@ export default function KbValueScreener() {
                         {s.sourceName && (
                           <div className="truncate text-xs text-muted-foreground">{s.sourceName}</div>
                         )}
+                        {s.screening && s.screening.anomalies.length > 0 && (
+                          <div className="mt-1 flex flex-wrap gap-1">
+                            {anomalyBadges(s.screening.anomalies)}
+                          </div>
+                        )}
                       </TableCell>
                       <TableCell className="text-xs text-muted-foreground">
                         {s.sourceType.replace(/_/g, " ")}
@@ -300,8 +318,11 @@ function PreviewDialog({ sourceDocId, onClose }: { sourceDocId: number | null; o
                 </Button>
               ))}
               {resultsQ.data?.screening && (
-                <span className="ml-auto font-mono text-xs text-muted-foreground">
-                  {resultsQ.data.screening.dedupStatus}
+                <span className="ml-auto flex items-center gap-2">
+                  {anomalyBadges(resultsQ.data.screening.anomalies ?? [])}
+                  <span className="font-mono text-xs text-muted-foreground">
+                    {resultsQ.data.screening.dedupStatus}
+                  </span>
                 </span>
               )}
             </div>
@@ -321,17 +342,17 @@ function PreviewDialog({ sourceDocId, onClose }: { sourceDocId: number | null; o
                       {ex.situationalNumber && (
                         <Badge variant="outline" className="text-xs text-amber-600">situational / time-bound</Badge>
                       )}
+                      {ex.contextBound && (
+                        <Badge variant="outline" className="text-xs text-sky-600">screen-share walkthrough</Badge>
+                      )}
                     </div>
-                    {ex.memberPrompt && (
+                    {ex.anchorQuestion && (
                       <p className="mb-1 text-sm">
-                        <span className="font-medium text-muted-foreground">Q: </span>
-                        {ex.memberPrompt}
+                        <span className="font-medium text-muted-foreground">Anchor question: </span>
+                        {ex.anchorQuestion}
                       </p>
                     )}
-                    <p className="text-sm">
-                      <span className="font-medium text-muted-foreground">A: </span>
-                      {ex.coachResponse}
-                    </p>
+                    <p className="whitespace-pre-line text-sm">{ex.passage}</p>
                     {(ex.rationale || ex.dropReason) && (
                       <p className="mt-2 text-xs italic text-muted-foreground">
                         {ex.dropReason ? `${ex.dropReason} — ` : ""}
@@ -369,7 +390,7 @@ function PreviewDialog({ sourceDocId, onClose }: { sourceDocId: number | null; o
                         variant="ghost"
                         onClick={() => {
                           navigator.clipboard.writeText(
-                            `${ex.memberPrompt ? "Q: " + ex.memberPrompt + "\n" : ""}A: ${ex.coachResponse}`,
+                            `${ex.anchorQuestion ? "Anchor question: " + ex.anchorQuestion + "\n" : ""}${ex.passage}`,
                           );
                           toast({ title: "Copied" });
                         }}

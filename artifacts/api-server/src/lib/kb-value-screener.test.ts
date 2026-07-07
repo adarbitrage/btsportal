@@ -13,9 +13,17 @@ import {
   jaccardSimilarity,
   looksLikeQuestion,
   segmentTranscript,
+  parseBareLabelTurns,
+  parseDialogueTurns,
+  splitOversizeText,
+  applyQaPairing,
+  computeAnomalyFlags,
   classifySegments,
   effectiveDisposition,
   detectDuplicate,
+  EMPTY_COMPLETION_REASON,
+  SEGMENT_MAX_CHARS,
+  type Segment,
 } from "./kb-value-screener";
 
 beforeEach(() => {
@@ -83,7 +91,7 @@ describe("looksLikeQuestion", () => {
   });
 });
 
-describe("segmentTranscript (topic-threaded)", () => {
+describe("segmentTranscript (topic-threaded, role-labeled passages)", () => {
   it("threads a topic (question + answer + follow-ups) into ONE segment", () => {
     // A short exchange stays a single segment because the follow-up member turn
     // only opens a new segment once the current one has passed minChars.
@@ -96,13 +104,12 @@ describe("segmentTranscript (topic-threaded)", () => {
     ].join("\n");
     const segs = segmentTranscript(content);
     expect(segs.length).toBe(1);
-    expect(segs[0].memberPrompt).toContain("first offer");
-    expect(segs[0].coachResponse).toContain("validate demand");
+    expect(segs[0].anchorQuestion).toContain("first offer");
+    expect(segs[0].passage).toContain("Coach: Then validate demand");
+    expect(segs[0].passage).toContain("Member: How do I pick my first offer?");
   });
 
   it("opens a NEW segment on a member turn once past minChars", () => {
-    // With a tiny minChars, each new member turn (after a coach reply) starts a
-    // fresh topic segment while roles stay preserved.
     const content = [
       "Member: How do I pick my first offer?",
       "Coach: Start with a proven vertical you understand and validate demand first.",
@@ -111,8 +118,8 @@ describe("segmentTranscript (topic-threaded)", () => {
     ].join("\n");
     const segs = segmentTranscript(content, { minChars: 20, maxChars: 2500 });
     expect(segs.length).toBe(2);
-    expect(segs[0].memberPrompt).toContain("first offer");
-    expect(segs[1].memberPrompt).toContain("budget");
+    expect(segs[0].anchorQuestion).toContain("first offer");
+    expect(segs[1].anchorQuestion).toContain("budget");
     expect(segs.map((s) => s.orderIndex)).toEqual([0, 1]);
   });
 
@@ -120,19 +127,225 @@ describe("segmentTranscript (topic-threaded)", () => {
     const long = Array.from({ length: 12 }, (_, i) => `Point number ${i} about disciplined scaling.`).join(" ");
     const segs = segmentTranscript(long, { minChars: 50, maxChars: 120 });
     expect(segs.length).toBeGreaterThan(1);
-    for (const s of segs) {
-      expect(s.coachResponse.length).toBeLessThanOrEqual(300);
-    }
   });
 
   it("returns nothing for empty content", () => {
     expect(segmentTranscript("")).toEqual([]);
     expect(segmentTranscript("   ")).toEqual([]);
   });
+
+  it("parses the Transcript Cleaner's bare-label format (label on its OWN line)", () => {
+    const content = [
+      "Coach",
+      "Welcome back everyone, let's dig into offer selection today.",
+      "",
+      "Member",
+      "How do I know if my landing page is the problem?",
+      "",
+      "Coach",
+      "Check your click-through rate first. If it is above two percent the page is fine.",
+      "",
+      "Member",
+      "Got it, thank you.",
+    ].join("\n");
+    const segs = segmentTranscript(content, { minChars: 20, maxChars: 2500 });
+    expect(segs.length).toBeGreaterThanOrEqual(1);
+    const joined = segs.map((s) => s.passage).join("\n");
+    // Real labels drive roles — the coach's non-question opener is Coach, the
+    // member's question is Member.
+    expect(joined).toContain("Coach: Welcome back everyone");
+    expect(joined).toContain("Member: How do I know if my landing page");
+    expect(joined).toContain("Coach: Check your click-through rate");
+  });
+
+  it("does NOT flip into colon-dialogue mode on incidental colons in prose", () => {
+    // A prose transcript with a few incidental "Name: text" looking lines
+    // (e.g. "Warning: do not overspend.") must NOT glue everything onto a few
+    // giant pseudo-turns: the majority rule keeps it in prose mode and the
+    // hard cap keeps every segment bounded.
+    const proseLine =
+      "The coach walked through the whole campaign setup and explained why tracking matters so much for scaling decisions.";
+    const lines: string[] = [];
+    for (let i = 0; i < 40; i++) {
+      lines.push(`${proseLine} Iteration ${i} adds more detail about budgets and creatives.`);
+      if (i % 10 === 0) lines.push("Warning: do not overspend on day one.");
+    }
+    const content = lines.join("\n");
+    const segs = segmentTranscript(content, { minChars: 200, maxChars: 800 });
+    expect(segs.length).toBeGreaterThan(3);
+    for (const s of segs) expect(s.passage.length).toBeLessThanOrEqual(900);
+  });
+
+  it("never emits a segment above the max-char cap even for one giant labeled turn", () => {
+    const giant = Array.from({ length: 200 }, (_, i) => `Sentence ${i} about disciplined testing.`).join(" ");
+    const content = ["Coach", giant, "Member", "Thanks!", "Coach", "You're welcome."].join("\n");
+    const segs = segmentTranscript(content, { minChars: 100, maxChars: 500 });
+    expect(segs.length).toBeGreaterThan(3);
+    for (const s of segs) {
+      // passage adds "Coach: " labels; allow small labeling overhead only.
+      expect(s.passage.length).toBeLessThanOrEqual(520);
+    }
+  });
+});
+
+describe("parseBareLabelTurns / parseDialogueTurns (format detection)", () => {
+  it("rejects prose with one-off capitalized heading lines", () => {
+    const content = ["Introduction", "This call covered scaling.", "Summary", "Scale slowly."].join("\n");
+    expect(parseBareLabelTurns(content)).toBeNull();
+  });
+
+  it("accepts recurring name labels even when not role words", () => {
+    const content = [
+      "Sasha", "Let's talk about your funnel today and what to fix first.",
+      "Jordan", "How do I fix my funnel?",
+      "Sasha", "Start with the headline and match it to the ad.",
+      "Jordan", "That makes sense.",
+    ].join("\n");
+    const turns = parseBareLabelTurns(content);
+    expect(turns).not.toBeNull();
+    expect(turns!.length).toBe(4);
+  });
+
+  it("requires a MAJORITY of lines to be colon-labeled for dialogue mode", () => {
+    const mostlyProse = [
+      "Coach: Quick note before we start.",
+      "The rest of this transcript is plain prose without any labels at all.",
+      "It keeps going for many lines describing the campaign strategy.",
+      "Coach: Another aside.",
+      "More prose here about budgets.",
+      "Coach: Third aside.",
+      "Final prose line about creatives.",
+    ].join("\n");
+    expect(parseDialogueTurns(mostlyProse)).toBeNull();
+
+    const mostlyLabeled = [
+      "Coach: Welcome.",
+      "Member: How do I start?",
+      "Coach: Pick one offer.",
+      "Member: Ok.",
+    ].join("\n");
+    expect(parseDialogueTurns(mostlyLabeled)).not.toBeNull();
+  });
+});
+
+describe("splitOversizeText (hard cap safety net)", () => {
+  it("splits at sentence boundaries into blocks under the cap", () => {
+    const text = Array.from({ length: 30 }, (_, i) => `Sentence number ${i} is here.`).join(" ");
+    const parts = splitOversizeText(text, 100);
+    expect(parts.length).toBeGreaterThan(1);
+    for (const p of parts) expect(p.length).toBeLessThanOrEqual(100);
+    expect(parts.join(" ")).toContain("Sentence number 29");
+  });
+
+  it("keeps a single over-long sentence whole (anomaly flag catches it)", () => {
+    const oneSentence = "word ".repeat(100).trim() + ".";
+    const parts = splitOversizeText(oneSentence, 50);
+    expect(parts.length).toBe(1);
+  });
+
+  it("returns short text untouched", () => {
+    expect(splitOversizeText("short.", 100)).toEqual(["short."]);
+  });
+});
+
+describe("applyQaPairing (orphan member question never dropped alone)", () => {
+  const cls = (disposition: "keep" | "drop" | "flag" | "error", dropReason: string | null = null) => ({
+    valueType: "unclassified" as const,
+    disposition,
+    dropReason,
+    situationalNumber: false,
+    contextBound: false,
+    rationale: "",
+  });
+  const memberSeg = (i: number, q: string): Segment => ({
+    orderIndex: i,
+    passage: `Member: ${q}`,
+    anchorQuestion: q,
+    memberOnly: true,
+  });
+  const coachSeg = (i: number, a: string): Segment => ({
+    orderIndex: i,
+    passage: `Coach: ${a}`,
+    anchorQuestion: null,
+    memberOnly: false,
+  });
+
+  it("folds a dropped member-only question into the following kept coach segment", () => {
+    const segments = [memberSeg(0, "How do I set my daily budget?"), coachSeg(1, "Start at fifty dollars.")];
+    const classifications = [cls("drop", "no coach instruction present"), cls("keep")];
+    applyQaPairing(segments, classifications);
+    expect(segments[1].anchorQuestion).toContain("daily budget");
+    expect(classifications[0].dropReason).toContain("folded into the following kept segment");
+  });
+
+  it("leaves the question dropped (no fold) when the answer is dropped too", () => {
+    const segments = [memberSeg(0, "Can you hear me?"), coachSeg(1, "Yes, loud and clear.")];
+    const classifications = [cls("drop", "tech check"), cls("drop", "tech check")];
+    applyQaPairing(segments, classifications);
+    expect(segments[1].anchorQuestion).toBeNull();
+    expect(classifications[0].dropReason).toBe("tech check");
+  });
+
+  it("does not touch kept member segments or non-member-only drops", () => {
+    const segments = [coachSeg(0, "Logistics chatter."), coachSeg(1, "Real teaching.")];
+    const classifications = [cls("drop", "logistics"), cls("keep")];
+    applyQaPairing(segments, classifications);
+    expect(segments[1].anchorQuestion).toBeNull();
+    expect(classifications[0].dropReason).toBe("logistics");
+  });
+});
+
+describe("computeAnomalyFlags", () => {
+  const base = {
+    exchangeCount: 20,
+    keptCount: 15,
+    droppedCount: 3,
+    flaggedCount: 2,
+    maxSegmentChars: 1800,
+    sourceCharCount: 40000,
+  };
+
+  it("passes a healthy screening with no flags", () => {
+    expect(computeAnomalyFlags(base)).toEqual([]);
+  });
+
+  it("flags an oversized segment", () => {
+    expect(computeAnomalyFlags({ ...base, maxSegmentChars: SEGMENT_MAX_CHARS + 1 })).toContain("oversized_segment");
+  });
+
+  it("flags a full-length call with implausibly few segments", () => {
+    expect(
+      computeAnomalyFlags({ ...base, exchangeCount: 2, keptCount: 1, droppedCount: 1, flaggedCount: 0, sourceCharCount: 51000 }),
+    ).toContain("low_segment_count");
+  });
+
+  it("does not length-flag an exact duplicate (zero segments by design)", () => {
+    expect(
+      computeAnomalyFlags({
+        ...base,
+        exchangeCount: 0,
+        keptCount: 0,
+        droppedCount: 0,
+        flaggedCount: 0,
+        dedupStatus: "exact_duplicate",
+      }),
+    ).toEqual([]);
+  });
+
+  it("flags an all-error screening", () => {
+    expect(
+      computeAnomalyFlags({ ...base, exchangeCount: 29, keptCount: 0, droppedCount: 0, flaggedCount: 0 }),
+    ).toContain("all_error");
+  });
 });
 
 describe("classifySegments (reliability + error disposition)", () => {
-  const seg = (i: number) => ({ orderIndex: i, memberPrompt: `q${i}`, coachResponse: `a${i}` });
+  const seg = (i: number): Segment => ({
+    orderIndex: i,
+    passage: `Member: q${i}\nCoach: a${i}`,
+    anchorQuestion: `q${i}`,
+    memberOnly: false,
+  });
 
   it("maps a clean model response to real verdicts", async () => {
     callLLMMock.mockResolvedValueOnce(
@@ -177,6 +390,14 @@ describe("classifySegments (reliability + error disposition)", () => {
     const out = await classifySegments([seg(0)]);
     expect(out[0].disposition).toBe("keep");
     expect(callLLMMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("records an EMPTY completion with the distinct token-budget reason", async () => {
+    callLLMMock.mockResolvedValue(""); // finish_reason=length: empty content every attempt
+    const out = await classifySegments([seg(0), seg(1)]);
+    expect(out.every((c) => c.disposition === "error")).toBe(true);
+    expect(out[0].dropReason).toBe(EMPTY_COMPLETION_REASON);
+    expect(callLLMMock).toHaveBeenCalledTimes(3);
   });
 
   it("downgrades a model-assigned 'error' verdict to 'flag' (model may not self-error)", async () => {
