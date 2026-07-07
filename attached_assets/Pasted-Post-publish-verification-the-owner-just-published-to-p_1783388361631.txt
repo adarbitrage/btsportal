@@ -1,0 +1,24 @@
+Post-publish verification — the owner just published to production. Run the FULL accumulated canary stack against the SERVED bundle and prod database, per the amended mechanic. This publish carries everything merged since the July 5 publish, so verify all of it. Report per-item PASS/FAIL with evidence (grep strings from the live hashed asset, DB read-backs, rendered checks — never main, never narration).
+
+1. BUNDLE IDENTITY: fetch the live portal, report the current hashed asset filename + last-modified. It must be NEWER than the previous index-Ch8Epmx8.js era — confirm the publish actually shipped a new bundle.
+
+2. THE VISUAL TRIO (#1696/#1708/#1709):
+   (a) sidebar one-card-per-call: the { calls: [...] } consumer / "Accountability Call with" strings in the served asset
+   (b) "Meet Your Accountability Partner" present; stale "Free 30-minute" ABSENT
+   (c) mobile SMS guidance: the scroll-to-phone-field code present
+   (d) the three new headshots serving: fetch neil.png, mikha.jpg, john.jpg at their public paths — confirm the NEW images (file sizes match the processed versions, not the originals)
+
+3. EMAIL SYSTEM (#1714 + fixes + resolver):
+   (a) the lifecycle layout live: server-side confirm wrapLifecycleHtml is in the running api-server (a test send or code-path check)
+   (b) the image-URL fix: a rendered email's <img src> values are absolute against the public production host — send ONE test booking-confirmation email and verify in the received HTML
+   (c) the "{{" guard test green in the deployed code's suite
+   (d) the pitch resolver wired: the test email's footer carries the tier-appropriate pitch stack (marked placeholder copy expected)
+   (e) nurture wall: one six-brand nurture template still renders byte-identical (hash check)
+
+4. MACHINE SYNC: machine_member column exists in prod (read-back), the 3 matched members (Adam/Jean/Mark) still flagged, the daily job scheduled, and the resolver suppression live — the test email from 3(d), if sent to a matched member, must OMIT the Machine pitch; to an unmatched member, must INCLUDE it.
+
+5. VIP: rides along — spot-confirm vip:6 and the "VIP" label in the NEW bundle (it was proven in the old one; confirm it survived the rebuild).
+
+6. BOOT EFFECTS: the publish restarted the api-server — confirm boot hooks ran clean (roster/photo seeds idempotent-no-op, the merchant-default postcondition passed, no grandfather auto-fire per the armed-explicitly rule).
+
+Report: bundle hash, per-item results, and ONE summary line — is the served portal now identical to main, yes or no.
