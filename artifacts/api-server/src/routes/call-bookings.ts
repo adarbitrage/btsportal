@@ -24,6 +24,12 @@ import { listKickoffCoachPool, loadKickoffCoachById, getMemberKickoffTier } from
 import { getActiveAssignment } from "../lib/partner-assignment";
 import { getPartnerDailyCounts, filterSlotsByDailyCap } from "../lib/partner-call-capacity";
 import {
+  getMemberUpcomingBookings,
+  intervalConflicts,
+  filterSlotsByMemberConflict,
+  memberBookingConflicts,
+} from "../lib/member-call-conflict";
+import {
   advanceOnboardingAfterKickoffBooked,
   advanceOnboardingAfterPartnerCallBooked,
 } from "../lib/onboarding-advancement";
@@ -251,6 +257,14 @@ router.get("/onboarding/kickoff/availability", async (req, res): Promise<void> =
     return;
   }
 
+  // Task #1723: reschedule flows pass their own booking id so the member's
+  // current kickoff slot isn't treated as a conflict against itself.
+  const excludeBookingIdRaw = req.query.excludeBookingId;
+  const excludeBookingId =
+    typeof excludeBookingIdRaw === "string" && /^\d+$/.test(excludeBookingIdRaw)
+      ? parseInt(excludeBookingIdRaw, 10)
+      : undefined;
+
   const tier = await getMemberKickoffTier(userId);
   const pool = await listKickoffCoachPool(tier);
   if (pool.length === 0) {
@@ -302,9 +316,20 @@ router.get("/onboarding/kickoff/availability", async (req, res): Promise<void> =
     return t !== 0 ? t : a.coachId - b.coachId;
   });
 
+  // Task #1723: filter merged pool slots against the member's other upcoming
+  // booked calls.  Each kickoff slot carries its own durationMinutes (coaches
+  // can have different calendar configs), so we resolve conflicts per-slot.
+  const existingBookings = await getMemberUpcomingBookings(userId, excludeBookingId);
+  const conflictFiltered = merged.filter((slot) => {
+    const startMs = new Date(slot.startTime).getTime();
+    return !existingBookings.some((b) =>
+      intervalConflicts(startMs, slot.durationMinutes, b.scheduledAt.getTime(), b.durationMinutes),
+    );
+  });
+
   res.json({
     coaches: pool.map((c) => ({ id: c.id, displayName: c.displayName, photoUrl: c.photoUrl, bio: c.bio })),
-    slots: merged,
+    slots: conflictFiltered,
   });
 });
 
@@ -433,6 +458,18 @@ router.post("/onboarding/kickoff/book", async (req, res): Promise<void> => {
     if (!recheck.some((s) => new Date(s.startTime).getTime() === scheduledAt.getTime())) {
       await client.query("ROLLBACK");
       res.status(409).json({ error: "That time slot is no longer available" });
+      return;
+    }
+
+    // Task #1723: server-side member conflict gate — same rule as offer-time
+    // filtering.  No excludeBookingId for a NEW booking (there is no existing
+    // kickoff row to exclude).
+    const hasConflict = await memberBookingConflicts(userId, scheduledAt.getTime(), durationMinutes);
+    if (hasConflict) {
+      await client.query("ROLLBACK");
+      res.status(409).json({
+        error: "This time conflicts with another call you already have booked. Please choose a slot at least 30 minutes away from your other calls.",
+      });
       return;
     }
 
@@ -577,6 +614,18 @@ router.patch("/onboarding/kickoff/:id/reschedule", async (req, res): Promise<voi
     }
 
     const durationMinutes = await getCalendarDurationMinutes(coach.ghlCalendarId, coachLocationId);
+
+    // Task #1723: server-side member conflict gate — exclude the booking
+    // being moved so re-picking the same time or shifting slightly is fine.
+    const hasConflict = await memberBookingConflicts(userId, scheduledAt.getTime(), durationMinutes, bookingId);
+    if (hasConflict) {
+      await client.query("ROLLBACK");
+      res.status(409).json({
+        error: "This time conflicts with another call you already have booked. Please choose a slot at least 30 minutes away from your other calls.",
+      });
+      return;
+    }
+
     const endAt = new Date(scheduledAt.getTime() + durationMinutes * 60000);
     const endTimeIso = isoWithMatchingOffset(endAt, startTime);
 
@@ -786,15 +835,20 @@ async function filterPartnerSlots(
   slots: FreeSlot[],
   startMs: number,
   endMs: number,
+  durationMinutes: number,
+  excludeBookingId?: number,
 ): Promise<FreeSlot[]> {
   const cutoff = await getKickoffCutoffForFirstPartnerCall(memberId);
   const capFiltered = await filterSlotsByDailyCap(partner.id, partner.maxDailyCalls, slots, startMs, endMs);
 
-  return capFiltered.filter((s) => {
+  const cutoffFiltered = capFiltered.filter((s) => {
     const startMsSlot = new Date(s.startTime).getTime();
     if (cutoff && startMsSlot < cutoff.getTime()) return false;
     return true;
   });
+
+  // Task #1723: apply member conflict filter (30-min adjacency rule).
+  return filterSlotsByMemberConflict(memberId, durationMinutes, cutoffFiltered, excludeBookingId);
 }
 
 router.get("/onboarding/partner/info", async (req, res): Promise<void> => {
@@ -822,6 +876,14 @@ router.get("/onboarding/partner/availability", async (req, res): Promise<void> =
     return;
   }
 
+  // Task #1723: reschedule flows pass their own booking id so the call being
+  // moved isn't filtered against itself.
+  const excludeBookingIdRaw = req.query.excludeBookingId;
+  const excludeBookingId =
+    typeof excludeBookingIdRaw === "string" && /^\d+$/.test(excludeBookingIdRaw)
+      ? parseInt(excludeBookingIdRaw, 10)
+      : undefined;
+
   const partner = await loadAssignedPartner(userId);
   if (!partner || !partner.isActive) {
     res.status(404).json({ error: "You don't have an accountability partner assigned yet." });
@@ -838,7 +900,7 @@ router.get("/onboarding/partner/availability", async (req, res): Promise<void> =
       getFreeSlots(partner.ghlCalendarId, range.startMs, range.endMs, partnerLocationId),
       getCalendarDurationMinutes(partner.ghlCalendarId, partnerLocationId),
     ]);
-    const filtered = await filterPartnerSlots(userId, partner, slots, range.startMs, range.endMs);
+    const filtered = await filterPartnerSlots(userId, partner, slots, range.startMs, range.endMs, durationMinutes, excludeBookingId);
     res.json({ partnerId: partner.id, slots: filtered, durationMinutes });
   } catch (err) {
     console.error("[call-bookings] partner availability failed:", err);
@@ -952,14 +1014,9 @@ router.post("/onboarding/partner/book", async (req, res): Promise<void> => {
 
   const partnerLocationId = partner.ghlLocationId ?? COACHING_LOCATION_ID;
   const dayMs = scheduledAt.getTime();
-  const rawSlots = await getFreeSlots(partner.ghlCalendarId, dayMs - 60_000, dayMs + 24 * 60 * 60 * 1000, partnerLocationId);
-  const filtered = await filterPartnerSlots(userId, partner, rawSlots, dayMs - 60_000, dayMs + 24 * 60 * 60 * 1000);
-  const slotOpen = filtered.some((s) => new Date(s.startTime).getTime() === scheduledAt.getTime());
-  if (!slotOpen) {
-    res.status(409).json({ error: "That time slot is no longer available" });
-    return;
-  }
 
+  // Fetch duration first — needed for both the offer-time conflict filter
+  // (Task #1723) and the booking record itself.
   let durationMinutes: number;
   try {
     durationMinutes = await getCalendarDurationMinutes(partner.ghlCalendarId, partnerLocationId);
@@ -968,6 +1025,27 @@ router.post("/onboarding/partner/book", async (req, res): Promise<void> => {
     res.status(502).json({ error: "Could not load calendar configuration. Please try again." });
     return;
   }
+
+  // Early member-conflict gate: checked BEFORE offer-time filter so a crafted
+  // direct request that conflicts with the member's own calls returns a clear
+  // message rather than the generic "slot no longer available".
+  const earlyConflict = await memberBookingConflicts(userId, scheduledAt.getTime(), durationMinutes);
+  if (earlyConflict) {
+    res.status(409).json({
+      error:
+        "This time conflicts with another call you already have booked. Please choose a slot at least 30 minutes away from your other calls.",
+    });
+    return;
+  }
+
+  const rawSlots = await getFreeSlots(partner.ghlCalendarId, dayMs - 60_000, dayMs + 24 * 60 * 60 * 1000, partnerLocationId);
+  const filtered = await filterPartnerSlots(userId, partner, rawSlots, dayMs - 60_000, dayMs + 24 * 60 * 60 * 1000, durationMinutes);
+  const slotOpen = filtered.some((s) => new Date(s.startTime).getTime() === scheduledAt.getTime());
+  if (!slotOpen) {
+    res.status(409).json({ error: "That time slot is no longer available" });
+    return;
+  }
+
   const endAt = new Date(scheduledAt.getTime() + durationMinutes * 60000);
   const endTimeIso = isoWithMatchingOffset(endAt, startTime);
 
@@ -997,6 +1075,15 @@ router.post("/onboarding/partner/book", async (req, res): Promise<void> => {
     if (!recheck.some((s) => new Date(s.startTime).getTime() === scheduledAt.getTime())) {
       await client.query("ROLLBACK");
       res.status(409).json({ error: "That time slot is no longer available" });
+      return;
+    }
+    const hasConflict = await memberBookingConflicts(userId, scheduledAt.getTime(), durationMinutes);
+    if (hasConflict) {
+      await client.query("ROLLBACK");
+      res.status(409).json({
+        error:
+          "This time conflicts with another call you already have booked. Please choose a slot at least 30 minutes away from your other calls.",
+      });
       return;
     }
 
@@ -1151,6 +1238,18 @@ router.patch("/onboarding/partner/:id/reschedule", async (req, res): Promise<voi
     }
 
     const durationMinutes = await getCalendarDurationMinutes(partner.ghlCalendarId, partnerLocationId);
+
+    // Task #1723: server-side member conflict gate — exclude the booking
+    // being moved so a member can re-pick the same slot or shift slightly.
+    const hasConflict = await memberBookingConflicts(userId, scheduledAt.getTime(), durationMinutes, bookingId);
+    if (hasConflict) {
+      await client.query("ROLLBACK");
+      res.status(409).json({
+        error: "This time conflicts with another call you already have booked. Please choose a slot at least 30 minutes away from your other calls.",
+      });
+      return;
+    }
+
     const endAt = new Date(scheduledAt.getTime() + durationMinutes * 60000);
     const endTimeIso = isoWithMatchingOffset(endAt, startTime);
 

@@ -61,7 +61,7 @@ const PARTNER_KEY = "/api/onboarding/partner";
 // Kickoff call
 // ---------------------------------------------------------------------------
 
-export function useKickoffAvailability(startDate: string, endDate: string) {
+export function useKickoffAvailability(startDate: string, endDate: string, excludeBookingId?: number) {
   // Task #1654: the response is now a MERGED, earliest-first pool across
   // every active/calendar-configured kickoff coach in the member's tier —
   // `coaches` lists every coach in the pool (for photo/bio reveal), `slots`
@@ -70,13 +70,19 @@ export function useKickoffAvailability(startDate: string, endDate: string) {
   // true when the tier has no coach pool at all yet (e.g. LaunchPad before a
   // real calendar ID is entered) — loud and explicit, never a silent empty
   // grid, and never a fallback to another tier's coaches.
+  // Task #1723: excludeBookingId is passed during reschedule so the member's
+  // own current slot is not filtered out as a conflict.
   return useQuery<{
     coaches: StaffProfile[];
     slots: KickoffPoolSlot[];
     setupPending?: boolean;
   }>({
-    queryKey: [`${KICKOFF_KEY}/availability`, startDate, endDate],
-    queryFn: () => callFetch(`/onboarding/kickoff/availability?startDate=${startDate}&endDate=${endDate}`),
+    queryKey: [`${KICKOFF_KEY}/availability`, startDate, endDate, excludeBookingId],
+    queryFn: () => {
+      const params = new URLSearchParams({ startDate, endDate });
+      if (excludeBookingId !== undefined) params.set("excludeBookingId", String(excludeBookingId));
+      return callFetch(`/onboarding/kickoff/availability?${params}`);
+    },
     enabled: !!startDate && !!endDate,
   });
 }
@@ -146,12 +152,18 @@ export function usePartnerInfo() {
   });
 }
 
-export function usePartnerAvailability(startDate: string, endDate: string) {
+export function usePartnerAvailability(startDate: string, endDate: string, excludeBookingId?: number) {
   // durationMinutes is null when the partner has no calendar configured yet
   // (no slots either way, so no calendar-config fetch is attempted).
+  // Task #1723: excludeBookingId is passed during reschedule so the booking
+  // being moved isn't filtered as a conflict against itself.
   return useQuery<{ partnerId: number; slots: CallSlot[]; durationMinutes: number | null }>({
-    queryKey: [`${PARTNER_KEY}/availability`, startDate, endDate],
-    queryFn: () => callFetch(`/onboarding/partner/availability?startDate=${startDate}&endDate=${endDate}`),
+    queryKey: [`${PARTNER_KEY}/availability`, startDate, endDate, excludeBookingId],
+    queryFn: () => {
+      const params = new URLSearchParams({ startDate, endDate });
+      if (excludeBookingId !== undefined) params.set("excludeBookingId", String(excludeBookingId));
+      return callFetch(`/onboarding/partner/availability?${params}`);
+    },
     enabled: !!startDate && !!endDate,
   });
 }

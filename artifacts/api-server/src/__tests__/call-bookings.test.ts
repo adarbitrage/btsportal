@@ -393,7 +393,11 @@ describe("partner call booking: pre-kickoff filtering on the first booking only"
     expect(rejected.status).toBe(409);
 
     // Booking AFTER the cutoff succeeds and advances onboarding step 4->5.
-    const afterCutoff = new Date(kickoffAt.getTime() + SLOT_STEP_MS);
+    // Use 2*SLOT_STEP_MS (60 min) after kickoff start so the new 30-min-gap
+    // conflict rule doesn't block it: kickoff ends at kickoffAt+30min, the
+    // partner slot starts at kickoffAt+60min → gap = 30min = exactly at the
+    // boundary (allowed, not blocked).
+    const afterCutoff = new Date(kickoffAt.getTime() + 2 * SLOT_STEP_MS);
     const firstBooking = await request(app)
       .post("/api/onboarding/partner/book")
       .set("Cookie", authCookie(memberId))
@@ -1327,5 +1331,316 @@ describe("GET /call-bookings/next", () => {
 
     expect(res.body.calls[0]).not.toHaveProperty("ghlCalendarId");
     expect(res.body.calls[0]).not.toHaveProperty("ghlAppointmentId");
+  });
+});
+
+// ===========================================================================
+// Task #1723: member-level booking conflict guard (no overlapping own calls)
+// ===========================================================================
+// Rule: a candidate slot is blocked when its interval [start, start+duration]
+// intersects or has a gap of < 30 minutes from any of the member's OTHER
+// upcoming booked calls' intervals.  Tests cover:
+//   - overlap excluded both directions (kickoff booked first / partner first)
+//   - 29-min gap blocked, 31-min gap allowed (boundary)
+//   - same-day non-overlapping allowed
+//   - reschedule self-exclusion (re-picking own time never self-blocks)
+//   - server rejection of a crafted conflicting booking (the server gate)
+// ---------------------------------------------------------------------------
+
+// 30-minute mock duration matches DEFAULT_CALENDAR_DURATION_MINUTES.
+// Helper: returns a slot time N minutes after a reference, grid-aligned.
+function minutesAfter(base: Date, minutes: number): Date {
+  return new Date(base.getTime() + minutes * 60_000);
+}
+
+describe("member conflict guard: offer-time filtering", () => {
+  it("hides kickoff slots that conflict with an existing booked partner call", async () => {
+    // Member has a partner call booked at T+50 days.  Kickoff slots that
+    // overlap or come within 30 minutes of that call should be hidden.
+    const memberId = await makeMember(3);
+    const partnerCallStart = gridAlignedFutureTime(50);
+    // Seed a partner booking for this member (staffId is partnerId — polymorphic, fine for seeding)
+    await seedPartnerBooking({
+      memberId,
+      pId: partnerId,
+      scheduledAt: partnerCallStart,
+      type: "partner",
+    });
+
+    const dateStr = partnerCallStart.toISOString().slice(0, 10);
+    const avail = await request(app)
+      .get(`/api/onboarding/kickoff/availability?startDate=${dateStr}&endDate=${dateStr}`)
+      .set("Cookie", authCookie(memberId));
+    expect(avail.status).toBe(200);
+
+    // The slot AT the partner call's start time must be absent (direct overlap).
+    const conflict = avail.body.slots.find(
+      (s: { startTime: string }) => new Date(s.startTime).getTime() === partnerCallStart.getTime(),
+    );
+    expect(conflict).toBeUndefined();
+
+    // A slot starting 29 minutes before the partner call ends (partner call
+    // is 30 min so ends at T+30min) should also be absent — its 30-min
+    // duration would overlap the partner call interval.
+    const partnerCallEndMs = partnerCallStart.getTime() + DEFAULT_CALENDAR_DURATION_MINUTES * 60_000;
+    // slot that starts 1 min before partner call end — overlaps
+    const nearConflict = new Date(partnerCallEndMs - 60_000);
+    const nearConflictSlot = avail.body.slots.find(
+      (s: { startTime: string }) => new Date(s.startTime).getTime() === nearConflict.getTime(),
+    );
+    expect(nearConflictSlot).toBeUndefined();
+  });
+
+  it("hides partner slots that conflict with an existing booked kickoff call", async () => {
+    const memberId = await makeMember(5, true);
+    await assignPartner(memberId, partnerId);
+
+    const kickoffStart = gridAlignedFutureTime(60);
+    await seedPartnerBooking({
+      memberId,
+      pId: kickoffCoachId,
+      scheduledAt: kickoffStart,
+      type: "kickoff",
+      staffType: "kickoff_coach",
+    });
+
+    const dateStr = kickoffStart.toISOString().slice(0, 10);
+    const avail = await request(app)
+      .get(`/api/onboarding/partner/availability?startDate=${dateStr}&endDate=${dateStr}`)
+      .set("Cookie", authCookie(memberId));
+    expect(avail.status).toBe(200);
+
+    // The slot AT the kickoff start must be absent (direct overlap).
+    const direct = avail.body.slots.find(
+      (s: { startTime: string }) => new Date(s.startTime).getTime() === kickoffStart.getTime(),
+    );
+    expect(direct).toBeUndefined();
+  });
+
+  it("allows same-day non-overlapping slots (31+ min gap)", async () => {
+    // The partner call ends at T+30min.  A slot starting at T+61min (31 min
+    // after end) must NOT be blocked.
+    const memberId = await makeMember(5, true);
+    await assignPartner(memberId, partnerId);
+
+    const partnerCallStart = gridAlignedFutureTime(70);
+    await seedPartnerBooking({ memberId, pId: partnerId, scheduledAt: partnerCallStart, type: "partner" });
+
+    // Slot 31 minutes after the partner call ends (call is 30 min → ends at T+30min)
+    const safeSlotMs =
+      partnerCallStart.getTime() +
+      DEFAULT_CALENDAR_DURATION_MINUTES * 60_000 +
+      31 * 60_000;
+    const safeSlot = new Date(Math.ceil(safeSlotMs / SLOT_STEP_MS) * SLOT_STEP_MS);
+
+    const dateStr = safeSlot.toISOString().slice(0, 10);
+    const avail = await request(app)
+      .get(`/api/onboarding/kickoff/availability?startDate=${dateStr}&endDate=${dateStr}`)
+      .set("Cookie", authCookie(memberId));
+    expect(avail.status).toBe(200);
+
+    const found = avail.body.slots.find(
+      (s: { startTime: string }) => new Date(s.startTime).getTime() === safeSlot.getTime(),
+    );
+    expect(found).toBeDefined();
+  });
+
+  it("blocks a slot with a 29-minute gap but allows a slot with a 31-minute gap (buffer boundary)", async () => {
+    // Kickoff call: 30-min duration at kickoffStart.
+    // Ends at kickoffStart + 30min.
+    // 29-min-gap slot starts at kickoffStart + 30min + 29min = kickoffStart + 59min  → BLOCKED
+    // 31-min-gap slot starts at kickoffStart + 30min + 31min = kickoffStart + 61min  → ALLOWED
+    const memberId = await makeMember(5, true);
+    await assignPartner(memberId, kickoffPartnerId);
+
+    const kickoffStart = gridAlignedFutureTime(80);
+    await seedPartnerBooking({
+      memberId,
+      pId: kickoffCoachId,
+      scheduledAt: kickoffStart,
+      type: "kickoff",
+      staffType: "kickoff_coach",
+    });
+
+    const durationMs = DEFAULT_CALENDAR_DURATION_MINUTES * 60_000;
+    const kickoffEndMs = kickoffStart.getTime() + durationMs;
+    const gap29Ms = kickoffEndMs + 29 * 60_000;
+    const gap31Ms = kickoffEndMs + 31 * 60_000;
+
+    // Use a date covering both candidates
+    const dateStr = kickoffStart.toISOString().slice(0, 10);
+    const avail = await request(app)
+      .get(`/api/onboarding/partner/availability?startDate=${dateStr}&endDate=${dateStr}`)
+      .set("Cookie", authCookie(memberId));
+    expect(avail.status).toBe(200);
+
+    const blocked = avail.body.slots.find(
+      (s: { startTime: string }) => new Date(s.startTime).getTime() === gap29Ms,
+    );
+    expect(blocked).toBeUndefined();
+
+    // Grid-align the 31-min slot (may not land exactly on a grid mark)
+    const allowed31 = new Date(Math.ceil(gap31Ms / SLOT_STEP_MS) * SLOT_STEP_MS);
+    const allowed = avail.body.slots.find(
+      (s: { startTime: string }) =>
+        new Date(s.startTime).getTime() >= allowed31.getTime() - 60_000 &&
+        new Date(s.startTime).getTime() <= allowed31.getTime() + 60_000,
+    );
+    expect(allowed).toBeDefined();
+  });
+
+  it("reschedule excludeBookingId prevents the booking's own slot from being filtered", async () => {
+    // Member has a kickoff call at T+90 days.  Without excludeBookingId,
+    // that slot would appear conflicting against itself and be hidden from
+    // the reschedule availability grid.  With excludeBookingId, it should
+    // remain visible.
+    const memberId = await makeMember(4);
+    const kickoffStart = gridAlignedFutureTime(90);
+    const bookingId = await seedPartnerBooking({
+      memberId,
+      pId: kickoffCoachId,
+      scheduledAt: kickoffStart,
+      type: "kickoff",
+      staffType: "kickoff_coach",
+    });
+
+    const dateStr = kickoffStart.toISOString().slice(0, 10);
+
+    // Without excludeBookingId: slot is hidden (conflicts with itself)
+    const withoutExclude = await request(app)
+      .get(`/api/onboarding/kickoff/availability?startDate=${dateStr}&endDate=${dateStr}`)
+      .set("Cookie", authCookie(memberId));
+    expect(withoutExclude.status).toBe(200);
+    const hiddenSlot = withoutExclude.body.slots.find(
+      (s: { startTime: string }) => new Date(s.startTime).getTime() === kickoffStart.getTime(),
+    );
+    expect(hiddenSlot).toBeUndefined();
+
+    // With excludeBookingId: slot is visible again
+    const withExclude = await request(app)
+      .get(
+        `/api/onboarding/kickoff/availability?startDate=${dateStr}&endDate=${dateStr}&excludeBookingId=${bookingId}`,
+      )
+      .set("Cookie", authCookie(memberId));
+    expect(withExclude.status).toBe(200);
+    const visibleSlot = withExclude.body.slots.find(
+      (s: { startTime: string }) => new Date(s.startTime).getTime() === kickoffStart.getTime(),
+    );
+    expect(visibleSlot).toBeDefined();
+  });
+});
+
+describe("member conflict guard: server-side gate on booking", () => {
+  it("rejects a crafted partner book that directly overlaps an existing kickoff call (409 + conflict message)", async () => {
+    // Early pre-check in partner/book fires BEFORE offer-time filter, so
+    // a crafted direct request returns the conflict-specific message.
+    const memberId = await makeMember(4);
+    await assignPartner(memberId, kickoffPartnerId);
+
+    const kickoffStart = gridAlignedFutureTime(100);
+    await seedPartnerBooking({
+      memberId,
+      pId: kickoffCoachId,
+      scheduledAt: kickoffStart,
+      type: "kickoff",
+      staffType: "kickoff_coach",
+    });
+
+    // Attempt to book a partner call AT the exact same time as the kickoff.
+    const attempt = await request(app)
+      .post("/api/onboarding/partner/book")
+      .set("Cookie", authCookie(memberId))
+      .send({ startTime: kickoffStart.toISOString() });
+    expect(attempt.status).toBe(409);
+    expect(attempt.body.error).toMatch(/conflicts/i);
+  });
+
+  it("rejects a crafted kickoff book that directly overlaps an existing partner call (409)", async () => {
+    // Offer-time filter excludes the conflicting slot; result is still 409.
+    const memberId = await makeMember(3);
+
+    const partnerStart = gridAlignedFutureTime(110);
+    await seedPartnerBooking({ memberId, pId: partnerId, scheduledAt: partnerStart, type: "partner" });
+
+    const attempt = await request(app)
+      .post("/api/onboarding/kickoff/book")
+      .set("Cookie", authCookie(memberId))
+      .send({ startTime: partnerStart.toISOString(), coachId: kickoffCoachId });
+    expect(attempt.status).toBe(409);
+  });
+
+  it("rejects a partner reschedule that would conflict with the member's other booked call (409)", async () => {
+    // Layout (all grid-aligned, 30-min mock duration):
+    //   partnerStart      = T+120d           (the existing partner booking)
+    //   kickoffStart      = T+120d + 60min   (30-min gap from partner end = boundary = allowed initially)
+    //   conflictingTarget = T+120d + 30min   (0-min gap before kickoff start = blocked)
+    const memberId = await makeMember(6, true);
+    await assignPartner(memberId, kickoffPartnerId);
+
+    const partnerStart = gridAlignedFutureTime(120);
+    const partnerBook = await request(app)
+      .post("/api/onboarding/partner/book")
+      .set("Cookie", authCookie(memberId))
+      .send({ startTime: partnerStart.toISOString() });
+    expect(partnerBook.status).toBe(201);
+    const partnerBookingId = partnerBook.body.booking.id;
+    bookingIds.push(partnerBookingId);
+
+    // Kickoff at partnerStart + 2*SLOT_STEP_MS (60min later) — non-conflicting
+    // with the original partner slot (30-min gap = boundary = allowed).
+    const kickoffStart = new Date(partnerStart.getTime() + 2 * SLOT_STEP_MS);
+    await seedPartnerBooking({
+      memberId,
+      pId: kickoffCoachId,
+      scheduledAt: kickoffStart,
+      type: "kickoff",
+      staffType: "kickoff_coach",
+    });
+
+    // Try to reschedule the partner call to partnerStart+SLOT_STEP_MS
+    // (= kickoffStart - 30min = 0 gap → blocked).  This IS a grid-aligned
+    // slot so the raw GHL recheck finds it, and the in-transaction conflict
+    // gate fires with the correct 409 + "conflicts" message.
+    const conflictingTarget = new Date(partnerStart.getTime() + SLOT_STEP_MS);
+    const reschedule = await request(app)
+      .patch(`/api/onboarding/partner/${partnerBookingId}/reschedule`)
+      .set("Cookie", authCookie(memberId))
+      .send({ startTime: conflictingTarget.toISOString() });
+    expect(reschedule.status).toBe(409);
+    expect(reschedule.body.error).toMatch(/conflicts/i);
+  });
+
+  it("allows a partner reschedule to the same time slot (self-exclusion)", async () => {
+    const memberId = await makeMember(6, true);
+    await assignPartner(memberId, kickoffPartnerId);
+
+    // Member books a kickoff call (anchor conflict if self-exclusion is broken).
+    const kickoffStart = gridAlignedFutureTime(130);
+    await seedPartnerBooking({
+      memberId,
+      pId: kickoffCoachId,
+      scheduledAt: kickoffStart,
+      type: "kickoff",
+      staffType: "kickoff_coach",
+    });
+
+    // Book a partner call 2 hours after the kickoff (non-conflicting).
+    const partnerStart = minutesAfter(kickoffStart, DEFAULT_CALENDAR_DURATION_MINUTES + 90);
+    const partnerBook = await request(app)
+      .post("/api/onboarding/partner/book")
+      .set("Cookie", authCookie(memberId))
+      .send({ startTime: partnerStart.toISOString() });
+    expect(partnerBook.status).toBe(201);
+    const partnerBookingId = partnerBook.body.booking.id;
+    bookingIds.push(partnerBookingId);
+
+    // Reschedule to the SAME time slot — self-exclusion means this is NOT a
+    // conflict and must succeed (status 200).
+    const reschedule = await request(app)
+      .patch(`/api/onboarding/partner/${partnerBookingId}/reschedule`)
+      .set("Cookie", authCookie(memberId))
+      .send({ startTime: partnerStart.toISOString() });
+    expect(reschedule.status).toBe(200);
+    bookingIds.push(reschedule.body.booking.id);
   });
 });

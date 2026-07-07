@@ -69,7 +69,11 @@ export default function OnboardingBookPartnerCall() {
   const startDate = format(monthStart, "yyyy-MM-dd");
   const endDate = format(monthEnd, "yyyy-MM-dd");
 
-  const { data: availability, isLoading: slotsLoading } = usePartnerAvailability(startDate, endDate);
+  const { data: availability, isLoading: slotsLoading } = usePartnerAvailability(
+    startDate,
+    endDate,
+    reschedulingBookingId ?? undefined,
+  );
 
   const slotsByDate = useMemo(() => {
     const map = new Map<string, { startTime: string }[]>();
