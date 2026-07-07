@@ -6,7 +6,7 @@ import { getProductLabelByRank } from "../lib/entitlements";
 import { Router, type Request, type Response } from "express";
 import crypto from "crypto";
 import bcrypt from "bcryptjs";
-import { db, usersTable, userProductsTable, productsTable, ticketsTable, auditLogTable, systemSettingsTable, adminNotesTable, progressTable, emailChangeHistoryTable, emailChangeAttemptsTable, phoneChangeHistoryTable, webhookLogsTable, machineProductKeyMappingsTable, machineUnknownProductKeysTable, sessionsTable, adSpendTransactionsTable, memberRefundEventsTable, btsOrdersTable, callBookingsTable, partnerAssignmentsTable, partnerNotesTable, onboardingEffectsTable, sequenceEnrollmentsTable, signedDocumentsTable } from "@workspace/db";
+import { db, usersTable, userProductsTable, productsTable, ticketsTable, auditLogTable, systemSettingsTable, adminNotesTable, progressTable, emailChangeHistoryTable, emailChangeAttemptsTable, phoneChangeHistoryTable, webhookLogsTable, machineProductKeyMappingsTable, machineUnknownProductKeysTable, sessionsTable, adSpendTransactionsTable, memberRefundEventsTable, btsOrdersTable, callBookingsTable, partnerAssignmentsTable, partnerNotesTable, onboardingEffectsTable, sequenceEnrollmentsTable, signedDocumentsTable, communicationLogTable, chatSessionsTable, chatDailyUsageTable, chatPromptsTable, courseProgressTable, blitzDailyActivityTable, blitzEventsTable, memberHealthScoresTable, ghlSyncLogTable, memberAppInstancesTable, knowledgebaseBookmarksTable, vaultFavoritesTable, emailUnsubscribesTable, communityPostsTable, communityCommentsTable, communityReactionsTable, communityNotificationsTable, communityBadgesTable, dmThreadsTable, dmMessagesTable, winsTable, ticketSatisfactionTable, ticketMessagesTable, ticketSlaTable, ticketAttachmentsTable, userStrikesTable, coachingCallAttendanceTable, moderationQueueTable, affiliateProfilesTable, checkoutIdempotencyTable, sessionPackBookingsTable, coachingCreditLedgerTable, subscriptionsTable, toolUserDataTable, toolUsageLogTable, toolDailyUsageTable, voiceCallsTable, voiceDailyUsageTable } from "@workspace/db";
 import { cancelAppointment, COACHING_LOCATION_ID } from "../lib/ghl-coaching-calendar";
 import { eq, ne, and, gt, gte, lt, lte, desc, asc, sql, ilike, or, inArray, isNotNull, isNull, getTableColumns, type SQL } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
@@ -3044,6 +3044,48 @@ router.post("/admin/members/:id/send-reset-email", requirePermission("members:as
 // preserved) — this is only safe because the financial guard above already
 // excludes anyone with real financial history from ever reaching this path.
 
+// Check whether the member has rows in staff-reference columns that should
+// never be deleted as part of a member hard-delete (e.g. the member was
+// previously staff, authored admin notes, or created API keys). These are
+// columns where the member is the ACTOR/AUTHOR, not the subject. Returns a
+// list of blocker descriptions, or an empty array if all clear.
+// This MUST be called before any GHL cancel or DB write so that a stuck
+// member can be reported cleanly without any side effects.
+async function getMemberStaffReferenceBlockers(memberId: number): Promise<string[]> {
+  // PostgreSQL requires parentheses around each SELECT when combining LIMIT with UNION ALL.
+  const result = await db.execute(sql`
+    (SELECT 'audit_log.actor_id' AS blocker FROM audit_log WHERE actor_id = ${memberId} LIMIT 1)
+    UNION ALL
+    (SELECT 'admin_notes.author_id' FROM admin_notes WHERE author_id = ${memberId} LIMIT 1)
+    UNION ALL
+    (SELECT 'api_keys.created_by_id or revoked_by_id' FROM api_keys WHERE created_by_id = ${memberId} OR revoked_by_id = ${memberId} LIMIT 1)
+    UNION ALL
+    (SELECT 'broadcasts.created_by' FROM broadcasts WHERE created_by = ${memberId} LIMIT 1)
+    UNION ALL
+    (SELECT 'dm_threads.admin_id' FROM dm_threads WHERE admin_id = ${memberId} LIMIT 1)
+    UNION ALL
+    (SELECT 'email_template_versions.saved_by' FROM email_template_versions WHERE saved_by = ${memberId} LIMIT 1)
+    UNION ALL
+    (SELECT 'kb_staging_docs.reviewed_by' FROM kb_staging_docs WHERE reviewed_by = ${memberId} LIMIT 1)
+    UNION ALL
+    (SELECT 'ticket_routing_rules.assign_to_user_id' FROM ticket_routing_rules WHERE assign_to_user_id = ${memberId} LIMIT 1)
+    UNION ALL
+    (SELECT 'tickets.assigned_to' FROM tickets WHERE assigned_to = ${memberId} LIMIT 1)
+    UNION ALL
+    (SELECT 'wins.featured_by' FROM wins WHERE featured_by = ${memberId} LIMIT 1)
+    UNION ALL
+    (SELECT 'wins.testimonial_approved_by' FROM wins WHERE testimonial_approved_by = ${memberId} LIMIT 1)
+    UNION ALL
+    (SELECT 'moderation_queue.reviewed_by' FROM moderation_queue WHERE reviewed_by = ${memberId} LIMIT 1)
+    UNION ALL
+    (SELECT 'coaching_credit_ledger.created_by_user_id' FROM coaching_credit_ledger WHERE created_by_user_id = ${memberId} LIMIT 1)
+    UNION ALL
+    (SELECT 'coach_google_connections.user_id' FROM coach_google_connections WHERE user_id = ${memberId} LIMIT 1)
+  `);
+  // db.execute() returns { rows: [...] }, not a direct array.
+  return (result as unknown as { rows: { blocker: string }[] }).rows.map((r) => r.blocker);
+}
+
 // Deliberately NOT using safeCount here: this is a destructive-action safety
 // guard, so a failed query must fail closed (propagate the error and abort
 // the delete) rather than silently coercing to 0 and letting a member with
@@ -3226,10 +3268,25 @@ router.delete("/admin/members/:id", requirePermission("members:delete"), async (
       return;
     }
 
+    // Pre-flight: check for staff-reference columns BEFORE any GHL call or
+    // DB write so a blocker is reported cleanly with nothing touched.
+    const staffBlockers = await getMemberStaffReferenceBlockers(id);
+    if (staffBlockers.length > 0) {
+      res.status(422).json({
+        error: `This member has staff-role references that prevent hard-deletion: ${staffBlockers.join("; ")}. These columns are preserved (not deleted) as part of the admin audit trail or staff-created content.`,
+        staffReferenceBlockers: staffBlockers,
+      });
+      return;
+    }
+
     // Step 1: cancel every live GHL appointment BEFORE touching the DB.
     // GHL calls can't be transactionally rolled back, so we do them all
     // first and abort the entire deletion (no DB writes at all) the moment
     // one fails — nothing partially deleted, no orphaned local rows.
+    //
+    // Idempotency: a 404 or "already cancelled" response is treated as
+    // success so that retrying a delete after a previous rolled-back attempt
+    // (where GHL was already cancelled but the DB tx failed) does not abort.
     const bookedCalls = await db
       .select({
         id: callBookingsTable.id,
@@ -3240,6 +3297,7 @@ router.delete("/admin/members/:id", requirePermission("members:delete"), async (
       .from(callBookingsTable)
       .where(and(eq(callBookingsTable.memberId, id), eq(callBookingsTable.status, "booked")));
 
+    let callBookingsCanceledCount = 0;
     for (const booking of bookedCalls) {
       // Fail closed: a `booked` row with no GHL appointment id can't be
       // proven canceled, so we refuse to proceed rather than silently
@@ -3254,7 +3312,17 @@ router.delete("/admin/members/:id", requirePermission("members:delete"), async (
       }
       try {
         await cancelAppointment(booking.ghlAppointmentId, booking.ghlLocationId ?? COACHING_LOCATION_ID);
+        callBookingsCanceledCount++;
       } catch (err) {
+        const errMsg = err instanceof Error ? err.message : String(err);
+        // A 404 means the appointment is already gone on GHL (e.g. a prior
+        // attempt succeeded on GHL but the DB transaction rolled back).
+        // Treat this as a successful cancel so the retry can proceed.
+        if (errMsg.includes("HTTP 404")) {
+          console.log(`[Admin] GHL appointment ${booking.ghlAppointmentId} already absent (404) for call_booking ${booking.id}; treating as canceled.`);
+          callBookingsCanceledCount++;
+          continue;
+        }
         console.error(`[Admin] Failed to cancel GHL appointment for call_booking ${booking.id} during member deletion:`, err);
         res.status(502).json({
           error: `Could not cancel appointment #${booking.id} (scheduled ${booking.scheduledAt.toISOString()}) with the calendar provider. Deletion aborted — nothing was deleted.`,
@@ -3265,7 +3333,7 @@ router.delete("/admin/members/:id", requirePermission("members:delete"), async (
     }
 
     const counts = {
-      callBookingsCanceled: bookedCalls.length,
+      callBookingsCanceled: callBookingsCanceledCount,
       activeAssignmentsEnded: 0,
       partnerNotesDeleted: 0,
       callBookingsDeleted: 0,
@@ -3273,9 +3341,194 @@ router.delete("/admin/members/:id", requirePermission("members:delete"), async (
       sequenceEnrollmentsDeleted: 0,
       signedDocumentsDeleted: 0,
       userProductsDeleted: 0,
+      // Comprehensive personal-data tables added to prevent FK violations.
+      communicationLogDeleted: 0,
+      chatSessionsDeleted: 0,
+      progressDeleted: 0,
+      courseProgressDeleted: 0,
+      blitzActivityDeleted: 0,
+      communityContentDeleted: 0,
+      dmContentDeleted: 0,
+      ticketsDeleted: 0,
+      winsDeleted: 0,
+      subscriptionsDeleted: 0,
+      sessionPackBookingsDeleted: 0,
     };
 
     await db.transaction(async (tx) => {
+      // ----------------------------------------------------------------
+      // Phase A: delete child rows that FK-reference tables we'll delete
+      // in Phase B (ticket_messages → tickets, dm_messages → dm_threads,
+      // community_reactions/notifications/comments → community_posts).
+      // These must go before their parent rows or Postgres 23503 fires.
+      // ----------------------------------------------------------------
+
+      // ticket_messages and ticket_satisfaction reference tickets (NO ACTION)
+      const memberTicketIds = (
+        await tx.select({ id: ticketsTable.id }).from(ticketsTable).where(eq(ticketsTable.userId, id))
+      ).map((r) => r.id);
+      if (memberTicketIds.length > 0) {
+        // ticket_attachments references both ticket_id and message_id (NO ACTION);
+        // must be deleted before ticket_messages and before tickets.
+        await tx.delete(ticketAttachmentsTable).where(inArray(ticketAttachmentsTable.ticketId, memberTicketIds));
+        await tx.delete(ticketMessagesTable).where(inArray(ticketMessagesTable.ticketId, memberTicketIds));
+        await tx.delete(ticketSatisfactionTable).where(inArray(ticketSatisfactionTable.ticketId, memberTicketIds));
+        // ticket_sla references ticket_id (NO ACTION); must go before tickets.
+        await tx.delete(ticketSlaTable).where(inArray(ticketSlaTable.ticketId, memberTicketIds));
+      }
+      // ticket_satisfaction also has its own user_id FK
+      await tx.delete(ticketSatisfactionTable).where(eq(ticketSatisfactionTable.userId, id));
+
+      // dm_messages reference dm_threads (NO ACTION)
+      await tx.delete(dmMessagesTable).where(eq(dmMessagesTable.senderId, id));
+      const memberThreadIds = (
+        await tx.select({ id: dmThreadsTable.id }).from(dmThreadsTable).where(eq(dmThreadsTable.memberId, id))
+      ).map((r) => r.id);
+      if (memberThreadIds.length > 0) {
+        await tx.delete(dmMessagesTable).where(inArray(dmMessagesTable.threadId, memberThreadIds));
+      }
+
+      // community_reactions/notifications have post_id + comment_id FKs that are NO ACTION.
+      // We must delete ALL reactions/notifications pointing to the member's posts/comments
+      // (by any user) BEFORE deleting the posts/comments themselves.
+      const memberPostIds = (
+        await tx.select({ id: communityPostsTable.id }).from(communityPostsTable).where(eq(communityPostsTable.authorId, id))
+      ).map((r) => r.id);
+      const memberCommentIds = (
+        await tx.select({ id: communityCommentsTable.id }).from(communityCommentsTable).where(eq(communityCommentsTable.authorId, id))
+      ).map((r) => r.id);
+
+      // Delete ALL reactions targeting the member's posts or comments (regardless of reactor).
+      if (memberPostIds.length > 0) {
+        await tx.delete(communityReactionsTable).where(inArray(communityReactionsTable.postId, memberPostIds));
+        await tx.delete(communityNotificationsTable).where(inArray(communityNotificationsTable.postId, memberPostIds));
+      }
+      if (memberCommentIds.length > 0) {
+        await tx.delete(communityReactionsTable).where(inArray(communityReactionsTable.commentId, memberCommentIds));
+        await tx.delete(communityNotificationsTable).where(inArray(communityNotificationsTable.commentId, memberCommentIds));
+      }
+      // Now delete remaining reactions/notifications by/to the member themselves (no post/comment FK).
+      await tx.delete(communityReactionsTable).where(eq(communityReactionsTable.userId, id));
+      await tx.delete(communityNotificationsTable).where(
+        or(eq(communityNotificationsTable.userId, id), eq(communityNotificationsTable.actorId, id)),
+      );
+      // community_comments reference community_posts; wins also reference community_posts
+      const deletedComments = await tx
+        .delete(communityCommentsTable)
+        .where(eq(communityCommentsTable.authorId, id))
+        .returning({ id: communityCommentsTable.id });
+      const deletedWins = await tx
+        .delete(winsTable)
+        .where(eq(winsTable.userId, id))
+        .returning({ id: winsTable.id });
+      counts.winsDeleted = deletedWins.length;
+
+      // coaching_credit_ledger member rows reference session_pack_bookings (NO ACTION)
+      await tx.delete(coachingCreditLedgerTable).where(eq(coachingCreditLedgerTable.memberId, id));
+
+      // ----------------------------------------------------------------
+      // Phase B: delete parent personal-data tables now that children are gone
+      // ----------------------------------------------------------------
+
+      const deletedPosts = await tx
+        .delete(communityPostsTable)
+        .where(eq(communityPostsTable.authorId, id))
+        .returning({ id: communityPostsTable.id });
+      counts.communityContentDeleted = deletedPosts.length + deletedComments.length;
+
+      const deletedTickets = await tx
+        .delete(ticketsTable)
+        .where(eq(ticketsTable.userId, id))
+        .returning({ id: ticketsTable.id });
+      counts.ticketsDeleted = deletedTickets.length;
+
+      const deletedSessionPackBookings = await tx
+        .delete(sessionPackBookingsTable)
+        .where(eq(sessionPackBookingsTable.memberId, id))
+        .returning({ id: sessionPackBookingsTable.id });
+      counts.sessionPackBookingsDeleted = deletedSessionPackBookings.length;
+
+      const deletedDmThreads = await tx
+        .delete(dmThreadsTable)
+        .where(eq(dmThreadsTable.memberId, id))
+        .returning({ id: dmThreadsTable.id });
+      counts.dmContentDeleted = deletedDmThreads.length;
+
+      // ----------------------------------------------------------------
+      // Phase C: remaining personal-data tables with direct user_id FK
+      // ----------------------------------------------------------------
+
+      const deletedCommLog = await tx
+        .delete(communicationLogTable)
+        .where(eq(communicationLogTable.userId, id))
+        .returning({ id: communicationLogTable.id });
+      counts.communicationLogDeleted = deletedCommLog.length;
+
+      const deletedChatSessions = await tx
+        .delete(chatSessionsTable)
+        .where(eq(chatSessionsTable.userId, id))
+        .returning({ id: chatSessionsTable.id });
+      counts.chatSessionsDeleted = deletedChatSessions.length;
+
+      await tx.delete(chatDailyUsageTable).where(eq(chatDailyUsageTable.userId, id));
+      await tx.delete(chatPromptsTable).where(eq(chatPromptsTable.userId, id));
+
+      const deletedProgress = await tx
+        .delete(progressTable)
+        .where(eq(progressTable.userId, id))
+        .returning({ id: progressTable.id });
+      counts.progressDeleted = deletedProgress.length;
+
+      const deletedCourseProgress = await tx
+        .delete(courseProgressTable)
+        .where(eq(courseProgressTable.userId, id))
+        .returning({ id: courseProgressTable.id });
+      counts.courseProgressDeleted = deletedCourseProgress.length;
+
+      // blitz_daily_activity has a composite PK (no serial id column);
+      // use activityDate as the returning key to count deleted rows.
+      const deletedBlitzActivity = await tx
+        .delete(blitzDailyActivityTable)
+        .where(eq(blitzDailyActivityTable.userId, id))
+        .returning({ activityDate: blitzDailyActivityTable.activityDate });
+      const deletedBlitzEvents = await tx
+        .delete(blitzEventsTable)
+        .where(eq(blitzEventsTable.userId, id))
+        .returning({ id: blitzEventsTable.id });
+      counts.blitzActivityDeleted = deletedBlitzActivity.length + deletedBlitzEvents.length;
+
+      await tx.delete(memberHealthScoresTable).where(eq(memberHealthScoresTable.userId, id));
+      await tx.delete(ghlSyncLogTable).where(eq(ghlSyncLogTable.userId, id));
+      await tx.delete(memberAppInstancesTable).where(eq(memberAppInstancesTable.userId, id));
+      await tx.delete(knowledgebaseBookmarksTable).where(eq(knowledgebaseBookmarksTable.userId, id));
+      await tx.delete(vaultFavoritesTable).where(eq(vaultFavoritesTable.userId, id));
+      await tx.delete(emailUnsubscribesTable).where(eq(emailUnsubscribesTable.userId, id));
+      await tx.delete(communityBadgesTable).where(eq(communityBadgesTable.userId, id));
+      await tx.delete(userStrikesTable).where(eq(userStrikesTable.userId, id));
+      // admin_notes WHERE userId = member: notes ABOUT the member
+      // (admin_notes.author_id rows are staff-reference and blocked by pre-flight)
+      await tx.delete(adminNotesTable).where(eq(adminNotesTable.userId, id));
+      await tx.delete(coachingCallAttendanceTable).where(eq(coachingCallAttendanceTable.userId, id));
+      await tx.delete(moderationQueueTable).where(eq(moderationQueueTable.authorId, id));
+      await tx.delete(affiliateProfilesTable).where(eq(affiliateProfilesTable.userId, id));
+      await tx.delete(checkoutIdempotencyTable).where(eq(checkoutIdempotencyTable.userId, id));
+
+      const deletedSubs = await tx
+        .delete(subscriptionsTable)
+        .where(eq(subscriptionsTable.userId, id))
+        .returning({ id: subscriptionsTable.id });
+      counts.subscriptionsDeleted = deletedSubs.length;
+
+      await tx.delete(toolUserDataTable).where(eq(toolUserDataTable.userId, id));
+      await tx.delete(toolUsageLogTable).where(eq(toolUsageLogTable.userId, id));
+      await tx.delete(toolDailyUsageTable).where(eq(toolDailyUsageTable.userId, id));
+      await tx.delete(voiceCallsTable).where(eq(voiceCallsTable.userId, id));
+      await tx.delete(voiceDailyUsageTable).where(eq(voiceDailyUsageTable.userId, id));
+
+      // ----------------------------------------------------------------
+      // Phase D: original pipeline tables (preserved from original impl)
+      // ----------------------------------------------------------------
+
       // End (not just delete) active assignments first so round-robin
       // active-counts stay correct for any read that lands mid-transaction.
       const ended = await tx
@@ -3291,9 +3544,7 @@ router.delete("/admin/members/:id", requirePermission("members:delete"), async (
         .returning({ id: partnerNotesTable.id });
       counts.partnerNotesDeleted = deletedNotes.length;
 
-      const deletedAssignments = await tx
-        .delete(partnerAssignmentsTable)
-        .where(eq(partnerAssignmentsTable.memberId, id));
+      await tx.delete(partnerAssignmentsTable).where(eq(partnerAssignmentsTable.memberId, id));
 
       const deletedBookings = await tx
         .delete(callBookingsTable)
@@ -3301,8 +3552,6 @@ router.delete("/admin/members/:id", requirePermission("members:delete"), async (
         .returning({ id: callBookingsTable.id });
       counts.callBookingsDeleted = deletedBookings.length;
 
-      // onboarding_effects and sequence_enrollments both FK to users and
-      // must go before the user row is deleted.
       const deletedEffects = await tx
         .delete(onboardingEffectsTable)
         .where(eq(onboardingEffectsTable.userId, id))
@@ -3342,7 +3591,7 @@ router.delete("/admin/members/:id", requirePermission("members:delete"), async (
       actionType: "delete_member",
       entityType: "user",
       entityId: String(id),
-      description: `Hard-deleted member ${member.email} (id ${id}): canceled ${counts.callBookingsCanceled} GHL appointment(s), ended ${counts.activeAssignmentsEnded} active partner assignment(s), removed ${counts.partnerNotesDeleted} partner note(s), ${counts.callBookingsDeleted} call booking(s), ${counts.onboardingEffectsDeleted} onboarding effect(s), ${counts.sequenceEnrollmentsDeleted} sequence enrollment(s), ${counts.signedDocumentsDeleted} signed document(s), ${counts.userProductsDeleted} product grant(s)`,
+      description: `Hard-deleted member ${member.email} (id ${id}): canceled ${counts.callBookingsCanceled} GHL appointment(s), ended ${counts.activeAssignmentsEnded} active partner assignment(s), removed ${counts.partnerNotesDeleted} partner note(s), ${counts.callBookingsDeleted} call booking(s), ${counts.onboardingEffectsDeleted} onboarding effect(s), ${counts.sequenceEnrollmentsDeleted} sequence enrollment(s), ${counts.signedDocumentsDeleted} signed document(s), ${counts.userProductsDeleted} product grant(s), ${counts.communicationLogDeleted} communication log row(s), ${counts.chatSessionsDeleted} chat session(s), ${counts.progressDeleted} progress row(s), ${counts.subscriptionsDeleted} subscription(s), ${counts.ticketsDeleted} ticket(s), ${counts.communityContentDeleted} community post/comment(s), ${counts.winsDeleted} win(s)`,
       metadata: {
         memberEmail: member.email,
         memberName: member.name,
@@ -3354,6 +3603,32 @@ router.delete("/admin/members/:id", requirePermission("members:delete"), async (
     res.json({ success: true, deletedMemberId: id, deletedMemberEmail: member.email, counts });
   } catch (error) {
     console.error("[Admin] Member delete error:", error);
+    // Surface specific Postgres FK violations with the blocking constraint
+    // name so the admin sees an actionable message instead of a bare 500.
+    // DrizzleQueryError wraps the pg error in .cause; check both levels.
+    if (error && typeof error === "object") {
+      const anyErr = error as Record<string, unknown>;
+      // For DrizzleQueryError the pg error is at error.cause; for raw throws it's at error itself.
+      const pgErr = (anyErr.cause && typeof anyErr.cause === "object"
+        ? anyErr.cause
+        : anyErr) as { code?: string; constraint?: string; table?: string; message?: string };
+      if (pgErr.code === "23503") {
+        const constraint = pgErr.constraint ?? "unknown constraint";
+        const table = pgErr.table ?? "unknown table";
+        res.status(409).json({
+          error: `Deletion blocked by foreign key constraint "${constraint}" on table "${table}". This table is not classified in the member delete pipeline and must be added.`,
+          pgCode: pgErr.code,
+          constraint,
+          table,
+        });
+        return;
+      }
+      const msg = (anyErr.message ?? pgErr.message) as string | undefined;
+      if (msg) {
+        res.status(500).json({ error: `Failed to delete member: ${msg}` });
+        return;
+      }
+    }
     res.status(500).json({ error: "Failed to delete member" });
   }
 });

@@ -13,6 +13,10 @@ import {
   adSpendTransactionsTable,
   memberRefundEventsTable,
   btsOrdersTable,
+  communicationLogTable,
+  ticketsTable,
+  ticketSlaTable,
+  ticketAttachmentsTable,
 } from "@workspace/db";
 import { and, eq, inArray, desc, sql } from "drizzle-orm";
 
@@ -520,5 +524,314 @@ describe("GET /api/admin/members/:id/delete-eligibility", () => {
       .set("Cookie", superAdminCookie);
     expect(res.status).toBe(200);
     expect(res.body.eligible).toBe(false);
+  });
+});
+
+describe("DELETE /api/admin/members/:id — communication_log and comprehensive cleanup", () => {
+  it("successfully deletes a member who has communication_log rows (the prod-failure case)", async () => {
+    const target = await insertUser("member", `comm-log-${randomUUID().slice(0, 6)}`);
+
+    // Insert communication_log rows mimicking welcome + onboarding emails
+    await db.insert(communicationLogTable).values([
+      {
+        userId: target.id,
+        channel: "email",
+        category: "transactional",
+        templateSlug: "welcome",
+        status: "delivered",
+        recipientEmail: target.email,
+        subject: "Welcome",
+      },
+      {
+        userId: target.id,
+        channel: "email",
+        category: "marketing",
+        templateSlug: "onboarding_day1",
+        status: "delivered",
+        recipientEmail: target.email,
+        subject: "Day 1",
+      },
+    ]);
+
+    cancelAppointmentMock.mockClear();
+
+    const res = await request(app)
+      .delete(`/api/admin/members/${target.id}`)
+      .set("Cookie", superAdminCookie)
+      .send({ confirmEmail: target.email });
+
+    expect(res.status).toBe(200);
+    expect(res.body.success).toBe(true);
+    expect(res.body.counts.communicationLogDeleted).toBe(2);
+
+    // User row must be gone
+    const [userRow] = await db.select().from(usersTable).where(eq(usersTable.id, target.id));
+    expect(userRow).toBeUndefined();
+
+    // communication_log rows must be gone
+    const commRows = await db
+      .select()
+      .from(communicationLogTable)
+      .where(eq(communicationLogTable.userId, target.id));
+    expect(commRows).toHaveLength(0);
+  });
+
+  it("treats a GHL 404 (already-cancelled) as success so a retry after a rolled-back attempt can proceed", async () => {
+    const target = await insertUser("member", `ghl-404-retry-${randomUUID().slice(0, 6)}`);
+    const ghlAppointmentId = `${TEST_TAG}-appt-404-${randomUUID().slice(0, 8)}`;
+    await db.insert(callBookingsTable).values({
+      memberId: target.id,
+      staffType: "partner",
+      staffId: 0,
+      type: "partner",
+      ghlCalendarId: `${TEST_TAG}-cal`,
+      ghlAppointmentId,
+      ghlLocationId: "loc_test_specific",
+      scheduledAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
+      endAt: new Date(Date.now() + 25 * 60 * 60 * 1000),
+      durationMinutes: 30,
+      status: "booked",
+    });
+
+    // Simulate a "already cancelled on GHL" 404 — as would happen on a retry
+    // after a prior attempt that cancelled the GHL appointment but then had
+    // its DB transaction rolled back.
+    cancelAppointmentMock.mockImplementationOnce(async () => {
+      throw new Error(`GHL DELETE /calendars/events/${ghlAppointmentId} failed: HTTP 404 — {"message":"Not Found"}`);
+    });
+
+    const res = await request(app)
+      .delete(`/api/admin/members/${target.id}`)
+      .set("Cookie", superAdminCookie)
+      .send({ confirmEmail: target.email });
+
+    expect(res.status).toBe(200);
+    expect(res.body.success).toBe(true);
+    // callBookingsCanceled should count the 404 as a successful cancel
+    expect(res.body.counts.callBookingsCanceled).toBe(1);
+
+    // User row must be gone
+    const [userRow] = await db.select().from(usersTable).where(eq(usersTable.id, target.id));
+    expect(userRow).toBeUndefined();
+  });
+});
+
+describe("DELETE /api/admin/members/:id — ticket and community transitive FK cleanup", () => {
+  it("deletes a member who has tickets with sla + attachment child rows (transitive FK chain)", async () => {
+    const target = await insertUser("member", `ticket-chain-${randomUUID().slice(0, 6)}`);
+
+    cancelAppointmentMock.mockClear();
+
+    // Create a ticket for the member
+    const [ticket] = await db
+      .insert(ticketsTable)
+      .values({
+        userId: target.id,
+        ticketNumber: `TEST-${randomUUID().slice(0, 8).toUpperCase()}`,
+        subject: "Test issue",
+        status: "open",
+      })
+      .returning({ id: ticketsTable.id });
+
+    // Add a ticket_sla row (references ticket_id, NO ACTION)
+    await db.insert(ticketSlaTable).values({
+      ticketId: ticket.id,
+      tierSlug: "standard",
+      firstResponseTargetMinutes: 240,
+      resolutionTargetMinutes: 1440,
+    });
+
+    // Add a ticket_attachment row (references ticket_id AND optionally message_id, NO ACTION)
+    await db.insert(ticketAttachmentsTable).values({
+      ticketId: ticket.id,
+      objectPath: "/objects/test-file.pdf",
+      fileName: "test-file.pdf",
+    });
+
+    const res = await request(app)
+      .delete(`/api/admin/members/${target.id}`)
+      .set("Cookie", superAdminCookie)
+      .send({ confirmEmail: target.email });
+
+    expect(res.status).toBe(200);
+    expect(res.body.success).toBe(true);
+    expect(res.body.counts.ticketsDeleted).toBe(1);
+
+    // Verify no orphaned sla or attachment rows remain
+    const slaRows = await db.select().from(ticketSlaTable).where(eq(ticketSlaTable.ticketId, ticket.id));
+    expect(slaRows).toHaveLength(0);
+    const attachRows = await db.select().from(ticketAttachmentsTable).where(eq(ticketAttachmentsTable.ticketId, ticket.id));
+    expect(attachRows).toHaveLength(0);
+  });
+});
+
+describe("DELETE /api/admin/members/:id — FK abort surfacing", () => {
+  it("surfaces a residual 23503 FK violation as 409 with constraint + table, not a bare 500", async () => {
+    const target = await insertUser("member", `fk-surf-${randomUUID().slice(0, 6)}`);
+
+    // Simulate a DrizzleQueryError wrapping a Postgres 23503 error —
+    // the kind thrown when a table is not in the delete pipeline.
+    // error.cause holds the raw pg error with .code/.constraint/.table.
+    const fakeErr = Object.assign(new Error("FK violation (simulated)"), {
+      cause: Object.assign(new Error("FK"), {
+        code: "23503",
+        constraint: "unclassified_table_user_id_fk",
+        table: "unclassified_table",
+      }),
+    });
+    const txSpy = vi.spyOn(db, "transaction").mockImplementationOnce(() => { throw fakeErr; });
+
+    const res = await request(app)
+      .delete(`/api/admin/members/${target.id}`)
+      .set("Cookie", superAdminCookie)
+      .send({ confirmEmail: target.email });
+
+    txSpy.mockRestore();
+
+    // Clean up: the delete did not execute so the user still exists
+    await db.delete(usersTable).where(eq(usersTable.id, target.id));
+
+    expect(res.status).toBe(409);
+    expect(res.body.constraint).toBe("unclassified_table_user_id_fk");
+    expect(res.body.table).toBe("unclassified_table");
+    expect(res.body.pgCode).toBe("23503");
+    expect(res.body.error).toContain("unclassified_table_user_id_fk");
+  });
+});
+
+describe("FK exhaustiveness guard — every FK referencing users must be classified", () => {
+  // This test queries information_schema for ALL foreign key constraints that
+  // reference the users table and asserts that each one appears in the
+  // classification list below. If a future migration adds a new FK to users
+  // without classifying it in the delete pipeline, this test breaks CI loudly
+  // (rather than surfacing as a silent 23503 in production).
+  //
+  // Classification codes:
+  //   CASCADE      – Postgres auto-deletes/nulls on user deletion; no pipeline action needed
+  //   SET_NULL     – Postgres sets the FK column to NULL; no pipeline action needed
+  //   FINANCIAL    – blocked by the financial-history pre-flight guard
+  //   STAFF_REF    – blocked by the staff-reference pre-flight guard
+  //   PIPELINE     – explicitly deleted/handled inside the delete transaction
+  it("every FK constraint referencing users.id is classified in the delete pipeline", async () => {
+    const result = await db.execute(sql`
+      SELECT tc.constraint_name, tc.table_name, kcu.column_name, rc.delete_rule
+      FROM information_schema.table_constraints tc
+      JOIN information_schema.key_column_usage kcu
+        ON tc.constraint_name = kcu.constraint_name AND tc.table_schema = kcu.table_schema
+      JOIN information_schema.referential_constraints rc
+        ON tc.constraint_name = rc.constraint_name AND tc.table_schema = rc.constraint_schema
+      JOIN information_schema.constraint_column_usage ccu
+        ON rc.unique_constraint_name = ccu.constraint_name AND rc.unique_constraint_schema = ccu.constraint_schema
+      WHERE tc.constraint_type = 'FOREIGN KEY'
+        AND ccu.table_name = 'users'
+        AND tc.table_schema = 'public'
+      ORDER BY tc.constraint_name
+    `);
+
+    const knownConstraints = new Set<string>([
+      // --- CASCADE: auto-handled by Postgres ---
+      "email_change_attempts_user_id_users_id_fk",
+      "email_change_history_user_id_users_id_fk",
+      "payment_methods_user_id_fkey",
+      "phone_change_history_user_id_users_id_fk",
+      "sessions_user_id_users_id_fk",
+      // --- SET NULL: auto-handled by Postgres ---
+      "app_global_settings_updated_by_id_users_id_fk",
+      "coaches_user_id_users_id_fk",
+      "coaching_calls_cancelled_by_users_id_fk",
+      "email_change_attempts_cancelled_by_admin_id_users_id_fk",
+      "kb_proposed_tool_tags_reviewed_by_fkey",
+      "kb_tool_tags_created_by_fkey",
+      "kb_triage_audit_log_actor_user_id_fkey",
+      "kickoff_coaches_user_id_fkey",
+      "partners_user_id_fkey",
+      "upgrade_prompt_events_user_id_users_id_fk",
+      // --- FINANCIAL_GUARD: blocked before any DB/GHL action ---
+      "ad_spend_transactions_user_id_fkey",
+      "bts_orders_user_id_fkey",
+      "member_refund_events_member_id_fkey",
+      // --- STAFF_REF: blocked by staff-reference pre-flight ---
+      "admin_notes_author_id_users_id_fk",
+      "api_keys_created_by_id_users_id_fk",
+      "api_keys_revoked_by_id_users_id_fk",
+      "audit_log_actor_id_users_id_fk",
+      "broadcasts_created_by_users_id_fk",
+      "coaching_credit_ledger_created_by_user_id_users_id_fk",
+      "coach_google_connections_user_id_users_id_fk",
+      "dm_threads_admin_id_users_id_fk",
+      "email_template_versions_saved_by_users_id_fk",
+      "kb_staging_docs_reviewed_by_users_id_fk",
+      "moderation_queue_reviewed_by_users_id_fk",
+      "ticket_routing_rules_assign_to_user_id_users_id_fk",
+      "tickets_assigned_to_users_id_fk",
+      "wins_featured_by_users_id_fk",
+      "wins_testimonial_approved_by_users_id_fk",
+      // --- PIPELINE: explicitly deleted inside the delete transaction ---
+      "admin_notes_user_id_users_id_fk",
+      "affiliate_profiles_user_id_users_id_fk",
+      "blitz_daily_activity_user_id_users_id_fk",
+      "blitz_events_user_id_users_id_fk",
+      "call_bookings_member_id_fkey",
+      "chat_daily_usage_user_id_users_id_fk",
+      "chat_prompts_user_id_users_id_fk",
+      "chat_sessions_user_id_users_id_fk",
+      "checkout_idempotency_user_id_fkey",
+      "coaching_call_attendance_user_id_users_id_fk",
+      "coaching_credit_ledger_member_id_users_id_fk",
+      "communication_log_user_id_users_id_fk",
+      "community_badges_user_id_users_id_fk",
+      "community_comments_author_id_users_id_fk",
+      "community_notifications_actor_id_users_id_fk",
+      "community_notifications_user_id_users_id_fk",
+      "community_posts_author_id_users_id_fk",
+      "community_reactions_user_id_users_id_fk",
+      "course_progress_user_id_users_id_fk",
+      "dm_messages_sender_id_users_id_fk",
+      "dm_threads_member_id_users_id_fk",
+      "email_unsubscribes_user_id_users_id_fk",
+      "ghl_sync_log_user_id_users_id_fk",
+      "knowledgebase_bookmarks_user_id_fkey",
+      "member_app_instances_user_id_users_id_fk",
+      "member_health_scores_user_id_users_id_fk",
+      "moderation_queue_author_id_users_id_fk",
+      "onboarding_effects_user_id_fkey",
+      "partner_assignments_member_id_fkey",
+      "partner_notes_member_id_fkey",
+      "progress_user_id_users_id_fk",
+      "sequence_enrollments_user_id_users_id_fk",
+      "session_pack_bookings_member_id_users_id_fk",
+      "signed_documents_user_id_users_id_fk",
+      "subscriptions_user_id_fkey",
+      "ticket_satisfaction_user_id_users_id_fk",
+      "tickets_user_id_users_id_fk",
+      "tool_daily_usage_user_id_users_id_fk",
+      "tool_usage_log_user_id_users_id_fk",
+      "tool_user_data_user_id_users_id_fk",
+      "user_products_user_id_users_id_fk",
+      "user_strikes_user_id_users_id_fk",
+      "vault_favorites_user_id_users_id_fk",
+      "voice_calls_user_id_fkey",
+      "voice_daily_usage_user_id_fkey",
+      "wins_user_id_users_id_fk",
+    ]);
+
+    // db.execute() returns { rows: [...] }, not a direct array.
+    const rows = (result as unknown as { rows: { constraint_name: string; table_name: string; column_name: string; delete_rule: string }[] }).rows;
+    const unclassified: string[] = [];
+    for (const row of rows) {
+      if (!knownConstraints.has(row.constraint_name)) {
+        unclassified.push(`${row.constraint_name} (${row.table_name}.${row.column_name}, delete_rule=${row.delete_rule})`);
+      }
+    }
+
+    if (unclassified.length > 0) {
+      throw new Error(
+        `The following FK constraints referencing users are NOT classified in the delete pipeline:\n` +
+        unclassified.map((c) => `  - ${c}`).join("\n") +
+        `\n\nAdd each one to the knownConstraints set in admin-member-delete.test.ts with the appropriate classification code, AND ensure it is handled (deleted, guarded, or SET NULL/CASCADE) in the delete pipeline in admin-panel.ts.`,
+      );
+    }
+
+    expect(unclassified).toHaveLength(0);
   });
 });
