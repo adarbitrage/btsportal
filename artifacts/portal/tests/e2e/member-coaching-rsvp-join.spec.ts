@@ -250,11 +250,11 @@ test.describe("Member Coaching page — RSVP-to-Join flow", () => {
       await expect(waitingBtn).toBeDisabled();
       await expect(waitingBtn).toContainText(/RSVP'd/);
       // The persistent Join button is visible but still greyed out, with the
-      // "goes live 5 minutes before" helper caption.
+      // "will be live 5 minutes before" helper caption.
       await expect(page.getByTestId(`weekly-join-${mainCallId}`)).toBeDisabled();
       await expect(
         page.getByTestId(`weekly-join-caption-${mainCallId}`),
-      ).toContainText(/goes live 5 minutes before/i);
+      ).toContainText(/will be live 5 minutes before/i);
 
       // --- 5) Join window: Join Call appears, opens the link, stamps joined_at
       await setCallStart(3); // 3 min out: inside the 5-minute join window

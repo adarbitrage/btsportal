@@ -137,7 +137,7 @@ function GroupCallAction({
         RSVP'd
       </Button>
     );
-    caption = joinOpen ? null : "You're in! This button goes live 5 minutes before start";
+    caption = joinOpen ? null : "You're in! Join Call link will be live 5 minutes before start time";
   } else if (call.hasRegistered) {
     rsvpSlot = (
       <Button
@@ -152,7 +152,7 @@ function GroupCallAction({
         RSVP'd
       </Button>
     );
-    caption = "You're in! This button goes live 5 minutes before start";
+    caption = joinOpen ? null : "You're in! Join Call link will be live 5 minutes before start time";
   } else if (rsvpOpen) {
     rsvpSlot = (
       <Button
@@ -165,7 +165,6 @@ function GroupCallAction({
         RSVP
       </Button>
     );
-    caption = "RSVP to reserve your spot — join from here 5 min before the call";
   } else {
     // No RSVP and the cutoff has passed — no late-RSVP exceptions.
     rsvpSlot = (
@@ -185,14 +184,22 @@ function GroupCallAction({
 
   return (
     <div className="flex flex-col items-start sm:items-end gap-1.5 shrink-0">
-      <div className="flex items-center gap-3">
-        {showCount && (
+      <div className="flex flex-wrap items-center gap-3">
+        {showCount && call.isAccessible && (
           <span
             data-testid={`${testPrefix}-registered-count-${call.id}`}
             className="flex items-center gap-1 text-xs text-muted-foreground"
           >
             <Users className="w-3.5 h-3.5" />
             {call.registeredCount} reserved
+          </span>
+        )}
+        {caption && (
+          <span
+            data-testid={`${testPrefix}-join-caption-${call.id}`}
+            className="text-xs italic text-muted-foreground"
+          >
+            {caption}
           </span>
         )}
         {rsvpSlot}
@@ -207,14 +214,6 @@ function GroupCallAction({
           Join Call
         </Button>
       </div>
-      {caption && (
-        <span
-          data-testid={`${testPrefix}-join-caption-${call.id}`}
-          className="text-xs text-muted-foreground"
-        >
-          {caption}
-        </span>
-      )}
     </div>
   );
 }
@@ -336,23 +335,47 @@ export default function Coaching() {
               data-testid="coaching-how-it-works"
               className="mb-6 flex flex-col sm:flex-row sm:items-center sm:flex-wrap gap-1.5 sm:gap-2.5 rounded-lg border border-border/60 bg-muted/40 px-4 py-3 text-xs text-muted-foreground"
             >
-              <span>
-                <strong className="font-semibold text-foreground">RSVP</strong> to reserve your
-                spot (closes 1 hr before)
+              <span className="flex items-center gap-2">
+                <span
+                  aria-hidden="true"
+                  className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-[11px] font-bold text-emerald-700 dark:bg-emerald-900/50 dark:text-emerald-400"
+                >
+                  1
+                </span>
+                <span>
+                  <strong className="font-semibold text-foreground">RSVP</strong> to reserve your
+                  spot (closes 1 hr before)
+                </span>
               </span>
               <span aria-hidden="true" className="hidden sm:inline text-muted-foreground/60">
                 →
               </span>
-              <span>
-                <strong className="font-semibold text-foreground">Return here</strong> — Join
-                unlocks 5 min before start
+              <span className="flex items-center gap-2">
+                <span
+                  aria-hidden="true"
+                  className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-[11px] font-bold text-emerald-700 dark:bg-emerald-900/50 dark:text-emerald-400"
+                >
+                  2
+                </span>
+                <span>
+                  <strong className="font-semibold text-foreground">Return here</strong> — Join
+                  unlocks 5 min before start
+                </span>
               </span>
               <span aria-hidden="true" className="hidden sm:inline text-muted-foreground/60">
                 →
               </span>
-              <span>
-                <strong className="font-semibold text-foreground">Join Call</strong> when it goes
-                live
+              <span className="flex items-center gap-2">
+                <span
+                  aria-hidden="true"
+                  className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-[11px] font-bold text-emerald-700 dark:bg-emerald-900/50 dark:text-emerald-400"
+                >
+                  3
+                </span>
+                <span>
+                  <strong className="font-semibold text-foreground">Join Call</strong> when it goes
+                  live
+                </span>
               </span>
             </div>
 
@@ -361,7 +384,7 @@ export default function Coaching() {
                 {weeklySchedule.map(({ soonest, nextActive }, i) => {
                   const { call, start, end } = soonest;
                   const isCancelled = call.cancelled;
-                  const rowClass = `flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-5 py-4 ${
+                  const rowClass = `flex flex-col sm:flex-row sm:items-center justify-between gap-2 px-5 py-2.5 ${
                     i !== weeklySchedule.length - 1 ? "border-b border-border/60" : ""
                   } ${i % 2 === 0 ? "bg-background" : "bg-muted/40"}`;
                   const coachFirst = call.coachName.split(" ")[0];
@@ -456,7 +479,7 @@ export default function Coaching() {
                   <div
                     key={call.id}
                     data-testid={`oneoff-call-${call.id}`}
-                    className={`flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-5 py-4 ${
+                    className={`flex flex-col sm:flex-row sm:items-center justify-between gap-2 px-5 py-2.5 ${
                       i !== oneOffSessions.length - 1 ? "border-b border-border/60" : ""
                     } ${i % 2 === 0 ? "bg-background" : "bg-muted/40"}`}
                   >
