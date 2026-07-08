@@ -337,3 +337,96 @@ describe("GET /api/coaching-calls — meet link & recording scrub", () => {
     expect((master as unknown as { scheduledAt: string }).scheduledAt).toBeTypeOf("string");
   });
 });
+
+// Archived coaches must vanish from member-facing schedules immediately, while
+// their PAST calls stay visible as history (recordings remain accessible).
+describe("archived coach visibility on member surfaces", () => {
+  let archivedCoachId = 0;
+  let archivedFutureCallId = 0;
+  let archivedPastCallId = 0;
+
+  beforeAll(async () => {
+    const [archived] = await db
+      .insert(coachesTable)
+      .values({
+        name: `${TAG} archived coach`,
+        bio: "b",
+        specialties: "s",
+        isActive: false,
+      })
+      .returning({ id: coachesTable.id });
+    archivedCoachId = archived.id;
+
+    const inserted = await db
+      .insert(coachingCallsTable)
+      .values([
+        {
+          title: `${TAG} archived future call`,
+          description: "should be hidden",
+          callType: "weekly_qa",
+          coachId: archivedCoachId,
+          scheduledAt: new Date(Date.now() + 5 * 24 * 60 * 60 * 1000),
+          durationMinutes: 60,
+          requiredEntitlement: "coaching:group",
+        },
+        {
+          title: `${TAG} archived past call`,
+          description: "history stays visible",
+          callType: "weekly_qa",
+          coachId: archivedCoachId,
+          scheduledAt: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000),
+          durationMinutes: 60,
+          requiredEntitlement: "coaching:group",
+        },
+      ])
+      .returning({ id: coachingCallsTable.id, title: coachingCallsTable.title });
+    archivedFutureCallId = inserted.find((r) =>
+      r.title.includes("future"),
+    )!.id;
+    archivedPastCallId = inserted.find((r) => r.title.includes("past"))!.id;
+  });
+
+  afterAll(async () => {
+    await db
+      .delete(coachingCallsTable)
+      .where(
+        inArray(
+          coachingCallsTable.id,
+          [archivedFutureCallId, archivedPastCallId].filter(Boolean),
+        ),
+      );
+    if (archivedCoachId) {
+      await db.delete(coachesTable).where(inArray(coachesTable.id, [archivedCoachId]));
+    }
+  });
+
+  it("upcoming list hides an archived coach's future calls", async () => {
+    const res = await request(app)
+      .get("/api/coaching-calls?upcoming=true")
+      .set("Cookie", fixtures.lifetime.cookie);
+    expect(res.status).toBe(200);
+    const ids = (res.body as ResponseCall[]).map((c) => c.id);
+    expect(ids).not.toContain(archivedFutureCallId);
+    // Active coach's calls still show.
+    expect(ids).toContain(groupCallId);
+  });
+
+  it("full list hides the archived coach's future call but keeps the past one", async () => {
+    const res = await request(app)
+      .get("/api/coaching-calls")
+      .set("Cookie", fixtures.lifetime.cookie);
+    expect(res.status).toBe(200);
+    const ids = (res.body as ResponseCall[]).map((c) => c.id);
+    expect(ids).not.toContain(archivedFutureCallId);
+    expect(ids).toContain(archivedPastCallId);
+  });
+
+  it("dashboard upcoming preview excludes archived coaches", async () => {
+    const res = await request(app)
+      .get("/api/dashboard")
+      .set("Cookie", fixtures.lifetime.cookie);
+    expect(res.status).toBe(200);
+    const ids = (res.body.upcomingCalls as ResponseCall[]).map((c) => c.id);
+    expect(ids).not.toContain(archivedFutureCallId);
+  });
+});

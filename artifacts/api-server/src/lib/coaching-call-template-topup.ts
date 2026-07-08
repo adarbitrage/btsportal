@@ -30,8 +30,8 @@
  * forward to (and past) the present.
  */
 
-import { db, coachingCallTemplatesTable } from "@workspace/db";
-import { eq } from "drizzle-orm";
+import { db, coachingCallTemplatesTable, coachesTable } from "@workspace/db";
+import { and, eq, getTableColumns } from "drizzle-orm";
 import {
   generateForTemplate,
   type TemplateRow,
@@ -215,10 +215,22 @@ export async function runCoachingCallTemplateTopUp(): Promise<
   TemplateTopUpResult[]
 > {
   const now = Date.now();
+  // Skip templates whose coach has been archived (isActive=false): an
+  // archived coach must never keep generating member-visible occurrences.
+  // Reactivating the coach (or reassigning the template) resumes top-up.
   const templates = await db
-    .select()
+    .select(getTableColumns(coachingCallTemplatesTable))
     .from(coachingCallTemplatesTable)
-    .where(eq(coachingCallTemplatesTable.active, true));
+    .innerJoin(
+      coachesTable,
+      eq(coachingCallTemplatesTable.coachId, coachesTable.id),
+    )
+    .where(
+      and(
+        eq(coachingCallTemplatesTable.active, true),
+        eq(coachesTable.isActive, true),
+      ),
+    );
 
   const results: TemplateTopUpResult[] = [];
   let templatesFailed = 0;

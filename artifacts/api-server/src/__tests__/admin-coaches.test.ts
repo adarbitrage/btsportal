@@ -3,7 +3,13 @@ import request from "supertest";
 import jwt from "jsonwebtoken";
 import bcrypt from "bcryptjs";
 import { randomUUID } from "crypto";
-import { db, usersTable, coachesTable, coachingCallsTable } from "@workspace/db";
+import {
+  db,
+  usersTable,
+  coachesTable,
+  coachingCallsTable,
+  coachingCallTemplatesTable,
+} from "@workspace/db";
 import { eq, inArray } from "drizzle-orm";
 
 import { buildTestAppWithRouters } from "./test-app";
@@ -1196,5 +1202,241 @@ describe("admin coach delete", () => {
       .send({ type: "wizard" });
     expect(res.status).toBe(400);
     expect(res.body.error).toMatch(/type/i);
+  });
+});
+
+// --- Coach removal: reassign templates, archive flow, structured guards ------
+
+describe("coach removal (reassign + archive)", () => {
+  const templateIds: number[] = [];
+
+  afterAll(async () => {
+    if (templateIds.length) {
+      await db
+        .delete(coachingCallsTable)
+        .where(inArray(coachingCallsTable.templateId, templateIds));
+      await db
+        .delete(coachingCallTemplatesTable)
+        .where(inArray(coachingCallTemplatesTable.id, templateIds));
+    }
+  });
+
+  async function makeCoach(name: string, isActive = true) {
+    const [coach] = await db
+      .insert(coachesTable)
+      .values({ name: `${TAG} ${name}`, bio: "b", specialties: "s", isActive })
+      .returning({ id: coachesTable.id });
+    extraCoachIds.push(coach.id);
+    return coach.id;
+  }
+
+  async function makeTemplate(forCoachId: number) {
+    const [tpl] = await db
+      .insert(coachingCallTemplatesTable)
+      .values({
+        title: `${TAG} recurring`,
+        description: "",
+        callType: "weekly_qa",
+        coachId: forCoachId,
+        intervalDays: 7,
+        occurrencesPerBatch: 2,
+        anchorAt: new Date(Date.now() + 7 * DAY),
+        lastGeneratedAt: null,
+        active: true,
+      })
+      .returning({ id: coachingCallTemplatesTable.id });
+    templateIds.push(tpl.id);
+    return tpl.id;
+  }
+
+  it("reassign moves calls AND recurring templates, returning both counts", async () => {
+    const fromId = await makeCoach("TplFrom");
+    const toId = await makeCoach("TplTo");
+
+    const [call] = await db
+      .insert(coachingCallsTable)
+      .values({
+        title: `${TAG} tpl call`,
+        description: "",
+        coachId: fromId,
+        scheduledAt: new Date(Date.now() + 2 * DAY),
+      })
+      .returning({ id: coachingCallsTable.id });
+    cleanupCallIds.push(call.id);
+    const tplId = await makeTemplate(fromId);
+
+    const res = await request(app)
+      .post(`/api/admin/coaching/coaches/${fromId}/reassign-calls`)
+      .set("Cookie", adminCookie)
+      .send({ toCoachId: toId });
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual({ reassigned: 1, templatesReassigned: 1 });
+
+    const [movedCall] = await db
+      .select({ coachId: coachingCallsTable.coachId })
+      .from(coachingCallsTable)
+      .where(eq(coachingCallsTable.id, call.id));
+    expect(movedCall.coachId).toBe(toId);
+    const [movedTpl] = await db
+      .select({ coachId: coachingCallTemplatesTable.coachId })
+      .from(coachingCallTemplatesTable)
+      .where(eq(coachingCallTemplatesTable.id, tplId));
+    expect(movedTpl.coachId).toBe(toId);
+  });
+
+  it("reassign leaves past calls attributed to the original coach", async () => {
+    const fromId = await makeCoach("PastFrom");
+    const toId = await makeCoach("PastTo");
+
+    const inserted = await db
+      .insert(coachingCallsTable)
+      .values([
+        {
+          title: `${TAG} past kept`,
+          description: "",
+          coachId: fromId,
+          scheduledAt: new Date(Date.now() - 10 * DAY),
+        },
+        {
+          title: `${TAG} future moved`,
+          description: "",
+          coachId: fromId,
+          scheduledAt: new Date(Date.now() + 10 * DAY),
+        },
+      ])
+      .returning({ id: coachingCallsTable.id, title: coachingCallsTable.title });
+    cleanupCallIds.push(...inserted.map((r) => r.id));
+
+    const res = await request(app)
+      .post(`/api/admin/coaching/coaches/${fromId}/reassign-calls`)
+      .set("Cookie", adminCookie)
+      .send({ toCoachId: toId });
+    expect(res.status).toBe(200);
+    // Only the upcoming call moves; history stays attributed.
+    expect(res.body.reassigned).toBe(1);
+
+    const rows = await db
+      .select({
+        title: coachingCallsTable.title,
+        coachId: coachingCallsTable.coachId,
+      })
+      .from(coachingCallsTable)
+      .where(
+        inArray(
+          coachingCallsTable.id,
+          inserted.map((r) => r.id),
+        ),
+      );
+    const past = rows.find((r) => r.title === `${TAG} past kept`);
+    const future = rows.find((r) => r.title === `${TAG} future moved`);
+    expect(past!.coachId).toBe(fromId);
+    expect(future!.coachId).toBe(toId);
+  });
+
+  it("past-only coach cannot be made deletable via the cancel flow (archive-only)", async () => {
+    const id = await makeCoach("PastOnly");
+
+    const [pastCall] = await db
+      .insert(coachingCallsTable)
+      .values({
+        title: `${TAG} history call`,
+        description: "",
+        coachId: id,
+        scheduledAt: new Date(Date.now() - 30 * DAY),
+      })
+      .returning({ id: coachingCallsTable.id });
+    cleanupCallIds.push(pastCall.id);
+
+    // Blocking-calls listing shows nothing: past calls are not cleanup work.
+    const listRes = await request(app)
+      .get(`/api/admin/coaching/coaches/${id}/calls`)
+      .set("Cookie", adminCookie);
+    expect(listRes.status).toBe(200);
+    expect(listRes.body.calls).toHaveLength(0);
+
+    // Cancel flow deletes nothing — history is never erased here.
+    const cancelRes = await request(app)
+      .post(`/api/admin/coaching/coaches/${id}/cancel-calls`)
+      .set("Cookie", adminCookie);
+    expect(cancelRes.status).toBe(200);
+    expect(cancelRes.body.cancelled).toBe(0);
+
+    const [stillThere] = await db
+      .select({ coachId: coachingCallsTable.coachId })
+      .from(coachingCallsTable)
+      .where(eq(coachingCallsTable.id, pastCall.id));
+    expect(stillThere.coachId).toBe(id);
+
+    // Delete is still blocked by history; archive remains the only path.
+    const delRes = await request(app)
+      .delete(`/api/admin/coaching/coaches/${id}`)
+      .set("Cookie", adminCookie);
+    expect(delRes.status).toBe(409);
+    expect(delRes.body.code).toBe("coach_has_history");
+  });
+
+  it("rejects reassigning onto an archived destination coach", async () => {
+    const fromId = await makeCoach("ArchFrom");
+    const archivedId = await makeCoach("ArchDest", false);
+
+    const res = await request(app)
+      .post(`/api/admin/coaching/coaches/${fromId}/reassign-calls`)
+      .set("Cookie", adminCookie)
+      .send({ toCoachId: archivedId });
+    expect(res.status).toBe(400);
+    expect(res.body.error).toMatch(/archived/i);
+  });
+
+  it("returns a structured 409 when delete is blocked by recurring templates", async () => {
+    const blockedId = await makeCoach("TplBlocked");
+    await makeTemplate(blockedId);
+
+    const res = await request(app)
+      .delete(`/api/admin/coaching/coaches/${blockedId}`)
+      .set("Cookie", adminCookie);
+    expect(res.status).toBe(409);
+    expect(res.body.code).toBe("coach_has_templates");
+    expect(res.body.templateCount).toBe(1);
+    expect(res.body.error).toMatch(/reassign calls/i);
+  });
+
+  it("returns a structured 409 pointing at archive when blocked by past-call history", async () => {
+    const historyId = await makeCoach("History");
+    const [past] = await db
+      .insert(coachingCallsTable)
+      .values({
+        title: `${TAG} past call`,
+        description: "",
+        coachId: historyId,
+        scheduledAt: new Date(Date.now() - 30 * DAY),
+      })
+      .returning({ id: coachingCallsTable.id });
+    cleanupCallIds.push(past.id);
+
+    const res = await request(app)
+      .delete(`/api/admin/coaching/coaches/${historyId}`)
+      .set("Cookie", adminCookie);
+    expect(res.status).toBe(409);
+    expect(res.body.code).toBe("coach_has_history");
+    expect(res.body.callCount).toBe(1);
+    expect(res.body.error).toMatch(/archive/i);
+  });
+
+  it("archives then reactivates a coach via PATCH isActive", async () => {
+    const id = await makeCoach("ArchiveMe");
+
+    const archive = await request(app)
+      .patch(`/api/admin/coaching/coaches/${id}`)
+      .set("Cookie", adminCookie)
+      .send({ isActive: false });
+    expect(archive.status).toBe(200);
+    expect(archive.body.isActive).toBe(false);
+
+    const restore = await request(app)
+      .patch(`/api/admin/coaching/coaches/${id}`)
+      .set("Cookie", adminCookie)
+      .send({ isActive: true });
+    expect(restore.status).toBe(200);
+    expect(restore.body.isActive).toBe(true);
   });
 });

@@ -11,6 +11,27 @@ import { requirePermission } from "../middleware/rbac";
 
 const router: IRouter = Router();
 
+// Shared guard for every scheduling write that names a coach: the coach must
+// exist AND be active. Archived coaches are hidden from members, so assigning
+// new calls or recurring schedules to them would create invisible work.
+async function validateSchedulableCoach(
+  coachId: number,
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const [coach] = await db
+    .select({ id: coachesTable.id, isActive: coachesTable.isActive })
+    .from(coachesTable)
+    .where(eq(coachesTable.id, coachId));
+  if (!coach) return { ok: false, error: "Selected coach does not exist" };
+  if (!coach.isActive) {
+    return {
+      ok: false,
+      error:
+        "Selected coach is archived. Reactivate them first or choose an active coach.",
+    };
+  }
+  return { ok: true };
+}
+
 const KNOWN_CALL_TYPES = ["weekly_qa", "strategy", "mastermind", "vip_roundtable"];
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -136,9 +157,12 @@ router.get(
   "/admin/coaching/calls/coaches",
   requirePermission("coaching:view"),
   async (_req: Request, res: Response): Promise<void> => {
+    // Archived coaches are hidden from scheduling: new calls/templates must
+    // never be assigned to a coach members can no longer see.
     const coaches = await db
       .select({ id: coachesTable.id, name: coachesTable.name })
       .from(coachesTable)
+      .where(eq(coachesTable.isActive, true))
       .orderBy(asc(coachesTable.name));
     res.json({ coaches });
   },
@@ -452,12 +476,11 @@ router.post(
       return;
     }
 
-    const [coach] = await db
-      .select({ id: coachesTable.id })
-      .from(coachesTable)
-      .where(eq(coachesTable.id, parsed.values.coachId as number));
-    if (!coach) {
-      res.status(400).json({ error: "Selected coach does not exist" });
+    const coachCheck = await validateSchedulableCoach(
+      parsed.values.coachId as number,
+    );
+    if (!coachCheck.ok) {
+      res.status(400).json({ error: coachCheck.error });
       return;
     }
 
@@ -499,12 +522,11 @@ router.patch(
     }
 
     if (parsed.values.coachId !== undefined) {
-      const [coach] = await db
-        .select({ id: coachesTable.id })
-        .from(coachesTable)
-        .where(eq(coachesTable.id, parsed.values.coachId as number));
-      if (!coach) {
-        res.status(400).json({ error: "Selected coach does not exist" });
+      const coachCheck = await validateSchedulableCoach(
+        parsed.values.coachId as number,
+      );
+      if (!coachCheck.ok) {
+        res.status(400).json({ error: coachCheck.error });
         return;
       }
     }
@@ -607,12 +629,11 @@ router.post(
       return;
     }
 
-    const [coach] = await db
-      .select({ id: coachesTable.id })
-      .from(coachesTable)
-      .where(eq(coachesTable.id, parsed.values.coachId as number));
-    if (!coach) {
-      res.status(400).json({ error: "Selected coach does not exist" });
+    const coachCheck = await validateSchedulableCoach(
+      parsed.values.coachId as number,
+    );
+    if (!coachCheck.ok) {
+      res.status(400).json({ error: coachCheck.error });
       return;
     }
 
@@ -646,12 +667,11 @@ router.patch(
     }
 
     if (parsed.values.coachId !== undefined) {
-      const [coach] = await db
-        .select({ id: coachesTable.id })
-        .from(coachesTable)
-        .where(eq(coachesTable.id, parsed.values.coachId as number));
-      if (!coach) {
-        res.status(400).json({ error: "Selected coach does not exist" });
+      const coachCheck = await validateSchedulableCoach(
+        parsed.values.coachId as number,
+      );
+      if (!coachCheck.ok) {
+        res.status(400).json({ error: coachCheck.error });
         return;
       }
     }

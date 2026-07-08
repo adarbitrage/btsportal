@@ -155,3 +155,4 @@
 - [KB cleaner format contract + glued-turn repair](kb-cleaner-format-contract.md) — own-line `Coach:` is canonical, only MID-LINE glued labels are drift; sweep finding 0 can be correct; exact_duplicate+0-exchange screenings are valid state.
 - [KB review-gate analyzer lockstep](kb-review-gate-analyzer.md) — review-focus analyzer mirrors synthesis SOURCE CONFLICT prefix + [SITUATIONAL]-family tags locally; any synthesis marker/tag change must update kb-review-risk + tests together.
 - [gpt-5 reasoning tokens eat max_completion_tokens](gpt5-reasoning-token-budget.md) — tight budgets return 200 + empty content (finish=length), JSON.parse retry-loops to all-error while the backend looks healthy; give thousands of tokens headroom.
+- [Coach archive vs delete](coach-archive-vs-delete.md) — history-holding coaches are archived, never deleted; reassign moves only upcoming calls + templates; every scheduling write must gate on coaches.isActive.

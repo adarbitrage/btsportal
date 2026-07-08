@@ -32,6 +32,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
+  Archive,
+  ArchiveRestore,
   ArrowLeftRight,
   CalendarCheck,
   CalendarX,
@@ -73,6 +75,7 @@ import {
   useCoachCalls,
   useReassignCoachCalls,
   useCancelCoachCalls,
+  useSetCoachArchived,
   type AdminCoach,
   type CoachType,
   type CoachCallType,
@@ -444,6 +447,8 @@ function SortableCoachCard({
   onEdit,
   onReassign,
   onDelete,
+  onToggleArchive,
+  archivePending,
   reorderDisabled,
 }: {
   coach: AdminCoach;
@@ -454,6 +459,8 @@ function SortableCoachCard({
   onEdit: () => void;
   onReassign: () => void;
   onDelete: () => void;
+  onToggleArchive: () => void;
+  archivePending: boolean;
   reorderDisabled: boolean;
 }) {
   const {
@@ -515,9 +522,10 @@ function SortableCoachCard({
               {!coach.isActive && (
                 <span
                   data-testid={`coach-hidden-badge-${coach.id}`}
+                  title="Hidden from members, booking and scheduling. Past call history stays attributed."
                   className="text-[10px] font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded bg-muted text-muted-foreground"
                 >
-                  Hidden
+                  Archived
                 </span>
               )}
             </div>
@@ -580,6 +588,25 @@ function SortableCoachCard({
             <Button
               variant="ghost"
               size="sm"
+              onClick={onToggleArchive}
+              disabled={archivePending}
+              data-testid={`archive-coach-${coach.id}`}
+              aria-label={
+                coach.isActive
+                  ? `Archive ${coach.name}`
+                  : `Restore ${coach.name}`
+              }
+              title={coach.isActive ? "Archive coach" : "Restore coach"}
+            >
+              {coach.isActive ? (
+                <Archive className="w-4 h-4" />
+              ) : (
+                <ArchiveRestore className="w-4 h-4" />
+              )}
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
               onClick={onDelete}
               data-testid={`delete-coach-${coach.id}`}
               className="text-destructive hover:text-destructive"
@@ -602,8 +629,14 @@ export default function CoachProfiles() {
   const reorderMutation = useReorderCoaches();
   const reassignMutation = useReassignCoachCalls();
   const cancelCallsMutation = useCancelCoachCalls();
+  const archiveMutation = useSetCoachArchived();
 
   const [open, setOpen] = useState(false);
+  // Roster visibility filter: archived coaches stay on the admin roster
+  // (labeled) but can be filtered out or viewed alone.
+  const [rosterFilter, setRosterFilter] = useState<"all" | "active" | "archived">(
+    "all",
+  );
   const [form, setForm] = useState<CoachForm>(EMPTY_FORM);
   const [uploading, setUploading] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<AdminCoach | null>(null);
@@ -613,6 +646,13 @@ export default function CoachProfiles() {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const coaches = data?.coaches ?? [];
+  const visibleCoaches =
+    rosterFilter === "all"
+      ? coaches
+      : coaches.filter((c) => (rosterFilter === "active" ? c.isActive : !c.isActive));
+  // Reordering rewrites sortOrder from the full ordered id list, so it is only
+  // safe when the whole roster is visible.
+  const reorderBlocked = rosterFilter !== "all";
   const isEditing = form.id !== undefined;
   const isSaving = createMutation.isPending || updateMutation.isPending;
 
@@ -623,8 +663,12 @@ export default function CoachProfiles() {
   );
   const blockingCalls = callsData?.calls ?? [];
   const hasBlockingCalls = blockingCalls.length > 0;
-  // Coaches the calls can be reassigned to (anyone but the one being removed).
-  const reassignOptions = coaches.filter((c) => c.id !== deleteTarget?.id);
+  // Coaches the calls can be reassigned to: anyone active but the one being
+  // removed. Archived coaches are hidden from members and skipped by the
+  // top-up job, so they can never be a reassignment destination.
+  const reassignOptions = coaches.filter(
+    (c) => c.id !== deleteTarget?.id && c.isActive,
+  );
   const isClearingCalls =
     reassignMutation.isPending || cancelCallsMutation.isPending;
 
@@ -635,7 +679,7 @@ export default function CoachProfiles() {
     useCoachCalls(reassignTarget?.id ?? null);
   const reassignCalls = reassignCallsData?.calls ?? [];
   const standaloneReassignOptions = coaches.filter(
-    (c) => c.id !== reassignTarget?.id,
+    (c) => c.id !== reassignTarget?.id && c.isActive,
   );
 
   const sensors = useSensors(
@@ -837,12 +881,13 @@ export default function CoachProfiles() {
   async function handleReassignCalls() {
     if (!deleteTarget || !reassignTo) return;
     try {
-      const { reassigned } = await reassignMutation.mutateAsync({
-        fromCoachId: deleteTarget.id,
-        toCoachId: Number(reassignTo),
-      });
+      const { reassigned, templatesReassigned } =
+        await reassignMutation.mutateAsync({
+          fromCoachId: deleteTarget.id,
+          toCoachId: Number(reassignTo),
+        });
       toast({
-        title: `Reassigned ${reassigned} call${reassigned === 1 ? "" : "s"}`,
+        title: `Reassigned ${reassigned} call${reassigned === 1 ? "" : "s"} and ${templatesReassigned} recurring schedule${templatesReassigned === 1 ? "" : "s"}`,
       });
       setReassignTo("");
     } catch (err) {
@@ -870,12 +915,13 @@ export default function CoachProfiles() {
   async function handleStandaloneReassign() {
     if (!reassignTarget || !standaloneReassignTo) return;
     try {
-      const { reassigned } = await reassignMutation.mutateAsync({
-        fromCoachId: reassignTarget.id,
-        toCoachId: Number(standaloneReassignTo),
-      });
+      const { reassigned, templatesReassigned } =
+        await reassignMutation.mutateAsync({
+          fromCoachId: reassignTarget.id,
+          toCoachId: Number(standaloneReassignTo),
+        });
       toast({
-        title: `Reassigned ${reassigned} call${reassigned === 1 ? "" : "s"}`,
+        title: `Reassigned ${reassigned} call${reassigned === 1 ? "" : "s"} and ${templatesReassigned} recurring schedule${templatesReassigned === 1 ? "" : "s"}`,
       });
       setStandaloneReassignTo("");
     } catch (err) {
@@ -885,6 +931,47 @@ export default function CoachProfiles() {
         variant: "destructive",
       });
     }
+  }
+
+  // Archive (or restore) a coach. Archiving is the supported way to "remove"
+  // a coach who has past-call history: it hides them from all member-facing
+  // surfaces, booking, scheduling and reassign dropdowns while keeping the
+  // history attributed.
+  async function handleToggleArchive(coach: AdminCoach): Promise<boolean> {
+    try {
+      await archiveMutation.mutateAsync({
+        id: coach.id,
+        archived: coach.isActive,
+      });
+      toast({
+        title: coach.isActive
+          ? `Archived ${coach.name}`
+          : `Restored ${coach.name}`,
+        description: coach.isActive
+          ? "Hidden from members, booking and scheduling. Past call history stays intact."
+          : "Visible to members and available for booking again.",
+      });
+      return true;
+    } catch (err) {
+      toast({
+        title: coach.isActive
+          ? "Could not archive coach"
+          : "Could not restore coach",
+        description: err instanceof Error ? err.message : "Please try again.",
+        variant: "destructive",
+      });
+      return false;
+    }
+  }
+
+  // Archive from within the delete dialog (the path offered when a hard
+  // delete is blocked by call history). Only close the dialog on success so
+  // a failed archive leaves the admin where they were, error toast visible.
+  async function handleArchiveInsteadOfDelete() {
+    if (!deleteTarget) return;
+    const target = deleteTarget;
+    const succeeded = await handleToggleArchive(target);
+    if (succeeded) closeDeleteDialog();
   }
 
   async function handleCancelCalls() {
@@ -914,10 +1001,30 @@ export default function CoachProfiles() {
               section on the Coaching page.
             </p>
           </div>
-          <Button onClick={openCreate} data-testid="add-coach" className="shrink-0">
-            <Plus className="w-4 h-4 mr-1.5" />
-            Add Coach
-          </Button>
+          <div className="flex items-center gap-2 shrink-0">
+            <Select
+              value={rosterFilter}
+              onValueChange={(v) =>
+                setRosterFilter(v as "all" | "active" | "archived")
+              }
+            >
+              <SelectTrigger
+                className="w-[130px]"
+                data-testid="coach-roster-filter"
+              >
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All coaches</SelectItem>
+                <SelectItem value="active">Active</SelectItem>
+                <SelectItem value="archived">Archived</SelectItem>
+              </SelectContent>
+            </Select>
+            <Button onClick={openCreate} data-testid="add-coach">
+              <Plus className="w-4 h-4 mr-1.5" />
+              Add Coach
+            </Button>
+          </div>
         </div>
 
         {isLoading ? (
@@ -926,10 +1033,17 @@ export default function CoachProfiles() {
               <div key={i} className="h-24 bg-card rounded-xl" />
             ))}
           </div>
-        ) : coaches.length === 0 ? (
+        ) : visibleCoaches.length === 0 ? (
           <Card>
-            <CardContent className="p-12 text-center text-muted-foreground">
-              No coaches found yet.
+            <CardContent
+              className="p-12 text-center text-muted-foreground"
+              data-testid="coach-roster-empty"
+            >
+              {coaches.length === 0
+                ? "No coaches found yet."
+                : rosterFilter === "archived"
+                  ? "No archived coaches."
+                  : "No active coaches."}
             </CardContent>
           </Card>
         ) : (
@@ -939,22 +1053,24 @@ export default function CoachProfiles() {
             onDragEnd={handleDragEnd}
           >
             <SortableContext
-              items={coaches.map((c) => c.id)}
+              items={visibleCoaches.map((c) => c.id)}
               strategy={rectSortingStrategy}
             >
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                {coaches.map((coach, index) => (
+                {visibleCoaches.map((coach, index) => (
                   <SortableCoachCard
                     key={coach.id}
                     coach={coach}
                     index={index}
-                    total={coaches.length}
+                    total={visibleCoaches.length}
                     onMoveUp={() => moveCoach(index, -1)}
                     onMoveDown={() => moveCoach(index, 1)}
                     onEdit={() => openEdit(coach)}
                     onReassign={() => openReassign(coach)}
                     onDelete={() => setDeleteTarget(coach)}
-                    reorderDisabled={reorderMutation.isPending}
+                    onToggleArchive={() => handleToggleArchive(coach)}
+                    archivePending={archiveMutation.isPending}
+                    reorderDisabled={reorderMutation.isPending || reorderBlocked}
                   />
                 ))}
               </div>
@@ -1246,8 +1362,8 @@ export default function CoachProfiles() {
             <AlertDialogTitle>Remove this coach?</AlertDialogTitle>
             <AlertDialogDescription>
               {hasBlockingCalls
-                ? `"${deleteTarget?.name}" is assigned to scheduled coaching calls and can't be removed until those calls are reassigned to another coach or cancelled.`
-                : `"${deleteTarget?.name ?? ""}" will be removed from the member Coaching page.`}
+                ? `"${deleteTarget?.name}" is assigned to upcoming coaching calls and can't be removed until those calls (and any recurring schedules) are reassigned to another coach or cancelled. Past calls are kept as history — coaches with past call history can't be deleted, archive them instead.`
+                : `"${deleteTarget?.name ?? ""}" will be removed from the member Coaching page. If removal is blocked by past call history, archive the coach instead.`}
             </AlertDialogDescription>
           </AlertDialogHeader>
 
@@ -1281,7 +1397,9 @@ export default function CoachProfiles() {
               </div>
 
               <div className="space-y-2">
-                <Label className="text-xs">Reassign these calls to</Label>
+                <Label className="text-xs">
+                  Reassign these calls and any recurring schedules to
+                </Label>
                 <div className="flex items-center gap-2">
                   <Select value={reassignTo} onValueChange={setReassignTo}>
                     <SelectTrigger
@@ -1315,7 +1433,7 @@ export default function CoachProfiles() {
 
               <div className="flex items-center justify-between gap-2 pt-1 border-t border-border/60">
                 <span className="text-xs text-muted-foreground">
-                  Or remove the calls entirely:
+                  Or remove the upcoming calls entirely:
                 </span>
                 <Button
                   variant="outline"
@@ -1327,11 +1445,28 @@ export default function CoachProfiles() {
                 >
                   {cancelCallsMutation.isPending
                     ? "Cancelling…"
-                    : "Cancel all calls"}
+                    : "Cancel upcoming calls"}
                 </Button>
               </div>
             </div>
           ) : null}
+
+          {deleteTarget?.isActive && (
+            <div className="flex items-center justify-between gap-2 pt-1 border-t border-border/60">
+              <span className="text-xs text-muted-foreground">
+                Keep history and hide from members instead:
+              </span>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleArchiveInsteadOfDelete}
+                disabled={archiveMutation.isPending || isClearingCalls}
+                data-testid="archive-instead-of-delete"
+              >
+                {archiveMutation.isPending ? "Archiving…" : "Archive coach"}
+              </Button>
+            </div>
+          )}
 
           <AlertDialogFooter>
             <AlertDialogCancel
@@ -1373,8 +1508,8 @@ export default function CoachProfiles() {
             <DialogTitle>Reassign calls</DialogTitle>
             <DialogDescription>
               Move all of {reassignTarget?.name ?? "this coach"}'s scheduled
-              coaching calls to another coach without removing either coach —
-              useful for covering during leave.
+              coaching calls and recurring schedules to another coach without
+              removing either coach — useful for covering during leave.
             </DialogDescription>
           </DialogHeader>
 
@@ -1416,7 +1551,9 @@ export default function CoachProfiles() {
               </div>
 
               <div className="space-y-2">
-                <Label className="text-xs">Reassign these calls to</Label>
+                <Label className="text-xs">
+                  Reassign these calls and any recurring schedules to
+                </Label>
                 <div className="flex items-center gap-2">
                   <Select
                     value={standaloneReassignTo}

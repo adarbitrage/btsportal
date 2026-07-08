@@ -270,13 +270,14 @@ export function useCoachCalls(coachId: number | null) {
   });
 }
 
-// Reassign all of a coach's scheduled calls to another coach, clearing the FK
-// references that block deletion.
+// Reassign all of a coach's scheduled calls AND recurring schedules
+// (templates) to another coach in one transaction, clearing the FK references
+// that block deletion.
 export function useReassignCoachCalls() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: ({ fromCoachId, toCoachId }: { fromCoachId: number; toCoachId: number }) =>
-      adminFetch<{ reassigned: number }>(
+      adminFetch<{ reassigned: number; templatesReassigned: number }>(
         `/admin/coaching/coaches/${fromCoachId}/reassign-calls`,
         {
           method: "POST",
@@ -285,12 +286,30 @@ export function useReassignCoachCalls() {
       ),
     onSuccess: (_data, { fromCoachId }) => {
       // Refresh the blocked coach's call list (the delete dialog), the admin
-      // coaching schedule, and the member-facing "Your Coaches" grid so the new
-      // host shows everywhere the old coach appeared.
+      // coaching schedule + recurring templates, and the member-facing "Your
+      // Coaches" grid so the new host shows everywhere the old coach appeared.
       queryClient.invalidateQueries({ queryKey: [LIST_KEY, fromCoachId, "calls"] });
       queryClient.invalidateQueries({ queryKey: ["/api/admin/coaching/calls"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/coaching/calls/templates"] });
       queryClient.invalidateQueries({ queryKey: getListCoachesQueryKey() });
     },
+  });
+}
+
+// Archive (isActive=false) or reactivate a coach. Archiving hides the coach
+// from every member-facing surface, booking flow, reassign dropdown and the
+// auto top-up job, while keeping past call records attributed. This is the
+// supported "removal" path for coaches with call history, who can never be
+// hard-deleted.
+export function useSetCoachArchived() {
+  const invalidate = useInvalidateCoaches();
+  return useMutation({
+    mutationFn: ({ id, archived }: { id: number; archived: boolean }) =>
+      adminFetch<AdminCoach>(`/admin/coaching/coaches/${id}`, {
+        method: "PATCH",
+        body: JSON.stringify({ isActive: !archived }),
+      }),
+    onSuccess: invalidate,
   });
 }
 

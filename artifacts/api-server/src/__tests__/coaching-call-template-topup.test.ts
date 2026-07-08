@@ -123,6 +123,52 @@ describe("runCoachingCallTemplateTopUp", () => {
     expect(rows).toHaveLength(0);
   });
 
+  it("skips an active template whose coach is archived (isActive=false)", async () => {
+    const [archivedCoach] = await db
+      .insert(coachesTable)
+      .values({
+        name: `${TAG} Archived Coach`,
+        bio: "b",
+        specialties: "s",
+        isActive: false,
+      })
+      .returning({ id: coachesTable.id });
+
+    const [tpl] = await db
+      .insert(coachingCallTemplatesTable)
+      .values({
+        title: `${TAG} archived-coach series`,
+        description: "",
+        callType: "weekly_qa",
+        coachId: archivedCoach.id,
+        intervalDays: 7,
+        occurrencesPerBatch: 2,
+        anchorAt: new Date(Date.now() + 1 * DAY),
+        lastGeneratedAt: new Date(Date.now() + 1 * DAY),
+        active: true,
+      })
+      .returning({ id: coachingCallTemplatesTable.id });
+
+    try {
+      const results = await runCoachingCallTemplateTopUp();
+      // The archived coach's series must not be considered at all — no new
+      // member-visible calls may be generated for a hidden coach.
+      expect(results.find((r) => r.templateId === tpl.id)).toBeUndefined();
+      const rows = await series(tpl.id);
+      expect(rows).toHaveLength(0);
+    } finally {
+      await db
+        .delete(coachingCallsTable)
+        .where(eq(coachingCallsTable.templateId, tpl.id));
+      await db
+        .delete(coachingCallTemplatesTable)
+        .where(eq(coachingCallTemplatesTable.id, tpl.id));
+      await db
+        .delete(coachesTable)
+        .where(eq(coachesTable.id, archivedCoach.id));
+    }
+  });
+
   it("is a no-op for a series already populated past the horizon", async () => {
     const tpl = await makeTemplate({
       anchorDaysFromNow: 60,

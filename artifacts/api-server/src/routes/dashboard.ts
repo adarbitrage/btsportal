@@ -66,7 +66,15 @@ router.get("/dashboard", async (req, res): Promise<void> => {
     // occurrences are skipped here entirely (not labelled) — the next active
     // call simply takes the slot. The full Coaching page is where a cancelled
     // date is surfaced with its "no call this week" treatment.
-    .where(and(gte(coachingCallsTable.scheduledAt, now), isNull(coachingCallsTable.cancelledAt)))
+    // Archived coaches are hidden from members, so their remaining upcoming
+    // calls are excluded from the preview too (matches /coaching-calls).
+    .where(
+      and(
+        gte(coachingCallsTable.scheduledAt, now),
+        isNull(coachingCallsTable.cancelledAt),
+        eq(coachesTable.isActive, true),
+      ),
+    )
     .orderBy(coachingCallsTable.scheduledAt)
     .limit(3);
 

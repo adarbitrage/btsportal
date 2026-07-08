@@ -606,9 +606,12 @@ router.post(
 // other lingering FK reference (e.g. session-pack bookings) is caught as a 409
 // fallback rather than surfacing as an unhandled 500.
 
-// List the scheduled coaching calls that reference this coach, so when a delete
-// is blocked the admin can see exactly which calls are in the way and decide to
-// reassign or cancel them. Ordered soonest-first to match the schedule manager.
+// List the UPCOMING scheduled coaching calls that reference this coach, so when
+// a delete is blocked the admin can see exactly which calls are in the way and
+// decide to reassign or cancel them. Past calls are deliberately excluded: they
+// are immutable history and can never be cleaned up here — a coach with only
+// past calls must be archived, not deleted. Ordered soonest-first to match the
+// schedule manager.
 router.get(
   "/admin/coaching/coaches/:id/calls",
   requirePermission("coaching:view"),
@@ -629,7 +632,12 @@ router.get(
         registeredCount: coachingCallsTable.registeredCount,
       })
       .from(coachingCallsTable)
-      .where(eq(coachingCallsTable.coachId, coachId))
+      .where(
+        and(
+          eq(coachingCallsTable.coachId, coachId),
+          gte(coachingCallsTable.scheduledAt, new Date()),
+        ),
+      )
       .orderBy(asc(coachingCallsTable.scheduledAt));
 
     res.json({ calls });
@@ -674,28 +682,66 @@ router.post(
     }
 
     const [destination] = await db
-      .select({ id: coachesTable.id })
+      .select({ id: coachesTable.id, isActive: coachesTable.isActive })
       .from(coachesTable)
       .where(eq(coachesTable.id, toCoachId));
     if (!destination) {
       res.status(400).json({ error: "Destination coach does not exist" });
       return;
     }
+    // Never reassign onto an archived coach: their schedules are hidden from
+    // members and skipped by the auto top-up job, so the moved calls would
+    // silently vanish from the member schedule.
+    if (!destination.isActive) {
+      res.status(400).json({
+        error:
+          "Destination coach is archived. Reactivate them first or choose an active coach.",
+      });
+      return;
+    }
 
-    const reassigned = await db
-      .update(coachingCallsTable)
-      .set({ coachId: toCoachId })
-      .where(eq(coachingCallsTable.coachId, fromCoachId))
-      .returning({ id: coachingCallsTable.id });
+    // Move the UPCOMING calls AND the recurring schedules (templates) in one
+    // transaction: templates are the source of future auto-generated
+    // occurrences, so leaving them behind would keep pointing new calls (and
+    // the delete guard) at the departed coach. Past calls are deliberately NOT
+    // touched — history must stay attributed to the coach who actually ran the
+    // call (a coach with history is archived, never rewritten).
+    const now = new Date();
+    const { reassigned, templatesReassigned } = await db.transaction(
+      async (tx) => {
+        const calls = await tx
+          .update(coachingCallsTable)
+          .set({ coachId: toCoachId })
+          .where(
+            and(
+              eq(coachingCallsTable.coachId, fromCoachId),
+              gte(coachingCallsTable.scheduledAt, now),
+            ),
+          )
+          .returning({ id: coachingCallsTable.id });
+        const templates = await tx
+          .update(coachingCallTemplatesTable)
+          .set({ coachId: toCoachId })
+          .where(eq(coachingCallTemplatesTable.coachId, fromCoachId))
+          .returning({ id: coachingCallTemplatesTable.id });
+        return {
+          reassigned: calls.length,
+          templatesReassigned: templates.length,
+        };
+      },
+    );
 
-    res.json({ reassigned: reassigned.length });
+    res.json({ reassigned, templatesReassigned });
   },
 );
 
-// Bulk-cancel (delete) every coaching call currently assigned to this coach.
-// The other path to clearing the FK references blocking a delete: an admin who
-// no longer wants these calls at all. Any remaining FK reference on a call
-// (e.g. attendance rows) surfaces as a 409 rather than an unhandled 500.
+// Bulk-cancel (delete) every UPCOMING coaching call currently assigned to this
+// coach. The other path to clearing the FK references blocking a delete: an
+// admin who no longer wants these calls at all. Past calls are never deleted
+// here — history must stay intact and attributed, so a coach with past calls
+// remains undeletable (archive is the supported path). Any remaining FK
+// reference on a call (e.g. attendance rows) surfaces as a 409 rather than an
+// unhandled 500.
 router.post(
   "/admin/coaching/coaches/:id/cancel-calls",
   requirePermission("coaching:manage"),
@@ -709,7 +755,12 @@ router.post(
     try {
       const cancelled = await db
         .delete(coachingCallsTable)
-        .where(eq(coachingCallsTable.coachId, coachId))
+        .where(
+          and(
+            eq(coachingCallsTable.coachId, coachId),
+            gte(coachingCallsTable.scheduledAt, new Date()),
+          ),
+        )
         .returning({ id: coachingCallsTable.id });
 
       res.json({ cancelled: cancelled.length });
@@ -784,7 +835,9 @@ router.delete(
       .where(eq(coachingCallTemplatesTable.coachId, coachId));
     if (templateCount > 0) {
       res.status(409).json({
-        error: `Cannot delete: this coach is assigned to ${templateCount} recurring schedule${templateCount === 1 ? "" : "s"}. Remove ${templateCount === 1 ? "it" : "them"} first.`,
+        error: `Cannot delete: this coach is assigned to ${templateCount} recurring schedule${templateCount === 1 ? "" : "s"}. Use "Reassign calls" to move ${templateCount === 1 ? "it" : "them"} to another coach first.`,
+        code: "coach_has_templates",
+        templateCount,
       });
       return;
     }
@@ -794,8 +847,14 @@ router.delete(
       .from(coachingCallsTable)
       .where(eq(coachingCallsTable.coachId, coachId));
     if (pastCount > 0) {
+      // A coach who ever ran a call can never be hard-deleted (history must
+      // stay attributed). Point the admin at the archive flow instead of a
+      // dead end: archiving hides the coach everywhere member-facing while
+      // keeping the records intact.
       res.status(409).json({
-        error: `Cannot delete: this coach is referenced by ${pastCount} past coaching call${pastCount === 1 ? "" : "s"} and must be kept for history.`,
+        error: `Cannot delete: this coach is referenced by ${pastCount} past coaching call${pastCount === 1 ? "" : "s"}, which must be kept for history. Archive the coach instead to hide them from members while keeping past records.`,
+        code: "coach_has_history",
+        callCount: pastCount,
       });
       return;
     }

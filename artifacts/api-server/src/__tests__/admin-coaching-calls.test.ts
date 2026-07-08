@@ -476,3 +476,108 @@ describe("admin recurring call templates", () => {
     expect(res.status).toBe(400);
   });
 });
+
+// Archived coaches must be invisible to scheduling: excluded from the coach
+// dropdown and rejected by call/template create + update.
+describe("archived coaches are gated out of scheduling", () => {
+  let archivedCoachId = 0;
+
+  beforeAll(async () => {
+    const [archived] = await db
+      .insert(coachesTable)
+      .values({
+        name: `${TAG} Archived`,
+        bio: "b",
+        specialties: "s",
+        isActive: false,
+      })
+      .returning({ id: coachesTable.id });
+    archivedCoachId = archived.id;
+  });
+
+  afterAll(async () => {
+    if (archivedCoachId) {
+      await db.delete(coachesTable).where(eq(coachesTable.id, archivedCoachId));
+    }
+  });
+
+  it("excludes archived coaches from the scheduling dropdown", async () => {
+    const res = await request(app)
+      .get("/api/admin/coaching/calls/coaches")
+      .set("Cookie", adminCookie);
+    expect(res.status).toBe(200);
+    const ids = (res.body.coaches as { id: number }[]).map((c) => c.id);
+    expect(ids).toContain(coachId);
+    expect(ids).not.toContain(archivedCoachId);
+  });
+
+  it("rejects creating a call for an archived coach (400)", async () => {
+    const res = await request(app)
+      .post("/api/admin/coaching/calls")
+      .set("Cookie", adminCookie)
+      .send({
+        title: `${TAG} archived call`,
+        callType: "weekly_qa",
+        coachId: archivedCoachId,
+        scheduledAt: FUTURE,
+      });
+    expect(res.status).toBe(400);
+    expect(res.body.error).toMatch(/archived/i);
+  });
+
+  it("rejects moving an existing call onto an archived coach (400)", async () => {
+    const createRes = await request(app)
+      .post("/api/admin/coaching/calls")
+      .set("Cookie", adminCookie)
+      .send({
+        title: `${TAG} movable call`,
+        callType: "weekly_qa",
+        coachId,
+        scheduledAt: FUTURE,
+      });
+    expect(createRes.status).toBe(201);
+    createdCallIds.push(createRes.body.id);
+
+    const res = await request(app)
+      .patch(`/api/admin/coaching/calls/${createRes.body.id}`)
+      .set("Cookie", adminCookie)
+      .send({ coachId: archivedCoachId });
+    expect(res.status).toBe(400);
+    expect(res.body.error).toMatch(/archived/i);
+  });
+
+  it("rejects creating a recurring template for an archived coach (400)", async () => {
+    const res = await request(app)
+      .post("/api/admin/coaching/calls/templates")
+      .set("Cookie", adminCookie)
+      .send({
+        title: `${TAG} archived series`,
+        callType: "weekly_qa",
+        coachId: archivedCoachId,
+        anchorAt: new Date(Date.now() + 30 * DAY).toISOString(),
+      });
+    expect(res.status).toBe(400);
+    expect(res.body.error).toMatch(/archived/i);
+  });
+
+  it("rejects moving a recurring template onto an archived coach (400)", async () => {
+    const createRes = await request(app)
+      .post("/api/admin/coaching/calls/templates")
+      .set("Cookie", adminCookie)
+      .send({
+        title: `${TAG} movable series`,
+        callType: "weekly_qa",
+        coachId,
+        anchorAt: new Date(Date.now() + 30 * DAY).toISOString(),
+      });
+    expect(createRes.status).toBe(201);
+    createdTemplateIds.push(createRes.body.template.id);
+
+    const res = await request(app)
+      .patch(`/api/admin/coaching/calls/templates/${createRes.body.template.id}`)
+      .set("Cookie", adminCookie)
+      .send({ coachId: archivedCoachId });
+    expect(res.status).toBe(400);
+    expect(res.body.error).toMatch(/archived/i);
+  });
+});

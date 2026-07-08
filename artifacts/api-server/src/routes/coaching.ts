@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { db, coachingCallsTable, coachesTable, coachingCallAttendanceTable } from "@workspace/db";
-import { and, eq, gte, isNotNull, sql } from "drizzle-orm";
+import { and, eq, gte, isNotNull, lt, or, sql } from "drizzle-orm";
 import { ListCoachingCallsResponse, ListCoachesResponse } from "@workspace/api-zod";
 import { getUserEntitlements, hasMemberAccessBypass } from "../lib/entitlements";
 import { getCallUpgradeUrl } from "../lib/coaching-upgrade";
@@ -51,9 +51,19 @@ router.get("/coaching-calls", async (req, res): Promise<void> => {
     )
     .orderBy(coachingCallsTable.scheduledAt);
 
+  // Archived coaches are hidden from the member schedule going forward: any
+  // upcoming call still pointing at an archived coach is filtered out, while
+  // past calls stay visible so history (and its recordings) remains intact.
+  const visibleCoach = or(
+    eq(coachesTable.isActive, true),
+    lt(coachingCallsTable.scheduledAt, now),
+  );
+
   const calls = upcoming
-    ? await query.where(gte(coachingCallsTable.scheduledAt, now))
-    : await query;
+    ? await query.where(
+        and(gte(coachingCallsTable.scheduledAt, now), eq(coachesTable.isActive, true)),
+      )
+    : await query.where(visibleCoach);
 
   const mapped = calls.map(({ registeredAt, cancelledAt, ...c }) => {
     const isAccessible = bypass || entitlements.has(c.requiredEntitlement);
