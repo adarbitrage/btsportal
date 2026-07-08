@@ -17,6 +17,7 @@
       "coaches.max_daily_sessions | int4 | NOT NULL",
       "coaches.meet_link | text | NULL",
       "coaches.total_ratings | int4 | NOT NULL",
+      "coaching_call_attendance.joined_at | timestamptz | NULL",
       "community_posts.is_featured | bool | NOT NULL",
       "community_posts.title | text | NOT NULL",
       "kb_call_screenings.emergency_split_count | int4 | NOT NULL",
