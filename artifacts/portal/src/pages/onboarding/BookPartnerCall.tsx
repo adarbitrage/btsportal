@@ -1,5 +1,6 @@
 import { useState, useMemo } from "react";
 import { OnboardingLayout } from "@/components/onboarding/OnboardingLayout";
+import { AppLayout } from "@/components/layout/AppLayout";
 import { useAuth } from "@/lib/auth";
 import { getMemberTimezone, formatMemberFullDateTime, getFriendlyTimezoneLabel } from "@/lib/member-timezone";
 import { useLocation, Redirect } from "wouter";
@@ -170,7 +171,7 @@ export default function OnboardingBookPartnerCall() {
         {children}
       </OnboardingLayout>
     ) : (
-      <>{children}</>
+      <AppLayout>{children}</AppLayout>
     );
 
   // LaunchPad members have no partner-call step at all (see onboarding-steps.ts) —
