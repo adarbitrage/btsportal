@@ -243,8 +243,13 @@ async function sendVerificationEmails(to: string): Promise<void> {
     to,
     variables: {
       member_name: "Alex Morgan",
-      call_type_label: "Kickoff Call",
-      datetime_label: "Tuesday, July 14 at 2:00 PM EDT",
+      // Task #1717: kickoff_call_reminder's body interpolates these three
+      // tokens directly (not just via person_block_html) — omitting them
+      // is exactly the "raw {{staff_name}}/{{call_date}}/{{call_time}}"
+      // bug found in real-Gmail testing.
+      staff_name: "Jordan Rivera",
+      call_date: "Tuesday, July 14",
+      call_time: "2:00 PM EDT",
       meeting_url: "https://meet.google.com/abc-defg-hij",
       person_block_html: SAMPLE_PERSON_BLOCK,
     },

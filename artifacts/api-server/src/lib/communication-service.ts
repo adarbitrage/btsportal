@@ -22,6 +22,7 @@ import {
 import { brandStrings } from "@workspace/brand-config";
 import { DEFAULT_TICKETDESK_URL } from "@workspace/support-config";
 import { renderPitchStackHtml } from "./pitch-resolver";
+import { qualifyPublicAssetUrl } from "./seed-templates";
 
 // Queue-fallback events are persisted to the audit log inside
 // `recordQueueFallback` (entityType="queue"). We used to also write a
@@ -287,7 +288,12 @@ export type SmsDirectResult =
   | { status: "skipped"; reason: string; logId: number | null }
   | { status: "failed"; error: string; logId: number };
 
-function replaceVariables(template: string, variables: Record<string, string>): string {
+// Exported (in addition to being used internally) so the Task #1717
+// structural `{{` guard test can render every lifecycle template through
+// the EXACT production interpolation path rather than reimplementing it —
+// a copy in the test file could silently drift from this regex and stop
+// catching the class of bug it exists to catch.
+export function replaceVariables(template: string, variables: Record<string, string>): string {
   return template.replace(/\{\{(\w+)\}\}/g, (match, key) => {
     return variables[key] !== undefined ? variables[key] : match;
   });
@@ -436,10 +442,17 @@ async function getCommonVariables(
   // instead — only `bts` has a logo asset; front-end brands are text marks.
   const brand = extra?.brand ?? "bts";
   const brandInfo = brandStrings(brand);
+  // Task #1717: route the logo through the same qualifyPublicAssetUrl seam
+  // used by renderPersonBlock, so both image sources in a lifecycle email
+  // share one place that guarantees an absolute https URL (or degrades to no
+  // image) rather than ever emitting a relative path Gmail can't resolve.
+  const qualifiedLogoUrl = qualifyPublicAssetUrl("/images/bts-logo.png", portalUrl);
   const logoHtml =
-    brand === "bts"
-      ? `<img src="${portalUrl ?? ""}/images/bts-logo.png" alt="${brandInfo.full}" width="160" style="display:inline-block;max-width:160px;height:auto;border:0;">`
-      : `<span style="font-size:22px;font-weight:bold;color:#1a1a2e;letter-spacing:0.3px;">${brandInfo.full}</span>`;
+    brand === "bts" && qualifiedLogoUrl
+      ? `<img src="${qualifiedLogoUrl}" alt="${brandInfo.full}" width="160" style="display:inline-block;max-width:160px;height:auto;border:0;">`
+      : brand === "bts"
+        ? ""
+        : `<span style="font-size:22px;font-weight:bold;color:#1a1a2e;letter-spacing:0.3px;">${brandInfo.full}</span>`;
 
   return {
     portal_url: portalUrl ?? "",

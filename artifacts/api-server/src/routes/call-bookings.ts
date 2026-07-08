@@ -36,6 +36,7 @@ import {
 import { checkAndRecordSend } from "../lib/comms-dedup";
 import { CommunicationService } from "../lib/communication-service";
 import { renderPersonBlock } from "../lib/seed-templates";
+import { getPortalUrl } from "../lib/portal-url-settings";
 import { formatInMemberTimezone } from "../lib/member-timezone";
 
 const router: IRouter = Router();
@@ -132,12 +133,18 @@ async function sendCallBookingLifecycleEmail(params: {
   const callTypeLabel = CALL_TYPE_LABELS[params.callType];
   const { date: callDate, time: callTime } = formatInMemberTimezone(params.scheduledAt, params.memberTimezone);
   const dateTimeLabel = `${callDate} at ${callTime}`;
+  // Task #1717: qualify the staff photo into an absolute URL (same portal
+  // host as {{portal_url}}) before it's baked into person_block_html — a
+  // stored root-relative path has no browser origin to resolve against once
+  // it's inside a sent email.
+  const portalUrl = await getPortalUrl();
   const personBlockHtml = renderPersonBlock({
     name: params.staffName,
     photoUrl: params.staffPhotoUrl,
     bio: params.staffBio,
     callTypeLabel,
     dateTimeLabel,
+    portalUrl,
   });
 
   const variables: Record<string, string> = {

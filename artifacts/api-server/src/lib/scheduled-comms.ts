@@ -24,6 +24,7 @@ import { CommunicationService } from "./communication-service";
 import { QUEUE_REDIS_OPTIONS, makeThrottledRedisErrorLogger } from "./redis";
 import { formatInMemberTimezone } from "./member-timezone";
 import { renderPersonBlock } from "./seed-templates";
+import { getPortalUrl } from "./portal-url-settings";
 
 const REDIS_URL = process.env.REDIS_URL || "redis://localhost:6379";
 const QUEUE_NAME = "scheduled-comms";
@@ -362,10 +363,14 @@ export async function processCallBookingReminders(): Promise<void> {
     const staffInfo = await resolveCallBookingStaffInfo(booking.staffType, booking.staffId);
     const { date: callDate, time: callTime } = formatInMemberTimezone(booking.scheduledAt, member.timezone);
     const callTypeLabel = CALL_TYPE_LABELS[booking.type] ?? "Call";
+    // Task #1717: qualify the staff photo into an absolute URL before it's
+    // baked into person_block_html (same seam as call-bookings.ts).
+    const portalUrl = await getPortalUrl();
     const personBlockHtml = renderPersonBlock({
       name: staffInfo.name,
       photoUrl: staffInfo.photoUrl,
       bio: staffInfo.bio,
+      portalUrl,
       callTypeLabel,
       dateTimeLabel: `${callDate} at ${callTime}`,
     });

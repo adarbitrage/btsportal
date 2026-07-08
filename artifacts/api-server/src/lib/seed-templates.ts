@@ -68,6 +68,37 @@ ${body}
 }
 
 /**
+ * Task #1717: the single URL-qualifying seam for any image reference stored
+ * on a DB row (coach/partner `photoUrl`) that gets rendered into a sent
+ * email. Gmail proxies every `<img src>` through its own fetcher — it never
+ * has the member's browser origin to resolve a root-relative path against,
+ * so a stored value like `/coaching-photos/sasha.png` renders as a broken
+ * image box. This resolves any such path into an absolute HTTPS URL against
+ * the configured public portal host (same source as `{{portal_url}}`).
+ *
+ * Degrades gracefully (returns `null`, never an unusable URL) when:
+ *   - `assetPath` is empty/null.
+ *   - the path is an internal object-storage path (`/objects/...`) — those
+ *     are served behind portal auth and can never be fetched by Gmail's
+ *     anonymous image proxy.
+ *   - no portal host is configured at all (can't build an absolute URL).
+ * An already-absolute `http(s)://` value is passed through unchanged.
+ */
+export function qualifyPublicAssetUrl(
+  assetPath: string | null | undefined,
+  portalUrl: string | null | undefined,
+): string | null {
+  if (!assetPath) return null;
+  const trimmed = assetPath.trim();
+  if (!trimmed) return null;
+  if (/^https?:\/\//i.test(trimmed)) return trimmed;
+  if (trimmed.startsWith("/objects/")) return null;
+  if (!portalUrl) return null;
+  const path = trimmed.startsWith("/") ? trimmed : `/${trimmed}`;
+  return `${portalUrl}${path}`;
+}
+
+/**
  * Booking person-block card: photo, name, call type + labeled datetime, and
  * bio when present. Null-graceful — a missing photo simply omits the `<img>`
  * and a missing bio simply omits the bio paragraph; nothing renders at all
@@ -78,6 +109,14 @@ ${body}
  * `call-bookings.ts`, since the staff photo/bio/call time are per-send data
  * unknown when the starter template strings are built. The resulting HTML
  * string is passed as the `person_block_html` template variable.
+ *
+ * `portalUrl` is threaded in by the caller (same resolved value used for
+ * `{{portal_url}}`) so the photo — stored as a root-relative path like
+ * `/coaching-photos/sasha.png` — is qualified into an absolute URL via
+ * `qualifyPublicAssetUrl` (Task #1717) before it ever reaches Gmail. A photo
+ * that can't be qualified (no portal host configured, or an internal
+ * object-storage path) degrades to the initials avatar rather than a broken
+ * image box.
  */
 export function renderPersonBlock(params: {
   name: string;
@@ -85,11 +124,13 @@ export function renderPersonBlock(params: {
   bio?: string | null;
   callTypeLabel: string;
   dateTimeLabel: string;
+  portalUrl?: string | null;
 } | null): string {
   if (!params) return "";
-  const { name, photoUrl, bio, callTypeLabel, dateTimeLabel } = params;
-  const avatar = photoUrl
-    ? `<img src="${photoUrl}" alt="${name}" width="56" height="56" style="width:56px;height:56px;border-radius:50%;object-fit:cover;display:block;border:0;">`
+  const { name, photoUrl, bio, callTypeLabel, dateTimeLabel, portalUrl } = params;
+  const qualifiedPhotoUrl = qualifyPublicAssetUrl(photoUrl, portalUrl);
+  const avatar = qualifiedPhotoUrl
+    ? `<img src="${qualifiedPhotoUrl}" alt="${name}" width="56" height="56" style="width:56px;height:56px;border-radius:50%;object-fit:cover;display:block;border:0;">`
     : `<div style="width:56px;height:56px;border-radius:50%;background:${BTS_ACCENT_COLOR};color:#ffffff;font-size:22px;font-weight:bold;text-align:center;line-height:56px;">${(name || "?").trim().charAt(0).toUpperCase()}</div>`;
   const bioHtml = bio
     ? `<p style="margin:10px 0 0;font-size:13px;color:#4b5563;line-height:1.5;">${bio}</p>`
@@ -615,11 +656,12 @@ const transactionalEmailTemplates = [
     htmlBody: wrapHtml("Kickoff Call Confirmed", `
 <h2 style="color:#1a1a2e;margin-top:0;">Your Kickoff Call is Confirmed</h2>
 <p>Hi {{member_name}},</p>
-<p>You're all set! Here are the details for your upcoming kickoff call.</p>
+<p>You're all set! Here are the details for your upcoming kickoff call. This call is where we map out your plan — your goals, where you're starting from, and the concrete next steps to get there.</p>
 <p><a href="{{meeting_url}}" style="display:inline-block;background:#1a56db;color:#ffffff;padding:12px 24px;border-radius:6px;text-decoration:none;font-weight:bold;">Join Your Call</a></p>
 <p>Need to make a change? You can reschedule or cancel from your dashboard at any time.</p>
+<p style="margin-top:20px;padding-top:16px;border-top:1px solid #e5e7eb;color:#6b7280;font-size:13px;">This confirmation is going out now. You'll get another email reminder 24 hours before the call, and a text message 1 hour before it starts — the join link is in each one, and always on your dashboard.</p>
 <p>The BTS Team</p>`),
-    textBody: "Hi {{member_name}},\n\nYour kickoff call is confirmed. Join here: {{meeting_url}}\n\nNeed to make a change? You can reschedule or cancel from your dashboard at any time.\n\nThe BTS Team",
+    textBody: "Hi {{member_name}},\n\nYour kickoff call is confirmed. Join here: {{meeting_url}}\n\nThis call is where we map out your plan — your goals, where you're starting from, and the concrete next steps to get there.\n\nNeed to make a change? You can reschedule or cancel from your dashboard at any time.\n\nThis confirmation is going out now. You'll get another email reminder 24 hours before the call, and a text message 1 hour before it starts — the join link is in each one, and always on your dashboard.\n\nThe BTS Team",
     category: "transactional",
     variables: ["member_name", "meeting_url", "portal_url", "current_year"],
   },
@@ -663,11 +705,12 @@ const transactionalEmailTemplates = [
     htmlBody: wrapHtml("Partner Call Confirmed", `
 <h2 style="color:#1a1a2e;margin-top:0;">Your Partner Call is Confirmed</h2>
 <p>Hi {{member_name}},</p>
-<p>You're all set! Here are the details for your upcoming partner call.</p>
+<p>You're all set! Here are the details for your upcoming partner call. This first call is just to meet your accountability partner and set your pace together — they'll check in on your progress and keep you moving toward your goals for the rest of the program.</p>
 <p><a href="{{meeting_url}}" style="display:inline-block;background:#1a56db;color:#ffffff;padding:12px 24px;border-radius:6px;text-decoration:none;font-weight:bold;">Join Your Call</a></p>
 <p>Need to make a change? You can reschedule or cancel from your dashboard at any time.</p>
+<p style="margin-top:20px;padding-top:16px;border-top:1px solid #e5e7eb;color:#6b7280;font-size:13px;">This confirmation is going out now. You'll get another email reminder 24 hours before the call, and a text message 1 hour before it starts — the join link is in each one, and always on your dashboard.</p>
 <p>The BTS Team</p>`),
-    textBody: "Hi {{member_name}},\n\nYour partner call is confirmed. Join here: {{meeting_url}}\n\nNeed to make a change? You can reschedule or cancel from your dashboard at any time.\n\nThe BTS Team",
+    textBody: "Hi {{member_name}},\n\nYour partner call is confirmed. Join here: {{meeting_url}}\n\nThis first call is just to meet your accountability partner and set your pace together — they'll check in on your progress and keep you moving toward your goals for the rest of the program.\n\nNeed to make a change? You can reschedule or cancel from your dashboard at any time.\n\nThis confirmation is going out now. You'll get another email reminder 24 hours before the call, and a text message 1 hour before it starts — the join link is in each one, and always on your dashboard.\n\nThe BTS Team",
     category: "transactional",
     variables: ["member_name", "meeting_url", "portal_url", "current_year"],
   },
@@ -943,8 +986,9 @@ const marketingEmailTemplates = [
 <p>Don't forget — your kickoff call with {{staff_name}} is coming up:</p>
 <p style="background:#f0f0ff;padding:15px;border-radius:6px;"><strong>{{call_date}} at {{call_time}}</strong></p>
 <p><a href="{{portal_url}}/onboarding" style="display:inline-block;background:#4f46e5;color:#ffffff;padding:12px 24px;border-radius:6px;text-decoration:none;font-weight:bold;">View Details</a></p>
+<p style="margin-top:20px;padding-top:16px;border-top:1px solid #e5e7eb;color:#6b7280;font-size:13px;">You'll also get a text message 1 hour before the call starts.</p>
 <p>The BTS Team</p>`),
-    textBody: "Hi {{member_name}},\n\nYour kickoff call with {{staff_name}} is tomorrow: {{call_date}} at {{call_time}}.\n\nDetails: {{portal_url}}/onboarding\n\nThe BTS Team",
+    textBody: "Hi {{member_name}},\n\nYour kickoff call with {{staff_name}} is tomorrow: {{call_date}} at {{call_time}}.\n\nDetails: {{portal_url}}/onboarding\n\nYou'll also get a text message 1 hour before the call starts.\n\nThe BTS Team",
     category: "marketing",
     variables: ["member_name", "staff_name", "call_date", "call_time", "portal_url", "current_year"],
   },
@@ -958,8 +1002,9 @@ const marketingEmailTemplates = [
 <p>Don't forget — your accountability call with {{staff_name}} is coming up:</p>
 <p style="background:#f0f0ff;padding:15px;border-radius:6px;"><strong>{{call_date}} at {{call_time}}</strong></p>
 <p><a href="{{portal_url}}/accountability-partner" style="display:inline-block;background:#4f46e5;color:#ffffff;padding:12px 24px;border-radius:6px;text-decoration:none;font-weight:bold;">View Details</a></p>
+<p style="margin-top:20px;padding-top:16px;border-top:1px solid #e5e7eb;color:#6b7280;font-size:13px;">You'll also get a text message 1 hour before the call starts.</p>
 <p>The BTS Team</p>`),
-    textBody: "Hi {{member_name}},\n\nYour accountability call with {{staff_name}} is tomorrow: {{call_date}} at {{call_time}}.\n\nDetails: {{portal_url}}/accountability-partner\n\nThe BTS Team",
+    textBody: "Hi {{member_name}},\n\nYour accountability call with {{staff_name}} is tomorrow: {{call_date}} at {{call_time}}.\n\nDetails: {{portal_url}}/accountability-partner\n\nYou'll also get a text message 1 hour before the call starts.\n\nThe BTS Team",
     category: "marketing",
     variables: ["member_name", "staff_name", "call_date", "call_time", "portal_url", "current_year"],
   },
@@ -2817,6 +2862,26 @@ export const priorStarterRevisions: Record<string, StarterContent[]> = {
 };
 
 /**
+ * The call-booking lifecycle slugs — kickoff/partner × confirmation/
+ * reschedule/cancel/reminder. This is the SINGLE source of truth for "which
+ * slugs are call-booking lifecycle emails": both `REQUIRED_TEMPLATE_SLUGS`
+ * below and `lifecycle-email-token-guard.test.ts` (Task #1717's structural
+ * `{{` guard) derive their slug list from this array, so a newly added
+ * lifecycle slug automatically requires a guard-test fixture instead of
+ * silently shipping unguarded.
+ */
+export const CALL_BOOKING_LIFECYCLE_SLUGS = [
+  "kickoff_call_confirmation",
+  "kickoff_call_reschedule",
+  "kickoff_call_cancel",
+  "kickoff_call_reminder",
+  "partner_call_confirmation",
+  "partner_call_reschedule",
+  "partner_call_cancel",
+  "partner_call_reminder",
+] as const;
+
+/**
  * Slugs that the seed routine guarantees exist in every deployment. This was
  * previously a curated subset; Task #1714 (branded layout redesign) expanded
  * it to cover EVERY starter slug so the `wrapHtml()` redesign re-skins all
@@ -2845,14 +2910,7 @@ export const REQUIRED_TEMPLATE_SLUGS = [
     "concierge_task_created",
     "compliance_review_created",
     "payment_failed_final",
-    "kickoff_call_reminder",
-    "partner_call_reminder",
-    "kickoff_call_confirmation",
-    "kickoff_call_reschedule",
-    "kickoff_call_cancel",
-    "partner_call_confirmation",
-    "partner_call_reschedule",
-    "partner_call_cancel",
+    ...CALL_BOOKING_LIFECYCLE_SLUGS,
     ...transactionalEmailTemplates.map(t => t.slug),
     ...marketingEmailTemplates.map(t => t.slug),
   ]),
