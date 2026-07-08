@@ -22,6 +22,12 @@ cancelled/canceled excluded via `extractBusyEvents`). A slot is dropped iff
 SCHEDULE mask BTS availability — a conflict calendar with narrow/no availability
 wiped out perfectly free BTS times. Only real appointments should block.
 
+**Live-verified (July 2026):** probed against Sasha's real Cherrington conflict
+calendar — payload is `{events:[...]}` with `appointmentStatus:"confirmed"`,
+offsetted ISO `startTime/endTime`, recurring occurrences pre-expanded, manual
+blocks appear as normal events, and a `deleted` boolean (now excluded when true
+in `extractBusyEvents`). Set `GHL_DEBUG_EVENTS=1` to log the raw payload.
+
 **How to apply:** conflict fetch failure must throw (route returns 502 —
 never silently show conflicted times as free); busy window is widened 24h back
 / one slot forward for straddling events; both slot listing AND the under-lock

@@ -30,6 +30,16 @@ describe("extractBusyEvents", () => {
     expect(busy).toEqual([{ startMs, endMs }]);
   });
 
+  it("excludes deleted events, keeps deleted:false (live payloads carry a deleted flag)", () => {
+    const busy = extractBusyEvents({
+      events: [
+        { startTime: start, endTime: end, appointmentStatus: "confirmed", deleted: true },
+        { startTime: start, endTime: end, appointmentStatus: "confirmed", deleted: false },
+      ],
+    });
+    expect(busy).toEqual([{ startMs, endMs }]);
+  });
+
   it("keeps events with no status field (blocks/holds report as busy)", () => {
     const busy = extractBusyEvents({ events: [{ startTime: start, endTime: end }] });
     expect(busy).toEqual([{ startMs, endMs }]);

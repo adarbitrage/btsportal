@@ -282,6 +282,7 @@ interface RawCalendarEvent {
   endTime?: string;
   appointmentStatus?: string;
   status?: string;
+  deleted?: boolean;
 }
 
 interface CalendarEventsResponse {
@@ -298,6 +299,9 @@ export function extractBusyEvents(data: CalendarEventsResponse): BusyEvent[] {
   const events = Array.isArray(data.events) ? data.events : [];
   const busy: BusyEvent[] = [];
   for (const ev of events) {
+    // Live GHL payloads carry a `deleted` boolean alongside appointmentStatus
+    // (confirmed via probe against the Cherrington conflict calendar).
+    if (ev.deleted === true) continue;
     const status = (ev.appointmentStatus ?? ev.status ?? "").toLowerCase();
     if (status === "cancelled" || status === "canceled") continue;
     const startMs = ev.startTime ? Date.parse(ev.startTime) : NaN;
@@ -334,6 +338,9 @@ export async function listCalendarBusyEvents(
     undefined,
     locationId,
   );
+  if (process.env.GHL_DEBUG_EVENTS === "1") {
+    console.log(`[GHLCoaching] raw /calendars/events payload for ${calendarId}:`, JSON.stringify(data));
+  }
   return extractBusyEvents(data);
 }
 
