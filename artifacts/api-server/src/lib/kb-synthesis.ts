@@ -7,6 +7,7 @@ import {
   kbSourceNodeExtractsTable,
 } from "@workspace/db/schema";
 import { sql, inArray, eq, and, desc } from "drizzle-orm";
+import { recordNavGapsForNode, navDocCrossLinksMarkdown } from "./kb-nav-gaps.js";
 import {
   contentWindows,
   mergeWindowExtracts,
@@ -660,7 +661,18 @@ export async function synthesizeNode(nodeSlug: string): Promise<SynthesizeResult
   // when they exceed a single call's budget), then append the deterministic
   // depth-ladder cross-link section so overview↔concept docs are always wired.
   const { title, body: consolidated } = await consolidateAll(node, tier, usable);
-  const body = consolidated + relatedTopicsMarkdown(node);
+  // Deterministic nav-doc cross-links (Task #1776): concept/process docs keep
+  // click-paths OUT of prose and point at published navigation walkthroughs for
+  // the apps their material references. Best-effort — never blocks the draft.
+  let navCrossLinks = "";
+  if (node.root === "process" || node.root === "concepts") {
+    try {
+      navCrossLinks = await navDocCrossLinksMarkdown(usable.map((e) => e.extract));
+    } catch (err) {
+      console.error(`[Synthesis] nav-doc cross-linking failed for node ${node.slug}:`, err instanceof Error ? err.message : err);
+    }
+  }
+  const body = consolidated + relatedTopicsMarkdown(node) + navCrossLinks;
 
   const contributing = usable.map((e) => e.source);
   const authorityRole = dominantAuthority(contributing);
@@ -818,6 +830,16 @@ export async function synthesizeNode(nodeSlug: string): Promise<SynthesizeResult
       });
   } catch (err) {
     console.error(`[Synthesis] failed to persist synthesis state for node ${node.slug}:`, err instanceof Error ? err.message : err);
+  }
+
+  // ── Navigation-gap flags (Task #1776) ──────────────────────────────────────
+  // ADVISORY only: detect member-performed actions in vocabulary apps across
+  // this node's usable extracts and upsert durable per-(app, area) flags.
+  // Best-effort — a flagging failure never affects the created drafts.
+  try {
+    await recordNavGapsForNode(node.slug, usable.map((e) => e.extract));
+  } catch (err) {
+    console.error(`[Synthesis] nav-gap flagging failed for node ${node.slug}:`, err instanceof Error ? err.message : err);
   }
 
   return { node: node.slug, draftId: draft?.id ?? null, atomicDraftIds, sourceCount: usable.length };

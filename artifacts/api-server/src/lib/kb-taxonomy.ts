@@ -403,14 +403,17 @@ export function detectQueryTags(query: string): string[] {
 /**
  * - curated:    a verified, citable answer doc (FAQ, glossary, tool guide...).
  * - overview:   a verified, citable orientation / map doc.
+ * - navigation: a verified, citable click-path walkthrough for a specific app
+ *               (app, area) — authored from screenshots on the Navigation Docs
+ *               admin page (Task #1776).
  * - transcript: training-only material derived from a recording; NEVER citable
  *               and excluded from every member-facing retrieval path.
  */
-export const DOC_CLASSES = ["curated", "overview", "transcript"] as const;
+export const DOC_CLASSES = ["curated", "overview", "navigation", "transcript"] as const;
 export type DocClass = (typeof DOC_CLASSES)[number];
 
 /** Doc classes that may appear in a member-facing answer (still gated on last_verified). */
-export const CITABLE_DOC_CLASSES: readonly DocClass[] = ["curated", "overview"];
+export const CITABLE_DOC_CLASSES: readonly DocClass[] = ["curated", "overview", "navigation"];
 
 /**
  * KB categories whose docs are transcript-derived training material. Single

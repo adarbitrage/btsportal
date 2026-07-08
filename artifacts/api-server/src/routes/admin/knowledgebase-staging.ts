@@ -4,6 +4,7 @@ import { db } from "@workspace/db";
 import { kbStagingDocsTable, knowledgebaseDocsTable, aiLiveDocumentsTable, aiLiveDocumentVersionsTable, kbDocProvenanceTable, kbTriageAuditLogTable, aiSourceDocumentsTable, kbTranscriptSourcesTable } from "@workspace/db/schema";
 import { eq, desc, sql, count, and, ne, isNotNull, inArray } from "drizzle-orm";
 import { requirePermission } from "../../middleware/rbac.js";
+import { resolveNavGapsForPublishedDoc } from "../../lib/kb-nav-gaps.js";
 import { scrubPrivateContent } from "../../lib/content-privacy-filter";
 import {
   undoAutoAction,
@@ -95,9 +96,9 @@ router.get("/", async (req: Request, res: Response) => {
     }
     if (docClassFilter && docClassFilter !== "all") {
       if (docClassFilter === "citable") {
-        where = sql`${where} AND ${kbStagingDocsTable.docClassTarget} IN ('curated','overview')`;
+        where = sql`${where} AND ${kbStagingDocsTable.docClassTarget} IN ('curated','overview','navigation')`;
       } else if (docClassFilter === "non_citable") {
-        where = sql`${where} AND (${kbStagingDocsTable.docClassTarget} IS NULL OR ${kbStagingDocsTable.docClassTarget} NOT IN ('curated','overview'))`;
+        where = sql`${where} AND (${kbStagingDocsTable.docClassTarget} IS NULL OR ${kbStagingDocsTable.docClassTarget} NOT IN ('curated','overview','navigation'))`;
       } else {
         where = sql`${where} AND ${kbStagingDocsTable.docClassTarget} = ${docClassFilter}`;
       }
@@ -418,6 +419,8 @@ router.patch("/:id", async (req: Request, res: Response) => {
       ceiling,
       handoff,
       needsExpert,
+      navApp,
+      navArea,
     } = req.body;
 
     const updates: Record<string, unknown> = {};
@@ -435,6 +438,8 @@ router.patch("/:id", async (req: Request, res: Response) => {
     if (ceiling !== undefined) updates.ceiling = ceiling || null;
     if (handoff !== undefined) updates.handoff = handoff || null;
     if (needsExpert !== undefined) updates.needsExpert = needsExpert;
+    if (navApp !== undefined) updates.navApp = navApp || null;
+    if (navArea !== undefined) updates.navArea = navArea || null;
 
     if (status === "approved" || status === "rejected" || status === "needs_review") {
       updates.reviewedBy = (req as unknown as { userId: number }).userId;
@@ -641,6 +646,10 @@ router.post("/push-approved", async (_req: Request, res: Response) => {
       return;
     }
 
+    // Navigation docs published in this push — used to auto-resolve matching
+    // open nav-gap flags AFTER the transaction commits (best-effort).
+    const publishedNavDocs: Array<{ id: number; navApp: string | null; navArea: string | null }> = [];
+
     await db.transaction(async (tx) => {
       for (const doc of newlyApproved) {
         const content = scrubPrivateContent(doc.editedContent ?? doc.content);
@@ -710,6 +719,8 @@ router.post("/push-approved", async (_req: Request, res: Response) => {
                 blitzSection: doc.blitzSection,
                 ceiling: doc.ceiling,
                 handoff: doc.handoff,
+                navApp: doc.navApp,
+                navArea: doc.navArea,
                 lastVerified: sql`NOW()`,
                 updatedAt: sql`NOW()`,
                 // An approved revision resolves any "source changed" stale flag.
@@ -738,6 +749,8 @@ router.post("/push-approved", async (_req: Request, res: Response) => {
               blitzSection: doc.blitzSection,
               ceiling: doc.ceiling,
               handoff: doc.handoff,
+              navApp: doc.navApp,
+              navArea: doc.navArea,
               lastVerified: sql`NOW()`,
             })
             .onConflictDoUpdate({
@@ -753,6 +766,8 @@ router.post("/push-approved", async (_req: Request, res: Response) => {
                 blitzSection: sql`EXCLUDED.blitz_section`,
                 ceiling: sql`EXCLUDED.ceiling`,
                 handoff: sql`EXCLUDED.handoff`,
+                navApp: sql`EXCLUDED.nav_app`,
+                navArea: sql`EXCLUDED.nav_area`,
                 lastVerified: sql`NOW()`,
                 updatedAt: sql`NOW()`,
               },
@@ -801,8 +816,22 @@ router.post("/push-approved", async (_req: Request, res: Response) => {
           .update(kbStagingDocsTable)
           .set({ status: "published" })
           .where(eq(kbStagingDocsTable.id, doc.id));
+
+        if (docClass === "navigation" && live && doc.navApp) {
+          publishedNavDocs.push({ id: live.id, navApp: doc.navApp, navArea: doc.navArea });
+        }
       }
     });
+
+    // Auto-resolve open nav-gap flags covered by the just-published nav docs.
+    // Best-effort: a failure here never fails the push itself.
+    for (const navDoc of publishedNavDocs) {
+      try {
+        await resolveNavGapsForPublishedDoc(navDoc);
+      } catch (err) {
+        console.error("[KB Push] nav-gap auto-resolve failed:", err instanceof Error ? err.message : err);
+      }
+    }
 
     const [{ cnt: totalInLiveKb }] = await db
       .select({ cnt: count() })

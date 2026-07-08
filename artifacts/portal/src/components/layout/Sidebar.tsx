@@ -67,6 +67,7 @@ import {
   Wallet,
   Tags,
   SpellCheck,
+  Map,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useGetCurrentMember, type MemberProfile } from "@workspace/api-client-react";
@@ -306,6 +307,7 @@ export const ADMIN_CHILDREN: NavNode[] = [
       { kind: "leaf", href: "/admin/ai-knowledgebase/value-screener", label: "Value Screener", icon: ShieldCheck, requiredPermission: "chat:manage" },
       { kind: "leaf", href: "/admin/ai-knowledgebase/tool-tags", label: "Tool Tags", icon: Tags, requiredPermission: "chat:manage" },
       { kind: "leaf", href: "/admin/ai-knowledgebase/house-terms", label: "House-Term Corrections", icon: SpellCheck, requiredPermission: "chat:manage" },
+      { kind: "leaf", href: "/admin/ai-knowledgebase/navigation-docs", label: "Navigation Docs", icon: Map, requiredPermission: "chat:manage" },
       { kind: "leaf", href: "/admin/chat/knowledgebase/review", label: "Document Review", icon: Eye, requiredPermission: "chat:manage" },
       { kind: "leaf", href: "/admin/chat/knowledgebase/archivebackup", label: "Archive Backup", icon: Archive, requiredPermission: "chat:manage" },
       { kind: "leaf", href: "/admin/chat/content-gaps", label: "Content-Gap Radar", icon: Radar, requiredPermission: "chat:manage" },

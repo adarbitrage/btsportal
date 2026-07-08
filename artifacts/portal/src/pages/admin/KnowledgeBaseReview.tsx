@@ -27,6 +27,7 @@ import {
 } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { authFetch } from "@/lib/auth";
+import { Link } from "wouter";
 import {
   CheckCircle,
   XCircle,
@@ -200,6 +201,16 @@ interface SynthesisCoverage {
   affectedCount: number;
 }
 
+interface NavGapFlagRow {
+  id: number;
+  app: string;
+  area: string;
+  status: string;
+  tier: number;
+  topicCount: number;
+  lastEvidence: string | null;
+}
+
 type SynthScope = "all" | "shelf" | "covered" | "incremental" | "nodes";
 
 interface TagCount {
@@ -272,6 +283,7 @@ const CATEGORIES = [
 const DOC_CLASS_OPTIONS = [
   { value: "curated", label: "Curated (citable)" },
   { value: "overview", label: "Overview (citable)" },
+  { value: "navigation", label: "Navigation (citable walkthrough)" },
   { value: "transcript", label: "Transcript (training-only, non-citable)" },
 ];
 
@@ -471,6 +483,7 @@ export default function KnowledgeBaseReview() {
   const [coverage, setCoverage] = useState<SynthesisCoverage | null>(null);
   const [coverageLoading, setCoverageLoading] = useState(false);
   const [showCoverage, setShowCoverage] = useState(false);
+  const [navGaps, setNavGaps] = useState<NavGapFlagRow[]>([]);
   const [synthScope, setSynthScope] = useState<SynthScope>("all");
   const [synthRoot, setSynthRoot] = useState("process");
   const [loading, setLoading] = useState(true);
@@ -700,7 +713,27 @@ export default function KnowledgeBaseReview() {
     } finally {
       setCoverageLoading(false);
     }
+    // Advisory navigation-gap flags (Task #1776) — surfaced alongside depth
+    // gaps in the coverage view; never block publishing. Best-effort.
+    try {
+      const res = await authFetch("/admin/knowledgebase/nav/gaps");
+      const data = await res.json();
+      if (res.ok && Array.isArray(data.flags)) setNavGaps(data.flags as NavGapFlagRow[]);
+    } catch {
+      // advisory only — ignore
+    }
   }, []);
+
+  const dismissNavGap = async (id: number) => {
+    try {
+      const res = await authFetch(`/admin/knowledgebase/nav/gaps/${id}/dismiss`, { method: "POST" });
+      if (!res.ok) throw new Error();
+      setNavGaps((prev) => prev.filter((f) => f.id !== id));
+      toast({ title: "Gap dismissed", description: "It will never be re-raised by later runs." });
+    } catch {
+      toast({ title: "Failed to dismiss gap", variant: "destructive" });
+    }
+  };
 
   const toggleCoverage = () => {
     const next = !showCoverage;
@@ -1730,6 +1763,39 @@ export default function KnowledgeBaseReview() {
                 </div>
               ) : (
                 <div className="text-sm text-gray-500 py-4 text-center">No coverage data.</div>
+              )}
+              {navGaps.length > 0 && (
+                <div className="border-t pt-3" data-testid="panel-nav-gaps">
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className="font-semibold text-sm text-gray-900">Navigation Gaps</span>
+                    <span className="text-xs px-2 py-0.5 rounded-full bg-amber-100 text-amber-700">
+                      {navGaps.length} open (advisory)
+                    </span>
+                    <Link href="/admin/ai-knowledgebase/navigation-docs" className="text-xs text-blue-600 hover:underline ml-auto">
+                      Author walkthroughs →
+                    </Link>
+                  </div>
+                  <div className="space-y-1.5">
+                    {navGaps.map((gap) => (
+                      <div key={gap.id} className="flex items-center gap-2 text-xs border border-gray-100 rounded px-2 py-1.5" data-testid={`row-nav-gap-${gap.id}`}>
+                        <span className="font-medium text-gray-900">{gap.app}</span>
+                        <span className="text-gray-500">· {gap.area}</span>
+                        {gap.tier === 2 && (
+                          <span className="text-[10px] px-1 py-0.5 rounded bg-gray-100 text-gray-500">lower priority</span>
+                        )}
+                        <span className="text-gray-400 ml-auto tabular-nums" title={gap.lastEvidence ?? undefined}>
+                          {gap.topicCount} topic{gap.topicCount === 1 ? "" : "s"}
+                        </span>
+                        <Button variant="ghost" size="sm" className="h-6 px-2 text-[11px]" onClick={() => dismissNavGap(gap.id)} data-testid={`button-dismiss-nav-gap-${gap.id}`}>
+                          Dismiss
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                  <p className="text-[11px] text-gray-400 mt-2">
+                    Navigation-gap flags are advisory only — synthesis noticed members performing tasks in these apps with no published walkthrough doc covering them. Dismissals are sticky; publishing a covering navigation doc auto-resolves the flag. They never block publishing.
+                  </p>
+                </div>
               )}
             </CardContent>
           </Card>

@@ -556,3 +556,15 @@ if [ -n "$DATABASE_URL" ]; then
     -f lib/db/drizzle/0106_drop_kb_screener_calibration.sql \
     >/dev/null
 fi
+
+# Navigation Docs system + synthesis nav-gap flags (Task #1776). Additive
+# columns (kb_staging_docs.nav_app/nav_area/nav_screenshots and
+# ai_live_documents.nav_app/nav_area) plus the new kb_nav_gap_flags table.
+# Applying here keeps the live-schema-drift gate green so the conditional push
+# stays skipped. Idempotent (ADD COLUMN / CREATE TABLE / INDEX IF NOT EXISTS).
+if [ -n "$DATABASE_URL" ]; then
+  psql "$DATABASE_URL" \
+    -v ON_ERROR_STOP=1 \
+    -f lib/db/drizzle/0107_kb_navigation_docs.sql \
+    >/dev/null
+fi

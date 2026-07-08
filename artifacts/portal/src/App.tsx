@@ -82,6 +82,7 @@ import TranscriptCleaner from "@/pages/admin/TranscriptCleaner";
 import KbValueScreener from "@/pages/admin/KbValueScreener";
 import ToolTags from "@/pages/admin/ToolTags";
 import HouseTerms from "@/pages/admin/HouseTerms";
+import NavigationDocs from "@/pages/admin/NavigationDocs";
 import KnowledgeBaseArchive from "@/pages/admin/KnowledgeBaseArchive";
 import RateLimits from "@/pages/admin/RateLimits";
 import WinsWall from "@/pages/wins/WinsWall";
@@ -598,6 +599,7 @@ function Router() {
       <Route path="/admin/ai-knowledgebase/value-screener">{() => <AdminRoute component={KbValueScreener} permission="chat:manage" />}</Route>
       <Route path="/admin/ai-knowledgebase/tool-tags">{() => <AdminRoute component={ToolTags} permission="chat:manage" />}</Route>
       <Route path="/admin/ai-knowledgebase/house-terms">{() => <AdminRoute component={HouseTerms} permission="chat:manage" />}</Route>
+      <Route path="/admin/ai-knowledgebase/navigation-docs">{() => <AdminRoute component={NavigationDocs} permission="chat:manage" />}</Route>
       <Route path="/admin/chat/content-gaps">{() => <AdminRoute component={ContentGaps} permission="chat:manage" />}</Route>
       <Route path="/admin/chat/rate-limits">{() => <AdminRoute component={RateLimits} permission="chat:manage" />}</Route>
       <Route path="/admin/coaching/sessions">{() => <AdminRoute component={PrivateCoaching} permission="coaching:view" />}</Route>

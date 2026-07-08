@@ -64,6 +64,11 @@ export const aiLiveDocumentsTable = pgTable(
     ceiling: text("ceiling"),
     // Where to hand off when the ceiling is hit (e.g. 'coaching' | 'support').
     handoff: text("handoff"),
+    // Declared navigation coverage (Task #1776) — set only on `navigation`-class
+    // docs: fixed-vocabulary app slug + normalized area label. Publishing a nav
+    // doc auto-resolves the matching open kb_nav_gap_flags row.
+    navApp: text("nav_app"),
+    navArea: text("nav_area"),
     // Human-verification stamp — the citable gate. NULL = held / not yet citable.
     lastVerified: timestamp("last_verified", { withTimezone: true }),
     // Soft-delete tombstone (Task #1665). NULL = live. When set, the doc is

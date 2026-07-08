@@ -115,6 +115,17 @@ export const kbStagingDocsTable = pgTable("kb_staging_docs", {
   targetLiveDocId: integer("target_live_doc_id"),
   updateSummary: text("update_summary"),
 
+  // ── Navigation Docs (Task #1776) ────────────────────────────────────────
+  // Declared navigation coverage for a `navigation`-class draft: the fixed
+  // vocabulary app slug (kb-nav-vocabulary) + normalized free-form area label.
+  // Null for every other doc class. Publishing a nav doc auto-resolves the
+  // matching open kb_nav_gap_flags row.
+  navApp: text("nav_app"),
+  navArea: text("nav_area"),
+  // Authoring-input screenshots (object-storage paths) the vision model drafted
+  // from. Audit only — never retrieved at answer time.
+  navScreenshots: jsonb("nav_screenshots").$type<string[]>(),
+
   // Upload-specific fields (added alongside the KB upload feature)
   audience: text("audience").notNull().default("member"),
   sourceObjectPath: text("source_object_path"),

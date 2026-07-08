@@ -173,8 +173,8 @@ export function buildHistoryAwareQuery(query: string, history: readonly Retrieva
 function buildBoostedOrderBy(synonymOr: string, detectedTags: readonly string[]): SQL {
   const parts: SQL[] = [];
 
-  // 1. Curated/overview docs strictly above any non-curated content.
-  parts.push(sql`CASE WHEN doc_class IN ('curated', 'overview') THEN 0 ELSE 1 END ASC`);
+  // 1. Curated/overview/navigation docs strictly above any non-curated content.
+  parts.push(sql`CASE WHEN doc_class IN ('curated', 'overview', 'navigation') THEN 0 ELSE 1 END ASC`);
 
   // 2. Functional tag boost: docs carrying a tag the query referenced first.
   //    Pass the tag list as a `{a,b}` text[] literal (controlled vocab — only
