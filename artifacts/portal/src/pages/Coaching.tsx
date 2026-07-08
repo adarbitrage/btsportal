@@ -137,7 +137,7 @@ function GroupCallAction({
         RSVP'd
       </Button>
     );
-    caption = joinOpen ? null : "You're in! Join Call link will be live 5 minutes before start time";
+    caption = joinOpen ? null : "You're in! Call link will be live 5 minutes before start time";
   } else if (call.hasRegistered) {
     rsvpSlot = (
       <Button
@@ -152,7 +152,7 @@ function GroupCallAction({
         RSVP'd
       </Button>
     );
-    caption = joinOpen ? null : "You're in! Join Call link will be live 5 minutes before start time";
+    caption = joinOpen ? null : "You're in! Call link will be live 5 minutes before start time";
   } else if (rsvpOpen) {
     rsvpSlot = (
       <Button
@@ -338,7 +338,7 @@ export default function Coaching() {
               <span className="flex items-center gap-2">
                 <span
                   aria-hidden="true"
-                  className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-[11px] font-bold text-emerald-700 dark:bg-emerald-900/50 dark:text-emerald-400"
+                  className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-emerald-600 text-[11px] font-bold text-white dark:bg-emerald-500"
                 >
                   1
                 </span>
@@ -353,7 +353,7 @@ export default function Coaching() {
               <span className="flex items-center gap-2">
                 <span
                   aria-hidden="true"
-                  className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-[11px] font-bold text-emerald-700 dark:bg-emerald-900/50 dark:text-emerald-400"
+                  className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-emerald-600 text-[11px] font-bold text-white dark:bg-emerald-500"
                 >
                   2
                 </span>
@@ -368,7 +368,7 @@ export default function Coaching() {
               <span className="flex items-center gap-2">
                 <span
                   aria-hidden="true"
-                  className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-[11px] font-bold text-emerald-700 dark:bg-emerald-900/50 dark:text-emerald-400"
+                  className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-emerald-600 text-[11px] font-bold text-white dark:bg-emerald-500"
                 >
                   3
                 </span>
