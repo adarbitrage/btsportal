@@ -20,5 +20,6 @@ export interface PatchMemberProfileBody {
   coachingSmsOptIn?: boolean;
   contentSmsOptIn?: boolean;
   partnerCallSmsOptIn?: boolean;
+  coachingEmailOptIn?: boolean;
   marketingOptIn?: boolean;
 }

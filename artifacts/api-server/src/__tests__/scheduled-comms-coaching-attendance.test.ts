@@ -58,6 +58,27 @@ import {
   processRecordingReadyNotifications,
 } from "../lib/scheduled-comms";
 
+// Both passes are OFF by default behind env flags (Task #1770). This suite
+// verifies their recipient-selection logic, so it turns the flags on — and
+// (in the "env-flag kill switches" describe below) proves the flag-off
+// default sends nothing.
+let prevFeedbackFlag: string | undefined;
+let prevRecordingFlag: string | undefined;
+
+beforeAll(() => {
+  prevFeedbackFlag = process.env.SESSION_FEEDBACK_PROMPTS_ENABLED;
+  prevRecordingFlag = process.env.GROUP_RECORDING_READY_ENABLED;
+  process.env.SESSION_FEEDBACK_PROMPTS_ENABLED = "true";
+  process.env.GROUP_RECORDING_READY_ENABLED = "true";
+});
+
+afterAll(() => {
+  if (prevFeedbackFlag === undefined) delete process.env.SESSION_FEEDBACK_PROMPTS_ENABLED;
+  else process.env.SESSION_FEEDBACK_PROMPTS_ENABLED = prevFeedbackFlag;
+  if (prevRecordingFlag === undefined) delete process.env.GROUP_RECORDING_READY_ENABLED;
+  else process.env.GROUP_RECORDING_READY_ENABLED = prevRecordingFlag;
+});
+
 const TAG = `sched-att-${randomUUID().slice(0, 8)}`;
 const ENTITLEMENT = `coaching:test-${TAG}`;
 
@@ -369,5 +390,45 @@ describe("processRecordingReadyNotifications", () => {
     await processRecordingReadyNotifications();
     await processRecordingReadyNotifications();
     expect(smsCallsFor("recording_ready", smsRegisteredUserId)).toHaveLength(1);
+  });
+});
+
+describe("env-flag kill switches (Task #1770)", () => {
+  it("processSessionFeedbackPrompts sends NOTHING when its flag is off", async () => {
+    process.env.SESSION_FEEDBACK_PROMPTS_ENABLED = "false";
+    try {
+      await processSessionFeedbackPrompts();
+      expect(queueEmailMock).not.toHaveBeenCalled();
+      expect(queueSmsMock).not.toHaveBeenCalled();
+      expect(checkAndRecordSendMock).not.toHaveBeenCalled();
+    } finally {
+      process.env.SESSION_FEEDBACK_PROMPTS_ENABLED = "true";
+    }
+  });
+
+  it("processRecordingReadyNotifications sends NOTHING when its flag is off", async () => {
+    process.env.GROUP_RECORDING_READY_ENABLED = "false";
+    try {
+      await processRecordingReadyNotifications();
+      expect(queueEmailMock).not.toHaveBeenCalled();
+      expect(queueSmsMock).not.toHaveBeenCalled();
+      expect(checkAndRecordSendMock).not.toHaveBeenCalled();
+    } finally {
+      process.env.GROUP_RECORDING_READY_ENABLED = "true";
+    }
+  });
+
+  it("both passes send NOTHING when the flags are simply unset (off-by-default)", async () => {
+    delete process.env.SESSION_FEEDBACK_PROMPTS_ENABLED;
+    delete process.env.GROUP_RECORDING_READY_ENABLED;
+    try {
+      await processSessionFeedbackPrompts();
+      await processRecordingReadyNotifications();
+      expect(queueEmailMock).not.toHaveBeenCalled();
+      expect(queueSmsMock).not.toHaveBeenCalled();
+    } finally {
+      process.env.SESSION_FEEDBACK_PROMPTS_ENABLED = "true";
+      process.env.GROUP_RECORDING_READY_ENABLED = "true";
+    }
   });
 });

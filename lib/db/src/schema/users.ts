@@ -43,6 +43,13 @@ export const usersTable = pgTable("users", {
   securitySmsOptIn: boolean("security_sms_opt_in").notNull().default(true),
   billingSmsOptIn: boolean("billing_sms_opt_in").notNull().default(true),
   coachingSmsOptIn: boolean("coaching_sms_opt_in").notNull().default(true),
+  // Per-category EMAIL preference for group-coaching-call emails (Task #1770).
+  // Defaults on. Enforced at the send seam in scheduled-comms (the sole
+  // group-coaching email callers), NOT inside CommunicationService — the
+  // global emailUnsubscribes suppression list is separate and continues to
+  // govern all marketing email. Flipped off by the one-click
+  // /email/unsubscribe-coaching link or the Account notifications toggle.
+  coachingEmailOptIn: boolean("coaching_email_opt_in").notNull().default(true),
   contentSmsOptIn: boolean("content_sms_opt_in").notNull().default(false),
   // Governs texts for BOTH kickoff-call and accountability-partner-call
   // reminders (Task #1628) — one category covers both variants, matching how

@@ -7606,6 +7606,14 @@ components:
             partner-call reminder texts (one category covers both). Gated
             under the master smsOptIn. Defaults on. Email always sends
             regardless.
+        coachingEmailOptIn:
+          type: boolean
+          description: |
+            Per-category EMAIL preference for coaching-call reminder emails
+            (the RSVP morning-of reminder). Defaults on. Flipped off either
+            via the Account toggle or the one-click unsubscribe link inside
+            the reminder email itself. Independent of the global marketing
+            email unsubscribe.
         marketingOptIn:
           type: boolean
         currentStreak:
@@ -7628,7 +7636,7 @@ components:
           type: integer
         brand:
           $ref: "#/components/schemas/BrandStrings"
-      required: [id, name, email, role, onboardingComplete, onboardingStep, smsOptIn, ticketReplySmsOptIn, securitySmsOptIn, billingSmsOptIn, coachingSmsOptIn, contentSmsOptIn, partnerCallSmsOptIn, marketingOptIn, currentStreak, memberSince, highestProductName, highestProductSlug, entitlements, products, ticketLimit, brand]
+      required: [id, name, email, role, onboardingComplete, onboardingStep, smsOptIn, ticketReplySmsOptIn, securitySmsOptIn, billingSmsOptIn, coachingSmsOptIn, contentSmsOptIn, partnerCallSmsOptIn, coachingEmailOptIn, marketingOptIn, currentStreak, memberSince, highestProductName, highestProductSlug, entitlements, products, ticketLimit, brand]
 
     BrandStrings:
       type: object
@@ -8491,6 +8499,8 @@ components:
           type: boolean
         partnerCallSmsOptIn:
           type: boolean
+        coachingEmailOptIn:
+          type: boolean
         marketingOptIn:
           type: boolean
 
@@ -8521,9 +8531,11 @@ components:
           type: boolean
         partnerCallSmsOptIn:
           type: boolean
+        coachingEmailOptIn:
+          type: boolean
         marketingOptIn:
           type: boolean
-      required: [name, smsOptIn, ticketReplySmsOptIn, securitySmsOptIn, billingSmsOptIn, coachingSmsOptIn, contentSmsOptIn, partnerCallSmsOptIn, marketingOptIn]
+      required: [name, smsOptIn, ticketReplySmsOptIn, securitySmsOptIn, billingSmsOptIn, coachingSmsOptIn, contentSmsOptIn, partnerCallSmsOptIn, coachingEmailOptIn, marketingOptIn]
 
     ChangeMemberPasswordBody:
       type: object

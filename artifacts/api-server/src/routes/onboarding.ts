@@ -376,7 +376,7 @@ router.patch("/members/me/profile", async (req, res): Promise<void> => {
     return;
   }
 
-  const { name, phone, timezone, experienceLevel, primaryGoal, smsOptIn, ticketReplySmsOptIn, securitySmsOptIn, billingSmsOptIn, coachingSmsOptIn, contentSmsOptIn, partnerCallSmsOptIn, marketingOptIn } = parsed.data;
+  const { name, phone, timezone, experienceLevel, primaryGoal, smsOptIn, ticketReplySmsOptIn, securitySmsOptIn, billingSmsOptIn, coachingSmsOptIn, contentSmsOptIn, partnerCallSmsOptIn, coachingEmailOptIn, marketingOptIn } = parsed.data;
 
   const [existing] = await db.select().from(usersTable).where(eq(usersTable.id, userId));
   if (!existing) {
@@ -397,6 +397,7 @@ router.patch("/members/me/profile", async (req, res): Promise<void> => {
   if (coachingSmsOptIn !== undefined) updateData.coachingSmsOptIn = coachingSmsOptIn;
   if (contentSmsOptIn !== undefined) updateData.contentSmsOptIn = contentSmsOptIn;
   if (partnerCallSmsOptIn !== undefined) updateData.partnerCallSmsOptIn = partnerCallSmsOptIn;
+  if (coachingEmailOptIn !== undefined) updateData.coachingEmailOptIn = coachingEmailOptIn;
   if (marketingOptIn !== undefined) updateData.marketingOptIn = marketingOptIn;
 
   if (Object.keys(updateData).length === 0) {
@@ -473,6 +474,7 @@ router.patch("/members/me/profile", async (req, res): Promise<void> => {
       coachingSmsOptIn: updated.coachingSmsOptIn,
       contentSmsOptIn: updated.contentSmsOptIn,
       partnerCallSmsOptIn: updated.partnerCallSmsOptIn,
+      coachingEmailOptIn: updated.coachingEmailOptIn,
       marketingOptIn: updated.marketingOptIn,
     })
   );

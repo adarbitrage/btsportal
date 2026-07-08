@@ -73,6 +73,7 @@ export default function Account() {
   const [coachingSmsOptIn, setCoachingSmsOptIn] = useState(true);
   const [contentSmsOptIn, setContentSmsOptIn] = useState(false);
   const [partnerCallSmsOptIn, setPartnerCallSmsOptIn] = useState(true);
+  const [coachingEmailOptIn, setCoachingEmailOptIn] = useState(true);
   const [marketingOptIn, setMarketingOptIn] = useState(true);
 
   const [profileSaving, setProfileSaving] = useState(false);
@@ -107,6 +108,7 @@ export default function Account() {
       setCoachingSmsOptIn(member.coachingSmsOptIn ?? true);
       setContentSmsOptIn(member.contentSmsOptIn ?? false);
       setPartnerCallSmsOptIn(member.partnerCallSmsOptIn ?? true);
+      setCoachingEmailOptIn(member.coachingEmailOptIn ?? true);
       setMarketingOptIn(member.marketingOptIn ?? true);
     }
   }, [member]);
@@ -195,6 +197,7 @@ export default function Account() {
       coachingSmsOptIn !== (member.coachingSmsOptIn ?? true) ||
       contentSmsOptIn !== (member.contentSmsOptIn ?? false) ||
       partnerCallSmsOptIn !== (member.partnerCallSmsOptIn ?? true) ||
+      coachingEmailOptIn !== (member.coachingEmailOptIn ?? true) ||
       marketingOptIn !== (member.marketingOptIn ?? true));
 
   const handleProfileSave = async () => {
@@ -238,6 +241,7 @@ export default function Account() {
           coachingSmsOptIn,
           contentSmsOptIn,
           partnerCallSmsOptIn,
+          coachingEmailOptIn,
           marketingOptIn,
         },
       });
@@ -956,6 +960,22 @@ export default function Account() {
                 disabled={!smsOptIn}
                 onCheckedChange={setPartnerCallSmsOptIn}
                 aria-label="Toggle kickoff and partner call reminder texts"
+              />
+            </div>
+
+            <div className="flex items-start justify-between gap-4 py-2 border-t border-border/60">
+              <div className="flex-1">
+                <p className="font-medium text-sm">Coaching call reminder emails</p>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  A morning-of email on days you've RSVP'd for a live coaching
+                  call. Turn this off to stop coaching reminder emails — all
+                  your other member emails are unaffected.
+                </p>
+              </div>
+              <Switch
+                checked={coachingEmailOptIn}
+                onCheckedChange={setCoachingEmailOptIn}
+                aria-label="Toggle coaching call reminder emails"
               />
             </div>
 

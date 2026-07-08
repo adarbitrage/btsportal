@@ -22,7 +22,12 @@ import { recordCommsDedupFailure } from "./comms-dedup-failure-tracker";
 import { evaluateCommsDedupFailureAlert } from "./comms-dedup-failure-alerter";
 import { CommunicationService } from "./communication-service";
 import { QUEUE_REDIS_OPTIONS, makeThrottledRedisErrorLogger } from "./redis";
-import { formatInMemberTimezone } from "./member-timezone";
+import {
+  formatInMemberTimezone,
+  localDateInMemberTimezone,
+  localHourInMemberTimezone,
+} from "./member-timezone";
+import { generateUnsubscribeToken } from "./unsubscribe-token";
 import { renderPersonBlock } from "./seed-templates";
 import { getPortalUrl } from "./portal-url-settings";
 
@@ -117,133 +122,147 @@ function formatExpirationDate(expiresAt: Date): string {
   }).format(expiresAt);
 }
 
-export async function processCoachingCallReminders(): Promise<void> {
-  const now = new Date();
-  const oneHourFromNow = new Date(now.getTime() + 60 * 60 * 1000);
+// Group-coaching-call reminders (rewritten in Task #1770).
+//
+// The old behavior — a 24h-out email plus a 1h-out SMS blasted to EVERY
+// member entitled to the call — is gone. Reminders are now RSVP-driven and
+// morning-of only:
+//
+//   • Audience: members with an RSVP (coaching_call_attendance.registered_at
+//     set) for a call happening TODAY in that member's own timezone.
+//   • Timing: sent on the first scheduler pass at/after 7:00 AM in the
+//     member's own timezone (the 15-minute scheduler makes this land between
+//     7:00 and ~7:15 local). Per-member/per-call dedup keys make re-runs
+//     no-ops.
+//   • Only members who RSVP'd BEFORE the call day (again in their own
+//     timezone) are reminded — someone who RSVPs on the day of the call just
+//     made an active decision to attend and needs no nudge. Non-RSVPs get
+//     nothing at all.
+//   • Email is gated on the member's coachingEmailOptIn (the new
+//     coaching-specific email opt-out — this caller is the enforcement seam);
+//     SMS is gated on master smsOptIn AND coachingSmsOptIn AND a phone on
+//     file, exactly like every other coaching text.
+//
+// `now` is injectable for tests; production callers pass nothing.
+export async function processCoachingCallReminders(now: Date = new Date()): Promise<void> {
   const twentyFourHoursFromNow = new Date(now.getTime() + 24 * 60 * 60 * 1000);
 
-  const calls24h = await db
+  // Any call within the next 24h could be "today" for some member's timezone;
+  // the per-member local-day check below does the real filtering.
+  const upcomingCalls = await db
     .select({
       id: coachingCallsTable.id,
       title: coachingCallsTable.title,
       scheduledAt: coachingCallsTable.scheduledAt,
-      requiredEntitlement: coachingCallsTable.requiredEntitlement,
-    })
-    .from(coachingCallsTable)
-    .where(
-      and(
-        gt(coachingCallsTable.scheduledAt, oneHourFromNow),
-        lte(coachingCallsTable.scheduledAt, twentyFourHoursFromNow)
-      )
-    );
-
-  for (const call of calls24h) {
-    // Email recipients are entitlement-based (same as the 1h SMS branch below)
-    // but with no SMS/phone gating — every member entitled to the call gets the
-    // reminder email. Email opt-out is handled separately via the unsubscribe
-    // suppression list inside CommunicationService, not the coachingSmsOptIn
-    // toggle (that toggle only governs the text).
-    const recipients = await db
-      .select({ id: usersTable.id, email: usersTable.email, name: usersTable.name })
-      .from(usersTable)
-      .innerJoin(userProductsTable, eq(usersTable.id, userProductsTable.userId))
-      .innerJoin(productsTable, eq(userProductsTable.productId, productsTable.id))
-      .where(
-        and(
-          eq(userProductsTable.status, "active"),
-          sql`${productsTable.entitlementKeys}::text LIKE ${`%${call.requiredEntitlement}%`}`
-        )
-      );
-
-    const { date: callDate, time: callTime } = formatCallDateTime(call.scheduledAt);
-
-    const seen = new Set<number>();
-    for (const member of recipients) {
-      if (seen.has(member.id) || !member.email) continue;
-      seen.add(member.id);
-
-      const sendKey = `coaching_reminder_24h_email_${call.id}_${member.id}`;
-      const isNew = await reserveSend(sendKey, "email", "coaching reminder 24h email");
-      if (!isNew) continue;
-
-      try {
-        await CommunicationService.queueEmail({
-          templateSlug: "coaching_reminder",
-          to: member.email,
-          variables: {
-            member_name: member.name,
-            call_title: call.title,
-            call_date: callDate,
-            call_time: callTime,
-          },
-          userId: member.id,
-        });
-      } catch (err) {
-        console.error(
-          `[Scheduled Comms] Failed to queue coaching reminder email for user ${member.id}, call ${call.id}:`,
-          err
-        );
-      }
-    }
-  }
-
-  const calls1h = await db
-    .select({
-      id: coachingCallsTable.id,
-      title: coachingCallsTable.title,
-      scheduledAt: coachingCallsTable.scheduledAt,
-      requiredEntitlement: coachingCallsTable.requiredEntitlement,
     })
     .from(coachingCallsTable)
     .where(
       and(
         gt(coachingCallsTable.scheduledAt, now),
-        lte(coachingCallsTable.scheduledAt, oneHourFromNow)
+        lte(coachingCallsTable.scheduledAt, twentyFourHoursFromNow)
       )
     );
 
-  for (const call of calls1h) {
-    // Members eligible for a call are entitlement-based: anyone with an active
-    // product whose entitlement_keys grant the call's requiredEntitlement.
-    // Gate the text in the caller — queueSms only re-checks the master
-    // smsOptIn, never the per-category coachingSmsOptIn — so select all three
-    // (master + category + phone) here before queueing.
+  for (const call of upcomingCalls) {
+    // RSVP'd members only — entitlement gating already happened when the RSVP
+    // was created, and an RSVP is the member's explicit signal they plan to
+    // attend.
     const recipients = await db
-      .select({ id: usersTable.id, phone: usersTable.phone })
-      .from(usersTable)
-      .innerJoin(userProductsTable, eq(usersTable.id, userProductsTable.userId))
-      .innerJoin(productsTable, eq(userProductsTable.productId, productsTable.id))
+      .select({
+        id: usersTable.id,
+        email: usersTable.email,
+        name: usersTable.name,
+        phone: usersTable.phone,
+        timezone: usersTable.timezone,
+        smsOptIn: usersTable.smsOptIn,
+        coachingSmsOptIn: usersTable.coachingSmsOptIn,
+        coachingEmailOptIn: usersTable.coachingEmailOptIn,
+        registeredAt: coachingCallAttendanceTable.registeredAt,
+      })
+      .from(coachingCallAttendanceTable)
+      .innerJoin(usersTable, eq(coachingCallAttendanceTable.userId, usersTable.id))
       .where(
         and(
-          eq(userProductsTable.status, "active"),
-          sql`${productsTable.entitlementKeys}::text LIKE ${`%${call.requiredEntitlement}%`}`,
-          eq(usersTable.smsOptIn, true),
-          eq(usersTable.coachingSmsOptIn, true),
-          isNotNull(usersTable.phone)
+          eq(coachingCallAttendanceTable.callId, call.id),
+          isNotNull(coachingCallAttendanceTable.registeredAt)
         )
       );
 
     const seen = new Set<number>();
     for (const member of recipients) {
-      if (seen.has(member.id) || !member.phone) continue;
+      if (seen.has(member.id) || !member.registeredAt) continue;
       seen.add(member.id);
 
-      const sendKey = `coaching_reminder_1h_sms_${call.id}_${member.id}`;
-      const isNew = await reserveSend(sendKey, "sms", "coaching reminder 1h SMS");
-      if (!isNew) continue;
+      const callDay = localDateInMemberTimezone(call.scheduledAt, member.timezone);
+      const today = localDateInMemberTimezone(now, member.timezone);
+      // Morning-of only: the call must be TODAY in the member's own timezone…
+      if (today !== callDay) continue;
+      // …and not before 7:00 AM local.
+      if (localHourInMemberTimezone(now, member.timezone) < 7) continue;
+      // Day-of RSVPs get no reminder — they just chose to attend.
+      const rsvpDay = localDateInMemberTimezone(member.registeredAt, member.timezone);
+      if (rsvpDay >= callDay) continue;
 
-      try {
-        await CommunicationService.queueSms({
-          templateSlug: "coaching_reminder",
-          to: member.phone,
-          variables: { call_title: call.title },
-          userId: member.id,
-        });
-      } catch (err) {
-        console.error(
-          `[Scheduled Comms] Failed to queue coaching reminder SMS for user ${member.id}, call ${call.id}:`,
-          err
-        );
+      const { date: callDate, time: callTime } = formatInMemberTimezone(
+        call.scheduledAt,
+        member.timezone
+      );
+
+      // Email — gated on the coaching-specific email opt-out. This is the
+      // enforcement seam: CommunicationService knows nothing about
+      // coachingEmailOptIn (the global marketing suppression list it applies
+      // is a separate, untouched layer).
+      if (member.email && member.coachingEmailOptIn) {
+        const sendKey = `coaching_rsvp_reminder_email_${call.id}_${member.id}`;
+        const isNew = await reserveSend(sendKey, "email", "coaching RSVP morning-of email");
+        if (isNew) {
+          try {
+            // One-click coaching-only unsubscribe link, resolved per-send so
+            // custom-domain tenants get their own host. Flips ONLY
+            // coachingEmailOptIn — not the global marketing unsubscribe.
+            const portalUrl = (await getPortalUrl()) ?? "";
+            const coachingUnsubscribeUrl = `${portalUrl}/api/email/unsubscribe-coaching?email=${encodeURIComponent(member.email)}&token=${generateUnsubscribeToken(member.email)}`;
+            await CommunicationService.queueEmail({
+              templateSlug: "coaching_rsvp_reminder",
+              to: member.email,
+              variables: {
+                member_name: member.name,
+                call_title: call.title,
+                call_date: callDate,
+                call_time: callTime,
+                coaching_unsubscribe_url: coachingUnsubscribeUrl,
+              },
+              userId: member.id,
+            });
+          } catch (err) {
+            console.error(
+              `[Scheduled Comms] Failed to queue RSVP coaching reminder email for user ${member.id}, call ${call.id}:`,
+              err
+            );
+          }
+        }
+      }
+
+      // SMS — master + coaching category + phone. queueSms re-checks only the
+      // master smsOptIn, so this caller enforces the category flag.
+      if (member.smsOptIn && member.coachingSmsOptIn && member.phone) {
+        const smsKey = `coaching_rsvp_reminder_sms_${call.id}_${member.id}`;
+        const smsIsNew = await reserveSend(smsKey, "sms", "coaching RSVP morning-of SMS");
+        if (smsIsNew) {
+          try {
+            await CommunicationService.queueSms({
+              templateSlug: "coaching_rsvp_reminder",
+              to: member.phone,
+              variables: { call_title: call.title, call_time: callTime },
+              userId: member.id,
+            });
+          } catch (err) {
+            console.error(
+              `[Scheduled Comms] Failed to queue RSVP coaching reminder SMS for user ${member.id}, call ${call.id}:`,
+              err
+            );
+          }
+        }
       }
     }
   }
@@ -679,7 +698,16 @@ export async function processMentorshipExpirationWarnings(): Promise<void> {
   }
 }
 
+// Session-feedback prompts are PAUSED (Task #1770): off unless the env flag
+// below is explicitly "true". Code is retained so the sequence can be
+// re-enabled later without re-building it. Read at call time (not module
+// load) so tests and a live re-enable both work without a restart.
+export function sessionFeedbackPromptsEnabled(): boolean {
+  return process.env.SESSION_FEEDBACK_PROMPTS_ENABLED === "true";
+}
+
 export async function processSessionFeedbackPrompts(): Promise<void> {
+  if (!sessionFeedbackPromptsEnabled()) return;
   const now = new Date();
   const twentyFourHoursAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
   const twentyFiveHoursAgo = new Date(now.getTime() - 25 * 60 * 60 * 1000);
@@ -760,7 +788,16 @@ export async function processSessionFeedbackPrompts(): Promise<void> {
   }
 }
 
+// Group-call recording-ready notifications are DISABLED (Task #1770): off
+// unless the env flag is explicitly "true". Code retained; the private
+// 1-on-1 session-pack recording notification below is deliberately NOT
+// gated — it stays live.
+export function groupRecordingReadyEnabled(): boolean {
+  return process.env.GROUP_RECORDING_READY_ENABLED === "true";
+}
+
 export async function processRecordingReadyNotifications(): Promise<void> {
+  if (!groupRecordingReadyEnabled()) return;
   // "Your recording is ready" emails. We notify the members who REGISTERED for
   // a call (registered_at set) once its recording is available — these are the
   // people who intended to attend and most want to catch up, rather than every

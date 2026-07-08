@@ -44,6 +44,9 @@ const PUBLIC_PATHS = [
   "/announcements",
   "/affiliate-networks",
   "/email/unsubscribe",
+  // Coaching-only one-click unsubscribe (Task #1770) — clicked from email
+  // while logged out, HMAC-token verified inside the route itself.
+  "/email/unsubscribe-coaching",
   "/v1/health",
   "/integrations/machine-purchase",
   "/integrations/bootstrap-superadmin",

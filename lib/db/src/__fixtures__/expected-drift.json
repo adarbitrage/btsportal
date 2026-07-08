@@ -65,6 +65,7 @@
       "tickets.delivery_last_error | text | NULL",
       "tickets.delivery_status | text | NOT NULL",
       "users.billing_sms_opt_in | bool | NOT NULL",
+      "users.coaching_email_opt_in | bool | NOT NULL",
       "users.coaching_sms_opt_in | bool | NOT NULL",
       "users.content_sms_opt_in | bool | NOT NULL",
       "users.email_change_expires | timestamptz | NULL",

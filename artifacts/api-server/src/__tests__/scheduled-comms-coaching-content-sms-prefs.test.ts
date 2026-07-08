@@ -317,77 +317,15 @@ beforeEach(() => {
   sentChannels.length = 0;
 });
 
-describe("processCoachingCallReminders — coaching SMS gating", () => {
-  it("texts only the fully-eligible member (entitled + master SMS + coaching category + phone), with the right slug + variables", async () => {
+describe("processCoachingCallReminders — the entitlement blast is gone (Task #1770)", () => {
+  // The 24h-email / 1h-SMS blast to every ENTITLED member was replaced by
+  // RSVP-driven morning-of reminders (covered in depth by
+  // scheduled-comms-rsvp-reminders.test.ts). None of the members seeded here
+  // have an RSVP (attendance row), so even the fully-opted-in, entitled member
+  // with calls 30min and 3h out must receive NOTHING.
+  it("sends no email and no SMS to entitled members without an RSVP, on either upcoming call", async () => {
     await processCoachingCallReminders();
 
-    const calls = smsCallsFor("coaching_reminder", coachingEntitledOptedIn);
-    expect(calls).toHaveLength(1);
-    expect(calls[0][0]).toMatchObject({
-      templateSlug: "coaching_reminder",
-      to: "+15555550401",
-      userId: coachingEntitledOptedIn,
-      variables: { call_title: `${TAG} group call` },
-    });
-  });
-
-  it("skips a member who turned off coaching texts (master SMS still on)", async () => {
-    await processCoachingCallReminders();
-    expect(smsCallsFor("coaching_reminder", coachingCategoryOff)).toHaveLength(0);
-  });
-
-  it("skips a member with master SMS off (even though coaching category is on)", async () => {
-    await processCoachingCallReminders();
-    expect(smsCallsFor("coaching_reminder", coachingMasterOff)).toHaveLength(0);
-  });
-
-  it("skips a member with no phone number on file", async () => {
-    await processCoachingCallReminders();
-    expect(smsCallsFor("coaching_reminder", coachingNoPhone)).toHaveLength(0);
-  });
-
-  it("skips a fully-opted-in member who lacks the call's required entitlement", async () => {
-    await processCoachingCallReminders();
-    expect(smsCallsFor("coaching_reminder", coachingNoEntitlement)).toHaveLength(0);
-  });
-
-  it("queues the 24h reminder EMAIL to entitled members (no SMS gating) and records a per-member email dedup key", async () => {
-    await processCoachingCallReminders();
-
-    // The 3h-out call sits in the 24h EMAIL window but outside the 1h SMS
-    // window, so it drives emails (not SMS). The fully-eligible member gets the
-    // real coaching_reminder email with the call title.
-    const calls = emailCallsFor("coaching_reminder", coachingEntitledOptedIn).filter(
-      (c) => (c[0] as { variables?: { call_title?: string } }).variables?.call_title === `${TAG} tomorrow call`,
-    );
-    expect(calls).toHaveLength(1);
-    expect(calls[0][0]).toMatchObject({
-      templateSlug: "coaching_reminder",
-      to: `${TAG}-coach-yes@example.test`,
-      userId: coachingEntitledOptedIn,
-      variables: { call_title: `${TAG} tomorrow call` },
-    });
-
-    // Per-member email dedup key (not the old per-call key).
-    const emailKey = `coaching_reminder_24h_email_${seeded24hCallId}_${coachingEntitledOptedIn}`;
-    const recorded = sentChannels.find((c) => c.sendKey === emailKey);
-    expect(recorded).toBeDefined();
-    expect(recorded!.channel).toBe("email");
-
-    // Email is NOT gated by SMS prefs: a member with coaching texts off (but
-    // still entitled) still receives the reminder email.
-    const catOffEmail = emailCallsFor("coaching_reminder", coachingCategoryOff).filter(
-      (c) => (c[0] as { variables?: { call_title?: string } }).variables?.call_title === `${TAG} tomorrow call`,
-    );
-    expect(catOffEmail).toHaveLength(1);
-
-    // A member lacking the call's required entitlement gets no email.
-    const noEntEmail = emailCallsFor("coaching_reminder", coachingNoEntitlement).filter(
-      (c) => (c[0] as { variables?: { call_title?: string } }).variables?.call_title === `${TAG} tomorrow call`,
-    );
-    expect(noEntEmail).toHaveLength(0);
-
-    // The 24h email path never queues an SMS for the tomorrow call.
     for (const userId of [
       coachingEntitledOptedIn,
       coachingCategoryOff,
@@ -395,26 +333,17 @@ describe("processCoachingCallReminders — coaching SMS gating", () => {
       coachingNoPhone,
       coachingNoEntitlement,
     ]) {
-      const smsForTomorrowCall = queueSmsMock.mock.calls.filter((c: unknown[]) => {
-        const arg = c[0] as { templateSlug: string; userId: number; variables?: { call_title?: string } };
-        return (
-          arg.templateSlug === "coaching_reminder" &&
-          arg.userId === userId &&
-          arg.variables?.call_title === `${TAG} tomorrow call`
-        );
-      });
-      expect(smsForTomorrowCall).toHaveLength(0);
+      expect(smsCallsFor("coaching_reminder", userId)).toHaveLength(0);
+      expect(smsCallsFor("coaching_rsvp_reminder", userId)).toHaveLength(0);
+      expect(emailCallsFor("coaching_reminder", userId)).toHaveLength(0);
+      expect(emailCallsFor("coaching_rsvp_reminder", userId)).toHaveLength(0);
     }
-  });
 
-  it("dedups the 24h reminder email per member across repeated scheduler runs", async () => {
-    await processCoachingCallReminders();
-    await processCoachingCallReminders();
-
-    const calls = emailCallsFor("coaching_reminder", coachingEntitledOptedIn).filter(
-      (c) => (c[0] as { variables?: { call_title?: string } }).variables?.call_title === `${TAG} tomorrow call`,
+    // No dedup keys were reserved for either call.
+    const keysForCalls = sentChannels.filter(
+      (c) => c.sendKey.includes(`_${seededCallId}_`) || c.sendKey.includes(`_${seeded24hCallId}_`),
     );
-    expect(calls).toHaveLength(1);
+    expect(keysForCalls).toHaveLength(0);
   });
 });
 

@@ -75,6 +75,13 @@ under the master smsOptIn. Defaults on. Email always sends
 regardless.
  */
   partnerCallSmsOptIn: boolean;
+  /** Per-category EMAIL preference for coaching-call reminder emails
+(the RSVP morning-of reminder). Defaults on. Flipped off either
+via the Account toggle or the one-click unsubscribe link inside
+the reminder email itself. Independent of the global marketing
+email unsubscribe.
+ */
+  coachingEmailOptIn: boolean;
   marketingOptIn: boolean;
   currentStreak: number;
   memberSince: string;

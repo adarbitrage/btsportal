@@ -819,6 +819,29 @@ const marketingEmailTemplates = [
     variables: ["member_name", "call_title", "call_date", "call_time", "portal_url", "current_year"],
   },
   {
+    // RSVP-driven morning-of group-coaching-call reminder (Task #1770).
+    // Audience is members who RSVP'd before the call day; sent at ~7:00 AM in
+    // the member's own timezone. {{coaching_unsubscribe_url}} is a one-click,
+    // coaching-only opt-out (flips users.coaching_email_opt_in — NOT the
+    // global marketing unsubscribe, which still applies via the standard
+    // marketing-category footer/suppression).
+    slug: "coaching_rsvp_reminder",
+    name: "Coaching Call Morning-Of Reminder (RSVP'd)",
+    subject: "Today: {{call_title}} at {{call_time}}",
+    htmlBody: wrapHtml("Coaching Call Today", `
+<h2 style="color:#1a1a2e;margin-top:0;">Your Coaching Call Is Today</h2>
+<p>Hi {{member_name}},</p>
+<p>You RSVP'd for today's live coaching call — here are the details:</p>
+<p style="background:#f0f0ff;padding:15px;border-radius:6px;"><strong>{{call_title}}</strong><br>{{call_date}} at {{call_time}}</p>
+<p><a href="{{portal_url}}/coaching" style="display:inline-block;background:#4f46e5;color:#ffffff;padding:12px 24px;border-radius:6px;text-decoration:none;font-weight:bold;">Join From the Coaching Page</a></p>
+<p>See you there!</p>
+<p>The BTS Team</p>
+<p style="font-size:12px;color:#999;margin-top:30px;">Don't want coaching call reminder emails? <a href="{{coaching_unsubscribe_url}}" style="color:#999;">Unsubscribe from coaching reminders</a> — you'll keep all other member emails.</p>`),
+    textBody: "Hi {{member_name}},\n\nYou RSVP'd for today's coaching call: {{call_title}} at {{call_time}}.\n\nJoin from {{portal_url}}/coaching\n\nThe BTS Team\n\nUnsubscribe from coaching reminders: {{coaching_unsubscribe_url}}",
+    category: "marketing",
+    variables: ["member_name", "call_title", "call_date", "call_time", "coaching_unsubscribe_url", "portal_url", "current_year"],
+  },
+  {
     slug: "session_feedback",
     name: "Session Feedback Prompt",
     subject: "How was {{call_title}}? We'd love your feedback",
@@ -1052,6 +1075,14 @@ const smsTemplates = [
     name: "Coaching Call Reminder SMS",
     body: "BTS: Live coaching call tomorrow — {{call_title}}. Don't miss it! Details: {{portal_url}}/coaching",
     variables: ["call_title", "portal_url"],
+  },
+  {
+    // Task #1770: morning-of text for members who RSVP'd before the call day,
+    // gated on master smsOptIn + coachingSmsOptIn in scheduled-comms.
+    slug: "coaching_rsvp_reminder",
+    name: "Coaching Call Morning-Of Reminder SMS (RSVP'd)",
+    body: "BTS: Your coaching call is today — {{call_title}} at {{call_time}}. Join: {{portal_url}}/coaching",
+    variables: ["call_title", "call_time", "portal_url"],
   },
   {
     slug: "recording_ready",
@@ -2926,6 +2957,9 @@ export const REQUIRED_SMS_TEMPLATE_SLUGS = [
   "session_recording_ready",
   "kickoff_call_reminder",
   "partner_call_reminder",
+  // Morning-of RSVP coaching reminder text (Task #1770) — insert-only, so
+  // existing DBs pick it up on boot without clobbering admin edits.
+  "coaching_rsvp_reminder",
 ] as const;
 
 /**

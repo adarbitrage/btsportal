@@ -55,3 +55,51 @@ export function formatInMemberTimezone(
     return formatWithZone(scheduledAt, MEMBER_TIMEZONE_FALLBACK);
   }
 }
+
+/**
+ * Calendar date (YYYY-MM-DD) of a UTC instant as seen in the member's own
+ * timezone. Used by the RSVP morning-of coaching reminder (Task #1770) to
+ * decide "is the call today for THIS member?" and "did the member RSVP
+ * before the call day?". en-CA yields ISO-ordered YYYY-MM-DD directly.
+ * Falls back to the product default zone on an invalid/unknown IANA string.
+ */
+export function localDateInMemberTimezone(
+  instant: Date,
+  memberTimezone: string | null | undefined,
+): string {
+  const timeZone = memberTimezone || MEMBER_TIMEZONE_FALLBACK;
+  const fmt = (tz: string) =>
+    new Intl.DateTimeFormat("en-CA", {
+      timeZone: tz,
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    }).format(instant);
+  try {
+    return fmt(timeZone);
+  } catch {
+    return fmt(MEMBER_TIMEZONE_FALLBACK);
+  }
+}
+
+/**
+ * Hour of day (0-23) of a UTC instant in the member's own timezone — drives
+ * the "not before 7:00 AM local" gate of the RSVP morning-of reminder.
+ */
+export function localHourInMemberTimezone(
+  instant: Date,
+  memberTimezone: string | null | undefined,
+): number {
+  const timeZone = memberTimezone || MEMBER_TIMEZONE_FALLBACK;
+  const fmt = (tz: string) =>
+    new Intl.DateTimeFormat("en-US", {
+      timeZone: tz,
+      hour: "numeric",
+      hourCycle: "h23",
+    }).format(instant);
+  try {
+    return parseInt(fmt(timeZone), 10);
+  } catch {
+    return parseInt(fmt(MEMBER_TIMEZONE_FALLBACK), 10);
+  }
+}

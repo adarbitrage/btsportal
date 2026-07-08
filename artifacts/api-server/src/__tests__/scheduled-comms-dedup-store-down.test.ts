@@ -78,6 +78,16 @@ import {
   processRecordingReadyNotifications,
 } from "../lib/scheduled-comms";
 
+// Fixed clock for the RSVP-driven coaching reminder (Task #1770): the pass
+// only sends when the call is TODAY in the member's timezone, at/after 7 AM
+// local, to members who RSVP'd on a PRIOR local day. Anchoring everything to
+// a fixed NOW keeps this suite deterministic regardless of wall-clock time.
+// 2026-07-15T14:00:00Z = 9:00 AM America/Chicago (the member's timezone).
+const NOW = new Date("2026-07-15T14:00:00Z");
+const CALL_TODAY_1 = new Date("2026-07-15T18:00:00Z");
+const CALL_TODAY_2 = new Date("2026-07-15T20:00:00Z");
+const RSVP_PRIOR_DAY = new Date("2026-07-14T12:00:00Z");
+
 const TAG = `sched-down-${randomUUID().slice(0, 8)}`;
 // Unique entitlement so the coaching recipient queries match ONLY this test's
 // seeded products, isolating it from any other coaching data in the shared DB.
@@ -110,6 +120,7 @@ async function seedEligibleMember(): Promise<number> {
       emailVerified: true,
       onboardingComplete: true,
       phone: "+15555550901",
+      timezone: "America/Chicago",
       smsOptIn: true,
       coachingSmsOptIn: true,
       contentSmsOptIn: true,
@@ -151,7 +162,9 @@ beforeAll(async () => {
     .returning({ id: coachesTable.id });
   seededCoachId = coach.id;
 
-  // A call 30 minutes out lands inside the 1-hour SMS reminder window.
+  // Two calls later TODAY (member-local) that the eligible member RSVP'd for
+  // on a prior day — each would drive both an email and an SMS through the
+  // RSVP morning-of reminder if the dedup store were healthy.
   const [smsCall] = await db
     .insert(coachingCallsTable)
     .values({
@@ -159,15 +172,13 @@ beforeAll(async () => {
       description: "Open Q&A",
       callType: "weekly_qa",
       coachId: coach.id,
-      scheduledAt: new Date(Date.now() + 30 * 60 * 1000),
+      scheduledAt: CALL_TODAY_1,
       durationMinutes: 60,
       requiredEntitlement: ENTITLEMENT,
     })
     .returning({ id: coachingCallsTable.id });
   seededSmsCallId = smsCall.id;
 
-  // A call ~3 hours out lands inside the 24-hour EMAIL reminder window (outside
-  // the 1-hour SMS window) so processCoachingCallReminders also queues an email.
   const [emailCall] = await db
     .insert(coachingCallsTable)
     .values({
@@ -175,12 +186,26 @@ beforeAll(async () => {
       description: "Open Q&A",
       callType: "weekly_qa",
       coachId: coach.id,
-      scheduledAt: new Date(Date.now() + 3 * 60 * 60 * 1000),
+      scheduledAt: CALL_TODAY_2,
       durationMinutes: 60,
       requiredEntitlement: ENTITLEMENT,
     })
     .returning({ id: coachingCallsTable.id });
   seededEmailCallId = emailCall.id;
+
+  // Prior-day RSVPs for both upcoming calls — the RSVP reminder only targets
+  // attendance rows with registered_at set before the call day.
+  for (const callId of [smsCall.id, emailCall.id]) {
+    const [rsvpRow] = await db
+      .insert(coachingCallAttendanceTable)
+      .values({
+        callId,
+        userId: eligibleUserId,
+        registeredAt: RSVP_PRIOR_DAY,
+      })
+      .returning({ id: coachingCallAttendanceTable.id });
+    seededAttendanceIds.push(rsvpRow.id);
+  }
 
   // A call ~1 day ago WITH a recording drives processRecordingReadyNotifications
   // for the registrant seeded below (registered_at set).
@@ -251,6 +276,19 @@ afterAll(async () => {
 
 describe("scheduled comms — other passes skip-and-log when dedup store is down", () => {
   let errorSpy: ReturnType<typeof vi.spyOn>;
+  let prevRecordingFlag: string | undefined;
+
+  beforeAll(() => {
+    // Group recording-ready is disabled by default (Task #1770); enable it so
+    // this suite can prove the dedup-store gating still holds when it runs.
+    prevRecordingFlag = process.env.GROUP_RECORDING_READY_ENABLED;
+    process.env.GROUP_RECORDING_READY_ENABLED = "true";
+  });
+
+  afterAll(() => {
+    if (prevRecordingFlag === undefined) delete process.env.GROUP_RECORDING_READY_ENABLED;
+    else process.env.GROUP_RECORDING_READY_ENABLED = prevRecordingFlag;
+  });
 
   beforeEach(() => {
     queueEmailMock.mockClear();
@@ -282,10 +320,10 @@ describe("scheduled comms — other passes skip-and-log when dedup store is down
   });
 
   it("processCoachingCallReminders queues NO email/SMS and logs the dedup-store-unavailable error", async () => {
-    await processCoachingCallReminders();
+    await processCoachingCallReminders(NOW);
 
     // The store failed for every reservation, so nothing is sent on either the
-    // 24h email branch or the 1h SMS branch.
+    // email branch or the SMS branch of the RSVP morning-of reminder.
     expect(queueEmailMock).not.toHaveBeenCalled();
     expect(queueSmsMock).not.toHaveBeenCalled();
 
@@ -327,7 +365,7 @@ describe("scheduled comms — other passes skip-and-log when dedup store is down
       return "duplicate";
     });
 
-    await processCoachingCallReminders();
+    await processCoachingCallReminders(NOW);
     await processNewContentAlerts();
     await processRecordingReadyNotifications();
 

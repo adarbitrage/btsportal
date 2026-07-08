@@ -63,6 +63,20 @@ import {
   processSessionFeedbackPrompts,
 } from "../lib/scheduled-comms";
 
+// Session-feedback prompts are paused by default behind an env flag
+// (Task #1770); enable it so this suite can exercise recipient selection.
+let prevFeedbackFlag: string | undefined;
+
+beforeAll(() => {
+  prevFeedbackFlag = process.env.SESSION_FEEDBACK_PROMPTS_ENABLED;
+  process.env.SESSION_FEEDBACK_PROMPTS_ENABLED = "true";
+});
+
+afterAll(() => {
+  if (prevFeedbackFlag === undefined) delete process.env.SESSION_FEEDBACK_PROMPTS_ENABLED;
+  else process.env.SESSION_FEEDBACK_PROMPTS_ENABLED = prevFeedbackFlag;
+});
+
 const TAG = `sched-email-${randomUUID().slice(0, 8)}`;
 // Unique entitlement so the session-feedback recipient query matches ONLY this
 // test's seeded products, isolating it from other coaching data in the shared DB.

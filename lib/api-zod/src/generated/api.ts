@@ -92,6 +92,11 @@ export const GetCurrentMemberResponse = zod.object({
     .describe(
       "Per-category SMS preference for kickoff-call AND accountability\npartner-call reminder texts (one category covers both). Gated\nunder the master smsOptIn. Defaults on. Email always sends\nregardless.\n",
     ),
+  coachingEmailOptIn: zod
+    .boolean()
+    .describe(
+      "Per-category EMAIL preference for coaching-call reminder emails\n(the RSVP morning-of reminder). Defaults on. Flipped off either\nvia the Account toggle or the one-click unsubscribe link inside\nthe reminder email itself. Independent of the global marketing\nemail unsubscribe.\n",
+    ),
   marketingOptIn: zod.boolean(),
   currentStreak: zod.number(),
   memberSince: zod.string(),
@@ -302,6 +307,7 @@ export const PatchMemberProfileBody = zod.object({
   coachingSmsOptIn: zod.boolean().optional(),
   contentSmsOptIn: zod.boolean().optional(),
   partnerCallSmsOptIn: zod.boolean().optional(),
+  coachingEmailOptIn: zod.boolean().optional(),
   marketingOptIn: zod.boolean().optional(),
 });
 
@@ -318,6 +324,7 @@ export const PatchMemberProfileResponse = zod.object({
   coachingSmsOptIn: zod.boolean(),
   contentSmsOptIn: zod.boolean(),
   partnerCallSmsOptIn: zod.boolean(),
+  coachingEmailOptIn: zod.boolean(),
   marketingOptIn: zod.boolean(),
 });
 

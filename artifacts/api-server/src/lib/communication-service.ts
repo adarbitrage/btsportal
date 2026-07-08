@@ -1,7 +1,6 @@
 import { Queue, type JobsOptions, type Job } from "bullmq";
 import sgMail from "@sendgrid/mail";
 import twilio from "twilio";
-import crypto from "crypto";
 import {
   db,
   emailTemplatesTable,
@@ -46,7 +45,6 @@ const FROM_EMAIL_TRANSACTIONAL = process.env.FROM_EMAIL_TRANSACTIONAL || "norepl
 const FROM_EMAIL_MARKETING = process.env.FROM_EMAIL_MARKETING || "team@buildtestscale.com";
 const FROM_NAME_DEFAULT = process.env.FROM_NAME_DEFAULT || brandStrings("bts").full;
 
-const UNSUBSCRIBE_SECRET = process.env.UNSUBSCRIBE_SECRET || "bts-unsub-secret-change-me";
 
 // Twilio's delivery-status callback hits OUR API server (it's not a branded
 // member-facing link), so it still uses the global PORTAL_URL env var rather
@@ -474,20 +472,13 @@ async function getCommonVariables(
   };
 }
 
-export function generateUnsubscribeToken(email: string): string {
-  const hmac = crypto.createHmac("sha256", UNSUBSCRIBE_SECRET);
-  hmac.update(email.toLowerCase());
-  return hmac.digest("hex");
-}
-
-export function verifyUnsubscribeToken(email: string, token: string): boolean {
-  const expected = generateUnsubscribeToken(email);
-  try {
-    return crypto.timingSafeEqual(Buffer.from(expected), Buffer.from(token));
-  } catch {
-    return false;
-  }
-}
+// Token generation/verification moved to ./unsubscribe-token (Task #1770) so
+// scheduled-comms can build unsubscribe URLs without importing this module
+// (which its tests mock wholesale). Imported + re-exported here because this
+// module also uses generateUnsubscribeToken internally (marketing footer) and
+// existing callers import both from here.
+import { generateUnsubscribeToken, verifyUnsubscribeToken } from "./unsubscribe-token";
+export { generateUnsubscribeToken, verifyUnsubscribeToken };
 
 async function isEmailSuppressed(email: string): Promise<{ suppressed: boolean; reason?: string }> {
   const normalizedEmail = email.toLowerCase();
