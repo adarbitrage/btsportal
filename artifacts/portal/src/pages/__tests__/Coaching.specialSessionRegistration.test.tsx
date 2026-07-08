@@ -41,6 +41,7 @@ vi.mock("@workspace/api-client-react", () => ({
     useRegisterForCoachingCall(...args),
   useCancelCoachingCallRegistration: (...args: unknown[]) =>
     useCancelCoachingCallRegistration(...args),
+  useJoinCoachingCall: () => ({ mutate: vi.fn(), isPending: false }),
 }));
 
 import Coaching from "@/pages/Coaching";
@@ -96,6 +97,8 @@ describe("Coaching — special-session registration", () => {
       isAccessible: true,
       hasRegistered: false,
       registeredCount: 4,
+      // Well before the 1h RSVP cutoff so the RSVP control is offered.
+      scheduledAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
     });
     useListCoachingCalls.mockReturnValue({ data: [call] });
 
@@ -118,6 +121,8 @@ describe("Coaching — special-session registration", () => {
       isAccessible: true,
       hasRegistered: true,
       registeredCount: 9,
+      // Still RSVP-open, so the RSVP'd state offers the cancel control.
+      scheduledAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
     });
     useListCoachingCalls.mockReturnValue({ data: [call] });
 

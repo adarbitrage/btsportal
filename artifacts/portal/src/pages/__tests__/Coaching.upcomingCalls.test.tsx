@@ -42,6 +42,7 @@ vi.mock("@workspace/api-client-react", () => ({
     useRegisterForCoachingCall(...args),
   useCancelCoachingCallRegistration: (...args: unknown[]) =>
     useCancelCoachingCallRegistration(...args),
+  useJoinCoachingCall: () => ({ mutate: vi.fn(), isPending: false }),
 }));
 
 import Coaching from "@/pages/Coaching";
@@ -89,14 +90,16 @@ afterEach(() => {
 
 describe("Coaching — upcoming one-off special sessions", () => {
   it("renders strategy / mastermind / VIP calls in the special-sessions list with their type labels and gating", async () => {
+    // RSVP'd and inside the join window (started 10 min ago) → live Join button.
     const strategy = makeCall({
       id: 40,
       callType: "strategy",
       coachName: "Sasha B(Coach)",
       isAccessible: true,
-      meetLink: "https://meet.google.com/strategy-40",
+      hasRegistered: true,
+      meetLink: null,
       upgradeUrl: null,
-      scheduledAt: new Date(2026, 5, 22, 9, 0, 0).toISOString(),
+      scheduledAt: new Date(Date.now() - 10 * 60 * 1000).toISOString(),
       durationMinutes: 60,
     });
     const mastermind = makeCall({
@@ -108,6 +111,7 @@ describe("Coaching — upcoming one-off special sessions", () => {
       upgradeUrl: "/plans?highlight=mastermind",
       scheduledAt: new Date(2026, 5, 24, 13, 0, 0).toISOString(),
     });
+    // More than 1h out, not RSVP'd → the RSVP control is offered.
     const vip = makeCall({
       id: 42,
       callType: "vip_roundtable",
@@ -115,30 +119,29 @@ describe("Coaching — upcoming one-off special sessions", () => {
       isAccessible: true,
       meetLink: null,
       upgradeUrl: null,
-      scheduledAt: new Date(2026, 5, 26, 17, 0, 0).toISOString(),
+      scheduledAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
     });
     useListCoachingCalls.mockReturnValue({ data: [strategy, mastermind, vip] });
 
     render(<Coaching />);
 
-    // Accessible strategy call → Join Call link pointing at its OWN meetLink.
+    // Accessible RSVP'd strategy call inside the join window → Join Call button.
     const strategyRow = screen.getByTestId("oneoff-call-40");
     expect(within(strategyRow).getByTestId("oneoff-call-type-40")).toHaveTextContent("Strategy");
-    const joinLink = within(strategyRow).getByRole("link", { name: /join call/i });
-    expect(joinLink).toHaveAttribute("href", "https://meet.google.com/strategy-40");
+    expect(within(strategyRow).getByTestId("oneoff-join-40")).toHaveTextContent(/join call/i);
 
     // Locked mastermind call → Unlock navigating to its OWN upgradeUrl.
     const mastermindRow = screen.getByTestId("oneoff-call-41");
     expect(within(mastermindRow).getByTestId("oneoff-call-type-41")).toHaveTextContent("Mastermind");
-    expect(within(mastermindRow).queryByRole("link", { name: /join call/i })).not.toBeInTheDocument();
+    expect(within(mastermindRow).queryByTestId("oneoff-join-41")).not.toBeInTheDocument();
     await userEvent.click(within(mastermindRow).getByRole("button", { name: /unlock/i }));
     expect(navigate).toHaveBeenCalledWith("/plans?highlight=mastermind");
 
-    // Accessible VIP call without a published link yet → no Join link, but the
-    // member can still reserve a spot ahead of time.
+    // Accessible VIP call well ahead of start → no Join control yet, but the
+    // member can RSVP ahead of time.
     const vipRow = screen.getByTestId("oneoff-call-42");
     expect(within(vipRow).getByTestId("oneoff-call-type-42")).toHaveTextContent("VIP Roundtable");
-    expect(within(vipRow).queryByRole("link", { name: /join call/i })).not.toBeInTheDocument();
+    expect(within(vipRow).queryByTestId("oneoff-join-42")).not.toBeInTheDocument();
     expect(within(vipRow).getByTestId("oneoff-register-42")).toBeInTheDocument();
   });
 

@@ -39,6 +39,7 @@ vi.mock("@workspace/api-client-react", () => ({
     useRegisterForCoachingCall(...args),
   useCancelCoachingCallRegistration: (...args: unknown[]) =>
     useCancelCoachingCallRegistration(...args),
+  useJoinCoachingCall: () => ({ mutate: vi.fn(), isPending: false }),
 }));
 
 import Coaching from "@/pages/Coaching";
@@ -84,14 +85,17 @@ afterEach(() => {
 
 describe("Coaching — data-driven weekly schedule", () => {
   it("renders the recurring schedule from weekly_qa calls with per-session Meet links and gating", async () => {
+    // RSVP'd and inside the join window (started 10 min ago) so the row shows
+    // the live "Join Call" button; the listing itself withholds the meet link.
     const accessible = makeCall({
       id: 10,
       callType: "weekly_qa",
       coachName: "Todd R(Coach)",
       isAccessible: true,
-      meetLink: "https://meet.google.com/weekly-aaa-bbb",
+      hasRegistered: true,
+      meetLink: null,
       upgradeUrl: null,
-      scheduledAt: new Date(2026, 5, 22, 8, 0, 0).toISOString(),
+      scheduledAt: new Date(Date.now() - 10 * 60 * 1000).toISOString(),
       durationMinutes: 60,
     });
     const locked = makeCall({
@@ -116,11 +120,10 @@ describe("Coaching — data-driven weekly schedule", () => {
 
     // The recurring schedule renders the two weekly_qa calls, not the strategy call.
     const accessibleRow = screen.getByTestId("weekly-call-10");
-    const joinLink = within(accessibleRow).getByRole("link", { name: /join call/i });
-    expect(joinLink).toHaveAttribute("href", "https://meet.google.com/weekly-aaa-bbb");
+    expect(within(accessibleRow).getByTestId("weekly-join-10")).toHaveTextContent(/join call/i);
 
     const lockedRow = screen.getByTestId("weekly-call-11");
-    expect(within(lockedRow).queryByRole("link", { name: /join call/i })).not.toBeInTheDocument();
+    expect(within(lockedRow).queryByTestId("weekly-join-11")).not.toBeInTheDocument();
     const unlock = within(lockedRow).getByRole("button", { name: /unlock/i });
     await userEvent.click(unlock);
     expect(navigate).toHaveBeenCalledWith("/plans?highlight=3month");

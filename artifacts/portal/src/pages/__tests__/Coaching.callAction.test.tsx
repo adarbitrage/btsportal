@@ -27,11 +27,19 @@ vi.mock("wouter", () => ({
   useLocation: () => ["/coaching", navigate],
 }));
 
+vi.mock("@tanstack/react-query", () => ({
+  useQueryClient: () => ({ invalidateQueries: vi.fn() }),
+}));
+
 const useListCoachingCalls = vi.fn();
 const useListCoaches = vi.fn();
+const joinMutate = vi.fn();
 vi.mock("@workspace/api-client-react", () => ({
   useListCoachingCalls: (...args: unknown[]) => useListCoachingCalls(...args),
   useListCoaches: (...args: unknown[]) => useListCoaches(...args),
+  useRegisterForCoachingCall: () => ({ mutate: vi.fn(), isPending: false }),
+  useCancelCoachingCallRegistration: () => ({ mutate: vi.fn(), isPending: false }),
+  useJoinCoachingCall: () => ({ mutate: joinMutate, isPending: false }),
 }));
 
 import Coaching from "@/pages/Coaching";
@@ -71,40 +79,49 @@ afterEach(() => {
 });
 
 describe("Coaching — CallAction button gating", () => {
-  it("renders a Join Call link pointing at the call's own meetLink when accessible", () => {
+  it("renders a Join Call button that fires the join mutation for an RSVP'd member inside the join window", async () => {
+    // Inside the join window: started 10 minutes ago, member has RSVP'd.
     const call = makeCall({
       id: 30,
       isAccessible: true,
-      meetLink: "https://meet.google.com/call-30-link",
+      hasRegistered: true,
+      meetLink: null, // the listing withholds the link; the join endpoint hands it back
       upgradeUrl: null,
+      scheduledAt: new Date(Date.now() - 10 * 60 * 1000).toISOString(),
     });
     useListCoachingCalls.mockReturnValue({ data: [call] });
 
     render(<Coaching />);
 
     const row = screen.getByTestId("weekly-call-30");
-    const joinLink = within(row).getByRole("link", { name: /join call/i });
-    expect(joinLink).toHaveAttribute("href", "https://meet.google.com/call-30-link");
+    const joinButton = within(row).getByTestId("weekly-join-30");
+    expect(joinButton).toHaveTextContent(/join call/i);
+    await userEvent.click(joinButton);
+    expect(joinMutate).toHaveBeenCalledWith({ id: 30 });
     // It must not fall back to an Unlock / disabled control.
     expect(within(row).queryByRole("button", { name: /unlock/i })).not.toBeInTheDocument();
-    expect(within(row).queryByRole("button", { name: /link soon/i })).not.toBeInTheDocument();
+    expect(within(row).queryByRole("button", { name: /rsvps closed/i })).not.toBeInTheDocument();
   });
 
-  it("renders a disabled 'Link soon' button when accessible but the meetLink is not published yet", () => {
+  it("renders a disabled 'RSVPs closed' button for a non-registered member past the RSVP cutoff", () => {
+    // Accessible call starting in 30 minutes (inside the 1h cutoff), never RSVP'd.
     const call = makeCall({
       id: 31,
       isAccessible: true,
+      hasRegistered: false,
       meetLink: null,
       upgradeUrl: null,
+      scheduledAt: new Date(Date.now() + 30 * 60 * 1000).toISOString(),
     });
     useListCoachingCalls.mockReturnValue({ data: [call] });
 
     render(<Coaching />);
 
     const row = screen.getByTestId("weekly-call-31");
-    const linkSoon = within(row).getByRole("button", { name: /link soon/i });
-    expect(linkSoon).toBeDisabled();
-    expect(within(row).queryByRole("link", { name: /join call/i })).not.toBeInTheDocument();
+    const closed = within(row).getByTestId("weekly-closed-31");
+    expect(closed).toBeDisabled();
+    expect(closed).toHaveTextContent(/rsvps closed/i);
+    expect(within(row).queryByTestId("weekly-join-31")).not.toBeInTheDocument();
     expect(within(row).queryByRole("button", { name: /unlock/i })).not.toBeInTheDocument();
   });
 

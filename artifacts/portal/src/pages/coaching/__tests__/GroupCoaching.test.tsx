@@ -35,6 +35,8 @@ vi.mock("@/lib/coach-group-calls-api", () => ({
   useCoachCalendarBusy: (...args: unknown[]) => useCoachCalendarBusy(...args),
   useCancelGroupCall: () => ({ mutate: cancelMutate, isPending: false }),
   useRestoreGroupCall: () => ({ mutate: restoreMutate, isPending: false }),
+  // Roster is disabled until expanded; these tests never expand it.
+  useGroupCallRoster: () => ({ data: undefined, isLoading: false, isError: false }),
 }));
 
 import GroupCoaching from "@/pages/coaching/GroupCoaching";
