@@ -574,3 +574,32 @@ export function stopQueueFallbackAlerter(): void {
   runner.stop();
   setQueueFallbackListener(null);
 }
+
+/**
+ * Blast export: returns the exact email { subject, text } the queue-fallback
+ * alerter would send for a FIRE on the given channel. Calls the canonical
+ * buildMessages() so the manifest subject reflects live production alert copy.
+ */
+export function buildQueueFallbackEmailForBlast(
+  queueChannel: QueueChannel,
+): { subject: string; text: string } {
+  const lastAt = new Date().toUTCString();
+  const emailStats = {
+    recentCount: queueChannel === "email" ? 8 : 0,
+    hourCount: queueChannel === "email" ? 8 : 0,
+    dayCount: queueChannel === "email" ? 24 : 0,
+    lastAt: queueChannel === "email" ? lastAt : null,
+  };
+  const smsStats = {
+    recentCount: queueChannel === "sms" ? 3 : 0,
+    hourCount: queueChannel === "sms" ? 3 : 0,
+    dayCount: queueChannel === "sms" ? 9 : 0,
+    lastAt: queueChannel === "sms" ? lastAt : null,
+  };
+  return buildMessages({
+    kind: "fire",
+    queueChannel,
+    now: Date.now(),
+    stats: { recentWindowMs: 60 * 60 * 1000, email: emailStats, sms: smsStats } as QueueFallbackStats,
+  }).email;
+}

@@ -202,6 +202,48 @@ export function formatOutageAge(ms: number | null | undefined): string | null {
   return remHours > 0 ? `~${days}d ${remHours}h` : `~${days}d`;
 }
 
+/**
+ * Canonical email subject + text builder for a TicketDesk delivery alert.
+ * Extracted so both the live email delivery and the blast export share the
+ * same copy — no hand-authored duplicate.
+ */
+function computeTicketDeskDeliveryEmail(p: TicketDeskDeliveryAlertPayload): { subject: string; text: string } {
+  const outageAge = formatOutageAge(p.outageAgeMs);
+  const subject =
+    p.kind === "fire"
+      ? p.escalated
+        ? `[CRITICAL] TicketDesk ticket delivery has been down for ${outageAge}`
+        : "[ALERT] TicketDesk ticket delivery is failing"
+      : "[RESOLVED] TicketDesk ticket delivery recovered";
+  const text =
+    p.kind === "fire"
+      ? [
+          `${p.stats.count} support ticket(s) have been stuck undelivered to TicketDesk for over ${p.stuckMinutes} minute(s),`,
+          `crossing the configured threshold of ${p.threshold}.`,
+          outageAge
+            ? `Delivery has been failing for ${outageAge} (since the oldest stuck ticket was created)${p.escalated ? ` — past the ${p.escalateMinutes}-minute escalation cutoff, so this has been raised to CRITICAL` : ""}.`
+            : "",
+          "",
+          `Breakdown: ${describeBacklog(p.stats)}.`,
+          "'failed' tickets exhausted all delivery retries; 'pending' tickets never left the queue.",
+          "This usually means the TicketDesk origin whitelist expired, the API secret rotated, or the TicketDesk instance is down.",
+          "",
+          `Oldest stuck ticket created: ${p.stats.oldestCreatedAt ?? "n/a"}.`,
+          `Last delivery error: ${p.stats.lastError ?? "no detail recorded"}.`,
+          "",
+          "Fallback emails for each failed/skipped ticket have gone to the support inbox, but delivery itself is broken.",
+          "Open /admin/system and check the 'TicketDesk delivery' panel, then verify the TicketDesk whitelist/secret.",
+        ].join("\n")
+      : [
+          "The TicketDesk delivery backlog has drained back below the alert threshold —",
+          "stuck tickets are clearing. Marking the alert resolved.",
+          "",
+          `Tickets still stuck >${p.stuckMinutes}m: ${p.stats.count}.`,
+          "Confirm via /admin/system.",
+        ].join("\n");
+  return { subject, text };
+}
+
 const defaultDeliveries: Record<DeliveryChannel, DeliveryFn> = {
   pagerduty: async (p) => {
     const key = process.env.PAGERDUTY_INTEGRATION_KEY;
@@ -292,39 +334,7 @@ const defaultDeliveries: Record<DeliveryChannel, DeliveryFn> = {
       process.env.OPS_ALERT_FROM_EMAIL ??
       process.env.FROM_EMAIL ??
       "noreply@buildtestscale.com";
-    const outageAge = formatOutageAge(p.outageAgeMs);
-    const subject =
-      p.kind === "fire"
-        ? p.escalated
-          ? `[CRITICAL] TicketDesk ticket delivery has been down for ${outageAge}`
-          : "[ALERT] TicketDesk ticket delivery is failing"
-        : "[RESOLVED] TicketDesk ticket delivery recovered";
-    const text =
-      p.kind === "fire"
-        ? [
-            `${p.stats.count} support ticket(s) have been stuck undelivered to TicketDesk for over ${p.stuckMinutes} minute(s),`,
-            `crossing the configured threshold of ${p.threshold}.`,
-            outageAge
-              ? `Delivery has been failing for ${outageAge} (since the oldest stuck ticket was created)${p.escalated ? ` — past the ${p.escalateMinutes}-minute escalation cutoff, so this has been raised to CRITICAL` : ""}.`
-              : "",
-            "",
-            `Breakdown: ${describeBacklog(p.stats)}.`,
-            "'failed' tickets exhausted all delivery retries; 'pending' tickets never left the queue.",
-            "This usually means the TicketDesk origin whitelist expired, the API secret rotated, or the TicketDesk instance is down.",
-            "",
-            `Oldest stuck ticket created: ${p.stats.oldestCreatedAt ?? "n/a"}.`,
-            `Last delivery error: ${p.stats.lastError ?? "no detail recorded"}.`,
-            "",
-            "Fallback emails for each failed/skipped ticket have gone to the support inbox, but delivery itself is broken.",
-            "Open /admin/system and check the 'TicketDesk delivery' panel, then verify the TicketDesk whitelist/secret.",
-          ].join("\n")
-        : [
-            "The TicketDesk delivery backlog has drained back below the alert threshold —",
-            "stuck tickets are clearing. Marking the alert resolved.",
-            "",
-            `Tickets still stuck >${p.stuckMinutes}m: ${p.stats.count}.`,
-            "Confirm via /admin/system.",
-          ].join("\n");
+    const { subject, text } = computeTicketDeskDeliveryEmail(p);
     await sgMail.send({ to, from, subject, text });
     return { channel: "email", ok: true };
   },
@@ -590,4 +600,27 @@ export function stopTicketDeskDeliveryAlerter(): void {
     pollHandle = null;
   }
   started = false;
+}
+
+/**
+ * Blast export: returns the exact email { subject, text } the TicketDesk
+ * delivery alerter would send for a (non-escalated) FIRE. Uses the canonical
+ * computeTicketDeskDeliveryEmail() so the manifest reflects live production copy.
+ */
+export function buildTicketDeskDeliveryEmailForBlast(): { subject: string; text: string } {
+  return computeTicketDeskDeliveryEmail({
+    kind: "fire",
+    now: Date.now(),
+    threshold: 3,
+    stuckMinutes: 30,
+    outageAgeMs: 47 * 60 * 1000,
+    escalateMinutes: 120,
+    escalated: false,
+    stats: {
+      count: 7,
+      byStatus: { failed: 5, pending: 2 },
+      oldestCreatedAt: new Date(Date.now() - 47 * 60 * 1000).toUTCString(),
+      lastError: "403 Forbidden — origin not whitelisted",
+    } as StuckTicketDeliveryStats,
+  });
 }

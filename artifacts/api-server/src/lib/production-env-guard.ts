@@ -363,3 +363,14 @@ export function startProductionEnvGuard(): void {
 export function stopProductionEnvGuard(): void {
   runner.stop();
 }
+
+/**
+ * Blast export: returns the exact email { subject, text } the production-env-guard
+ * would send for a FIRE on the given secret id. Calls the canonical buildMessages()
+ * so the manifest subject reflects live production alert copy.
+ */
+export function buildProductionEnvGuardEmailForBlast(secretId: string): { subject: string; text: string } {
+  const secret = GUARDED_SECRETS.find((s) => s.id === secretId);
+  if (!secret) throw new Error(`buildProductionEnvGuardEmailForBlast: unknown secretId "${secretId}"`);
+  return buildMessages({ kind: "fire", secret, now: Date.now() }).email;
+}

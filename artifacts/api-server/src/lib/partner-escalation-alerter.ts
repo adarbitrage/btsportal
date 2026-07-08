@@ -819,3 +819,14 @@ export function startPartnerEscalationAlerter(): void {
 export function stopPartnerEscalationAlerter(): void {
   runner.stop();
 }
+
+/**
+ * Blast export: returns the exact email { subject, text } the partner-escalation
+ * alerter would send for the given payload. Calls the canonical buildMessages()
+ * so the manifest subject reflects live production alert copy.
+ */
+export function buildPartnerEscalationEmailForBlast(
+  p: PartnerEscalationAlertPayload,
+): { subject: string; text: string } {
+  return buildMessages(p).email;
+}

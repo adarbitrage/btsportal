@@ -133,6 +133,43 @@ function describeKindBreakdown(window: ModerationFailureWindowStats): string {
   return parts.length > 0 ? parts.join("; ") : "(no in-window breakdown)";
 }
 
+/**
+ * Canonical email subject + text builder for a moderation-failure alert.
+ * Extracted so both the live email delivery and the blast export share the
+ * same copy — no hand-authored duplicate.
+ */
+function computeModerationFailureEmail(p: ModerationFailureAlertPayload): { subject: string; text: string } {
+  const minutes = Math.round(p.windowMs / 60000);
+  const subject =
+    p.kind === "fire"
+      ? "[ALERT] Background moderation jobs are failing"
+      : "[RESOLVED] Background moderation jobs recovered";
+  const text =
+    p.kind === "fire"
+      ? [
+          `The background moderation queue has failed ${p.window.totalCount} time(s) in the last ${minutes} minute(s),`,
+          `crossing the configured threshold of ${p.threshold}.`,
+          "",
+          `In-window breakdown: ${describeKindBreakdown(p.window)}.`,
+          p.window.byKind.persist > 0
+            ? "WARNING: 'persist' failures mean known-bad posts are still publicly active because the DB write to shadow-hide them threw."
+            : "All in-window failures were 'engine' (evaluator) errors — flagged content may have slipped through unevaluated.",
+          "",
+          `Most recent failure: ${p.window.lastAt ?? "n/a"} (${p.window.lastKind ?? "?"}) — ${p.window.lastError ?? "no detail"}.`,
+          `Cumulative since process start: ${p.cumulative.totalCount} (engine: ${p.cumulative.byKind.engine}, persist: ${p.cumulative.byKind.persist}).`,
+          "",
+          "Open /admin/system and check the 'Background moderation failures' panel.",
+        ].join("\n")
+      : [
+          "The background moderation queue has been quiet for the recovery window —",
+          "no new failures observed. Marking the alert resolved.",
+          "",
+          `Cumulative since process start: ${p.cumulative.totalCount}.`,
+          "Confirm via /admin/system.",
+        ].join("\n");
+  return { subject, text };
+}
+
 const defaultDeliveries: Record<DeliveryChannel, DeliveryFn> = {
   pagerduty: async (p) => {
     const key = process.env.PAGERDUTY_INTEGRATION_KEY;
@@ -198,34 +235,7 @@ const defaultDeliveries: Record<DeliveryChannel, DeliveryFn> = {
       process.env.OPS_ALERT_FROM_EMAIL ??
       process.env.FROM_EMAIL ??
       "noreply@buildtestscale.com";
-    const minutes = Math.round(p.windowMs / 60000);
-    const subject =
-      p.kind === "fire"
-        ? "[ALERT] Background moderation jobs are failing"
-        : "[RESOLVED] Background moderation jobs recovered";
-    const text =
-      p.kind === "fire"
-        ? [
-            `The background moderation queue has failed ${p.window.totalCount} time(s) in the last ${minutes} minute(s),`,
-            `crossing the configured threshold of ${p.threshold}.`,
-            "",
-            `In-window breakdown: ${describeKindBreakdown(p.window)}.`,
-            p.window.byKind.persist > 0
-              ? "WARNING: 'persist' failures mean known-bad posts are still publicly active because the DB write to shadow-hide them threw."
-              : "All in-window failures were 'engine' (evaluator) errors — flagged content may have slipped through unevaluated.",
-            "",
-            `Most recent failure: ${p.window.lastAt ?? "n/a"} (${p.window.lastKind ?? "?"}) — ${p.window.lastError ?? "no detail"}.`,
-            `Cumulative since process start: ${p.cumulative.totalCount} (engine: ${p.cumulative.byKind.engine}, persist: ${p.cumulative.byKind.persist}).`,
-            "",
-            "Open /admin/system and check the 'Background moderation failures' panel.",
-          ].join("\n")
-        : [
-            "The background moderation queue has been quiet for the recovery window —",
-            "no new failures observed. Marking the alert resolved.",
-            "",
-            `Cumulative since process start: ${p.cumulative.totalCount}.`,
-            "Confirm via /admin/system.",
-          ].join("\n");
+    const { subject, text } = computeModerationFailureEmail(p);
     await sgMail.send({ to, from, subject, text });
     return { channel: "email", ok: true };
   },
@@ -761,4 +771,29 @@ export function stopModerationFailureAlerter(): void {
     pollHandle = null;
   }
   started = false;
+}
+
+/**
+ * Blast export: returns the exact email { subject, text } the moderation-failure
+ * alerter would send for a FIRE. Uses the canonical computeModerationFailureEmail()
+ * so the manifest subject reflects live production alert copy.
+ */
+export function buildModerationFailureEmailForBlast(): { subject: string; text: string } {
+  return computeModerationFailureEmail({
+    kind: "fire",
+    now: Date.now(),
+    threshold: 5,
+    windowMs: 10 * 60 * 1000,
+    window: {
+      totalCount: 12,
+      lastAt: new Date().toUTCString(),
+      lastKind: "engine",
+      lastError: "OpenAI timeout after 30s",
+      byKind: { engine: 12, persist: 0 },
+    } as ModerationFailureWindowStats,
+    cumulative: {
+      totalCount: 24,
+      byKind: { engine: 24, persist: 0 },
+    } as ModerationFailureCumulativeStats,
+  });
 }

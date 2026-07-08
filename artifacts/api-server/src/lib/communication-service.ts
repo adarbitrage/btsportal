@@ -959,7 +959,10 @@ export const CommunicationService = {
       category: category || template.category,
       userId,
       templateSlug,
-      includeUnsubscribe: false,
+      // Intentional global behavior change (task 1730): direct sends now
+      // append the unsubscribe footer for marketing-category emails, matching
+      // the queued-send path above. Transactional emails never include it.
+      includeUnsubscribe: emailCategory === "marketing",
     });
   },
 

@@ -300,3 +300,18 @@ export function startRetellAgentAlerter(): void {
 export function stopRetellAgentAlerter(): void {
   runner.stop();
 }
+
+/**
+ * Blast export: returns the exact email { subject, text } the Retell agent
+ * alerter would send for a misconfigured FIRE. Calls the canonical buildMessages()
+ * so the manifest subject reflects live production alert copy.
+ */
+export function buildRetellAgentEmailForBlast(): { subject: string; text: string } {
+  return buildMessages({
+    kind: "fire",
+    now: Date.now(),
+    status: "misconfigured" as RetellHealthStatus,
+    detail:
+      "RETELL_AGENT_ID points to an agent that is not connected to the expected Retell LLM engine.",
+  }).email;
+}
