@@ -29,6 +29,10 @@ import {
   detectDuplicate,
   EMPTY_COMPLETION_REASON,
   SEGMENT_MAX_CHARS,
+  annotateKeptPassage,
+  SITUATIONAL_NUMBER_MARKER,
+  CONTEXT_BOUND_MARKER,
+  SEGMENT_ANOMALY_MARKER,
   type Segment,
 } from "./kb-value-screener";
 
@@ -689,5 +693,45 @@ describe("detectDuplicate (narrowed to near-identical WHOLE calls)", () => {
     ]);
     expect(v.status).toBe("unique");
     expect(v.duplicateOfSourceId).toBeNull();
+  });
+});
+
+describe("annotateKeptPassage (flag markers travel with the passage text)", () => {
+  const base = {
+    passage: "Coach: here is the teaching.",
+    anchorQuestion: null,
+    situationalNumber: false,
+    contextBound: false,
+    emergencySplit: false,
+  };
+
+  it("returns the plain passage when unflagged or when annotation is off", () => {
+    expect(annotateKeptPassage(base, true)).toBe(base.passage);
+    expect(
+      annotateKeptPassage({ ...base, situationalNumber: true, contextBound: true, emergencySplit: true }, false),
+    ).toBe(base.passage);
+  });
+
+  it("prefixes each carried flag's inline marker when annotating", () => {
+    const out = annotateKeptPassage(
+      { ...base, situationalNumber: true, contextBound: true, emergencySplit: true },
+      true,
+    );
+    expect(out.startsWith(SITUATIONAL_NUMBER_MARKER)).toBe(true);
+    expect(out).toContain(CONTEXT_BOUND_MARKER);
+    expect(out).toContain(SEGMENT_ANOMALY_MARKER);
+    expect(out.endsWith(base.passage)).toBe(true);
+  });
+
+  it("keeps the anchor question below the markers", () => {
+    const out = annotateKeptPassage(
+      { ...base, anchorQuestion: "How much should I spend?", situationalNumber: true },
+      true,
+    );
+    const markerIdx = out.indexOf(SITUATIONAL_NUMBER_MARKER);
+    const anchorIdx = out.indexOf("[Anchor question] How much should I spend?");
+    expect(markerIdx).toBe(0);
+    expect(anchorIdx).toBeGreaterThan(markerIdx);
+    expect(out).toContain(base.passage);
   });
 });

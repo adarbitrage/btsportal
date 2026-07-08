@@ -3,7 +3,22 @@ import {
   HEARSAY_GUARD,
   EXTRACT_PROMPT_VERSION,
   buildMapExtractSystemPrompt,
+  buildConsolidateSystemPrompt,
+  AUTHORITY_RANK,
+  AUTHORITY_PRECEDENCE_RULES,
+  SITUATIONAL_NUMBER_RULES,
+  NO_MEMBER_NAMES_RULE,
+  SOURCE_CONFLICT_MARKER,
+  FLAG_PRESERVATION_GUARD,
+  mergeScreeningFlags,
+  screeningFlagsLabel,
 } from "./kb-synthesis";
+import {
+  SITUATIONAL_NUMBER_MARKER,
+  CONTEXT_BOUND_MARKER,
+  SEGMENT_ANOMALY_MARKER,
+  EMPTY_SCREENING_FLAGS,
+} from "./kb-value-screener";
 import { fingerprintContent } from "./kb-source-windows";
 import { ALL_NODES } from "./kb-taxonomy";
 
@@ -55,5 +70,101 @@ describe("EXTRACT_PROMPT_VERSION (cache invalidation on prompt change)", () => {
     const a = fingerprintContent(`${EXTRACT_PROMPT_VERSION}\nkept segments v1`);
     const b = fingerprintContent(`${EXTRACT_PROMPT_VERSION}\nkept segments v2`);
     expect(a).not.toBe(b);
+  });
+});
+
+describe("AUTHORITY_RANK (curriculum owns the foundations)", () => {
+  it("ranks curriculum above strategic_coach, above va, above internal", () => {
+    expect(AUTHORITY_RANK.curriculum).toBeGreaterThan(AUTHORITY_RANK.strategic_coach);
+    expect(AUTHORITY_RANK.strategic_coach).toBeGreaterThan(AUTHORITY_RANK.va);
+    expect(AUTHORITY_RANK.va).toBeGreaterThan(AUTHORITY_RANK.internal);
+  });
+});
+
+describe("consolidation prompt contract (authority, conflicts, flags, names)", () => {
+  const node = ALL_NODES.find((n) => n.root === "concepts") ?? ALL_NODES[0];
+  const prompt = buildConsolidateSystemPrompt(node!, "depth guidance here");
+
+  it("embeds the authority-precedence rules: curriculum wins covered foundations, coaching supplements, VA never drives strategy", () => {
+    expect(prompt).toContain(AUTHORITY_PRECEDENCE_RULES);
+    expect(AUTHORITY_PRECEDENCE_RULES).toMatch(/curriculum'?s guidance WINS/);
+    expect(AUTHORITY_PRECEDENCE_RULES).toMatch(/SUPPLEMENTS/);
+    expect(AUTHORITY_PRECEDENCE_RULES).toMatch(/why, the when, the what-ifs/);
+    expect(AUTHORITY_PRECEDENCE_RULES).toMatch(/NEVER drive strategy claims/);
+    expect(AUTHORITY_PRECEDENCE_RULES).toMatch(/co-equal/);
+  });
+
+  it("requires real conflicts to be flagged for the reviewer with the exact visible marker, never silently resolved", () => {
+    expect(AUTHORITY_PRECEDENCE_RULES).toContain(SOURCE_CONFLICT_MARKER);
+    expect(AUTHORITY_PRECEDENCE_RULES).toMatch(/do NOT silently resolve/);
+    expect(SOURCE_CONFLICT_MARKER).toMatch(/^> /); // a visible blockquote line
+    expect(SOURCE_CONFLICT_MARKER).toMatch(/reviewer/i);
+  });
+
+  it("embeds the situational-number rules: context-bound illustrations only, never universal targets", () => {
+    expect(prompt).toContain(SITUATIONAL_NUMBER_RULES);
+    expect(SITUATIONAL_NUMBER_RULES).toMatch(/ONLY as context-bound illustrations WITH their context/);
+    expect(SITUATIONAL_NUMBER_RULES).toMatch(/NEVER as universal targets/);
+    expect(SITUATIONAL_NUMBER_RULES).toMatch(/\[SITUATIONAL\]/);
+    expect(SITUATIONAL_NUMBER_RULES).toMatch(/\[CONTEXT-BOUND\]/);
+  });
+
+  it("prohibits member names alongside the existing no-coach-surnames rule, and keeps the hearsay guard", () => {
+    expect(prompt).toContain(NO_MEMBER_NAMES_RULE);
+    expect(NO_MEMBER_NAMES_RULE).toMatch(/never include member names/);
+    expect(prompt).toMatch(/no coach surnames/);
+    expect(prompt).toContain(HEARSAY_GUARD);
+  });
+
+  it("pairs coaching insight around the curriculum foundation it supplements", () => {
+    expect(prompt).toMatch(/CURRICULUM PAIRING/);
+    expect(prompt).toMatch(/curriculum position first/);
+    expect(prompt).toMatch(/never as a competing alternative/);
+  });
+});
+
+describe("screener-flag threading (extract phase → consolidation)", () => {
+  it("the map extraction prompt instructs flag preservation onto bullets", () => {
+    const node = ALL_NODES[0];
+    const prompt = buildMapExtractSystemPrompt(node!);
+    expect(prompt).toContain(FLAG_PRESERVATION_GUARD);
+    expect(FLAG_PRESERVATION_GUARD).toMatch(/\[SITUATIONAL\], \[CONTEXT-BOUND\] or \[ANOMALY\]/);
+    expect(FLAG_PRESERVATION_GUARD).toMatch(/NEVER restate such numbers as general targets/);
+  });
+
+  it("the flag-preservation guard names the screener's inline markers", () => {
+    expect(FLAG_PRESERVATION_GUARD).toContain("[SITUATIONAL NUMBER");
+    expect(FLAG_PRESERVATION_GUARD).toContain("[CONTEXT-BOUND WALKTHROUGH");
+    expect(FLAG_PRESERVATION_GUARD).toContain("[SEGMENT ANOMALY");
+    expect(SITUATIONAL_NUMBER_MARKER).toMatch(/^\[SITUATIONAL NUMBER/);
+    expect(CONTEXT_BOUND_MARKER).toMatch(/^\[CONTEXT-BOUND WALKTHROUGH/);
+    expect(SEGMENT_ANOMALY_MARKER).toMatch(/^\[SEGMENT ANOMALY/);
+  });
+
+  it("mergeScreeningFlags unions flags so they survive hierarchical-reduce batching", () => {
+    const merged = mergeScreeningFlags([
+      { situationalNumbers: true, contextBound: false, segmentAnomaly: false },
+      { situationalNumbers: false, contextBound: true, segmentAnomaly: false },
+      { ...EMPTY_SCREENING_FLAGS },
+    ]);
+    expect(merged).toEqual({ situationalNumbers: true, contextBound: true, segmentAnomaly: false });
+    expect(mergeScreeningFlags([{ ...EMPTY_SCREENING_FLAGS }])).toEqual(EMPTY_SCREENING_FLAGS);
+  });
+
+  it("screeningFlagsLabel renders the flags into the consolidation source header (empty when clean)", () => {
+    expect(screeningFlagsLabel({ ...EMPTY_SCREENING_FLAGS })).toBe("");
+    expect(
+      screeningFlagsLabel({ situationalNumbers: true, contextBound: true, segmentAnomaly: true }),
+    ).toBe(", flags=situational-numbers+context-bound-walkthrough+segment-anomaly");
+    expect(screeningFlagsLabel({ situationalNumbers: true, contextBound: false, segmentAnomaly: false })).toBe(
+      ", flags=situational-numbers",
+    );
+  });
+
+  it("bumped EXTRACT_PROMPT_VERSION so pre-flag cached extracts regenerate", () => {
+    expect(EXTRACT_PROMPT_VERSION).not.toBe("v2-hearsay-guard");
+    expect(
+      fingerprintContent(`${EXTRACT_PROMPT_VERSION}\ncontent`),
+    ).not.toBe(fingerprintContent("v2-hearsay-guard\ncontent"));
   });
 });

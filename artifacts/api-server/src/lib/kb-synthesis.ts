@@ -31,7 +31,11 @@ import {
   getNodeSourceIncorporationCounts,
   type NodeSource,
 } from "./kb-topic-index.js";
-import { resolveSourceContentForSynthesis } from "./kb-value-screener.js";
+import {
+  resolveSourceContentForSynthesis,
+  EMPTY_SCREENING_FLAGS,
+  type ScreeningFlags,
+} from "./kb-value-screener.js";
 
 /**
  * Synthesis Engine (Task #1533, Part 1).
@@ -111,9 +115,13 @@ function depthTierFor(node: TaxonomyNode): { docClassTarget: "overview" | "curat
   return { docClassTarget: "curated", ceiling: "operational" };
 }
 
-const AUTHORITY_RANK: Readonly<Record<AuthorityRole, number>> = {
-  strategic_coach: 3,
-  curriculum: 2,
+// Authority precedence (Task #1751): the CURRICULUM is the canonical foundation
+// — where it covers a topic it outranks coaching commentary, which supplements
+// with judgment (the why / when / what-if) rather than overriding. VA content
+// never drives strategy claims. Exported so the precedence is unit-testable.
+export const AUTHORITY_RANK: Readonly<Record<AuthorityRole, number>> = {
+  curriculum: 3,
+  strategic_coach: 2,
   va: 1,
   internal: 0,
 };
@@ -173,7 +181,14 @@ export const HEARSAY_GUARD = `HEARSAY GUARD: transcript sources may contain MEMB
 // per-(source,node) extract-cache fingerprint, so a prompt change automatically
 // forces re-extraction on the next run — no manual DB surgery. (The fingerprint
 // is otherwise content-based, so a prompt-only change would NOT bust the cache.)
-export const EXTRACT_PROMPT_VERSION = "v2-hearsay-guard";
+export const EXTRACT_PROMPT_VERSION = "v3-authority-and-screener-flags";
+
+// Flag-preservation guard (Task #1751): the screened representation prefixes
+// risky kept segments with inline markers ([SITUATIONAL NUMBER …],
+// [CONTEXT-BOUND WALKTHROUGH …], [SEGMENT ANOMALY …]). The map phase must carry
+// those signals onto the extracted bullets so they survive into consolidation
+// instead of being flattened away with the passage text.
+export const FLAG_PRESERVATION_GUARD = `FLAG PRESERVATION: the source may prefix passages with markers like [SITUATIONAL NUMBER …], [CONTEXT-BOUND WALKTHROUGH …] or [SEGMENT ANOMALY …]. When a bullet draws on a marked passage, begin that bullet with the matching short tag — [SITUATIONAL], [CONTEXT-BOUND] or [ANOMALY]. For [SITUATIONAL] bullets, keep the member-specific context attached to the figure (e.g. "in one member's case, spending $X…") and NEVER restate such numbers as general targets, benchmarks or recommendations.`;
 
 // Map phase (one window): pull the node-relevant knowledge out of one slice of a
 // source, discarding the rest. Keeps each extraction focused and within budget.
@@ -183,6 +198,7 @@ export function buildMapExtractSystemPrompt(node: TaxonomyNode): string {
 TOPIC: "${node.label}".
 Return a tight bullet list of the concrete, usable facts / steps / guidance this source gives about that topic. Omit anything off-topic, pleasantries and filler. If the source says nothing usable about the topic, return exactly "NONE".
 ${HEARSAY_GUARD}
+${FLAG_PRESERVATION_GUARD}
 No preamble. Under ${MAP_EXTRACT_CHARS} characters.`;
 }
 
@@ -216,14 +232,21 @@ async function extractForNode(node: TaxonomyNode, source: SourceDoc): Promise<st
 // source content is unchanged (fingerprint match), otherwise re-extract and
 // upsert. This is what keeps incremental re-runs cheap now that the map phase
 // reads the whole source and the reduce folds in every linked source.
-async function getOrExtractForNode(node: TaxonomyNode, source: SourceDoc): Promise<string> {
+async function getOrExtractForNode(
+  node: TaxonomyNode,
+  source: SourceDoc,
+): Promise<{ extract: string; flags: ScreeningFlags }> {
   // Resolve the screened kept-segments representation (raw when no valid
-  // screening exists). The cache fingerprint is computed on the RESOLVED text
+  // screening exists), WITH inline flag markers so the risk signals travel
+  // through extraction. The cache fingerprint is computed on the RESOLVED text
   // so an admin keep/drop overrule or a re-screen invalidates the extract and
-  // it is re-run against the new content on the next synthesis.
-  const { content: resolvedContent } = await resolveSourceContentForSynthesis(
+  // it is re-run against the new content on the next synthesis. The aggregate
+  // flags are recomputed on every run (they are cheap and never cached), so a
+  // cached extract still carries fresh flags into consolidation.
+  const { content: resolvedContent, flags } = await resolveSourceContentForSynthesis(
     source.id,
     source.content ?? "",
+    { annotateFlags: true },
   );
   const resolvedSource: SourceDoc = { ...source, content: resolvedContent };
   // Fingerprint = prompt version + resolved (screened) content, so BOTH a
@@ -246,7 +269,7 @@ async function getOrExtractForNode(node: TaxonomyNode, source: SourceDoc): Promi
       )
       .limit(1);
     if (cached[0] && cached[0].contentFingerprint === fingerprint) {
-      return cached[0].extract;
+      return { extract: cached[0].extract, flags };
     }
   } catch (err) {
     // A cache read failure must never block synthesis — fall through to extract.
@@ -267,7 +290,26 @@ async function getOrExtractForNode(node: TaxonomyNode, source: SourceDoc): Promi
     // Persisting the cache is best-effort; the extract is still returned/used.
     console.error(`[Synthesis] extract-cache write failed for source ${source.id} / node ${node.slug}:`, err instanceof Error ? err.message : err);
   }
-  return extract;
+  return { extract, flags };
+}
+
+/** Union of per-source screening flags (used when folding batches in the
+ *  hierarchical reduce so no flag is lost between consolidation rounds). */
+export function mergeScreeningFlags(list: ScreeningFlags[]): ScreeningFlags {
+  return {
+    situationalNumbers: list.some((f) => f.situationalNumbers),
+    contextBound: list.some((f) => f.contextBound),
+    segmentAnomaly: list.some((f) => f.segmentAnomaly),
+  };
+}
+
+/** Render an entry's screening flags for the consolidation source header. */
+export function screeningFlagsLabel(flags: ScreeningFlags): string {
+  const parts: string[] = [];
+  if (flags.situationalNumbers) parts.push("situational-numbers");
+  if (flags.contextBound) parts.push("context-bound-walkthrough");
+  if (flags.segmentAnomaly) parts.push("segment-anomaly");
+  return parts.length ? `, flags=${parts.join("+")}` : "";
 }
 
 // One consolidation input: a per-source (or per-batch, during hierarchical
@@ -278,6 +320,47 @@ interface ConsolidateEntry {
   source: { sourceType: string | null; authorityRole: string | null };
   relevance: number;
   extract: string;
+  // Per-source screener risk signals (union of the kept segments' flags),
+  // rendered into the source header so consolidation treats flagged material
+  // correctly and the flags survive the hierarchical reduce.
+  flags: ScreeningFlags;
+}
+
+// Consolidation prompt contract (Task #1751), exported for unit tests.
+// Real conflicts must reach the reviewer VISIBLY — this exact marker is what
+// the prompt instructs the model to emit, so the review UI/reviewer can spot it.
+export const SOURCE_CONFLICT_MARKER = "> ⚠️ SOURCE CONFLICT (for reviewer):";
+
+export const AUTHORITY_PRECEDENCE_RULES = `AUTHORITY PRECEDENCE (see the authority= label on each source):
+- curriculum is the canonical foundation. On any foundation the curriculum covers, the curriculum's guidance WINS; coaching (strategic_coach) material SUPPLEMENTS it with judgment — the why, the when, the what-ifs and edge cases — and never overrides or contradicts it. Coaching guidance leads only where the curriculum is silent.
+- va sources may contribute operational/logistical detail but must NEVER drive strategy claims or teaching positions.
+- Otherwise, sources are co-equal.
+CONFLICTS: when co-equal sources GENUINELY disagree on substance (this excludes a curriculum-covered foundation, where curriculum simply wins), do NOT silently resolve it or pick one side. Keep both positions and add a visible blockquote line starting exactly "${SOURCE_CONFLICT_MARKER}" that states the disagreement plainly, so a human reviewer decides.`;
+
+export const SITUATIONAL_NUMBER_RULES = `SITUATIONAL NUMBERS: material tagged [SITUATIONAL] (or from a source flagged situational-numbers) contains figures tied to ONE member's situation or a point in time. Such numbers may appear ONLY as context-bound illustrations WITH their context (e.g. "in one member's case, spending $40/day…") — NEVER as universal targets, benchmarks, thresholds or recommendations. [CONTEXT-BOUND] walkthrough narration is topic evidence, not standalone quotable teaching — use it to inform the doc, don't transcribe it.`;
+
+export const NO_MEMBER_NAMES_RULE = `never include member names — refer to members generically ("a member", "one member")`;
+
+// Exported so the consolidation prompt contract is unit-testable (mirrors
+// buildMapExtractSystemPrompt).
+export function buildConsolidateSystemPrompt(node: TaxonomyNode, depthGuidance: string): string {
+  const relatedNodes = ALL_NODES.filter((n) => n.root === node.root && n.slug !== node.slug)
+    .map((n) => n.label)
+    .join(", ");
+
+  return `You are the BTS (Build Test Scale) knowledge synthesist. You consolidate knowledge that appears across MANY source documents into ONE authoritative truth document for a single topic node.
+TOPIC NODE: "${node.label}" (root: ${node.root}).
+${depthGuidance}
+RULES:
+- Consolidate — merge overlapping points, resolve small redundancies, present the collective best understanding. Do NOT just concatenate the sources.
+- ${AUTHORITY_PRECEDENCE_RULES}
+- CURRICULUM PAIRING: where coaching insight relates to a curriculum-covered foundation, attach it AROUND that foundation (present the curriculum position first, then the coaching judgment that builds on it) — never as a competing alternative.
+- ${SITUATIONAL_NUMBER_RULES}
+- ${HEARSAY_GUARD}
+- Layer the doc: a summary/orientation first, then the detail.
+- Add brief cross-links in prose to closely related topics where natural (related here: ${relatedNodes || "n/a"}).
+- BRAND RULES: say "Build Test Scale" / "BTS" (never "TCE" or "Cherrington"); no coach surnames; ${NO_MEMBER_NAMES_RULE}; support email is support@buildtestscale.com.
+- Output MARKDOWN only. First line MUST be a single "# Title" heading, then the body. No preamble, no meta commentary about sources.`;
 }
 
 // Reduce phase: consolidate the per-source extracts into ONE layered truth doc.
@@ -291,24 +374,10 @@ async function consolidate(
     : `Write a CURATED explainer: lead with a short plain-language summary, then go deep on the concept with the reasoning, examples and nuances the sources support. Conceptual depth.`;
 
   const numbered = extracts
-    .map((e, i) => `[SOURCE ${i + 1}] (${e.source.sourceType}, authority=${e.source.authorityRole ?? "internal"})\n${e.extract}`)
+    .map((e, i) => `[SOURCE ${i + 1}] (${e.source.sourceType}, authority=${e.source.authorityRole ?? "internal"}${screeningFlagsLabel(e.flags)})\n${e.extract}`)
     .join("\n\n");
 
-  const relatedNodes = ALL_NODES.filter((n) => n.root === node.root && n.slug !== node.slug)
-    .map((n) => n.label)
-    .join(", ");
-
-  const system = `You are the BTS (Build Test Scale) knowledge synthesist. You consolidate knowledge that appears across MANY source documents into ONE authoritative truth document for a single topic node.
-TOPIC NODE: "${node.label}" (root: ${node.root}).
-${depthGuidance}
-RULES:
-- Consolidate — merge overlapping points, resolve small redundancies, present the collective best understanding. Do NOT just concatenate the sources.
-- Where sources genuinely disagree, note the disagreement plainly rather than picking silently.
-- ${HEARSAY_GUARD}
-- Layer the doc: a summary/orientation first, then the detail.
-- Add brief cross-links in prose to closely related topics where natural (related here: ${relatedNodes || "n/a"}).
-- BRAND RULES: say "Build Test Scale" / "BTS" (never "TCE" or "Cherrington"); no coach surnames; support email is support@buildtestscale.com.
-- Output MARKDOWN only. First line MUST be a single "# Title" heading, then the body. No preamble, no meta commentary about sources.`;
+  const system = buildConsolidateSystemPrompt(node, depthGuidance);
 
   const user = `Consolidate the following ${extracts.length} source extract(s) into one truth document for "${node.label}".\n\n${numbered}`;
 
@@ -362,6 +431,9 @@ async function consolidateAll(
       },
       relevance: 1,
       extract: body,
+      // Union of the batch's flags so the risk signals survive every fold of
+      // the hierarchical reduce, not just the first consolidation round.
+      flags: mergeScreeningFlags(batch.map((e) => e.flags)),
     });
   }
   // The partials may themselves exceed the budget — fold again.
@@ -417,7 +489,7 @@ async function extractAtomicDefinitions(
   const system = `You review consolidated BTS (Build Test Scale) affiliate-marketing material for ONE topic and identify KEY TERMS that deserve their own short standalone definition document (like an entry answering "What is an angle?").
 Only include a term when the material actually DEFINES or explains it AND it is a reusable concept a member would look up on its own — never a passing mention. Return AT MOST ${MAX_ATOMIC_DEFS_PER_NODE}.
 Return ONLY JSON: {"definitions":[{"term":"<the term>","definition":"<2-4 sentence plain-language definition in member vocabulary>"}]}. Return {"definitions":[]} if none qualify.
-BRAND RULES: say "Build Test Scale" / "BTS" (never "TCE" or "Cherrington"); no coach surnames.`;
+BRAND RULES: say "Build Test Scale" / "BTS" (never "TCE" or "Cherrington"); no coach surnames; ${NO_MEMBER_NAMES_RULE}.`;
   const user = `TOPIC NODE: "${node.label}" (root: ${node.root}).\n\nMATERIAL:\n${extracts
     .map((e, i) => `[SOURCE ${i + 1}]\n${e.extract}`)
     .join("\n\n")}`;
@@ -568,11 +640,10 @@ export async function synthesizeNode(nodeSlug: string): Promise<SynthesizeResult
   const extracts = await mapWithConcurrency(
     linked,
     MAP_SOURCE_CONCURRENCY,
-    async (l) => ({
-      source: l.source,
-      relevance: l.link.relevance,
-      extract: await getOrExtractForNode(node, l.source),
-    }),
+    async (l) => {
+      const { extract, flags } = await getOrExtractForNode(node, l.source);
+      return { source: l.source, relevance: l.link.relevance, extract, flags };
+    },
   );
 
   // Drop sources that had nothing usable for this node.

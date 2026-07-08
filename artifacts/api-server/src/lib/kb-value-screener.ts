@@ -1083,18 +1083,76 @@ export async function screenSource(opts: {
   };
 }
 
+// ── Screening flags carried into synthesis (Task #1751) ─────────────────────
+//
+// Per-source aggregate of the screener's per-segment risk signals. These are
+// threaded through the synthesis extract phase into the consolidation prompt so
+// situational numbers, walkthrough narration and segmenter anomalies reach the
+// draft (and its reviewer) instead of silently vanishing when the extract is
+// flattened to a plain string.
+
+export interface ScreeningFlags {
+  /** ≥1 kept segment carries a member-specific / time-sensitive number. */
+  situationalNumbers: boolean;
+  /** ≥1 kept segment is live screen-share walkthrough narration. */
+  contextBound: boolean;
+  /** ≥1 kept segment was closed by the segmenter's emergency ceiling. */
+  segmentAnomaly: boolean;
+}
+
+export const EMPTY_SCREENING_FLAGS: Readonly<ScreeningFlags> = Object.freeze({
+  situationalNumbers: false,
+  contextBound: false,
+  segmentAnomaly: false,
+});
+
+// Inline passage markers the synthesis map phase is instructed to honor. They
+// travel WITH the passage text, so the risk signal survives the LLM extraction.
+export const SITUATIONAL_NUMBER_MARKER =
+  "[SITUATIONAL NUMBER — the figures in this passage are one member's specific situation or a point-in-time answer; context-bound illustrations ONLY, never universal targets]";
+export const CONTEXT_BOUND_MARKER =
+  "[CONTEXT-BOUND WALKTHROUGH — live screen-share narration; topic evidence, not standalone quotable teaching]";
+export const SEGMENT_ANOMALY_MARKER =
+  "[SEGMENT ANOMALY — segment closed by the emergency size ceiling, not a topic boundary; passage boundaries may be unreliable]";
+
+/** Render one kept segment for the screened representation, prefixing the
+ *  inline flag markers (and anchor question) it carries. Pure — unit-tested. */
+export function annotateKeptPassage(row: {
+  passage: string;
+  anchorQuestion: string | null;
+  situationalNumber: boolean;
+  contextBound: boolean;
+  emergencySplit: boolean;
+}, annotateFlags: boolean): string {
+  const base =
+    row.anchorQuestion && !row.passage.includes(row.anchorQuestion)
+      ? `[Anchor question] ${row.anchorQuestion}\n${row.passage}`
+      : row.passage;
+  if (!annotateFlags) return base;
+  const markers: string[] = [];
+  if (row.situationalNumber) markers.push(SITUATIONAL_NUMBER_MARKER);
+  if (row.contextBound) markers.push(CONTEXT_BOUND_MARKER);
+  if (row.emergencySplit) markers.push(SEGMENT_ANOMALY_MARKER);
+  return markers.length ? `${markers.join("\n")}\n${base}` : base;
+}
+
 /**
  * The screened representation a downstream reader consumes: the KEPT segments
- * (honoring admin overrides) joined back into a compact transcript. Dropped,
- * flagged, and errored segments are excluded. The raw source content is left
- * untouched for audit.
+ * (honoring admin overrides) joined back into a compact transcript, plus the
+ * per-source aggregate {@link ScreeningFlags}. Dropped, flagged, and errored
+ * segments are excluded. The raw source content is left untouched for audit.
+ * With `annotateFlags`, each risky kept segment is prefixed with its inline
+ * marker so the flag travels with the text through LLM extraction.
  */
-export async function getScreenedRepresentation(sourceDocId: number): Promise<string> {
+export async function getScreenedRepresentationDetailed(
+  sourceDocId: number,
+  opts: { annotateFlags?: boolean } = {},
+): Promise<{ content: string; flags: ScreeningFlags }> {
   const [screening] = await db
     .select()
     .from(kbCallScreeningsTable)
     .where(eq(kbCallScreeningsTable.sourceDocId, sourceDocId));
-  if (!screening) return "";
+  if (!screening) return { content: "", flags: { ...EMPTY_SCREENING_FLAGS } };
 
   const rows = await db
     .select()
@@ -1102,14 +1160,21 @@ export async function getScreenedRepresentation(sourceDocId: number): Promise<st
     .where(eq(kbScreenedExchangesTable.screeningId, screening.id))
     .orderBy(kbScreenedExchangesTable.orderIndex);
 
-  return rows
-    .filter((r) => effectiveDisposition(r) === "keep")
-    .map((r) =>
-      r.anchorQuestion && !r.passage.includes(r.anchorQuestion)
-        ? `[Anchor question] ${r.anchorQuestion}\n${r.passage}`
-        : r.passage,
-    )
+  const kept = rows.filter((r) => effectiveDisposition(r) === "keep");
+  const flags: ScreeningFlags = {
+    situationalNumbers: kept.some((r) => r.situationalNumber),
+    contextBound: kept.some((r) => r.contextBound),
+    segmentAnomaly: kept.some((r) => r.emergencySplit),
+  };
+  const content = kept
+    .map((r) => annotateKeptPassage(r, opts.annotateFlags === true))
     .join("\n\n");
+  return { content, flags };
+}
+
+/** Back-compat plain-text view of {@link getScreenedRepresentationDetailed}. */
+export async function getScreenedRepresentation(sourceDocId: number): Promise<string> {
+  return (await getScreenedRepresentationDetailed(sourceDocId)).content;
 }
 
 /**
@@ -1129,17 +1194,18 @@ export async function getScreenedRepresentation(sourceDocId: number): Promise<st
 export async function resolveSourceContentForSynthesis(
   sourceDocId: number,
   rawContent: string,
-): Promise<{ content: string; screened: boolean }> {
+  opts: { annotateFlags?: boolean } = {},
+): Promise<{ content: string; screened: boolean; flags: ScreeningFlags }> {
   try {
-    const screened = await getScreenedRepresentation(sourceDocId);
-    if (screened.trim().length > 0) return { content: screened, screened: true };
+    const { content: screened, flags } = await getScreenedRepresentationDetailed(sourceDocId, opts);
+    if (screened.trim().length > 0) return { content: screened, screened: true, flags };
   } catch (err) {
     console.error(
       `[ValueScreener] screened-content resolution failed for source ${sourceDocId}, using raw:`,
       err instanceof Error ? err.message : err,
     );
   }
-  return { content: rawContent, screened: false };
+  return { content: rawContent, screened: false, flags: { ...EMPTY_SCREENING_FLAGS } };
 }
 
 // ── Background pilot run state ───────────────────────────────────────────────

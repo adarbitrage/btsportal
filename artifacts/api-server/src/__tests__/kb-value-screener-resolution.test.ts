@@ -136,6 +136,58 @@ describe("resolveSourceContentForSynthesis (the screened-content seam)", () => {
     expect(r.content).toContain("AI dropped, admin kept.");
     expect(r.content).not.toContain("AI kept, admin dropped.");
   });
+
+  it("aggregates kept-segment screening flags and annotates markers only when asked", async () => {
+    const id = await makeSource("flags");
+    const screeningId = await makeScreening(id);
+    await db.insert(kbScreenedExchangesTable).values([
+      {
+        screeningId,
+        sourceDocId: id,
+        orderIndex: 0,
+        passage: "Kept with situational spend number.",
+        disposition: "keep",
+        situationalNumber: true,
+      },
+      {
+        screeningId,
+        sourceDocId: id,
+        orderIndex: 1,
+        passage: "Kept walkthrough narration.",
+        disposition: "keep",
+        contextBound: true,
+      },
+      // A DROPPED situational segment must NOT set the source flag.
+      {
+        screeningId,
+        sourceDocId: id,
+        orderIndex: 2,
+        passage: "Dropped situational chatter.",
+        disposition: "drop",
+        situationalNumber: true,
+        emergencySplit: true,
+      },
+    ]);
+
+    const plain = await resolveSourceContentForSynthesis(id, RAW);
+    expect(plain.screened).toBe(true);
+    expect(plain.flags).toEqual({ situationalNumbers: true, contextBound: true, segmentAnomaly: false });
+    expect(plain.content).not.toContain("[SITUATIONAL NUMBER");
+
+    const annotated = await resolveSourceContentForSynthesis(id, RAW, { annotateFlags: true });
+    expect(annotated.flags).toEqual(plain.flags);
+    expect(annotated.content).toContain("[SITUATIONAL NUMBER");
+    expect(annotated.content).toContain("[CONTEXT-BOUND WALKTHROUGH");
+    expect(annotated.content).not.toContain("[SEGMENT ANOMALY");
+    expect(annotated.content).not.toContain("Dropped situational chatter.");
+  });
+
+  it("returns empty flags on the raw-content fallback", async () => {
+    const id = await makeSource("unscreened-flags");
+    const r = await resolveSourceContentForSynthesis(id, RAW, { annotateFlags: true });
+    expect(r.screened).toBe(false);
+    expect(r.flags).toEqual({ situationalNumbers: false, contextBound: false, segmentAnomaly: false });
+  });
 });
 
 describe("screener progress state", () => {

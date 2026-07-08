@@ -47,3 +47,19 @@ truth structure, so drafts should be node-anchored and multi-source.
   curated(concept)→process stages + sibling concepts — so overview↔concept are always wired.
 - Review UI drill-down is Shelf → Node (Node is the primary synthesis facet); Origin/Authority
   filters and the existing_doc type facet were removed as part of this realignment.
+
+## Authority + screener-flag threading (2026-07)
+- `AUTHORITY_RANK`: curriculum(3) > strategic_coach(2) > va(1) > internal(0) — curriculum
+  OWNS covered foundations; coaching supplements (why/when/what-if); VA never drives
+  strategy. Real co-equal conflicts must render the visible `SOURCE_CONFLICT_MARKER`
+  blockquote for the reviewer, never be silently resolved.
+- Screener flags travel TWO ways in parallel: inline text markers ([SITUATIONAL NUMBER…],
+  [CONTEXT-BOUND WALKTHROUGH…], [SEGMENT ANOMALY…]) annotated onto kept passages so they
+  survive LLM extraction (guarded by FLAG_PRESERVATION_GUARD in the map prompt), AND a
+  structured `ScreeningFlags` object carried on `ConsolidateEntry` into consolidation
+  source headers; `consolidateAll` batching must union flags (mergeScreeningFlags) or the
+  hierarchical reduce drops them. Flags are recomputed per run, never cached with extracts.
+- Any prompt change to the extract phase must bump `EXTRACT_PROMPT_VERSION` or cached
+  extracts keep the old contract.
+- No-member-names is an explicit prompt rule in consolidation + atomic-definition prompts
+  (alongside no-coach-surnames).
