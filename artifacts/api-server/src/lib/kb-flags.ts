@@ -15,6 +15,12 @@ import { db } from "@workspace/db";
 import { knowledgebaseDocsTable } from "@workspace/db/schema";
 import { eq, isNotNull, and } from "drizzle-orm";
 import { scrubPrivateContent } from "./content-privacy-filter";
+import {
+  hasSourceConflictMarker,
+  hasSynthesisRiskTags,
+  hasTimeSensitivePhrasing,
+  hasPrivacyResidue,
+} from "./kb-review-risk";
 
 export type FlagSeverity = "critical" | "high" | "medium" | "low";
 
@@ -25,7 +31,13 @@ export type RiskFlagType =
   | "weak_source"
   | "stale_legacy"
   | "single_source"
-  | "possible_duplicate";
+  | "possible_duplicate"
+  // Review-gate flags (Task #1752) — signals threaded from synthesis or found
+  // in the draft text itself. Computed via the pure detectors in kb-review-risk.
+  | "source_conflict"
+  | "situational_content"
+  | "time_sensitive"
+  | "privacy_residue";
 
 export interface RiskFlag {
   type: RiskFlagType;
@@ -47,7 +59,9 @@ export function maxSeverity(flags: readonly RiskFlag[]): FlagSeverity | null {
 
 /** Flags that must block bulk-confirm (require explicit per-doc adjudication). */
 export function blocksBulkConfirm(flags: readonly RiskFlag[]): boolean {
-  return flags.some((f) => f.type === "conflict" || f.type === "high_stakes");
+  return flags.some(
+    (f) => f.type === "conflict" || f.type === "high_stakes" || f.type === "source_conflict",
+  );
 }
 
 // ── Pattern vocabularies ─────────────────────────────────────────────────────
@@ -178,6 +192,53 @@ export function computeRiskFlags(input: ComputeFlagsInput): RiskFlag[] {
       severity: "medium",
       message: "Contains stale / legacy references",
       detail: stale.join(", "),
+    });
+  }
+
+  // ── Review-gate flags (Task #1752) ─────────────────────────────────────────
+  // Signals threaded from synthesis (inline tags + conflict blockquotes) plus
+  // content-level risk phrasing. Detectors are pure (kb-review-risk).
+
+  // Unresolved SOURCE CONFLICT blockquote left in the draft body.
+  if (hasSourceConflictMarker(input.content)) {
+    flags.push({
+      type: "source_conflict",
+      severity: "critical",
+      message: "Unresolved source conflict in draft",
+      detail:
+        "The draft body contains a \"SOURCE CONFLICT (for reviewer)\" blockquote from synthesis — adjudicate and rewrite/remove it before publishing.",
+    });
+  }
+
+  // Situational / context-bound / anomaly material carried through synthesis.
+  if (hasSynthesisRiskTags(input.content)) {
+    flags.push({
+      type: "situational_content",
+      severity: "high",
+      message: "Situational / context-bound material",
+      detail:
+        "Contains [SITUATIONAL], [CONTEXT-BOUND] or [ANOMALY] passages from synthesis — verify figures stay context-bound illustrations, never universal targets.",
+    });
+  }
+
+  // Time-sensitive phrasing that will age.
+  if (hasTimeSensitivePhrasing(input.content)) {
+    flags.push({
+      type: "time_sensitive",
+      severity: "medium",
+      message: "Time-sensitive phrasing",
+      detail: "Phrases like \"right now\"/\"currently\"/dated references will age — rewrite timelessly or confirm.",
+    });
+  }
+
+  // Residual private content (names/emails/phones/old brand) still in the text.
+  if (hasPrivacyResidue(input.content)) {
+    flags.push({
+      type: "privacy_residue",
+      severity: "high",
+      message: "Residual private content",
+      detail:
+        "Matches the privacy scrub rules (member/coach name, email, phone or legacy brand). Auto-scrubbed at publish, but verify the passage reads correctly.",
     });
   }
 

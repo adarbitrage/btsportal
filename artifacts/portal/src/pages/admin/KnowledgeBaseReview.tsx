@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, type ReactNode } from "react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -88,6 +88,33 @@ interface SynthSource {
   transcriptSourceId?: number | null;
   relevance?: number | null;
   isNew?: boolean | null;
+}
+
+// Review-gate insights (Task #1752): risky passages + contributing source set,
+// computed server-side from the draft's CURRENT text.
+interface ReviewHighlight {
+  kind: string;
+  severity: FlagSeverity;
+  label: string;
+  excerpt: string;
+  line: number;
+  lineText: string;
+  note: string;
+}
+
+interface ReviewSource {
+  sourceName: string | null;
+  sourceType: string | null;
+  sourceKind: string | null;
+  coachName: string | null;
+  authorityRole: string | null;
+  relevance: number | null;
+  date: string | null;
+}
+
+interface ReviewInsights {
+  highlights: ReviewHighlight[];
+  sources: ReviewSource[];
 }
 
 interface StagingDoc {
@@ -338,6 +365,96 @@ function RiskChips({ flags, needsExpert }: { flags: RiskFlag[] | null; needsExpe
   );
 }
 
+// ── Review-focus highlighting (Task #1752) ──────────────────────────────────────
+
+// Line tint + excerpt mark styles per severity.
+const HIGHLIGHT_LINE_BG: Record<FlagSeverity, string> = {
+  critical: "bg-red-50",
+  high: "bg-orange-50",
+  medium: "bg-amber-50",
+  low: "bg-slate-50",
+};
+const HIGHLIGHT_MARK_BG: Record<FlagSeverity, string> = {
+  critical: "bg-red-200",
+  high: "bg-orange-200",
+  medium: "bg-amber-200",
+  low: "bg-slate-200",
+};
+
+/** Wrap each highlight excerpt found in `text` with a tinted <mark>. */
+function markExcerpts(text: string, hs: ReviewHighlight[]): ReactNode {
+  // Collect non-overlapping [start, end, severity] ranges (first occurrence each).
+  const ranges: Array<{ start: number; end: number; severity: FlagSeverity }> = [];
+  for (const h of hs) {
+    if (!h.excerpt) continue;
+    let from = 0;
+    const idxAll: number[] = [];
+    let idx = text.indexOf(h.excerpt, from);
+    while (idx !== -1) {
+      idxAll.push(idx);
+      from = idx + h.excerpt.length;
+      idx = text.indexOf(h.excerpt, from);
+    }
+    for (const start of idxAll) {
+      const end = start + h.excerpt.length;
+      if (!ranges.some((r) => start < r.end && end > r.start)) {
+        ranges.push({ start, end, severity: h.severity });
+      }
+    }
+  }
+  if (ranges.length === 0) return text;
+  ranges.sort((a, b) => a.start - b.start);
+  const out: ReactNode[] = [];
+  let cursor = 0;
+  ranges.forEach((r, i) => {
+    if (r.start > cursor) out.push(text.slice(cursor, r.start));
+    out.push(
+      <mark key={i} className={`${HIGHLIGHT_MARK_BG[r.severity]} rounded px-0.5`}>
+        {text.slice(r.start, r.end)}
+      </mark>,
+    );
+    cursor = r.end;
+  });
+  if (cursor < text.length) out.push(text.slice(cursor));
+  return out;
+}
+
+/** Render draft content line-by-line with risk-highlighted lines and excerpts. */
+function HighlightedContent({ content, highlights }: { content: string; highlights: ReviewHighlight[] }) {
+  const byLine = new Map<number, ReviewHighlight[]>();
+  for (const h of highlights) {
+    const arr = byLine.get(h.line) ?? [];
+    arr.push(h);
+    byLine.set(h.line, arr);
+  }
+  const lines = content.split("\n");
+  return (
+    <div className="font-sans text-sm text-gray-800 leading-relaxed">
+      {lines.map((line, i) => {
+        // Only trust highlights whose lineText still matches (content may have
+        // shifted between analysis and render — never mis-highlight).
+        const hs = (byLine.get(i) ?? []).filter((h) => h.lineText === line);
+        if (hs.length === 0) {
+          return (
+            <div key={i} className="whitespace-pre-wrap min-h-[1.25em]">
+              {line || "\u00A0"}
+            </div>
+          );
+        }
+        const worst = hs.reduce<FlagSeverity>(
+          (acc, h) => (SEVERITY_RANK[h.severity] > SEVERITY_RANK[acc] ? h.severity : acc),
+          "low",
+        );
+        return (
+          <div key={i} className={`whitespace-pre-wrap min-h-[1.25em] ${HIGHLIGHT_LINE_BG[worst]} -mx-1 px-1 rounded-sm`}>
+            {markExcerpts(line, hs)}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 // ── Main component ──────────────────────────────────────────────────────────────
 
 export default function KnowledgeBaseReview() {
@@ -389,6 +506,8 @@ export default function KnowledgeBaseReview() {
   const [adminNotes, setAdminNotes] = useState("");
   const [instruction, setInstruction] = useState("");
   const [redrafting, setRedrafting] = useState(false);
+  const [reviewInsights, setReviewInsights] = useState<ReviewInsights | null>(null);
+  const [insightsLoading, setInsightsLoading] = useState(false);
   const [refineThread, setRefineThread] = useState<Array<{ role: string; content: string }>>([]);
   const [mergeIds, setMergeIds] = useState<Set<number>>(new Set());
   const [merging, setMerging] = useState(false);
@@ -402,6 +521,8 @@ export default function KnowledgeBaseReview() {
   const [sourcesLoading, setSourcesLoading] = useState(false);
   const { toast } = useToast();
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  // Monotonic token so only the latest review-insights request writes state.
+  const insightsRequestRef = useRef(0);
 
   const fetchDocs = useCallback(async () => {
     setLoading(true);
@@ -631,6 +752,7 @@ export default function KnowledgeBaseReview() {
       if (selectedDoc?.id === id) {
         const updated = await res.json();
         setSelectedDoc(updated);
+        fetchInsights(id);
       }
     } catch {
       toast({ title: "Update failed", variant: "destructive" });
@@ -701,12 +823,35 @@ export default function KnowledgeBaseReview() {
     }
   };
 
+  // Review-gate insights (Task #1752): fetched fresh whenever the draft text
+  // changes (open / edit-save / refine) so highlights track the CURRENT text.
+  const fetchInsights = async (docId: number) => {
+    // Version guard: only the LATEST request may write state, so a slow
+    // response for a previously-open doc can never render on the wrong doc.
+    const token = ++insightsRequestRef.current;
+    setInsightsLoading(true);
+    try {
+      const res = await authFetch(`/admin/knowledgebase/staging/${docId}/review-insights`);
+      if (!res.ok) throw new Error("Failed");
+      const data = await res.json();
+      if (insightsRequestRef.current !== token) return; // stale response
+      setReviewInsights(data);
+    } catch {
+      if (insightsRequestRef.current !== token) return;
+      setReviewInsights(null); // advisory panel — fail quiet, content still shown
+    } finally {
+      if (insightsRequestRef.current === token) setInsightsLoading(false);
+    }
+  };
+
   const openDoc = (doc: StagingDoc) => {
     setSelectedDoc(doc);
     setEditMode(false);
     setInstruction("");
     setRefineThread([]);
+    setReviewInsights(null);
     loadRefineThread(doc.id);
+    fetchInsights(doc.id);
     setEditContent(doc.editedContent || doc.content);
     setEditTitle(doc.aiCleanedTitle || doc.title);
     setEditCategory(doc.category);
@@ -762,13 +907,13 @@ export default function KnowledgeBaseReview() {
     }
   };
 
-  const runRefine = async () => {
-    if (!selectedDoc || !instruction.trim()) return;
-    const myInstruction = instruction.trim();
+  // Core refine call — shared by the chat box (runRefine) and the per-passage
+  // "Soften" control (softenHighlight). Builds on the existing /refine path.
+  const sendRefine = async (myInstruction: string) => {
+    if (!selectedDoc || !myInstruction.trim()) return;
     const priorHistory = refineThread;
     setRedrafting(true);
     setRefineThread((prev) => [...prev, { role: "user", content: myInstruction }]);
-    setInstruction("");
     try {
       const res = await authFetch(`/admin/knowledgebase/staging/${selectedDoc.id}/refine`, {
         method: "POST",
@@ -781,13 +926,55 @@ export default function KnowledgeBaseReview() {
       setEditContent(data.document.editedContent || data.document.content);
       setRefineThread((prev) => [...prev, { role: "assistant", content: data.assistantMessage || "Draft updated." }]);
       fetchDocs();
+      fetchInsights(selectedDoc.id);
     } catch {
       toast({ title: "Refine failed", variant: "destructive" });
       setRefineThread((prev) => prev.slice(0, -1));
-      setInstruction(myInstruction);
+      throw new Error("refine-failed");
     } finally {
       setRedrafting(false);
     }
+  };
+
+  const runRefine = async () => {
+    if (!selectedDoc || !instruction.trim()) return;
+    const myInstruction = instruction.trim();
+    setInstruction("");
+    try {
+      await sendRefine(myInstruction);
+    } catch {
+      setInstruction(myInstruction); // restore the box so the admin can retry
+    }
+  };
+
+  // Per-passage "Soften": canned refine instruction quoting the flagged excerpt.
+  const softenHighlight = (h: ReviewHighlight) => {
+    if (redrafting) return;
+    const line = h.lineText.length > 220 ? h.lineText.slice(0, 220) + "…" : h.lineText;
+    sendRefine(
+      `Soften this flagged passage (${h.label}): keep any facts correct but rewrite it as timeless, context-bound guidance — no member-specific figures stated as universal targets, no time-sensitive phrasing, no names. Flagged excerpt: "${h.excerpt}" in the line: "${line.trim()}". Remove any leftover [SITUATIONAL]/[CONTEXT-BOUND]/[ANOMALY] tags or SOURCE CONFLICT blockquote markers from that passage once resolved.`,
+    ).catch(() => {});
+  };
+
+  // Per-passage "Cut": deterministically remove the flagged line via the
+  // existing draft-edit path (PATCH editedContent). Exact-line match so a
+  // stale insight can never delete the wrong text.
+  const cutHighlightLine = async (h: ReviewHighlight) => {
+    if (!selectedDoc) return;
+    const current = selectedDoc.editedContent || selectedDoc.content;
+    const lines = current.split("\n");
+    let idx = h.line >= 0 && lines[h.line] === h.lineText ? h.line : lines.indexOf(h.lineText);
+    if (idx === -1) {
+      toast({ title: "Passage has changed", description: "Refreshing highlights — try again.", variant: "destructive" });
+      fetchInsights(selectedDoc.id);
+      return;
+    }
+    lines.splice(idx, 1);
+    // Collapse a doubled blank line left by the removal.
+    if (idx > 0 && idx < lines.length && lines[idx] === "" && lines[idx - 1] === "") lines.splice(idx, 1);
+    const next = lines.join("\n");
+    await updateDoc(selectedDoc.id, { editedContent: next });
+    setEditContent(next);
   };
 
   const loadSources = async () => {
@@ -1136,21 +1323,40 @@ export default function KnowledgeBaseReview() {
                           Consolidated from {selectedDoc.synthesisSources.length} source(s):
                         </p>
                         <ul className="space-y-0.5 max-h-40 overflow-auto">
-                          {selectedDoc.synthesisSources
-                            .slice()
-                            .sort((a, b) => (b.relevance ?? 0) - (a.relevance ?? 0))
-                            .map((s, i) => (
-                              <li key={`${s.sourceDocId ?? "s"}-${i}`} className="flex items-center gap-2 text-xs text-gray-600">
-                                <span className="text-gray-400 w-4 text-right">{i + 1}.</span>
-                                <span className="truncate">{s.sourceName ?? `Source #${s.sourceDocId ?? "?"}`}</span>
-                                {s.authorityRole && (
-                                  <Badge variant="outline" className="text-[10px] bg-blue-50 text-blue-700 border-blue-200">{s.authorityRole}</Badge>
-                                )}
-                                {typeof s.relevance === "number" && (
-                                  <span className="ml-auto text-gray-400">{Math.round(s.relevance * 100)}%</span>
-                                )}
-                              </li>
-                            ))}
+                          {(reviewInsights?.sources?.length
+                            ? reviewInsights.sources.map((s, i) => (
+                                <li key={`ri-${i}`} className="flex items-center gap-2 text-xs text-gray-600">
+                                  <span className="text-gray-400 w-4 text-right">{i + 1}.</span>
+                                  <span className="truncate">{s.sourceName ?? "Unknown source"}</span>
+                                  {s.coachName && (
+                                    <Badge variant="outline" className="text-[10px] bg-emerald-50 text-emerald-700 border-emerald-200">{s.coachName}</Badge>
+                                  )}
+                                  {s.authorityRole && (
+                                    <Badge variant="outline" className="text-[10px] bg-blue-50 text-blue-700 border-blue-200">{s.authorityRole}</Badge>
+                                  )}
+                                  {s.date && (
+                                    <span className="text-gray-400 whitespace-nowrap">{new Date(s.date).toLocaleDateString()}</span>
+                                  )}
+                                  {typeof s.relevance === "number" && (
+                                    <span className="ml-auto text-gray-400">{Math.round(s.relevance * 100)}%</span>
+                                  )}
+                                </li>
+                              ))
+                            : selectedDoc.synthesisSources
+                                .slice()
+                                .sort((a, b) => (b.relevance ?? 0) - (a.relevance ?? 0))
+                                .map((s, i) => (
+                                  <li key={`${s.sourceDocId ?? "s"}-${i}`} className="flex items-center gap-2 text-xs text-gray-600">
+                                    <span className="text-gray-400 w-4 text-right">{i + 1}.</span>
+                                    <span className="truncate">{s.sourceName ?? `Source #${s.sourceDocId ?? "?"}`}</span>
+                                    {s.authorityRole && (
+                                      <Badge variant="outline" className="text-[10px] bg-blue-50 text-blue-700 border-blue-200">{s.authorityRole}</Badge>
+                                    )}
+                                    {typeof s.relevance === "number" && (
+                                      <span className="ml-auto text-gray-400">{Math.round(s.relevance * 100)}%</span>
+                                    )}
+                                  </li>
+                                )))}
                         </ul>
                       </div>
                     ) : selectedDoc.sourceVideoTitle ? (
@@ -1177,10 +1383,75 @@ export default function KnowledgeBaseReview() {
                     )}
                   </div>
 
+                  {/* Review focus — risky passages with per-passage soften/cut (Task #1752) */}
+                  {(insightsLoading || (reviewInsights?.highlights?.length ?? 0) > 0) && (
+                    <div className="rounded-lg border border-amber-200 bg-amber-50/60 p-3 space-y-2">
+                      <div className="flex items-center gap-2 text-sm font-medium text-amber-900">
+                        <Radar className="w-4 h-4" />
+                        Review focus
+                        {insightsLoading ? (
+                          <Loader2 className="w-3.5 h-3.5 animate-spin text-amber-500" />
+                        ) : (
+                          <span className="text-xs font-normal text-amber-700">
+                            {reviewInsights?.highlights.length} flagged passage(s) — soften, cut, or confirm each before publishing
+                          </span>
+                        )}
+                      </div>
+                      {!insightsLoading && reviewInsights && (
+                        <ul className="space-y-1.5 max-h-64 overflow-y-auto">
+                          {reviewInsights.highlights
+                            .slice()
+                            .sort((a, b) => SEVERITY_RANK[b.severity] - SEVERITY_RANK[a.severity])
+                            .map((h, i) => (
+                              <li key={`${h.kind}-${h.line}-${i}`} className="rounded-md border bg-white p-2 text-xs space-y-1">
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <Badge variant="outline" className={`text-[10px] ${SEVERITY_STYLES[h.severity].chip}`}>
+                                    {h.label}
+                                  </Badge>
+                                  <span className="font-mono text-gray-700 truncate max-w-[18rem]" title={h.excerpt}>
+                                    “{h.excerpt.length > 60 ? h.excerpt.slice(0, 60) + "…" : h.excerpt}”
+                                  </span>
+                                  <span className="text-gray-400">line {h.line + 1}</span>
+                                  <span className="ml-auto flex gap-1">
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      className="h-6 px-2 text-[11px] text-violet-700 border-violet-200 hover:bg-violet-50"
+                                      disabled={redrafting}
+                                      onClick={() => softenHighlight(h)}
+                                    >
+                                      <Wand2 className="w-3 h-3 mr-1" />Soften
+                                    </Button>
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      className="h-6 px-2 text-[11px] text-red-700 border-red-200 hover:bg-red-50"
+                                      disabled={redrafting}
+                                      onClick={() => cutHighlightLine(h)}
+                                    >
+                                      <XCircle className="w-3 h-3 mr-1" />Cut line
+                                    </Button>
+                                  </span>
+                                </div>
+                                <p className="text-gray-500">{h.note}</p>
+                              </li>
+                            ))}
+                        </ul>
+                      )}
+                    </div>
+                  )}
+
                   <div className="bg-gray-50 p-4 rounded-lg border">
-                    <pre className="whitespace-pre-wrap font-sans text-sm text-gray-800 leading-relaxed">
-                      {selectedDoc.editedContent || selectedDoc.content}
-                    </pre>
+                    {reviewInsights && reviewInsights.highlights.length > 0 ? (
+                      <HighlightedContent
+                        content={selectedDoc.editedContent || selectedDoc.content}
+                        highlights={reviewInsights.highlights}
+                      />
+                    ) : (
+                      <pre className="whitespace-pre-wrap font-sans text-sm text-gray-800 leading-relaxed">
+                        {selectedDoc.editedContent || selectedDoc.content}
+                      </pre>
+                    )}
                   </div>
 
                   {/* Refine chat — threaded, corpus-aware refinement */}

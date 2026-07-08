@@ -1,7 +1,7 @@
 import { getParam } from "../../lib/params";
 import { Router, Request, Response } from "express";
 import { db } from "@workspace/db";
-import { kbStagingDocsTable, knowledgebaseDocsTable, aiLiveDocumentsTable, aiLiveDocumentVersionsTable, kbDocProvenanceTable, kbTriageAuditLogTable, aiSourceDocumentsTable } from "@workspace/db/schema";
+import { kbStagingDocsTable, knowledgebaseDocsTable, aiLiveDocumentsTable, aiLiveDocumentVersionsTable, kbDocProvenanceTable, kbTriageAuditLogTable, aiSourceDocumentsTable, kbTranscriptSourcesTable } from "@workspace/db/schema";
 import { eq, desc, sql, count, and, ne, isNotNull, inArray } from "drizzle-orm";
 import { requirePermission } from "../../middleware/rbac.js";
 import { scrubPrivateContent } from "../../lib/content-privacy-filter";
@@ -15,6 +15,7 @@ import { detectLegacyRefs } from "../../lib/kb-mining.js";
 import { blocksBulkConfirm, type RiskFlag } from "../../lib/kb-flags.js";
 import { applyRefineEdits } from "../../lib/transcript-cleaner.js";
 import { resolveSourceContentForSynthesis } from "../../lib/kb-value-screener.js";
+import { analyzeDraftForReview } from "../../lib/kb-review-risk.js";
 
 export { runTriageBackground } from "../../lib/kb-triage.js";
 
@@ -27,6 +28,7 @@ const BLOCKING_SQL = sql`(
   ${kbStagingDocsTable.needsExpert} = true
   OR ${kbStagingDocsTable.riskFlags} @> '[{"type":"conflict"}]'::jsonb
   OR ${kbStagingDocsTable.riskFlags} @> '[{"type":"high_stakes"}]'::jsonb
+  OR ${kbStagingDocsTable.riskFlags} @> '[{"type":"source_conflict"}]'::jsonb
 )`;
 
 const FLAGGED_SQL = sql`(
@@ -1156,6 +1158,109 @@ BRAND RULES: say "Build Test Scale" / "BTS" (never "TCE" or "Cherrington"); no c
     });
 
     res.json({ document: updated, mode, assistantMessage, instruction: instruction.trim() });
+  } catch (err: unknown) {
+    res.status(500).json({ error: err instanceof Error ? err.message : "Unknown error" });
+  }
+});
+
+// ── Review insights (Task #1752 — sharpen the review-and-publish gate) ───────
+//
+// Everything the reviewer needs to adjudicate a draft BEFORE publish, computed
+// fresh from the draft's CURRENT text (editedContent ?? content) so it stays
+// accurate through edits/refines:
+//   - highlights: risky passages (synthesis-threaded [SITUATIONAL]/[CONTEXT-
+//     BOUND]/[ANOMALY] tags + SOURCE CONFLICT blockquotes, situational numbers,
+//     time-sensitive phrasing, residual private-content matches) with the exact
+//     line + excerpt so the UI can mark them in place;
+//   - sources: the contributing source SET (call name, coach, date, authority),
+//     source-set granularity only — no per-claim attribution.
+router.get("/:id/review-insights", async (req: Request, res: Response) => {
+  try {
+    const id = parseInt(getParam(req.params.id));
+    const [doc] = await db.select().from(kbStagingDocsTable).where(eq(kbStagingDocsTable.id, id));
+    if (!doc) {
+      res.status(404).json({ error: "Document not found" });
+      return;
+    }
+
+    const highlights = analyzeDraftForReview(doc.editedContent ?? doc.content);
+
+    // Provenance: the contributing source set. Enrich synthesisSources with the
+    // transcript-source roster (coach, kind) and the source document's date.
+    const synthSources = Array.isArray(doc.synthesisSources)
+      ? (doc.synthesisSources as Array<{
+          sourceDocId?: number | null;
+          sourceType?: string | null;
+          authorityRole?: string | null;
+          sourceName?: string | null;
+          transcriptSourceId?: number | null;
+          relevance?: number | null;
+        }>)
+      : [];
+
+    const transcriptIds = synthSources
+      .map((s) => s.transcriptSourceId)
+      .filter((v): v is number => typeof v === "number");
+    const sourceDocIds = synthSources
+      .map((s) => s.sourceDocId)
+      .filter((v): v is number => typeof v === "number");
+
+    const transcriptRows = transcriptIds.length
+      ? await db
+          .select({
+            id: kbTranscriptSourcesTable.id,
+            coachName: kbTranscriptSourcesTable.coachName,
+            sourceKind: kbTranscriptSourcesTable.sourceKind,
+            createdAt: kbTranscriptSourcesTable.createdAt,
+          })
+          .from(kbTranscriptSourcesTable)
+          .where(inArray(kbTranscriptSourcesTable.id, transcriptIds))
+      : [];
+    const sourceDocRows = sourceDocIds.length
+      ? await db
+          .select({
+            id: aiSourceDocumentsTable.id,
+            sourceType: aiSourceDocumentsTable.sourceType,
+            createdAt: aiSourceDocumentsTable.createdAt,
+          })
+          .from(aiSourceDocumentsTable)
+          .where(inArray(aiSourceDocumentsTable.id, sourceDocIds))
+      : [];
+    const byTranscriptId = new Map(transcriptRows.map((r) => [r.id, r]));
+    const bySourceDocId = new Map(sourceDocRows.map((r) => [r.id, r]));
+
+    const sources = synthSources
+      .slice()
+      .sort((a, b) => (b.relevance ?? 0) - (a.relevance ?? 0))
+      .map((s) => {
+        const transcript = typeof s.transcriptSourceId === "number" ? byTranscriptId.get(s.transcriptSourceId) : undefined;
+        const sourceDoc = typeof s.sourceDocId === "number" ? bySourceDocId.get(s.sourceDocId) : undefined;
+        return {
+          sourceName: s.sourceName ?? null,
+          sourceType: s.sourceType ?? sourceDoc?.sourceType ?? null,
+          sourceKind: transcript?.sourceKind ?? null,
+          coachName: transcript?.coachName ?? null,
+          authorityRole: s.authorityRole ?? null,
+          relevance: s.relevance ?? null,
+          // Best-available date: when the source entered the corpus.
+          date: (transcript?.createdAt ?? sourceDoc?.createdAt)?.toISOString() ?? null,
+        };
+      });
+
+    // Legacy single-source drafts: fall back to the one-source view.
+    if (sources.length === 0 && (doc.sourceVideoTitle || doc.sourceId)) {
+      sources.push({
+        sourceName: doc.sourceVideoTitle ?? null,
+        sourceType: null,
+        sourceKind: null,
+        coachName: null,
+        authorityRole: doc.authorityRole ?? null,
+        relevance: null,
+        date: null,
+      });
+    }
+
+    res.json({ highlights, sources });
   } catch (err: unknown) {
     res.status(500).json({ error: err instanceof Error ? err.message : "Unknown error" });
   }
