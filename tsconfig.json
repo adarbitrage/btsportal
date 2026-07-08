@@ -22,6 +22,9 @@
       "path": "./lib/moderation-shared"
     },
     {
+      "path": "./lib/portal-nav-map"
+    },
+    {
       "path": "./lib/support-config"
     },
     {

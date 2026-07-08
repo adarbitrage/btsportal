@@ -251,6 +251,9 @@ importers:
       '@workspace/moderation-shared':
         specifier: workspace:*
         version: link:../../lib/moderation-shared
+      '@workspace/portal-nav-map':
+        specifier: workspace:*
+        version: link:../../lib/portal-nav-map
       '@workspace/support-config':
         specifier: workspace:*
         version: link:../../lib/support-config
@@ -706,6 +709,9 @@ importers:
       '@workspace/moderation-shared':
         specifier: workspace:*
         version: link:../../lib/moderation-shared
+      '@workspace/portal-nav-map':
+        specifier: workspace:*
+        version: link:../../lib/portal-nav-map
       '@workspace/support-config':
         specifier: workspace:*
         version: link:../../lib/support-config
@@ -972,6 +978,12 @@ importers:
         version: 25.3.5
 
   lib/moderation-shared:
+    devDependencies:
+      vitest:
+        specifier: '>=3.2.6'
+        version: 3.2.6(@types/debug@4.1.12)(@types/node@25.3.5)(jiti@2.6.1)(jsdom@25.0.1)(lightningcss@1.31.1)(tsx@4.21.0)(yaml@2.9.0)
+
+  lib/portal-nav-map:
     devDependencies:
       vitest:
         specifier: '>=3.2.6'

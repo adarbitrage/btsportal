@@ -126,6 +126,13 @@ export const kbStagingDocsTable = pgTable("kb_staging_docs", {
   // from. Audit only — never retrieved at answer time.
   navScreenshots: jsonb("nav_screenshots").$type<string[]>(),
 
+  // ── Navigation grounding (Task #1778) ──────────────────────────────────────
+  // Content-hash version of the portal nav map (@workspace/portal-nav-map) the
+  // draft was synthesized against. Nullable: only AI-synthesized truth drafts
+  // are stamped. The boot-time nav drift scan compares this against the current
+  // map version to find drafts written against an outdated navigation.
+  navMapVersion: text("nav_map_version"),
+
   // Upload-specific fields (added alongside the KB upload feature)
   audience: text("audience").notNull().default("member"),
   sourceObjectPath: text("source_object_path"),
@@ -167,3 +174,20 @@ export const kbTriageAuditLogTable = pgTable("kb_triage_audit_log", {
 ]);
 
 export type KbTriageAuditLogEntry = typeof kbTriageAuditLogTable.$inferSelect;
+
+// ── Navigation-map version snapshots (Task #1778) ────────────────────────────
+// One row per DISTINCT portal nav-map version ever seen at boot (content hash
+// of @workspace/portal-nav-map). The stored snapshot lets the boot-time drift
+// scan diff the OLD map against the current one when the version changes, and
+// flag truth docs that reference a changed location for re-verification.
+export const kbNavMapVersionsTable = pgTable("kb_nav_map_versions", {
+  id: serial("id").primaryKey(),
+  version: text("version").notNull().unique(),
+  // Flattened NavItem[] snapshot: [{ label, path, description, entitlement? }].
+  snapshot: jsonb("snapshot")
+    .$type<{ label: string; path: string; description: string; entitlement?: string }[]>()
+    .notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+export type KbNavMapVersion = typeof kbNavMapVersionsTable.$inferSelect;

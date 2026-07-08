@@ -37,6 +37,11 @@ import {
   EMPTY_SCREENING_FLAGS,
   type ScreeningFlags,
 } from "./kb-value-screener.js";
+import {
+  buildNavigationGroundingSection,
+  applyNavigationScreen,
+  getNavMapVersion,
+} from "./kb-nav-grounding.js";
 
 /**
  * Synthesis Engine (Task #1533, Part 1).
@@ -365,6 +370,7 @@ RULES:
 - Layer the doc: a summary/orientation first, then the detail.
 - Add brief cross-links in prose to closely related topics where natural (related here: ${relatedNodes || "n/a"}).
 - BRAND RULES: say "Build Test Scale" / "BTS" (never "TCE" or "Cherrington"); no coach surnames; ${NO_MEMBER_NAMES_RULE}; support email is support@buildtestscale.com.
+- ${buildNavigationGroundingSection()}
 - Output MARKDOWN only. First line MUST be a single "# Title" heading, then the body. No preamble, no meta commentary about sources.`;
 }
 
@@ -672,7 +678,11 @@ export async function synthesizeNode(nodeSlug: string): Promise<SynthesizeResult
       console.error(`[Synthesis] nav-doc cross-linking failed for node ${node.slug}:`, err instanceof Error ? err.message : err);
     }
   }
-  const body = consolidated + relatedTopicsMarkdown(node) + navCrossLinks;
+  // Deterministic navigation screen: if the model ignored the navigation
+  // grounding and a legacy portal-location phrase survived, append a visible
+  // NAVIGATION CONFLICT callout so it is rewritten or flagged — never silent.
+  const body = applyNavigationScreen(consolidated) + relatedTopicsMarkdown(node) + navCrossLinks;
+  const navMapVersion = getNavMapVersion();
 
   const contributing = usable.map((e) => e.source);
   const authorityRole = dominantAuthority(contributing);
@@ -730,6 +740,7 @@ export async function synthesizeNode(nodeSlug: string): Promise<SynthesizeResult
       updateKind: mainUpdateKind,
       targetLiveDocId: mainTargetLiveDocId,
       updateSummary: mainUpdateSummary,
+      navMapVersion,
       aiSuggestedTaxonomy: {
         homeRoot: node.root,
         node: node.slug,
@@ -748,7 +759,7 @@ export async function synthesizeNode(nodeSlug: string): Promise<SynthesizeResult
   const definitions = await extractAtomicDefinitions(node, usable);
   for (const def of definitions) {
     const defTitle = `What is ${def.term}?`;
-    const defBody = def.definition + relatedTopicsMarkdown(node);
+    const defBody = applyNavigationScreen(def.definition) + relatedTopicsMarkdown(node);
     try {
       // An atomic term doc may already be published — revise it (by exact title)
       // rather than spawning a duplicate.
@@ -775,6 +786,7 @@ export async function synthesizeNode(nodeSlug: string): Promise<SynthesizeResult
           updateSummary: existingDef
             ? await summarizeRevision(node, existingDef.content, defBody, newSourceNames)
             : null,
+          navMapVersion,
           aiSuggestedTaxonomy: {
             homeRoot: node.root,
             node: node.slug,

@@ -95,6 +95,20 @@ export const LEGACY_CROSSWALK: readonly CrosswalkEntry[] = [
     confidence: "uncertain",
   },
   {
+    legacy: ["General Support", "support desk", "help desk"],
+    current: "Support (/support)",
+    kind: "location",
+    note: "The old portal's 'General Support' area maps to today's Support page (tickets + live chat).",
+    confidence: "confirmed",
+  },
+  {
+    legacy: ["Ask the Masters"],
+    current: "Coaching Calls (/coaching) for live Q&A, or Support (/support) for help requests",
+    kind: "location",
+    note: "The legacy 'Ask the Masters' section no longer exists; whether a given reference means the live group Q&A calls or the support desk depends on context, so a human must adjudicate before silent rewrite.",
+    confidence: "uncertain",
+  },
+  {
     legacy: ["quickstart guide", "getting started guide", "core training"],
     current: "7 Pillars (/core-training/7-pillars) and The Blitz (/blitz)",
     kind: "location",

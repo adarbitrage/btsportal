@@ -66,6 +66,7 @@
     "@workspace/api-client-react": "workspace:*",
     "@workspace/auth": "workspace:*",
     "@workspace/blitz-curriculum": "workspace:*",
+    "@workspace/portal-nav-map": "workspace:*",
     "@workspace/content-access-registry": "workspace:*",
     "@workspace/db": "workspace:*",
     "@workspace/moderation-shared": "workspace:*",

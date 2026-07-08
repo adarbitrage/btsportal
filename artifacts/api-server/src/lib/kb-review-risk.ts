@@ -27,8 +27,14 @@ import type { FlagSeverity } from "./kb-flags";
 // test asserts the real marker contains this prefix so the two never drift.
 export const SOURCE_CONFLICT_PREFIX = "SOURCE CONFLICT (for reviewer):";
 
+// Local mirror of kb-nav-grounding's NAV_CONFLICT_MARKER payload — same
+// bare-substring pattern; a unit test asserts the real marker contains this
+// prefix so the two never drift.
+export const NAV_CONFLICT_PREFIX = "NAVIGATION CONFLICT (for reviewer):";
+
 export type ReviewHighlightKind =
   | "source_conflict"
+  | "navigation_conflict"
   | "synthesis_situational"
   | "synthesis_context_bound"
   | "synthesis_anomaly"
@@ -58,6 +64,11 @@ export const HIGHLIGHT_META: Record<
     severity: "critical",
     label: "Source conflict",
     note: "Synthesis found sources that genuinely disagree — adjudicate and rewrite or remove this blockquote before publishing.",
+  },
+  navigation_conflict: {
+    severity: "high",
+    label: "Navigation conflict",
+    note: "The draft references a legacy portal location (or one the nav map can't confirm) — rewrite it to the current page name/path (or adjudicate the mapping) and remove this blockquote before publishing.",
   },
   synthesis_situational: {
     severity: "high",
@@ -187,6 +198,11 @@ export function analyzeDraftForReview(content: string): ReviewHighlight[] {
       push("source_conflict", trimmed, i);
     }
 
+    // 1b. Navigation-conflict blockquotes (navigation grounding contract).
+    if (trimmed.includes(NAV_CONFLICT_PREFIX)) {
+      push("navigation_conflict", trimmed, i);
+    }
+
     // 2. Inline synthesis tags.
     let synthTagged = false;
     for (const { tag, kind } of SYNTH_TAGS) {
@@ -247,6 +263,10 @@ export function analyzeDraftForReview(content: string): ReviewHighlight[] {
 
 export function hasSourceConflictMarker(content: string): boolean {
   return content.includes(SOURCE_CONFLICT_PREFIX);
+}
+
+export function hasNavigationConflictMarker(content: string): boolean {
+  return content.includes(NAV_CONFLICT_PREFIX);
 }
 
 export function hasSynthesisRiskTags(content: string): boolean {

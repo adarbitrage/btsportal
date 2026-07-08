@@ -3,7 +3,7 @@ import { sql } from "drizzle-orm";
 import { scrubPrivateContent } from "./content-privacy-filter";
 import { COACHING_ROSTER, VA_ROSTER, WEEKLY_QA_SCHEDULE } from "./coaching-roster";
 import { COACHING_TIMEZONE } from "./ghl-coaching-calendar";
-import { PORTAL_NAVIGATION_MAP } from "./kb-portal-navigation-map";
+import { PORTAL_NAVIGATION_MAP, renderNavigationMapLines } from "./kb-portal-navigation-map";
 import { LEGACY_CROSSWALK } from "./kb-legacy-crosswalk";
 import type { Ceiling, HandoffTarget } from "./kb-taxonomy";
 
@@ -270,13 +270,9 @@ function buildNavigationMapDoc(): OperationsDoc {
     "",
   ];
 
-  for (const section of PORTAL_NAVIGATION_MAP) {
-    lines.push(`${section.section}:`);
-    for (const item of section.items) {
-      lines.push(`- ${item.label} (${item.path}): ${item.description}`);
-    }
-    lines.push("");
-  }
+  // Single shared rendering (also used by the synthesis navigation-grounding
+  // prompt) so the seeded doc and the drafting prompt can never diverge.
+  lines.push(...renderNavigationMapLines(PORTAL_NAVIGATION_MAP));
 
   // Append the legacy → current crosswalk so "I'm looking for <old name>"
   // questions resolve to the current location.

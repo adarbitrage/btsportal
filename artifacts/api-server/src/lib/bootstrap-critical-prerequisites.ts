@@ -14,6 +14,7 @@ import {
 } from "./seed-kb";
 import { seedMemberBroadContent } from "./seed-kb-member-content";
 import { seedOperationsKb } from "./seed-operations-kb";
+import { runNavigationDriftScan } from "./kb-nav-drift-scan";
 import { seedProcessKb } from "./seed-process-kb";
 import { seedConceptsKb } from "./seed-concepts-kb";
 import {
@@ -345,6 +346,18 @@ export async function bootstrapCriticalPrerequisites(): Promise<PrerequisiteResu
   } catch (err) {
     console.error("[Bootstrap] seedOperationsKb() threw:", err);
     missing.push("seedOperationsKb");
+  }
+
+  // 8b-2. Portal navigation drift scan (Task #1778): if the nav map's content
+  //     hash changed since the last boot, flag (advisory-only) every pending
+  //     truth draft and published citable doc that references a changed
+  //     location so it gets re-verified — drafts via a `navigation_drift`
+  //     risk flag, live docs via the existing flaggedStaleAt surface.
+  try {
+    await runNavigationDriftScan();
+  } catch (err) {
+    console.error("[Bootstrap] runNavigationDriftScan() threw:", err);
+    missing.push("runNavigationDriftScan");
   }
 
   // 8c. Seed the Process root (Task #4a, Bucket A→B — content campaign):

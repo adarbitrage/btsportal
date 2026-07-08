@@ -21,6 +21,7 @@
     "@workspace/api-zod": "workspace:*",
     "@workspace/auth": "workspace:*",
     "@workspace/blitz-curriculum": "workspace:*",
+    "@workspace/portal-nav-map": "workspace:*",
     "@workspace/brand-config": "workspace:*",
     "@workspace/content-access-registry": "workspace:*",
     "@workspace/db": "workspace:*",

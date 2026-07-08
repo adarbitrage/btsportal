@@ -17,6 +17,7 @@ import { eq, isNotNull, and } from "drizzle-orm";
 import { scrubPrivateContent } from "./content-privacy-filter";
 import {
   hasSourceConflictMarker,
+  hasNavigationConflictMarker,
   hasSynthesisRiskTags,
   hasTimeSensitivePhrasing,
   hasPrivacyResidue,
@@ -35,6 +36,10 @@ export type RiskFlagType =
   // Review-gate flags (Task #1752) — signals threaded from synthesis or found
   // in the draft text itself. Computed via the pure detectors in kb-review-risk.
   | "source_conflict"
+  | "navigation_conflict"
+  // Boot-time nav drift scan (Task #1778) — appended by kb-nav-drift-scan when
+  // the portal nav map changes after a draft was written.
+  | "navigation_drift"
   | "situational_content"
   | "time_sensitive"
   | "privacy_residue";
@@ -207,6 +212,17 @@ export function computeRiskFlags(input: ComputeFlagsInput): RiskFlag[] {
       message: "Unresolved source conflict in draft",
       detail:
         "The draft body contains a \"SOURCE CONFLICT (for reviewer)\" blockquote from synthesis — adjudicate and rewrite/remove it before publishing.",
+    });
+  }
+
+  // Unresolved NAVIGATION CONFLICT blockquote (navigation grounding, #1778).
+  if (hasNavigationConflictMarker(input.content)) {
+    flags.push({
+      type: "navigation_conflict",
+      severity: "high",
+      message: "Unresolved navigation conflict in draft",
+      detail:
+        "The draft body contains a \"NAVIGATION CONFLICT (for reviewer)\" blockquote — it references a legacy portal location. Rewrite to the current page name/path and remove the blockquote before publishing.",
     });
   }
 
