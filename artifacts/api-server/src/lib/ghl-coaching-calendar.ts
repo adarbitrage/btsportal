@@ -267,6 +267,76 @@ export async function getFreeSlots(
   return slots.map((startTime) => ({ startTime }));
 }
 
+// ---------------------------------------------------------------------------
+// Calendar events (busy intervals)
+// ---------------------------------------------------------------------------
+
+/** A real appointment/block on a calendar, as an absolute busy interval. */
+export interface BusyEvent {
+  startMs: number;
+  endMs: number;
+}
+
+interface RawCalendarEvent {
+  startTime?: string;
+  endTime?: string;
+  appointmentStatus?: string;
+  status?: string;
+}
+
+interface CalendarEventsResponse {
+  events?: RawCalendarEvent[];
+}
+
+/**
+ * Pure mapping from a GHL calendar-events payload to busy intervals.
+ * Cancelled events are excluded (a cancelled appointment must not keep
+ * blocking time); events with unparseable/absent times are skipped.
+ * Exported for unit testing.
+ */
+export function extractBusyEvents(data: CalendarEventsResponse): BusyEvent[] {
+  const events = Array.isArray(data.events) ? data.events : [];
+  const busy: BusyEvent[] = [];
+  for (const ev of events) {
+    const status = (ev.appointmentStatus ?? ev.status ?? "").toLowerCase();
+    if (status === "cancelled" || status === "canceled") continue;
+    const startMs = ev.startTime ? Date.parse(ev.startTime) : NaN;
+    const endMs = ev.endTime ? Date.parse(ev.endTime) : NaN;
+    if (Number.isNaN(startMs) || Number.isNaN(endMs) || endMs <= startMs) continue;
+    busy.push({ startMs, endMs });
+  }
+  return busy;
+}
+
+/**
+ * List a calendar's REAL events (appointments + block slots) in the window
+ * [startMs, endMs] as absolute busy intervals, excluding cancelled events.
+ * Unlike free-slots, this is independent of the calendar's configured
+ * availability schedule — it reports only actual bookings. Used to subtract
+ * the other company's real appointments from BTS availability. Throws on any
+ * fetch failure so callers never silently treat conflicted times as free.
+ */
+export async function listCalendarBusyEvents(
+  calendarId: string,
+  startMs: number,
+  endMs: number,
+  locationId: string = COACHING_LOCATION_ID,
+): Promise<BusyEvent[]> {
+  const qs = new URLSearchParams({
+    locationId,
+    calendarId,
+    startTime: String(startMs),
+    endTime: String(endMs),
+  });
+  const data = await ghlRequest<CalendarEventsResponse>(
+    "GET",
+    `/calendars/events?${qs.toString()}`,
+    undefined,
+    locationId,
+  );
+  return extractBusyEvents(data);
+}
+
 interface CalendarConfigResponse {
   calendar?: {
     slotDuration?: number;

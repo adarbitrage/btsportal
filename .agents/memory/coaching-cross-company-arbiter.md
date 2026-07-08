@@ -7,9 +7,25 @@ description: Conflict-calendar mirror blocking for 1-on-1 coaching; why the mirr
 
 A coach can be booked in two companies: the BTS portal AND the legacy Cherrington
 GHL widget. To stop double-booking, a coach row may carry a **Conflict calendar**
-(the other company's calendar + location). When set, the portal (1) intersects
-free slots across BOTH calendars and (2) mirrors every BTS booking as a busy
-"block slot" onto the Conflict calendar, removing/moving it on cancel/reschedule.
+(the other company's calendar + location). When set, the portal (1) subtracts the
+conflict calendar's REAL busy events from the Booking calendar's free slots and
+(2) mirrors every BTS booking as a busy "block slot" onto the Conflict calendar,
+removing/moving it on cancel/reschedule.
+
+## Availability read = busy-event SUBTRACTION, never free-slot intersection
+**Rule:** `freeSlotsAcrossCalendars` reads free slots ONLY from the Booking
+calendar; conflicts come from `listCalendarBusyEvents` (GET /calendars/events,
+cancelled/canceled excluded via `extractBusyEvents`). A slot is dropped iff
+[start, start+bookingCal slotDuration) overlaps a busy interval.
+
+**Why:** Intersecting free slots let the conflict calendar's own availability
+SCHEDULE mask BTS availability — a conflict calendar with narrow/no availability
+wiped out perfectly free BTS times. Only real appointments should block.
+
+**How to apply:** conflict fetch failure must throw (route returns 502 —
+never silently show conflicted times as free); busy window is widened 24h back
+/ one slot forward for straddling events; both slot listing AND the under-lock
+booking recheck flow through this single helper.
 
 ## Dormancy (the safety contract)
 - `coaches.conflictGhlCalendarId` null => `resolveCoachCalendars` returns no
@@ -57,3 +73,8 @@ in-tx recheck of both calendars; keep that order to avoid deadlocks and races.
   live block-slot calls. `ghl_appointment_id` has a UNIQUE constraint, so the
   createAppointment mock must return globally-unique ids across tests (don't reset
   the seq in beforeEach) or persisted bookings collide.
+- Coach fixtures MUST insert `coach_call_calendars` rows — the calendar loader
+  reads that table, not the legacy coaches.ghl* columns; without them every
+  slots/book call 404s and the whole suite silently fails at baseline.
+- Mock `getCalendarDurationMinutes` too, and drive conflicts via a
+  busyByCalendar map behind the `listCalendarBusyEvents` mock.

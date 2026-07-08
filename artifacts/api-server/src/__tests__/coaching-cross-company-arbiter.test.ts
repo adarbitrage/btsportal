@@ -8,6 +8,7 @@ import {
   usersTable,
   sessionPackBookingsTable,
   sessionPackCoachesTable,
+  coachCallCalendarsTable,
   coachingCreditLedgerTable,
 } from "@workspace/db";
 import { eq, inArray } from "drizzle-orm";
@@ -15,19 +16,28 @@ import { eq, inArray } from "drizzle-orm";
 // Cross-company coaching arbiter. A coach can be booked in two companies (the
 // BTS portal + the legacy Cherrington GHL widget). To stop double-booking, a
 // coach may be given a "Conflict calendar" (the other company's calendar). When
-// set, the portal (1) only offers times the coach is free in BOTH companies and
-// (2) mirrors every BTS booking as a busy block onto the Conflict calendar,
-// removing it on cancel. With no Conflict calendar the flow behaves as before.
+// set, the portal (1) offers the Booking Calendar's free slots MINUS any that
+// overlap a real (non-cancelled) appointment on the Conflict calendar — the
+// conflict calendar's own availability schedule never restricts BTS times —
+// and (2) mirrors every BTS booking as a busy block onto the Conflict
+// calendar, removing it on cancel. With no Conflict calendar the flow behaves
+// as before.
 
 const ghl = vi.hoisted(() => {
   const freeSlotsByCalendar = new Map<string, string[]>();
+  const busyByCalendar = new Map<string, { startMs: number; endMs: number }[]>();
   let blockSeq = 0;
   let apptSeq = 0;
   return {
     freeSlotsByCalendar,
+    busyByCalendar,
     getFreeSlots: vi.fn(async (calendarId: string) =>
       (freeSlotsByCalendar.get(calendarId) ?? []).map((startTime) => ({ startTime })),
     ),
+    listCalendarBusyEvents: vi.fn(async (calendarId: string) =>
+      busyByCalendar.get(calendarId) ?? [],
+    ),
+    getCalendarDurationMinutes: vi.fn(async () => 60),
     upsertContact: vi.fn(async () => "contact_test"),
     createAppointment: vi.fn(async (input: { startTime: string; endTime: string }) => ({
       id: `appt_${++apptSeq}`,
@@ -58,6 +68,8 @@ vi.mock("../lib/ghl-coaching-calendar", () => ({
   COACHING_LOCATION_ID: "loc_legacy",
   COACHING_TIMEZONE: "America/New_York",
   getFreeSlots: ghl.getFreeSlots,
+  listCalendarBusyEvents: ghl.listCalendarBusyEvents,
+  getCalendarDurationMinutes: ghl.getCalendarDurationMinutes,
   upsertContact: ghl.upsertContact,
   createAppointment: ghl.createAppointment,
   updateAppointment: ghl.updateAppointment,
@@ -166,6 +178,27 @@ beforeAll(async () => {
     .returning({ id: sessionPackCoachesTable.id });
   soloCoachId = soloCoach.id;
   coachIds.push(soloCoach.id);
+
+  // The booking flow reads calendars from coach_call_calendars (the coach-row
+  // ghl* columns are deprecated seed identity only), so wire both coaches up.
+  await db.insert(coachCallCalendarsTable).values([
+    {
+      coachId: conflictCoachId,
+      callType: "private_coaching",
+      bookingCalendarId: BTS_CAL,
+      bookingLocationId: BTS_LOC,
+      conflictCalendarId: CONFLICT_CAL,
+      conflictLocationId: CONFLICT_LOC,
+      isActive: true,
+    },
+    {
+      coachId: soloCoachId,
+      callType: "private_coaching",
+      bookingCalendarId: SOLO_CAL,
+      bookingLocationId: SOLO_LOC,
+      isActive: true,
+    },
+  ]);
 });
 
 afterAll(async () => {
@@ -182,6 +215,9 @@ afterAll(async () => {
   }
   if (coachIds.length > 0) {
     await db
+      .delete(coachCallCalendarsTable)
+      .where(inArray(coachCallCalendarsTable.coachId, coachIds));
+    await db
       .delete(sessionPackCoachesTable)
       .where(inArray(sessionPackCoachesTable.id, coachIds));
   }
@@ -193,6 +229,10 @@ afterAll(async () => {
 beforeEach(() => {
   vi.clearAllMocks();
   ghl.freeSlotsByCalendar.clear();
+  ghl.busyByCalendar.clear();
+  ghl.listCalendarBusyEvents.mockImplementation(
+    async (calendarId: string) => ghl.busyByCalendar.get(calendarId) ?? [],
+  );
 });
 
 async function readBlockEventId(bookingId: number): Promise<string | null> {
@@ -203,10 +243,13 @@ async function readBlockEventId(bookingId: number): Promise<string | null> {
   return row?.conflictBlockEventId ?? null;
 }
 
-describe("cross-company arbiter — slot intersection", () => {
-  it("only offers times the coach is free in BOTH companies", async () => {
+describe("cross-company arbiter — busy-event subtraction", () => {
+  it("removes only the booking slots that overlap a real conflict appointment", async () => {
     ghl.freeSlotsByCalendar.set(BTS_CAL, [T1, T2, T3]);
-    ghl.freeSlotsByCalendar.set(CONFLICT_CAL, [T2, T3]); // T1 taken in the other company
+    // A real appointment in the other company covering T1's hour.
+    ghl.busyByCalendar.set(CONFLICT_CAL, [
+      { startMs: new Date(T1).getTime(), endMs: new Date(T1).getTime() + 60 * 60 * 1000 },
+    ]);
 
     const res = await request(app)
       .get(`/api/coaching/sessions/coaches/${conflictCoachId}/slots`)
@@ -216,6 +259,55 @@ describe("cross-company arbiter — slot intersection", () => {
     const starts = (res.body.slots as { startTime: string }[]).map((s) => s.startTime);
     expect(starts).toEqual([T2, T3]);
     expect(starts).not.toContain(T1);
+  });
+
+  it("a partially-overlapping conflict event still blocks the slot", async () => {
+    ghl.freeSlotsByCalendar.set(BTS_CAL, [T1, T2]);
+    // Event starts 30 min into T1's hour and runs 30 min — overlaps T1 only.
+    ghl.busyByCalendar.set(CONFLICT_CAL, [
+      {
+        startMs: new Date(T1).getTime() + 30 * 60 * 1000,
+        endMs: new Date(T1).getTime() + 60 * 60 * 1000,
+      },
+    ]);
+
+    const res = await request(app)
+      .get(`/api/coaching/sessions/coaches/${conflictCoachId}/slots`)
+      .set("Cookie", memberCookie);
+
+    expect(res.status).toBe(200);
+    const starts = (res.body.slots as { startTime: string }[]).map((s) => s.startTime);
+    expect(starts).toEqual([T2]);
+  });
+
+  it("the conflict calendar's availability schedule never restricts booking slots", async () => {
+    // The conflict calendar reports NO busy events. Under the old free-slot
+    // intersection its (empty/limited) availability schedule would have wiped
+    // out every BTS slot; now all booking-calendar slots survive.
+    ghl.freeSlotsByCalendar.set(BTS_CAL, [T1, T2, T3]);
+
+    const res = await request(app)
+      .get(`/api/coaching/sessions/coaches/${conflictCoachId}/slots`)
+      .set("Cookie", memberCookie);
+
+    expect(res.status).toBe(200);
+    const starts = (res.body.slots as { startTime: string }[]).map((s) => s.startTime);
+    expect(starts).toEqual([T1, T2, T3]);
+    // Free-slots is only ever read from the BOOKING calendar; the conflict
+    // calendar is consulted for real events instead.
+    expect(ghl.getFreeSlots).toHaveBeenCalledTimes(1);
+    expect(ghl.getFreeSlots).toHaveBeenCalledWith(
+      BTS_CAL,
+      expect.anything(),
+      expect.anything(),
+      BTS_LOC,
+    );
+    expect(ghl.listCalendarBusyEvents).toHaveBeenCalledWith(
+      CONFLICT_CAL,
+      expect.anything(),
+      expect.anything(),
+      CONFLICT_LOC,
+    );
   });
 
   it("returns single-calendar slots unchanged when no conflict calendar is set", async () => {
@@ -228,20 +320,47 @@ describe("cross-company arbiter — slot intersection", () => {
     expect(res.status).toBe(200);
     const starts = (res.body.slots as { startTime: string }[]).map((s) => s.startTime);
     expect(starts).toEqual([T1, T2]);
-    // The conflict calendar is never read for a coach without one.
-    expect(ghl.getFreeSlots).not.toHaveBeenCalledWith(
-      CONFLICT_CAL,
-      expect.anything(),
-      expect.anything(),
-      expect.anything(),
-    );
+    // No conflict calendar => the conflict-events read never happens.
+    expect(ghl.listCalendarBusyEvents).not.toHaveBeenCalled();
+  });
+
+  it("fails loud (502) when the conflict-events fetch fails", async () => {
+    ghl.freeSlotsByCalendar.set(BTS_CAL, [T1, T2]);
+    ghl.listCalendarBusyEvents.mockRejectedValueOnce(new Error("GHL down"));
+
+    const res = await request(app)
+      .get(`/api/coaching/sessions/coaches/${conflictCoachId}/slots`)
+      .set("Cookie", memberCookie);
+
+    // Never silently show conflicted times as free.
+    expect(res.status).toBe(502);
+  });
+
+  it("booking recheck rejects a slot that just got taken in the other company", async () => {
+    ghl.freeSlotsByCalendar.set(BTS_CAL, [T2]);
+    await grantCredit();
+
+    // First availability read (pre-lock) sees no conflict; the under-lock
+    // recheck sees a fresh Cherrington appointment covering T2.
+    ghl.listCalendarBusyEvents
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([
+        { startMs: new Date(T2).getTime(), endMs: new Date(T2).getTime() + 60 * 60 * 1000 },
+      ]);
+
+    const res = await request(app)
+      .post("/api/coaching/sessions/book")
+      .set("Cookie", memberCookie)
+      .send({ coachId: conflictCoachId, startTime: T2 });
+
+    expect(res.status).toBe(409);
+    expect(ghl.createAppointment).not.toHaveBeenCalled();
   });
 });
 
 describe("cross-company arbiter — booking mirrors a conflict block", () => {
   it("writes a busy block onto the conflict calendar and stores its id", async () => {
     ghl.freeSlotsByCalendar.set(BTS_CAL, [T2]);
-    ghl.freeSlotsByCalendar.set(CONFLICT_CAL, [T2]);
     await grantCredit();
 
     const res = await request(app)
@@ -286,7 +405,6 @@ describe("cross-company arbiter — booking mirrors a conflict block", () => {
 describe("cross-company arbiter — cancel removes the conflict block", () => {
   it("deletes the mirrored block from the conflict calendar on cancel", async () => {
     ghl.freeSlotsByCalendar.set(BTS_CAL, [T2]);
-    ghl.freeSlotsByCalendar.set(CONFLICT_CAL, [T2]);
     await grantCredit();
 
     const bookRes = await request(app)
@@ -311,7 +429,6 @@ describe("cross-company arbiter — cancel removes the conflict block", () => {
 
   it("still cancels (no divergence) when the conflict-block delete fails", async () => {
     ghl.freeSlotsByCalendar.set(BTS_CAL, [T2]);
-    ghl.freeSlotsByCalendar.set(CONFLICT_CAL, [T2]);
     await grantCredit();
 
     const bookRes = await request(app)
@@ -346,7 +463,6 @@ describe("cross-company arbiter — cancel removes the conflict block", () => {
 describe("cross-company arbiter — reschedule moves the conflict block", () => {
   it("moves the block to the new time and persists the new id", async () => {
     ghl.freeSlotsByCalendar.set(BTS_CAL, [T1, T3]);
-    ghl.freeSlotsByCalendar.set(CONFLICT_CAL, [T1, T3]);
     await grantCredit();
 
     const bookRes = await request(app)
@@ -383,7 +499,6 @@ describe("cross-company arbiter — reschedule moves the conflict block", () => 
 
   it("still reschedules (no divergence) when the new block create fails, keeping the old hold", async () => {
     ghl.freeSlotsByCalendar.set(BTS_CAL, [T1, T3]);
-    ghl.freeSlotsByCalendar.set(CONFLICT_CAL, [T1, T3]);
     await grantCredit();
 
     const bookRes = await request(app)
@@ -429,7 +544,6 @@ describe("cross-company arbiter — reschedule moves the conflict block", () => 
 describe("cross-company arbiter — booking-time location survives coach remap", () => {
   it("cancel targets the ORIGINAL location after the coach is remapped", async () => {
     ghl.freeSlotsByCalendar.set(BTS_CAL, [T2]);
-    ghl.freeSlotsByCalendar.set(CONFLICT_CAL, [T2]);
     await grantCredit();
 
     const bookRes = await request(app)

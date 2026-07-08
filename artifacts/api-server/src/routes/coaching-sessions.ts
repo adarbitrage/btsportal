@@ -27,6 +27,8 @@ import {
   createAppointmentNote,
   createBlockSlot,
   deleteBlockSlot,
+  listCalendarBusyEvents,
+  getCalendarDurationMinutes,
   COACHING_TIMEZONE,
   COACHING_LOCATION_ID,
   type FreeSlot,
@@ -165,12 +167,22 @@ async function loadCoachCalendars(
   };
 }
 
-// Free slots a coach is open for in BOTH companies. When a Conflict Calendar is
-// configured we read free/busy from each calendar and keep only the start
-// instants free on both, so a time taken in the other company (a Cherrington
-// booking or a manually-entered group call) never shows up as bookable in BTS.
-// Intersection is on the absolute instant (epoch ms), not the ISO string, so it
-// is robust to the two calendars reporting different zone offsets.
+// Free slots a coach is open for in BOTH companies. Availability always comes
+// from the BTS Booking Calendar's free slots. When a Conflict Calendar is
+// configured we additionally fetch that calendar's REAL events (appointments +
+// blocks, cancelled excluded) and drop any booking slot whose interval overlaps
+// a busy event — so only actual bookings in the other company block BTS times,
+// and the conflict calendar's own availability schedule (which free-slots would
+// bake in) is irrelevant. Overlap math uses the booking calendar's configured
+// slot duration and absolute epoch instants, so it is robust to the two
+// calendars reporting different zone offsets. Any conflict-calendar fetch
+// failure propagates (fails loud) — we never silently show conflicted times as
+// free.
+//
+// Busy events are fetched with the window widened on both sides so an event
+// that merely straddles the queried range (e.g. a long appointment that started
+// before startMs) still blocks overlapping slots.
+const CONFLICT_EVENT_LOOKBACK_MS = 24 * 60 * 60 * 1000;
 async function freeSlotsAcrossCalendars(
   cals: CoachCalendars,
   startMs: number,
@@ -182,15 +194,21 @@ async function freeSlotsAcrossCalendars(
     endMs,
     cals.booking.locationId,
   );
-  if (!cals.conflict) return bookingSlots;
-  const conflictSlots = await getFreeSlots(
+  if (!cals.conflict || bookingSlots.length === 0) return bookingSlots;
+  const slotDurationMs =
+    (await getCalendarDurationMinutes(cals.booking.calendarId, cals.booking.locationId)) * 60_000;
+  const busy = await listCalendarBusyEvents(
     cals.conflict.calendarId,
-    startMs,
-    endMs,
+    startMs - CONFLICT_EVENT_LOOKBACK_MS,
+    endMs + slotDurationMs,
     cals.conflict.locationId,
   );
-  const conflictInstants = new Set(conflictSlots.map((s) => new Date(s.startTime).getTime()));
-  return bookingSlots.filter((s) => conflictInstants.has(new Date(s.startTime).getTime()));
+  if (busy.length === 0) return bookingSlots;
+  return bookingSlots.filter((s) => {
+    const slotStart = new Date(s.startTime).getTime();
+    const slotEnd = slotStart + slotDurationMs;
+    return !busy.some((b) => slotStart < b.endMs && slotEnd > b.startMs);
+  });
 }
 
 // ---------------------------------------------------------------------------
