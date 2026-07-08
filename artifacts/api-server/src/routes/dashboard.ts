@@ -3,6 +3,7 @@ import { db, usersTable, lessonsTable, progressTable, ticketsTable, coachingCall
 import { eq, count, gte, and, isNull, sql, desc } from "drizzle-orm";
 import { getUserEntitlements, getUserProducts, getHighestProductLabel, getSupportTicketLimit, getEntitlementsList, resolveMemberBrand } from "../lib/entitlements";
 import { getCallUpgradeUrl } from "../lib/coaching-upgrade";
+import { JOIN_OPENS_BEFORE_MS } from "./coaching";
 import { brandTokens, substituteString } from "@workspace/brand-config";
 
 const router: IRouter = Router();
@@ -80,14 +81,23 @@ router.get("/dashboard", async (req, res): Promise<void> => {
 
   const upcomingCallsMapped = upcomingCalls.map(({ registeredAt, ...c }) => {
     const isAccessible = entitlements.has(c.requiredEntitlement);
+    const hasRegistered = registeredAt !== null;
     return {
       ...c,
-      hasRegistered: registeredAt !== null,
+      hasRegistered,
       isAccessible,
       // Always false: cancelled occurrences are filtered out above, so every
       // call that reaches the preview is active.
       cancelled: false,
-      meetLink: isAccessible ? c.meetLink : null,
+      // RSVP-first: the meet link is withheld everywhere it is served (not
+      // just on the Coaching page) unless the member RSVP'd AND the join
+      // window (5 min before start) is open — same rule as coaching.ts.
+      meetLink:
+        isAccessible &&
+        hasRegistered &&
+        now.getTime() >= c.scheduledAt.getTime() - JOIN_OPENS_BEFORE_MS
+          ? c.meetLink
+          : null,
       recordingUrl: isAccessible ? c.recordingUrl : null,
       upgradeUrl: getCallUpgradeUrl(c.requiredEntitlement, isAccessible),
     };

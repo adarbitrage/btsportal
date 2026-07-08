@@ -133,6 +133,7 @@ import type {
   CoachMenteeDetail,
   CoachMenteeListResponse,
   CoachingCall,
+  CoachingCallJoin,
   CoachingCallRegistration,
   CoachingRating,
   CoachingSessionDetail,
@@ -2990,6 +2991,90 @@ export const useCancelCoachingCallRegistration = <
   TContext
 > => {
   return useMutation(getCancelCoachingCallRegistrationMutationOptions(options));
+};
+
+/**
+ * @summary Join a live coaching call (stamps joined-at; requires an in-time RSVP and the open join window)
+ */
+export const getJoinCoachingCallUrl = (id: number) => {
+  return `/api/coaching-calls/${id}/join`;
+};
+
+export const joinCoachingCall = async (
+  id: number,
+  options?: RequestInit,
+): Promise<CoachingCallJoin> => {
+  return customFetch<CoachingCallJoin>(getJoinCoachingCallUrl(id), {
+    ...options,
+    method: "POST",
+  });
+};
+
+export const getJoinCoachingCallMutationOptions = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof joinCoachingCall>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof joinCoachingCall>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  const mutationKey = ["joinCoachingCall"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof joinCoachingCall>>,
+    { id: number }
+  > = (props) => {
+    const { id } = props ?? {};
+
+    return joinCoachingCall(id, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type JoinCoachingCallMutationResult = NonNullable<
+  Awaited<ReturnType<typeof joinCoachingCall>>
+>;
+
+export type JoinCoachingCallMutationError = ErrorType<void>;
+
+/**
+ * @summary Join a live coaching call (stamps joined-at; requires an in-time RSVP and the open join window)
+ */
+export const useJoinCoachingCall = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof joinCoachingCall>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof joinCoachingCall>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  return useMutation(getJoinCoachingCallMutationOptions(options));
 };
 
 /**

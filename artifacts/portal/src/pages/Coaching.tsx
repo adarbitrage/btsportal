@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Calendar, Video, Lock, Check, Users } from "lucide-react";
 import { format } from "date-fns";
+import { useEffect, useState, type ReactNode } from "react";
 import { useLocation } from "wouter";
 import { useQueryClient } from "@tanstack/react-query";
 import {
@@ -11,9 +12,26 @@ import {
   useListCoaches,
   useRegisterForCoachingCall,
   useCancelCoachingCallRegistration,
+  useJoinCoachingCall,
   type CoachingCall,
 } from "@workspace/api-client-react";
 import { resolveCoachPhotoUrl } from "@/lib/coaches-admin-api";
+
+// RSVP windows — mirror the server-enforced rules in the API (which is the
+// real gate; these only drive the UI state): RSVPs close 1 hour before start,
+// and the Join window opens 5 minutes before start.
+const RSVP_CUTOFF_MS = 60 * 60 * 1000;
+const JOIN_OPENS_BEFORE_MS = 5 * 60 * 1000;
+
+// Ticking "now" so RSVP/join states flip while the page stays open.
+function useNow(intervalMs = 30_000): Date {
+  const [now, setNow] = useState(() => new Date());
+  useEffect(() => {
+    const t = setInterval(() => setNow(new Date()), intervalMs);
+    return () => clearInterval(t);
+  }, [intervalMs]);
+  return now;
+}
 
 type AvatarTint = {
   bg: string;
@@ -44,57 +62,24 @@ function coachInitials(name: string): string {
   return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
 }
 
-// Renders the per-call action shared by the "Upcoming Calls" list and the
-// recurring weekly schedule. Both sections gate identically off the call's
-// `isAccessible` flag and deep-link locked calls to the call's own
-// `upgradeUrl` — never a single shared Meet link or upgrade URL.
-function CallAction({
+// RSVP-first action shared by the recurring weekly schedule and the one-off
+// special sessions. Locked calls deep-link to the call's own `upgradeUrl`.
+// For eligible members the flow is: RSVP (closes 1h before start, server
+// enforced) -> "join opens 5 min before" -> Join (stamps joined-at server-side
+// and opens the meet link handed back by the API — the listing withholds the
+// link outside the join window).
+function GroupCallAction({
   call,
+  now,
   onUnlock,
+  testPrefix,
+  showCount = false,
 }: {
   call: CoachingCall;
+  now: Date;
   onUnlock: (url: string) => void;
-}) {
-  if (call.isAccessible) {
-    if (call.meetLink) {
-      return (
-        <Button asChild size="sm" className="font-semibold shrink-0">
-          <a href={call.meetLink} target="_blank" rel="noopener noreferrer">
-            Join Call
-          </a>
-        </Button>
-      );
-    }
-    // Accessible but the per-session link hasn't been published yet.
-    return (
-      <Button size="sm" variant="outline" disabled className="font-semibold shrink-0">
-        Link soon
-      </Button>
-    );
-  }
-  return (
-    <Button
-      size="sm"
-      variant="outline"
-      className="font-semibold shrink-0 gap-1.5"
-      onClick={() => onUnlock(call.upgradeUrl ?? "/plans")}
-    >
-      <Lock className="w-3.5 h-3.5" />
-      Unlock
-    </Button>
-  );
-}
-
-// RSVP control for one-off special sessions. Eligible members can reserve a
-// spot ahead of the call and cancel that reservation; both surface the running
-// registered tally. Locked sessions defer to the call's own Unlock deep-link
-// (members can't reserve a session they aren't entitled to — the backend 404s).
-function SpecialSessionAction({
-  call,
-  onUnlock,
-}: {
-  call: CoachingCall;
-  onUnlock: (url: string) => void;
+  testPrefix: string;
+  showCount?: boolean;
 }) {
   const queryClient = useQueryClient();
   const refresh = () => {
@@ -105,7 +90,17 @@ function SpecialSessionAction({
   };
   const register = useRegisterForCoachingCall({ mutation: { onSuccess: refresh } });
   const cancel = useCancelCoachingCallRegistration({ mutation: { onSuccess: refresh } });
-  const pending = register.isPending || cancel.isPending;
+  const join = useJoinCoachingCall({
+    mutation: {
+      onSuccess: (res) => {
+        // The join endpoint is the source of the meet link (the listing
+        // withholds it outside the window); open it in a new tab.
+        if (res.meetLink) window.open(res.meetLink, "_blank", "noopener,noreferrer");
+        refresh();
+      },
+    },
+  });
+  const pending = register.isPending || cancel.isPending || join.isPending;
 
   if (!call.isAccessible) {
     return (
@@ -121,45 +116,90 @@ function SpecialSessionAction({
     );
   }
 
+  const start = new Date(call.scheduledAt).getTime();
+  const rsvpOpen = now.getTime() < start - RSVP_CUTOFF_MS;
+  const joinOpen = now.getTime() >= start - JOIN_OPENS_BEFORE_MS;
+
+  let action: ReactNode;
+  if (call.hasRegistered && joinOpen) {
+    action = (
+      <Button
+        size="sm"
+        disabled={pending}
+        data-testid={`${testPrefix}-join-${call.id}`}
+        className="font-semibold"
+        onClick={() => join.mutate({ id: call.id })}
+      >
+        Join Call
+      </Button>
+    );
+  } else if (call.hasRegistered && !rsvpOpen) {
+    // Between the RSVP cutoff and the join window: locked in, waiting.
+    action = (
+      <Button
+        size="sm"
+        variant="outline"
+        disabled
+        data-testid={`${testPrefix}-waiting-${call.id}`}
+        className="font-semibold gap-1.5"
+      >
+        <Check className="w-3.5 h-3.5 text-emerald-600" />
+        Join opens 5 min before
+      </Button>
+    );
+  } else if (call.hasRegistered) {
+    action = (
+      <Button
+        size="sm"
+        variant="outline"
+        disabled={pending}
+        data-testid={`${testPrefix}-cancel-${call.id}`}
+        className="font-semibold gap-1.5"
+        onClick={() => cancel.mutate({ id: call.id })}
+      >
+        <Check className="w-3.5 h-3.5 text-emerald-600" />
+        RSVP'd
+      </Button>
+    );
+  } else if (rsvpOpen) {
+    action = (
+      <Button
+        size="sm"
+        disabled={pending}
+        data-testid={`${testPrefix}-register-${call.id}`}
+        className="font-semibold"
+        onClick={() => register.mutate({ id: call.id })}
+      >
+        RSVP
+      </Button>
+    );
+  } else {
+    // No RSVP and the cutoff has passed — no late-RSVP exceptions.
+    action = (
+      <Button
+        size="sm"
+        variant="outline"
+        disabled
+        data-testid={`${testPrefix}-closed-${call.id}`}
+        className="font-semibold"
+      >
+        RSVPs closed
+      </Button>
+    );
+  }
+
   return (
     <div className="flex items-center gap-3 shrink-0">
-      <span
-        data-testid={`oneoff-registered-count-${call.id}`}
-        className="flex items-center gap-1 text-xs text-muted-foreground"
-      >
-        <Users className="w-3.5 h-3.5" />
-        {call.registeredCount} reserved
-      </span>
-      {call.hasRegistered ? (
-        <Button
-          size="sm"
-          variant="outline"
-          disabled={pending}
-          data-testid={`oneoff-cancel-${call.id}`}
-          className="font-semibold gap-1.5"
-          onClick={() => cancel.mutate({ id: call.id })}
+      {showCount && (
+        <span
+          data-testid={`${testPrefix}-registered-count-${call.id}`}
+          className="flex items-center gap-1 text-xs text-muted-foreground"
         >
-          <Check className="w-3.5 h-3.5 text-emerald-600" />
-          Reserved
-        </Button>
-      ) : (
-        <Button
-          size="sm"
-          disabled={pending}
-          data-testid={`oneoff-register-${call.id}`}
-          className="font-semibold"
-          onClick={() => register.mutate({ id: call.id })}
-        >
-          Reserve Spot
-        </Button>
+          <Users className="w-3.5 h-3.5" />
+          {call.registeredCount} reserved
+        </span>
       )}
-      {call.meetLink && (
-        <Button asChild size="sm" variant="ghost" className="font-semibold">
-          <a href={call.meetLink} target="_blank" rel="noopener noreferrer">
-            Join Call
-          </a>
-        </Button>
-      )}
+      {action}
     </div>
   );
 }
@@ -187,6 +227,7 @@ const ONE_OFF_CALL_LABELS: Record<OneOffCallType, string> = {
 
 export default function Coaching() {
   const [, navigate] = useLocation();
+  const now = useNow();
   const { data: upcomingCalls } = useListCoachingCalls({ upcoming: true });
   const { data: coaches } = useListCoaches();
 
@@ -336,7 +377,7 @@ export default function Coaching() {
                           with {coachFirst}
                         </span>
                       </div>
-                      <CallAction call={call} onUnlock={navigate} />
+                      <GroupCallAction call={call} now={now} onUnlock={navigate} testPrefix="weekly" />
                     </div>
                   );
                 })}
@@ -395,7 +436,7 @@ export default function Coaching() {
                         with {call.coachName.split(" ")[0]}
                       </span>
                     </div>
-                    <SpecialSessionAction call={call} onUnlock={navigate} />
+                    <GroupCallAction call={call} now={now} onUnlock={navigate} testPrefix="oneoff" showCount />
                   </div>
                 ))}
               </div>

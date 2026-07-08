@@ -180,6 +180,7 @@ export type {
   CoachVisiblePartnerNote,
   CoachingCall,
   CoachingCallCallType,
+  CoachingCallJoin,
   CoachingCallRegistration,
   CoachingRating,
   CoachingSessionDetail,

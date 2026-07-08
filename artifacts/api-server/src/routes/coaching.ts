@@ -8,6 +8,24 @@ import { queueGHLSync } from "../lib/ghl-queue";
 
 const router: IRouter = Router();
 
+// RSVP-first flow for group coaching calls:
+//   - RSVPs close 1 hour before the scheduled start (server-enforced on the
+//     register endpoint — no late-RSVP exceptions).
+//   - The live Join window opens 5 minutes before start; the meet link is
+//     withheld by the API (not just hidden in the UI) until a member has
+//     RSVP'd (necessarily in-time, since late registration is rejected) AND
+//     the join window is open. Recording access is unchanged.
+export const RSVP_CUTOFF_MS = 60 * 60 * 1000;
+export const JOIN_OPENS_BEFORE_MS = 5 * 60 * 1000;
+
+function rsvpClosed(scheduledAt: Date, now: Date): boolean {
+  return now.getTime() >= scheduledAt.getTime() - RSVP_CUTOFF_MS;
+}
+
+function joinWindowOpen(scheduledAt: Date, now: Date): boolean {
+  return now.getTime() >= scheduledAt.getTime() - JOIN_OPENS_BEFORE_MS;
+}
+
 router.get("/coaching-calls", async (req, res): Promise<void> => {
   const userId = req.userId!;
   const upcoming = req.query.upcoming === "true";
@@ -39,6 +57,7 @@ router.get("/coaching-calls", async (req, res): Promise<void> => {
       // unique per (call, user) and only counts as a registration when
       // registered_at is set (a recording-only view leaves it null).
       registeredAt: coachingCallAttendanceTable.registeredAt,
+      joinedAt: coachingCallAttendanceTable.joinedAt,
     })
     .from(coachingCallsTable)
     .innerJoin(coachesTable, eq(coachingCallsTable.coachId, coachesTable.id))
@@ -65,18 +84,26 @@ router.get("/coaching-calls", async (req, res): Promise<void> => {
       )
     : await query.where(visibleCoach);
 
-  const mapped = calls.map(({ registeredAt, cancelledAt, ...c }) => {
+  const mapped = calls.map(({ registeredAt, joinedAt, cancelledAt, ...c }) => {
     const isAccessible = bypass || entitlements.has(c.requiredEntitlement);
     const cancelled = cancelledAt !== null;
+    const hasRegistered = registeredAt !== null;
     return {
       ...c,
-      hasRegistered: registeredAt !== null,
+      hasRegistered,
+      hasJoined: joinedAt !== null,
       isAccessible,
       cancelled,
       // A cancelled occurrence is not joinable: never hand back a live meet
       // link for it even to an entitled member (defense-in-depth alongside the
-      // 409 on the attendance POST and the disabled UI action).
-      meetLink: isAccessible && !cancelled ? c.meetLink : null,
+      // 409 on the attendance POST and the disabled UI action). For an active
+      // call the link is withheld until the member has RSVP'd (registration
+      // closes 1h before start, so any RSVP is in-time) AND the join window
+      // (5 min before start) is open.
+      meetLink:
+        isAccessible && !cancelled && hasRegistered && joinWindowOpen(c.scheduledAt, now)
+          ? c.meetLink
+          : null,
       recordingUrl: isAccessible ? c.recordingUrl : null,
       upgradeUrl: getCallUpgradeUrl(c.requiredEntitlement, isAccessible),
     };
@@ -92,13 +119,15 @@ router.get("/coaching-calls", async (req, res): Promise<void> => {
 async function getAccessibleCall(
   userId: number,
   callId: number,
-): Promise<{ id: number; cancelledAt: Date | null } | null> {
+): Promise<{ id: number; cancelledAt: Date | null; scheduledAt: Date; meetLink: string | null } | null> {
   if (!Number.isInteger(callId)) return null;
   const [call] = await db
     .select({
       id: coachingCallsTable.id,
       requiredEntitlement: coachingCallsTable.requiredEntitlement,
       cancelledAt: coachingCallsTable.cancelledAt,
+      scheduledAt: coachingCallsTable.scheduledAt,
+      meetLink: coachingCallsTable.meetLink,
     })
     .from(coachingCallsTable)
     .where(eq(coachingCallsTable.id, callId));
@@ -108,7 +137,12 @@ async function getAccessibleCall(
     hasMemberAccessBypass(userId),
   ]);
   if (!bypass && !entitlements.has(call.requiredEntitlement)) return null;
-  return { id: call.id, cancelledAt: call.cancelledAt };
+  return {
+    id: call.id,
+    cancelledAt: call.cancelledAt,
+    scheduledAt: call.scheduledAt,
+    meetLink: call.meetLink,
+  };
 }
 
 // Recompute the call's registered tally directly from the attendance rows that
@@ -156,6 +190,12 @@ router.post("/coaching-calls/:id/attendance", async (req, res): Promise<void> =>
   }
 
   const now = new Date();
+  // RSVPs close 1 hour before start — no late-RSVP exceptions. Enforced here
+  // (not just in the UI) so a direct API call can't register late either.
+  if (rsvpClosed(call.scheduledAt, now)) {
+    res.status(409).json({ error: "RSVPs are closed for this call" });
+    return;
+  }
   await db
     .insert(coachingCallAttendanceTable)
     .values({ callId: call.id, userId, registeredAt: now })
@@ -195,6 +235,53 @@ router.delete("/coaching-calls/:id/attendance", async (req, res): Promise<void> 
     );
 
   res.json({ registered: false, registeredCount: await syncRegisteredCount(call.id) });
+});
+
+// Record that the member is joining the live call. Only members who RSVP'd
+// (necessarily before the 1-hour cutoff, since late registration is rejected)
+// may join, and only once the join window opens (5 minutes before start).
+// Stamps joined_at on the attendance row — first click only, so the timestamp
+// reflects when the member first joined — and hands back the meet link (the
+// listing withholds it outside these exact conditions).
+router.post("/coaching-calls/:id/join", async (req, res): Promise<void> => {
+  const userId = req.userId!;
+  const callId = Number(req.params.id);
+  const call = await getAccessibleCall(userId, callId);
+  if (!call) {
+    res.status(404).json({ error: "Coaching call not found" });
+    return;
+  }
+  if (call.cancelledAt !== null) {
+    res.status(409).json({ error: "This call has been cancelled" });
+    return;
+  }
+
+  const now = new Date();
+  if (!joinWindowOpen(call.scheduledAt, now)) {
+    res.status(403).json({ error: "Joining opens 5 minutes before the call starts" });
+    return;
+  }
+
+  // Stamp joined_at only when the member holds a live RSVP; COALESCE keeps the
+  // FIRST join time on repeat clicks. The conditional UPDATE doubles as the
+  // RSVP check — zero rows updated means no in-time RSVP, so no link.
+  const updated = await db
+    .update(coachingCallAttendanceTable)
+    .set({ joinedAt: sql`COALESCE(${coachingCallAttendanceTable.joinedAt}, ${now.toISOString()}::timestamptz)` })
+    .where(
+      and(
+        eq(coachingCallAttendanceTable.callId, call.id),
+        eq(coachingCallAttendanceTable.userId, userId),
+        isNotNull(coachingCallAttendanceTable.registeredAt),
+      ),
+    )
+    .returning({ id: coachingCallAttendanceTable.id });
+  if (updated.length === 0) {
+    res.status(403).json({ error: "RSVP required to join this call" });
+    return;
+  }
+
+  res.json({ joined: true, meetLink: call.meetLink });
 });
 
 // Record that the member opened the call's recording. Stamps

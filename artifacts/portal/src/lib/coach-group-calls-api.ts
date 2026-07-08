@@ -120,6 +120,32 @@ export function useCoachCalendarBusy(
   });
 }
 
+export interface GroupCallRosterMember {
+  userId: number;
+  name: string;
+  email: string;
+  rsvpd: boolean;
+  joined: boolean;
+}
+
+export interface GroupCallRosterResponse {
+  callId: number;
+  rsvpCount: number;
+  joinedCount: number;
+  members: GroupCallRosterMember[];
+}
+
+// Who has RSVP'd (and actually joined) a specific group call. Scoped
+// server-side: a coach can only read rosters for their own calls; admins any.
+// Disabled until a call is expanded so collapsed rows never fire a request.
+export function useGroupCallRoster(callId: number | null) {
+  return useQuery<GroupCallRosterResponse>({
+    queryKey: [ROOT_KEY, "roster", callId],
+    enabled: callId !== null,
+    queryFn: () => coachFetch(`/coach/group-calls/${callId}/roster`),
+  });
+}
+
 function useGroupCallMutation(action: "cancel" | "restore") {
   const queryClient = useQueryClient();
   return useMutation<{ id: number; cancelled: boolean }, Error, number>({

@@ -6,7 +6,7 @@ import { getProductLabelByRank } from "../lib/entitlements";
 import { Router, type Request, type Response } from "express";
 import crypto from "crypto";
 import bcrypt from "bcryptjs";
-import { db, usersTable, userProductsTable, productsTable, ticketsTable, auditLogTable, systemSettingsTable, adminNotesTable, progressTable, emailChangeHistoryTable, emailChangeAttemptsTable, phoneChangeHistoryTable, webhookLogsTable, machineProductKeyMappingsTable, machineUnknownProductKeysTable, sessionsTable, adSpendTransactionsTable, memberRefundEventsTable, btsOrdersTable, callBookingsTable, partnerAssignmentsTable, partnerNotesTable, onboardingEffectsTable, sequenceEnrollmentsTable, signedDocumentsTable, communicationLogTable, chatSessionsTable, chatDailyUsageTable, chatPromptsTable, courseProgressTable, blitzDailyActivityTable, blitzEventsTable, memberHealthScoresTable, ghlSyncLogTable, memberAppInstancesTable, knowledgebaseBookmarksTable, vaultFavoritesTable, emailUnsubscribesTable, communityPostsTable, communityCommentsTable, communityReactionsTable, communityNotificationsTable, communityBadgesTable, dmThreadsTable, dmMessagesTable, winsTable, ticketSatisfactionTable, ticketMessagesTable, ticketSlaTable, ticketAttachmentsTable, userStrikesTable, coachingCallAttendanceTable, moderationQueueTable, affiliateProfilesTable, checkoutIdempotencyTable, sessionPackBookingsTable, coachingCreditLedgerTable, subscriptionsTable, toolUserDataTable, toolUsageLogTable, toolDailyUsageTable, voiceCallsTable, voiceDailyUsageTable } from "@workspace/db";
+import { db, usersTable, userProductsTable, productsTable, ticketsTable, auditLogTable, systemSettingsTable, adminNotesTable, progressTable, emailChangeHistoryTable, emailChangeAttemptsTable, phoneChangeHistoryTable, webhookLogsTable, machineProductKeyMappingsTable, machineUnknownProductKeysTable, sessionsTable, adSpendTransactionsTable, memberRefundEventsTable, btsOrdersTable, callBookingsTable, partnerAssignmentsTable, partnerNotesTable, onboardingEffectsTable, sequenceEnrollmentsTable, signedDocumentsTable, communicationLogTable, chatSessionsTable, chatDailyUsageTable, chatPromptsTable, courseProgressTable, blitzDailyActivityTable, blitzEventsTable, memberHealthScoresTable, ghlSyncLogTable, memberAppInstancesTable, knowledgebaseBookmarksTable, vaultFavoritesTable, emailUnsubscribesTable, communityPostsTable, communityCommentsTable, communityReactionsTable, communityNotificationsTable, communityBadgesTable, dmThreadsTable, dmMessagesTable, winsTable, ticketSatisfactionTable, ticketMessagesTable, ticketSlaTable, ticketAttachmentsTable, userStrikesTable, coachingCallAttendanceTable, coachingCallsTable, moderationQueueTable, affiliateProfilesTable, checkoutIdempotencyTable, sessionPackBookingsTable, coachingCreditLedgerTable, subscriptionsTable, toolUserDataTable, toolUsageLogTable, toolDailyUsageTable, voiceCallsTable, voiceDailyUsageTable } from "@workspace/db";
 import { cancelAppointment, COACHING_LOCATION_ID } from "../lib/ghl-coaching-calendar";
 import { eq, ne, and, gt, gte, lt, lte, desc, asc, sql, ilike, or, inArray, isNotNull, isNull, getTableColumns, type SQL } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
@@ -1617,6 +1617,41 @@ router.get("/admin/members/:id/full", requirePermission("members:view"), async (
       ),
     ]);
 
+    // Group-coaching engagement: every call this member RSVP'd for and/or
+    // actually joined (Join click), newest first. Recording-only attendance
+    // rows (both stamps null) are deliberately excluded — the Member Detail
+    // "Group Coaching" card shows live-call engagement, not recording views.
+    const groupCoachingRows = await safeQuery(
+      db.select({
+        callId: coachingCallAttendanceTable.callId,
+        title: coachingCallsTable.title,
+        callType: coachingCallsTable.callType,
+        scheduledAt: coachingCallsTable.scheduledAt,
+        registeredAt: coachingCallAttendanceTable.registeredAt,
+        joinedAt: coachingCallAttendanceTable.joinedAt,
+      })
+        .from(coachingCallAttendanceTable)
+        .innerJoin(coachingCallsTable, eq(coachingCallsTable.id, coachingCallAttendanceTable.callId))
+        .where(and(
+          eq(coachingCallAttendanceTable.userId, id),
+          sql`(${coachingCallAttendanceTable.registeredAt} IS NOT NULL OR ${coachingCallAttendanceTable.joinedAt} IS NOT NULL)`,
+        ))
+        .orderBy(desc(coachingCallsTable.scheduledAt))
+        .limit(100)
+    );
+    const groupCoaching = {
+      totalRsvpd: groupCoachingRows.filter(r => r.registeredAt !== null).length,
+      totalJoined: groupCoachingRows.filter(r => r.joinedAt !== null).length,
+      calls: groupCoachingRows.map(r => ({
+        callId: r.callId,
+        title: r.title,
+        callType: r.callType,
+        scheduledAt: r.scheduledAt,
+        rsvpd: r.registeredAt !== null,
+        joined: r.joinedAt !== null,
+      })),
+    };
+
     const classified = classifyEmailAttempts(
       emailAttemptRowsFull,
       emailHistoryFull,
@@ -1631,6 +1666,7 @@ router.get("/admin/members/:id/full", requirePermission("members:view"), async (
       tickets,
       trainingProgress: { completedLessons: progress },
       coachingSessions: [],
+      groupCoaching,
       commissions: [],
       community: { posts: 0, comments: 0 },
       adminNotes: notes,

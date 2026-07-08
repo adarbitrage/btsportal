@@ -602,6 +602,7 @@ export const GetDashboardResponse = zod.object({
       isAccessible: zod.boolean(),
       upgradeUrl: zod.string().nullable(),
       cancelled: zod.boolean(),
+      hasJoined: zod.boolean().optional(),
     }),
   ),
   recentAnnouncements: zod.array(
@@ -852,6 +853,7 @@ export const ListCoachingCallsResponseItem = zod.object({
   isAccessible: zod.boolean(),
   upgradeUrl: zod.string().nullable(),
   cancelled: zod.boolean(),
+  hasJoined: zod.boolean().optional(),
 });
 export const ListCoachingCallsResponse = zod.array(
   ListCoachingCallsResponseItem,
@@ -879,6 +881,18 @@ export const CancelCoachingCallRegistrationParams = zod.object({
 export const CancelCoachingCallRegistrationResponse = zod.object({
   registered: zod.boolean(),
   registeredCount: zod.number(),
+});
+
+/**
+ * @summary Join a live coaching call (stamps joined-at; requires an in-time RSVP and the open join window)
+ */
+export const JoinCoachingCallParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const JoinCoachingCallResponse = zod.object({
+  joined: zod.boolean(),
+  meetLink: zod.string().nullable(),
 });
 
 /**

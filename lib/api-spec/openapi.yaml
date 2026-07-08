@@ -663,6 +663,29 @@ paths:
         "404":
           description: Coaching call not found or not accessible
 
+  /coaching-calls/{id}/join:
+    post:
+      operationId: joinCoachingCall
+      tags: [coaching]
+      summary: Join a live coaching call (stamps joined-at; requires an in-time RSVP and the open join window)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Join recorded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CoachingCallJoin"
+        "403":
+          description: Not RSVP'd in time or the join window is not open
+        "404":
+          description: Coaching call not found or not accessible
+
   /coaches:
     get:
       operationId: listCoaches
@@ -8071,6 +8094,8 @@ components:
           type: ["string", "null"]
         cancelled:
           type: boolean
+        hasJoined:
+          type: boolean
       required: [id, title, description, callType, coachId, coachName, scheduledAt, durationMinutes, requiredEntitlement, registeredCount, hasRegistered, isAccessible, upgradeUrl, cancelled]
 
     CoachingCallRegistration:
@@ -8081,6 +8106,15 @@ components:
         registeredCount:
           type: integer
       required: [registered, registeredCount]
+
+    CoachingCallJoin:
+      type: object
+      properties:
+        joined:
+          type: boolean
+        meetLink:
+          type: ["string", "null"]
+      required: [joined, meetLink]
 
     Coach:
       type: object

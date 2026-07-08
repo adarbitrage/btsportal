@@ -8,6 +8,7 @@ import {
   usersTable,
   coachesTable,
   coachingCallsTable,
+  coachingCallAttendanceTable,
 } from "@workspace/db";
 import { eq, inArray } from "drizzle-orm";
 
@@ -132,6 +133,10 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
+  if (callIds.length)
+    await db
+      .delete(coachingCallAttendanceTable)
+      .where(inArray(coachingCallAttendanceTable.callId, callIds));
   if (callIds.length) await db.delete(coachingCallsTable).where(inArray(coachingCallsTable.id, callIds));
   if (coachIds.length) await db.delete(coachesTable).where(inArray(coachesTable.id, coachIds));
   if (userIds.length) await db.delete(usersTable).where(inArray(usersTable.id, userIds));
@@ -287,5 +292,72 @@ describe("Coach Group Coaching endpoints", () => {
       .post(`/api/coach/group-calls/999999999/cancel`)
       .set("Cookie", adminCookie);
     expect(res.status).toBe(404);
+  });
+});
+
+describe("GET /api/coach/group-calls/:id/roster", () => {
+  let rsvpMemberId: number;
+  let joinedMemberId: number;
+  let recordingOnlyMemberId: number;
+
+  beforeAll(async () => {
+    rsvpMemberId = await insertUser("member", "rsvp-member");
+    joinedMemberId = await insertUser("member", "joined-member");
+    recordingOnlyMemberId = await insertUser("member", "recording-member");
+    await db.insert(coachingCallAttendanceTable).values([
+      // RSVP'd but never joined.
+      { callId: coachACallId, userId: rsvpMemberId, registeredAt: new Date() },
+      // RSVP'd and joined.
+      {
+        callId: coachACallId,
+        userId: joinedMemberId,
+        registeredAt: new Date(),
+        joinedAt: new Date(),
+      },
+      // Recording-only view (both stamps null) — must NOT appear in the roster.
+      { callId: coachACallId, userId: recordingOnlyMemberId, recordingViewedAt: new Date() },
+    ]);
+  });
+
+  it("returns the roster (RSVP + joined, recording-only excluded) to the owning coach", async () => {
+    const res = await request(app)
+      .get(`/api/coach/group-calls/${coachACallId}/roster`)
+      .set("Cookie", coachACookie);
+    expect(res.status).toBe(200);
+    expect(res.body.callId).toBe(coachACallId);
+    expect(res.body.rsvpCount).toBe(2);
+    expect(res.body.joinedCount).toBe(1);
+    const ids = res.body.members.map((m: { userId: number }) => m.userId);
+    expect(ids).toContain(rsvpMemberId);
+    expect(ids).toContain(joinedMemberId);
+    expect(ids).not.toContain(recordingOnlyMemberId);
+    const joined = res.body.members.find((m: { userId: number }) => m.userId === joinedMemberId);
+    expect(joined).toMatchObject({ rsvpd: true, joined: true });
+    const rsvpOnly = res.body.members.find((m: { userId: number }) => m.userId === rsvpMemberId);
+    expect(rsvpOnly).toMatchObject({ rsvpd: true, joined: false });
+  });
+
+  it("forbids a coach from reading another coach's roster", async () => {
+    const res = await request(app)
+      .get(`/api/coach/group-calls/${coachACallId}/roster`)
+      .set("Cookie", coachBCookie);
+    expect(res.status).toBe(403);
+  });
+
+  it("lets an admin read any coach's roster", async () => {
+    const res = await request(app)
+      .get(`/api/coach/group-calls/${coachACallId}/roster`)
+      .set("Cookie", adminCookie);
+    expect(res.status).toBe(200);
+    expect(res.body.rsvpCount).toBe(2);
+  });
+
+  it("returns an empty roster for a call with no RSVPs", async () => {
+    const res = await request(app)
+      .get(`/api/coach/group-calls/${coachBCallId}/roster`)
+      .set("Cookie", coachBCookie);
+    expect(res.status).toBe(200);
+    expect(res.body.members).toEqual([]);
+    expect(res.body.rsvpCount).toBe(0);
   });
 });

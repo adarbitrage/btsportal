@@ -779,7 +779,7 @@ export default function MemberDetail() {
     return <AdminLayout><div className="p-8 text-center text-muted-foreground">Member not found</div></AdminLayout>;
   }
 
-  const { member, products, trainingProgress, coachingSessions, commissions, community, adminNotes, auditHistory, emailHistory = [], phoneHistory = [], activeSessions = [] } = data;
+  const { member, products, trainingProgress, coachingSessions, groupCoaching = { totalRsvpd: 0, totalJoined: 0, calls: [] }, commissions, community, adminNotes, auditHistory, emailHistory = [], phoneHistory = [], activeSessions = [] } = data;
   // The server applies the status filter before pagination, so the loaded
   // rows AND `emailAttemptsTotal` already reflect only matching rows.
   const visibleAttempts = emailAttempts;
@@ -1925,9 +1925,9 @@ export default function MemberDetail() {
             </Card>
           </TabsContent>
 
-          <TabsContent value="coaching">
+          <TabsContent value="coaching" className="space-y-4">
             <Card>
-              <CardHeader><CardTitle className="text-base">Coaching Sessions</CardTitle></CardHeader>
+              <CardHeader><CardTitle className="text-base">Private Coaching</CardTitle></CardHeader>
               <CardContent>
                 {coachingSessions.length === 0 ? (
                   <p className="text-sm text-muted-foreground">No coaching sessions</p>
@@ -1940,6 +1940,45 @@ export default function MemberDetail() {
                           <span className="text-xs text-muted-foreground">{s.scheduledAt ? format(new Date(s.scheduledAt), "MMM d, yyyy") : ""}</span>
                         </div>
                         <Badge variant={s.status === "completed" ? "default" : "secondary"}>{s.status}</Badge>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            <Card data-testid="admin-member-group-coaching">
+              <CardHeader><CardTitle className="text-base">Group Coaching</CardTitle></CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-2 gap-4 mb-4">
+                  <div className="p-4 bg-muted/50 rounded-lg text-center">
+                    <p className="text-2xl font-bold" data-testid="admin-member-group-rsvpd">{groupCoaching.totalRsvpd}</p>
+                    <p className="text-xs text-muted-foreground">Calls RSVP'd</p>
+                  </div>
+                  <div className="p-4 bg-muted/50 rounded-lg text-center">
+                    <p className="text-2xl font-bold" data-testid="admin-member-group-joined">{groupCoaching.totalJoined}</p>
+                    <p className="text-xs text-muted-foreground">Calls joined</p>
+                  </div>
+                </div>
+                {groupCoaching.calls.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">No group coaching activity</p>
+                ) : (
+                  <div className="space-y-2">
+                    {groupCoaching.calls.map((c: any) => (
+                      <div key={c.callId} data-testid={`admin-member-group-call-${c.callId}`} className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
+                        <div>
+                          <p className="text-sm font-medium">{c.title}</p>
+                          <span className="text-xs text-muted-foreground">{c.scheduledAt ? format(new Date(c.scheduledAt), "MMM d, yyyy h:mm a") : ""}</span>
+                        </div>
+                        <div className="flex items-center gap-1.5">
+                          {c.joined ? (
+                            <Badge>Joined</Badge>
+                          ) : c.rsvpd ? (
+                            <Badge variant="secondary">RSVP'd</Badge>
+                          ) : (
+                            <Badge variant="outline">Cancelled RSVP</Badge>
+                          )}
+                        </div>
                       </div>
                     ))}
                   </div>

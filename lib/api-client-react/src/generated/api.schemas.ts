@@ -808,6 +808,7 @@ export interface CoachingCall {
   /** @nullable */
   upgradeUrl: string | null;
   cancelled: boolean;
+  hasJoined?: boolean;
 }
 
 export type AnnouncementType =
@@ -936,6 +937,12 @@ export interface CreateProgress {
 export interface CoachingCallRegistration {
   registered: boolean;
   registeredCount: number;
+}
+
+export interface CoachingCallJoin {
+  joined: boolean;
+  /** @nullable */
+  meetLink: string | null;
 }
 
 export interface Coach {

@@ -27,4 +27,5 @@ export interface CoachingCall {
   /** @nullable */
   upgradeUrl: string | null;
   cancelled: boolean;
+  hasJoined?: boolean;
 }

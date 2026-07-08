@@ -175,6 +175,7 @@ export * from "./coachDashboardSummary";
 export * from "./coachDashboardSummaryByStatus";
 export * from "./coachingCall";
 export * from "./coachingCallCallType";
+export * from "./coachingCallJoin";
 export * from "./coachingCallRegistration";
 export * from "./coachingRating";
 export * from "./coachingSessionDetail";

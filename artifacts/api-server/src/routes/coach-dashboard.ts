@@ -22,6 +22,7 @@ import {
   usersTable,
   coachesTable,
   coachingCallsTable,
+  coachingCallAttendanceTable,
   partnerNotesTable,
   partnersTable,
 } from "@workspace/db";
@@ -1017,6 +1018,60 @@ router.post(
     } catch (err) {
       console.error("[CoachDashboard] group-call restore error:", err);
       sendError(res, 500, ErrorCodes.INTERNAL_ERROR, "Failed to restore call");
+    }
+  },
+);
+
+// GET /api/coach/group-calls/:id/roster — who has RSVP'd for a group call (and
+// who has actually clicked Join). Scoping mirrors the other group-call
+// management routes: a coach may only view rosters for their OWN calls; an
+// admin (coaching:view) may view any. Staff-facing, so full member names are
+// returned. Recording-only attendance rows (registered_at null, joined_at
+// null) are excluded — they are not RSVPs.
+router.get(
+  "/coach/group-calls/:id/roster",
+  requireCoachOrCoachingView(),
+  async (req, res): Promise<void> => {
+    const loaded = await loadManageableGroupCall(req, Number(req.params["id"]));
+    if (!loaded.ok) {
+      sendError(res, loaded.status, loaded.code, loaded.message);
+      return;
+    }
+    try {
+      const rows = await db
+        .select({
+          userId: usersTable.id,
+          name: usersTable.name,
+          email: usersTable.email,
+          registeredAt: coachingCallAttendanceTable.registeredAt,
+          joinedAt: coachingCallAttendanceTable.joinedAt,
+        })
+        .from(coachingCallAttendanceTable)
+        .innerJoin(usersTable, eq(coachingCallAttendanceTable.userId, usersTable.id))
+        .where(
+          and(
+            eq(coachingCallAttendanceTable.callId, loaded.id),
+            // RSVP'd now, OR joined during the call (an RSVP that was later
+            // cancelled after joining still counts as having been there).
+            sql`(${coachingCallAttendanceTable.registeredAt} IS NOT NULL OR ${coachingCallAttendanceTable.joinedAt} IS NOT NULL)`,
+          ),
+        )
+        .orderBy(asc(usersTable.name));
+      res.json({
+        callId: loaded.id,
+        rsvpCount: rows.filter((r) => r.registeredAt !== null).length,
+        joinedCount: rows.filter((r) => r.joinedAt !== null).length,
+        members: rows.map((r) => ({
+          userId: r.userId,
+          name: r.name,
+          email: r.email,
+          rsvpd: r.registeredAt !== null,
+          joined: r.joinedAt !== null,
+        })),
+      });
+    } catch (err) {
+      console.error("[CoachDashboard] group-call roster error:", err);
+      sendError(res, 500, ErrorCodes.INTERNAL_ERROR, "Failed to load roster");
     }
   },
 );

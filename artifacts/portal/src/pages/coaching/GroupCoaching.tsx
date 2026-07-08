@@ -30,8 +30,64 @@ import {
   useCancelGroupCall,
   useRestoreGroupCall,
   useCoachCalendarBusy,
+  useGroupCallRoster,
   type CoachGroupCall,
 } from "@/lib/coach-group-calls-api";
+
+// Collapsible RSVP roster for one call in the day-detail panel. The roster
+// request only fires while expanded (the hook is disabled when collapsed).
+function CallRoster({ callId }: { callId: number }) {
+  const [expanded, setExpanded] = useState(false);
+  const roster = useGroupCallRoster(expanded ? callId : null);
+  return (
+    <div className="mt-2">
+      <Button
+        size="sm"
+        variant="ghost"
+        data-testid={`group-call-roster-toggle-${callId}`}
+        className="font-semibold w-full"
+        onClick={() => setExpanded((v) => !v)}
+      >
+        {expanded ? "Hide RSVPs" : "View RSVPs"}
+      </Button>
+      {expanded && (
+        <div data-testid={`group-call-roster-${callId}`} className="mt-2 space-y-1.5">
+          {roster.isLoading ? (
+            <div className="text-xs text-muted-foreground py-1">Loading roster…</div>
+          ) : roster.isError ? (
+            <div className="text-xs text-destructive py-1">Couldn't load the roster.</div>
+          ) : (roster.data?.members.length ?? 0) === 0 ? (
+            <div data-testid={`group-call-roster-empty-${callId}`} className="text-xs text-muted-foreground py-1">
+              No RSVPs yet.
+            </div>
+          ) : (
+            <>
+              <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                {roster.data!.rsvpCount} RSVP'd · {roster.data!.joinedCount} joined
+              </div>
+              {roster.data!.members.map((m) => (
+                <div
+                  key={m.userId}
+                  data-testid={`roster-member-${callId}-${m.userId}`}
+                  className="flex items-center justify-between gap-2 rounded-md border border-border/60 px-2.5 py-1.5 text-xs"
+                >
+                  <span className="text-foreground truncate">{m.name}</span>
+                  {m.joined ? (
+                    <Badge variant="secondary" className="text-[10px] shrink-0">Joined</Badge>
+                  ) : m.rsvpd ? (
+                    <Badge variant="outline" className="text-[10px] shrink-0">RSVP'd</Badge>
+                  ) : (
+                    <Badge variant="outline" className="text-[10px] shrink-0">Cancelled RSVP</Badge>
+                  )}
+                </div>
+              ))}
+            </>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
 
 export default function GroupCoaching() {
   const { toast } = useToast();
@@ -322,6 +378,7 @@ export default function GroupCoaching() {
                             </Button>
                           )}
                         </div>
+                        <CallRoster callId={call.id} />
                       </div>
                     );
                   })}

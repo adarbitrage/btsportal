@@ -107,6 +107,11 @@ export const coachingCallAttendanceTable = pgTable(
     registeredAt: timestamp("registered_at", { withTimezone: true }),
     // Set when the member opens the call's recording.
     recordingViewedAt: timestamp("recording_viewed_at", { withTimezone: true }),
+    // Set the FIRST time the member clicks "Join" during the live join window
+    // (kept distinct from registeredAt so "RSVP'd but never joined" vs
+    // "actually joined" is distinguishable). Best-effort — this is the Join
+    // click, not verified Meet attendance. Never cleared by an RSVP cancel.
+    joinedAt: timestamp("joined_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => ({
