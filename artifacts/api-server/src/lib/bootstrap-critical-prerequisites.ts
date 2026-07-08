@@ -465,19 +465,21 @@ export async function bootstrapCriticalPrerequisites(): Promise<PrerequisiteResu
     missing.push("seedSendoffVideoSettings");
   }
 
-  // 11e. Task #1687: DEV/PREVIEW-ONLY — auto-fill both send-off video slots
-  //      with a temporary DUMMY video (an internal, brand-neutral, already-
-  //      hosted portal clip) so the owner can preview the send_off step's
-  //      real iframe player before real send-off videos are uploaded. Gated
-  //      out of production entirely so the dummy can never silently ship as
-  //      final; never overwrites a real value if one is ever set.
-  if (process.env.NODE_ENV !== "production") {
-    try {
-      await seedDevSendoffDummyVideo();
-    } catch (err) {
-      console.error("[Bootstrap] seedDevSendoffDummyVideo() threw:", err);
-      missing.push("seedDevSendoffDummyVideo");
-    }
+  // 11e. Task #1687, intentionally extended to production by Task #1701:
+  //      auto-fill both send-off video slots with a temporary DUMMY video (an
+  //      internal, brand-neutral, already-hosted portal clip) so the owner
+  //      can preview the send_off step's real iframe player before real
+  //      send-off videos are uploaded. The owner reviews exclusively on the
+  //      published portal, so this now intentionally runs in every
+  //      environment, including production. It can never silently ship as
+  //      final (the stored description keeps the DUMMY marker prefix) and
+  //      can never clobber a real value once the owner sets one (the seed
+  //      only ever fills a currently-blank slot).
+  try {
+    await seedDevSendoffDummyVideo();
+  } catch (err) {
+    console.error("[Bootstrap] seedDevSendoffDummyVideo() threw:", err);
+    missing.push("seedDevSendoffDummyVideo");
   }
 
   // 12. Seed the verified accountability-partner and kickoff-coach GHL

@@ -60,24 +60,25 @@ export async function seedSendoffVideoSettings(): Promise<void> {
 // the portal's own app-overview clips served from its `public/videos`
 // directory (same mechanism used by the Apps page's tool preview videos).
 //
-// This ONLY ever runs outside production (see caller gating in
-// bootstrap-critical-prerequisites.ts) and never overwrites a real value
-// that's already been set (checks for blank first) — so it can never
-// silently ship as final and can never clobber real content.
+// Task #1701: this now intentionally runs in production too (the owner
+// reviews exclusively on the published portal, so a dev-only preview was
+// invisible to them). It is still safe to run everywhere because the two
+// real safeguards below are unconditional: the DUMMY marker prefix on the
+// stored description (so it can never be mistaken for final), and the
+// "only fill a blank slot, never overwrite a real value" check (checks for
+// blank first) — so it can never silently ship as final and can never
+// clobber real content once the owner sets a real video URL.
 const DEV_DUMMY_SENDOFF_VIDEO_URL = "/videos/metricmover.mp4";
 
 /**
- * DEV/PREVIEW-ONLY. Idempotent: only fills in the dummy video URL for a
- * variant if that variant's setting is currently blank/unset. Never touches
- * a row that already has a real value. Must never be called when
- * `NODE_ENV === "production"`.
+ * Idempotent: only fills in the dummy video URL for a variant if that
+ * variant's setting is currently blank/unset. Never touches a row that
+ * already has a real value. Intentionally runs in every environment,
+ * including production (Task #1701) — see the comment above.
  */
 const DUMMY_MARKER_PREFIX = "[DUMMY — replace with real send-off videos] ";
 
 export async function seedDevSendoffDummyVideo(): Promise<void> {
-  if (process.env.NODE_ENV === "production") {
-    throw new Error("seedDevSendoffDummyVideo must never run in production");
-  }
   for (const [variant, key] of Object.entries(SENDOFF_VIDEO_SETTING_KEYS) as [SteppedOnboardingVariant, string][]) {
     const [row] = await db
       .select({ value: systemSettingsTable.value })
