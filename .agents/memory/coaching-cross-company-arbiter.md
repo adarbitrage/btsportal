@@ -28,6 +28,17 @@ offsetted ISO `startTime/endTime`, recurring occurrences pre-expanded, manual
 blocks appear as normal events, and a `deleted` boolean (now excluded when true
 in `extractBusyEvents`). Set `GHL_DEBUG_EVENTS=1` to log the raw payload.
 
+**Cancelled path live-verified (July 2026):** created + cancelled a live test
+appointment on that calendar. A status-cancel (PUT appointmentStatus=cancelled)
+keeps the event IN the /calendars/events list with
+`appointmentStatus:"cancelled"` and `deleted:false` — extractBusyEvents'
+status check correctly frees the slot. A hard DELETE removes the event from the
+payload entirely. GHL never used `deleted:true` for a user cancel; no code
+change was needed. Probe notes: creating outside the availability schedule
+needs raw POST with `ignoreFreeSlotValidation:true` + explicit `assignedUserId`
+(read from the calendar's teamMembers) or GHL 400s/422s; module
+createAppointment intentionally lacks these flags.
+
 **How to apply:** conflict fetch failure must throw (route returns 502 —
 never silently show conflicted times as free); busy window is widened 24h back
 / one slot forward for straddling events; both slot listing AND the under-lock
