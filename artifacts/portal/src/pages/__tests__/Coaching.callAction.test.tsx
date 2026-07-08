@@ -121,7 +121,8 @@ describe("Coaching — CallAction button gating", () => {
     const closed = within(row).getByTestId("weekly-closed-31");
     expect(closed).toBeDisabled();
     expect(closed).toHaveTextContent(/rsvps closed/i);
-    expect(within(row).queryByTestId("weekly-join-31")).not.toBeInTheDocument();
+    // The Join button is now always visible but stays disabled without an RSVP.
+    expect(within(row).getByTestId("weekly-join-31")).toBeDisabled();
     expect(within(row).queryByRole("button", { name: /unlock/i })).not.toBeInTheDocument();
   });
 

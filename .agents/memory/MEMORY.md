@@ -148,8 +148,5 @@
 - [Group-call RSVP/join gating](group-call-rsvp-join-gating.md) — meet-link withholding duplicated in coaching list + dashboard upcomingCalls (keep in lockstep); join is a conditional UPDATE (never creates an RSVP), first joined_at wins.
 - [gpt-5 reasoning tokens eat max_completion_tokens](gpt5-reasoning-token-budget.md) — tight budgets return 200 + empty content (finish=length), JSON.parse retry-loops to all-error while the backend looks healthy; give thousands of tokens headroom.
 - [Coach archive vs delete](coach-archive-vs-delete.md) — history-holding coaches are archived, never deleted; reassign moves only upcoming calls + templates; every scheduling write must gate on coaches.isActive.
-<<<<<<< HEAD
 - [Email-blast forensics via SendGrid Activity API](email-blast-forensics-sendgrid-activity.md) — time-window the `/v3/messages` search to isolate one run from real production noise + prior failed attempts; a monkeypatched sgMail.send pre-flight image-404 gate catches broken asset URLs before firing for real.
-=======
 - [Group-call RSVP morning-of reminders](group-call-rsvp-morning-reminders.md) — blanket coaching blast replaced by RSVP-driven 7AM-member-local reminders (prior-day RSVPs only, injectable now); coachingEmailOptIn seam + coaching-only unsubscribe; feedback/recording passes behind off-by-default env flags.
->>>>>>> 6e22d686 (Task #1770: RSVP-driven morning-of group-coaching reminders + coaching email opt-out)

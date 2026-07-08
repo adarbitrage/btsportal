@@ -102,8 +102,17 @@ function GroupCallAction({
   });
   const pending = register.isPending || cancel.isPending || join.isPending;
 
+  const start = new Date(call.scheduledAt).getTime();
+  const rsvpOpen = now.getTime() < start - RSVP_CUTOFF_MS;
+  const joinOpen = now.getTime() >= start - JOIN_OPENS_BEFORE_MS;
+
+  // Two persistent slots per row: the RSVP control (state machine unchanged)
+  // and an always-visible Join Call button that stays greyed/disabled until
+  // the member has RSVP'd AND the 5-minute join window opens.
+  let rsvpSlot: ReactNode;
+  let caption: string | null = null;
   if (!call.isAccessible) {
-    return (
+    rsvpSlot = (
       <Button
         size="sm"
         variant="outline"
@@ -114,28 +123,9 @@ function GroupCallAction({
         Unlock
       </Button>
     );
-  }
-
-  const start = new Date(call.scheduledAt).getTime();
-  const rsvpOpen = now.getTime() < start - RSVP_CUTOFF_MS;
-  const joinOpen = now.getTime() >= start - JOIN_OPENS_BEFORE_MS;
-
-  let action: ReactNode;
-  if (call.hasRegistered && joinOpen) {
-    action = (
-      <Button
-        size="sm"
-        disabled={pending}
-        data-testid={`${testPrefix}-join-${call.id}`}
-        className="font-semibold"
-        onClick={() => join.mutate({ id: call.id })}
-      >
-        Join Call
-      </Button>
-    );
   } else if (call.hasRegistered && !rsvpOpen) {
     // Between the RSVP cutoff and the join window: locked in, waiting.
-    action = (
+    rsvpSlot = (
       <Button
         size="sm"
         variant="outline"
@@ -144,11 +134,12 @@ function GroupCallAction({
         className="font-semibold gap-1.5"
       >
         <Check className="w-3.5 h-3.5 text-emerald-600" />
-        Join opens 5 min before
+        RSVP'd
       </Button>
     );
+    caption = joinOpen ? null : "You're in! This button goes live 5 minutes before start";
   } else if (call.hasRegistered) {
-    action = (
+    rsvpSlot = (
       <Button
         size="sm"
         variant="outline"
@@ -161,8 +152,9 @@ function GroupCallAction({
         RSVP'd
       </Button>
     );
+    caption = "You're in! This button goes live 5 minutes before start";
   } else if (rsvpOpen) {
-    action = (
+    rsvpSlot = (
       <Button
         size="sm"
         disabled={pending}
@@ -173,9 +165,10 @@ function GroupCallAction({
         RSVP
       </Button>
     );
+    caption = "RSVP to reserve your spot — join from here 5 min before the call";
   } else {
     // No RSVP and the cutoff has passed — no late-RSVP exceptions.
-    action = (
+    rsvpSlot = (
       <Button
         size="sm"
         variant="outline"
@@ -188,18 +181,40 @@ function GroupCallAction({
     );
   }
 
+  const joinActive = call.isAccessible && call.hasRegistered && joinOpen;
+
   return (
-    <div className="flex items-center gap-3 shrink-0">
-      {showCount && (
-        <span
-          data-testid={`${testPrefix}-registered-count-${call.id}`}
-          className="flex items-center gap-1 text-xs text-muted-foreground"
+    <div className="flex flex-col items-start sm:items-end gap-1.5 shrink-0">
+      <div className="flex items-center gap-3">
+        {showCount && (
+          <span
+            data-testid={`${testPrefix}-registered-count-${call.id}`}
+            className="flex items-center gap-1 text-xs text-muted-foreground"
+          >
+            <Users className="w-3.5 h-3.5" />
+            {call.registeredCount} reserved
+          </span>
+        )}
+        {rsvpSlot}
+        <Button
+          size="sm"
+          variant={joinActive ? "default" : "outline"}
+          disabled={!joinActive || pending}
+          data-testid={`${testPrefix}-join-${call.id}`}
+          className="font-semibold"
+          onClick={() => join.mutate({ id: call.id })}
         >
-          <Users className="w-3.5 h-3.5" />
-          {call.registeredCount} reserved
+          Join Call
+        </Button>
+      </div>
+      {caption && (
+        <span
+          data-testid={`${testPrefix}-join-caption-${call.id}`}
+          className="text-xs text-muted-foreground"
+        >
+          {caption}
         </span>
       )}
-      {action}
     </div>
   );
 }
@@ -313,6 +328,32 @@ export default function Coaching() {
                   These sessions critique real student marketing funnels and answer general Q&amp;A.
                 </p>
               </div>
+            </div>
+
+            {/* Minimal three-step explainer for the RSVP -> Join flow. Pure
+                copy — the real rules live server-side (1h cutoff, 5-min window). */}
+            <div
+              data-testid="coaching-how-it-works"
+              className="mb-6 flex flex-col sm:flex-row sm:items-center sm:flex-wrap gap-1.5 sm:gap-2.5 rounded-lg border border-border/60 bg-muted/40 px-4 py-3 text-xs text-muted-foreground"
+            >
+              <span>
+                <strong className="font-semibold text-foreground">RSVP</strong> to reserve your
+                spot (closes 1 hr before)
+              </span>
+              <span aria-hidden="true" className="hidden sm:inline text-muted-foreground/60">
+                →
+              </span>
+              <span>
+                <strong className="font-semibold text-foreground">Return here</strong> — Join
+                unlocks 5 min before start
+              </span>
+              <span aria-hidden="true" className="hidden sm:inline text-muted-foreground/60">
+                →
+              </span>
+              <span>
+                <strong className="font-semibold text-foreground">Join Call</strong> when it goes
+                live
+              </span>
             </div>
 
             {weeklySchedule.length > 0 ? (

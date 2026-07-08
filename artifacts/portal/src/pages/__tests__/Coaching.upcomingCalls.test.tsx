@@ -133,15 +133,15 @@ describe("Coaching — upcoming one-off special sessions", () => {
     // Locked mastermind call → Unlock navigating to its OWN upgradeUrl.
     const mastermindRow = screen.getByTestId("oneoff-call-41");
     expect(within(mastermindRow).getByTestId("oneoff-call-type-41")).toHaveTextContent("Mastermind");
-    expect(within(mastermindRow).queryByTestId("oneoff-join-41")).not.toBeInTheDocument();
+    expect(within(mastermindRow).getByTestId("oneoff-join-41")).toBeDisabled();
     await userEvent.click(within(mastermindRow).getByRole("button", { name: /unlock/i }));
     expect(navigate).toHaveBeenCalledWith("/plans?highlight=mastermind");
 
-    // Accessible VIP call well ahead of start → no Join control yet, but the
-    // member can RSVP ahead of time.
+    // Accessible VIP call well ahead of start → Join visible but disabled, and
+    // the member can RSVP ahead of time.
     const vipRow = screen.getByTestId("oneoff-call-42");
     expect(within(vipRow).getByTestId("oneoff-call-type-42")).toHaveTextContent("VIP Roundtable");
-    expect(within(vipRow).queryByTestId("oneoff-join-42")).not.toBeInTheDocument();
+    expect(within(vipRow).getByTestId("oneoff-join-42")).toBeDisabled();
     expect(within(vipRow).getByTestId("oneoff-register-42")).toBeInTheDocument();
   });
 

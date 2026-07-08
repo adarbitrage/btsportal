@@ -123,7 +123,8 @@ describe("Coaching — data-driven weekly schedule", () => {
     expect(within(accessibleRow).getByTestId("weekly-join-10")).toHaveTextContent(/join call/i);
 
     const lockedRow = screen.getByTestId("weekly-call-11");
-    expect(within(lockedRow).queryByTestId("weekly-join-11")).not.toBeInTheDocument();
+    // Locked rows keep the persistent Join button, but it stays disabled.
+    expect(within(lockedRow).getByTestId("weekly-join-11")).toBeDisabled();
     const unlock = within(lockedRow).getByRole("button", { name: /unlock/i });
     await userEvent.click(unlock);
     expect(navigate).toHaveBeenCalledWith("/plans?highlight=3month");

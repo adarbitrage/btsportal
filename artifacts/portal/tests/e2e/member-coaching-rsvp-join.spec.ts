@@ -248,13 +248,20 @@ test.describe("Member Coaching page — RSVP-to-Join flow", () => {
       const waitingBtn = page.getByTestId(`weekly-waiting-${mainCallId}`);
       await expect(waitingBtn).toBeVisible({ timeout: 30_000 });
       await expect(waitingBtn).toBeDisabled();
-      await expect(waitingBtn).toContainText(/Join opens 5 min before/i);
+      await expect(waitingBtn).toContainText(/RSVP'd/);
+      // The persistent Join button is visible but still greyed out, with the
+      // "goes live 5 minutes before" helper caption.
+      await expect(page.getByTestId(`weekly-join-${mainCallId}`)).toBeDisabled();
+      await expect(
+        page.getByTestId(`weekly-join-caption-${mainCallId}`),
+      ).toContainText(/goes live 5 minutes before/i);
 
       // --- 5) Join window: Join Call appears, opens the link, stamps joined_at
       await setCallStart(3); // 3 min out: inside the 5-minute join window
       await page.reload();
       const joinBtn = page.getByTestId(`weekly-join-${mainCallId}`);
       await expect(joinBtn).toBeVisible({ timeout: 30_000 });
+      await expect(joinBtn).toBeEnabled({ timeout: 30_000 });
       await expect(joinBtn).toHaveText(/Join Call/);
 
       // Stub the external meet URL so the popup doesn't actually hit Google
