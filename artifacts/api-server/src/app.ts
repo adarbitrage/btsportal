@@ -39,6 +39,7 @@ import { seedModerationWordlist } from "./lib/seed-moderation-wordlist";
 import { seedAssistantCards } from "./lib/seed-assistant-cards";
 import { seedCoachRoster, generateWeeklyQaCalls } from "./lib/coaching-roster";
 import { retitleCleanedHoldingDocs, retitleFiledPrivateCoachingDocs, resetStuckCleaningDocs } from "./lib/transcript-cleaner";
+import { repairGluedTranscriptFormats } from "./lib/kb-format-repair";
 import { subscribeWordlistInvalidations } from "./lib/moderation/wordlist";
 // seedYseProducts is intentionally NOT imported/run here — it must complete
 // BEFORE the server starts accepting traffic (the /api/integrations/machine-purchase
@@ -161,6 +162,13 @@ retitleFiledPrivateCoachingDocs()
 // appear permanently stuck in `cleaning` (cleaning runs in-process, see the
 // clean-batch route). Idempotent — safe on every boot.
 resetStuckCleaningDocs().catch(err => console.error("[Seed] Failed to reset stuck transcript cleans:", err));
+// Repair stored call transcripts whose cleaner output drifted into glued inline
+// colon dialogue (Task #1746): deterministic reformat to the canonical
+// bare-label layout + supersede stale screenings. Idempotent — safe every boot;
+// never triggers re-screening (the admin re-screens manually).
+repairGluedTranscriptFormats()
+  .then(s => console.log(`[Bootstrap] Transcript format repair: ${s.repairedSources} source(s), ${s.repairedCleanerDocs} cleaner doc(s) reformatted; ${s.invalidatedScreenings} screening(s) invalidated; ${s.staleEmptyScreeningsRemoved} stale empty screening(s) removed.`))
+  .catch(err => console.error("[Seed] Failed to repair glued transcript formats:", err));
 subscribeWordlistInvalidations();
 
 (async () => {

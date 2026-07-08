@@ -63,6 +63,11 @@ export const kbCallScreeningsTable = pgTable("kb_call_screenings", {
   // How many segments were closed by the EMERGENCY size ceiling rather than a
   // topic boundary (Task #1742) — >0 raises the "emergency_split" anomaly.
   emergencySplitCount: integer("emergency_split_count").notNull().default(0),
+  // How many inline `Coach:`/`Member:` speaker labels segmentation had to split
+  // out of glued turn bodies (Task #1746) — >0 raises the "inline_label_repair"
+  // anomaly: the stored content violates the cleaner's bare-label format
+  // contract and should be repaired at the source.
+  inlineLabelRepairCount: integer("inline_label_repair_count").notNull().default(0),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 }, (table) => [

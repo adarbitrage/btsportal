@@ -180,6 +180,15 @@ const SPEAKER_LINE = /^\s*([\p{L}][\p{L} .'\-]{0,30}?):\s+(\S.*)$/u;
 // format: "Coach" / "Member" alone on a line, speech on the following lines).
 // An optional trailing colon is tolerated; no other punctuation.
 const BARE_LABEL_LINE = /^\s*([\p{L}][\p{L} .'\-]{0,30}?):?\s*$/u;
+// The cleaner's canonical speaker labels appearing INLINE inside a turn body —
+// the fingerprint of a cleaner output that drifted mid-document into colon
+// dialogue (Task #1746). Deliberately the CLOSED canonical set: matching
+// arbitrary capitalized words would split on "Note:", "Warning:" etc.
+const INLINE_SPEAKER_LABEL = /\b(Coach|Member|VA)\s*:\s*/g;
+// A turn must contain at least this many inline labels before the repair
+// fires: real drift stretches alternate speakers (the audited cases carried
+// 3–64), while a single incidental "Coach:" inside quoted speech is left alone.
+export const INLINE_LABEL_REPAIR_MIN = 2;
 
 type Role = "member" | "coach";
 
@@ -202,7 +211,7 @@ export interface Segment {
   emergencySplit: boolean;
 }
 
-interface RoledTurn {
+export interface RoledTurn {
   role: Role;
   text: string;
 }
@@ -271,6 +280,46 @@ export function parseBareLabelTurns(content: string): RoledTurn[] | null {
     .map((t) => ({ speaker: t.speaker, text: t.parts.join(" ").trim() }))
     .filter((t) => t.text)
     .map((t) => ({ role: inferRole(t.speaker || null, t.text), text: t.text }));
+}
+
+/**
+ * Defense-in-depth repair (Task #1746): a bare-label document whose cleaner
+ * output drifted mid-transcript into inline colon dialogue parses as ONE giant
+ * pseudo-turn with dozens of `Coach:`/`Member:` labels glued inside its body —
+ * collapsing real turns (and every topic boundary) into a single blob. This
+ * splits such a turn body back into proper roled turns at each inline canonical
+ * label. Only fires when a turn carries at least {@link INLINE_LABEL_REPAIR_MIN}
+ * inline labels (a lone incidental "Coach:" inside quoted speech is left alone).
+ * Returns the repaired turns plus how many inline labels were split out, so the
+ * caller can surface a LOUD anomaly signal instead of absorbing drift silently.
+ */
+export function repairInlineLabeledTurns(turns: RoledTurn[]): {
+  turns: RoledTurn[];
+  inlineLabelRepairCount: number;
+} {
+  const out: RoledTurn[] = [];
+  let inlineLabelRepairCount = 0;
+  for (const turn of turns) {
+    const re = new RegExp(INLINE_SPEAKER_LABEL.source, "g");
+    const matches = [...turn.text.matchAll(re)];
+    if (matches.length < INLINE_LABEL_REPAIR_MIN) {
+      out.push(turn);
+      continue;
+    }
+    let last = 0;
+    let role: Role = turn.role;
+    for (const m of matches) {
+      const before = turn.text.slice(last, m.index).trim();
+      if (before) out.push({ role, text: before });
+      // "VA" is an authority label; roleFromLabel doesn't know it.
+      role = m[1] === "VA" ? "coach" : roleFromLabel(m[1]) ?? role;
+      last = (m.index ?? 0) + m[0].length;
+      inlineLabelRepairCount++;
+    }
+    const tail = turn.text.slice(last).trim();
+    if (tail) out.push({ role, text: tail });
+  }
+  return { turns: out, inlineLabelRepairCount };
 }
 
 /** Parse colon-labeled dialogue lines ("Name: text") into roled turns; returns
@@ -402,10 +451,14 @@ function groupTurnsIntoSegments(turns: RoledTurn[], minChars: number, emergencyC
     if (!t.text) continue;
     const memberOpensNewTopic = t.role === "member" && hasCoach && chars >= minChars;
     // Emergency ceiling (pathological input only): close at a member-turn
-    // boundary once past the ceiling; past the hard fallback (1.5x), close at
-    // any turn boundary so a member-less monologue stays bounded.
+    // boundary once past the ceiling; at the hard fallback (1.5x), close at
+    // any turn boundary so a member-less monologue stays bounded. The hard cap
+    // is checked INCLUDING the incoming turn (Task #1746): otherwise pre-split
+    // ≤ceiling chunks re-glue past the cap on the final end-of-input flush,
+    // which never gets another boundary check.
     const emergencyMemberBoundary = t.role === "member" && current.length > 0 && chars > emergencyChars;
-    const emergencyHard = current.length > 0 && chars > emergencyChars * EMERGENCY_HARD_FACTOR;
+    const emergencyHard =
+      current.length > 0 && chars + t.text.length > emergencyChars * EMERGENCY_HARD_FACTOR;
     if (emergencyMemberBoundary || emergencyHard) flush(true);
     else if (memberOpensNewTopic) flush(false);
 
@@ -436,15 +489,36 @@ export function segmentTranscript(
   content: string,
   opts: { minChars?: number; emergencyChars?: number } = {},
 ): Segment[] {
+  return segmentTranscriptDetailed(content, opts).segments;
+}
+
+/** {@link segmentTranscript} plus the repair telemetry the screener persists:
+ *  how many inline speaker labels had to be split out of glued turn bodies
+ *  (Task #1746) — >0 means the stored content violates the cleaner's format
+ *  contract and is surfaced as a LOUD anomaly, never absorbed silently. */
+export function segmentTranscriptDetailed(
+  content: string,
+  opts: { minChars?: number; emergencyChars?: number } = {},
+): { segments: Segment[]; inlineLabelRepairCount: number } {
   const raw = (content || "").trim();
-  if (!raw) return [];
+  if (!raw) return { segments: [], inlineLabelRepairCount: 0 };
   const minChars = opts.minChars ?? DEFAULT_MIN_SEGMENT_CHARS;
   const emergencyChars = opts.emergencyChars ?? DEFAULT_EMERGENCY_SEGMENT_CHARS;
 
-  const turns: RoledTurn[] =
+  const parsed: RoledTurn[] =
     parseBareLabelTurns(raw) ??
     parseDialogueTurns(raw) ??
     proseBlocks(raw).map((b) => ({ role: looksLikeQuestion(b) ? "member" : "coach", text: b }) as RoledTurn);
+
+  // Mixed-format repair (Task #1746): split inline `Coach:`/`Member:` labels
+  // glued inside a turn body back into proper roled turns, restoring member/
+  // coach roles and topic boundaries the format drift destroyed.
+  const { turns, inlineLabelRepairCount } = repairInlineLabeledTurns(parsed);
+  if (inlineLabelRepairCount > 0) {
+    console.warn(
+      `[ValueScreener] ANOMALY inline_label_repair: split ${inlineLabelRepairCount} inline speaker label(s) out of glued turn bodies — the stored content violates the cleaner bare-label format contract.`,
+    );
+  }
 
   // Last-resort safety net: no single TURN may exceed the emergency ceiling
   // (a parser misread can glue an entire call into one pseudo-turn). The
@@ -456,7 +530,7 @@ export function segmentTranscript(
       : splitOversizeText(t.text, emergencyChars).map((text) => ({ role: t.role, text })),
   );
 
-  return groupTurnsIntoSegments(bounded, minChars, emergencyChars);
+  return { segments: groupTurnsIntoSegments(bounded, minChars, emergencyChars), inlineLabelRepairCount };
 }
 
 /** The disposition that downstream reads honor: an admin overrule wins over the
@@ -554,7 +628,7 @@ Return STRICT JSON: {"results":[{"index":<0-based>,"valueType":"...","dispositio
       // the response comes back EMPTY (finish_reason=length) and every
       // segment errors out. Keep this floor high — larger (emergency-ceiling)
       // segments also demand more reasoning headroom, hence the raised base.
-      const rawResp = await callLLM(system, user, 6000 + chunk.length * 300, true);
+      const rawResp = await callLLM(system, user, 8000 + chunk.length * 400, true);
       // An EMPTY completion is a token-budget failure, NOT a parse failure —
       // record and log it distinctly so it is diagnosable.
       if (!rawResp || !rawResp.trim()) {
@@ -714,7 +788,13 @@ export const SEGMENT_MAX_CHARS = DEFAULT_EMERGENCY_SEGMENT_CHARS;
 // remains the plausibility floor for a full-length call.
 const LOW_COUNT_CHARS_PER_SEGMENT = 10000;
 
-export const ANOMALY_FLAGS = ["oversized_segment", "low_segment_count", "all_error", "emergency_split"] as const;
+export const ANOMALY_FLAGS = [
+  "oversized_segment",
+  "low_segment_count",
+  "all_error",
+  "emergency_split",
+  "inline_label_repair",
+] as const;
 export type AnomalyFlag = (typeof ANOMALY_FLAGS)[number];
 
 /**
@@ -730,7 +810,11 @@ export type AnomalyFlag = (typeof ANOMALY_FLAGS)[number];
  *  - all_error: every segment errored (e.g. an unresolved token-budget run);
  *  - emergency_split: one or more segments were closed by the EMERGENCY size
  *    ceiling rather than a topic boundary (pathological input — unlabeled
- *    monologue or a parser misread) and deserve a human look.
+ *    monologue or a parser misread) and deserve a human look;
+ *  - inline_label_repair: segmentation had to split inline `Coach:`/`Member:`
+ *    labels out of glued turn bodies (Task #1746) — the stored content
+ *    violates the cleaner's bare-label format contract and should be repaired
+ *    at the source.
  */
 export function computeAnomalyFlags(sc: {
   exchangeCount: number;
@@ -741,6 +825,7 @@ export function computeAnomalyFlags(sc: {
   sourceCharCount: number;
   dedupStatus?: string;
   emergencySplitCount?: number;
+  inlineLabelRepairCount?: number;
 }): AnomalyFlag[] {
   const flags: AnomalyFlag[] = [];
   if (sc.maxSegmentChars > SEGMENT_MAX_CHARS * 2) flags.push("oversized_segment");
@@ -757,6 +842,7 @@ export function computeAnomalyFlags(sc: {
   const errors = sc.exchangeCount - sc.keptCount - sc.droppedCount - sc.flaggedCount;
   if (sc.exchangeCount > 0 && errors >= sc.exchangeCount) flags.push("all_error");
   if ((sc.emergencySplitCount ?? 0) > 0) flags.push("emergency_split");
+  if ((sc.inlineLabelRepairCount ?? 0) > 0) flags.push("inline_label_repair");
   return flags;
 }
 
@@ -890,7 +976,15 @@ export async function screenSource(opts: {
 
   // Segment + classify (skip classification for exact duplicates — the earlier
   // source already carries the content).
-  const segments = dedup.status === "exact_duplicate" ? [] : segmentTranscript(source.content);
+  const { segments, inlineLabelRepairCount } =
+    dedup.status === "exact_duplicate"
+      ? { segments: [] as Segment[], inlineLabelRepairCount: 0 }
+      : segmentTranscriptDetailed(source.content);
+  if (inlineLabelRepairCount > 0) {
+    console.warn(
+      `[ValueScreener] ANOMALY source ${sourceDocId}: inline_label_repair fired (${inlineLabelRepairCount} label(s)) — stored content needs format repair.`,
+    );
+  }
   const classifications = await classifySegments(segments);
   // Q/A pairing: never drop a member-only question independently of its answer.
   applyQaPairing(segments, classifications);
@@ -926,6 +1020,7 @@ export async function screenSource(opts: {
         maxSegmentChars,
         sourceCharCount,
         emergencySplitCount,
+        inlineLabelRepairCount,
       })
       .onConflictDoUpdate({
         target: kbCallScreeningsTable.sourceDocId,
@@ -942,6 +1037,7 @@ export async function screenSource(opts: {
           maxSegmentChars,
           sourceCharCount,
           emergencySplitCount,
+          inlineLabelRepairCount,
           updatedAt: new Date(),
         },
       })
@@ -1048,6 +1144,16 @@ export async function resolveSourceContentForSynthesis(
 
 // ── Background pilot run state ───────────────────────────────────────────────
 
+/** Per-source outcome of a batch run — recorded for EVERY source in the batch
+ *  (Task #1746: no silent skips, no counts-only reporting). */
+export interface ScreenerSourceOutcome {
+  sourceDocId: number;
+  status: "screened" | "skipped" | "duplicate" | "error";
+  /** Headline counts / error message for the admin surface. */
+  detail: string;
+  errorCount: number;
+}
+
 export interface ScreenerProgress {
   running: boolean;
   total: number;
@@ -1062,6 +1168,8 @@ export interface ScreenerProgress {
   startedAt: string | null;
   finishedAt: string | null;
   error: string | null;
+  /** One entry per source in the batch, in processing order. */
+  outcomes: ScreenerSourceOutcome[];
 }
 
 let state: ScreenerProgress = {
@@ -1077,6 +1185,7 @@ let state: ScreenerProgress = {
   startedAt: null,
   finishedAt: null,
   error: null,
+  outcomes: [],
 };
 
 export function getScreenerState(): ScreenerProgress {
@@ -1109,6 +1218,7 @@ export async function screenSourcesBackground(
     startedAt: new Date().toISOString(),
     finishedAt: null,
     error: null,
+    outcomes: [],
   };
 
   try {
@@ -1122,9 +1232,30 @@ export async function screenSourcesBackground(
         state.flagged += r.flaggedCount;
         state.errors += r.errorCount;
         if (r.dedupStatus !== "unique") state.duplicates += 1;
+        const status: ScreenerSourceOutcome["status"] = r.skipped
+          ? "skipped"
+          : r.dedupStatus !== "unique"
+            ? "duplicate"
+            : "screened";
+        const detail = r.skipped
+          ? "unchanged content — cached screening reused"
+          : r.dedupStatus !== "unique"
+            ? `${r.dedupStatus} — classification skipped`
+            : `${r.exchangeCount} segments: ${r.keptCount} kept / ${r.droppedCount} dropped / ${r.flaggedCount} flagged / ${r.errorCount} errored`;
+        state.outcomes.push({ sourceDocId: id, status, detail, errorCount: r.errorCount });
+        // Per-source summary — LOUD when any segment carries an error
+        // disposition, so a partially failed source is never a silent count.
+        if (r.errorCount > 0) {
+          console.warn(`[ValueScreener] source ${id}: ${detail} — ${r.errorCount} segment(s) need a re-run.`);
+        } else {
+          console.log(`[ValueScreener] source ${id}: ${status} — ${detail}`);
+        }
       } catch (err) {
         // Isolate a per-source failure; keep going.
-        state.error = err instanceof Error ? err.message : String(err);
+        const msg = err instanceof Error ? err.message : String(err);
+        state.error = msg;
+        state.outcomes.push({ sourceDocId: id, status: "error", detail: msg.slice(0, 300), errorCount: 0 });
+        console.error(`[ValueScreener] source ${id}: FAILED — ${msg}`);
       } finally {
         state.processed += 1;
       }

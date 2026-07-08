@@ -20,6 +20,7 @@
       "community_posts.is_featured | bool | NOT NULL",
       "community_posts.title | text | NOT NULL",
       "kb_call_screenings.emergency_split_count | int4 | NOT NULL",
+      "kb_call_screenings.inline_label_repair_count | int4 | NOT NULL",
       "kb_call_screenings.max_segment_chars | int4 | NOT NULL",
       "kb_call_screenings.source_char_count | int4 | NOT NULL",
       "kb_screened_exchanges.anchor_question | text | NULL",

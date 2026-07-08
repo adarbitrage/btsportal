@@ -953,6 +953,121 @@ function hasAuthorityLabel(cleaned: string, label: "Coach" | "VA"): boolean {
   return re.test(cleaned);
 }
 
+// ───────────────────────────────────────────────────────────────────────────
+// Cleaner output format contract (Task #1746).
+//
+// The canonical cleaned-call layout is a BARE speaker label on its own line
+// ("Coach:" / "Member:" / "VA:"), with the speech on the following line(s) and
+// a blank line between turns. The LLM sometimes drifts mid-transcript into
+// inline colon dialogue ("Coach: text Member: text …" run together on one
+// line), which downstream segmentation then glues into giant single-verdict
+// pseudo-turns with scrambled roles. Nothing malformed may ever be saved: the
+// assembled output is deterministically normalized to the canonical layout and
+// the cleaning FAILS LOUDLY (for retry) if inline labels still remain.
+// ───────────────────────────────────────────────────────────────────────────
+
+/** The closed canonical speaker-label set the cleaner emits. */
+const CANONICAL_SPEAKER_LABELS = ["Coach", "Member", "VA"] as const;
+
+/** A canonical label ALONE on a line (optionally with its colon) — the
+ *  bare-label turn opener. Already-canonical lines pass through untouched. */
+const CANONICAL_BARE_LABEL_LINE = /^\s*(Coach|Member|VA):?\s*$/;
+
+/** A canonical label with a tight colon appearing INLINE in a line (either at
+ *  line start with text after it, or glued mid-line). The conversion seam. */
+const CANONICAL_INLINE_LABEL_SPLIT = /\b(Coach|Member|VA):\s*/;
+
+/** Detector for ANY remaining inline label followed by same-line text —
+ *  deliberately BROADER than the converter (tolerates space before the colon),
+ *  so an odd variant the converter cannot fix is caught and fails loudly
+ *  instead of being persisted. */
+const RESIDUAL_INLINE_LABEL = /\b(Coach|Member|VA)\s*:\s*\S/;
+
+/** Thrown when the cleaner's output cannot be normalized to the canonical
+ *  bare-label format — the clean fails loudly (doc goes to error for retry)
+ *  rather than persisting a format-contract violation. */
+export class CleanerFormatError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "CleanerFormatError";
+  }
+}
+
+export interface FormatNormalizationResult {
+  text: string;
+  /** How many inline speaker labels were converted to bare-label turns. */
+  convertedLabels: number;
+}
+
+/**
+ * Deterministically normalize a cleaned transcript to the canonical bare-label
+ * layout. Line-based and conservative: lines that are already canonical (a bare
+ * label line, or body text with no inline canonical label) pass through
+ * UNCHANGED; only lines containing inline `Coach:`/`Member:`/`VA:` labels are
+ * split into proper bare-label turns — same words, same order, no rewording.
+ * Idempotent: running it on its own output is a no-op.
+ */
+export function normalizeCleanedTranscriptFormat(input: string): FormatNormalizationResult {
+  const lines = input.split(/\r?\n/);
+  const out: string[] = [];
+  let convertedLabels = 0;
+  for (const line of lines) {
+    if (CANONICAL_BARE_LABEL_LINE.test(line) || !CANONICAL_INLINE_LABEL_SPLIT.test(line)) {
+      out.push(line);
+      continue;
+    }
+    // Split at every inline label: parts = [pre, label1, text1, label2, text2, …]
+    const parts = line.split(new RegExp(CANONICAL_INLINE_LABEL_SPLIT.source, "g"));
+    const pre = parts[0].trim();
+    if (pre) out.push(pre); // continuation of the previous turn's speech
+    for (let i = 1; i < parts.length; i += 2) {
+      const label = parts[i];
+      const text = (parts[i + 1] ?? "").trim();
+      convertedLabels++;
+      if (out.length > 0 && out[out.length - 1].trim() !== "") out.push("");
+      out.push(`${label}:`);
+      if (text) out.push(text);
+    }
+  }
+  return { text: out.join("\n"), convertedLabels };
+}
+
+/**
+ * The format contract gate applied before ANY cleaned call transcript is
+ * returned for saving: normalize to the canonical bare-label layout, then
+ * verify NO inline speaker label followed by same-line text remains. A residual
+ * (an odd spacing variant the deterministic converter does not handle) throws
+ * {@link CleanerFormatError} so the clean fails loudly for retry — a
+ * mid-document format switch can never be persisted.
+ */
+export function enforceCleanerFormatContract(input: string): FormatNormalizationResult {
+  const result = normalizeCleanedTranscriptFormat(input);
+  const residuals = result.text
+    .split(/\r?\n/)
+    .filter((l) => !CANONICAL_BARE_LABEL_LINE.test(l) && RESIDUAL_INLINE_LABEL.test(l));
+  if (residuals.length > 0) {
+    throw new CleanerFormatError(
+      `Cleaned transcript violates the bare-label format contract: ${residuals.length} line(s) still carry an inline ${CANONICAL_SPEAKER_LABELS.join("/")} speaker label after normalization (first: ${JSON.stringify(residuals[0].slice(0, 120))}).`,
+    );
+  }
+  if (result.convertedLabels > 0) {
+    console.warn(
+      `[TranscriptCleaner] Format contract: converted ${result.convertedLabels} inline speaker label(s) to canonical bare-label turns before saving.`,
+    );
+  }
+  return result;
+}
+
+/** Apply the format contract for call-type transcripts only (video/document
+ *  types have no turn structure and may legitimately mention "Coach:" inline). */
+function applyFormatContractForFolder(
+  cleaned: string,
+  folder: { slug: string } | null | undefined,
+): string {
+  if (!folder || !SLUGS_WITH_AUTHORITY_LABEL.has(folder.slug)) return cleaned;
+  return enforceCleanerFormatContract(cleaned).text;
+}
+
 const TITLE_PREFIXES: readonly string[] = Object.values(TITLE_PREFIX_BY_SLUG);
 
 /**
@@ -1747,18 +1862,24 @@ export async function cleanTranscript(args: {
   //  - scrubPrivateContent (Task #1607): reduce any staff surname to a first name
   //    (and catch old-brand references / PII), even on the fallback path that
   //    reuses the raw chunk. The prompt's roster guidance is the primary mechanism.
-  const cleanedContent = scrubPrivateContent(
-    normalizeBtsHouseTerms(
-      allParsed
-        .map((p, i) => {
-          // Fall back to the original chunk if the model returns an empty/whitespace
-          // cleaned value — never silently drop a chunk's content.
-          const cleaned = typeof p.cleanedTranscript === "string" ? p.cleanedTranscript.trim() : "";
-          return cleaned.length > 0 ? cleaned : chunks[i].trim();
-        })
-        .filter((s) => s.length > 0)
-        .join("\n\n"),
+  //  - applyFormatContractForFolder (Task #1746): normalize any inline
+  //    colon-labeled stretch the model drifted into back to the canonical
+  //    bare-label layout, or fail the clean loudly — nothing malformed is saved.
+  const cleanedContent = applyFormatContractForFolder(
+    scrubPrivateContent(
+      normalizeBtsHouseTerms(
+        allParsed
+          .map((p, i) => {
+            // Fall back to the original chunk if the model returns an empty/whitespace
+            // cleaned value — never silently drop a chunk's content.
+            const cleaned = typeof p.cleanedTranscript === "string" ? p.cleanedTranscript.trim() : "";
+            return cleaned.length > 0 ? cleaned : chunks[i].trim();
+          })
+          .filter((s) => s.length > 0)
+          .join("\n\n"),
+      ),
     ),
+    folder,
   );
   const flags = dedupeFlags(allParsed.flatMap((p) => mapModelFlags(p.flags)));
 
@@ -2216,7 +2337,11 @@ export async function refineTranscript(args: {
   });
   const patched = applyRefineEdits(currentCleaned, patchParsed.edits);
   if (patched !== null) {
-    return buildRefineResult(patchParsed, patched.trim());
+    const result = buildRefineResult(patchParsed, patched.trim());
+    // Format contract (Task #1746): a refine edit must not reintroduce inline
+    // colon dialogue into a call transcript.
+    result.cleanedContent = applyFormatContractForFolder(result.cleanedContent, folder);
+    return result;
   }
 
   // Fallback: the edits couldn't be applied unambiguously (structural / multi-spot
@@ -2231,5 +2356,9 @@ export async function refineTranscript(args: {
   });
   const cleanedContent =
     typeof fullParsed.cleanedTranscript === "string" ? fullParsed.cleanedTranscript.trim() : currentCleaned;
-  return buildRefineResult(fullParsed, cleanedContent);
+  const result = buildRefineResult(fullParsed, cleanedContent);
+  // Format contract (Task #1746): the full-rewrite path must not persist a
+  // mid-document drift into inline colon dialogue either.
+  result.cleanedContent = applyFormatContractForFolder(result.cleanedContent, folder);
+  return result;
 }

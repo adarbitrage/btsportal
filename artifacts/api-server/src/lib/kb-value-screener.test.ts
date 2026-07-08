@@ -13,6 +13,8 @@ import {
   jaccardSimilarity,
   looksLikeQuestion,
   segmentTranscript,
+  segmentTranscriptDetailed,
+  repairInlineLabeledTurns,
   parseBareLabelTurns,
   parseDialogueTurns,
   splitOversizeText,
@@ -210,6 +212,80 @@ describe("segmentTranscript (topic-threaded, role-labeled passages)", () => {
   });
 });
 
+describe("repairInlineLabeledTurns / segmentTranscriptDetailed (glued inline-label drift, Task #1746)", () => {
+  it("splits a glued pseudo-turn back into roled turns at each inline label", () => {
+    const { turns, inlineLabelRepairCount } = repairInlineLabeledTurns([
+      {
+        role: "coach",
+        text: "Let's start. Member: My ROI dropped hard. Coach: Check the offer angle first. Member: Okay, will do.",
+      },
+    ]);
+    expect(inlineLabelRepairCount).toBe(3);
+    expect(turns.map((t) => t.role)).toEqual(["coach", "member", "coach", "member"]);
+    expect(turns[1].text).toBe("My ROI dropped hard.");
+    expect(turns[2].text).toBe("Check the offer angle first.");
+  });
+
+  it("maps a VA inline label to the coach (authority) role", () => {
+    const { turns } = repairInlineLabeledTurns([
+      { role: "member", text: "Question one? VA: Answer one. Member: Thanks. VA: You're welcome." },
+    ]);
+    expect(turns.map((t) => t.role)).toEqual(["member", "coach", "member", "coach"]);
+  });
+
+  it("leaves a turn with fewer than the repair minimum of inline labels alone", () => {
+    const original = { role: "coach" as const, text: 'She said "Coach: always test small" and moved on.' };
+    const { turns, inlineLabelRepairCount } = repairInlineLabeledTurns([original]);
+    expect(inlineLabelRepairCount).toBe(0);
+    expect(turns).toEqual([original]);
+  });
+
+  it("segmentTranscriptDetailed restores topic boundaries in a bare-label doc with a glued stretch", () => {
+    // Bare-label doc (>=3 bare labels so parseBareLabelTurns engages) whose
+    // final turn body glues an inline-labeled stretch — the drift shape from
+    // sources 197/237.
+    const filler = "This is substantive coaching advice about scaling campaigns. ".repeat(12);
+    const content = [
+      "Member:",
+      "How do I pick my first offer?",
+      "",
+      "Coach:",
+      filler,
+      "",
+      "Coach:",
+      `${filler} Member: What about my daily budget for testing? Coach: ${filler} Member: And when do I scale? Coach: ${filler}`,
+    ].join("\n");
+    const { segments, inlineLabelRepairCount } = segmentTranscriptDetailed(content);
+    expect(inlineLabelRepairCount).toBe(4);
+    // The repaired member turns re-open topics — more than one giant segment.
+    expect(segments.length).toBeGreaterThan(1);
+    // And a clean doc reports zero repairs.
+    const clean = segmentTranscriptDetailed(["Member:", "Question?", "", "Coach:", "Answer.", "", "Member:", "Thanks."].join("\n"));
+    expect(clean.inlineLabelRepairCount).toBe(0);
+  });
+
+  it("hard cap holds on the end-of-input flush (no segment may exceed 1.5x the ceiling)", () => {
+    // A coach-only monologue (no member-turn boundaries): pre-split bounds each
+    // TURN at the ceiling, and the look-ahead hard cap must stop the final
+    // flush from re-gluing them past 1.5x the ceiling.
+    const emergencyChars = 2000;
+    const sentence = "Scaling requires discipline and patient budget management every single day. ";
+    const monologue = `Coach:\n${sentence.repeat(120)}`; // ~9.3k chars, one turn
+    const segs = segmentTranscript(monologue, { emergencyChars });
+    expect(segs.length).toBeGreaterThan(1);
+    for (const s of segs) {
+      // Measure the raw turn text (the hard cap's unit) — the rendered passage
+      // additionally carries a "Coach: "/"Member: " label per turn line.
+      const rawChars = s.passage
+        .split("\n")
+        .map((l) => l.replace(/^(Coach|Member): /, ""))
+        .join("").length;
+      expect(rawChars).toBeLessThanOrEqual(emergencyChars * 1.5);
+    }
+    expect(segs.some((s) => s.emergencySplit)).toBe(true);
+  });
+});
+
 describe("parseBareLabelTurns / parseDialogueTurns (format detection)", () => {
   it("rejects prose with one-off capitalized heading lines", () => {
     const content = ["Introduction", "This call covered scaling.", "Summary", "Scale slowly."].join("\n");
@@ -391,6 +467,12 @@ describe("computeAnomalyFlags", () => {
   it("flags a screening that needed emergency splits", () => {
     expect(computeAnomalyFlags({ ...base, emergencySplitCount: 1 })).toContain("emergency_split");
     expect(computeAnomalyFlags({ ...base, emergencySplitCount: 0 })).toEqual([]);
+    expect(computeAnomalyFlags(base)).toEqual([]); // absent field = no flag
+  });
+
+  it("flags a screening whose segmentation needed inline-label repair", () => {
+    expect(computeAnomalyFlags({ ...base, inlineLabelRepairCount: 4 })).toContain("inline_label_repair");
+    expect(computeAnomalyFlags({ ...base, inlineLabelRepairCount: 0 })).toEqual([]);
     expect(computeAnomalyFlags(base)).toEqual([]); // absent field = no flag
   });
 
