@@ -1,0 +1,39 @@
+Create two new tasks, the second dependent on the first. They replace #1703 ("Wire screened nuggets into synthesis") and #1704 ("Sharpen the review-and-publish gate"), which were written before several merges landed. Do not start Task B until Task A is merged. Cancel/close old #1703 and #1704 so nothing runs from the stale plans.
+
+Already built — must NOT be redone in either task:
+
+#1702/#1707/#1718/#1737: the value screener (kb-value-screener.ts; kb_call_screenings + kb_screened_exchanges tables with valueType, keep/drop/flag/error disposition, situationalNumber, contextBound, admin overrideDisposition).
+#1733: synthesis already consumes screened calls — the extract phase resolves each source via resolveSourceContentForSynthesis with prompt-versioned extract-cache invalidation (EXTRACT_PROMPT_VERSION).
+#1739: hearsay guard (HEARSAY_GUARD) already in the map + consolidation prompts.
+#1742: segmenter now splits only at topic boundaries, with a large emergency ceiling that flags anomaly segments; cleaner truncation fixed.
+TASK A — Finish wiring screened nuggets into synthesis (replaces #1703)
+
+Remaining scope, mostly in artifacts/api-server/src/lib/kb-synthesis.ts:
+
+Fix authority precedence & weighting. AUTHORITY_RANK currently ranks strategic_coach (3) above curriculum (2), and the consolidation prompt only "notes disagreements". Correct precedence and make authority genuinely govern the merge: curriculum owns the foundations it covers; coaching supplements with the "why / when / what-if"; VA content never drives strategy claims; co-equal otherwise. Real conflicts must be flagged for the reviewer in the draft, never silently resolved. Re-examine dominantAuthority (drives the draft's authorityRole and batch partials in consolidateAll) under the new ranking.
+Thread screener flags to the draft. Per-source extracts are plain strings (ConsolidateEntry.extract), so situationalNumber, contextBound, and #1742's anomaly flag are lost before consolidation. Carry them through the extract phase into the consolidation input/prompt so situational numbers appear in drafts as context-bound illustrations with their context — never universal targets — and flags survive the hierarchical reduce (consolidateAll batching). Bump EXTRACT_PROMPT_VERSION if the extract prompt changes.
+Member-name prohibition (backstop). Consolidation and atomic-definition prompts currently say only "no coach surnames"; add an explicit no-member-names rule.
+Curriculum pairing. Coaching insight attaches to the curriculum topic it supplements via the existing deterministic cross-link contract (relatedTopicsMarkdown / depth-ladder) and defers to curriculum on covered foundations.
+Done looks like: in a genuine coaching-vs-curriculum disagreement on a covered foundation, curriculum wins and coaching adds judgment around it; situational numbers only appear with context; conflicts surfaced to the reviewer; no member names in any draft; unit tests cover the new prompt contracts (mirror kb-synthesis.test.ts).
+
+Out of scope: the screener itself, the review gate (Task B), auto-publishing, VA transcript handling beyond the authority guardrail. Build on the existing engine/extract cache/scope resolution — no rewrites.
+
+Files: kb-synthesis.ts, kb-value-screener.ts (read-only consumer), lib/db/src/schema/kb-screened-exchanges.ts (reference), kb-synthesis.test.ts.
+
+TASK B — Sharpen the review-and-publish gate (replaces #1704; depends on Task A)
+
+Extend the EXISTING review gate (drafts land as needs-review; stale-brand highlighting and revision diffs already exist) — do not build a parallel one:
+
+Risk highlighting: surface situational numbers, time-sensitive phrasing, residual member-name matches, and Task A's threaded flags (situational/context-bound/anomaly, and flagged source conflicts) in each draft under review, reusing the existing flag/highlight pattern.
+Provenance surfacing: show the contributing source set (calls/coaches/dates) at review time — source-set granularity only, NOT per-sentence (per-claim attribution is a separate, larger decision, out of scope).
+Soften/cut controls: let the reviewer soften or remove flagged passages before publish, building on the existing draft-edit path.
+Done looks like: nothing reaches Live AI Documents without passing this gate; the reviewer's eye goes straight to risky claims.
+
+Out of scope: the screener, the synthesis wiring (Task A), any automated publishing.
+
+Files: artifacts/portal/src/pages/admin/KnowledgeBaseReview.tsx, artifacts/api-server/src/routes/admin/knowledgebase-staging.ts, kb-mining.ts, kb-synthesis.ts (draft payload).
+
+Two notes:
+
+Task B is faithful to the original #1704 — I pulled its full text and kept its scope, "done" criteria, and the provenance-granularity constraint intact, only adding the connection to Task A's threaded flags (which is what the dependency exists for).
+Before starting Task A, run your manual re-screening (post-#1742) so it builds against the final segment shape.
