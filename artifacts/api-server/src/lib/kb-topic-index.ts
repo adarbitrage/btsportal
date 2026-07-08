@@ -283,8 +283,10 @@ async function classifyWithLLM(doc: SourceDoc): Promise<NodeLink[]> {
 export async function classifySourceDocument(doc: SourceDoc): Promise<NodeLink[]> {
   // Screened calls: classify against the kept-segments representation so
   // indexing doesn't spend tokens on chatter (falls back to raw when no valid
-  // screening exists — see resolveSourceContentForSynthesis).
-  const { content } = await resolveSourceContentForSynthesis(doc.id, doc.content);
+  // screening exists — see resolveSourceContentForSynthesis). A duplicate-
+  // screened source contributes nothing: the original carries the content.
+  const { content, excluded } = await resolveSourceContentForSynthesis(doc.id, doc.content);
+  if (excluded) return [];
   const resolved: SourceDoc = { ...doc, content };
   try {
     const llm = await classifyWithLLM(resolved);

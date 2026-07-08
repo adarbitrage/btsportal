@@ -70,10 +70,11 @@ export type Disposition = (typeof DISPOSITIONS)[number];
 export const DEDUP_STATUSES = ["unique", "exact_duplicate", "near_duplicate"] as const;
 export type DedupStatus = (typeof DEDUP_STATUSES)[number];
 
-// The coaching source folders this screener operates over (cleared coaching
-// calls only — Blitz video / reference docs / VA transcripts are out of scope).
+// The call-transcript source folders this screener operates over (cleared
+// coaching calls + 1-on-1 VA concierge/tech-support calls — Blitz video and
+// reference docs stay out of scope).
 export const SCREENER_SOURCE_FOLDERS = SOURCE_FOLDERS.filter(
-  (f) => f.slug === "group_coaching" || f.slug === "private_coaching",
+  (f) => f.slug === "group_coaching" || f.slug === "private_coaching" || f.slug === "one_on_one_va",
 ).map((f) => f.slug);
 
 // Near-duplicate similarity threshold (Jaccard over word 5-shingles). Set HIGH
@@ -555,9 +556,11 @@ interface SegmentClassification {
 // Recorded distinctly so it is never mistaken for a JSON parse failure.
 export const EMPTY_COMPLETION_REASON = "empty response — token budget exhausted";
 
-export const SCREENER_RUBRIC = `You screen segments of a Build Test Scale (BTS) affiliate-marketing COACHING CALL to strip out confidently worthless noise before the knowledge base indexes them.
+export const SCREENER_RUBRIC = `You screen segments of a Build Test Scale (BTS) affiliate-marketing CALL to strip out confidently worthless noise before the knowledge base indexes them. The call is either a COACHING CALL (group or private strategy coaching) or a 1-ON-1 VA CALL (a concierge/tech-support session where a VA walks one member through tool setup, account configuration, or troubleshooting).
 
-Each segment is a topic thread: a role-labeled transcript passage (inline Coach:/Member: speaker labels), optionally preceded by the ANCHOR member question that prompted it.
+Each segment is a topic thread: a role-labeled transcript passage (inline Coach:/Member: speaker labels — on VA calls the "Coach" role is the VA), optionally preceded by the ANCHOR member question that prompted it.
+
+VA CALLS specifically: keep-worthy value is GENERALIZABLE setup steps, tool workflows, and troubleshooting recipes any member could reuse (how to configure a tracker, connect an account, fix a common error). A purely member-specific one-off fix with NO reusable lesson (e.g. untangling one member's unique account mess with no transferable steps) is a drop CANDIDATE — but only drop it when you are confident nothing in it generalizes; when unsure, KEEP or FLAG as below.
 
 YOUR BIAS: this is a RECALL-FIRST de-noiser, NOT a "best moments" picker. Keep anything that is plausibly instructional. Only drop what is confidently, obviously worthless. False DROPS are far worse than keeping something mediocre — when unsure, KEEP; only when you genuinely cannot tell, FLAG.
 
@@ -1147,12 +1150,23 @@ export function annotateKeptPassage(row: {
 export async function getScreenedRepresentationDetailed(
   sourceDocId: number,
   opts: { annotateFlags?: boolean } = {},
-): Promise<{ content: string; flags: ScreeningFlags }> {
+): Promise<{ content: string; flags: ScreeningFlags; dedupStatus: DedupStatus | null }> {
   const [screening] = await db
     .select()
     .from(kbCallScreeningsTable)
     .where(eq(kbCallScreeningsTable.sourceDocId, sourceDocId));
-  if (!screening) return { content: "", flags: { ...EMPTY_SCREENING_FLAGS } };
+  if (!screening) return { content: "", flags: { ...EMPTY_SCREENING_FLAGS }, dedupStatus: null };
+
+  // A duplicate-screened source (exact or near) contributes NOTHING downstream:
+  // the earlier/original source carries the content. Surface the status so the
+  // resolution seam can EXCLUDE it instead of falling back to raw content.
+  if (screening.dedupStatus !== "unique") {
+    return {
+      content: "",
+      flags: { ...EMPTY_SCREENING_FLAGS },
+      dedupStatus: screening.dedupStatus as DedupStatus,
+    };
+  }
 
   const rows = await db
     .select()
@@ -1169,7 +1183,7 @@ export async function getScreenedRepresentationDetailed(
   const content = kept
     .map((r) => annotateKeptPassage(r, opts.annotateFlags === true))
     .join("\n\n");
-  return { content, flags };
+  return { content, flags, dedupStatus: screening.dedupStatus as DedupStatus };
 }
 
 /** Back-compat plain-text view of {@link getScreenedRepresentationDetailed}. */
@@ -1184,6 +1198,10 @@ export async function getScreenedRepresentation(sourceDocId: number): Promise<st
  * Returns the screened kept-segments representation when the source has a
  * completed screening with at least one effectively-kept segment carrying
  * non-empty passage text; otherwise returns the raw content unchanged.
+ * EXCLUSION: a source whose screening is an exact or near duplicate of an
+ * earlier call contributes NOTHING (excluded=true, empty content) — the
+ * original source carries the content, so a raw fallback here would feed the
+ * same call into synthesis twice.
  * Fallback guards (never feed empty/garbage content into synthesis):
  *  - no screening row → raw
  *  - zero kept segments (incl. all-error screenings) → raw
@@ -1195,17 +1213,20 @@ export async function resolveSourceContentForSynthesis(
   sourceDocId: number,
   rawContent: string,
   opts: { annotateFlags?: boolean } = {},
-): Promise<{ content: string; screened: boolean; flags: ScreeningFlags }> {
+): Promise<{ content: string; screened: boolean; excluded: boolean; flags: ScreeningFlags }> {
   try {
-    const { content: screened, flags } = await getScreenedRepresentationDetailed(sourceDocId, opts);
-    if (screened.trim().length > 0) return { content: screened, screened: true, flags };
+    const { content: screened, flags, dedupStatus } = await getScreenedRepresentationDetailed(sourceDocId, opts);
+    if (dedupStatus !== null && dedupStatus !== "unique") {
+      return { content: "", screened: true, excluded: true, flags };
+    }
+    if (screened.trim().length > 0) return { content: screened, screened: true, excluded: false, flags };
   } catch (err) {
     console.error(
       `[ValueScreener] screened-content resolution failed for source ${sourceDocId}, using raw:`,
       err instanceof Error ? err.message : err,
     );
   }
-  return { content: rawContent, screened: false, flags: { ...EMPTY_SCREENING_FLAGS } };
+  return { content: rawContent, screened: false, excluded: false, flags: { ...EMPTY_SCREENING_FLAGS } };
 }
 
 // ── Background pilot run state ───────────────────────────────────────────────

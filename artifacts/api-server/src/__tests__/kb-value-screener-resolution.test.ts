@@ -29,14 +29,17 @@ async function makeSource(title: string): Promise<number> {
   return row!.id;
 }
 
-async function makeScreening(sourceDocId: number): Promise<number> {
+async function makeScreening(
+  sourceDocId: number,
+  dedupStatus: "unique" | "exact_duplicate" | "near_duplicate" = "unique",
+): Promise<number> {
   const [row] = await db
     .insert(kbCallScreeningsTable)
     .values({
       sourceDocId,
       contentFingerprint: "fp-test",
       normalizedHash: `nh-test-${sourceDocId}`,
-      dedupStatus: "unique",
+      dedupStatus,
       exchangeCount: 0,
     })
     .returning({ id: kbCallScreeningsTable.id });
@@ -180,6 +183,42 @@ describe("resolveSourceContentForSynthesis (the screened-content seam)", () => {
     expect(annotated.content).toContain("[CONTEXT-BOUND WALKTHROUGH");
     expect(annotated.content).not.toContain("[SEGMENT ANOMALY");
     expect(annotated.content).not.toContain("Dropped situational chatter.");
+  });
+
+  it("excludes an exact-duplicate screening entirely (no raw fallback)", async () => {
+    const id = await makeSource("exact-dup");
+    await makeScreening(id, "exact_duplicate");
+    const r = await resolveSourceContentForSynthesis(id, RAW);
+    expect(r.excluded).toBe(true);
+    expect(r.screened).toBe(true);
+    expect(r.content).toBe("");
+    expect(r.flags).toEqual({ situationalNumbers: false, contextBound: false, segmentAnomaly: false });
+  });
+
+  it("excludes a near-duplicate screening entirely, even when kept segments exist", async () => {
+    const id = await makeSource("near-dup");
+    const screeningId = await makeScreening(id, "near_duplicate");
+    await db.insert(kbScreenedExchangesTable).values([
+      { screeningId, sourceDocId: id, orderIndex: 0, passage: "Kept teaching on a duplicate.", disposition: "keep" },
+    ]);
+    const r = await resolveSourceContentForSynthesis(id, RAW);
+    expect(r.excluded).toBe(true);
+    expect(r.content).toBe("");
+    expect(r.content).not.toContain("Kept teaching on a duplicate.");
+  });
+
+  it("never marks the legitimate raw fallbacks or valid screenings as excluded", async () => {
+    const unscreened = await makeSource("not-excluded-unscreened");
+    expect((await resolveSourceContentForSynthesis(unscreened, RAW)).excluded).toBe(false);
+
+    const valid = await makeSource("not-excluded-valid");
+    const screeningId = await makeScreening(valid);
+    await db.insert(kbScreenedExchangesTable).values([
+      { screeningId, sourceDocId: valid, orderIndex: 0, passage: "Kept teaching.", disposition: "keep" },
+    ]);
+    const r = await resolveSourceContentForSynthesis(valid, RAW);
+    expect(r.excluded).toBe(false);
+    expect(r.screened).toBe(true);
   });
 
   it("returns empty flags on the raw-content fallback", async () => {

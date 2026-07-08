@@ -54,6 +54,11 @@ review gate (#1704) own quality + PII; don't push those responsibilities upstrea
   EXTRACT_PROMPT_VERSION whenever the extraction prompt materially changes, or cached
   extracts keep serving output from the superseded prompt.
 
+## VA-call scope + duplicate exclusion seam (2026-07)
+- Scope now includes 1-on-1 VA calls (`one_on_one_va`) alongside group/private coaching; the rubric is call-type aware (VA value = generalizable setup/tool/troubleshooting recipes; member-specific one-off fixes are drop CANDIDATES only, recall bias intact; VA maps to the Coach speaker role).
+- `resolveSourceContentForSynthesis` returns `excluded: true` for a non-unique dedupStatus screening — a duplicate contributes NOTHING to synthesis/topic indexing (no raw fallback; the original carries the content). All three callers (topic index, extract seam → "NONE" marker, refine source fetch) honor it. The unscreened/all-error/empty-passage fallbacks still return raw.
+- **How to apply:** never "fix" an empty duplicate resolution by re-adding a raw fallback; pre-existing topic links of later-marked duplicates may still linger (follow-up work).
+
 ## Reviewer fold display + oversized flag (2026-07)
 - Fold-dropped member questions carry an exported structured marker constant as dropReason; the reviewer surface derives `foldedIntoNext`/`foldTruncated` from exact marker match (deriveFoldSignals) — NEVER detect folds by passage string-matching.
 - Anchor cap is 2,000 chars; truncation warning derives from original member text length vs cap.

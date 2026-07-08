@@ -243,11 +243,15 @@ async function getOrExtractForNode(
   // it is re-run against the new content on the next synthesis. The aggregate
   // flags are recomputed on every run (they are cheap and never cached), so a
   // cached extract still carries fresh flags into consolidation.
-  const { content: resolvedContent, flags } = await resolveSourceContentForSynthesis(
+  const { content: resolvedContent, excluded, flags } = await resolveSourceContentForSynthesis(
     source.id,
     source.content ?? "",
     { annotateFlags: true },
   );
+  // A duplicate-screened source contributes NOTHING to synthesis — the
+  // original source carries the content. "NONE" is the map phase's standard
+  // nothing-usable marker, so downstream folding drops it naturally.
+  if (excluded) return { extract: "NONE", flags };
   const resolvedSource: SourceDoc = { ...source, content: resolvedContent };
   // Fingerprint = prompt version + resolved (screened) content, so BOTH a
   // content/overrule change AND an extraction-prompt change invalidate the

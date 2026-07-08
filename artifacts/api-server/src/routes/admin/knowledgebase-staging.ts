@@ -1031,14 +1031,17 @@ router.post("/:id/refine", async (req: Request, res: Response) => {
         .where(inArray(aiSourceDocumentsTable.id, topSourceIds));
       // Screened calls: reach back into the kept-segments representation, not
       // the raw transcript (raw fallback when no valid screening exists).
-      const resolvedRows = await Promise.all(
-        sourceRows.map(async (r) => ({
-          ...r,
-          content: (await resolveSourceContentForSynthesis(r.id, r.content)).content,
-        })),
-      );
+      // Duplicate-screened sources are excluded — the original carries the content.
+      const resolvedRows = (
+        await Promise.all(
+          sourceRows.map(async (r) => {
+            const resolved = await resolveSourceContentForSynthesis(r.id, r.content);
+            return resolved.excluded ? null : { ...r, content: resolved.content };
+          }),
+        )
+      ).filter((r): r is NonNullable<typeof r> => r !== null);
       const byId = new Map(resolvedRows.map((r) => [r.id, r]));
-      const PER_SOURCE_CHARS = Math.floor(24000 / Math.max(topSourceIds.length, 1));
+      const PER_SOURCE_CHARS = Math.floor(24000 / Math.max(resolvedRows.length, 1));
       sourceMaterial = topSourceIds
         .map((sid, i) => {
           const row = byId.get(sid);

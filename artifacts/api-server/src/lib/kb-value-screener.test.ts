@@ -638,6 +638,29 @@ describe("SCREENER_RUBRIC grievance flag rule (contract)", () => {
   });
 });
 
+describe("SCREENER_SOURCE_FOLDERS (screener scope) + VA rubric awareness", () => {
+  it("covers group coaching, private coaching AND 1-on-1 VA calls", async () => {
+    const { SCREENER_SOURCE_FOLDERS } = await import("./kb-value-screener");
+    expect(SCREENER_SOURCE_FOLDERS).toContain("group_coaching");
+    expect(SCREENER_SOURCE_FOLDERS).toContain("private_coaching");
+    expect(SCREENER_SOURCE_FOLDERS).toContain("one_on_one_va");
+    expect(SCREENER_SOURCE_FOLDERS).toHaveLength(3);
+  });
+
+  it("the rubric explains VA calls and their value definition", () => {
+    expect(SCREENER_RUBRIC).toMatch(/1-ON-1 VA CALL/);
+    expect(SCREENER_RUBRIC).toMatch(/concierge\/tech-support/);
+    expect(SCREENER_RUBRIC).toMatch(/GENERALIZABLE setup steps/);
+    expect(SCREENER_RUBRIC).toMatch(/tool workflows/i);
+    expect(SCREENER_RUBRIC).toMatch(/troubleshooting recipes/i);
+    // Member-specific one-off fixes are drop CANDIDATES, never confident drops.
+    expect(SCREENER_RUBRIC).toMatch(/member-specific one-off fix/i);
+    expect(SCREENER_RUBRIC).toMatch(/drop CANDIDATE/);
+    // The VA role maps to the Coach speaker label.
+    expect(SCREENER_RUBRIC).toMatch(/on VA calls the "Coach" role is the VA/);
+  });
+});
+
 describe("effectiveDisposition", () => {
   it("prefers the admin overrule over the AI verdict", () => {
     expect(effectiveDisposition({ disposition: "drop", overrideDisposition: "keep" })).toBe("keep");
