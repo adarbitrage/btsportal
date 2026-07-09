@@ -1,30 +1,27 @@
 ---
-name: ai_live_documents mirror authority + drift baseline regen trap
-description: The legacy->ai_live citable mirror must reconcile removals; and never regen the drift baseline against a broken DB
+name: ai_live_documents fully decoupled from legacy KB + drift baseline regen trap
+description: The legacy->ai_live mirror is RETIRED (guard test enforces it); and never regen the drift baseline against a broken DB
 ---
 
-Two durable lessons from cutting the AI assistant onto `ai_live_documents`.
+Durable lessons from cutting the AI assistant onto `ai_live_documents`.
 
-## The boot mirror is now FILL-IF-EMPTY, not authoritative (REVERSED)
-Once `ai_live_documents` became directly editable (send-to-review supersede,
-soft-delete/restore, direct-edit escape hatch, source-change flags — the
-"Live AI Documents Lifecycle" work), the boot mirror can no longer be
-authoritative: an authoritative upsert+prune would clobber human edits and
-un-delete restored docs on every restart.
+## The legacy→live mirror is RETIRED (fully decoupled)
+`ai_live_documents` (assistant retrieval corpus) and legacy `knowledgebase_docs`
+(member-facing KB) are now fully decoupled: no boot mirror, no lazy re-sync after
+admin legacy-KB writes. The corpus is written ONLY by the review pipeline
+(staging push-approved) and the Live AI Documents admin CRUD.
 
-**Now:** `syncCitableDocsToLiveDocuments()` is a single `INSERT ... ON CONFLICT
-(title) DO NOTHING` (no transaction wrapper, NO prune, NO content overwrite). It
-only seeds MISSING titles from the citable legacy set — a fill-if-empty backstop,
-not a source of truth. The doc comment says so explicitly.
+**Why:** the corpus is human-curated with its own lifecycle (supersede,
+soft-delete/restore, versions); any automatic legacy→live copy re-couples the
+tables and can resurrect deleted/superseded docs or inject unreviewed legacy
+content.
 
-**Why:** durability of admin edits across restart/deploy is the whole point of the
-lifecycle work; overwriting/pruning at boot silently reverts them.
-
-**How to apply:** never reintroduce prune or `ON CONFLICT DO UPDATE` here. If you
-need the corpus to reflect a legacy demotion/removal, do it through the doc's own
-lifecycle (soft-delete / send-to-review supersede), not the mirror. Historical
-note: the mirror USED to be authoritative (upsert+prune in one tx, provenance-row
-protected direct-published docs) — that design is gone by design.
+**How to apply:** never add SQL that INSERTs into ai_live_documents FROM
+knowledgebase_docs in src (a guard test scans for the retired function name and
+that SQL shape, excluding __tests__). Tests needing a populated corpus seed it
+via the `kb-live-docs-test-seed` fixture helper or the push-approved route —
+NOT by re-adding a sync. An admin legacy-KB edit is invisible to the assistant
+by design; fix assistant content through the Live AI Documents editor/pipeline.
 
 ## Retrieval excludes soft-deleted via the shared citable filter
 `citableDocFilter()` (kb-citable-filter.ts) now appends `deleted_at IS NULL`.

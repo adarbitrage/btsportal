@@ -2,7 +2,7 @@ import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
 import { searchKnowledgebaseForVoice } from "../routes/voice";
-import { syncCitableDocsToLiveDocuments } from "../lib/bootstrap-critical-prerequisites";
+import { seedLiveDocsFromCitableLegacyForTest } from "./kb-live-docs-test-seed";
 
 // Privacy guard for the voice assistant's PRIMARY retrieval path.
 //
@@ -26,8 +26,8 @@ async function cleanup() {
   await db.execute(
     sql`DELETE FROM knowledgebase_docs WHERE title LIKE ${"%" + TOKEN + "%"}`,
   );
-  // The assistant now retrieves from ai_live_documents (Task #1531); the citable
-  // sync mirrors verified docs there, so clean both tables to keep runs isolated.
+  // The assistant retrieves from ai_live_documents; the test fixture seeds
+  // verified docs there, so clean both tables to keep runs isolated.
   await db.execute(
     sql`DELETE FROM ai_live_documents WHERE title LIKE ${"%" + TOKEN + "%"}`,
   );
@@ -56,11 +56,12 @@ describe("voice assistant retrieval honors the citable gate (primary path)", () 
       VALUES (${VERIFIED_TITLE}, 'operations', ${"A human-verified answer about " + TOKEN + " that is safe to cite."}, 'member', 'curated', NOW())
     `);
 
-    // Task #1531 cutover: the voice assistant retrieves from ai_live_documents.
-    // Mirror the citable set exactly as boot does. Only the verified curated doc
-    // qualifies (transcript + unverified are excluded by the sync filter), which
-    // still exercises the citable gate on the retrieval side for the survivor.
-    await syncCitableDocsToLiveDocuments();
+    // The voice assistant retrieves from ai_live_documents. Production no
+    // longer mirrors legacy docs there (boot mirror retired, Task #1826), so
+    // copy the citable set as a TEST FIXTURE. Only the verified curated doc
+    // qualifies (transcript + unverified are excluded by the citable filter),
+    // which still exercises the citable gate on the retrieval side.
+    await seedLiveDocsFromCitableLegacyForTest();
   });
 
   afterAll(async () => {

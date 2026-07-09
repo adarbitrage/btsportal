@@ -8,6 +8,8 @@ import {
   usersTable,
   kbStagingDocsTable,
   knowledgebaseDocsTable,
+  aiLiveDocumentsTable,
+  kbDocProvenanceTable,
 } from "@workspace/db";
 import { eq, inArray } from "drizzle-orm";
 
@@ -17,16 +19,21 @@ import knowledgebaseStagingRouter from "../routes/admin/knowledgebase-staging";
 import { searchTranscripts } from "../routes/openai/knowledge-base";
 
 /**
- * Pin the privacy scrub on the DATABASE knowledge-base path.
+ * Pin the privacy scrub on the DATABASE knowledge-base paths.
  *
  * The static-file scrub is covered by knowledge-base-privacy-scrub.test.ts, but
- * coach/instructor surnames can also reach the assistant through DB content in
- * `knowledgebase_docs`. Three flows write that table and every one routes the
- * free text through scrubPrivateContent():
- *   1. Admin manual create  — POST /admin/chat/knowledgebase
- *   2. Admin manual edit     — PUT  /admin/chat/knowledgebase/:id
- *   3. Staging "push to live"— POST /push-approved
- * searchTranscripts() then folds matching rows into the chat reply.
+ * coach/instructor surnames can also reach members through DB content. The
+ * legacy `knowledgebase_docs` table (member-facing KB) is written by the admin
+ * KB CRUD, and the assistant's corpus `ai_live_documents` is written by the
+ * staging "push to live" flow — every path routes free text through
+ * scrubPrivateContent():
+ *   1. Admin manual create  — POST /admin/chat/knowledgebase   (legacy table)
+ *   2. Admin manual edit     — PUT  /admin/chat/knowledgebase/:id (legacy table)
+ *   3. Staging "push to live"— POST /push-approved              (ai_live_documents)
+ * searchTranscripts() folds matching ai_live_documents rows into the chat
+ * reply. NOTE (Task #1826): the legacy table and ai_live_documents are fully
+ * decoupled — an admin legacy-KB write no longer reaches the assistant, so the
+ * retrieval probe goes through the push-approved pipeline.
  *
  * These tests plant a forbidden coach FULL name through each write path and
  * assert the stored title/content keeps only the first name, then prove the
@@ -84,6 +91,15 @@ afterAll(async () => {
     await db
       .delete(knowledgebaseDocsTable)
       .where(inArray(knowledgebaseDocsTable.title, seededTitles));
+    const liveRows = await db
+      .select({ id: aiLiveDocumentsTable.id })
+      .from(aiLiveDocumentsTable)
+      .where(inArray(aiLiveDocumentsTable.title, seededTitles));
+    if (liveRows.length > 0) {
+      const ids = liveRows.map((r) => r.id);
+      await db.delete(kbDocProvenanceTable).where(inArray(kbDocProvenanceTable.docId, ids));
+      await db.delete(aiLiveDocumentsTable).where(inArray(aiLiveDocumentsTable.id, ids));
+    }
   }
   if (seededUserIds.length > 0) {
     await db.delete(usersTable).where(inArray(usersTable.id, seededUserIds));
@@ -170,13 +186,15 @@ describe("knowledgebase_docs DB ingestion — coach surname privacy scrub", () =
       .set("Cookie", adminCookie);
     expect(res.status).toBe(200);
 
-    // The live title is itself scrubbed, so look it up by the scrubbed form.
+    // Push-approved publishes into the assistant corpus (ai_live_documents),
+    // never the legacy table. The live title is itself scrubbed, so look it up
+    // by the scrubbed form.
     const scrubbedTitle = title.replace(FORBIDDEN_FULL_NAME, ALLOWED_FIRST_NAME);
     seededTitles.push(scrubbedTitle);
     const [live] = await db
       .select()
-      .from(knowledgebaseDocsTable)
-      .where(eq(knowledgebaseDocsTable.title, scrubbedTitle));
+      .from(aiLiveDocumentsTable)
+      .where(eq(aiLiveDocumentsTable.title, scrubbedTitle));
     expect(live).toBeDefined();
     expect(live.title).not.toContain(FORBIDDEN_SURNAME);
     expect(live.content).toContain(ALLOWED_FIRST_NAME);
@@ -185,20 +203,29 @@ describe("knowledgebase_docs DB ingestion — coach surname privacy scrub", () =
 
   it("never surfaces a planted surname through searchTranscripts() retrieval", async () => {
     // A unique, searchable keyword so full-text search reliably returns our row.
+    // Retrieval reads ai_live_documents, which only the review pipeline and the
+    // Live AI Documents admin write (the legacy admin KB CRUD is decoupled), so
+    // plant the doc through the push-approved pipeline.
     const keyword = `Scrubprobe${TEST_TAG.replace(/[^a-z0-9]/gi, "")}`;
     const title = `${TEST_TAG} retrieval ${keyword}`;
     seededTitles.push(title);
 
-    const createRes = await request(app)
-      .post("/api/admin/chat/knowledgebase")
-      .set("Cookie", adminCookie)
-      .send({
+    const [staging] = await db
+      .insert(kbStagingDocsTable)
+      .values({
         title,
         category: "faq",
         content: `${keyword}: contact ${FORBIDDEN_FULL_NAME} about the live coaching schedule.`,
-      });
-    expect(createRes.status).toBe(201);
-    seededTitles.push(createRes.body.title);
+        status: "approved",
+        source: "blitz",
+      })
+      .returning({ id: kbStagingDocsTable.id });
+    seededStagingIds.push(staging.id);
+
+    const pushRes = await request(app)
+      .post("/api/push-approved")
+      .set("Cookie", adminCookie);
+    expect(pushRes.status).toBe(200);
 
     const retrieved = await searchTranscripts(keyword, 3);
     expect(retrieved).toContain(keyword);

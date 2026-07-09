@@ -2,7 +2,7 @@ import { describe, it, expect, beforeAll } from "vitest";
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
 import { seedConceptsKb, buildConceptsDocs } from "../lib/seed-concepts-kb";
-import { syncCitableDocsToLiveDocuments } from "../lib/bootstrap-critical-prerequisites";
+import { seedLiveDocsFromCitableLegacyForTest } from "./kb-live-docs-test-seed";
 import { retrieveSurfaceAware } from "../lib/kb-retrieval";
 import { CITABLE_KB_CATEGORIES } from "../lib/kb-taxonomy";
 
@@ -48,10 +48,11 @@ describe("concepts retrieval (seeded corpus, shared surface-aware path)", () => 
   beforeAll(async () => {
     // Seed the concepts truth docs exactly as the server does on boot (they
     // land pre-verified with a fixed authored verification date, so they are
-    // immediately citable), then mirror the citable set into ai_live_documents
-    // as the boot sequence does — retrieval reads ai_live_documents.
+    // immediately citable), then copy the citable set into ai_live_documents
+    // as a TEST FIXTURE (the production boot mirror was retired, Task #1826) —
+    // retrieval reads ai_live_documents.
     await seedConceptsKb();
-    await syncCitableDocsToLiveDocuments();
+    await seedLiveDocsFromCitableLegacyForTest();
 
     // Sanity: every concepts doc reached the live table, otherwise the
     // per-query assertions below fail confusingly.

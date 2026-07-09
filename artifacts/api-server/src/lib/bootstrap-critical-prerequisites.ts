@@ -417,24 +417,18 @@ export async function bootstrapCriticalPrerequisites(): Promise<PrerequisiteResu
     missing.push("reclassifyKnowledgebaseDocClasses");
   }
 
-  // 10. Mirror the human-verified citable set from the legacy knowledgebase_docs
-  //     table into ai_live_documents (Task #1531). The assistant now retrieves
-  //     from ai_live_documents; the boot seeders (steps 8-8d) still author the
-  //     citable truth into the legacy table because the member-facing Knowledge
-  //     Base (/kb/search, browse, counts, bookmarks) reads it directly. This
-  //     sync bridges the two: it runs AFTER the seeders + reclassify so it copies
-  //     the settled citable set, preserving last_verified verbatim (the aging
-  //     clock) so mirrored docs stay citable without being re-stamped. Idempotent
-  //     upsert keyed on title. Must run so retrieval sees content on boot.
-  try {
-    await syncCitableDocsToLiveDocuments();
-  } catch (err) {
-    console.error("[Bootstrap] syncCitableDocsToLiveDocuments() threw:", err);
-    missing.push("syncCitableDocsToLiveDocuments");
-  }
+  // 10. RETIRED (Task #1826): the boot mirror that copied citable legacy
+  //     knowledgebase_docs rows into ai_live_documents is gone. The two systems
+  //     are now fully decoupled: ai_live_documents (the assistant's retrieval
+  //     corpus) is owned EXCLUSIVELY by the staging review → push-approved
+  //     pipeline and the admin Live AI Documents CRUD. The boot seeders
+  //     (steps 8-8d) still author the legacy table because the member-facing
+  //     Knowledge Base (/kb/search, browse, counts, bookmarks) reads it
+  //     directly — but nothing at boot writes ai_live_documents from it, so
+  //     admin deletes stick across restarts and new legacy seeds never leak
+  //     into the AI corpus.
 
-  // 10b. Backfill missing/stale semantic embeddings (Task #1803). Runs AFTER
-  //      the citable sync so freshly-seeded rows get embedded too. Idempotent
+  // 10b. Backfill missing/stale semantic embeddings (Task #1803). Idempotent
   //      (only touches rows with a NULL or wrong-model embedding) and
   //      fire-and-forget: boot must NEVER block on the embeddings API. When
   //      OPENAI_API_KEY is absent it logs loudly and retrieval stays
@@ -803,44 +797,6 @@ async function runAiLiveDocumentsParityMigration(): Promise<void> {
       FOREIGN KEY (doc_id) REFERENCES ai_live_documents(id)
       ON DELETE cascade ON UPDATE no action;
   EXCEPTION WHEN duplicate_object THEN NULL; END $$`);
-}
-
-/**
- * Seed the human-verified citable set (doc_class IN curated/overview AND
- * last_verified IS NOT NULL) from the legacy `knowledgebase_docs` table into
- * `ai_live_documents`, which the assistant retrieves from.
- *
- * FILL-IF-EMPTY, NOT AUTHORITATIVE (Task #1665). `ai_live_documents` is now the
- * authoritative, editable home for the assistant's corpus — edited only through
- * the human-gated review loop (revision → review → push-approved), the direct
- * escape hatch, or soft-delete. So this sync:
- *  1. INSERTS only docs that are MISSING (ON CONFLICT (title) DO NOTHING). It
- *     never overwrites the content, taxonomy or verification stamp of an
- *     existing Live AI Document, so approved revisions and manual edits survive
- *     every restart. Timestamps are copied VERBATIM so the aging clock is not
- *     reset for freshly-seeded rows.
- *  2. NEVER PRUNES. Legacy is only the initial seed source; once a Live AI
- *     Document exists it is governed by the admin lifecycle (review + soft
- *     delete), not by legacy coupling — so a legacy revocation no longer
- *     silently hard-deletes a Live AI Document. Stale docs are retired via the
- *     soft-delete path instead, which is reversible.
- *
- * Net effect: a fresh database still fully populates on first boot, but restarts
- * are non-destructive — nothing an admin approved, edited or deleted is reverted.
- */
-export async function syncCitableDocsToLiveDocuments(): Promise<void> {
-  await db.execute(sql`
-    INSERT INTO ai_live_documents
-      (title, slug, category, content, audience, source_path, source_label,
-       doc_class, home_root, node, tags, blitz_section, ceiling, handoff,
-       last_verified, created_at, updated_at)
-    SELECT
-      k.title, k.slug, k.category, k.content, k.audience, k.source_path, k.source_label,
-      k.doc_class, k.home_root, k.node, k.tags, k.blitz_section, k.ceiling, k.handoff,
-      k.last_verified, k.created_at, k.updated_at
-    FROM knowledgebase_docs k
-    WHERE k.doc_class IN ('curated', 'overview') AND k.last_verified IS NOT NULL
-    ON CONFLICT (title) DO NOTHING`);
 }
 
 /**

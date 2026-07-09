@@ -2,7 +2,7 @@ import { describe, it, expect, beforeAll } from "vitest";
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
 import { ensureBtsAgreementKbContent } from "../lib/seed-kb";
-import { syncCitableDocsToLiveDocuments } from "../lib/bootstrap-critical-prerequisites";
+import { seedLiveDocsFromCitableLegacyForTest } from "./kb-live-docs-test-seed";
 import { searchKnowledgebase } from "../routes/chat";
 
 // End-to-end retrieval guard for the AI assistant's refund answers.
@@ -72,12 +72,13 @@ describe("AI assistant refund retrieval (searchKnowledgebase)", () => {
           WHERE doc_class = 'curated' AND last_verified IS NULL`,
     );
 
-    // Task #1531 cutover: the assistant now retrieves from ai_live_documents.
-    // The seed hook still authors the citable truth into the legacy table (the
-    // member-facing /kb/search reads it), so mirror the freshly-verified citable
-    // set into ai_live_documents exactly as the boot sequence does on boot,
+    // The assistant retrieves from ai_live_documents, which production no
+    // longer populates from the legacy table (the boot mirror was retired,
+    // Task #1826). The seed hook above still authors the citable truth into the
+    // legacy table (member-facing /kb/search reads it), so copy the
+    // freshly-verified citable set into ai_live_documents as a TEST FIXTURE,
     // otherwise the retrieval below finds nothing.
-    await syncCitableDocsToLiveDocuments();
+    await seedLiveDocsFromCitableLegacyForTest();
   });
 
   for (const query of REFUND_QUERIES) {

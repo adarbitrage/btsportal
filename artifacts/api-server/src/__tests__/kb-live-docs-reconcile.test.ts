@@ -1,112 +1,61 @@
-import { describe, it, expect, beforeEach, afterAll } from "vitest";
-import { db } from "@workspace/db";
-import { sql } from "drizzle-orm";
-import { syncCitableDocsToLiveDocuments } from "../lib/bootstrap-critical-prerequisites";
+import { describe, it, expect } from "vitest";
+import { readFileSync, readdirSync, statSync } from "node:fs";
+import path from "node:path";
 
-// Regression guard for the legacy -> ai_live_documents seed (Task #1665).
+// Decoupling guard (Task #1826): the legacy→Live-AI-Documents boot mirror
+// (`syncCitableDocsToLiveDocuments`) has been RETIRED. `ai_live_documents` (the
+// AI assistant's retrieval corpus) is owned EXCLUSIVELY by the staging-review
+// push and the admin Live AI Documents CRUD. The legacy `knowledgebase_docs`
+// table remains a separate world (member-facing Knowledge Base only).
 //
-// The assistant retrieves from `ai_live_documents`, which is now the
-// AUTHORITATIVE, editable home for its corpus (edited via the review loop, the
-// direct escape hatch, or soft-delete). `syncCitableDocsToLiveDocuments()` is a
-// FILL-IF-EMPTY seed, NOT an authoritative mirror:
-//   1. It INSERTS only docs that are missing (ON CONFLICT (title) DO NOTHING) —
-//      it must never overwrite the content of an existing Live AI Document, so
-//      approved revisions and manual edits survive every restart.
-//   2. It NEVER PRUNES — a legacy revocation must not silently hard-delete a
-//      Live AI Document. Retiring a doc is the soft-delete path's job.
+// Why this matters: the old mirror (a) resurrected live docs an admin deleted
+// whenever their legacy twin still existed, and (b) silently leaked any newly-
+// seeded legacy/member-KB doc into the AI corpus. These source-level checks
+// guard against the coupling being quietly reintroduced.
 
-const TOKEN = "zzqxreconciletoken";
-const MIRROR_TITLE = `Reconcile Mirror ${TOKEN}`;
-const PUBLISHED_TITLE = `Reconcile Published ${TOKEN}`;
+const SRC_ROOT = path.resolve(__dirname, "..");
 
-async function cleanup() {
-  await db.execute(sql`DELETE FROM kb_doc_provenance p USING ai_live_documents a
-    WHERE p.doc_id = a.id AND a.title LIKE ${"%" + TOKEN + "%"}`);
-  await db.execute(sql`DELETE FROM ai_live_documents WHERE title LIKE ${"%" + TOKEN + "%"}`);
-  await db.execute(sql`DELETE FROM knowledgebase_docs WHERE title LIKE ${"%" + TOKEN + "%"}`);
+function collectSourceFiles(dir: string, out: string[] = []): string[] {
+  for (const entry of readdirSync(dir)) {
+    const full = path.join(dir, entry);
+    if (statSync(full).isDirectory()) {
+      // Tests may legitimately copy legacy fixtures into ai_live_documents
+      // (see kb-live-docs-test-seed.ts) — only PRODUCTION code is guarded.
+      if (entry === "__tests__" || entry === "node_modules") continue;
+      collectSourceFiles(full, out);
+    } else if (/\.(ts|tsx|js|mjs)$/.test(entry)) {
+      out.push(full);
+    }
+  }
+  return out;
 }
 
-async function aiLiveTitles(): Promise<string[]> {
-  const rows = await db.execute<{ title: string }>(
-    sql`SELECT title FROM ai_live_documents WHERE title LIKE ${"%" + TOKEN + "%"}`,
-  );
-  return (rows.rows ?? []).map((r) => r.title);
-}
-
-async function aiLiveContent(title: string): Promise<string | null> {
-  const rows = await db.execute<{ content: string }>(
-    sql`SELECT content FROM ai_live_documents WHERE title = ${title} LIMIT 1`,
-  );
-  return rows.rows[0]?.content ?? null;
-}
-
-describe("syncCitableDocsToLiveDocuments is a fill-if-empty seed (no overwrite, no prune)", () => {
-  beforeEach(async () => {
-    await cleanup();
+describe("legacy KB → ai_live_documents boot mirror stays retired", () => {
+  it("no production module exports or references syncCitableDocsToLiveDocuments", () => {
+    const offenders = collectSourceFiles(SRC_ROOT).filter((f) =>
+      readFileSync(f, "utf8").includes("syncCitableDocsToLiveDocuments"),
+    );
+    expect(
+      offenders.map((f) => path.relative(SRC_ROOT, f)),
+      "the retired legacy→live mirror function has been reintroduced",
+    ).toEqual([]);
   });
 
-  afterAll(async () => {
-    await cleanup();
+  it("no production SQL copies knowledgebase_docs into ai_live_documents", () => {
+    // Any INSERT INTO ai_live_documents whose statement also selects FROM
+    // knowledgebase_docs is a re-coupling of the two corpora.
+    const offenders = collectSourceFiles(SRC_ROOT).filter((f) => {
+      const src = readFileSync(f, "utf8");
+      return /INSERT\s+INTO\s+ai_live_documents[\s\S]{0,2000}?FROM\s+knowledgebase_docs/i.test(src);
+    });
+    expect(
+      offenders.map((f) => path.relative(SRC_ROOT, f)),
+      "found production SQL that mirrors legacy knowledgebase_docs into ai_live_documents",
+    ).toEqual([]);
   });
 
-  it("seeds a newly-citable legacy doc that has no Live AI Document yet", async () => {
-    await db.execute(sql`
-      INSERT INTO knowledgebase_docs (title, category, content, audience, doc_class, last_verified)
-      VALUES (${MIRROR_TITLE}, 'operations', ${"A verified answer about " + TOKEN}, 'member', 'curated', NOW())
-    `);
-    await syncCitableDocsToLiveDocuments();
-    expect(await aiLiveTitles()).toContain(MIRROR_TITLE);
-  });
-
-  it("never overwrites the content of an existing Live AI Document", async () => {
-    // Legacy doc + its seeded mirror.
-    await db.execute(sql`
-      INSERT INTO knowledgebase_docs (title, category, content, audience, doc_class, last_verified)
-      VALUES (${MIRROR_TITLE}, 'operations', ${"Original legacy content " + TOKEN}, 'member', 'curated', NOW())
-    `);
-    await syncCitableDocsToLiveDocuments();
-
-    // Simulate an admin edit / approved revision applied directly to the Live doc.
-    const EDITED = `Admin-edited content ${TOKEN}`;
-    await db.execute(sql`UPDATE ai_live_documents SET content = ${EDITED} WHERE title = ${MIRROR_TITLE}`);
-
-    // Legacy content drifts (or a boot re-runs the seed). The edit must survive.
-    await db.execute(sql`UPDATE knowledgebase_docs SET content = ${"Legacy changed " + TOKEN} WHERE title = ${MIRROR_TITLE}`);
-    await syncCitableDocsToLiveDocuments();
-
-    expect(await aiLiveContent(MIRROR_TITLE)).toBe(EDITED);
-  });
-
-  it("does NOT prune a Live AI Document when its legacy source stops being citable", async () => {
-    await db.execute(sql`
-      INSERT INTO knowledgebase_docs (title, category, content, audience, doc_class, last_verified)
-      VALUES (${MIRROR_TITLE}, 'operations', ${"Another verified answer about " + TOKEN}, 'member', 'curated', NOW())
-    `);
-    await syncCitableDocsToLiveDocuments();
-    expect(await aiLiveTitles()).toContain(MIRROR_TITLE);
-
-    // Legacy revocation (verification cleared) then legacy deletion. Neither may
-    // hard-delete the Live AI Document — retirement is the soft-delete path.
-    await db.execute(sql`UPDATE knowledgebase_docs SET last_verified = NULL WHERE title = ${MIRROR_TITLE}`);
-    await syncCitableDocsToLiveDocuments();
-    expect(await aiLiveTitles()).toContain(MIRROR_TITLE);
-
-    await db.execute(sql`DELETE FROM knowledgebase_docs WHERE title = ${MIRROR_TITLE}`);
-    await syncCitableDocsToLiveDocuments();
-    expect(await aiLiveTitles()).toContain(MIRROR_TITLE);
-  });
-
-  it("preserves push-published ai_live docs (provenance-backed) across the seed", async () => {
-    const inserted = await db.execute<{ id: number }>(sql`
-      INSERT INTO ai_live_documents (title, category, content, audience, doc_class, last_verified)
-      VALUES (${PUBLISHED_TITLE}, 'operations', ${"A published answer about " + TOKEN}, 'member', 'curated', NOW())
-      RETURNING id
-    `);
-    const docId = inserted.rows[0].id;
-    await db.execute(sql`INSERT INTO kb_doc_provenance (doc_id, relation) VALUES (${docId}, 'source')`);
-
-    await syncCitableDocsToLiveDocuments();
-
-    expect(await aiLiveTitles()).toContain(PUBLISHED_TITLE);
+  it("the bootstrap module no longer exports the mirror", async () => {
+    const bootstrap = await import("../lib/bootstrap-critical-prerequisites");
+    expect((bootstrap as Record<string, unknown>).syncCitableDocsToLiveDocuments).toBeUndefined();
   });
 });
