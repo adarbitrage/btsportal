@@ -2,6 +2,37 @@ import { describe, it, expect } from "vitest";
 import { getStarterEmailTemplate, CALL_BOOKING_LIFECYCLE_SLUGS } from "../lib/seed-templates";
 import { replaceVariables } from "../lib/communication-service";
 
+// ── Full legal footer assertions (Task #1782) ────────────────────────────────
+// All 9 canonical link hrefs that must appear in every lifecycle email footer.
+const REQUIRED_FOOTER_HREFS = [
+  "https://buildtestscale.com/privacy-policy",
+  "https://buildtestscale.com/terms-of-service",
+  "https://buildtestscale.com/earnings-disclaimer",
+  "https://buildtestscale.com/affiliate-disclaimer",
+  "https://buildtestscale.com/dmca-policy",
+  "https://buildtestscale.com/accessibility-statement",
+  "https://buildtestscale.com/sms-terms-and-conditions",
+  "https://buildtestscale.com/performance-guarantee",
+  "https://buildtestscale.com/contact-us",
+] as const;
+
+// Key fragments of the three disclaimer paragraphs.
+const REQUIRED_DISCLAIMER_FRAGMENTS = [
+  // Para 1 — bold/underline marker + opening clause
+  "*DISCLAIMER</b></u>:",
+  "We are committed to transparency and integrity",
+  // Para 2 — bold/underline markers for NO GUARANTEE and NO WARRANTY
+  "NO GUARANTEE</b></u>",
+  "NO WARRANTY</b></u>",
+  "not indicative of future results",
+  // Para 3 — bold ALL-CAPS block
+  "THE LEVEL OF SUCCESS YOU REACH EMPLOYING THESE TECHNIQUES",
+  "BECAUSE OF THIS, WE CANNOT GUARANTEE YOUR EARNINGS LEVEL",
+] as const;
+
+// Exact copyright entity string (year is a token, resolved separately).
+const COPYRIGHT_ENTITY = "Build. Test. Scale., LLC dba Build, Test, Scale";
+
 /**
  * Task #1717 structural guard: renders every call-booking lifecycle email
  * template through the REAL production interpolation function
@@ -121,4 +152,64 @@ describe("lifecycle email templates render with no leftover {{ tokens", () => {
       "guard has a fixture not present in CALL_BOOKING_LIFECYCLE_SLUGS — remove it or add it to the source of truth",
     ).toBe(CALL_BOOKING_LIFECYCLE_SLUGS.length);
   });
+});
+
+/**
+ * Task #1782: full legal footer structure guard.
+ *
+ * Asserts that every lifecycle template's rendered HTML contains:
+ *   - All 9 canonical policy/contact link hrefs (verbatim, no portal-relative
+ *     paths — the footer uses absolute buildtestscale.com URLs)
+ *   - The exact copyright entity string with the resolved current year
+ *   - Key fragments from each of the three disclaimer paragraphs, including
+ *     the email-safe bold/underline HTML markers
+ *
+ * These assertions deliberately check the rendered output (post-substitution),
+ * not the raw template, so a future change that accidentally drops a link or
+ * corrupts the disclaimer HTML fails here immediately.
+ */
+describe("lifecycle email templates contain the full legal footer", () => {
+  for (const [slug, sendSiteVariables] of Object.entries(LIFECYCLE_SEND_SITE_VARIABLES)) {
+    it(`${slug}: all 9 policy links present`, () => {
+      const starter = getStarterEmailTemplate(slug);
+      if (!starter) return;
+      const variables = { ...common, ...sendSiteVariables };
+      const renderedHtml = replaceVariables(starter.htmlBody, variables);
+
+      for (const href of REQUIRED_FOOTER_HREFS) {
+        expect(renderedHtml, `${slug} is missing footer link: ${href}`).toContain(href);
+      }
+    });
+
+    it(`${slug}: copyright line with dynamic year and exact entity string`, () => {
+      const starter = getStarterEmailTemplate(slug);
+      if (!starter) return;
+      const variables = { ...common, ...sendSiteVariables };
+      const renderedHtml = replaceVariables(starter.htmlBody, variables);
+
+      expect(renderedHtml, `${slug} missing resolved year in copyright`).toContain("Copyright 2026");
+      expect(renderedHtml, `${slug} missing exact copyright entity string`).toContain(COPYRIGHT_ENTITY);
+    });
+
+    it(`${slug}: three-paragraph disclaimer with email-safe bold/underline markers`, () => {
+      const starter = getStarterEmailTemplate(slug);
+      if (!starter) return;
+      const variables = { ...common, ...sendSiteVariables };
+      const renderedHtml = replaceVariables(starter.htmlBody, variables);
+
+      for (const fragment of REQUIRED_DISCLAIMER_FRAGMENTS) {
+        expect(renderedHtml, `${slug} missing disclaimer fragment: "${fragment}"`).toContain(fragment);
+      }
+    });
+
+    it(`${slug}: old condensed footer links (Terms of Service / Support) are not in the footer`, () => {
+      const starter = getStarterEmailTemplate(slug);
+      if (!starter) return;
+      const variables = { ...common, ...sendSiteVariables };
+      const renderedHtml = replaceVariables(starter.htmlBody, variables);
+
+      expect(renderedHtml, `${slug} still contains a ticketdesk_url link in the footer`).not.toContain(">Support</a>");
+      expect(renderedHtml, `${slug} still contains old portal terms-of-service link in the footer`).not.toContain("/terms-of-service\">Terms of Service</a>");
+    });
+  }
 });

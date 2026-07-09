@@ -8,8 +8,12 @@ import crypto from "node:crypto";
 // logo image and a styled text wordmark per-brand at render time).
 const BTS_ACCENT_COLOR = "#1a56db";
 
-// Verbatim copy of the portal footer's disclaimer (Home.tsx) — reused, not
-// re-authored, per Task #1714 step 2.
+/**
+ * Condensed disclaimer exported for backward compat; the lifecycle email
+ * footer now renders the full three-paragraph verbatim disclaimer instead
+ * (see `wrapHtml`). Kept so existing imports don't break.
+ * @deprecated Use the full footer disclaimer rendered inside `wrapHtml`.
+ */
 export const NO_GUARANTEE_DISCLAIMER =
   "*DISCLAIMER: There is NO GUARANTEE and NO WARRANTY that employing the same techniques, ideas, strategies, products or services detailed here will produce the same results. Your earning potential is entirely dependent upon you, your skills, financial resources, marketing knowledge and the time you devote. THE LEVEL OF SUCCESS YOU REACH IS ENTIRELY DEPENDENT UPON YOUR OWN EFFORT AND DEDICATION.";
 
@@ -34,6 +38,11 @@ export const NO_GUARANTEE_DISCLAIMER =
  * `getCommonVariables`: lifecycle sends (the only case today) render the
  * hosted BTS logo image; a future brand-substituted nurture send would
  * resolve to a styled text wordmark instead (see the doc comment there).
+ *
+ * Footer (Task #1782): full legal footer matching buildtestscale.com — dark
+ * navy block, 9 canonical links (two rows), exact copyright entity string
+ * with dynamic `{{current_year}}`, and the three-paragraph verbatim
+ * disclaimer with email-safe inline bold/underline treatment.
  */
 function wrapHtml(title: string, body: string): string {
   return `<!DOCTYPE html>
@@ -51,14 +60,31 @@ ${body}
 {{person_block_html}}
 {{pitch_block_html}}
 </td></tr>
-<tr><td style="background:#f8f9fb;padding:24px 30px;text-align:center;font-size:12px;color:#6b7280;border-top:1px solid #e5e7eb;">
-<p style="margin:0 0 10px;">
-<a href="{{portal_url}}/terms-of-service" style="color:${BTS_ACCENT_COLOR};text-decoration:none;margin:0 10px;">Terms of Service</a>
-<span style="color:#d1d5db;">|</span>
-<a href="{{ticketdesk_url}}" style="color:${BTS_ACCENT_COLOR};text-decoration:none;margin:0 10px;">Support</a>
+<tr><td bgcolor="#0f172a" style="background:#0f172a;padding:32px 30px;text-align:center;">
+<p style="margin:0 0 10px;font-size:12px;line-height:2.2;">
+<a href="https://buildtestscale.com/privacy-policy" style="color:#94a3b8;text-decoration:none;margin:0 5px;white-space:nowrap;">Privacy Policy</a>
+<span style="color:#334155;">&#124;</span>
+<a href="https://buildtestscale.com/terms-of-service" style="color:#94a3b8;text-decoration:none;margin:0 5px;white-space:nowrap;">Terms of Use</a>
+<span style="color:#334155;">&#124;</span>
+<a href="https://buildtestscale.com/earnings-disclaimer" style="color:#94a3b8;text-decoration:none;margin:0 5px;white-space:nowrap;">Earnings Disclaimer</a>
+<span style="color:#334155;">&#124;</span>
+<a href="https://buildtestscale.com/affiliate-disclaimer" style="color:#94a3b8;text-decoration:none;margin:0 5px;white-space:nowrap;">Affiliate Disclaimer</a>
+<span style="color:#334155;">&#124;</span>
+<a href="https://buildtestscale.com/dmca-policy" style="color:#94a3b8;text-decoration:none;margin:0 5px;white-space:nowrap;">DMCA Policy</a>
+<span style="color:#334155;">&#124;</span>
+<a href="https://buildtestscale.com/accessibility-statement" style="color:#94a3b8;text-decoration:none;margin:0 5px;white-space:nowrap;">Accessibility</a>
+<span style="color:#334155;">&#124;</span>
+<a href="https://buildtestscale.com/sms-terms-and-conditions" style="color:#94a3b8;text-decoration:none;margin:0 5px;white-space:nowrap;">SMS Terms</a>
+<span style="color:#334155;">&#124;</span>
+<a href="https://buildtestscale.com/performance-guarantee" style="color:#94a3b8;text-decoration:none;margin:0 5px;white-space:nowrap;">Refund Policy</a>
 </p>
-<p style="margin:0 0 12px;">&copy; {{current_year}} {{company_name}}. All rights reserved.</p>
-<p style="margin:0;color:#9ca3af;font-style:italic;line-height:1.5;">${NO_GUARANTEE_DISCLAIMER}</p>
+<p style="margin:0 0 16px;font-size:12px;">
+<a href="https://buildtestscale.com/contact-us" style="color:#94a3b8;text-decoration:none;">Contact Us</a>
+</p>
+<p style="margin:0 0 18px;font-size:12px;color:#64748b;">Copyright {{current_year}} Build. Test. Scale., LLC dba Build, Test, Scale&#8482;</p>
+<p style="margin:0 0 10px;font-size:11px;color:#64748b;line-height:1.6;text-align:left;"><u><b>*DISCLAIMER</b></u>: We are committed to transparency and integrity. Please understand that building a successful business takes time, effort, and dedication. We do not promote &#x201C;get rich quick&#x201D; schemes. The results you achieve will depend on your own background, dedication, desire, and motivation.</p>
+<p style="margin:0 0 10px;font-size:11px;color:#64748b;line-height:1.6;text-align:left;">There is <u><b>NO GUARANTEE</b></u> and <u><b>NO WARRANTY</b></u> that employing the same techniques, ideas, strategies, products or services that are detailed on buildtestscale.com will produce the same results for you and/or your web properties. Historical performance is not indicative of future results. Examples that may be provided in articles, videos and other sources on the site are just that &#8211; examples. They may or may not work for your specific situation and are not to be interpreted as a guarantee or promise of earnings.</p>
+<p style="margin:0;font-size:11px;color:#64748b;line-height:1.6;text-align:left;">The materials provided on buildtestscale.com are not to be interpreted as a &#x201C;get rich quick&#x201D; scheme in any way. Your earning potential is entirely dependent upon you, and the then current state of web marketing at the time you employ such techniques and ideas. <b>THE LEVEL OF SUCCESS YOU REACH EMPLOYING THESE TECHNIQUES AND IDEAS IS ENTIRELY DEPENDENT UPON YOUR SKILLS, FINANCIAL RESOURCES, MARKETING KNOWLEDGE AND TIME YOU DEVOTE TO BECOMING AN ONLINE SUCCESS. BECAUSE OF THIS, WE CANNOT GUARANTEE YOUR EARNINGS LEVEL NOR DO WE IN ANY WAY WHETHER DIRECTLY OR INDIRECTLY DO SO.</b></p>
 </td></tr>
 </table>
 </td></tr>
@@ -66,6 +92,7 @@ ${body}
 </body>
 </html>`;
 }
+
 
 /**
  * Task #1717: the single URL-qualifying seam for any image reference stored
