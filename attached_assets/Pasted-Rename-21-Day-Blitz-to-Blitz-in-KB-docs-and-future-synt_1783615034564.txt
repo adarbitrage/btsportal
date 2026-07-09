@@ -1,0 +1,28 @@
+Rename "21 Day Blitz" to "Blitz" in KB docs and future synthesis runs
+
+Older source material calls the flagship program the "21 Day Blitz", but the current name is just "the Blitz". Some synthesized KB documents now contain the old name. Fix the existing documents directly (no re-synthesis) and make future synthesis runs convert the old name automatically.
+
+Done looks like:
+
+No KB staging draft or live AI document contains "21 Day Blitz" (or variants like "21-day Blitz", "21 day blitz") — they say "the Blitz" instead. Currently affected: 5 kb_staging_docs rows (ids 1302, 1306, 1330, 1331, 1333 — one is literally titled "What is 21 Day Blitz?") and 1 ai_live_documents row (id 27, "BTS Portal Navigation Map"). Fix titles too (e.g. "What is the Blitz?").
+Future synthesis runs and any pipeline pass going through the shared rebrand/privacy filter automatically rewrite day-count Blitz variants to "the Blitz" — verified by an automated test.
+Rewrites are grammar-aware (e.g. "the 21 Day Blitz" → "the Blitz", never "the the Blitz").
+Out of scope:
+
+The YSE product catalog and entitlement keys (yse_21_day_blitz slug, "YSE 21-Day Blitz ($297)" product name, Machine product-key mappings) — real external product names, leave them alone.
+Raw source transcripts in knowledge-base/coaching-transcripts-split/ — sources stay verbatim; only synthesized/cleaned output is normalized.
+Re-running the full synthesis pipeline.
+The existing chat/voice answer-time naming rule in the system prompts — keep it, don't duplicate or weaken it.
+Steps:
+
+Extend the existing old-brand replacement rules and rebrand guidance in artifacts/api-server/src/lib/content-privacy-filter.ts with day-count Blitz patterns (21-day / 21 day / 21day, case-insensitive) → "the Blitz" (or "Blitz" where "the" already precedes it). Synthesis resolves source content through this filter, so future runs pick it up automatically.
+Run a one-off idempotent script (no boot hook) against the dev database rewriting title and content of the affected kb_staging_docs and ai_live_documents rows with the same rules. The KB pipeline is dev-only by design; corrected docs reach prod via the normal review/promotion path. Verify afterwards that no "21 day Blitz" variants remain in either table.
+Add a test that (a) the replacement rules convert representative variants correctly without double-"the" artifacts, and (b) identifiers like yse_21_day_blitz are untouched.
+Relevant files:
+
+artifacts/api-server/src/lib/content-privacy-filter.ts
+artifacts/api-server/src/lib/kb-synthesis.ts
+artifacts/api-server/src/lib/kb-legacy-crosswalk.ts:56-57
+artifacts/api-server/src/__tests__/chat-blitz-naming-rule.test.ts
+lib/db/src/schema/kb-staging.ts
+One caveat: I verified those document ids against the database visible from this environment — if main's data differs, the agent should re-query for the affected rows rather than trust the ids blindly (the search pattern is content ILIKE '%21%blitz%' OR title ILIKE '%21%blitz%').

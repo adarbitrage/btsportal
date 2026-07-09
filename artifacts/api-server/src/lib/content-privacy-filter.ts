@@ -91,6 +91,7 @@ export function buildStaffSurnameRules(
 export const OLD_BRAND_REBRAND_GUIDANCE: string[] = [
   'Company / program names — "Cherrington Media", "TCE", "The Cherrington Experience", and obvious phonetic or garbled mistranscriptions of these (e.g. "the Cherring method", "Charrington Media", "the Cherrington program") -> rebrand to "BTS", rewording lightly so the sentence still flows naturally rather than a rigid word-for-word swap.',
   'The founder\'s personal name — "Adam Cherrington" (and misspellings like "Adam Charrington") -> reduce to just "Adam" (keep the first name, drop the surname).',
+  'The flagship program\'s old day-count name — "21 Day Blitz" (and variants like "21-day Blitz", "21day Blitz") -> the current name "the Blitz" (never "the the Blitz"). EXCEPTION: the external YSE product is really named "YSE 21-Day Blitz" — leave any "YSE 21-Day Blitz" product reference untouched.',
 ];
 
 /**
@@ -113,6 +114,13 @@ const OLD_BRAND_REPLACEMENT_RULES: PrivacyRule[] = [
   { pattern: /\bTCE\b/g, replacement: "BTS" },
   // Bare surname / -ton(g) variants -> BTS.
   { pattern: /\bCh[ae]rringtong?\b/gi, replacement: "BTS" },
+  // Old day-count program name -> "the Blitz". "the 21 Day Blitz" collapses in
+  // one pass (no "the the" artifact); the bare form gains a leading "the".
+  // Negative lookbehind protects the REAL external product name
+  // "YSE 21-Day Blitz" (see kb-legacy-crosswalk + yse product catalog).
+  // Identifiers like yse_21_day_blitz never match (underscores break \b21[-\s]?day\s).
+  { pattern: /\b(the)\s+21[-\s]?day\s+blitz\b/gi, replacement: "$1 Blitz" },
+  { pattern: /(?<!YSE[-\s])\b21[-\s]?day\s+blitz\b/gi, replacement: "the Blitz" },
 ];
 
 /**
@@ -120,7 +128,7 @@ const OLD_BRAND_REPLACEMENT_RULES: PrivacyRule[] = [
  * replacement may leave behind (a doubled "the …" and collapsed double spaces).
  */
 const OLD_BRAND_CLEANUP_RULES: PrivacyRule[] = [
-  { pattern: /\bthe the (agency|support|mentees|instructor)\b/gi, replacement: "the $1" },
+  { pattern: /\bthe the (agency|support|mentees|instructor|Blitz)\b/gi, replacement: "the $1" },
   { pattern: / {2,}/g, replacement: " " },
 ];
 

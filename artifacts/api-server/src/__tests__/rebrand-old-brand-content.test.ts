@@ -75,3 +75,40 @@ describe("rebrandOldBrandContent (old-brand source backfill)", () => {
     expect(rebrandOldBrandContent("")).toBe("");
   });
 });
+
+describe("21 Day Blitz -> the Blitz rename", () => {
+  it("converts representative day-count variants to 'the Blitz'", () => {
+    expect(rebrandOldBrandContent("Start the 21 Day Blitz today.")).toBe(
+      "Start the Blitz today.",
+    );
+    expect(rebrandOldBrandContent("Enroll in the 21-day Blitz program.")).toBe(
+      "Enroll in the Blitz program.",
+    );
+    expect(rebrandOldBrandContent("the 21day blitz teaches scaling")).toBe(
+      "the Blitz teaches scaling",
+    );
+    expect(rebrandOldBrandContent("What is 21 Day Blitz?")).toBe("What is the Blitz?");
+    expect(rebrandOldBrandContent("21 DAY BLITZ overview")).toBe("the Blitz overview");
+  });
+
+  it("never produces a double 'the the Blitz' artifact", () => {
+    const out = rebrandOldBrandContent("Welcome to The 21 Day Blitz and the 21-day blitz.");
+    expect(out).not.toMatch(/the the/i);
+    expect(out).toBe("Welcome to The Blitz and the Blitz.");
+  });
+
+  it("leaves the yse_21_day_blitz identifier untouched", () => {
+    expect(rebrandOldBrandContent("slug: yse_21_day_blitz")).toBe("slug: yse_21_day_blitz");
+  });
+
+  it("leaves the real external product name 'YSE 21-Day Blitz' untouched", () => {
+    expect(rebrandOldBrandContent('The product "YSE 21-Day Blitz ($297)" is external.')).toBe(
+      'The product "YSE 21-Day Blitz ($297)" is external.',
+    );
+  });
+
+  it("is idempotent for the Blitz rename", () => {
+    const once = rebrandOldBrandContent("Join the 21 Day Blitz now");
+    expect(rebrandOldBrandContent(once)).toBe(once);
+  });
+});

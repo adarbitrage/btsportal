@@ -57,6 +57,12 @@ vi.mock("drizzle-orm", () => {
   };
 });
 
+vi.mock("../lib/rebrand-old-brand-source-content", () => ({
+  rebrandOldBrandSourceContent: async () => ({
+    transcriptCleaner: { scanned: 0, updated: 0 },
+    aiSource: { scanned: 0, updated: 0 },
+  }),
+}));
 vi.mock("../lib/rescrub-knowledgebase-docs", () => ({
   rescrubKnowledgebaseDocs: async () => ({ titleUpdated: 0, contentUpdated: 0, scanned: 0 }),
   findUnscrubbedTitles: async () => [],
