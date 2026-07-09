@@ -31,3 +31,13 @@ preview/test script that exercises the same template) before touching
 slug×send-site variable set and fails on any leftover `{{`, but only catches
 this class of bug if the guard's fixtures are kept in lockstep with the real
 send-site variable-building code — mirror it, don't invent a superset.
+
+**Gmail dark-mode footer lock.** The dark navy legal footer `<td>` in
+`wrapHtml()` (seed-templates.ts) carries `bgcolor` + `data-ogsb`/`data-ogsc`
+attributes AND `background:#0f172a !important;background-color:#0f172a
+!important` to prevent dark-mode clients from inverting it into unreadable
+text. **How to apply:** keep these when touching the footer; any `wrapHtml`
+change propagates to all ~52 seeded templates on next boot via the
+starterHash refresh in `ensureRequiredEmailTemplates` (admin-customized rows
+are skipped). Actual visual Gmail dark-mode verification requires a human
+with inbox access — agents cannot open Gmail.

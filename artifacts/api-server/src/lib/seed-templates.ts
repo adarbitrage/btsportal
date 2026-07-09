@@ -60,7 +60,7 @@ ${body}
 {{person_block_html}}
 {{pitch_block_html}}
 </td></tr>
-<tr><td bgcolor="#0f172a" style="background:#0f172a;padding:32px 30px;text-align:center;">
+<tr><td bgcolor="#0f172a" data-ogsb="#0f172a" data-ogsc="#94a3b8" style="background:#0f172a !important;background-color:#0f172a !important;padding:32px 30px;text-align:center;">
 <p style="margin:0 0 10px;font-size:12px;line-height:2.2;">
 <a href="https://buildtestscale.com/privacy-policy" style="color:#94a3b8;text-decoration:none;margin:0 5px;white-space:nowrap;">Privacy Policy</a>
 <span style="color:#334155;">&#124;</span>
