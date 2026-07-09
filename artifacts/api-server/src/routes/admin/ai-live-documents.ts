@@ -11,6 +11,7 @@ import {
 } from "../../lib/kb-synthesis.js";
 import { runTriageBackground } from "../../lib/kb-triage.js";
 import { scanCoreTrainingSourceChanges } from "../../lib/kb-source-change-scan.js";
+import { embedLiveDocumentInBackground, CLEARED_EMBEDDING_FIELDS } from "../../lib/kb-embeddings.js";
 
 // Lifecycle management for the "Live AI Documents" corpus — the assistant's
 // citable set (Task #1665). Mounted at /admin/ai-live-documents. Reads/writes
@@ -111,6 +112,10 @@ router.post("/admin/ai-live-documents", requirePermission("chat:manage"), async 
       })
       .returning();
 
+    // Semantic embedding (Task #1803): fire-and-forget; on failure the doc
+    // stays lexical-only until the boot backfill retries it.
+    embedLiveDocumentInBackground(doc.id);
+
     res.status(201).json({ ...doc, chunkCount: chunkCount(doc.content) });
   } catch (err: any) {
     if (err?.code === "23505") {
@@ -153,12 +158,23 @@ router.put("/admin/ai-live-documents/:id", requirePermission("chat:manage"), asy
     return;
   }
 
+  // Title/content change invalidates the semantic vector — clear it ATOMICALLY
+  // with the edit so a failed re-embed degrades to lexical-only, never stale.
+  const contentChanged = updates.title !== undefined || updates.content !== undefined;
+  if (contentChanged) Object.assign(updates, CLEARED_EMBEDDING_FIELDS);
+
   try {
     const [updated] = await db
       .update(aiLiveDocumentsTable)
       .set(updates)
       .where(eq(aiLiveDocumentsTable.id, id))
       .returning();
+
+    // Re-embed after a direct edit: fire-and-forget. The stale vector was
+    // already cleared atomically above, so a failure here = lexical-only.
+    if (contentChanged) {
+      embedLiveDocumentInBackground(updated.id);
+    }
 
     res.json({ ...updated, chunkCount: chunkCount(updated.content) });
   } catch (err: any) {
@@ -283,6 +299,9 @@ router.post("/admin/ai-live-documents/:id/restore", requirePermission("chat:mana
     .set({ deletedAt: null })
     .where(eq(aiLiveDocumentsTable.id, id))
     .returning();
+
+  // A restored doc may predate the semantic layer — ensure it has an embedding.
+  embedLiveDocumentInBackground(restored.id);
 
   res.json({ ...restored, chunkCount: chunkCount(restored.content) });
 });

@@ -88,6 +88,7 @@ export async function searchKnowledgebaseForVoice(query: string): Promise<string
       surface: "voice",
       question: query,
       topScore: result.topScore,
+      topSemanticScore: result.topSemanticScore,
       nearMisses: result.docs.map((d) => ({ id: d.id, title: d.title, rank: d.rank })),
     });
     return "No relevant information found.";

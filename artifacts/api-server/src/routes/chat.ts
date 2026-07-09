@@ -266,6 +266,7 @@ router.post("/chat", async (req, res): Promise<void> => {
       surface: "chat",
       question: message,
       topScore: retrieval.topScore,
+      topSemanticScore: retrieval.topSemanticScore,
       nearMisses: retrieval.docs.map((d) => ({ id: d.id, title: d.title, rank: d.rank })),
     });
   }

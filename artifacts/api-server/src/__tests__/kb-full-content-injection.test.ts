@@ -51,6 +51,7 @@ function makeDoc(overrides: Partial<RetrievedDoc> = {}): RetrievedDoc {
     sourcePath: "/blitz",
     sourceLabel: "The Blitz",
     rank: 0.5,
+    semanticScore: 0,
     grounded: false,
     ...overrides,
   };
@@ -61,6 +62,7 @@ function makeResult(docs: RetrievedDoc[]): SurfaceRetrievalResult {
     docs,
     confident: true,
     topScore: 0.5,
+    topSemanticScore: 0,
     isNavigationQuery: false,
     detectedTags: [],
   };

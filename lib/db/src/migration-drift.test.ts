@@ -39,6 +39,13 @@ async function resetDatabase(admin: pg.Client, name: string): Promise<void> {
   );
   await admin.query(`DROP DATABASE IF EXISTS "${name}"`);
   await admin.query(`CREATE DATABASE "${name}"`);
+  // The schema declares pgvector columns (ai_live_documents.embedding), so a
+  // fresh database needs the extension BEFORE drizzle-kit push can create the
+  // table — mirroring the api-server boot hook, which runs
+  // CREATE EXTENSION IF NOT EXISTS vector ahead of any schema sync.
+  await withClient(dbUrlFor(name), async (c) => {
+    await c.query("CREATE EXTENSION IF NOT EXISTS vector");
+  });
 }
 
 async function dropDatabase(admin: pg.Client, name: string): Promise<void> {

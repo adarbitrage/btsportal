@@ -19,6 +19,7 @@ import { blocksBulkConfirm, type RiskFlag } from "../../lib/kb-flags.js";
 import { applyRefineEdits } from "../../lib/transcript-cleaner.js";
 import { resolveSourceContentForSynthesis } from "../../lib/kb-value-screener.js";
 import { analyzeDraftForReview } from "../../lib/kb-review-risk.js";
+import { embedLiveDocumentInBackground, CLEARED_EMBEDDING_FIELDS } from "../../lib/kb-embeddings.js";
 
 export { runTriageBackground } from "../../lib/kb-triage.js";
 
@@ -690,6 +691,8 @@ router.post("/push-approved", async (_req: Request, res: Response) => {
     // Navigation docs published in this push — used to auto-resolve matching
     // open nav-gap flags AFTER the transaction commits (best-effort).
     const publishedNavDocs: Array<{ id: number; navApp: string | null; navArea: string | null }> = [];
+    // Live doc ids created/updated in this push — embedded post-commit.
+    const publishedLiveDocIds: number[] = [];
 
     await db.transaction(async (tx) => {
       for (const doc of newlyApproved) {
@@ -767,6 +770,9 @@ router.post("/push-approved", async (_req: Request, res: Response) => {
                 // An approved revision resolves any "source changed" stale flag.
                 flaggedStaleAt: null,
                 flaggedReason: null,
+                // Content changed → clear the semantic vector ATOMICALLY so a
+                // failed post-commit re-embed degrades to lexical-only, never stale.
+                ...CLEARED_EMBEDDING_FIELDS,
               })
               .where(eq(aiLiveDocumentsTable.id, target.id));
 
@@ -811,6 +817,8 @@ router.post("/push-approved", async (_req: Request, res: Response) => {
                 navArea: sql`EXCLUDED.nav_area`,
                 lastVerified: sql`NOW()`,
                 updatedAt: sql`NOW()`,
+                // Upsert overwrites content → clear the semantic vector atomically.
+                ...CLEARED_EMBEDDING_FIELDS,
               },
             })
             .returning({ id: aiLiveDocumentsTable.id });
@@ -861,8 +869,16 @@ router.post("/push-approved", async (_req: Request, res: Response) => {
         if (docClass === "navigation" && live && doc.navApp) {
           publishedNavDocs.push({ id: live.id, navApp: doc.navApp, navArea: doc.navArea });
         }
+        if (live) publishedLiveDocIds.push(live.id);
       }
     });
+
+    // Semantic embeddings (Task #1803): (re)embed every doc this push touched.
+    // Post-commit + fire-and-forget: an embedding failure never fails the push;
+    // the doc stays lexical-only until the boot backfill retries it.
+    for (const liveDocId of publishedLiveDocIds) {
+      embedLiveDocumentInBackground(liveDocId);
+    }
 
     // Auto-resolve open nav-gap flags covered by the just-published nav docs.
     // Best-effort: a failure here never fails the push itself.

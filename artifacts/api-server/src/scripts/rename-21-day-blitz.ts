@@ -14,6 +14,7 @@
 import { db, kbStagingDocsTable, aiLiveDocumentsTable } from "@workspace/db";
 import { eq, or, ilike } from "drizzle-orm";
 import { rebrandOldBrandContent } from "../lib/content-privacy-filter";
+import { CLEARED_EMBEDDING_FIELDS } from "../lib/kb-embeddings.js";
 
 async function rewriteTable(
   label: string,
@@ -29,10 +30,19 @@ async function rewriteTable(
     const newTitle = rebrandOldBrandContent(row.title);
     const newContent = rebrandOldBrandContent(row.content);
     if (newTitle === row.title && newContent === row.content) continue;
-    await db
-      .update(table)
-      .set({ title: newTitle, content: newContent })
-      .where(eq(table.id, row.id));
+    if (table === aiLiveDocumentsTable) {
+      // A content rewrite makes any stored semantic embedding stale — clear it
+      // ATOMICALLY in the same update; the boot backfill regenerates it.
+      await db
+        .update(aiLiveDocumentsTable)
+        .set({ title: newTitle, content: newContent, ...CLEARED_EMBEDDING_FIELDS })
+        .where(eq(aiLiveDocumentsTable.id, row.id));
+    } else {
+      await db
+        .update(table)
+        .set({ title: newTitle, content: newContent })
+        .where(eq(table.id, row.id));
+    }
     changed++;
     console.log(`[rename-21-day-blitz] ${label} id=${row.id}: "${row.title}" -> "${newTitle}"`);
   }

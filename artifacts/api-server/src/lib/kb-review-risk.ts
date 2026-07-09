@@ -180,6 +180,33 @@ const NAME_STOPWORDS = new Set(
   ].map((w) => w),
 );
 
+// Exact capitalized-pair phrases confirmed as BTS/portal/ads terminology, UI
+// labels, or ad-copy fragments — NEVER people. Compiled from a full audit of
+// every possible_member_name hit across the needs_review queue (July 2026);
+// every pair below was human-verified as not-a-name. Matched case-insensitively
+// as EXACT pairs only, so this cannot suppress a real First Last member name
+// unless it literally equals one of these phrases.
+const TERMINOLOGY_PHRASES = new Set(
+  [
+    "Site Setup", "Creative Strategy", "Unit Economics", "Creative Assets",
+    "Creative Drive", "Copy Blocks", "Custom Value", "Custom Values",
+    "Central Time", "Round One", "Basic Info", "Learn More", "Equal Share",
+    "Call Archive", "Learn About", "Going Live", "Optimization Event",
+    "Macro Template", "Brand Name", "Flexy Custom", "Responsive Rolodex",
+    "Prepare Round", "Breaking News", "Total Budget", "Daily Budget",
+    "From Round", "Cutting Edge", "Consumer Watchdog", "View Sales",
+    "Run Round", "Banners Round", "Append Token", "Start Time", "End Date",
+    "Bid Type", "Grab Angles", "Angle Architect", "Complete Purchase",
+    "Tag Titles", "Tailor Proof", "Title Case", "Dog Won", "Simple Motion",
+    "Sensor Toy", "Backyard Discovery", "Ends Mosquito", "Sticky Traps",
+    "Costly Fogging", "Moms Switched", "Free Backyard", "Read More",
+    "Deep Dive", "Email Sponsorships", "Dedicated Emails", "Baseline Round",
+    "See Angles", "Cost Per", "Finalized Flexy", "Cloned Flexy",
+    "Utilize Our", "Lifecycle Roadmap", "Quality Bar", "Policy Guardrails",
+    "Manage Subscription", "Advertorial Builder",
+  ].map((p) => p.toLowerCase()),
+);
+
 // Coach/staff/founder FIRST names are fine on their own; a First Last pair
 // starting with one still deserves a look ONLY if the privacy rules didn't
 // already catch the surname — the deterministic rules run first, so we skip
@@ -281,6 +308,8 @@ export function analyzeDraftForReview(content: string): ReviewHighlight[] {
         // word ("Coaching Access"). Gerunds are handled via NAME_STOPWORDS,
         // not a suffix rule, so -ing surnames (King, Sterling) still flag.
         if (NAV_LABEL_PHRASES.has(pair.toLowerCase())) continue;
+        // Human-verified terminology allowlist (exact pairs only).
+        if (TERMINOLOGY_PHRASES.has(pair.toLowerCase())) continue;
         if (NAV_LABEL_WORDS.has(first) || NAV_LABEL_WORDS.has(second)) continue;
         // Already caught deterministically? Don't double-flag.
         if ([...privacyExcerpts].some((p) => p.includes(second) || p === pair)) continue;

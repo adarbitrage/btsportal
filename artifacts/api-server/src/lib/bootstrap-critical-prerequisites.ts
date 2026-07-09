@@ -36,6 +36,7 @@ import {
   LEGACY_GENERIC_KB_TITLES,
 } from "./chat-system-prompt";
 import { ensureFoundingSuperAdmins } from "./ensure-founding-superadmins";
+import { backfillMissingLiveDocEmbeddings } from "./kb-embeddings";
 import { seedToolTags } from "./kb-tool-tags";
 import { refreshHouseTermAliasCache } from "./bts-house-terms";
 import { backfillUndeliveredTickets } from "./ticketdesk-queue";
@@ -86,6 +87,19 @@ export async function bootstrapCriticalPrerequisites(): Promise<PrerequisiteResu
   } catch (err) {
     console.error("[Bootstrap] runTicketDeliveryColumnMigration() threw:", err);
     missing.push("ticketDeliveryColumnMigration");
+  }
+
+  // 0a-1b. pgvector extension + ai_live_documents embedding columns (Task
+  //        #1803, IF NOT EXISTS — idempotent). CREATE EXTENSION cannot ride
+  //        drizzle push, so this boot hook is how BOTH dev and prod acquire the
+  //        semantic-retrieval columns. Purely additive; on failure the columns
+  //        stay absent and retrieval remains lexical-only (the hybrid path
+  //        degrades gracefully).
+  try {
+    await runAiLiveDocumentEmbeddingColumnMigration();
+  } catch (err) {
+    console.error("[Bootstrap] runAiLiveDocumentEmbeddingColumnMigration() threw:", err);
+    missing.push("aiLiveDocumentEmbeddingColumnMigration");
   }
 
   // 0a-2. Add knowledgebase_docs.audience column (IF NOT EXISTS — idempotent).
@@ -418,6 +432,16 @@ export async function bootstrapCriticalPrerequisites(): Promise<PrerequisiteResu
     console.error("[Bootstrap] syncCitableDocsToLiveDocuments() threw:", err);
     missing.push("syncCitableDocsToLiveDocuments");
   }
+
+  // 10b. Backfill missing/stale semantic embeddings (Task #1803). Runs AFTER
+  //      the citable sync so freshly-seeded rows get embedded too. Idempotent
+  //      (only touches rows with a NULL or wrong-model embedding) and
+  //      fire-and-forget: boot must NEVER block on the embeddings API. When
+  //      OPENAI_API_KEY is absent it logs loudly and retrieval stays
+  //      lexical-only — by design.
+  void backfillMissingLiveDocEmbeddings().catch((err) => {
+    console.error("[Bootstrap] backfillMissingLiveDocEmbeddings() threw:", err);
+  });
 
   // 11. One-time, idempotent migration of mid-flight onboarding members from
   //     the old 5-step numbering to the (now superseded) 7-step contract
@@ -817,6 +841,23 @@ export async function syncCitableDocsToLiveDocuments(): Promise<void> {
     FROM knowledgebase_docs k
     WHERE k.doc_class IN ('curated', 'overview') AND k.last_verified IS NOT NULL
     ON CONFLICT (title) DO NOTHING`);
+}
+
+/**
+ * pgvector extension + semantic-embedding columns on ai_live_documents
+ * (Task #1803). Boot-hook DDL is the sanctioned path here because
+ * `CREATE EXTENSION` cannot ride drizzle push, and the columns must exist
+ * before any hybrid-retrieval query references them. Purely additive +
+ * idempotent.
+ */
+async function runAiLiveDocumentEmbeddingColumnMigration(): Promise<void> {
+  await db.execute(sql`CREATE EXTENSION IF NOT EXISTS vector`);
+  await db.execute(
+    sql`ALTER TABLE ai_live_documents
+        ADD COLUMN IF NOT EXISTS embedding vector(1536),
+        ADD COLUMN IF NOT EXISTS embedding_model text,
+        ADD COLUMN IF NOT EXISTS embedding_generated_at timestamp with time zone`,
+  );
 }
 
 async function runTicketDeliveryColumnMigration(): Promise<void> {

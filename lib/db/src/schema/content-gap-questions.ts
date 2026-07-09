@@ -25,6 +25,10 @@ export const contentGapQuestionsTable = pgTable(
     // Top precise-match ts_rank at the time of the most recent miss (0 when only
     // the loose word-OR fallback matched). A coarse "how close were we" signal.
     topScore: real("top_score").notNull().default(0),
+    // Top query↔doc embedding cosine similarity at the most recent miss (0 when
+    // the semantic layer was unavailable). Together with top_score this records
+    // BOTH retrieval signals for every miss (Task #1803).
+    topSemanticScore: real("top_semantic_score").notNull().default(0),
     // The nearest non-confident matches at the most recent miss: the docs the
     // retriever surfaced but that did not clear the confidence bar. Titles are
     // privacy-scrubbed. Helps an author see what the corpus *almost* answered.

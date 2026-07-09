@@ -36,6 +36,8 @@ export interface LogUnansweredQuestionInput {
   question: string;
   /** Top precise-match ts_rank at the time of the miss (0 when only fallback hit). */
   topScore?: number;
+  /** Top semantic cosine similarity at the miss (0 when semantic unavailable). */
+  topSemanticScore?: number;
   /** Nearest non-confident matches the retriever surfaced. */
   nearMisses?: NearMissDoc[];
 }
@@ -83,6 +85,9 @@ export async function logUnansweredQuestion(
       }));
 
     const topScore = Number.isFinite(input.topScore) ? (input.topScore as number) : 0;
+    const topSemanticScore = Number.isFinite(input.topSemanticScore)
+      ? (input.topSemanticScore as number)
+      : 0;
     const now = new Date();
 
     await db
@@ -92,6 +97,7 @@ export async function logUnansweredQuestion(
         normalizedQuestion,
         questionText,
         topScore,
+        topSemanticScore,
         nearMisses,
         lastAskedAt: now,
       })
@@ -104,6 +110,7 @@ export async function logUnansweredQuestion(
           askCount: sql`${contentGapQuestionsTable.askCount} + 1`,
           questionText,
           topScore,
+          topSemanticScore,
           nearMisses,
           lastAskedAt: now,
           updatedAt: now,

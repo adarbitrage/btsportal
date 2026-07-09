@@ -122,6 +122,27 @@ describe("analyzeDraftForReview", () => {
     expect(names).toContain("Ava Sterling");
   });
 
+  it("does not flag audited terminology pairs as member names", () => {
+    const hs = analyzeDraftForReview(
+      [
+        "Review your Unit Economics before scaling.",
+        "Upload to Creative Drive and reuse your Copy Blocks.",
+        "Set the Custom Values in your Cloned Flexy site.",
+        "Refine your Creative Strategy after Site Setup.",
+        "Backyard Discovery and Consumer Watchdog are ad-copy fragments.",
+      ].join("\n"),
+    );
+    expect(hs.filter((h) => h.kind === "possible_member_name")).toHaveLength(0);
+  });
+
+  it("still flags a real name amid terminology vocabulary", () => {
+    const hs = analyzeDraftForReview(
+      "Marcus Delgado reviewed his Unit Economics and Creative Strategy.",
+    );
+    const names = hs.filter((h) => h.kind === "possible_member_name").map((h) => h.excerpt);
+    expect(names).toEqual(["Marcus Delgado"]);
+  });
+
   it("skips headings for the member-name heuristic", () => {
     const hs = analyzeDraftForReview("# Marcus Delgado Story\nBody text.");
     expect(hs.some((h) => h.kind === "possible_member_name")).toBe(false);

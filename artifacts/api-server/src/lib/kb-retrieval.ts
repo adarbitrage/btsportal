@@ -34,6 +34,7 @@ import { scrubPrivateContent } from "./content-privacy-filter";
 import { citableDocFilter } from "./kb-citable-filter";
 import { buildVoiceSynonymTsquery, expandVoiceQuerySynonyms } from "./voice-synonyms";
 import { detectQueryTags } from "./kb-tool-tags.js";
+import { embedQuery, toVectorLiteral, EMBEDDING_MODEL } from "./kb-embeddings.js";
 
 export type RetrievalSurface = "chat" | "voice";
 
@@ -66,6 +67,8 @@ export interface RetrievedDoc {
   sourceLabel: string | null;
   /** Base lexical ts_rank of the precise/fallback match (0 for grounded docs). */
   rank: number;
+  /** Cosine similarity of the doc embedding to the query (0 when unavailable). */
+  semanticScore: number;
   /** True when injected by navigation grounding, bypassing the category scope. */
   grounded: boolean;
 }
@@ -81,6 +84,11 @@ export interface SurfaceRetrievalResult {
   confident: boolean;
   /** Max precise-match ts_rank observed (0 when only the loose fallback matched). */
   topScore: number;
+  /**
+   * Max query↔doc embedding cosine similarity observed (0 when the semantic
+   * layer is unavailable — no key, no embeddings, or the embed call failed).
+   */
+  topSemanticScore: number;
   /** Whether the query was detected as a "where do I find X" navigation ask. */
   isNavigationQuery: boolean;
   /** Controlled tags the query referenced (drove the tag boost). */
@@ -94,6 +102,21 @@ export interface SurfaceRetrievalResult {
  * fallback matches correctly read as "not confident".
  */
 export const CONFIDENCE_FLOOR = 0.01;
+
+/**
+ * Minimum query↔doc cosine similarity (text-embedding-3-small) for a SEMANTIC
+ * match to count as a confident answer on its own (Task #1803). Calibrated by
+ * the two-group suite in __tests__/kb-semantic-calibration.test.ts: casually
+ * phrased questions that ARE covered by the citable corpus must clear it, while
+ * out-of-scope questions must stay below it. A semantic hit BELOW this floor
+ * never flips `confident` — the decline-rather-than-guess contract is
+ * unchanged. Recalibrate whenever {@link EMBEDDING_MODEL} changes.
+ */
+export const SEMANTIC_CONFIDENCE_FLOOR = 0.5;
+
+/** Blend weights for hybrid ordering within the same curated/tag tier. */
+const LEXICAL_BLEND_WEIGHT = 0.5;
+const SEMANTIC_BLEND_WEIGHT = 0.5;
 
 // ───────────────────────────────────────────────────────────────────────────
 // Navigation-query detection ("where do I find X").
@@ -219,6 +242,10 @@ function mapRow(r: Record<string, unknown>, grounded: boolean): RetrievedDoc {
     sourcePath: (r.source_path as string | null) ?? null,
     sourceLabel: (r.source_label as string | null) ?? null,
     rank: typeof r.rank === "number" ? r.rank : parseFloat(String(r.rank ?? 0)) || 0,
+    semanticScore:
+      typeof r.semantic_score === "number"
+        ? r.semantic_score
+        : parseFloat(String(r.semantic_score ?? 0)) || 0,
     grounded,
   };
 }
@@ -272,6 +299,7 @@ export async function retrieveSurfaceAware(
       docs,
       confident: navDoc != null,
       topScore: 0,
+      topSemanticScore: 0,
       isNavigationQuery: navQuery,
       detectedTags: [],
     };
@@ -286,16 +314,25 @@ export async function retrieveSurfaceAware(
     ? sql`(websearch_to_tsquery('english', ${query}) || to_tsquery('english', ${synonymOr}))`
     : sql`websearch_to_tsquery('english', ${query})`;
 
-  const primary = await db.execute(sql`
-    SELECT ${ROW_COLUMNS},
-      ts_rank(search_vector, ${primaryTsquery}) AS rank
-    FROM ai_live_documents
-    WHERE search_vector @@ ${primaryTsquery}
-      AND category = ANY(${categoriesArray}::text[])
-      AND audience <> 'admin'
-      AND ${citableDocFilter()}
-    ORDER BY ${buildBoostedOrderBy(synonymOr, detectedTags)}
-    LIMIT ${limit}`);
+  // The query embedding is fetched IN PARALLEL with the primary lexical query.
+  // null (no key / API failure / empty query) = lexical-only turn — identical
+  // to pre-hybrid behaviour by construction.
+  const [primary, queryEmbedding] = await Promise.all([
+    db.execute(sql`
+      SELECT ${ROW_COLUMNS},
+        ts_rank(search_vector, ${primaryTsquery}) AS rank
+      FROM ai_live_documents
+      WHERE search_vector @@ ${primaryTsquery}
+        AND category = ANY(${categoriesArray}::text[])
+        AND audience <> 'admin'
+        AND ${citableDocFilter()}
+      ORDER BY ${buildBoostedOrderBy(synonymOr, detectedTags)}
+      LIMIT ${limit}`),
+    embedQuery(query).catch((err) => {
+      console.error("[kb-retrieval] query embedding failed — lexical-only this turn:", err);
+      return null;
+    }),
+  ]);
 
   const rows = primary.rows as Record<string, unknown>[];
   const primaryMaxRank = rows.reduce(
@@ -303,11 +340,51 @@ export async function retrieveSurfaceAware(
     0,
   );
 
+  // ── Semantic candidates (Task #1803) ──────────────────────────────────────
+  // ADDITIONAL ranking signal, same scope + citable gate + admin guard as the
+  // lexical query. Docs without embeddings simply never appear here (graceful
+  // lexical-only degradation). semantic_score = cosine similarity.
+  let semanticRows: Record<string, unknown>[] = [];
+  let topSemanticScore = 0;
+  if (queryEmbedding) {
+    try {
+      const qvec = toVectorLiteral(queryEmbedding);
+      const semantic = await db.execute(sql`
+        SELECT ${ROW_COLUMNS},
+          0::float4 AS rank,
+          1 - (embedding <=> ${qvec}::vector) AS semantic_score
+        FROM ai_live_documents
+        WHERE embedding IS NOT NULL
+          -- Freshness guard: an embedding generated BEFORE the row's last edit
+          -- is stale and must never influence ranking/confidence; such rows are
+          -- lexical-only until the re-embed/backfill catches up.
+          AND embedding_generated_at IS NOT NULL
+          AND embedding_generated_at >= updated_at
+          -- Model guard: during a model transition, vectors from the OLD model
+          -- must not influence ranking/confidence while the backfill runs.
+          AND embedding_model = ${EMBEDDING_MODEL}
+          AND category = ANY(${categoriesArray}::text[])
+          AND audience <> 'admin'
+          AND ${citableDocFilter()}
+        ORDER BY embedding <=> ${qvec}::vector
+        LIMIT ${limit}`);
+      semanticRows = semantic.rows as Record<string, unknown>[];
+      topSemanticScore = semanticRows.reduce(
+        (m, r) => Math.max(m, parseFloat(String(r.semantic_score ?? 0)) || 0),
+        0,
+      );
+    } catch (err) {
+      console.error("[kb-retrieval] semantic search failed — lexical-only this turn:", err);
+      semanticRows = [];
+      topSemanticScore = 0;
+    }
+  }
+
   // ── Loose fallback ─────────────────────────────────────────────────────────
   // When the precise (AND-of-terms) query found too few docs, widen to a word-OR
   // net (raw query words + matched synonym terms) so the assistant still has
   // best-effort context. These matches do NOT count toward confidence.
-  if (rows.length < fallbackMin) {
+  if (rows.length + semanticRows.filter((s) => !rows.some((r) => Number(r.id) === Number(s.id))).length < fallbackMin) {
     const orQuery = [
       ...query.trim().split(/\s+/).filter(Boolean),
       ...expandVoiceQuerySynonyms(query),
@@ -333,7 +410,43 @@ export async function retrieveSurfaceAware(
     }
   }
 
-  let docs = rows.slice(0, limit).map((r) => mapRow(r, false));
+  // ── Hybrid merge (Task #1803) ─────────────────────────────────────────────
+  // When the semantic layer produced candidates, merge them with the lexical
+  // rows and re-rank in JS using the SAME tier rules the SQL ORDER BY encodes
+  // (curated precedence first, then tag boost), with a lexical+semantic blend
+  // replacing raw ts_rank as the final tiebreaker. When there are NO semantic
+  // rows (no key / no embeddings / API failure), the lexical rows keep their
+  // SQL ordering untouched — pre-hybrid behaviour exactly.
+  let docs: RetrievedDoc[];
+  if (semanticRows.length > 0) {
+    const lexDocs = rows.map((r) => mapRow(r, false));
+    const byId = new Map<number, RetrievedDoc>();
+    for (const d of lexDocs) byId.set(d.id, d);
+    for (const s of semanticRows) {
+      const sd = mapRow(s, false);
+      const existing = byId.get(sd.id);
+      if (existing) existing.semanticScore = Math.max(existing.semanticScore, sd.semanticScore);
+      else byId.set(sd.id, sd);
+    }
+    const pool = [...byId.values()];
+    const maxLex = pool.reduce((m, d) => Math.max(m, d.rank), 0);
+    const tagSet = new Set(detectedTags);
+    const curatedTier = (d: RetrievedDoc) =>
+      d.docClass === "curated" || d.docClass === "overview" || d.docClass === "navigation" ? 0 : 1;
+    const tagTier = (d: RetrievedDoc) => (d.tags.some((t) => tagSet.has(t)) ? 0 : 1);
+    const blended = (d: RetrievedDoc) =>
+      LEXICAL_BLEND_WEIGHT * (maxLex > 0 ? d.rank / maxLex : 0) +
+      SEMANTIC_BLEND_WEIGHT * d.semanticScore;
+    pool.sort(
+      (a, b) =>
+        curatedTier(a) - curatedTier(b) ||
+        tagTier(a) - tagTier(b) ||
+        blended(b) - blended(a),
+    );
+    docs = pool.slice(0, limit);
+  } else {
+    docs = rows.slice(0, limit).map((r) => mapRow(r, false));
+  }
 
   // Prepend the navigation-grounded doc so it leads navigation answers (dedup).
   if (navDoc) {
@@ -343,11 +456,17 @@ export async function retrieveSurfaceAware(
 
   docs = docs.map(scrubDoc);
 
-  const confident = primaryMaxRank >= CONFIDENCE_FLOOR || navDoc != null;
+  // Confidence: a precise lexical match, a grounded navigation answer, OR a
+  // semantic match at/above the calibrated floor. A semantic-only hit BELOW
+  // the floor NEVER counts — decline-rather-than-guess is preserved.
+  const confident =
+    primaryMaxRank >= CONFIDENCE_FLOOR ||
+    navDoc != null ||
+    topSemanticScore >= SEMANTIC_CONFIDENCE_FLOOR;
   if (!confident) {
     // Cheap retrieval-gap signal: a future content-gap radar can consume these.
     console.log(
-      `[kb-retrieval] no confident match (surface=${opts.surface}) for query: ${rawQuery.slice(0, 120)}`,
+      `[kb-retrieval] no confident match (surface=${opts.surface}, lex=${primaryMaxRank.toFixed(4)}, sem=${topSemanticScore.toFixed(4)}) for query: ${rawQuery.slice(0, 120)}`,
     );
   }
 
@@ -355,6 +474,7 @@ export async function retrieveSurfaceAware(
     docs,
     confident,
     topScore: primaryMaxRank,
+    topSemanticScore,
     isNavigationQuery: navQuery,
     detectedTags,
   };

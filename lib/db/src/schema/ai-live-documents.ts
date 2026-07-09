@@ -22,6 +22,16 @@ const tsvector = customType<{ data: string }>({
   },
 });
 
+// pgvector `vector(1536)` column (text-embedding-3-small dimension). Stored as
+// its Postgres text representation ("[0.1,0.2,...]"); the application always
+// reads/writes it via raw SQL with an explicit ::vector cast, never through
+// drizzle value mapping.
+const vector1536 = customType<{ data: string }>({
+  dataType() {
+    return "vector(1536)";
+  },
+});
+
 // ── Live AI Documents (AI Knowledgebase) ─────────────────────────────────────
 // The cleanly-separated home for the AI assistant's citable corpus (Task #1531).
 // Brought to full parity with the legacy dual-purpose `knowledgebase_docs` so the
@@ -81,6 +91,15 @@ export const aiLiveDocumentsTable = pgTable(
     // approved revision supersedes the doc (or the admin dismisses the flag).
     flaggedStaleAt: timestamp("flagged_stale_at", { withTimezone: true }),
     flaggedReason: text("flagged_reason"),
+    // Semantic-retrieval embedding (Task #1803). NULL = not yet embedded (doc
+    // participates in lexical ranking only — graceful degradation by design).
+    // Written ONLY by the embedding seam (lib/kb-embeddings.ts); the model
+    // column lets a future model swap invalidate + re-backfill cleanly.
+    // Landed in dev+prod via the boot-time ADD COLUMN IF NOT EXISTS hook
+    // (CREATE EXTENSION vector cannot ride drizzle push).
+    embedding: vector1536("embedding"),
+    embeddingModel: text("embedding_model"),
+    embeddingGeneratedAt: timestamp("embedding_generated_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true })
       .notNull()
