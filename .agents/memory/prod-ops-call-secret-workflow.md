@@ -16,8 +16,11 @@ secrets, only the declared workflow process gets them injected.
 **How to apply:** to make an authenticated call to an internal/ops endpoint
 that requires a secret bearer token, write a small one-off script that
 reads `process.env.<SECRET>` and performs the request, run it via a
-temporary console workflow (`npx tsx <script>.ts`, not a bare `tsx` since
-the local binary isn't on PATH in the workflow shell), then remove the
+temporary console workflow, then remove the
+workflow when done. NOTE (observed July 2026): in the workflow shell even
+`npx tsx` can fail with "tsx: command not found" — invoke the hoisted
+binary directly: `./artifacts/api-server/node_modules/.bin/tsx <script>.ts`.
+Then remove the
 workflow and delete the script once done unless it's meant to become a
 reusable ops tool.
 
