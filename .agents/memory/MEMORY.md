@@ -155,3 +155,5 @@
 - [Blitz lesson deduplication](blitz-lesson-deduplication.md) — BLITZ_BODY_HTML parsing (shared pkg) dedupes by Vidalytics ID across segments; fix for lesson-list drift.
 - [Affiliate portal tracking seams](affiliate-portal-tracking-seams.md) — Tapfiliate conversion wiring: `tap_visit_id` (cookie-only) vs `tap_aff_id` (URL-only); portal-api /conversions takes EITHER; server-side tracking via nmiPost() hooks (replaces client-side `tapfiliate.js` callbacks for better 100% credit).
 - [Member dashboard data cache](member-dashboard-data-cache.md) — 5-min server-side cache for /dashboard; clear on session-pack booking/cancellation.
+- [KB topic-index hardening](kb-topic-index-hardening.md) — gpt-5 @6000 tokens, honest per-source outcomes self-heal on force=false; node-agreement spot-checks measure run variance (gpt-5 self-agrees only ~67%); 429s need their own long backoff.
+- [KB pipeline launch roadmap](kb-pipeline-launch-roadmap.md) — DECIDED: full pipeline runs in DEV only (synthesis hardening → full run → human review → one-time promotion of approved outputs to prod); prod never runs the pipeline.

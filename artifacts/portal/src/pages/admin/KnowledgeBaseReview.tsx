@@ -232,6 +232,55 @@ interface TriageStatus {
   needsReview: number;
 }
 
+// Topic-index run status (Task #1794): live progress + durable last-run report
+// (survives restarts) + corpus-health split from the status endpoint.
+interface TopicIndexRunReport {
+  id: number;
+  startedAt: string;
+  finishedAt: string | null;
+  force: boolean;
+  total: number;
+  processed: number;
+  llmCount: number;
+  llmNoneCount: number;
+  lexicalCount: number;
+  failedCount: number;
+  excludedCount: number;
+  linkedCount: number;
+  error: string | null;
+  failures: Array<{ sourceDocId: number; title: string; reason: string }>;
+  duplicateFlags: Array<{ ids: number[]; titles: string[] }>;
+  qualityCheck: {
+    ranAt: string;
+    model: string;
+    sampleSize: number;
+    nodeAgreement: number;
+    meanRelevanceDelta: number;
+  } | null;
+}
+
+interface TopicIndexStatus {
+  running: boolean;
+  total: number;
+  processed: number;
+  linked: number;
+  llmCount: number;
+  llmNoneCount: number;
+  lexicalCount: number;
+  failedCount: number;
+  excludedCount: number;
+  error: string | null;
+  lastRun: TopicIndexRunReport | null;
+  health: {
+    totalSources: number;
+    llmSources: number;
+    pureLexicalSources: number;
+    zeroLinkSources: number;
+    llmNoneSources: number;
+  } | null;
+  qualityCheckRunning: boolean;
+}
+
 interface TranscriptSource {
   id: number;
   sourceName: string;
@@ -490,6 +539,8 @@ export default function KnowledgeBaseReview() {
   const [processing, setProcessing] = useState(false);
   const [pushing, setPushing] = useState(false);
   const [triaging, setTriaging] = useState(false);
+  const [topicIndex, setTopicIndex] = useState<TopicIndexStatus | null>(null);
+  const topicIndexPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const [importing, setImporting] = useState(false);
   const [statusFilter, setStatusFilter] = useState("needs_review");
   const [originFilter, setOriginFilter] = useState("all");
@@ -612,6 +663,32 @@ export default function KnowledgeBaseReview() {
     return () => { if (pollRef.current) clearInterval(pollRef.current); };
   }, [triaging, fetchTriageStatus]);
 
+  // Topic-index status: fetch once on mount, then poll while a build (or
+  // model-quality spot-check) is running so the progress card stays live.
+  const fetchTopicIndexStatus = useCallback(async () => {
+    try {
+      const res = await authFetch("/admin/knowledgebase/pipeline/topic-index-status");
+      if (res.ok) setTopicIndex(await res.json());
+    } catch {
+      // ignore
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchTopicIndexStatus();
+  }, [fetchTopicIndexStatus]);
+
+  useEffect(() => {
+    const active = topicIndex?.running || topicIndex?.qualityCheckRunning;
+    if (active) {
+      topicIndexPollRef.current = setInterval(fetchTopicIndexStatus, 4000);
+    } else if (topicIndexPollRef.current) {
+      clearInterval(topicIndexPollRef.current);
+      topicIndexPollRef.current = null;
+    }
+    return () => { if (topicIndexPollRef.current) { clearInterval(topicIndexPollRef.current); topicIndexPollRef.current = null; } };
+  }, [topicIndex?.running, topicIndex?.qualityCheckRunning, fetchTopicIndexStatus]);
+
   // Guided mode keyboard shortcuts (rapid confirm for existing-doc re-verify)
   useEffect(() => {
     if (!guidedMode) return;
@@ -672,10 +749,27 @@ export default function KnowledgeBaseReview() {
       const res = await authFetch("/admin/knowledgebase/pipeline/build-topic-index", { method: "POST" });
       const data = await res.json();
       toast({ title: data.message ?? "Building topic index…" });
+      // Kick the status card into polling mode immediately.
+      setTimeout(fetchTopicIndexStatus, 1500);
     } catch {
       toast({ title: "Failed to build topic index", variant: "destructive" });
     } finally {
       setProcessing(false);
+    }
+  };
+
+  const runTopicIndexQualityCheck = async () => {
+    try {
+      const res = await authFetch("/admin/knowledgebase/pipeline/topic-index-quality-check", { method: "POST" });
+      const data = await res.json();
+      if (!res.ok) {
+        toast({ title: data.error ?? "Failed to start quality check", variant: "destructive" });
+        return;
+      }
+      toast({ title: data.message ?? "Running model-quality spot-check…" });
+      setTimeout(fetchTopicIndexStatus, 1500);
+    } catch {
+      toast({ title: "Failed to start quality check", variant: "destructive" });
     }
   };
 
@@ -1678,6 +1772,97 @@ export default function KnowledgeBaseReview() {
             </Button>
           </div>
         </div>
+
+        {/* Topic-index run progress + durable last-run report (Task #1794). */}
+        {topicIndex && (topicIndex.running || topicIndex.qualityCheckRunning || topicIndex.lastRun) && (
+          <Card className="border-slate-200">
+            <CardContent className="py-4 px-4 space-y-3">
+              <div className="flex items-center justify-between flex-wrap gap-2">
+                <div className="flex items-center gap-3 flex-wrap">
+                  <span className="font-semibold text-sm text-gray-900">Topic Index</span>
+                  {topicIndex.running ? (
+                    <span className="flex items-center gap-2 text-xs text-blue-700">
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      Classifying {topicIndex.processed}/{topicIndex.total} sources…
+                    </span>
+                  ) : topicIndex.lastRun ? (
+                    <span className="text-xs text-gray-500">
+                      Last run {new Date(topicIndex.lastRun.startedAt).toLocaleString()}
+                      {topicIndex.lastRun.finishedAt ? "" : " (interrupted)"}
+                      {topicIndex.lastRun.force ? " · full re-classify" : " · incremental"}
+                    </span>
+                  ) : null}
+                  {topicIndex.qualityCheckRunning && (
+                    <span className="flex items-center gap-1.5 text-xs text-violet-700">
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" /> quality spot-check running…
+                    </span>
+                  )}
+                </div>
+                <Button onClick={runTopicIndexQualityCheck} variant="ghost" size="sm"
+                  disabled={topicIndex.running || topicIndex.qualityCheckRunning}
+                  title="Re-classify a sample of healthy sources with the current model and compare against stored links (no changes are saved).">
+                  Quality spot-check
+                </Button>
+              </div>
+              {(() => {
+                const src = topicIndex.running ? topicIndex : topicIndex.lastRun;
+                if (!src) return null;
+                const degraded = src.lexicalCount + src.failedCount;
+                return (
+                  <div className="flex items-center gap-2 flex-wrap text-xs">
+                    <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700">{src.llmCount} LLM-classified</span>
+                    <span className="px-2 py-0.5 rounded-full bg-gray-100 text-gray-600">{src.llmNoneCount} no-topic (LLM verdict)</span>
+                    <span className="px-2 py-0.5 rounded-full bg-gray-100 text-gray-600">{src.excludedCount} excluded (duplicates)</span>
+                    {degraded > 0 ? (
+                      <span className="px-2 py-0.5 rounded-full bg-amber-100 text-amber-700">
+                        {degraded} degraded ({src.lexicalCount} lexical fallback, {src.failedCount} failed) — re-attempted next run
+                      </span>
+                    ) : (
+                      <span className="px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-600">0 degraded</span>
+                    )}
+                    {"error" in src && src.error && (
+                      <span className="px-2 py-0.5 rounded-full bg-red-100 text-red-700">run error: {src.error}</span>
+                    )}
+                  </div>
+                );
+              })()}
+              {topicIndex.health && !topicIndex.running && (
+                <div className="text-xs text-gray-500">
+                  Corpus health: {topicIndex.health.llmSources}/{topicIndex.health.totalSources} sources LLM-linked
+                  {topicIndex.health.pureLexicalSources > 0 && <> · <span className="text-amber-700">{topicIndex.health.pureLexicalSources} lexical-only</span></>}
+                  {topicIndex.health.zeroLinkSources > 0 && <> · {topicIndex.health.zeroLinkSources} unlinked ({topicIndex.health.llmNoneSources} deliberate no-topic)</>}
+                </div>
+              )}
+              {topicIndex.lastRun && topicIndex.lastRun.duplicateFlags.length > 0 && (
+                <div className="text-xs text-amber-700">
+                  {topicIndex.lastRun.duplicateFlags.length} exact-duplicate source group{topicIndex.lastRun.duplicateFlags.length === 1 ? "" : "s"} flagged for cleanup:{" "}
+                  {topicIndex.lastRun.duplicateFlags.slice(0, 3).map((g) => g.titles[0]).join("; ")}
+                  {topicIndex.lastRun.duplicateFlags.length > 3 ? "…" : ""}
+                </div>
+              )}
+              {topicIndex.lastRun?.qualityCheck && (
+                <div className="text-xs text-gray-600">
+                  Model quality ({topicIndex.lastRun.qualityCheck.model}, {topicIndex.lastRun.qualityCheck.sampleSize} sources):{" "}
+                  <span className={topicIndex.lastRun.qualityCheck.nodeAgreement >= 0.85 ? "text-emerald-700 font-medium" : "text-amber-700 font-medium"}>
+                    {(topicIndex.lastRun.qualityCheck.nodeAgreement * 100).toFixed(0)}% node agreement
+                  </span>{" "}
+                  vs stored links · mean relevance delta {topicIndex.lastRun.qualityCheck.meanRelevanceDelta >= 0 ? "+" : ""}
+                  {topicIndex.lastRun.qualityCheck.meanRelevanceDelta.toFixed(2)}
+                </div>
+              )}
+              {topicIndex.lastRun && topicIndex.lastRun.failures.length > 0 && (
+                <details className="text-xs text-gray-600">
+                  <summary className="cursor-pointer">{topicIndex.lastRun.failures.length} source failure{topicIndex.lastRun.failures.length === 1 ? "" : "s"} recorded</summary>
+                  <ul className="mt-1 space-y-0.5 max-h-40 overflow-y-auto">
+                    {topicIndex.lastRun.failures.map((f) => (
+                      <li key={f.sourceDocId}>#{f.sourceDocId} {f.title}: <span className="text-red-700">{f.reason}</span></li>
+                    ))}
+                  </ul>
+                </details>
+              )}
+            </CardContent>
+          </Card>
+        )}
 
         {showCoverage && (
           <Card className="border-slate-200">

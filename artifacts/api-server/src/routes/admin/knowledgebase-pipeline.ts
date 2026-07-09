@@ -27,6 +27,10 @@ import {
   getTopicIndexState,
   isTopicIndexRunning,
   getNodeLinkCounts,
+  getLastTopicIndexRun,
+  getTopicIndexHealth,
+  runTopicIndexQualitySpotCheck,
+  isQualityCheckRunning,
 } from "../../lib/kb-topic-index.js";
 import {
   synthesizeNode,
@@ -1625,11 +1629,49 @@ router.post("/build-topic-index", async (req: Request, res: Response) => {
   }
 });
 
-/** Topic-index progress + per-node source counts. */
+/**
+ * Topic-index progress + per-node source counts + the durable last-run report
+ * and corpus health split (Task #1794). `lastRun` survives server restarts.
+ */
 router.get("/topic-index-status", async (_req: Request, res: Response) => {
   try {
-    const nodeCounts = await getNodeLinkCounts();
-    res.json({ ...getTopicIndexState(), nodeCounts });
+    const [nodeCounts, lastRun, health] = await Promise.all([
+      getNodeLinkCounts(),
+      getLastTopicIndexRun(),
+      getTopicIndexHealth(),
+    ]);
+    res.json({
+      ...getTopicIndexState(),
+      nodeCounts,
+      lastRun,
+      health,
+      qualityCheckRunning: isQualityCheckRunning(),
+    });
+  } catch (err: unknown) {
+    res.status(500).json({ error: err instanceof Error ? err.message : "Unknown error" });
+  }
+});
+
+/**
+ * Model-quality spot-check (Task #1794 step 7): re-classify a sample of
+ * healthy-LLM sources with the current classifier model (no persistence) and
+ * compare node agreement + relevance deltas against the stored links. The
+ * report is attached to the latest run row and surfaced via the status
+ * endpoint. Background — poll topic-index-status for the result.
+ */
+router.post("/topic-index-quality-check", async (req: Request, res: Response) => {
+  try {
+    if (isTopicIndexRunning() || isQualityCheckRunning()) {
+      res.status(409).json({ error: "A topic-index run or quality check is already running" });
+      return;
+    }
+    const sampleSize = typeof req.body?.sampleSize === "number"
+      ? Math.max(5, Math.min(30, Math.floor(req.body.sampleSize)))
+      : 18;
+    res.json({ message: `Running model-quality spot-check on ${sampleSize} sources in background.`, running: true });
+    runTopicIndexQualitySpotCheck(sampleSize).catch((err) =>
+      console.error("[TopicIndex] Quality spot-check failed:", err),
+    );
   } catch (err: unknown) {
     res.status(500).json({ error: err instanceof Error ? err.message : "Unknown error" });
   }
