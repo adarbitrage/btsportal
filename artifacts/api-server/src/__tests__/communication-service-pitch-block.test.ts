@@ -186,7 +186,11 @@ describe("CommunicationService populates {{pitch_block_html}} for lifecycle send
     expect(html).not.toContain("{{pitch_block_html}}");
   });
 
-  it("does not populate the slot for a marketing-category send, even with a userId", async () => {
+  // Task #1819: a `category: "marketing"` DB template is no longer an
+  // exclusion by itself — only the three security-slug exclusions block the
+  // pitch slot now. This mirrors the real-world fix for formerly
+  // marketing-gated templates like streak_milestone.
+  it("DOES populate the slot for a marketing-category send with a userId (category is no longer a gate)", async () => {
     const userId = await seedMember();
     const result = await CommunicationService.sendEmailNow({
       templateSlug: MARKETING_TEMPLATE_SLUG,
@@ -195,11 +199,14 @@ describe("CommunicationService populates {{pitch_block_html}} for lifecycle send
     });
     expect(result.status).toBe("sent");
     const html = (sendMock.mock.calls.at(-1)![0] as { html: string }).html;
-    expect(html).not.toContain("LaunchPad");
+    expect(html).toContain("LaunchPad");
     expect(html).not.toContain("{{pitch_block_html}}");
   });
 
-  it("respects an explicit pitch_block_html variable already set by the caller", async () => {
+  // Task #1819: the seam is now authoritative — a caller-supplied
+  // pitch_block_html no longer short-circuits resolution when a userId is
+  // resolvable. This is what structurally prevents double-stacking.
+  it("ignores a caller-supplied pitch_block_html when a userId is resolvable — the seam's resolved value wins", async () => {
     const userId = await seedMember();
     const result = await CommunicationService.sendEmailNow({
       templateSlug: LIFECYCLE_TEMPLATE_SLUG,
@@ -209,7 +216,130 @@ describe("CommunicationService populates {{pitch_block_html}} for lifecycle send
     });
     expect(result.status).toBe("sent");
     const html = (sendMock.mock.calls.at(-1)![0] as { html: string }).html;
+    expect(html).not.toContain("Caller-supplied pitch");
+    expect(html).toContain("LaunchPad");
+  });
+
+  // Task #1819: preview/blast scripts with no userId still rely on a
+  // caller-supplied pitch_block_html as a fallback — this is the one case
+  // where it's still honored.
+  it("still honors a caller-supplied pitch_block_html when there is no userId", async () => {
+    const result = await CommunicationService.sendEmailNow({
+      templateSlug: LIFECYCLE_TEMPLATE_SLUG,
+      to: "explicit-nouser@example.test",
+      variables: { pitch_block_html: "<p>Caller-supplied pitch</p>" },
+    });
+    expect(result.status).toBe("sent");
+    const html = (sendMock.mock.calls.at(-1)![0] as { html: string }).html;
     expect(html).toContain("Caller-supplied pitch");
+  });
+
+  // Task #1819: the three security-sensitive slugs must never carry a pitch,
+  // even for a fully-ranked member.
+  describe("security-slug exclusion list", () => {
+    const EXCLUDED_SLUGS = ["password_reset", "email_verification", "flexy_password_reset"];
+
+    for (const slug of EXCLUDED_SLUGS) {
+      it(`never populates the slot for "${slug}", even with a ranked member userId`, async () => {
+        const userId = await seedMember();
+        await grantLaunchpad(userId);
+        const [template] = await db
+          .select({ id: emailTemplatesTable.id })
+          .from(emailTemplatesTable)
+          .where(eq(emailTemplatesTable.slug, slug));
+        if (!template) throw new Error(`Expected seeded template "${slug}" to exist`);
+        const result = await CommunicationService.sendEmailNow({
+          templateSlug: slug,
+          to: `${slug}-excluded@example.test`,
+          userId,
+          variables: { member_name: "Test", reset_token: "tok", verify_token: "tok" },
+        });
+        expect(result.status).toBe("sent");
+        const html = (sendMock.mock.calls.at(-1)![0] as { html: string }).html;
+        expect(html).not.toContain("Mentorship");
+        expect(html).not.toContain("LaunchPad Pitch");
+        expect(html).not.toContain("{{pitch_block_html}}");
+      });
+
+      it(`does not let a caller-supplied pitch_block_html leak through on "${slug}" (seam forces it empty)`, async () => {
+        const userId = await seedMember();
+        await grantLaunchpad(userId);
+        const result = await CommunicationService.sendEmailNow({
+          templateSlug: slug,
+          to: `${slug}-leak-attempt@example.test`,
+          userId,
+          variables: {
+            member_name: "Test",
+            reset_token: "tok",
+            verify_token: "tok",
+            pitch_block_html: "<p>Attempted caller-supplied pitch leak</p>",
+          },
+        });
+        expect(result.status).toBe("sent");
+        const html = (sendMock.mock.calls.at(-1)![0] as { html: string }).html;
+        expect(html).not.toContain("Attempted caller-supplied pitch leak");
+      });
+    }
+  });
+
+  // Task #1819: broadcast blasts stay pitch-free even when a recipient has a
+  // resolvable userId — the suppression lives inside queueBroadcastEmail
+  // only, not via a general category check.
+  it("queueBroadcastEmail never populates the pitch slot, even for a recipient with a userId", async () => {
+    const userId = await seedMember();
+    await grantLaunchpad(userId);
+    const { queued } = await CommunicationService.queueBroadcastEmail({
+      templateSlug: LIFECYCLE_TEMPLATE_SLUG,
+      recipientList: [{ email: "broadcast@example.test", userId }],
+    });
+    expect(queued).toBe(1);
+    const html = (sendMock.mock.calls.at(-1)![0] as { html: string }).html;
+    expect(html).not.toContain("Mentorship");
     expect(html).not.toContain("LaunchPad Pitch");
+    expect(html).not.toContain("{{pitch_block_html}}");
+  });
+
+  it("queueBroadcastEmail does not let a recipient-supplied pitch_block_html leak through (suppression forces it empty)", async () => {
+    const userId = await seedMember();
+    await grantLaunchpad(userId);
+    const { queued } = await CommunicationService.queueBroadcastEmail({
+      templateSlug: LIFECYCLE_TEMPLATE_SLUG,
+      recipientList: [
+        {
+          email: "broadcast-leak-attempt@example.test",
+          userId,
+          variables: { pitch_block_html: "<p>Attempted recipient-supplied pitch leak</p>" },
+        },
+      ],
+    });
+    expect(queued).toBe(1);
+    const html = (sendMock.mock.calls.at(-1)![0] as { html: string }).html;
+    expect(html).not.toContain("Attempted recipient-supplied pitch leak");
+  });
+
+  // Task #1819 step 5(c): a caller passing its own pitch_block_html
+  // alongside a resolvable userId (the exact double-stacking shape a
+  // booking-confirmation send site could produce) must still end up with
+  // exactly ONE occurrence of the resolved stack in the final HTML — never
+  // two — because the seam now always wins over the caller-supplied value.
+  it("a booking-confirmation-shaped send renders the pitch stack exactly once, never doubled", async () => {
+    const userId = await seedMember();
+    await grantLaunchpad(userId);
+    const result = await CommunicationService.sendEmailNow({
+      templateSlug: LIFECYCLE_TEMPLATE_SLUG,
+      to: "booking-confirmation@example.test",
+      userId,
+      variables: { pitch_block_html: "<p>Caller-supplied duplicate stack</p><p>Caller-supplied duplicate stack</p>" },
+    });
+    expect(result.status).toBe("sent");
+    const html = (sendMock.mock.calls.at(-1)![0] as { html: string }).html;
+    // The caller-supplied value must be fully discarded (proves the seam,
+    // not the caller, produced what's in the HTML)...
+    expect(html).not.toContain("Caller-supplied duplicate stack");
+    // ...and the resolver's own "Take the next step with Mentorship" heading
+    // — present exactly once per stack entry — must appear exactly once,
+    // not twice, proving there's no double-stacking of the seam's own output.
+    const mentorshipHeadingOccurrences = (html.match(/Take the next step with Mentorship/g) ?? []).length;
+    expect(mentorshipHeadingOccurrences).toBe(1);
   });
 });

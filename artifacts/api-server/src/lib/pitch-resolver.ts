@@ -102,15 +102,36 @@ export async function resolvePitchStack(userId: number): Promise<PitchBlockKey[]
 /**
  * Render the full `{{pitch_block_html}}` slot contents for a member: every
  * block in the resolved stack rendered via `renderPitchBlock` (Task #1714)
- * and concatenated in order. Returns `""` when the stack is empty so the
- * layout's empty-renders-nothing contract holds (e.g. a VIP + Machine
- * member, or a lookup failure — see the try/catch in
- * `communication-service.ts`, which treats a resolver error the same as an
- * empty stack rather than blocking the send).
+ * with a descending visual weight — the first block is the `primary` offer
+ * (larger heading, full button), the second renders `secondary` (smaller
+ * type, compact outline button), and the third onward render `tertiary`
+ * (one fine-print line with a text-link CTA). The wrapper table owns the
+ * SINGLE subtle divider separating the whole stack from the email body —
+ * individual blocks carry no divider — plus tight inter-block spacing, so
+ * the stack reads as "one offer + smaller mentions" rather than an ad wall.
+ *
+ * Returns `""` when the stack is empty so the layout's
+ * empty-renders-nothing contract holds (e.g. a VIP + Machine member, or a
+ * lookup failure — see the try/catch in `communication-service.ts`, which
+ * treats a resolver error the same as an empty stack rather than blocking
+ * the send).
  */
 export async function renderPitchStackHtml(userId: number): Promise<string> {
   const stack = await resolvePitchStack(userId);
   if (stack.length === 0) return "";
   const contentByKey = await getAllPitchContent();
-  return stack.map((key) => renderPitchBlock(contentByKey[key])).join("");
+  const rows = stack
+    .map((key, index) => {
+      const emphasis = index === 0 ? "primary" : index === 1 ? "secondary" : "tertiary";
+      const block = renderPitchBlock(contentByKey[key], emphasis);
+      if (!block) return "";
+      const topPadding = index === 0 ? "20px" : "14px";
+      return `<tr><td style="padding:${topPadding} 0 0;">${block}</td></tr>`;
+    })
+    .filter((row) => row !== "");
+  if (rows.length === 0) return "";
+  return `
+<table width="100%" cellpadding="0" cellspacing="0" style="margin:28px 0 0;border-top:1px solid #e5e7eb;">
+${rows.join("\n")}
+</table>`;
 }

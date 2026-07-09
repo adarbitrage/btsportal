@@ -38,8 +38,24 @@ describe("qualifyPublicAssetUrl", () => {
     expect(qualifyPublicAssetUrl("/objects/coaches/sasha.png", "https://portal.example.test")).toBeNull();
   });
 
-  it("degrades to null when no portal host is configured", () => {
-    expect(qualifyPublicAssetUrl("/coaching-photos/sasha.png", null)).toBeNull();
+  it("falls back to the canonical public host when no portal host is configured", () => {
+    // Task #1819 polish: a missing portal host must never degrade an email
+    // image — the canonical production host is always fetchable.
+    expect(qualifyPublicAssetUrl("/coaching-photos/sasha.png", null)).toBe(
+      "https://portal.buildtestscale.com/coaching-photos/sasha.png",
+    );
+  });
+
+  it("falls back to the canonical public host when the portal host is a dev default", () => {
+    expect(qualifyPublicAssetUrl("/coaching-photos/sasha.png", "http://localhost:5000")).toBe(
+      "https://portal.buildtestscale.com/coaching-photos/sasha.png",
+    );
+  });
+
+  it("re-bases an absolute dev-internal URL onto the canonical public host", () => {
+    expect(
+      qualifyPublicAssetUrl("http://localhost:5000/images/bts-logo.png", "http://localhost:5000"),
+    ).toBe("https://portal.buildtestscale.com/images/bts-logo.png");
   });
 
   it("degrades to null for empty/null/undefined input", () => {
@@ -74,11 +90,11 @@ describe("renderPersonBlock photo qualification", () => {
     expect(html).not.toContain(">J<");
   });
 
-  it("renders a raw-path <img src> when portalUrl is absent — to be qualified by the communication-service seam", () => {
-    // Task #1790: renderPersonBlock no longer silently degrades to initials
-    // for a root-relative photo when portalUrl is missing. It emits the raw
-    // path so getCommonVariables (qualifyPersonBlockImgSrcs) can qualify it
-    // at send time using the portalUrl it resolves independently.
+  it("renders an absolute canonical-host <img src> when portalUrl is absent", () => {
+    // Task #1790 emitted the raw path here for the send-time seam to fix
+    // up; Task #1819 polish goes further — the qualifier itself now falls
+    // back to the canonical public host, so the img src is absolute and
+    // publicly fetchable even with no portalUrl at all.
     const html = renderPersonBlock({
       name: "John",
       photoUrl: "/partner-photos/john.jpg",
@@ -88,7 +104,7 @@ describe("renderPersonBlock photo qualification", () => {
       portalUrl: null,
     });
     expect(html).toContain("<img");
-    expect(html).toContain('src="/partner-photos/john.jpg"');
+    expect(html).toContain('src="https://portal.buildtestscale.com/partner-photos/john.jpg"');
     expect(html).not.toContain(">J<");
   });
 
@@ -122,15 +138,10 @@ describe("renderPersonBlock photo qualification", () => {
 
 describe("qualifyPersonBlockImgSrcs — communication-service send-time seam", () => {
   it("qualifies a root-relative img src to an absolute URL using the portal host", () => {
-    const raw = renderPersonBlock({
-      name: "John",
-      photoUrl: "/partner-photos/john.jpg",
-      bio: null,
-      callTypeLabel: "Partner Call",
-      dateTimeLabel: "Tuesday, July 14 at 2:00 PM EDT",
-      portalUrl: null,
-    });
-    expect(raw).toContain('src="/partner-photos/john.jpg"');
+    // renderPersonBlock now qualifies its own src even without portalUrl,
+    // so exercise the send-time backstop with a hand-built raw block — the
+    // case where a caller assembled person-block HTML some other way.
+    const raw = '<img alt="John" src="/partner-photos/john.jpg">';
 
     const qualified = qualifyPersonBlockImgSrcs(raw, "https://portal.buildtestscale.com");
     expect(qualified).toContain('src="https://portal.buildtestscale.com/partner-photos/john.jpg"');
@@ -179,7 +190,9 @@ describe("qualifyPersonBlockImgSrcs — communication-service send-time seam", (
     expect(after).not.toContain("<img");
   });
 
-  it("returns the block unchanged when portalUrl is absent", () => {
+  it("qualifies against the canonical public host when portalUrl is absent", () => {
+    // Task #1819 polish: the send-time seam must produce a publicly
+    // fetchable URL even when no portal URL is configured at all.
     const raw = renderPersonBlock({
       name: "John",
       photoUrl: "/partner-photos/john.jpg",
@@ -189,7 +202,27 @@ describe("qualifyPersonBlockImgSrcs — communication-service send-time seam", (
       portalUrl: null,
     });
     const after = qualifyPersonBlockImgSrcs(raw, null);
-    expect(after).toBe(raw);
+    expect(after).toContain('src="https://portal.buildtestscale.com/partner-photos/john.jpg"');
+    expect(after).not.toContain('src="/partner-photos/john.jpg"');
+  });
+
+  it("qualifies against the canonical public host when portalUrl is a dev default", () => {
+    const raw = renderPersonBlock({
+      name: "John",
+      photoUrl: "/partner-photos/john.jpg",
+      bio: null,
+      callTypeLabel: "Partner Call",
+      dateTimeLabel: "Tuesday, July 14 at 2:00 PM EDT",
+      portalUrl: null,
+    });
+    const after = qualifyPersonBlockImgSrcs(raw, "http://localhost:5000");
+    expect(after).toContain('src="https://portal.buildtestscale.com/partner-photos/john.jpg"');
+  });
+
+  it("rewrites an absolute dev-internal img src onto the canonical public host", () => {
+    const raw = '<img alt="x" src="http://localhost:5000/partner-photos/john.jpg">';
+    const after = qualifyPersonBlockImgSrcs(raw, null);
+    expect(after).toContain('src="https://portal.buildtestscale.com/partner-photos/john.jpg"');
   });
 
   it("content-type guard: a URL served as text/html (SPA catch-all) is NOT a valid image src", () => {

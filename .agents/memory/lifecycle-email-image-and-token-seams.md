@@ -5,16 +5,22 @@ description: How lifecycle email images are made Gmail-safe and how the raw-toke
 
 Absolute-image qualification lives in ONE helper (`qualifyPublicAssetUrl` in
 `seed-templates.ts`), called by `renderPersonBlock` for staff/partner photos
-and already present in `communication-service.ts::getCommonVariables` for the
-logo. Both call sites need `portalUrl` (via `getPortalUrl()`) threaded in from
-the real send path (`call-bookings.ts`, `scheduled-comms.ts`) — not just from
-preview/test scripts. Root-relative stored paths (`/coaching-photos/x.png`)
-get prefixed with the portal host; `/objects/...` paths and a missing portal
-host both degrade to `null` (no `<img>`, initials-avatar fallback) rather than
-a broken-image box.
+and by `communication-service.ts::renderLogoHtml` (exported pure fn used by
+`getCommonVariables`) for the logo. The helper never trusts the runtime
+portal URL for asset hosting: `resolveEmailAssetHost()` rejects dev-internal
+hostnames (localhost / 127.* / ::1 / *.local / *.replit.dev / *.repl.co —
+NOT *.replit.app, which is a real prod host) and falls back to the canonical
+`https://portal.buildtestscale.com`; dev-internal *absolute* stored URLs get
+re-based onto the canonical host too. `/objects/...` paths degrade to `null`
+(initials-avatar fallback) rather than a broken-image box.
 
-**Why:** Gmail proxies every image and refuses relative/dev-host URLs, so a
-missing seam here silently ships broken images to every real recipient.
+**Why:** Gmail proxies every image and refuses relative/dev-host URLs. The
+original regression: emails sent from dev qualified img srcs against the dev
+default (`http://localhost:5000/...`), shipping broken logos to real inboxes.
+A structural guard test (`email-img-src-structural-guard.test.ts`) renders
+EVERY starter template through the real seams under worst-case portal URLs
+(localhost / null / replit.dev) and fails any `<img src>` not on the
+canonical host — keep it in lockstep when adding templates or img seams.
 
 **The "raw `{{token}}` in Gmail" bug was NOT a template/interpolation bug.**
 The template and `replaceVariables()` were correct. The actual bug was that

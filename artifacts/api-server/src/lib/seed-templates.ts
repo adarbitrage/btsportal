@@ -60,8 +60,8 @@ ${body}
 {{person_block_html}}
 {{pitch_block_html}}
 </td></tr>
-<tr><td bgcolor="#0f172a" data-ogsb="#0f172a" data-ogsc="#94a3b8" style="background:#0f172a !important;background-color:#0f172a !important;padding:32px 30px;text-align:center;">
-<p style="margin:0 0 10px;font-size:12px;line-height:2.2;">
+<tr><td bgcolor="#0f172a" data-ogsb="#0f172a" data-ogsc="#94a3b8" style="background:#0f172a !important;background-color:#0f172a !important;padding:22px 24px;text-align:center;">
+<p style="margin:0 0 6px;font-size:11px;line-height:1.9;">
 <a href="https://buildtestscale.com/privacy-policy" style="color:#94a3b8;text-decoration:none;margin:0 5px;white-space:nowrap;">Privacy Policy</a>
 <span style="color:#334155;">&#124;</span>
 <a href="https://buildtestscale.com/terms-of-service" style="color:#94a3b8;text-decoration:none;margin:0 5px;white-space:nowrap;">Terms of Use</a>
@@ -78,13 +78,13 @@ ${body}
 <span style="color:#334155;">&#124;</span>
 <a href="https://buildtestscale.com/performance-guarantee" style="color:#94a3b8;text-decoration:none;margin:0 5px;white-space:nowrap;">Refund Policy</a>
 </p>
-<p style="margin:0 0 16px;font-size:12px;">
+<p style="margin:0 0 10px;font-size:11px;">
 <a href="https://buildtestscale.com/contact-us" style="color:#94a3b8;text-decoration:none;">Contact Us</a>
 </p>
-<p style="margin:0 0 18px;font-size:12px;color:#64748b;">Copyright {{current_year}} Build. Test. Scale., LLC dba Build, Test, Scale&#8482;</p>
-<p style="margin:0 0 10px;font-size:11px;color:#64748b;line-height:1.6;text-align:left;"><u><b>*DISCLAIMER</b></u>: We are committed to transparency and integrity. Please understand that building a successful business takes time, effort, and dedication. We do not promote &#x201C;get rich quick&#x201D; schemes. The results you achieve will depend on your own background, dedication, desire, and motivation.</p>
-<p style="margin:0 0 10px;font-size:11px;color:#64748b;line-height:1.6;text-align:left;">There is <u><b>NO GUARANTEE</b></u> and <u><b>NO WARRANTY</b></u> that employing the same techniques, ideas, strategies, products or services that are detailed on buildtestscale.com will produce the same results for you and/or your web properties. Historical performance is not indicative of future results. Examples that may be provided in articles, videos and other sources on the site are just that &#8211; examples. They may or may not work for your specific situation and are not to be interpreted as a guarantee or promise of earnings.</p>
-<p style="margin:0;font-size:11px;color:#64748b;line-height:1.6;text-align:left;">The materials provided on buildtestscale.com are not to be interpreted as a &#x201C;get rich quick&#x201D; scheme in any way. Your earning potential is entirely dependent upon you, and the then current state of web marketing at the time you employ such techniques and ideas. <b>THE LEVEL OF SUCCESS YOU REACH EMPLOYING THESE TECHNIQUES AND IDEAS IS ENTIRELY DEPENDENT UPON YOUR SKILLS, FINANCIAL RESOURCES, MARKETING KNOWLEDGE AND TIME YOU DEVOTE TO BECOMING AN ONLINE SUCCESS. BECAUSE OF THIS, WE CANNOT GUARANTEE YOUR EARNINGS LEVEL NOR DO WE IN ANY WAY WHETHER DIRECTLY OR INDIRECTLY DO SO.</b></p>
+<p style="margin:0 0 10px;font-size:10px;color:#64748b;">Copyright {{current_year}} Build. Test. Scale., LLC dba Build, Test, Scale&#8482;</p>
+<p style="margin:0 0 7px;font-size:10px;color:#64748b;line-height:1.5;text-align:left;"><u><b>*DISCLAIMER</b></u>: We are committed to transparency and integrity. Please understand that building a successful business takes time, effort, and dedication. We do not promote &#x201C;get rich quick&#x201D; schemes. The results you achieve will depend on your own background, dedication, desire, and motivation.</p>
+<p style="margin:0 0 7px;font-size:10px;color:#64748b;line-height:1.5;text-align:left;">There is <u><b>NO GUARANTEE</b></u> and <u><b>NO WARRANTY</b></u> that employing the same techniques, ideas, strategies, products or services that are detailed on buildtestscale.com will produce the same results for you and/or your web properties. Historical performance is not indicative of future results. Examples that may be provided in articles, videos and other sources on the site are just that &#8211; examples. They may or may not work for your specific situation and are not to be interpreted as a guarantee or promise of earnings.</p>
+<p style="margin:0;font-size:10px;color:#64748b;line-height:1.5;text-align:left;">The materials provided on buildtestscale.com are not to be interpreted as a &#x201C;get rich quick&#x201D; scheme in any way. Your earning potential is entirely dependent upon you, and the then current state of web marketing at the time you employ such techniques and ideas. <b>THE LEVEL OF SUCCESS YOU REACH EMPLOYING THESE TECHNIQUES AND IDEAS IS ENTIRELY DEPENDENT UPON YOUR SKILLS, FINANCIAL RESOURCES, MARKETING KNOWLEDGE AND TIME YOU DEVOTE TO BECOMING AN ONLINE SUCCESS. BECAUSE OF THIS, WE CANNOT GUARANTEE YOUR EARNINGS LEVEL NOR DO WE IN ANY WAY WHETHER DIRECTLY OR INDIRECTLY DO SO.</b></p>
 </td></tr>
 </table>
 </td></tr>
@@ -101,39 +101,124 @@ ${body}
  * has the member's browser origin to resolve a root-relative path against,
  * so a stored value like `/coaching-photos/sasha.png` renders as a broken
  * image box. This resolves any such path into an absolute HTTPS URL against
- * the configured public portal host (same source as `{{portal_url}}`).
+ * a PUBLICLY fetchable portal host (see `resolveEmailAssetHost`).
  *
- * Degrades gracefully (returns `null`, never an unusable URL) when:
+ * Returns `null` (never an unusable URL) only when:
  *   - `assetPath` is empty/null.
  *   - the path is an internal object-storage path (`/objects/...`) — those
  *     are served behind portal auth and can never be fetched by Gmail's
  *     anonymous image proxy.
- *   - no portal host is configured at all (can't build an absolute URL).
- * An already-absolute `http(s)://` value is passed through unchanged.
+ * An already-absolute public `http(s)://` value passes through unchanged;
+ * an absolute value pointing at a dev-internal host (localhost, *.replit.dev)
+ * is re-based onto the public asset host.
  */
 /**
  * Task #1790: post-process a pre-rendered person-block HTML string to qualify
  * any root-relative `<img src="/...">` attributes to absolute URLs against
- * the supplied portal host. This is the mandatory send-time backstop called
- * from `getCommonVariables` in communication-service.ts — the same seam that
- * qualifies the logo — so photo URLs are guaranteed absolute in every sent
- * email regardless of whether the renderPersonBlock caller remembered to
- * thread portalUrl.
+ * the public asset host (see `resolveEmailAssetHost`). This is the mandatory
+ * send-time backstop called from `getCommonVariables` in
+ * communication-service.ts — the same seam that qualifies the logo — so photo
+ * URLs are guaranteed absolute AND publicly fetchable in every sent email
+ * regardless of whether the renderPersonBlock caller remembered to thread
+ * portalUrl.
  *
- * Only rewrites `src="/non-objects/..."` — /objects/ paths are auth-gated
- * and were already rendered as the initials avatar in renderPersonBlock.
- * Already-absolute `src="https://..."` values pass through unchanged.
- * Returns the input unchanged when `portalUrl` is absent.
+ * Rewrites `src="/non-objects/..."` (root-relative) and any absolute src on a
+ * dev-internal host — /objects/ paths are auth-gated and were already
+ * rendered as the initials avatar in renderPersonBlock. Already-absolute
+ * public `src="https://..."` values pass through unchanged.
  */
+/**
+ * The canonical, always-publicly-fetchable host for portal-served email
+ * assets (logo, coach photos, etc.). Email image URLs must resolve against a
+ * host Gmail's anonymous image proxy can actually reach — NEVER a dev
+ * fallback like `http://localhost:5000` or a `*.replit.dev` workspace URL.
+ *
+ * This is the third regression of the "broken logo in the inbox" bug, and
+ * every prior occurrence had the same root cause: `getPortalUrl()` resolving
+ * to a non-public host (its dev default, or an unset setting) and the image
+ * qualifier happily building an unfetchable URL from it. The fix is at the
+ * single seam (`resolveEmailAssetHost`, used by both qualifiers below):
+ * a configured PUBLIC portal host wins, anything else — dev defaults,
+ * loopback, workspace domains, or nothing at all — falls back to this
+ * canonical production host. `email-img-src-structural-guard.test.ts`
+ * makes a fourth regression impossible.
+ */
+export const CANONICAL_PORTAL_ASSET_HOST = "https://portal.buildtestscale.com";
+
+/**
+ * Hostnames that can never be fetched by an email client's image proxy:
+ * loopback/local addresses and Replit workspace dev domains. Deliberately
+ * NOT including `*.replit.app` (real deployments — publicly fetchable).
+ */
+function isDevInternalHostname(hostname: string): boolean {
+  const h = hostname.toLowerCase();
+  return (
+    h === "localhost" ||
+    h === "0.0.0.0" ||
+    h === "::1" ||
+    h === "[::1]" ||
+    /^127\./.test(h) ||
+    h.endsWith(".localhost") ||
+    h.endsWith(".local") ||
+    h.endsWith(".replit.dev") ||
+    h.endsWith(".repl.co")
+  );
+}
+
+/**
+ * Resolve the base host used to absolutize image asset paths in outgoing
+ * emails. Uses the supplied portal URL only when it is a real, publicly
+ * fetchable host; otherwise falls back to `CANONICAL_PORTAL_ASSET_HOST`.
+ * Never returns null — an email image URL must always be buildable.
+ */
+export function resolveEmailAssetHost(portalUrl: string | null | undefined): string {
+  if (portalUrl) {
+    const trimmed = portalUrl.trim().replace(/\/+$/, "");
+    if (trimmed) {
+      try {
+        const parsed = new URL(trimmed);
+        if (
+          (parsed.protocol === "https:" || parsed.protocol === "http:") &&
+          !isDevInternalHostname(parsed.hostname)
+        ) {
+          return trimmed;
+        }
+      } catch {
+        // fall through to canonical host
+      }
+    }
+  }
+  return CANONICAL_PORTAL_ASSET_HOST;
+}
+
 export function qualifyPersonBlockImgSrcs(
   personBlockHtml: string,
   portalUrl: string | null | undefined,
 ): string {
-  if (!personBlockHtml || !portalUrl) return personBlockHtml;
-  return personBlockHtml.replace(
-    /(<img(?:[^>]*)\ssrc=")(\/((?!objects\/)[^"]+))(")/gi,
-    (_, pre, path, _inner, post) => `${pre}${portalUrl}${path}${post}`,
-  );
+  if (!personBlockHtml) return personBlockHtml;
+  const host = resolveEmailAssetHost(portalUrl);
+  return personBlockHtml
+    .replace(
+      /(<img(?:[^>]*)\ssrc=")(\/((?!objects\/)[^"]+))(")/gi,
+      (_, pre, path, _inner, post) => `${pre}${host}${path}${post}`,
+    )
+    // Rewrite any absolute src that points at a dev-internal host (e.g. a
+    // stored http://localhost:5000/... value) onto the public asset host —
+    // those can never be fetched by an email client's image proxy.
+    .replace(
+      /(<img(?:[^>]*)\ssrc=")(https?:\/\/[^"/]+)(\/[^"]*)?(")/gi,
+      (match, pre, origin, path, post) => {
+        try {
+          const parsed = new URL(origin);
+          if (isDevInternalHostname(parsed.hostname)) {
+            return `${pre}${host}${path || "/"}${post}`;
+          }
+        } catch {
+          // leave unparseable srcs untouched
+        }
+        return match;
+      },
+    );
 }
 
 export function qualifyPublicAssetUrl(
@@ -143,11 +228,23 @@ export function qualifyPublicAssetUrl(
   if (!assetPath) return null;
   const trimmed = assetPath.trim();
   if (!trimmed) return null;
-  if (/^https?:\/\//i.test(trimmed)) return trimmed;
+  if (/^https?:\/\//i.test(trimmed)) {
+    // An already-absolute URL passes through unchanged — unless it points at
+    // a dev-internal host (localhost, *.replit.dev, ...), in which case its
+    // path is re-based onto the public asset host so the image is fetchable.
+    try {
+      const parsed = new URL(trimmed);
+      if (isDevInternalHostname(parsed.hostname)) {
+        return `${resolveEmailAssetHost(portalUrl)}${parsed.pathname}${parsed.search}`;
+      }
+    } catch {
+      // unparseable absolute-looking value: pass through as before
+    }
+    return trimmed;
+  }
   if (trimmed.startsWith("/objects/")) return null;
-  if (!portalUrl) return null;
   const path = trimmed.startsWith("/") ? trimmed : `/${trimmed}`;
-  return `${portalUrl}${path}`;
+  return `${resolveEmailAssetHost(portalUrl)}${path}`;
 }
 
 /**
@@ -221,10 +318,22 @@ ${bioHtml}
 }
 
 /**
- * Optional footer-adjacent pitch slot: small heading, one line of copy, one
- * button. Renders nothing when `params` is `null` — this task builds only
- * the empty-safe slot; the resolver that decides what pitch to show (if any)
- * for a given send is a separate future task.
+ * Visual weight of a pitch block within the rendered stack. The stack must
+ * read as "one offer + smaller mentions", not a wall of three identical ads:
+ *   - `primary`   — first block: larger heading, full solid button.
+ *   - `secondary` — second block: smaller type, compact outline-style button.
+ *   - `tertiary`  — third+ block: one compact line with a text-link CTA
+ *                   (no button at all).
+ */
+export type PitchEmphasis = "primary" | "secondary" | "tertiary";
+
+/**
+ * Optional footer-adjacent pitch slot: heading, one line of copy, one CTA.
+ * Renders nothing when `params` is `null`. The block itself carries NO
+ * divider or outer margin — the stack wrapper in `pitch-resolver.ts`'s
+ * `renderPitchStackHtml` owns the single divider that separates the whole
+ * stack from the email body plus the (tight) inter-block spacing, so the
+ * stack never renders one rule per pitch.
  */
 export function renderPitchBlock(params: {
   heading: string;
@@ -242,10 +351,17 @@ export function renderPitchBlock(params: {
    */
   thumbnailUrl?: string;
   thumbnailLinkUrl?: string;
-} | null): string {
+} | null, emphasis: PitchEmphasis = "primary"): string {
   if (!params) return "";
   const { heading, line, buttonLabel, buttonUrl, thumbnailUrl, thumbnailLinkUrl } = params;
-  // Restrained ~280px wide per the task's stacking discipline — with up to
+  if (emphasis === "tertiary") {
+    // Quietest mention: a single fine-print line with a text-link CTA.
+    // Deliberately no thumbnail — a visual hook would defeat the tertiary
+    // "one quiet line" discipline.
+    return `
+<p style="margin:0;font-size:12px;line-height:1.5;color:#6b7280;text-align:center;"><span style="font-weight:bold;color:#4b5563;">${heading}</span> ${line} <a href="${buttonUrl}" style="color:${BTS_ACCENT_COLOR};font-weight:bold;text-decoration:underline;white-space:nowrap;">${buttonLabel}</a></p>`;
+  }
+  // Restrained ~280px wide per Task #1820's stacking discipline — with up to
   // three pitch blocks stacked at the bottom of an email, full-bleed
   // animated GIFs would turn the footer into a billboard.
   const thumbnailHtml =
@@ -254,17 +370,26 @@ export function renderPitchBlock(params: {
 <a href="${thumbnailLinkUrl}" style="text-decoration:none;"><img src="${thumbnailUrl}" alt="${heading}" width="280" style="width:280px;max-width:100%;height:auto;display:inline-block;border:0;border-radius:6px;"></a>
 </td></tr>`
       : "";
-  return `
-<table width="100%" cellpadding="0" cellspacing="0" style="margin:24px 0 0;border-top:1px solid #e5e7eb;">
-<tr><td style="padding:20px 0 0;text-align:center;">
+  if (emphasis === "secondary") {
+    // Quieter mention: smaller type, compact outline-style button.
+    return `
 <table width="100%" cellpadding="0" cellspacing="0">
 ${thumbnailHtml}
-<tr><td style="text-align:center;">
-<p style="margin:0 0 4px;font-size:15px;font-weight:bold;color:#1a1a2e;">${heading}</p>
-<p style="margin:0 0 14px;font-size:14px;color:#4b5563;">${line}</p>
-<a href="${buttonUrl}" style="display:inline-block;background:${BTS_ACCENT_COLOR};color:#ffffff;padding:10px 22px;border-radius:6px;text-decoration:none;font-weight:bold;font-size:14px;">${buttonLabel}</a>
+<tr><td style="padding:0;text-align:center;">
+<p style="margin:0 0 3px;font-size:13px;font-weight:bold;color:#374151;">${heading}</p>
+<p style="margin:0 0 10px;font-size:12px;color:#6b7280;">${line}</p>
+<a href="${buttonUrl}" style="display:inline-block;background:#ffffff;color:${BTS_ACCENT_COLOR};border:1px solid #c7d2fe;padding:6px 14px;border-radius:6px;text-decoration:none;font-weight:bold;font-size:12px;">${buttonLabel}</a>
 </td></tr>
-</table>
+</table>`;
+  }
+  // Primary offer: the visually dominant block.
+  return `
+<table width="100%" cellpadding="0" cellspacing="0">
+${thumbnailHtml}
+<tr><td style="padding:0;text-align:center;">
+<p style="margin:0 0 4px;font-size:16px;font-weight:bold;color:#1a1a2e;">${heading}</p>
+<p style="margin:0 0 14px;font-size:14px;color:#4b5563;">${line}</p>
+<a href="${buttonUrl}" style="display:inline-block;background:${BTS_ACCENT_COLOR};color:#ffffff;padding:10px 24px;border-radius:6px;text-decoration:none;font-weight:bold;font-size:14px;">${buttonLabel}</a>
 </td></tr>
 </table>`;
 }

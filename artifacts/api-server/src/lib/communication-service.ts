@@ -417,6 +417,30 @@ async function logPortalUrlSkip(params: {
  * which preserves the pre-existing override used by the admin broadcast
  * route and a handful of tests.
  */
+/**
+ * Build the `{{logo_html}}` header token for a brand. Exported (pure, no
+ * DB/env access) so the structural img-src guard test can exercise the REAL
+ * production logo-building path rather than a reimplementation.
+ *
+ * Task #1717: routes the logo through the same `qualifyPublicAssetUrl` seam
+ * used by renderPersonBlock, so every image source in a lifecycle email
+ * shares one place that guarantees an absolute, publicly-fetchable https URL
+ * — never a relative path or a dev host Gmail's image proxy can't resolve
+ * (see `resolveEmailAssetHost` in seed-templates.ts).
+ */
+export function renderLogoHtml(
+  brand: string,
+  portalUrl: string | null | undefined,
+): string {
+  const brandInfo = brandStrings(brand);
+  const qualifiedLogoUrl = qualifyPublicAssetUrl("/images/bts-logo.png", portalUrl);
+  return brand === "bts" && qualifiedLogoUrl
+    ? `<img src="${qualifiedLogoUrl}" alt="${brandInfo.full}" width="160" style="display:inline-block;max-width:160px;height:auto;border:0;">`
+    : brand === "bts"
+      ? ""
+      : `<span style="font-size:22px;font-weight:bold;color:#1a1a2e;letter-spacing:0.3px;">${brandInfo.full}</span>`;
+}
+
 async function getCommonVariables(
   extra?: Record<string, string>,
 ): Promise<Record<string, string>> {
@@ -438,17 +462,7 @@ async function getCommonVariables(
   // instead — only `bts` has a logo asset; front-end brands are text marks.
   const brand = extra?.brand ?? "bts";
   const brandInfo = brandStrings(brand);
-  // Task #1717: route the logo through the same qualifyPublicAssetUrl seam
-  // used by renderPersonBlock, so both image sources in a lifecycle email
-  // share one place that guarantees an absolute https URL (or degrades to no
-  // image) rather than ever emitting a relative path Gmail can't resolve.
-  const qualifiedLogoUrl = qualifyPublicAssetUrl("/images/bts-logo.png", portalUrl);
-  const logoHtml =
-    brand === "bts" && qualifiedLogoUrl
-      ? `<img src="${qualifiedLogoUrl}" alt="${brandInfo.full}" width="160" style="display:inline-block;max-width:160px;height:auto;border:0;">`
-      : brand === "bts"
-        ? ""
-        : `<span style="font-size:22px;font-weight:bold;color:#1a1a2e;letter-spacing:0.3px;">${brandInfo.full}</span>`;
+  const logoHtml = renderLogoHtml(brand, portalUrl);
 
   // Task #1790: qualify any root-relative img src values left in
   // person_block_html at send time — the same discipline the logo already
@@ -746,26 +760,52 @@ async function sendSmsDirect(params: {
 }
 
 /**
- * Task #1715: resolve the `pitch_block_html` variable for a lifecycle send,
- * unless the caller already supplied one explicitly (booking/scheduled sends
- * that want to control the slot themselves stay untouched) or this is a
- * marketing/broadcast send (`queueBroadcastEmail` always passes
- * category: "marketing" — out of scope per the task's "marketing-blast-only
- * injection paths" exclusion) or there's no `userId` to resolve a tier for
- * (e.g. an address-only notification with no member record).
+ * Task #1819: the exact three security-sensitive template slugs that must
+ * NEVER carry a pitch stack, regardless of category or member tier. This is
+ * an explicit allowlist-of-exclusions (not a category gate) so every other
+ * layout-wrapped lifecycle template — including the ~18 previously
+ * `category: "marketing"` DB templates (streak_milestone, onboarding_dayN,
+ * kickoff/partner_call_reminder, session_feedback, recording_ready,
+ * win_of_the_week, monthly_progress, upgrade_offer, re_engagement,
+ * new_content_alert, community_announcement, event_invitation,
+ * coaching_reminder, coaching_rsvp_reminder) — becomes eligible to render a
+ * pitch. Owner-locked list; do not extend without an explicit decision.
+ */
+const PITCH_EXCLUDED_TEMPLATE_SLUGS = new Set([
+  "password_reset",
+  "email_verification",
+  "flexy_password_reset",
+]);
+
+/**
+ * Task #1819: resolve the `pitch_block_html` variable for a lifecycle send.
+ * This is now the SOLE authority over the slot's contents for any send with
+ * a resolvable `userId` — a caller-supplied `pitch_block_html` no longer
+ * short-circuits resolution (see the call sites in `queueEmail`/
+ * `sendEmailNow`), which structurally prevents double-stacking and removes
+ * the last per-send-site opt-out lever. Caller-supplied values are only
+ * honored as a fallback when there's no `userId` (preview/blast scripts).
+ *
+ * Skip conditions:
+ *  - `templateSlug` is one of the three security-sensitive exclusions
+ *    (`PITCH_EXCLUDED_TEMPLATE_SLUGS`) — these must never carry a pitch even
+ *    for a fully-ranked member.
+ *  - No `userId` — there's no member to resolve a tier for (e.g. an
+ *    address-only notification with no account, or a pre-account send).
+ *  - Broadcast sends (`queueBroadcastEmail`) are suppressed internally on
+ *    that path only, not via a general category check here — see
+ *    `queueBroadcastEmail` below.
  *
  * A resolver failure is treated the same as an empty stack (renders
  * nothing) rather than blocking the send — a broken pitch lookup should
  * never prevent a lifecycle email from going out.
  */
 async function resolvePitchBlockHtmlForSend(
-  variables: Record<string, string>,
   userId: number | undefined,
-  emailCategory: string,
+  templateSlug: string,
 ): Promise<string | undefined> {
-  if (variables.pitch_block_html !== undefined) return undefined;
   if (!userId) return undefined;
-  if (emailCategory === "marketing") return undefined;
+  if (PITCH_EXCLUDED_TEMPLATE_SLUGS.has(templateSlug)) return undefined;
   try {
     return await renderPitchStackHtml(userId);
   } catch (err) {
@@ -781,8 +821,16 @@ export const CommunicationService = {
     variables?: Record<string, string>;
     userId?: number;
     category?: string;
+    /**
+     * Task #1819 internal-only escape hatch: forces the pitch slot empty
+     * regardless of `userId`. Used exclusively by `queueBroadcastEmail`
+     * below to keep admin broadcast blasts pitch-free — no external send
+     * site should ever set this; it is not part of the intended public
+     * surface of `queueEmail`.
+     */
+    __suppressPitchForBroadcast?: boolean;
   }): Promise<CommunicationOutcome> {
-    const { templateSlug, to, variables = {}, userId, category } = params;
+    const { templateSlug, to, variables = {}, userId, category, __suppressPitchForBroadcast } = params;
 
     const [template] = await db
       .select()
@@ -814,9 +862,19 @@ export const CommunicationService = {
     }
 
     const emailCategory = category || template.category;
-    const pitchBlockHtml = await resolvePitchBlockHtmlForSend(variables, userId, emailCategory);
+    // Task #1819: whenever the seam has an opinion — broadcast suppression,
+    // or a resolvable userId — it is authoritative and MUST overwrite
+    // `variables.pitch_block_html` even when the resolved value is "no
+    // pitch" (undefined/""). Falling back to `variables` here would let a
+    // caller-supplied value leak through on excluded slugs or broadcast
+    // sends, defeating the exclusion list. Only with no userId AND no
+    // suppression do we defer to whatever the caller passed in.
     const allVars = await getCommonVariables(
-      pitchBlockHtml !== undefined ? { ...variables, pitch_block_html: pitchBlockHtml } : variables,
+      __suppressPitchForBroadcast
+        ? { ...variables, pitch_block_html: "" }
+        : userId
+          ? { ...variables, pitch_block_html: (await resolvePitchBlockHtmlForSend(userId, templateSlug)) ?? "" }
+          : variables,
     );
     const subject = replaceVariables(template.subject, allVars);
     const html = replaceVariables(template.htmlBody, allVars);
@@ -973,9 +1031,13 @@ export const CommunicationService = {
     }
 
     const emailCategory = category || template.category;
-    const pitchBlockHtml = await resolvePitchBlockHtmlForSend(variables, userId, emailCategory);
+    // See the matching comment in queueEmail above: a resolvable userId
+    // always forces an overwrite (even to "") so a caller-supplied
+    // pitch_block_html can never leak through on an excluded slug.
     const allVars = await getCommonVariables(
-      pitchBlockHtml !== undefined ? { ...variables, pitch_block_html: pitchBlockHtml } : variables,
+      userId
+        ? { ...variables, pitch_block_html: (await resolvePitchBlockHtmlForSend(userId, templateSlug)) ?? "" }
+        : variables,
     );
     const subject = replaceVariables(template.subject, allVars);
     const html = replaceVariables(template.htmlBody, allVars);
@@ -1055,6 +1117,7 @@ export const CommunicationService = {
         variables: recipient.variables,
         userId: recipient.userId,
         category: "marketing",
+        __suppressPitchForBroadcast: true,
       });
       queued++;
     }
