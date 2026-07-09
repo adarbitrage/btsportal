@@ -20,6 +20,7 @@ import { applyRefineEdits } from "../../lib/transcript-cleaner.js";
 import { resolveSourceContentForSynthesis } from "../../lib/kb-value-screener.js";
 import { analyzeDraftForReview, isPrivacyProtectedPair } from "../../lib/kb-review-risk.js";
 import { getNameFlagVocab, invalidateNameFlagVocab } from "../../lib/kb-name-flag-vocab.js";
+import { clusterDuplicates, findLiveSimilar } from "../../lib/kb-duplicates.js";
 import { embedLiveDocumentInBackground, CLEARED_EMBEDDING_FIELDS } from "../../lib/kb-embeddings.js";
 
 export { runTriageBackground } from "../../lib/kb-triage.js";
@@ -419,6 +420,273 @@ router.get("/auto-actions", async (req: Request, res: Response) => {
         totalPages: Math.ceil(total[0].cnt / limit),
       },
     });
+  } catch (err: unknown) {
+    res.status(500).json({ error: err instanceof Error ? err.message : "Unknown error" });
+  }
+});
+
+// ── Duplicate grouping & merge aid (Task #1825) ──────────────────────────────
+//
+// Review aids for the ~66 glossary-style synthesis drafts that synthesized the
+// same concept once per taxonomy node. All endpoints here are review-time only:
+// nothing auto-approves/publishes, and the live-corpus similarity indicator is
+// informational (it never blocks approval or modifies the live doc).
+
+/** Non-deleted live docs, projected for similarity matching. */
+async function loadLiveDocsForSimilarity() {
+  return db
+    .select({
+      id: aiLiveDocumentsTable.id,
+      title: aiLiveDocumentsTable.title,
+      content: aiLiveDocumentsTable.content,
+    })
+    .from(aiLiveDocumentsTable)
+    .where(sql`${aiLiveDocumentsTable.deletedAt} IS NULL`);
+}
+
+// Clusters of likely-same-concept needs-review drafts. Docs with no likely
+// duplicate are excluded. Each doc also carries its "similar live doc" match.
+router.get("/duplicates", async (_req: Request, res: Response) => {
+  try {
+    const docs = await db
+      .select()
+      .from(kbStagingDocsTable)
+      .where(eq(kbStagingDocsTable.status, "needs_review"));
+
+    const clusterInputs = docs.map((d) => ({
+      id: d.id,
+      title: d.title,
+      content: d.editedContent ?? d.content,
+    }));
+    const clusters = clusterDuplicates(clusterInputs);
+
+    const clusteredIds = new Set(clusters.flatMap((c) => c.docIds));
+    const liveDocs = await loadLiveDocsForSimilarity();
+    const byId = new Map(docs.map((d) => [d.id, d]));
+
+    const payload = clusters.map((c) => ({
+      key: c.key,
+      docs: c.docIds
+        .map((id) => byId.get(id))
+        .filter((d): d is NonNullable<typeof d> => Boolean(d))
+        .map((d) => ({
+          ...d,
+          liveSimilar: findLiveSimilar(
+            { title: d.title, content: d.editedContent ?? d.content, targetLiveDocId: d.targetLiveDocId },
+            liveDocs,
+          ),
+        })),
+    }));
+
+    res.json({ clusters: payload, clusteredDocCount: clusteredIds.size });
+  } catch (err: unknown) {
+    res.status(500).json({ error: err instanceof Error ? err.message : "Unknown error" });
+  }
+});
+
+// Batch live-corpus similarity for the NORMAL review flow: a map of
+// stagingDocId → best similar-live-doc match across all needs-review drafts
+// (excluding each draft's own explicit update target).
+router.get("/live-similarity", async (_req: Request, res: Response) => {
+  try {
+    const [docs, liveDocs] = await Promise.all([
+      db
+        .select({
+          id: kbStagingDocsTable.id,
+          title: kbStagingDocsTable.title,
+          content: kbStagingDocsTable.content,
+          editedContent: kbStagingDocsTable.editedContent,
+          targetLiveDocId: kbStagingDocsTable.targetLiveDocId,
+        })
+        .from(kbStagingDocsTable)
+        .where(eq(kbStagingDocsTable.status, "needs_review")),
+      loadLiveDocsForSimilarity(),
+    ]);
+
+    const matches: Record<number, ReturnType<typeof findLiveSimilar>> = {};
+    for (const d of docs) {
+      const m = findLiveSimilar(
+        { title: d.title, content: d.editedContent ?? d.content, targetLiveDocId: d.targetLiveDocId },
+        liveDocs,
+      );
+      if (m) matches[d.id] = m;
+    }
+    res.json({ matches });
+  } catch (err: unknown) {
+    res.status(500).json({ error: err instanceof Error ? err.message : "Unknown error" });
+  }
+});
+
+// Resolve a duplicate cluster: keep ONE canonical draft (optionally applying a
+// reviewer-edited title/content — titles are the live-doc upsert key, so title
+// conflicts are settled here) and mark the others merged into it. The canonical
+// stays in the normal review flow (status untouched — never auto-approved).
+// Idempotent / concurrent-safe: only docs still in needs_review are merged.
+router.post("/duplicates/resolve", async (req: Request, res: Response) => {
+  try {
+    const { canonicalId, mergedIds, title, content } = req.body as {
+      canonicalId?: number;
+      mergedIds?: number[];
+      title?: string;
+      content?: string;
+    };
+
+    if (!canonicalId || !Array.isArray(mergedIds) || mergedIds.length === 0) {
+      res.status(400).json({ error: "canonicalId and a non-empty mergedIds array are required" });
+      return;
+    }
+    if (mergedIds.includes(canonicalId)) {
+      res.status(400).json({ error: "canonicalId must not be in mergedIds" });
+      return;
+    }
+
+    const [canonical] = await db
+      .select()
+      .from(kbStagingDocsTable)
+      .where(eq(kbStagingDocsTable.id, canonicalId));
+    if (!canonical) {
+      res.status(404).json({ error: "Canonical document not found" });
+      return;
+    }
+    if (canonical.status !== "needs_review") {
+      res.status(409).json({ error: `Canonical document is no longer in needs_review (status: ${canonical.status})` });
+      return;
+    }
+
+    const userId = (req as unknown as { userId: number }).userId;
+
+    // Apply reviewer edits to the canonical (status stays needs_review).
+    const canonicalUpdates: Record<string, unknown> = {};
+    if (typeof title === "string" && title.trim() && title.trim() !== canonical.title) {
+      canonicalUpdates.title = title.trim();
+    }
+    if (typeof content === "string" && content.trim()) {
+      canonicalUpdates.editedContent = content;
+    }
+    if (Object.keys(canonicalUpdates).length > 0) {
+      await db
+        .update(kbStagingDocsTable)
+        .set(canonicalUpdates)
+        .where(eq(kbStagingDocsTable.id, canonicalId));
+    }
+
+    // Conditional status flip = idempotent & safe under concurrent review: a
+    // doc someone else already approved/merged is skipped, never clobbered.
+    const merged = await db
+      .update(kbStagingDocsTable)
+      .set({ status: "merged", mergedIntoId: canonicalId })
+      .where(
+        and(
+          inArray(kbStagingDocsTable.id, mergedIds),
+          eq(kbStagingDocsTable.status, "needs_review"),
+        ),
+      )
+      .returning({ id: kbStagingDocsTable.id, title: kbStagingDocsTable.title });
+
+    for (const m of merged) {
+      await db.insert(kbTriageAuditLogTable).values({
+        stagingDocId: m.id,
+        eventType: "merged_duplicate",
+        confidenceScore: null,
+        actorUserId: userId,
+        aiReasoning: `Marked as duplicate of #${canonicalId} ("${(canonicalUpdates.title as string) ?? canonical.title}") via cluster resolution.`,
+        docTitle: m.title,
+      });
+    }
+
+    const [updatedCanonical] = await db
+      .select()
+      .from(kbStagingDocsTable)
+      .where(eq(kbStagingDocsTable.id, canonicalId));
+
+    res.json({
+      canonical: updatedCanonical,
+      merged: merged.length,
+      mergedIds: merged.map((m) => m.id),
+      skipped: mergedIds.filter((id) => !merged.some((m) => m.id === id)),
+    });
+  } catch (err: unknown) {
+    res.status(500).json({ error: err instanceof Error ? err.message : "Unknown error" });
+  }
+});
+
+// AI merge proposal: a "best of" merged draft for a cluster the reviewer can
+// edit before accepting as the canonical's content. Returns the proposal only —
+// NOTHING is written until the reviewer resolves the cluster. Loud failures
+// (retry helper throws after exhausted attempts; no silent fallback).
+router.post("/duplicates/propose-merge", async (req: Request, res: Response) => {
+  try {
+    const { ids } = req.body as { ids?: number[] };
+    if (!Array.isArray(ids) || ids.length < 2) {
+      res.status(400).json({ error: "At least 2 document ids are required" });
+      return;
+    }
+
+    const docs = await db
+      .select()
+      .from(kbStagingDocsTable)
+      .where(inArray(kbStagingDocsTable.id, ids));
+    if (docs.length < 2) {
+      res.status(400).json({ error: "Not enough documents found" });
+      return;
+    }
+
+    const systemPrompt = `You are merging ${docs.length} VARIANT drafts of the SAME knowledge-base concept into ONE best-of document for BTS (Build Test Scale).
+The variants were synthesized independently (one per taxonomy node), so they overlap heavily. Combine the strongest content:
+- Keep the clearest explanation of the concept.
+- Union the unique, correct details/examples/steps from every variant; drop redundancy.
+- Preserve markdown structure (## headings, bullets, numbered steps).
+- Preserve any reviewer-facing markers verbatim if present ("> ⚠️ SOURCE CONFLICT (for reviewer):", "[SITUATIONAL]" etc.) — never silently drop them.
+- BRAND RULES: say "Build Test Scale" / "BTS" (never "TCE" or "Cherrington"); no coach surnames; support email is support@buildtestscale.com.
+Return ONLY JSON: {"title":"<single canonical title>","content":"<full merged markdown body>"} — no preamble.`;
+
+    const userContent = docs
+      .map((d, i) => `=== VARIANT ${i + 1} (staging #${d.id}) — "${d.title}" [${d.homeRoot ?? "?"}/${d.node ?? "?"}] ===\n${(d.editedContent ?? d.content).substring(0, 9000)}`)
+      .join("\n\n");
+
+    // Generous budget: gpt-5 reasoning tokens eat max_completion_tokens; the
+    // retry helper also escalates on length starvation.
+    const raw = (await callLLMWithRetry("duplicate merge proposal", systemPrompt, userContent, 8000, true)).trim();
+
+    let parsed: { title?: unknown; content?: unknown };
+    try {
+      parsed = JSON.parse(raw);
+    } catch {
+      throw new Error("AI returned malformed merge-proposal JSON");
+    }
+    const proposedTitle = typeof parsed.title === "string" ? parsed.title.trim() : "";
+    const proposedContent = typeof parsed.content === "string" ? parsed.content.trim() : "";
+    if (!proposedContent) {
+      throw new Error("AI merge proposal returned empty content");
+    }
+
+    res.json({ proposedTitle: proposedTitle || docs[0].title, proposedContent, sourceIds: docs.map((d) => d.id) });
+  } catch (err: unknown) {
+    res.status(500).json({ error: err instanceof Error ? err.message : "Unknown error" });
+  }
+});
+
+// Read a live doc alongside a draft (similar-live-doc side panel).
+router.get("/live-doc/:id", async (req: Request, res: Response) => {
+  try {
+    const id = parseInt(getParam(req.params.id));
+    const [doc] = await db
+      .select({
+        id: aiLiveDocumentsTable.id,
+        title: aiLiveDocumentsTable.title,
+        content: aiLiveDocumentsTable.content,
+        docClass: aiLiveDocumentsTable.docClass,
+        homeRoot: aiLiveDocumentsTable.homeRoot,
+        node: aiLiveDocumentsTable.node,
+        lastVerified: aiLiveDocumentsTable.lastVerified,
+      })
+      .from(aiLiveDocumentsTable)
+      .where(and(eq(aiLiveDocumentsTable.id, id), sql`${aiLiveDocumentsTable.deletedAt} IS NULL`));
+    if (!doc) {
+      res.status(404).json({ error: "Live document not found" });
+      return;
+    }
+    res.json(doc);
   } catch (err: unknown) {
     res.status(500).json({ error: err instanceof Error ? err.message : "Unknown error" });
   }

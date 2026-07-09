@@ -28,6 +28,7 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { authFetch } from "@/lib/auth";
 import { Link } from "wouter";
+import KnowledgeBaseDuplicates, { LiveDocDialog, type LiveSimilarMatch } from "./KnowledgeBaseDuplicates";
 import {
   CheckCircle,
   XCircle,
@@ -669,6 +670,10 @@ export default function KnowledgeBaseReview() {
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   // Monotonic token so only the latest review-insights request writes state.
   const insightsRequestRef = useRef(0);
+  // Duplicate grouping & similar-live-doc aids (Task #1825).
+  const [showDuplicates, setShowDuplicates] = useState(false);
+  const [liveSimilarMap, setLiveSimilarMap] = useState<Record<number, LiveSimilarMatch>>({});
+  const [viewLiveDocId, setViewLiveDocId] = useState<number | null>(null);
 
   const fetchDocs = useCallback(async () => {
     setLoading(true);
@@ -731,6 +736,24 @@ export default function KnowledgeBaseReview() {
   useEffect(() => {
     fetchDocs();
   }, [fetchDocs]);
+
+  // Informational "similar live doc" indicators for the normal review flow —
+  // a single batch fetch across all needs-review drafts. Never blocks review.
+  const fetchLiveSimilarity = useCallback(async () => {
+    try {
+      const res = await authFetch("/admin/knowledgebase/staging/live-similarity");
+      if (res.ok) {
+        const data = await res.json();
+        setLiveSimilarMap(data.matches || {});
+      }
+    } catch {
+      // informational only — ignore
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchLiveSimilarity();
+  }, [fetchLiveSimilarity]);
 
   useEffect(() => {
     fetchTriageStatus();
@@ -1345,6 +1368,15 @@ export default function KnowledgeBaseReview() {
   const pageSafeCount = pageNeedsReview.filter((d) => !isBlocking(d)).length;
   const pageBlockedCount = pageNeedsReview.length - pageSafeCount;
 
+  // ── Possible-duplicates view (Task #1825) ─────────────────────────────────────
+  if (showDuplicates) {
+    return (
+      <AppLayout>
+        <KnowledgeBaseDuplicates onBack={() => { setShowDuplicates(false); fetchDocs(); fetchLiveSimilarity(); }} />
+      </AppLayout>
+    );
+  }
+
   // ── Guided / rapid re-verify mode ─────────────────────────────────────────────
   if (guidedMode) {
     const doc = currentGuided;
@@ -1625,6 +1657,28 @@ export default function KnowledgeBaseReview() {
                     <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-2.5 text-xs text-emerald-800 flex items-center gap-2">
                       <FileText className="w-4 h-4" />
                       New document — no existing published doc for this topic.
+                    </div>
+                  )}
+
+                  {/* Informational similar-live-doc indicator (Task #1825) —
+                      never blocks approval; excludes an update draft's own
+                      target live doc. */}
+                  {liveSimilarMap[selectedDoc.id] && (
+                    <div className="rounded-lg border border-blue-200 bg-blue-50 p-2.5 text-xs text-blue-800 flex items-center gap-2">
+                      <GitCompare className="w-4 h-4 shrink-0" />
+                      <span>
+                        A published live doc looks similar
+                        {liveSimilarMap[selectedDoc.id].reason === "title" ? " (same concept title)" : " (similar content)"}:{" "}
+                        <span className="font-medium">“{liveSimilarMap[selectedDoc.id].liveTitle}”</span> — informational only.
+                      </span>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="ml-auto h-6 px-2 text-[11px] border-blue-300 text-blue-700 shrink-0"
+                        onClick={() => setViewLiveDocId(liveSimilarMap[selectedDoc.id].liveDocId)}
+                      >
+                        <Eye className="w-3 h-3 mr-1" />View live doc
+                      </Button>
                     </div>
                   )}
 
@@ -2083,6 +2137,17 @@ export default function KnowledgeBaseReview() {
               <Layers className="w-4 h-4 mr-2" />
               {showCoverage ? "Hide Coverage" : "Coverage"}
             </Button>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button onClick={() => setShowDuplicates(true)} variant="outline" className="border-purple-300 text-purple-700 hover:bg-purple-50" data-testid="button-possible-duplicates">
+                  <GitCompare className="w-4 h-4 mr-2" />
+                  Possible Duplicates
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent className="max-w-xs">
+                Groups needs-review drafts that look like the same concept (title variants or very similar content) so you can keep one and mark the rest merged. The kept draft still goes through normal review.
+              </TooltipContent>
+            </Tooltip>
             {/*
               Blitz change-monitoring (Task #1564) — DORMANT. The plumbing to
               detect changed core-training sources and propose reference-doc
@@ -2576,6 +2641,17 @@ export default function KnowledgeBaseReview() {
                                 {ORIGIN_LABEL[doc.originType] ?? doc.originType}
                               </Badge>
                             )}
+                            {liveSimilarMap[doc.id] && (
+                              <Badge
+                                variant="outline"
+                                className="text-[10px] bg-blue-50 text-blue-700 border-blue-300 cursor-pointer hover:bg-blue-100"
+                                onClick={(e) => { e.stopPropagation(); setViewLiveDocId(liveSimilarMap[doc.id].liveDocId); }}
+                                title={`A published live doc looks similar (${liveSimilarMap[doc.id].reason === "title" ? "same concept title" : "similar content"}): "${liveSimilarMap[doc.id].liveTitle}". Click to read it. Informational only.`}
+                                data-testid={`badge-live-similar-${doc.id}`}
+                              >
+                                <Eye className="w-2.5 h-2.5 mr-1" />Similar live doc
+                              </Badge>
+                            )}
                           </div>
                           <div className="mt-1.5">
                             <RiskChips flags={doc.riskFlags} needsExpert={doc.needsExpert} />
@@ -2631,6 +2707,8 @@ export default function KnowledgeBaseReview() {
       </div>
 
       {renderDetailDialog()}
+
+      <LiveDocDialog liveDocId={viewLiveDocId} onClose={() => setViewLiveDocId(null)} />
 
       {/* Confirm gate for the expensive full-corpus synthesis run */}
       <Dialog open={confirmSynthAll} onOpenChange={setConfirmSynthAll}>
