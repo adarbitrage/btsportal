@@ -186,7 +186,10 @@ const NAME_STOPWORDS = new Set(
 // every pair below was human-verified as not-a-name. Matched case-insensitively
 // as EXACT pairs only, so this cannot suppress a real First Last member name
 // unless it literally equals one of these phrases.
-const TERMINOLOGY_PHRASES = new Set(
+//
+// Task #1815: this static list is now SEED DATA folded into the derived
+// vocabulary (kb-name-flag-vocab) — the primary control is the derived set.
+export const SEED_TERMINOLOGY_PHRASES = new Set(
   [
     "Site Setup", "Creative Strategy", "Unit Economics", "Creative Assets",
     "Creative Drive", "Copy Blocks", "Custom Value", "Custom Values",
@@ -212,6 +215,48 @@ const TERMINOLOGY_PHRASES = new Set(
 // already catch the surname — the deterministic rules run first, so we skip
 // pairs the privacy pass already flagged (handled by dedup below).
 
+// ── Self-maintaining name-flag vocabulary (Task #1815) ──────────────────────
+//
+// The terminology suppression set is no longer only the static list above —
+// it is DERIVED at call time (cached) from authoritative sources by
+// kb-name-flag-vocab (BTS house terms, tool-tag vocabulary, glossary/curated
+// doc titles, corpus-frequency pairs, reviewer dismissals). This module stays
+// PURE: it only defines the vocab shape + the static baseline, and the
+// analyzer takes the vocabulary as a parameter (defaulting to the baseline)
+// so tests and non-DB callers never touch the database.
+
+export interface NameFlagVocab {
+  /** Exact lowercased "first last" pairs that are terminology, never people. */
+  phrases: ReadonlySet<string>;
+  /**
+   * Lowercased single words from AUTHORITATIVE sources only (house terms,
+   * tool-tag labels/triggers) — either word matching kills the pair. Never
+   * derived from doc content (doc-content-derived suppression must stay
+   * exact-pair so it cannot swallow real names).
+   */
+  words: ReadonlySet<string>;
+}
+
+/** Static baseline vocabulary: the hand-verified seed pairs only. */
+export const BASELINE_NAME_FLAG_VOCAB: NameFlagVocab = {
+  phrases: SEED_TERMINOLOGY_PHRASES,
+  words: new Set<string>(),
+};
+
+/**
+ * SAFETY RAIL: a capitalized pair that matches any privacy scrub rule (coach /
+ * staff surnames, founder, old brand) can NEVER be suppressed by the derived
+ * vocabulary or a reviewer dismissal — the deterministic privacy pass must
+ * always win. Checked at analyzer time AND at vocabulary build/insert time.
+ */
+export function isPrivacyProtectedPair(pair: string): boolean {
+  return PRIVACY_RULES.some((rule) => {
+    const rx = new RegExp(rule.pattern.source, rule.pattern.flags.replace("g", ""));
+    const m = pair.match(rx);
+    return m !== null && m[0].trim().length > 0;
+  });
+}
+
 function findMatches(line: string, re: RegExp): string[] {
   const out: string[] = [];
   const rx = new RegExp(re.source, re.flags.includes("g") ? re.flags : re.flags + "g");
@@ -221,8 +266,15 @@ function findMatches(line: string, re: RegExp): string[] {
   return out;
 }
 
-/** Analyze a draft's current text. Pure — unit-tested. */
-export function analyzeDraftForReview(content: string): ReviewHighlight[] {
+/**
+ * Analyze a draft's current text. Pure — unit-tested. Callers that have DB
+ * access (the review-insights route) pass the DERIVED vocabulary from
+ * kb-name-flag-vocab; the default keeps this module DB-free for tests.
+ */
+export function analyzeDraftForReview(
+  content: string,
+  vocab: NameFlagVocab = BASELINE_NAME_FLAG_VOCAB,
+): ReviewHighlight[] {
   const lines = content.split("\n");
   const highlights: ReviewHighlight[] = [];
   const seen = new Set<string>();
@@ -308,9 +360,14 @@ export function analyzeDraftForReview(content: string): ReviewHighlight[] {
         // word ("Coaching Access"). Gerunds are handled via NAME_STOPWORDS,
         // not a suffix rule, so -ing surnames (King, Sterling) still flag.
         if (NAV_LABEL_PHRASES.has(pair.toLowerCase())) continue;
-        // Human-verified terminology allowlist (exact pairs only).
-        if (TERMINOLOGY_PHRASES.has(pair.toLowerCase())) continue;
         if (NAV_LABEL_WORDS.has(first) || NAV_LABEL_WORDS.has(second)) continue;
+        // Derived terminology vocabulary (seed pairs + house terms + tool tags
+        // + glossary/curated titles + corpus-frequency pairs + reviewer
+        // dismissals) — but NEVER suppress a privacy-protected pair.
+        if (!isPrivacyProtectedPair(pair)) {
+          if (vocab.phrases.has(pair.toLowerCase())) continue;
+          if (vocab.words.has(first.toLowerCase()) || vocab.words.has(second.toLowerCase())) continue;
+        }
         // Already caught deterministically? Don't double-flag.
         if ([...privacyExcerpts].some((p) => p.includes(second) || p === pair)) continue;
         push("possible_member_name", pair, i);

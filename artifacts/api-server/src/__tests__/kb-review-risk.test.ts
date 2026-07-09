@@ -9,7 +9,10 @@ import {
   hasSynthesisRiskTags,
   hasTimeSensitivePhrasing,
   hasPrivacyResidue,
+  isPrivacyProtectedPair,
+  SEED_TERMINOLOGY_PHRASES,
   SOURCE_CONFLICT_PREFIX,
+  type NameFlagVocab,
 } from "../lib/kb-review-risk";
 import { SOURCE_CONFLICT_MARKER } from "../lib/kb-synthesis";
 import { computeRiskFlags, blocksBulkConfirm } from "../lib/kb-flags";
@@ -155,12 +158,78 @@ describe("analyzeDraftForReview", () => {
     expect(hs).toHaveLength(0);
   });
 
+  // ── Derived name-flag vocabulary (Task #1815) ─────────────────────────────
+  describe("derived NameFlagVocab parameter", () => {
+    const vocab = (phrases: string[] = [], words: string[] = []): NameFlagVocab => ({
+      phrases: new Set([...SEED_TERMINOLOGY_PHRASES, ...phrases.map((p) => p.toLowerCase())]),
+      words: new Set(words.map((w) => w.toLowerCase())),
+    });
+
+    it("suppresses a derived exact pair (e.g. corpus-frequent or dismissed)", () => {
+      const text = "the Torval Nexis tool helps before scaling.";
+      expect(
+        analyzeDraftForReview(text).some((h) => h.kind === "possible_member_name"),
+      ).toBe(true);
+      expect(
+        analyzeDraftForReview(text, vocab(["Torval Nexis"])).some(
+          (h) => h.kind === "possible_member_name",
+        ),
+      ).toBe(false);
+    });
+
+    it("suppresses pairs containing an authoritative word (house term / tool tag)", () => {
+      const text = "Open your Flexy Builder to edit the page.";
+      expect(
+        analyzeDraftForReview(text, vocab([], ["Flexy"])).some(
+          (h) => h.kind === "possible_member_name",
+        ),
+      ).toBe(false);
+    });
+
+    it("still flags real names (King, Sterling) with a rich vocabulary present", () => {
+      const hs = analyzeDraftForReview(
+        "Marcus King and Ava Sterling reviewed their Pixel Boost setup.",
+        vocab(["Pixel Boost"], ["Flexy", "Gifster"]),
+      );
+      const names = hs.filter((h) => h.kind === "possible_member_name").map((h) => h.excerpt);
+      expect(names).toContain("Marcus King");
+      expect(names).toContain("Ava Sterling");
+    });
+
+    it("NEVER suppresses a privacy-protected pair, even if dismissed/derived", () => {
+      // "Bruce Clark" matches the coach privacy rules — a (bad) vocab entry or
+      // reviewer dismissal must not silence it; it still surfaces as
+      // privacy_residue via the deterministic pass.
+      const hs = analyzeDraftForReview(
+        "Ask Bruce Clark about scaling.",
+        vocab(["Bruce Clark"], ["Bruce", "Clark"]),
+      );
+      expect(hs.some((h) => h.kind === "privacy_residue")).toBe(true);
+    });
+
+    it("documents the corpus-frequency edge: a non-privacy pair in the vocab is suppressed", () => {
+      // If a real member name somehow appeared in >= threshold docs it would be
+      // suppressed here — accepted because the publish-time privacy scrub is
+      // the hard net; this heuristic is advisory only.
+      const hs = analyzeDraftForReview("Jane Marple posted results.", vocab(["Jane Marple"]));
+      expect(hs.some((h) => h.kind === "possible_member_name")).toBe(false);
+    });
+  });
+
   it("carries exact line index and lineText for soften/cut actions", () => {
     const content = "First line.\nSpend $99/day here.\nLast line.";
     const h = analyzeDraftForReview(content).find((x) => x.kind === "situational_number");
     expect(h).toBeDefined();
     expect(h!.line).toBe(1);
     expect(h!.lineText).toBe("Spend $99/day here.");
+  });
+});
+
+describe("isPrivacyProtectedPair", () => {
+  it("matches coach/staff privacy-rule surnames and founder", () => {
+    expect(isPrivacyProtectedPair("Bruce Clark")).toBe(true);
+    expect(isPrivacyProtectedPair("Marcus Delgado")).toBe(false);
+    expect(isPrivacyProtectedPair("Pixel Boost")).toBe(false);
   });
 });
 

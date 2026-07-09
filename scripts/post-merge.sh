@@ -579,3 +579,14 @@ if [ -n "$DATABASE_URL" ]; then
     -f lib/db/drizzle/0109_kb_synthesis_hardening.sql \
     >/dev/null
 fi
+
+# Name-flag reviewer dismissals ("Not a name" vocabulary for the KB review
+# panel's possible_member_name advisory flag). One new additive table.
+# Applying here keeps the live-schema-drift gate green so the conditional push
+# stays skipped. Idempotent (CREATE TABLE IF NOT EXISTS + guarded FK).
+if [ -n "$DATABASE_URL" ]; then
+  psql "$DATABASE_URL" \
+    -v ON_ERROR_STOP=1 \
+    -f lib/db/drizzle/0111_kb_name_flag_dismissals.sql \
+    >/dev/null
+fi

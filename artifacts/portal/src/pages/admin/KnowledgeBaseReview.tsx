@@ -598,6 +598,9 @@ export default function KnowledgeBaseReview() {
   const [sourceCountsByDisp, setSourceCountsByDisp] = useState<Record<string, number>>({});
   const [sourcesLoading, setSourcesLoading] = useState(false);
   const { toast } = useToast();
+  // "Not a name" dismissal list (Task #1815) — admin-visible undo list.
+  const [nameDismissals, setNameDismissals] = useState<Array<{ id: number; pair: string; displayPair: string; createdAt: string }>>([]);
+  const [showNameDismissals, setShowNameDismissals] = useState(false);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   // Monotonic token so only the latest review-insights request writes state.
   const insightsRequestRef = useRef(0);
@@ -1025,6 +1028,50 @@ export default function KnowledgeBaseReview() {
       toast({ title: "Push failed", variant: "destructive" });
     } finally {
       setPushing(false);
+    }
+  };
+
+  // "Not a name" dismissals (Task #1815): one-click persistent suppression of
+  // possible_member_name false positives, with an admin-visible undo list.
+  const dismissNamePair = async (pair: string) => {
+    try {
+      const res = await authFetch("/admin/knowledgebase/staging/name-flag-dismissals", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ pair }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        toast({ title: typeof data.error === "string" ? data.error : "Failed to dismiss", variant: "destructive" });
+        return;
+      }
+      toast({ title: `“${pair}” marked as terminology`, description: "It will no longer flag on any document." });
+      if (selectedDoc) fetchInsights(selectedDoc.id);
+    } catch {
+      toast({ title: "Failed to dismiss", variant: "destructive" });
+    }
+  };
+
+  const fetchNameDismissals = async () => {
+    try {
+      const res = await authFetch("/admin/knowledgebase/staging/name-flag-dismissals");
+      if (!res.ok) throw new Error("Failed");
+      const data = await res.json();
+      setNameDismissals(data.dismissals ?? []);
+    } catch {
+      setNameDismissals([]);
+    }
+  };
+
+  const undoNameDismissal = async (id: number) => {
+    try {
+      const res = await authFetch(`/admin/knowledgebase/staging/name-flag-dismissals/${id}`, { method: "DELETE" });
+      if (!res.ok) throw new Error("Failed");
+      toast({ title: "Dismissal removed", description: "The pair will flag again on future analyses." });
+      fetchNameDismissals();
+      if (selectedDoc) fetchInsights(selectedDoc.id);
+    } catch {
+      toast({ title: "Failed to remove dismissal", variant: "destructive" });
     }
   };
 
@@ -1599,6 +1646,18 @@ export default function KnowledgeBaseReview() {
                     )}
                   </div>
 
+                  {/* Always-visible access to the "Not a name" undo list, even when a doc has zero highlights */}
+                  <div className="flex justify-end">
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="h-6 px-2 text-[11px] text-amber-700 hover:bg-amber-100"
+                      onClick={() => { setShowNameDismissals(true); fetchNameDismissals(); }}
+                    >
+                      Dismissed names
+                    </Button>
+                  </div>
+
                   {/* Review focus — risky passages with per-passage soften/cut (Task #1752) */}
                   {(insightsLoading || (reviewInsights?.highlights?.length ?? 0) > 0) && (
                     <div className="rounded-lg border border-amber-200 bg-amber-50/60 p-3 space-y-2">
@@ -1647,6 +1706,18 @@ export default function KnowledgeBaseReview() {
                                     >
                                       <XCircle className="w-3 h-3 mr-1" />Cut line
                                     </Button>
+                                    {h.kind === "possible_member_name" && (
+                                      <Button
+                                        size="sm"
+                                        variant="outline"
+                                        className="h-6 px-2 text-[11px] text-emerald-700 border-emerald-200 hover:bg-emerald-50"
+                                        disabled={redrafting}
+                                        onClick={() => dismissNamePair(h.excerpt)}
+                                        title="Mark this pair as terminology, not a person — it will never flag again"
+                                      >
+                                        <CheckCircle className="w-3 h-3 mr-1" />Not a name
+                                      </Button>
+                                    )}
                                   </span>
                                 </div>
                                 <p className="text-gray-500">{h.note}</p>
@@ -2572,6 +2643,34 @@ export default function KnowledgeBaseReview() {
                     </Button>
                   )}
                 </div>
+              </div>
+            ))}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* "Not a name" dismissal list (Task #1815) — admin-visible undo list */}
+      <Dialog open={showNameDismissals} onOpenChange={setShowNameDismissals}>
+        <DialogContent className="max-w-lg max-h-[75vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <CheckCircle className="w-5 h-5 text-emerald-600" />Dismissed name flags
+            </DialogTitle>
+          </DialogHeader>
+          <p className="text-xs text-gray-500">
+            Pairs a reviewer marked as terminology (“Not a name”). They never flag as possible
+            member names on any document. Remove one to make it flag again.
+          </p>
+          <div className="space-y-1.5 mt-2">
+            {nameDismissals.length === 0 ? (
+              <p className="text-gray-500 text-center py-6 text-sm">No dismissals yet</p>
+            ) : nameDismissals.map((d) => (
+              <div key={d.id} className="flex items-center justify-between gap-3 p-2 bg-gray-50 rounded-md border text-sm">
+                <span className="font-mono">{d.displayPair}</span>
+                <span className="text-xs text-gray-400 ml-auto">{new Date(d.createdAt).toLocaleDateString()}</span>
+                <Button size="sm" variant="outline" className="h-6 px-2 text-[11px] text-red-700 border-red-200 hover:bg-red-50" onClick={() => undoNameDismissal(d.id)}>
+                  Remove
+                </Button>
               </div>
             ))}
           </div>

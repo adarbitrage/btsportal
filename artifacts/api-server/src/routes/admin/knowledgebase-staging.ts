@@ -1,7 +1,7 @@
 import { getParam } from "../../lib/params";
 import { Router, Request, Response } from "express";
 import { db } from "@workspace/db";
-import { kbStagingDocsTable, knowledgebaseDocsTable, aiLiveDocumentsTable, aiLiveDocumentVersionsTable, kbDocProvenanceTable, kbTriageAuditLogTable, aiSourceDocumentsTable, kbTranscriptSourcesTable } from "@workspace/db/schema";
+import { kbStagingDocsTable, knowledgebaseDocsTable, aiLiveDocumentsTable, aiLiveDocumentVersionsTable, kbDocProvenanceTable, kbTriageAuditLogTable, aiSourceDocumentsTable, kbTranscriptSourcesTable, kbNameFlagDismissalsTable } from "@workspace/db/schema";
 import { eq, desc, sql, count, and, ne, isNotNull, inArray } from "drizzle-orm";
 import { requirePermission } from "../../middleware/rbac.js";
 import { resolveNavGapsForPublishedDoc } from "../../lib/kb-nav-gaps.js";
@@ -18,7 +18,8 @@ import { detectLegacyRefs } from "../../lib/kb-mining.js";
 import { blocksBulkConfirm, type RiskFlag } from "../../lib/kb-flags.js";
 import { applyRefineEdits } from "../../lib/transcript-cleaner.js";
 import { resolveSourceContentForSynthesis } from "../../lib/kb-value-screener.js";
-import { analyzeDraftForReview } from "../../lib/kb-review-risk.js";
+import { analyzeDraftForReview, isPrivacyProtectedPair } from "../../lib/kb-review-risk.js";
+import { getNameFlagVocab, invalidateNameFlagVocab } from "../../lib/kb-name-flag-vocab.js";
 import { embedLiveDocumentInBackground, CLEARED_EMBEDDING_FIELDS } from "../../lib/kb-embeddings.js";
 
 export { runTriageBackground } from "../../lib/kb-triage.js";
@@ -424,6 +425,63 @@ router.get("/auto-actions", async (req: Request, res: Response) => {
 });
 
 // ── Per-document routes ───────────────────────────────────────────────────────
+
+// ── "Not a name" dismissals (Task #1815) ─────────────────────────────────────
+// Persistent reviewer loop for the possible_member_name advisory flag: a
+// dismissed pair joins the derived name-flag vocabulary and never flags again
+// on any doc. Registered BEFORE the /:id routes so the literal path wins.
+router.get("/name-flag-dismissals", async (_req: Request, res: Response) => {
+  try {
+    const rows = await db
+      .select()
+      .from(kbNameFlagDismissalsTable)
+      .orderBy(desc(kbNameFlagDismissalsTable.createdAt));
+    res.json({ dismissals: rows });
+  } catch (err: unknown) {
+    res.status(500).json({ error: err instanceof Error ? err.message : "Unknown error" });
+  }
+});
+
+router.post("/name-flag-dismissals", async (req: Request, res: Response) => {
+  try {
+    const raw = typeof req.body?.pair === "string" ? req.body.pair.trim() : "";
+    // Must be exactly the analyzer's capitalized First Last shape.
+    if (!/^[A-Z][a-z]{2,}\s+[A-Z][a-z]{2,}$/.test(raw)) {
+      res.status(400).json({ error: "Dismissal must be an exact 'First Last' pair as flagged." });
+      return;
+    }
+    // SAFETY RAIL: privacy-rule matches (coach/staff surnames, founder, old
+    // brand) can never be dismissed — the deterministic scrub always wins.
+    if (isPrivacyProtectedPair(raw)) {
+      res.status(400).json({ error: "This pair matches the privacy scrub rules and cannot be dismissed." });
+      return;
+    }
+    const pair = raw.toLowerCase().replace(/\s+/g, " ");
+    await db
+      .insert(kbNameFlagDismissalsTable)
+      .values({ pair, displayPair: raw.replace(/\s+/g, " "), dismissedBy: req.userId ?? null })
+      .onConflictDoNothing({ target: kbNameFlagDismissalsTable.pair });
+    invalidateNameFlagVocab();
+    res.json({ ok: true, pair });
+  } catch (err: unknown) {
+    res.status(500).json({ error: err instanceof Error ? err.message : "Unknown error" });
+  }
+});
+
+router.delete("/name-flag-dismissals/:dismissalId", async (req: Request, res: Response) => {
+  try {
+    const id = parseInt(getParam(req.params.dismissalId));
+    if (!Number.isFinite(id)) {
+      res.status(400).json({ error: "Invalid id" });
+      return;
+    }
+    await db.delete(kbNameFlagDismissalsTable).where(eq(kbNameFlagDismissalsTable.id, id));
+    invalidateNameFlagVocab();
+    res.json({ ok: true });
+  } catch (err: unknown) {
+    res.status(500).json({ error: err instanceof Error ? err.message : "Unknown error" });
+  }
+});
 
 router.get("/:id", async (req: Request, res: Response) => {
   try {
@@ -1288,7 +1346,12 @@ router.get("/:id/review-insights", async (req: Request, res: Response) => {
       return;
     }
 
-    const highlights = analyzeDraftForReview(doc.editedContent ?? doc.content);
+    // Derived name-flag vocabulary (cached; TTL-refreshed) so terminology —
+    // including NEW terminology from future synthesis runs — never flags.
+    const highlights = analyzeDraftForReview(
+      doc.editedContent ?? doc.content,
+      await getNameFlagVocab(),
+    );
 
     // Provenance: the contributing source set. Enrich synthesisSources with the
     // transcript-source roster (coach, kind) and the source document's date.
