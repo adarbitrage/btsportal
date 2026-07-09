@@ -153,3 +153,4 @@
 - [KB pipeline launch roadmap](kb-pipeline-launch-roadmap.md) — DECIDED: full pipeline runs in DEV only (synthesis hardening → full run → human review → one-time promotion of approved outputs to prod); prod never runs the pipeline.
 - [KB Synthesis engine](kb-synthesis-engine.md) — per-node corpus consolidation; details split: durable state/coverage (kb-synthesis-part2-state.md), full-source read + extract cache (kb-synthesis-full-source-read.md), hardening: loud LLM failures/no fallback/status-gated cache/self-heal/kb_synthesis_runs, full corpus ≈13h (kb-synthesis-hardening.md).
 - [AI-corpus brand backfill](backfill-brand-refs.md) — idempotent script rewrote old branding strings in AI corpus sources.
+- [KB Related-topics adjacency lockstep](kb-related-topics-adjacency.md) — NODE_NEIGHBORS feeds BOTH synthesis section and the mismatch flag; synthesis output must never self-flag; new taxonomy nodes need a neighbors entry.

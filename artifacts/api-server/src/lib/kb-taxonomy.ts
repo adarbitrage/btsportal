@@ -186,6 +186,58 @@ export function nodeImportance(slug: string): NodeImportance {
 }
 
 // ───────────────────────────────────────────────────────────────────────────
+// Node adjacency — genuinely related neighbors per node (Task: tighten
+// "Related topics"). Curated, NOT "every sibling in the root": synthesis
+// appends these as the deterministic "## Related topics" section, and the
+// analysis-time flag treats them (plus placement-consistent roots) as the
+// legitimate vocabulary for a doc's Related-topics list. Drift-guarded by
+// kb-related-topics.test.ts: every key and target must be a real node, no
+// self-links, every node has at least one neighbor.
+// ───────────────────────────────────────────────────────────────────────────
+
+export const NODE_NEIGHBORS: Readonly<Record<string, readonly string[]>> = {
+  // Process — lifecycle-adjacent stages plus the concept deep-dives a member
+  // actually reaches for at that stage.
+  foundations:          ["network-and-offer", "angles", "metrics-and-economics"],
+  "network-and-offer":  ["foundations", "creative-assets", "offer-strategy", "angles"],
+  "creative-assets":    ["network-and-offer", "compliance", "creative-strategy", "headlines-and-copy", "angles"],
+  compliance:           ["creative-assets", "tracking-and-setup"],
+  "tracking-and-setup": ["compliance", "launch", "metrics-and-economics"],
+  launch:               ["tracking-and-setup", "testing", "testing-methodology"],
+  testing:              ["launch", "scaling", "testing-methodology", "metrics-and-economics"],
+  scaling:              ["testing", "scaling-strategy", "metrics-and-economics", "traffic-and-placements"],
+  // Concepts — sibling skills plus the process stage(s) where the skill lands.
+  angles:                  ["headlines-and-copy", "creative-strategy", "offer-strategy", "creative-assets"],
+  "headlines-and-copy":    ["angles", "creative-strategy", "creative-assets"],
+  "creative-strategy":     ["angles", "headlines-and-copy", "testing-methodology", "creative-assets"],
+  "offer-strategy":        ["angles", "network-and-offer", "metrics-and-economics"],
+  "testing-methodology":   ["testing", "metrics-and-economics", "creative-strategy", "scaling-strategy"],
+  "scaling-strategy":      ["scaling", "testing-methodology", "traffic-and-placements", "metrics-and-economics"],
+  "metrics-and-economics": ["testing-methodology", "scaling-strategy", "offer-strategy", "testing"],
+  "traffic-and-placements": ["scaling-strategy", "creative-strategy", "scaling"],
+  // Operations — the actually-adjacent help/account surfaces.
+  membership:            ["billing-and-refunds", "coaching-access", "getting-help"],
+  "billing-and-refunds": ["membership", "support"],
+  "coaching-access":     ["membership", "getting-help", "support"],
+  support:               ["getting-help", "billing-and-refunds", "navigation"],
+  "getting-help":        ["support", "coaching-access", "navigation"],
+  navigation:            ["getting-help", "support"],
+};
+
+/** Resolve a node's curated neighbors as TaxonomyNode objects (registry order preserved). */
+export function relatedNodesFor(slug: string): TaxonomyNode[] {
+  const neighbors = NODE_NEIGHBORS[slug] ?? [];
+  return neighbors
+    .map((s) => NODE_BY_SLUG.get(s))
+    .filter((n): n is TaxonomyNode => !!n && n.slug !== slug);
+}
+
+/** Look up a node by slug (null when unknown). */
+export function getNodeBySlug(slug: string | null | undefined): TaxonomyNode | null {
+  return slug ? NODE_BY_SLUG.get(slug) ?? null : null;
+}
+
+// ───────────────────────────────────────────────────────────────────────────
 // Ceiling + handoff — the depth-ceiling / handoff mechanism (foundation §3.6).
 // ───────────────────────────────────────────────────────────────────────────
 

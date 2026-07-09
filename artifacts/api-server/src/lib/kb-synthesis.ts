@@ -25,6 +25,7 @@ import {
   isNode,
   AUTHORITY_ROLES,
   nodeImportance,
+  relatedNodesFor,
   type AuthorityRole,
   type NodeImportance,
   type TaxonomyNode,
@@ -506,7 +507,9 @@ export const NO_MEMBER_NAMES_RULE = `never include member names — refer to mem
 // Exported so the consolidation prompt contract is unit-testable (mirrors
 // buildMapExtractSystemPrompt).
 export function buildConsolidateSystemPrompt(node: TaxonomyNode, depthGuidance: string): string {
-  const relatedNodes = ALL_NODES.filter((n) => n.root === node.root && n.slug !== node.slug)
+  // Genuinely adjacent topics only (curated NODE_NEIGHBORS), not every sibling
+  // in the root — keeps prose cross-links on-subject.
+  const relatedNodes = relatedNodesFor(node.slug)
     .map((n) => n.label)
     .join(", ");
 
@@ -610,16 +613,21 @@ async function consolidateAll(
 // dives, and a CURATED concept points up to the process stages where it applies.
 // Appended verbatim to every synthesized body so the structure never depends on
 // the model remembering to add prose links.
-function relatedTopicsMarkdown(node: TaxonomyNode): string {
+// Tightened (Task: tighten "Related topics"): instead of dumping EVERY sibling
+// in the root(s) — the boilerplate the reviewers flagged — the section is built
+// from the node's curated NODE_NEIGHBORS adjacency (kb-taxonomy), grouped under
+// the same depth-ladder headers. Exported for unit tests.
+export function relatedTopicsMarkdown(node: TaxonomyNode): string {
+  const neighbors = relatedNodesFor(node.slug);
   const bullets = (root: TaxonomyNode["root"]) =>
-    ALL_NODES.filter((n) => n.root === root && n.slug !== node.slug).map((n) => `- ${n.label}`);
+    neighbors.filter((n) => n.root === root).map((n) => `- ${n.label}`);
 
   const sections: string[] = [];
   if (node.root === "process") {
     const concepts = bullets("concepts");
     if (concepts.length) sections.push(`**Go deeper — the skills behind this stage:**\n${concepts.join("\n")}`);
     const stages = bullets("process");
-    if (stages.length) sections.push(`**Other stages:**\n${stages.join("\n")}`);
+    if (stages.length) sections.push(`**Adjacent stages:**\n${stages.join("\n")}`);
   } else if (node.root === "concepts") {
     const stages = bullets("process");
     if (stages.length) sections.push(`**Where this applies — process stages:**\n${stages.join("\n")}`);

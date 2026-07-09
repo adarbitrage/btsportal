@@ -15,6 +15,7 @@ import { db } from "@workspace/db";
 import { knowledgebaseDocsTable } from "@workspace/db/schema";
 import { eq, isNotNull, and } from "drizzle-orm";
 import { scrubPrivateContent } from "./content-privacy-filter";
+import { ALL_NODES, getNodeBySlug, isHomeRoot, NODE_NEIGHBORS } from "./kb-taxonomy.js";
 import {
   hasSourceConflictMarker,
   hasNavigationConflictMarker,
@@ -42,7 +43,11 @@ export type RiskFlagType =
   | "navigation_drift"
   | "situational_content"
   | "time_sensitive"
-  | "privacy_residue";
+  | "privacy_residue"
+  // "Related topics" hygiene (Task #1801): the draft's Related-topics list
+  // names taxonomy topics that don't match the doc's placement, or is the
+  // boilerplate every-sibling dump. Non-critical — guides the human edit.
+  | "related_topics_mismatch";
 
 export interface RiskFlag {
   type: RiskFlagType;
@@ -118,6 +123,108 @@ function matchPatterns(
   return hits;
 }
 
+// ── "Related topics" hygiene (Task #1801) ────────────────────────────────────
+//
+// Synthesized drafts end with a "## Related topics" section. Historically this
+// was the every-sibling dump (and sometimes lists topics from a different
+// shelf entirely, e.g. "Billing & Refunds" on a testing doc). The assistant
+// reads these lists as prose, so off-subject entries waste context and mislead.
+// This pure check compares the list against the doc's taxonomy placement:
+//  - an entry naming a taxonomy topic from a root the doc's placement doesn't
+//    pair with (process↔concepts pair; operations stands alone) is a MISMATCH;
+//  - a list reproducing an ENTIRE root's node list (minus at most the doc's
+//    own node) is the generic BOILERPLATE default.
+// Entries that don't match any taxonomy label are ignored (free-prose topics
+// are the reviewer's call), keeping false positives off genuinely-edited lists.
+
+const NODE_BY_LABEL: ReadonlyMap<string, { slug: string; root: string; label: string }> = new Map(
+  ALL_NODES.map((n) => [n.label.trim().toLowerCase(), n]),
+);
+
+/** Extract the bullet entries of the draft's "## Related topics" section ([] when absent). */
+export function parseRelatedTopicEntries(content: string): string[] {
+  const lines = content.split("\n");
+  const start = lines.findIndex((l) => /^##\s+related topics\s*$/i.test(l.trim()));
+  if (start === -1) return [];
+  const entries: string[] = [];
+  for (let i = start + 1; i < lines.length; i++) {
+    const line = lines[i].trim();
+    if (/^##[^#]/.test(line)) break; // next section
+    const m = line.match(/^[-*]\s+(.+?)\s*$/);
+    if (m) entries.push(m[1].replace(/\*\*/g, "").trim());
+  }
+  return entries;
+}
+
+/** The roots whose topics legitimately appear in a doc's Related-topics list. */
+function allowedRootsFor(docRoot: string): ReadonlySet<string> {
+  if (docRoot === "process" || docRoot === "concepts") return new Set(["process", "concepts"]);
+  return new Set([docRoot]);
+}
+
+/**
+ * Compute the related_topics_mismatch flag for a draft (null when clean or
+ * when the doc's placement is unknown / no Related-topics section exists).
+ */
+export function computeRelatedTopicsFlag(input: {
+  content: string;
+  homeRoot?: string | null;
+  node?: string | null;
+}): RiskFlag | null {
+  const entries = parseRelatedTopicEntries(input.content);
+  if (entries.length === 0) return null;
+
+  const docNode = getNodeBySlug(input.node ?? null);
+  const docRoot = docNode?.root ?? (isHomeRoot(input.homeRoot) ? input.homeRoot! : null);
+  if (!docRoot) return null; // no placement to judge against
+
+  const allowedRoots = allowedRootsFor(docRoot);
+  const neighborSlugs = new Set(docNode ? NODE_NEIGHBORS[docNode.slug] ?? [] : []);
+
+  // Mismatched entries: named taxonomy topics outside the allowed roots (and
+  // not an explicitly-curated neighbor).
+  const matched = entries
+    .map((e) => ({ entry: e, node: NODE_BY_LABEL.get(e.trim().toLowerCase()) ?? null }))
+    .filter((x) => x.node !== null) as Array<{ entry: string; node: { slug: string; root: string; label: string } }>;
+  const mismatched = matched.filter(
+    (x) => !allowedRoots.has(x.node.root) && !neighborSlugs.has(x.node.slug),
+  );
+
+  // Boilerplate: the list reproduces an entire root's node list (minus at most
+  // the doc's own node) — the generic every-sibling default.
+  const matchedSlugs = new Set(matched.map((x) => x.node.slug));
+  const boilerplateRoots: string[] = [];
+  for (const root of new Set(ALL_NODES.map((n) => n.root))) {
+    const rootSlugs = ALL_NODES.filter((n) => n.root === root).map((n) => n.slug);
+    const expected = rootSlugs.filter((s) => s !== docNode?.slug);
+    if (expected.length >= 2 && expected.every((s) => matchedSlugs.has(s))) {
+      boilerplateRoots.push(root);
+    }
+  }
+
+  if (mismatched.length === 0 && boilerplateRoots.length === 0) return null;
+
+  const parts: string[] = [];
+  if (mismatched.length > 0) {
+    parts.push(
+      `Off-subject entries for this doc's placement (${docNode ? docNode.label : docRoot}): ${mismatched
+        .map((x) => `"${x.entry}"`)
+        .join(", ")}.`,
+    );
+  }
+  if (boilerplateRoots.length > 0) {
+    parts.push(
+      `Lists every ${boilerplateRoots.join(" + ")} topic — the generic default list, not genuinely adjacent subjects.`,
+    );
+  }
+  return {
+    type: "related_topics_mismatch",
+    severity: "medium",
+    message: "Related-topics list doesn't match the doc's subject",
+    detail: `${parts.join(" ")} Trim the "Related topics" section to genuinely adjacent topics before publishing.`,
+  };
+}
+
 // ── Pure flag computation ────────────────────────────────────────────────────
 
 export interface ComputeFlagsInput {
@@ -126,6 +233,8 @@ export interface ComputeFlagsInput {
   authorityRole?: string | null;
   docClassTarget?: string | null;
   homeRoot?: string | null;
+  /** Taxonomy node slug the doc is filed under (drives Related-topics hygiene). */
+  node?: string | null;
   /** How many distinct sources corroborate this claim (>=2 = corroborated). */
   corroborationCount?: number;
   /** Title of an existing live doc this draft would overwrite (duplicate). */
@@ -257,6 +366,14 @@ export function computeRiskFlags(input: ComputeFlagsInput): RiskFlag[] {
         "Matches the privacy scrub rules (member/coach name, email, phone or legacy brand). Auto-scrubbed at publish, but verify the passage reads correctly.",
     });
   }
+
+  // "Related topics" list vs taxonomy placement (Task #1801).
+  const relatedFlag = computeRelatedTopicsFlag({
+    content: input.content,
+    homeRoot: input.homeRoot,
+    node: input.node,
+  });
+  if (relatedFlag) flags.push(relatedFlag);
 
   // Single-source vs corroborated.
   const corroboration = input.corroborationCount ?? 1;

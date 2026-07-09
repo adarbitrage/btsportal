@@ -205,6 +205,9 @@ export async function runAutoTriageOnDoc(
     authorityRole: doc.authorityRole,
     docClassTarget: result.suggestedDocClass ?? doc.docClassTarget,
     homeRoot: result.suggestedHomeRoot ?? doc.homeRoot,
+    // Prefer the doc's ACTUAL filed node (reviewers may have re-filed it);
+    // fall back to the AI suggestion for never-filed drafts.
+    node: doc.node ?? result.suggestedNode,
     corroborationCount: doc.corroborationCount ?? 0,
     duplicateTitle: ctx.duplicateTitle,
     conflictsWithVerified: ctx.conflictsWithVerified,
