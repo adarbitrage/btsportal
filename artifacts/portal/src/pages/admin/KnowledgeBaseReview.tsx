@@ -182,7 +182,7 @@ interface SelfTestQuestionResult {
   topLiveSemanticScore: number;
 }
 
-interface RetrievalSelfTest {
+export interface RetrievalSelfTest {
   ranAt: string;
   semanticAvailable: boolean;
   memberQuestions: string[];
@@ -460,20 +460,33 @@ function RiskChips({ flags, needsExpert }: { flags: RiskFlag[] | null; needsExpe
 // run through the real retrieval path; a fail means the draft likely wouldn't
 // surface for that ask (add the member's vocabulary to the draft).
 
-function SelfTestPanel({ selfTest }: { selfTest: RetrievalSelfTest }) {
+export function SelfTestPanel({ selfTest }: { selfTest: RetrievalSelfTest }) {
   const allPassed = selfTest.failedCount === 0;
+  const [expanded, setExpanded] = useState(false);
   return (
-    <div className={`mt-3 p-3 rounded-lg border ${allPassed ? "bg-green-50 border-green-200" : "bg-amber-50 border-amber-200"}`}>
-      <div className="flex items-center gap-2 text-sm font-semibold text-gray-800">
+    <div className={`mt-3 rounded-lg border shrink-0 ${allPassed ? "bg-green-50 border-green-200" : "bg-amber-50 border-amber-200"}`}>
+      <button
+        type="button"
+        onClick={() => setExpanded((e) => !e)}
+        aria-expanded={expanded}
+        className="w-full flex items-center gap-2 p-3 text-sm font-semibold text-gray-800 text-left"
+      >
         {allPassed
-          ? <CheckCircle className="w-4 h-4 text-green-600" />
-          : <AlertTriangle className="w-4 h-4 text-amber-600" />}
-        Retrieval self-test: {selfTest.passedCount}/{selfTest.results.length} member questions find this doc
-        {!selfTest.semanticAvailable && (
-          <span className="text-[10px] font-normal text-gray-500">(keyword matching only)</span>
-        )}
-      </div>
-      <div className="mt-2 space-y-1">
+          ? <CheckCircle className="w-4 h-4 text-green-600 shrink-0" />
+          : <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />}
+        <span className="min-w-0 truncate">
+          Retrieval self-test: {selfTest.passedCount}/{selfTest.results.length} member questions find this doc
+          {!selfTest.semanticAvailable && (
+            <span className="text-[10px] font-normal text-gray-500"> (keyword matching only)</span>
+          )}
+        </span>
+        <span className="ml-auto flex items-center gap-1 text-[11px] font-normal text-gray-500 shrink-0">
+          {expanded ? "Hide details" : "Show details"}
+          {expanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+        </span>
+      </button>
+      {expanded && (
+      <div className="px-3 pb-3 space-y-1 max-h-[30vh] overflow-y-auto">
         {selfTest.results.map((r, i) => (
           <div key={i} className="flex items-start gap-2 text-xs bg-white rounded border p-2">
             {r.passed
@@ -493,6 +506,7 @@ function SelfTestPanel({ selfTest }: { selfTest: RetrievalSelfTest }) {
           </div>
         ))}
       </div>
+      )}
     </div>
   );
 }
