@@ -586,6 +586,7 @@ export default function KnowledgeBaseReview() {
   const [reviewInsights, setReviewInsights] = useState<ReviewInsights | null>(null);
   const [insightsLoading, setInsightsLoading] = useState(false);
   const [refineThread, setRefineThread] = useState<Array<{ role: string; content: string }>>([]);
+  const chatThreadRef = useRef<HTMLDivElement | null>(null);
   const [mergeIds, setMergeIds] = useState<Set<number>>(new Set());
   const [merging, setMerging] = useState(false);
   const [guidedMode, setGuidedMode] = useState(false);
@@ -701,6 +702,13 @@ export default function KnowledgeBaseReview() {
     }
     return () => { if (topicIndexPollRef.current) { clearInterval(topicIndexPollRef.current); topicIndexPollRef.current = null; } };
   }, [topicIndex?.running, topicIndex?.qualityCheckRunning, fetchTopicIndexStatus]);
+
+  // Auto-scroll the refine chat thread to the newest message whenever the
+  // thread changes, the "Thinking…" indicator appears, or the pane opens.
+  useEffect(() => {
+    const el = chatThreadRef.current;
+    if (el) el.scrollTop = el.scrollHeight;
+  }, [refineThread, redrafting, chatOpen, chatWide]);
 
   // Guided mode keyboard shortcuts (rapid confirm for existing-doc re-verify)
   useEffect(() => {
@@ -1691,7 +1699,7 @@ export default function KnowledgeBaseReview() {
                     <ChevronUp className="w-4 h-4" />
                   </button>
                 ) : (
-                <div className={`${chatWide ? "h-2/3" : "h-1/3"} shrink-0 min-h-0 flex flex-col rounded-lg border border-violet-200 bg-violet-50/60 transition-all`}>
+                <div className={`${chatWide ? "basis-2/3" : "basis-1/3"} grow-0 shrink-0 min-h-[220px] flex flex-col rounded-lg border border-violet-200 bg-violet-50/60 transition-all`}>
                   <div className="flex items-center justify-between px-3 py-2 border-b border-violet-100">
                     <div className="flex items-center gap-2 text-sm font-medium text-violet-800">
                       <Wand2 className="w-4 h-4" />Refine with AI
@@ -1717,7 +1725,7 @@ export default function KnowledgeBaseReview() {
                       </Button>
                     </div>
                   </div>
-                  <div className="flex-1 min-h-0 overflow-y-auto space-y-2 p-2">
+                  <div ref={chatThreadRef} className="flex-1 min-h-0 overflow-y-auto space-y-2 p-2">
                     {refineThread.length === 0 && (
                       <p className="text-xs text-violet-700/80 px-1 pt-1">
                         Ask a question about this draft or its sources, or give an edit
@@ -1749,7 +1757,7 @@ export default function KnowledgeBaseReview() {
                       </div>
                     )}
                   </div>
-                  <div className="p-2 border-t border-violet-100 space-y-2">
+                  <div className="shrink-0 p-2 border-t border-violet-100 flex items-end gap-2">
                     <Textarea
                       value={instruction}
                       onChange={(e) => setInstruction(e.target.value)}
@@ -1759,16 +1767,14 @@ export default function KnowledgeBaseReview() {
                           runRefine();
                         }
                       }}
-                      rows={Math.min(6, Math.max(2, instruction.split("\n").length))}
-                      className="resize-none bg-white"
+                      rows={Math.min(chatWide ? 4 : 2, Math.max(1, instruction.split("\n").length))}
+                      className="resize-none bg-white min-h-0 flex-1 max-h-32 overflow-y-auto"
                       placeholder='Ask or instruct — e.g. "Why does it say X?" or "Tighten the intro"'
                     />
-                    <div className="flex justify-end">
-                      <Button size="sm" onClick={runRefine} disabled={redrafting || !instruction.trim()} className="bg-violet-600 hover:bg-violet-700">
-                        {redrafting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Wand2 className="w-4 h-4 mr-2" />}
-                        Send
-                      </Button>
-                    </div>
+                    <Button size="sm" onClick={runRefine} disabled={redrafting || !instruction.trim()} className="bg-violet-600 hover:bg-violet-700 shrink-0">
+                      {redrafting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Wand2 className="w-4 h-4 mr-2" />}
+                      Send
+                    </Button>
                   </div>
                 </div>
                 )}
