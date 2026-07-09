@@ -29,7 +29,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { db, emailTemplatesTable } from "@workspace/db";
+import { db, emailTemplatesTable, partnersTable } from "@workspace/db";
 import { eq, and } from "drizzle-orm";
 import { renderPersonBlock, renderPitchBlock } from "../lib/seed-templates.js";
 import { CommunicationService } from "../lib/communication-service.js";
@@ -78,16 +78,14 @@ const PREVIEW_SLUGS = [
   "partner_call_cancel",
 ];
 
-// Sample person-block used for every booking-subject template so the
-// preview shows the card with a photo, bio, and labeled member-timezone
-// datetime — the same shape `call-bookings.ts`/`scheduled-comms.ts` build.
-const SAMPLE_PERSON_BLOCK = renderPersonBlock({
-  name: "Jordan Rivera",
-  photoUrl: "https://portal.buildtestscale.com/images/sample-coach.jpg",
-  bio: "Jordan has helped 200+ members build and scale their first online business.",
-  callTypeLabel: "Kickoff Call",
-  dateTimeLabel: "Tuesday, July 14 at 2:00 PM EDT",
-});
+// Real roster rows queried from the DB — loaded once in main() and
+// populated here so sampleVariables() and sendVerificationEmails() can
+// reference them. Using live rows avoids the phantom-asset trap: the old
+// static SAMPLE_PERSON_BLOCK referenced /images/sample-coach.jpg which
+// doesn't exist in the portal (the SPA catch-all serves it as text/html
+// with a 200 — a content-type miss that the pre-flight check catches).
+let samplePersonBlockWithPhoto = ""; // John — accountability partner, has a photo
+let samplePersonBlockNoPhoto = "";   // Jean — accountability partner, photoUrl intentionally NULL
 
 const SAMPLE_PITCH_BLOCK = renderPitchBlock({
   heading: "Ready for more 1-on-1 support?",
@@ -107,6 +105,46 @@ const BOOKING_SLUGS = new Set([
   "partner_call_cancel",
 ]);
 
+// Load real partner roster rows from the DB for use as sample person blocks.
+// John (with photo) is the positive case; Jean (photoUrl NULL) is the
+// intentional initials-only control. Called once from main() before any
+// rendering so the blocks are ready for both the gallery and --send paths.
+async function loadSampleRosterBlocks(): Promise<void> {
+  const [john] = await db
+    .select({ displayName: partnersTable.displayName, photoUrl: partnersTable.photoUrl, bio: partnersTable.bio })
+    .from(partnersTable)
+    .where(and(eq(partnersTable.displayName, "John"), eq(partnersTable.isActive, true)))
+    .limit(1);
+  const [jean] = await db
+    .select({ displayName: partnersTable.displayName, photoUrl: partnersTable.photoUrl, bio: partnersTable.bio })
+    .from(partnersTable)
+    .where(and(eq(partnersTable.displayName, "Jean"), eq(partnersTable.isActive, true)))
+    .limit(1);
+
+  // Render without portalUrl — the communication-service seam (getCommonVariables)
+  // qualifies the root-relative path at send time, which is what Task #1790 proves.
+  samplePersonBlockWithPhoto = renderPersonBlock({
+    name: john?.displayName ?? "John",
+    photoUrl: john?.photoUrl ?? null,
+    bio: john?.bio ?? null,
+    callTypeLabel: "Partner Call",
+    dateTimeLabel: "Tuesday, July 14 at 2:00 PM EDT",
+  });
+  samplePersonBlockNoPhoto = renderPersonBlock({
+    name: jean?.displayName ?? "Jean",
+    photoUrl: jean?.photoUrl ?? null,
+    bio: jean?.bio ?? null,
+    callTypeLabel: "Partner Call",
+    dateTimeLabel: "Wednesday, July 15 at 11:00 AM EDT",
+  });
+
+  if (john?.photoUrl) {
+    console.log(`[preview] loaded John's person block, photoUrl=${john.photoUrl}`);
+  } else {
+    console.warn("[preview] John not found in active partners — samplePersonBlockWithPhoto will render initials");
+  }
+}
+
 function sampleVariables(slug: string): Record<string, string> {
   const base: Record<string, string> = {
     member_name: "Alex Morgan",
@@ -116,7 +154,7 @@ function sampleVariables(slug: string): Record<string, string> {
     ticket_number: "4821",
     ticket_id: "4821",
     cancelled_pending_email: "old-address@example.com",
-    call_type_label: "Kickoff Call",
+    call_type_label: "Partner Call",
     old_datetime_label: "Monday, July 6 at 10:00 AM EDT",
     new_datetime_label: "Tuesday, July 14 at 2:00 PM EDT",
     datetime_label: "Tuesday, July 14 at 2:00 PM EDT",
@@ -124,7 +162,7 @@ function sampleVariables(slug: string): Record<string, string> {
     rebooking_url: "https://portal.buildtestscale.com/coaching/book",
   };
   if (BOOKING_SLUGS.has(slug)) {
-    base.person_block_html = SAMPLE_PERSON_BLOCK;
+    base.person_block_html = samplePersonBlockWithPhoto;
   }
   // Show the pitch slot populated on exactly one template so the gallery
   // demonstrates it without implying every send carries a pitch (the
@@ -205,59 +243,60 @@ async function renderAllToDisk(): Promise<string[]> {
 
 async function sendVerificationEmails(to: string): Promise<void> {
   console.log(`\n[preview] sending 3 verification emails to ${to} via the real production send path...`);
+  console.log("[preview] person blocks: John (with photo) for partner_call_confirmation + kickoff_call_reminder; Jean (no photo → initials) for partner_call_confirmation alternate");
 
-  const kickoffResult = await CommunicationService.sendEmailNow({
-    templateSlug: "kickoff_call_confirmation",
-    to,
-    variables: {
-      member_name: "Alex Morgan",
-      call_type_label: "Kickoff Call",
-      datetime_label: "Tuesday, July 14 at 2:00 PM EDT",
-      meeting_url: "https://meet.google.com/abc-defg-hij",
-      person_block_html: SAMPLE_PERSON_BLOCK,
-    },
-  });
-  console.log(`[preview] kickoff_call_confirmation -> ${kickoffResult.status}${"reason" in kickoffResult ? ` (${(kickoffResult as any).reason})` : ""}`);
-
-  const partnerResult = await CommunicationService.sendEmailNow({
+  // partner_call_confirmation — John has a photo; the communication-service
+  // seam qualifies his root-relative /partner-photos/john.jpg to the
+  // absolute prod URL regardless of whether portalUrl was threaded here.
+  const partnerConfirmResult = await CommunicationService.sendEmailNow({
     templateSlug: "partner_call_confirmation",
     to,
     variables: {
       member_name: "Alex Morgan",
       call_type_label: "Partner Call",
-      datetime_label: "Wednesday, July 15 at 11:00 AM EDT",
-      meeting_url: "https://meet.google.com/xyz-uvwx-yz1",
-      person_block_html: renderPersonBlock({
-        name: "Sasha Bennett",
-        photoUrl: null,
-        bio: "Sasha specializes in partner-call strategy and accountability.",
-        callTypeLabel: "Partner Call",
-        dateTimeLabel: "Wednesday, July 15 at 11:00 AM EDT",
-      }),
+      datetime_label: "Tuesday, July 14 at 2:00 PM EDT",
+      meeting_url: "https://meet.google.com/abc-defg-hij",
+      person_block_html: samplePersonBlockWithPhoto,
     },
   });
-  console.log(`[preview] partner_call_confirmation -> ${partnerResult.status}${"reason" in partnerResult ? ` (${(partnerResult as any).reason})` : ""}`);
+  console.log(`[preview] partner_call_confirmation (John w/ photo) -> ${partnerConfirmResult.status}${"reason" in partnerConfirmResult ? ` (${(partnerConfirmResult as any).reason})` : ""}`);
 
+  // partner_call_reschedule — Jean is the intentional initials-only control:
+  // her photoUrl is NULL so the initials avatar is correct and expected.
+  const partnerRescheduleResult = await CommunicationService.sendEmailNow({
+    templateSlug: "partner_call_reschedule",
+    to,
+    variables: {
+      member_name: "Alex Morgan",
+      call_type_label: "Partner Call",
+      previous_datetime_label: "Monday, July 13 at 10:00 AM EDT",
+      new_datetime_label: "Wednesday, July 15 at 11:00 AM EDT",
+      meeting_url: "https://meet.google.com/xyz-uvwx-yz1",
+      person_block_html: samplePersonBlockNoPhoto,
+    },
+  });
+  console.log(`[preview] partner_call_reschedule (Jean — initials) -> ${partnerRescheduleResult.status}${"reason" in partnerRescheduleResult ? ` (${(partnerRescheduleResult as any).reason})` : ""}`);
+
+  // kickoff_call_reminder — also uses John's person block (with photo) and
+  // threads the direct staff_name/call_date/call_time tokens the template
+  // body also interpolates.
   const reminderResult = await CommunicationService.sendEmailNow({
     templateSlug: "kickoff_call_reminder",
     to,
     variables: {
       member_name: "Alex Morgan",
-      // Task #1717: kickoff_call_reminder's body interpolates these three
-      // tokens directly (not just via person_block_html) — omitting them
-      // is exactly the "raw {{staff_name}}/{{call_date}}/{{call_time}}"
-      // bug found in real-Gmail testing.
-      staff_name: "Jordan Rivera",
+      staff_name: "John",
       call_date: "Tuesday, July 14",
       call_time: "2:00 PM EDT",
       meeting_url: "https://meet.google.com/abc-defg-hij",
-      person_block_html: SAMPLE_PERSON_BLOCK,
+      person_block_html: samplePersonBlockWithPhoto,
     },
   });
-  console.log(`[preview] kickoff_call_reminder -> ${reminderResult.status}${"reason" in reminderResult ? ` (${(reminderResult as any).reason})` : ""}`);
+  console.log(`[preview] kickoff_call_reminder (John w/ photo) -> ${reminderResult.status}${"reason" in reminderResult ? ` (${(reminderResult as any).reason})` : ""}`);
 }
 
 async function main() {
+  await loadSampleRosterBlocks();
   const rendered = await renderAllToDisk();
   if (rendered.length === 0) {
     console.error("[preview] No templates rendered — is the DB seeded? Run the API server once to trigger boot seeding, then re-run this script.");

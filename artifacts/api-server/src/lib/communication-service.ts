@@ -21,7 +21,7 @@ import {
 import { brandStrings } from "@workspace/brand-config";
 import { DEFAULT_TICKETDESK_URL } from "@workspace/support-config";
 import { renderPitchStackHtml } from "./pitch-resolver";
-import { qualifyPublicAssetUrl } from "./seed-templates";
+import { qualifyPublicAssetUrl, qualifyPersonBlockImgSrcs } from "./seed-templates";
 
 // Queue-fallback events are persisted to the audit log inside
 // `recordQueueFallback` (entityType="queue"). We used to also write a
@@ -452,6 +452,21 @@ async function getCommonVariables(
         ? ""
         : `<span style="font-size:22px;font-weight:bold;color:#1a1a2e;letter-spacing:0.3px;">${brandInfo.full}</span>`;
 
+  // Task #1790: qualify any root-relative img src values left in
+  // person_block_html at send time — the same discipline the logo already
+  // follows. renderPersonBlock now emits a root-relative src (instead of
+  // falling back to initials) when its caller omitted portalUrl, so this
+  // seam is the mandatory backstop that makes the absolute URL inevitable.
+  const rawPersonBlock = extra?.person_block_html;
+  const qualifiedPersonBlock = rawPersonBlock !== undefined
+    ? qualifyPersonBlockImgSrcs(rawPersonBlock, portalUrl)
+    : undefined;
+
+  const finalExtra: Record<string, string> | undefined =
+    qualifiedPersonBlock !== undefined && qualifiedPersonBlock !== rawPersonBlock
+      ? { ...extra, person_block_html: qualifiedPersonBlock }
+      : extra;
+
   return {
     portal_url: portalUrl ?? "",
     support_email: FROM_EMAIL_TRANSACTIONAL,
@@ -468,7 +483,7 @@ async function getCommonVariables(
     person_block_html: "",
     pitch_block_html: "",
     current_year: new Date().getFullYear().toString(),
-    ...extra,
+    ...finalExtra,
   };
 }
 

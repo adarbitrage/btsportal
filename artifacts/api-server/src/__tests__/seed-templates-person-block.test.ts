@@ -1,15 +1,19 @@
 import { describe, it, expect } from "vitest";
 import fs from "fs";
 import path from "path";
-import { qualifyPublicAssetUrl, renderPersonBlock } from "../lib/seed-templates";
+import {
+  qualifyPublicAssetUrl,
+  qualifyPersonBlockImgSrcs,
+  renderPersonBlock,
+} from "../lib/seed-templates";
 
 /**
- * Task #1717: coach/partner photos are stored as root-relative paths (e.g.
- * `/coaching-photos/sasha.png`). Those have no browser origin to resolve
- * against once baked into a sent email, so they must be qualified into an
- * absolute URL against the configured portal host before they reach the
- * `<img src>` — or degrade to the initials avatar rather than a broken
- * image box.
+ * Task #1717 + Task #1790: coach/partner photos are stored as root-relative
+ * paths (e.g. `/partner-photos/john.jpg`). The photo must be qualified to an
+ * absolute URL before it reaches Gmail — at SEND TIME in the communication-
+ * service seam, not at render time in the caller — so the absolute URL is
+ * produced regardless of whether the renderPersonBlock caller remembered to
+ * thread portalUrl.
  */
 describe("qualifyPublicAssetUrl", () => {
   it("qualifies a root-relative path against the portal host", () => {
@@ -47,17 +51,6 @@ describe("qualifyPublicAssetUrl", () => {
 
 describe("logo asset ships in the portal's public bundle", () => {
   it("the logo referenced by getCommonVariables exists in artifacts/portal/public/images and is a real PNG", () => {
-    // Deterministic stand-in for a live curl check: the header logo URL is
-    // built from a fixed path ("/images/bts-logo.png") in
-    // communication-service.ts. That path is only genuinely fetchable in
-    // production if the file lives in the portal's *public* directory (it
-    // ships verbatim into `dist/public`, same as the working
-    // `/coaching-photos/*` files) rather than, say, `src/assets` (bundled
-    // and hashed, or not shipped at all). This can't prove the *deployed*
-    // bundle serves `image/*` — that still requires the canary curl against
-    // the live host — but it does deterministically catch the asset being
-    // deleted, renamed, or moved to a non-public location, which is what
-    // silently produces the SPA-HTML-fallback 200 the task diagnosed.
     const logoPath = path.resolve(__dirname, "../../../portal/public/images/bts-logo.png");
     expect(fs.existsSync(logoPath), `expected logo asset at ${logoPath}`).toBe(true);
 
@@ -68,28 +61,169 @@ describe("logo asset ships in the portal's public bundle", () => {
 });
 
 describe("renderPersonBlock photo qualification", () => {
-  it("renders an absolute <img src> when a portalUrl is supplied", () => {
+  it("renders an absolute <img src> when portalUrl is supplied", () => {
     const html = renderPersonBlock({
-      name: "Sasha Bennett",
-      photoUrl: "/coaching-photos/sasha.png",
+      name: "John",
+      photoUrl: "/partner-photos/john.jpg",
       bio: null,
       callTypeLabel: "Partner Call",
-      dateTimeLabel: "Wednesday, July 15 at 11:00 AM EDT",
-      portalUrl: "https://portal.example.test",
+      dateTimeLabel: "Tuesday, July 14 at 2:00 PM EDT",
+      portalUrl: "https://portal.buildtestscale.com",
     });
-    expect(html).toContain('src="https://portal.example.test/coaching-photos/sasha.png"');
+    expect(html).toContain('src="https://portal.buildtestscale.com/partner-photos/john.jpg"');
+    expect(html).not.toContain(">J<");
   });
 
-  it("falls back to the initials avatar (no <img>) when photo can't be qualified", () => {
+  it("renders a raw-path <img src> when portalUrl is absent — to be qualified by the communication-service seam", () => {
+    // Task #1790: renderPersonBlock no longer silently degrades to initials
+    // for a root-relative photo when portalUrl is missing. It emits the raw
+    // path so getCommonVariables (qualifyPersonBlockImgSrcs) can qualify it
+    // at send time using the portalUrl it resolves independently.
     const html = renderPersonBlock({
-      name: "Sasha Bennett",
-      photoUrl: "/coaching-photos/sasha.png",
+      name: "John",
+      photoUrl: "/partner-photos/john.jpg",
+      bio: null,
+      callTypeLabel: "Partner Call",
+      dateTimeLabel: "Tuesday, July 14 at 2:00 PM EDT",
+      portalUrl: null,
+    });
+    expect(html).toContain("<img");
+    expect(html).toContain('src="/partner-photos/john.jpg"');
+    expect(html).not.toContain(">J<");
+  });
+
+  it("renders initials (no <img>) when photo is genuinely NULL", () => {
+    const html = renderPersonBlock({
+      name: "Jean",
+      photoUrl: null,
       bio: null,
       callTypeLabel: "Partner Call",
       dateTimeLabel: "Wednesday, July 15 at 11:00 AM EDT",
-      portalUrl: null,
+      portalUrl: "https://portal.buildtestscale.com",
     });
     expect(html).not.toContain("<img");
-    expect(html).toContain(">S<");
+    expect(html).toContain(">J<");
+  });
+
+  it("renders initials (no <img>) for an /objects/ path — auth-gated, never publicly fetchable", () => {
+    const html = renderPersonBlock({
+      name: "Coach",
+      photoUrl: "/objects/coaches/auth-gated-photo.jpg",
+      bio: null,
+      callTypeLabel: "Kickoff Call",
+      dateTimeLabel: "Friday, July 18 at 3:00 PM EDT",
+      portalUrl: "https://portal.buildtestscale.com",
+    });
+    expect(html).not.toContain("<img");
+    expect(html).not.toContain("objects/");
+    expect(html).toContain(">C<");
+  });
+});
+
+describe("qualifyPersonBlockImgSrcs — communication-service send-time seam", () => {
+  it("qualifies a root-relative img src to an absolute URL using the portal host", () => {
+    const raw = renderPersonBlock({
+      name: "John",
+      photoUrl: "/partner-photos/john.jpg",
+      bio: null,
+      callTypeLabel: "Partner Call",
+      dateTimeLabel: "Tuesday, July 14 at 2:00 PM EDT",
+      portalUrl: null,
+    });
+    expect(raw).toContain('src="/partner-photos/john.jpg"');
+
+    const qualified = qualifyPersonBlockImgSrcs(raw, "https://portal.buildtestscale.com");
+    expect(qualified).toContain('src="https://portal.buildtestscale.com/partner-photos/john.jpg"');
+    expect(qualified).not.toContain('src="/partner-photos/john.jpg"');
+  });
+
+  it("leaves an already-absolute img src unchanged (idempotent)", () => {
+    const preQualified = renderPersonBlock({
+      name: "John",
+      photoUrl: "/partner-photos/john.jpg",
+      bio: null,
+      callTypeLabel: "Partner Call",
+      dateTimeLabel: "Tuesday, July 14 at 2:00 PM EDT",
+      portalUrl: "https://portal.buildtestscale.com",
+    });
+    expect(preQualified).toContain('src="https://portal.buildtestscale.com/partner-photos/john.jpg"');
+
+    const reQualified = qualifyPersonBlockImgSrcs(preQualified, "https://portal.buildtestscale.com");
+    expect(reQualified).toBe(preQualified);
+  });
+
+  it("does not touch an initials-only block (no <img> to rewrite)", () => {
+    const initials = renderPersonBlock({
+      name: "Jean",
+      photoUrl: null,
+      bio: null,
+      callTypeLabel: "Partner Call",
+      dateTimeLabel: "Wednesday, July 15 at 11:00 AM EDT",
+    });
+    expect(initials).not.toContain("<img");
+    const after = qualifyPersonBlockImgSrcs(initials, "https://portal.buildtestscale.com");
+    expect(after).toBe(initials);
+  });
+
+  it("does not rewrite /objects/ paths (they are not present as img src after renderPersonBlock)", () => {
+    const initials = renderPersonBlock({
+      name: "Coach",
+      photoUrl: "/objects/coaches/secret.jpg",
+      bio: null,
+      callTypeLabel: "Kickoff Call",
+      dateTimeLabel: "Friday, July 18 at 3:00 PM EDT",
+    });
+    expect(initials).not.toContain("objects/");
+    const after = qualifyPersonBlockImgSrcs(initials, "https://portal.buildtestscale.com");
+    expect(after).not.toContain("objects/");
+    expect(after).not.toContain("<img");
+  });
+
+  it("returns the block unchanged when portalUrl is absent", () => {
+    const raw = renderPersonBlock({
+      name: "John",
+      photoUrl: "/partner-photos/john.jpg",
+      bio: null,
+      callTypeLabel: "Partner Call",
+      dateTimeLabel: "Tuesday, July 14 at 2:00 PM EDT",
+      portalUrl: null,
+    });
+    const after = qualifyPersonBlockImgSrcs(raw, null);
+    expect(after).toBe(raw);
+  });
+
+  it("content-type guard: a URL served as text/html (SPA catch-all) is NOT a valid image src", () => {
+    // This is the content-type-aware pre-flight check contract: a URL that
+    // returns 200 but with content-type text/html (the SPA catch-all) must
+    // NOT be treated as a valid image. The old SAMPLE_PERSON_BLOCK bug was
+    // exactly this: /images/sample-coach.jpg returned 200/text/html from
+    // the SPA catch-all, not 200/image/*.
+    //
+    // This test verifies the rule by asserting that the phantom URL
+    // (/images/sample-coach.jpg) is NOT present in the portal's public
+    // directory — if it were, it would ship as a real image. Its absence
+    // proves the SPA catch-all is the only thing serving that path, which
+    // means any pre-flight that checks for image/* content-type would (and
+    // should) reject it.
+    const phantomAssetPath = path.resolve(
+      __dirname,
+      "../../../portal/public/images/sample-coach.jpg",
+    );
+    expect(
+      fs.existsSync(phantomAssetPath),
+      "sample-coach.jpg must NOT exist in the portal public dir — the SPA catch-all was silently serving it as text/html",
+    ).toBe(false);
+  });
+});
+
+describe("partner-photos public assets exist and are real images", () => {
+  it("john.jpg is present in portal/public/partner-photos and is a JPEG", () => {
+    const photoPath = path.resolve(__dirname, "../../../portal/public/partner-photos/john.jpg");
+    expect(fs.existsSync(photoPath), `expected john.jpg at ${photoPath}`).toBe(true);
+    const buffer = fs.readFileSync(photoPath);
+    // JPEG magic bytes: FF D8 FF
+    expect(buffer[0]).toBe(0xff);
+    expect(buffer[1]).toBe(0xd8);
+    expect(buffer[2]).toBe(0xff);
   });
 });

@@ -84,6 +84,31 @@ ${body}
  *   - no portal host is configured at all (can't build an absolute URL).
  * An already-absolute `http(s)://` value is passed through unchanged.
  */
+/**
+ * Task #1790: post-process a pre-rendered person-block HTML string to qualify
+ * any root-relative `<img src="/...">` attributes to absolute URLs against
+ * the supplied portal host. This is the mandatory send-time backstop called
+ * from `getCommonVariables` in communication-service.ts — the same seam that
+ * qualifies the logo — so photo URLs are guaranteed absolute in every sent
+ * email regardless of whether the renderPersonBlock caller remembered to
+ * thread portalUrl.
+ *
+ * Only rewrites `src="/non-objects/..."` — /objects/ paths are auth-gated
+ * and were already rendered as the initials avatar in renderPersonBlock.
+ * Already-absolute `src="https://..."` values pass through unchanged.
+ * Returns the input unchanged when `portalUrl` is absent.
+ */
+export function qualifyPersonBlockImgSrcs(
+  personBlockHtml: string,
+  portalUrl: string | null | undefined,
+): string {
+  if (!personBlockHtml || !portalUrl) return personBlockHtml;
+  return personBlockHtml.replace(
+    /(<img(?:[^>]*)\ssrc=")(\/((?!objects\/)[^"]+))(")/gi,
+    (_, pre, path, _inner, post) => `${pre}${portalUrl}${path}${post}`,
+  );
+}
+
 export function qualifyPublicAssetUrl(
   assetPath: string | null | undefined,
   portalUrl: string | null | undefined,
@@ -110,13 +135,16 @@ export function qualifyPublicAssetUrl(
  * unknown when the starter template strings are built. The resulting HTML
  * string is passed as the `person_block_html` template variable.
  *
- * `portalUrl` is threaded in by the caller (same resolved value used for
- * `{{portal_url}}`) so the photo — stored as a root-relative path like
- * `/coaching-photos/sasha.png` — is qualified into an absolute URL via
- * `qualifyPublicAssetUrl` (Task #1717) before it ever reaches Gmail. A photo
- * that can't be qualified (no portal host configured, or an internal
- * object-storage path) degrades to the initials avatar rather than a broken
- * image box.
+ * `portalUrl` is optional: when supplied, root-relative photo paths are
+ * qualified to an absolute URL immediately via `qualifyPublicAssetUrl`
+ * (Task #1717). When absent, root-relative paths are emitted as raw
+ * `<img src="/...">` into the returned HTML so the communication-service
+ * seam (`getCommonVariables` / `qualifyPersonBlockImgSrcs`, Task #1790) can
+ * re-qualify them at send time using the portal host it resolves
+ * independently — guaranteeing an absolute URL in every sent email regardless
+ * of whether the caller remembered to thread `portalUrl`. Only genuinely-NULL
+ * photos and internal `/objects/...` paths (auth-gated, never publicly
+ * fetchable) degrade to the initials avatar.
  */
 export function renderPersonBlock(params: {
   name: string;
@@ -129,8 +157,22 @@ export function renderPersonBlock(params: {
   if (!params) return "";
   const { name, photoUrl, bio, callTypeLabel, dateTimeLabel, portalUrl } = params;
   const qualifiedPhotoUrl = qualifyPublicAssetUrl(photoUrl, portalUrl);
-  const avatar = qualifiedPhotoUrl
-    ? `<img src="${qualifiedPhotoUrl}" alt="${name}" width="56" height="56" style="width:56px;height:56px;border-radius:50%;object-fit:cover;display:block;border:0;">`
+  // Task #1790: if qualification returned null because portalUrl was absent at
+  // this call site, but the photo IS a real public-asset path (not /objects/,
+  // not null/empty), render the raw path into the <img> rather than falling
+  // back to initials. The communication-service seam (getCommonVariables)
+  // will re-qualify every root-relative img src against the portalUrl it
+  // resolves independently — guaranteeing the absolute URL is in the sent
+  // email even when a caller (e.g. preview-emails.ts) omitted portalUrl.
+  // /objects/ paths and genuinely-absent photos still degrade to initials
+  // here because they are either auth-gated (never publicly fetchable by
+  // Gmail's proxy) or simply unavailable.
+  const trimmedPhoto = photoUrl?.trim() ?? null;
+  const photoSrc: string | null =
+    qualifiedPhotoUrl ??
+    (trimmedPhoto && !trimmedPhoto.startsWith("/objects/") ? trimmedPhoto : null);
+  const avatar = photoSrc
+    ? `<img src="${photoSrc}" alt="${name}" width="56" height="56" style="width:56px;height:56px;border-radius:50%;object-fit:cover;display:block;border:0;">`
     : `<div style="width:56px;height:56px;border-radius:50%;background:${BTS_ACCENT_COLOR};color:#ffffff;font-size:22px;font-weight:bold;text-align:center;line-height:56px;">${(name || "?").trim().charAt(0).toUpperCase()}</div>`;
   const bioHtml = bio
     ? `<p style="margin:10px 0 0;font-size:13px;color:#4b5563;line-height:1.5;">${bio}</p>`
