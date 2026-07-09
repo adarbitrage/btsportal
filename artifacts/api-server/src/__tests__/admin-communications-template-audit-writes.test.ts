@@ -21,20 +21,48 @@ vi.mock("../lib/redis", () => ({
   isRedisConnected: async () => false,
 }));
 
+// The restore-default endpoint only works for slugs with starter copy on
+// file. We must NEVER mutate a real starter-slug row in the shared dev DB
+// (a crashed run would leave a member-facing template clobbered — and with
+// starter_hash NULL the boot refresh skips it forever). Instead, register a
+// throwaway test slug with fake starter copy via this hoisted fixture.
+const restoreDefaultFixture = vi.hoisted(() => ({
+  slug: "",
+  starter: null as {
+    slug: string;
+    name: string;
+    subject: string;
+    htmlBody: string;
+    textBody: string;
+    category: string;
+    variables: string[];
+  } | null,
+}));
+
+vi.mock("../lib/seed-templates", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../lib/seed-templates")>();
+  return {
+    ...actual,
+    getStarterEmailTemplate: (slug: string) =>
+      slug === restoreDefaultFixture.slug && restoreDefaultFixture.starter
+        ? restoreDefaultFixture.starter
+        : actual.getStarterEmailTemplate(slug),
+    listStarterEmailTemplateSlugs: () =>
+      restoreDefaultFixture.slug
+        ? [...actual.listStarterEmailTemplateSlugs(), restoreDefaultFixture.slug]
+        : actual.listStarterEmailTemplateSlugs(),
+  };
+});
+
 import adminCommunicationsRouter from "../routes/admin-communications";
 import { buildTestAppWithRouters } from "./test-app";
 
 const JWT_SECRET = process.env.JWT_SECRET || "dev-secret-change-me";
 const TEST_TAG = `tpl-audit-writes-${randomUUID().slice(0, 8)}`;
 
-// Single starter slug the project always seeds — used for the restore-default
-// audit-row assertion. Mirrors the `admin-communications-restore-default` test.
-const STARTER_SLUG = "signup_attempted";
-
 const seededUserIds: number[] = [];
 const seededEmailTemplateIds: number[] = [];
 const seededSmsTemplateIds: number[] = [];
-let savedStarterRow: typeof emailTemplatesTable.$inferSelect | undefined;
 let suiteStartTime: Date;
 
 let app: ReturnType<typeof buildTestAppWithRouters>;
@@ -68,17 +96,6 @@ beforeAll(async () => {
   seededUserIds.push(admin.id);
   adminId = admin.id;
   adminCookie = signCookie(admin.id, adminEmail);
-
-  const [existingStarter] = await db
-    .select()
-    .from(emailTemplatesTable)
-    .where(eq(emailTemplatesTable.slug, STARTER_SLUG));
-  if (!existingStarter) {
-    throw new Error(
-      `Test setup precondition: ${STARTER_SLUG} template must exist in DB (seeded at db init)`,
-    );
-  }
-  savedStarterRow = existingStarter;
 });
 
 afterAll(async () => {
@@ -106,27 +123,6 @@ afterAll(async () => {
     await db
       .delete(smsTemplatesTable)
       .where(inArray(smsTemplatesTable.id, seededSmsTemplateIds));
-  }
-
-  // Restore the starter row (and clear any version snapshots we appended).
-  if (savedStarterRow) {
-    await db
-      .delete(emailTemplateVersionsTable)
-      .where(eq(emailTemplateVersionsTable.templateId, savedStarterRow.id));
-    await db
-      .update(emailTemplatesTable)
-      .set({
-        name: savedStarterRow.name,
-        subject: savedStarterRow.subject,
-        htmlBody: savedStarterRow.htmlBody,
-        textBody: savedStarterRow.textBody,
-        category: savedStarterRow.category,
-        fromName: savedStarterRow.fromName,
-        variables: savedStarterRow.variables,
-        active: savedStarterRow.active,
-        starterHash: savedStarterRow.starterHash,
-      })
-      .where(eq(emailTemplatesTable.id, savedStarterRow.id));
   }
 
   if (seededUserIds.length > 0) {
@@ -329,32 +325,53 @@ describe("admin-communications template mutation handlers write audit rows", () 
     });
 
     it("POST .../restore-default writes a template_update audit row with source=restore_default", async () => {
-      const starterId = savedStarterRow!.id;
-      // Force a divergence from starter so the diff is non-empty and the
-      // audit row actually gets written.
-      await db
-        .update(emailTemplatesTable)
-        .set({
+      // Use a THROWAWAY template row with a unique test slug — never mutate a
+      // real starter-slug row in place (a crashed run would leave the shared
+      // dev DB clobbered). The starter lookup for this slug is provided by
+      // the hoisted seed-templates mock above.
+      const slug = `${TEST_TAG}-email-restore-default`;
+      restoreDefaultFixture.slug = slug;
+      restoreDefaultFixture.starter = {
+        slug,
+        name: "Restore Default Test",
+        subject: "Starter subject",
+        htmlBody: "<p>Starter body</p>",
+        textBody: "Starter body",
+        category: "transactional",
+        variables: [],
+      };
+
+      // Seed the row diverged from starter copy so the diff is non-empty and
+      // the audit row actually gets written.
+      const [seed] = await db
+        .insert(emailTemplatesTable)
+        .values({
+          slug,
+          name: "Restore Default Test",
           subject: "ADMIN OVERRIDE for audit-writes test",
           htmlBody: "<p>ADMIN OVERRIDE for audit-writes test</p>",
           textBody: "ADMIN OVERRIDE for audit-writes test",
+          category: "transactional",
+          variables: [],
           starterHash: null,
         })
-        .where(eq(emailTemplatesTable.id, starterId));
+        .returning();
+      seededEmailTemplateIds.push(seed.id);
 
       const res = await request(app)
-        .post(`/api/admin/communications/email-templates/${starterId}/restore-default`)
+        .post(`/api/admin/communications/email-templates/${seed.id}/restore-default`)
         .set("Cookie", adminCookie);
       expect(res.status).toBe(200);
+      expect(res.body.subject).toBe("Starter subject");
 
       const audit = await findAuditRow({
         actionType: "template_update",
         entityType: "email_template",
-        entityId: String(starterId),
+        entityId: String(seed.id),
       });
       expect(audit).toBeDefined();
       expect(audit.metadata).toMatchObject({
-        templateSlug: STARTER_SLUG,
+        templateSlug: slug,
         channel: "email",
       });
       const diff = audit.changeDiff as { source?: string; changedFields: string[] };

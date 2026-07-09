@@ -27,3 +27,10 @@ publish-time boot refresh fixed prod's footer automatically — always read-only
 query prod's starter_hash before assuming prod needs the dev repair. Also: the
 audit-writes test has clobbered the shared dev row before ("ADMIN OVERRIDE for
 audit-writes test", NULL hash); restore from starter content if seen.
+
+**Test rule (fixed July 2026):** tests must NEVER mutate a real starter-slug
+email_templates row in place — afterAll restore doesn't run on a crashed
+suite. Restore-default tests use a throwaway slug + a vi.mock of
+seed-templates overriding BOTH getStarterEmailTemplate AND
+listStarterEmailTemplateSlugs (the route's STARTER_SLUG_SET is frozen at
+module import, so the fixture slug must come from vi.hoisted, not beforeAll).
