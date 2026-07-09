@@ -18,6 +18,7 @@ import { eq } from "drizzle-orm";
 import {
   computeRiskFlags,
   computeRetrievalSelfTestFlag,
+  autoFixRelatedTopics,
   gatherFlagContext,
   maxSeverity,
   type RiskFlag,
@@ -254,23 +255,47 @@ export async function runAutoTriageOnDoc(
 ): Promise<AutoTriageDocResult> {
   const result = await triageDoc(doc);
 
+  // Title-suggestion lock (Task #1839): once the reviewer accepted, dismissed
+  // or hand-edited the title, re-analysis must NOT churn out a new suggestion
+  // — the stored title stands, and everything downstream (flags, self-test,
+  // duplicate check) is computed against it.
+  const titleLocked = doc.aiTitleDecision != null;
+  const effectiveTitle = titleLocked ? doc.title : (result.cleanedTitle || doc.title);
+
   // Synonym-gap proposals (Task #1804): uncovered member phrasings go to the
   // human-approval queue (mirrors observedTools). Fire-and-forget.
   for (const alias of result.suggestedAliases) {
     void recordProposedSynonym(alias.memberPhrase, alias.canonicalTerm, doc.title);
   }
 
+  // Related-topics auto-fix (Task #1839): deterministically clean the
+  // "## Related topics" section against the doc's placement BEFORE flags and
+  // the self-test run, so the mismatch flag only survives when something
+  // genuinely can't be auto-resolved (e.g. no placement).
+  // Judged against the doc's FILED placement only — never the AI's suggested
+  // taxonomy. An unfiled doc has no placement to judge against, so it is never
+  // rewritten (the mismatch flag stays a human signal there).
+  const baseContent = doc.editedContent ?? doc.content;
+  const relFix = autoFixRelatedTopics({
+    content: baseContent,
+    homeRoot: doc.homeRoot,
+    node: doc.node,
+  });
+  const effectiveContent = relFix.content;
+
   // Retrieval self-test (Task #1804): run each member question through the
   // REAL retrieval path vs live docs + score the draft ad-hoc (embeddings are
   // computed per run and discarded — never stored for staging docs). A
-  // self-test failure must never fail analysis.
+  // self-test failure must never fail analysis. Runs against whichever title
+  // actually stands (the suggestion when pending, the stored title when the
+  // suggestion was decided/edited) so the test matches what publish would use.
   let selfTest: RetrievalSelfTest | null = null;
   if (result.memberQuestions.length > 0) {
     try {
       selfTest = await runRetrievalSelfTest(
         {
-          title: result.cleanedTitle || doc.title,
-          content: doc.editedContent ?? doc.content,
+          title: effectiveTitle,
+          content: effectiveContent,
           // The class/tags the draft would publish with — they drive the
           // curated-tier and tag-tier rules inside the shared ranking.
           docClass: result.suggestedDocClass ?? doc.docClassTarget ?? null,
@@ -283,10 +308,13 @@ export async function runAutoTriageOnDoc(
     }
   }
 
-  const ctx = await gatherFlagContext({ title: doc.title, aiCleanedTitle: result.cleanedTitle });
+  const ctx = await gatherFlagContext({
+    title: doc.title,
+    aiCleanedTitle: titleLocked ? null : result.cleanedTitle,
+  });
   const flags = computeRiskFlags({
-    title: result.cleanedTitle || doc.title,
-    content: doc.editedContent ?? doc.content,
+    title: effectiveTitle,
+    content: effectiveContent,
     authorityRole: doc.authorityRole,
     docClassTarget: result.suggestedDocClass ?? doc.docClassTarget,
     homeRoot: result.suggestedHomeRoot ?? doc.homeRoot,
@@ -313,12 +341,21 @@ export async function runAutoTriageOnDoc(
     category: result.suggestedCategory,
   };
 
+  // Persist the related-topics auto-fix where the reviewed content actually
+  // lives: editedContent when the doc already has one, otherwise content.
+  const contentUpdates: Partial<typeof kbStagingDocsTable.$inferInsert> = {};
+  if (relFix.changed) {
+    if (doc.editedContent != null) contentUpdates.editedContent = relFix.content;
+    else contentUpdates.content = relFix.content;
+  }
+
   await db
     .update(kbStagingDocsTable)
     .set({
       aiRecommendedAction: "needs_review",
       aiSuggestedCategory: result.suggestedCategory,
-      aiCleanedTitle: result.cleanedTitle,
+      // Never regenerate a decided/edited suggestion (Task #1839).
+      ...(titleLocked ? {} : { aiCleanedTitle: result.cleanedTitle }),
       aiSummary: result.summary,
       aiSuggestedTaxonomy,
       riskFlags: flags,
@@ -326,6 +363,7 @@ export async function runAutoTriageOnDoc(
       needsExpert,
       conflictData: conflictFlag ? { message: conflictFlag.message, detail: conflictFlag.detail } : null,
       status: "needs_review" as typeof doc.status,
+      ...contentUpdates,
     })
     .where(eq(kbStagingDocsTable.id, doc.id));
 
@@ -345,6 +383,55 @@ export async function runAutoTriageOnDoc(
     summary: result.summary,
     flags,
   };
+}
+
+// ── Retrieval self-test re-score (Task #1839) ────────────────────────────────
+//
+// Re-runs the STORED 5-question self-test (retrieval only — no LLM call) after
+// the title standing for the doc changes (suggestion dismissed / human title
+// edit), so the pass/fail verdict and the retrieval_gap flag stay honest
+// against the title that will actually publish. Pure aside from the DB write.
+
+/** Replace (or clear) the retrieval_gap flag in a flag list for a new self-test. */
+export function replaceRetrievalGapFlag(
+  flags: RiskFlag[],
+  selfTest: RetrievalSelfTest | null,
+): RiskFlag[] {
+  const rest = (flags ?? []).filter((f) => f.type !== "retrieval_gap");
+  const gap = computeRetrievalSelfTestFlag(selfTest);
+  return gap ? [...rest, gap] : rest;
+}
+
+export async function rescoreSelfTestForTitle(
+  doc: typeof kbStagingDocsTable.$inferSelect,
+  title: string,
+): Promise<void> {
+  const stored = doc.retrievalSelfTest as RetrievalSelfTest | null;
+  const questions = stored?.memberQuestions ?? [];
+  if (!questions.length) return; // never self-tested — nothing to re-score
+
+  const suggested = doc.aiSuggestedTaxonomy as { docClass?: string | null; tags?: string[] } | null;
+  let selfTest: RetrievalSelfTest;
+  try {
+    selfTest = await runRetrievalSelfTest(
+      {
+        title,
+        content: doc.editedContent ?? doc.content,
+        docClass: doc.docClassTarget ?? suggested?.docClass ?? null,
+        tags: suggested?.tags ?? [],
+      },
+      questions,
+    );
+  } catch (err) {
+    console.error(`[KB Triage] self-test re-score failed for doc ${doc.id}:`, err);
+    return; // keep the old verdict rather than clobbering it
+  }
+
+  const flags = replaceRetrievalGapFlag((doc.riskFlags ?? []) as RiskFlag[], selfTest);
+  await db
+    .update(kbStagingDocsTable)
+    .set({ retrievalSelfTest: selfTest, riskFlags: flags })
+    .where(eq(kbStagingDocsTable.id, doc.id));
 }
 
 // ── Undo a (legacy) auto-action ──────────────────────────────────────────────

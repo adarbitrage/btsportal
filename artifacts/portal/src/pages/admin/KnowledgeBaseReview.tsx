@@ -157,6 +157,9 @@ interface StagingDoc {
   aiSuggestedTaxonomy: SuggestedTaxonomy | null;
   needsExpert: boolean;
   aiCleanedTitle: string | null;
+  // Title-suggestion decision (Task #1839): null = pending,
+  // 'accepted' | 'dismissed' | 'edited' = locked (never regenerated).
+  aiTitleDecision: string | null;
   aiSummary: string | null;
   // Synthesis Engine Part 3: New-vs-Update. `updateKind` is 'update' when this
   // draft is a proposed REVISION of an existing published Live AI Document
@@ -1034,6 +1037,33 @@ export default function KnowledgeBaseReview() {
     }
   };
 
+  // Title-suggestion lifecycle (Task #1839): explicit accept/dismiss. Either
+  // decision locks the suggestion — analysis never regenerates it afterwards.
+  const [titleDeciding, setTitleDeciding] = useState(false);
+  const decideTitleSuggestion = async (action: "accept" | "dismiss") => {
+    if (!selectedDoc || titleDeciding) return;
+    setTitleDeciding(true);
+    try {
+      const res = await authFetch(
+        `/admin/knowledgebase/staging/${selectedDoc.id}/title-suggestion/${action}`,
+        { method: "POST" },
+      );
+      const data = await res.json();
+      if (!res.ok) {
+        toast({ title: data.error ?? "Failed to update title suggestion", variant: "destructive" });
+        return;
+      }
+      setSelectedDoc(data);
+      setEditTitle(data.title);
+      toast({ title: action === "accept" ? "Suggested title applied" : "Suggestion dismissed — keeping current title" });
+      fetchDocs();
+    } catch {
+      toast({ title: "Failed to update title suggestion", variant: "destructive" });
+    } finally {
+      setTitleDeciding(false);
+    }
+  };
+
   const importCurated = async () => {
     setImporting(true);
     try {
@@ -1225,7 +1255,7 @@ export default function KnowledgeBaseReview() {
     loadRefineThread(doc.id);
     fetchInsights(doc.id);
     setEditContent(doc.editedContent || doc.content);
-    setEditTitle(doc.aiCleanedTitle || doc.title);
+    setEditTitle(doc.title);
     setEditCategory(doc.category);
     setEditTags(doc.tags);
     setEditHomeRoot(doc.homeRoot ?? doc.aiSuggestedTaxonomy?.homeRoot ?? "");
@@ -1465,7 +1495,7 @@ export default function KnowledgeBaseReview() {
               )}
 
               <div>
-                <h2 className="text-xl font-bold text-gray-900 mb-1">{doc.aiCleanedTitle || doc.title}</h2>
+                <h2 className="text-xl font-bold text-gray-900 mb-1">{doc.title}</h2>
                 <div className="flex items-center gap-2 flex-wrap">
                   <Badge variant="secondary" className="text-xs">{doc.category}</Badge>
                   <Badge variant="outline" className="text-[10px] bg-indigo-50 text-indigo-700 border-indigo-200">Existing doc</Badge>
@@ -1516,7 +1546,7 @@ export default function KnowledgeBaseReview() {
               <DialogHeader>
                 <div className="flex items-center gap-2 flex-wrap">
                   <DialogTitle className="text-lg">
-                    {editMode ? "Edit Document" : (selectedDoc.aiCleanedTitle || selectedDoc.title)}
+                    {editMode ? "Edit Document" : selectedDoc.title}
                   </DialogTitle>
                   <Badge variant="outline" className={STATUS_COLORS[selectedDoc.status] || ""}>
                     {selectedDoc.status.replace(/_/g, " ")}
@@ -1555,6 +1585,40 @@ export default function KnowledgeBaseReview() {
               {!editMode && (selectedDoc.riskFlags?.length || selectedDoc.needsExpert) && (
                 <div className="mt-3">
                   <RiskChips flags={selectedDoc.riskFlags} needsExpert={selectedDoc.needsExpert} />
+                </div>
+              )}
+
+              {/* AI title suggestion (Task #1839): the stored title is always
+                  what displays/publishes; the suggestion is applied only via
+                  an explicit Accept. Accept/Dismiss/human-edit locks it. */}
+              {!editMode &&
+                selectedDoc.aiCleanedTitle &&
+                !selectedDoc.aiTitleDecision &&
+                selectedDoc.aiCleanedTitle.trim() !== selectedDoc.title.trim() && (
+                <div className="mt-3 rounded-lg border border-violet-200 bg-violet-50 p-3 text-sm">
+                  <div className="flex items-center gap-2 text-violet-800 font-medium mb-1">
+                    <Sparkles className="w-4 h-4" />AI suggests a clearer title
+                  </div>
+                  <p className="text-gray-800 mb-2">“{selectedDoc.aiCleanedTitle}”</p>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      size="sm"
+                      className="h-7 px-3 bg-violet-600 hover:bg-violet-700 text-white"
+                      disabled={titleDeciding}
+                      onClick={() => decideTitleSuggestion("accept")}
+                    >
+                      Use suggested title
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="h-7 px-3"
+                      disabled={titleDeciding}
+                      onClick={() => decideTitleSuggestion("dismiss")}
+                    >
+                      Keep current title
+                    </Button>
+                  </div>
                 </div>
               )}
 
@@ -2642,7 +2706,7 @@ export default function KnowledgeBaseReview() {
                         />
                         <div className="flex-1 min-w-0" onClick={() => openDoc(doc)}>
                           <div className="flex items-center gap-2 flex-wrap">
-                            <h3 className="font-semibold text-gray-900 truncate">{doc.aiCleanedTitle || doc.title}</h3>
+                            <h3 className="font-semibold text-gray-900 truncate">{doc.title}</h3>
                             <Badge variant="outline" className={STATUS_COLORS[doc.status] || ""}>
                               {STATUS_LABEL[doc.status] || doc.status.replace(/_/g, " ")}
                             </Badge>

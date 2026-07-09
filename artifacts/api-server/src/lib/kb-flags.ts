@@ -229,6 +229,110 @@ export function computeRelatedTopicsFlag(input: {
   };
 }
 
+// ── Related-topics auto-fix (Task #1839) ────────────────────────────────────
+//
+// Deterministic (no LLM) cleanup of a doc's "## Related topics" section during
+// analysis: removes the same entries computeRelatedTopicsFlag would flag —
+// off-subject taxonomy entries and boilerplate full-root dumps — while
+// preserving free-prose (non-taxonomy) entries. If the cleanup empties the
+// list and the doc has a filed node, the section is refilled from the curated
+// NODE_NEIGHBORS adjacency. Idempotent: output content never re-flags for the
+// same placement, and re-running changes nothing. Docs with no placement are
+// left untouched (flagging stays the human's signal).
+
+export function autoFixRelatedTopics(input: {
+  content: string;
+  homeRoot?: string | null;
+  node?: string | null;
+}): { content: string; changed: boolean } {
+  const unchanged = { content: input.content, changed: false };
+  const docNode = getNodeBySlug(input.node ?? null);
+  const docRoot = docNode?.root ?? (isHomeRoot(input.homeRoot) ? input.homeRoot! : null);
+  if (!docRoot) return unchanged; // no placement — never touch, leave for the human
+
+  const lines = input.content.split("\n");
+  const start = lines.findIndex((l) => /^##\s+related topics\s*$/i.test(l.trim()));
+  if (start === -1) return unchanged;
+  let end = lines.length;
+  for (let i = start + 1; i < lines.length; i++) {
+    if (/^##[^#]/.test(lines[i].trim())) { end = i; break; }
+  }
+
+  const allowedRoots = allowedRootsFor(docRoot);
+  const neighborSlugs = new Set(docNode ? NODE_NEIGHBORS[docNode.slug] ?? [] : []);
+
+  // First pass: classify the section's entries exactly as the flag does.
+  const entryNodeFor = (raw: string) =>
+    NODE_BY_LABEL.get(raw.replace(/\*\*/g, "").trim().toLowerCase()) ?? null;
+  const matched: Array<{ slug: string; root: string }> = [];
+  for (let i = start + 1; i < end; i++) {
+    const m = lines[i].trim().match(/^[-*]\s+(.+?)\s*$/);
+    if (!m) continue;
+    const n = entryNodeFor(m[1]);
+    if (n) matched.push({ slug: n.slug, root: n.root });
+  }
+  const matchedSlugs = new Set(matched.map((x) => x.slug));
+  const boilerplateRoots = new Set<string>();
+  for (const root of new Set(ALL_NODES.map((n) => n.root))) {
+    const expected = ALL_NODES.filter((n) => n.root === root && n.slug !== docNode?.slug).map((n) => n.slug);
+    if (expected.length >= 2 && expected.every((s) => matchedSlugs.has(s))) {
+      boilerplateRoots.add(root);
+    }
+  }
+
+  const shouldRemove = (n: { slug: string; root: string }) =>
+    boilerplateRoots.has(n.root) || (!allowedRoots.has(n.root) && !neighborSlugs.has(n.slug));
+
+  // Second pass: keep every non-offending line (free prose, headers, blanks).
+  const kept: string[] = [];
+  let keptBullets = 0;
+  for (let i = start + 1; i < end; i++) {
+    const m = lines[i].trim().match(/^[-*]\s+(.+?)\s*$/);
+    if (m) {
+      const n = entryNodeFor(m[1]);
+      if (n && shouldRemove(n)) continue; // drop offending taxonomy entry
+      keptBullets++;
+    }
+    kept.push(lines[i]);
+  }
+
+  // Drop bold group labels left with no bullets beneath them, and collapse
+  // runs of blank lines the removals left behind.
+  const withoutOrphanHeaders: string[] = [];
+  for (let i = 0; i < kept.length; i++) {
+    const line = kept[i].trim();
+    if (/^\*\*.+\*\*:?\s*$/.test(line)) {
+      let hasBullet = false;
+      for (let j = i + 1; j < kept.length; j++) {
+        const next = kept[j].trim();
+        if (/^[-*]\s+/.test(next)) { hasBullet = true; break; }
+        if (next !== "") break; // next group label / prose — this group is empty
+      }
+      if (!hasBullet) continue;
+    }
+    withoutOrphanHeaders.push(kept[i]);
+  }
+  const collapsed: string[] = [];
+  for (const l of withoutOrphanHeaders) {
+    if (l.trim() === "" && collapsed[collapsed.length - 1]?.trim() === "") continue;
+    collapsed.push(l);
+  }
+  while (collapsed.length && collapsed[collapsed.length - 1].trim() === "") collapsed.pop();
+
+  // Refill from the curated adjacency when the cleanup emptied the list and
+  // the doc has a filed node to derive neighbors from.
+  let body = collapsed;
+  if (keptBullets === 0 && docNode) {
+    const neighbors = (NODE_NEIGHBORS[docNode.slug] ?? [])
+      .map((s) => getNodeBySlug(s))
+      .filter((n): n is NonNullable<ReturnType<typeof getNodeBySlug>> => !!n);
+    body = neighbors.map((n) => `- ${n.label}`);
+  }
+
+  const rebuilt = [...lines.slice(0, start + 1), ...body, ...lines.slice(end)].join("\n");
+  return rebuilt === input.content ? unchanged : { content: rebuilt, changed: true };
+}
+
 // ── Retrieval self-test flag (Task #1804) ────────────────────────────────────
 
 /**

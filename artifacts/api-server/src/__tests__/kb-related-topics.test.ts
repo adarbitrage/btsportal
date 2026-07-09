@@ -24,6 +24,7 @@ import {
   computeRelatedTopicsFlag,
   computeRiskFlags,
   blocksBulkConfirm,
+  autoFixRelatedTopics,
 } from "../lib/kb-flags.js";
 
 const NODE_SLUGS = new Set(ALL_NODES.map((n) => n.slug));
@@ -190,6 +191,116 @@ describe("computeRelatedTopicsFlag (analysis-time flag)", () => {
       node: null,
     });
     expect(flag).not.toBeNull();
+  });
+});
+
+describe("autoFixRelatedTopics (analysis-time auto-fix, Task #1839)", () => {
+  const section = (entries: string[]) =>
+    `# Doc\n\nBody.\n\n## Related topics\n${entries.map((e) => `- ${e}`).join("\n")}`;
+
+  it("removes off-subject taxonomy entries, keeps adjacent ones", () => {
+    const fix = autoFixRelatedTopics({
+      content: section(["Billing & Refunds", labelOf("launch"), labelOf("testing-methodology")]),
+      homeRoot: "process",
+      node: "testing",
+    });
+    expect(fix.changed).toBe(true);
+    const entries = parseRelatedTopicEntries(fix.content);
+    expect(entries).not.toContain("Billing & Refunds");
+    expect(entries).toContain(labelOf("launch"));
+    expect(entries).toContain(labelOf("testing-methodology"));
+  });
+
+  it("preserves free-prose entries the reviewer may have written", () => {
+    const fix = autoFixRelatedTopics({
+      content: section(["Billing & Refunds", "How to pick a great offer", labelOf("launch")]),
+      homeRoot: "process",
+      node: "testing",
+    });
+    expect(fix.changed).toBe(true);
+    const entries = parseRelatedTopicEntries(fix.content);
+    expect(entries).toContain("How to pick a great offer");
+    expect(entries).not.toContain("Billing & Refunds");
+  });
+
+  it("removes the boilerplate full-root dump and refills from NODE_NEIGHBORS", () => {
+    const allOpsSiblings = ALL_NODES.filter(
+      (n) => n.root === "operations" && n.slug !== "membership",
+    ).map((n) => n.label);
+    const fix = autoFixRelatedTopics({
+      content: section(allOpsSiblings),
+      homeRoot: "operations",
+      node: "membership",
+    });
+    expect(fix.changed).toBe(true);
+    const entries = parseRelatedTopicEntries(fix.content);
+    const expected = relatedNodesFor("membership").map((n) => n.label);
+    expect(new Set(entries)).toEqual(new Set(expected));
+  });
+
+  it("refilled output is clean under the analysis flag and idempotent", () => {
+    const allOpsSiblings = ALL_NODES.filter(
+      (n) => n.root === "operations" && n.slug !== "membership",
+    ).map((n) => n.label);
+    const first = autoFixRelatedTopics({
+      content: section(allOpsSiblings),
+      homeRoot: "operations",
+      node: "membership",
+    });
+    expect(
+      computeRelatedTopicsFlag({ content: first.content, homeRoot: "operations", node: "membership" }),
+    ).toBeNull();
+    const second = autoFixRelatedTopics({
+      content: first.content,
+      homeRoot: "operations",
+      node: "membership",
+    });
+    expect(second.changed).toBe(false);
+    expect(second.content).toBe(first.content);
+  });
+
+  it("removal-only output is also flag-clean and idempotent", () => {
+    const first = autoFixRelatedTopics({
+      content: section(["Billing & Refunds", labelOf("launch")]),
+      homeRoot: "process",
+      node: "testing",
+    });
+    expect(
+      computeRelatedTopicsFlag({ content: first.content, homeRoot: "process", node: "testing" }),
+    ).toBeNull();
+    const second = autoFixRelatedTopics({ content: first.content, homeRoot: "process", node: "testing" });
+    expect(second.changed).toBe(false);
+  });
+
+  it("never touches a doc with no placement or no Related-topics section", () => {
+    const noPlacement = autoFixRelatedTopics({
+      content: section(["Billing & Refunds"]),
+      homeRoot: null,
+      node: null,
+    });
+    expect(noPlacement.changed).toBe(false);
+    const noSection = autoFixRelatedTopics({
+      content: "# Doc\n\nBody only.",
+      homeRoot: "process",
+      node: "testing",
+    });
+    expect(noSection.changed).toBe(false);
+  });
+
+  it("does not rewrite content outside the Related topics section", () => {
+    const content = `# Title\n\nIntro - Billing & Refunds mentioned in prose.\n\n## Related topics\n- Billing & Refunds\n- ${labelOf("launch")}\n\n## Next steps\n- Billing & Refunds`;
+    const fix = autoFixRelatedTopics({ content, homeRoot: "process", node: "testing" });
+    expect(fix.changed).toBe(true);
+    expect(fix.content).toContain("Intro - Billing & Refunds mentioned in prose.");
+    expect(fix.content).toContain("## Next steps\n- Billing & Refunds");
+  });
+
+  it("leaves synthesis output untouched for every node (never self-fixes)", () => {
+    for (const node of ALL_NODES) {
+      const content = `# ${node.label} doc\n\nBody.\n${relatedTopicsMarkdown(node)}`;
+      const fix = autoFixRelatedTopics({ content, homeRoot: node.root, node: node.slug });
+      expect(fix.changed, `synthesis output for ${node.slug} should not be auto-fixed`).toBe(false);
+    }
   });
 });
 

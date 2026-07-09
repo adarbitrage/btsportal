@@ -11,6 +11,7 @@ import {
   runTriageBackground,
   runAutoTriageOnDoc,
   isTriageRunning,
+  rescoreSelfTestForTitle,
 } from "../../lib/kb-triage.js";
 import { callLLMWithRetry } from "../../lib/kb-synthesis.js";
 import { CITABLE_DOC_CLASSES } from "../../lib/kb-taxonomy.js";
@@ -351,6 +352,70 @@ router.post("/:id/analyze", async (req: Request, res: Response) => {
     const result = await runAutoTriageOnDoc(doc);
     const [updated] = await db.select().from(kbStagingDocsTable).where(eq(kbStagingDocsTable.id, id));
     res.json({ result, document: updated });
+  } catch (err: unknown) {
+    res.status(500).json({ error: err instanceof Error ? err.message : "Unknown error" });
+  }
+});
+
+/**
+ * Title-suggestion lifecycle (Task #1839). The AI-suggested title
+ * (aiCleanedTitle) is only ever a SUGGESTION — the stored title is what
+ * displays and publishes. Accept applies it; dismiss keeps the stored title
+ * and re-scores the stored retrieval self-test (retrieval only, no LLM)
+ * against it. Either way the decision locks: re-analysis never regenerates.
+ */
+router.post("/:id/title-suggestion/accept", async (req: Request, res: Response) => {
+  try {
+    const id = parseInt(getParam(req.params.id));
+    const [doc] = await db.select().from(kbStagingDocsTable).where(eq(kbStagingDocsTable.id, id));
+    if (!doc) {
+      res.status(404).json({ error: "Document not found" });
+      return;
+    }
+    if (!doc.aiCleanedTitle?.trim()) {
+      res.status(400).json({ error: "No AI title suggestion to accept" });
+      return;
+    }
+    if (doc.aiTitleDecision) {
+      res.status(409).json({ error: "Title suggestion already decided" });
+      return;
+    }
+    await db
+      .update(kbStagingDocsTable)
+      .set({ title: doc.aiCleanedTitle.trim(), aiTitleDecision: "accepted" })
+      .where(eq(kbStagingDocsTable.id, id));
+    const [updated] = await db.select().from(kbStagingDocsTable).where(eq(kbStagingDocsTable.id, id));
+    res.json(updated);
+  } catch (err: unknown) {
+    res.status(500).json({ error: err instanceof Error ? err.message : "Unknown error" });
+  }
+});
+
+router.post("/:id/title-suggestion/dismiss", async (req: Request, res: Response) => {
+  try {
+    const id = parseInt(getParam(req.params.id));
+    const [doc] = await db.select().from(kbStagingDocsTable).where(eq(kbStagingDocsTable.id, id));
+    if (!doc) {
+      res.status(404).json({ error: "Document not found" });
+      return;
+    }
+    if (!doc.aiCleanedTitle?.trim()) {
+      res.status(400).json({ error: "No AI title suggestion to dismiss" });
+      return;
+    }
+    if (doc.aiTitleDecision) {
+      res.status(409).json({ error: "Title suggestion already decided" });
+      return;
+    }
+    await db
+      .update(kbStagingDocsTable)
+      .set({ aiTitleDecision: "dismissed" })
+      .where(eq(kbStagingDocsTable.id, id));
+    // The self-test was scored against the (now-rejected) suggestion — re-score
+    // it against the stored title so the verdict is honest. Retrieval only.
+    await rescoreSelfTestForTitle({ ...doc, aiTitleDecision: "dismissed" }, doc.title);
+    const [updated] = await db.select().from(kbStagingDocsTable).where(eq(kbStagingDocsTable.id, id));
+    res.json(updated);
   } catch (err: unknown) {
     res.status(500).json({ error: err instanceof Error ? err.message : "Unknown error" });
   }
@@ -856,7 +921,21 @@ router.patch("/:id", async (req: Request, res: Response) => {
     if (status) updates.status = status;
     if (adminNotes !== undefined) updates.adminNotes = adminNotes;
     if (editedContent !== undefined) updates.editedContent = editedContent;
-    if (title) updates.title = title;
+    // Human title edit (Task #1839): locks the AI title suggestion (analysis
+    // never regenerates it) and re-scores the stored retrieval self-test
+    // against the new title after the update (retrieval only, no LLM).
+    let titleEdited = false;
+    if (title) {
+      updates.title = title;
+      const [existing] = await db
+        .select({ title: kbStagingDocsTable.title })
+        .from(kbStagingDocsTable)
+        .where(eq(kbStagingDocsTable.id, id));
+      if (existing && existing.title !== title) {
+        updates.aiTitleDecision = "edited";
+        titleEdited = true;
+      }
+    }
     if (category) updates.category = category;
     if (tags !== undefined) updates.tags = tags;
     // Taxonomy fields the editor sends — previously dropped on the floor, so
@@ -883,6 +962,16 @@ router.patch("/:id", async (req: Request, res: Response) => {
 
     if (!updated) {
       res.status(404).json({ error: "Document not found" });
+      return;
+    }
+
+    if (titleEdited) {
+      await rescoreSelfTestForTitle(updated, updated.title);
+      const [rescored] = await db
+        .select()
+        .from(kbStagingDocsTable)
+        .where(eq(kbStagingDocsTable.id, id));
+      res.json(rescored ?? updated);
       return;
     }
 

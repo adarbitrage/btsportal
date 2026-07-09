@@ -144,6 +144,15 @@ export const kbStagingDocsTable = pgTable("kb_staging_docs", {
   // failedCount }. Null = never self-tested.
   retrievalSelfTest: jsonb("retrieval_self_test"),
 
+  // ── AI title suggestion lifecycle (Task #1839) ───────────────────────────
+  // Decision state for the AI-suggested title (aiCleanedTitle):
+  //   null        — pending (no decision yet; analysis may regenerate it)
+  //   'accepted'  — reviewer applied the suggestion to `title`
+  //   'dismissed' — reviewer rejected it; the stored title stands
+  //   'edited'    — a human edited the title directly
+  // Once non-null, re-analysis never regenerates the suggestion.
+  aiTitleDecision: text("ai_title_decision"),
+
   // Upload-specific fields (added alongside the KB upload feature)
   audience: text("audience").notNull().default("member"),
   sourceObjectPath: text("source_object_path"),
