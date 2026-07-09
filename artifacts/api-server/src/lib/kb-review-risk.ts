@@ -19,6 +19,7 @@
  * existing chip/severity pattern surfaces the same signals at triage.
  */
 
+import { PORTAL_NAVIGATION_MAP } from "@workspace/portal-nav-map";
 import { PRIVACY_RULES } from "./content-privacy-filter";
 import type { FlagSeverity } from "./kb-flags";
 
@@ -133,6 +134,21 @@ const TIME_SENSITIVE_PATTERNS: ReadonlyArray<RegExp> = [
   /\b(?:in|since|back in|as of)\s+20\d{2}\b/gi,
 ];
 
+// Portal navigation vocabulary: any title-case pair that exactly matches a
+// member-facing nav label or section name ("Live Coaching", "Getting Help") is
+// a UI reference, never a person. Words from those labels also join the
+// stoplist so partial references ("Coaching Access") don't false-positive.
+const NAV_LABEL_PHRASES = new Set<string>();
+const NAV_LABEL_WORDS = new Set<string>();
+for (const section of PORTAL_NAVIGATION_MAP) {
+  for (const phrase of [section.section, ...section.items.map((it) => it.label)]) {
+    NAV_LABEL_PHRASES.add(phrase.toLowerCase());
+    for (const w of phrase.split(/[^A-Za-z]+/)) {
+      if (w.length >= 3) NAV_LABEL_WORDS.add(w);
+    }
+  }
+}
+
 // Capitalized-pair heuristic stoplist: either word in this set kills the match.
 // Brand/product/heading vocabulary + common sentence-starters seen in KB docs.
 const NAME_STOPWORDS = new Set(
@@ -150,6 +166,17 @@ const NAME_STOPWORDS = new Set(
     "Knowledge", "Base", "Source", "Sources", "Section", "Overview", "Summary",
     "Do", "Don", "Always", "Never", "Avoid", "Use", "Make", "Set", "Get", "Keep",
     "New", "Old", "Good", "Bad", "High", "Low", "Big", "Small",
+    // Common gerunds in KB prose — matched in EITHER position (the pair regex
+    // is non-overlapping, so "Start Scaling Winners" pairs as "Start Scaling").
+    // A blanket -ing suffix rule would suppress real surnames (King, Sterling,
+    // Harding), so only these known-vocabulary gerunds are listed.
+    "Getting", "Scaling", "Coaching", "Tracking", "Testing", "Building",
+    "Launching", "Booking", "Making", "Setting", "Running", "Spending",
+    "Winning", "Onboarding", "Troubleshooting", "Reporting", "Publishing",
+    "Reviewing", "Writing", "Splitting", "Loading", "Pricing", "Targeting",
+    "Bidding", "Retargeting", "Optimizing", "Messaging", "Branding",
+    "Marketing", "Scheduling", "Recording", "Streaming", "Billing", "Starting",
+    "Choosing", "Picking", "Finding", "Using", "Creating", "Managing",
   ].map((w) => w),
 );
 
@@ -249,6 +276,12 @@ export function analyzeDraftForReview(content: string): ReviewHighlight[] {
       for (const m of line.matchAll(/\b([A-Z][a-z]{2,})\s+([A-Z][a-z]{2,})\b/g)) {
         const [pair, first, second] = m;
         if (NAME_STOPWORDS.has(first) || NAME_STOPWORDS.has(second)) continue;
+        // Portal UI vocabulary, not people: exact nav-label phrases
+        // ("Live Coaching", "Getting Help") or pairs containing a nav-label
+        // word ("Coaching Access"). Gerunds are handled via NAME_STOPWORDS,
+        // not a suffix rule, so -ing surnames (King, Sterling) still flag.
+        if (NAV_LABEL_PHRASES.has(pair.toLowerCase())) continue;
+        if (NAV_LABEL_WORDS.has(first) || NAV_LABEL_WORDS.has(second)) continue;
         // Already caught deterministically? Don't double-flag.
         if ([...privacyExcerpts].some((p) => p.includes(second) || p === pair)) continue;
         push("possible_member_name", pair, i);

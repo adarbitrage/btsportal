@@ -90,6 +90,38 @@ describe("analyzeDraftForReview", () => {
     expect(names.some((h) => h.excerpt.includes("Landing"))).toBe(false);
   });
 
+  it("does not flag portal nav labels or UI vocabulary as member names", () => {
+    const hs = analyzeDraftForReview(
+      [
+        "Go to Live Coaching to see the schedule.",
+        "Your Coaching Access level controls what you see.",
+        "Check Getting Help if you are stuck.",
+        "Open the Voice Assistant from Tools & Apps.",
+      ].join("\n"),
+    );
+    expect(hs.filter((h) => h.kind === "possible_member_name")).toHaveLength(0);
+  });
+
+  it("still flags a real First Last name amid nav vocabulary", () => {
+    const hs = analyzeDraftForReview(
+      "Marcus Delgado asked about Live Coaching and Getting Help.",
+    );
+    const names = hs.filter((h) => h.kind === "possible_member_name");
+    expect(names.map((h) => h.excerpt)).toEqual(["Marcus Delgado"]);
+  });
+
+  it("does not flag gerund-first pairs as member names", () => {
+    const hs = analyzeDraftForReview("Start Scaling Winners once tracking is stable.");
+    expect(hs.some((h) => h.kind === "possible_member_name")).toBe(false);
+  });
+
+  it("still flags names with -ing surnames (King, Sterling)", () => {
+    const hs = analyzeDraftForReview("Marcus King and Ava Sterling both scaled fast.");
+    const names = hs.filter((h) => h.kind === "possible_member_name").map((h) => h.excerpt);
+    expect(names).toContain("Marcus King");
+    expect(names).toContain("Ava Sterling");
+  });
+
   it("skips headings for the member-name heuristic", () => {
     const hs = analyzeDraftForReview("# Marcus Delgado Story\nBody text.");
     expect(hs.some((h) => h.kind === "possible_member_name")).toBe(false);
