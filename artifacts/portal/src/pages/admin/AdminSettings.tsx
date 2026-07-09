@@ -1258,6 +1258,8 @@ interface PitchContentValue {
   line: string;
   buttonLabel: string;
   buttonUrl: string;
+  thumbnailUrl?: string;
+  thumbnailLinkUrl?: string;
 }
 
 const PITCH_BLOCK_LABELS: Record<PitchBlockKey, string> = {
@@ -1274,7 +1276,14 @@ const PITCH_BLOCK_ORDER: PitchBlockKey[] = [
   "VIP_PITCH",
 ];
 
-const EMPTY_PITCH_CONTENT: PitchContentValue = { heading: "", line: "", buttonLabel: "", buttonUrl: "" };
+const EMPTY_PITCH_CONTENT: PitchContentValue = {
+  heading: "",
+  line: "",
+  buttonLabel: "",
+  buttonUrl: "",
+  thumbnailUrl: "",
+  thumbnailLinkUrl: "",
+};
 
 /**
  * Task #1715: editable content for the four tier-based upgrade pitch blocks
@@ -1318,7 +1327,14 @@ function PitchContentCard() {
     if (!content) return false;
     const a = content[key];
     const b = drafts[key];
-    return a.heading !== b.heading || a.line !== b.line || a.buttonLabel !== b.buttonLabel || a.buttonUrl !== b.buttonUrl;
+    return (
+      a.heading !== b.heading ||
+      a.line !== b.line ||
+      a.buttonLabel !== b.buttonLabel ||
+      a.buttonUrl !== b.buttonUrl ||
+      (a.thumbnailUrl ?? "") !== (b.thumbnailUrl ?? "") ||
+      (a.thumbnailLinkUrl ?? "") !== (b.thumbnailLinkUrl ?? "")
+    );
   };
 
   const handleSave = async (key: PitchBlockKey) => {
@@ -1384,6 +1400,36 @@ function PitchContentCard() {
                   />
                 </div>
               </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 border-t pt-3 mt-1">
+                <div className="grid gap-2">
+                  <label className="text-xs text-muted-foreground">Thumbnail image URL (optional)</label>
+                  <Input
+                    placeholder="/images/pitch-thumbnails/example.gif"
+                    value={drafts[key].thumbnailUrl ?? ""}
+                    onChange={(e) => updateDraft(key, "thumbnailUrl", e.target.value)}
+                  />
+                </div>
+                <div className="grid gap-2">
+                  <label className="text-xs text-muted-foreground">Thumbnail click-through URL (optional)</label>
+                  <Input
+                    placeholder="https://portal.example.com/plans"
+                    value={drafts[key].thumbnailLinkUrl ?? ""}
+                    onChange={(e) => updateDraft(key, "thumbnailLinkUrl", e.target.value)}
+                  />
+                </div>
+              </div>
+              <p className="text-xs text-muted-foreground leading-relaxed">
+                Optional video-style thumbnail rendered above the heading (both fields must be set together to
+                appear). Drop compliant animated GIF files into the portal's{" "}
+                <code className="bg-muted px-1 py-0.5 rounded">public/images/pitch-thumbnails/</code> folder before
+                referencing them here — this field does not upload files. Requirements: (1) the first frame must be a
+                complete, standalone thumbnail with the play button already baked into the image (Outlook desktop
+                only ever renders frame one, so there is no way to "start paused" via markup); (2) keep the file
+                under ~1MB — Gmail clips HTML past 102KB but images load separately, and file size still matters on
+                mobile data; (3) use an absolute production URL (e.g. https://your-portal-domain/images/pitch-thumbnails/...),
+                the same as the logo and coach photos — root-relative paths only resolve correctly once the portal
+                URL setting is configured.
+              </p>
               <div className="flex justify-end">
                 <Button
                   size="sm"

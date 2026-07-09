@@ -134,6 +134,99 @@ describe("getAllPitchContent / getPitchContent (default fallback + DB override)"
     await resetRow("pitch.machine");
   });
 
+  it("LAUNCHPAD_PITCH default includes the wired-in placeholder thumbnail, qualified to an absolute URL", async () => {
+    await resetRow("pitch.launchpad");
+    __invalidatePitchContentCacheForTests();
+    const content = await getPitchContent("LAUNCHPAD_PITCH");
+    expect(content.thumbnailUrl).toBeDefined();
+    expect(content.thumbnailUrl).toMatch(/^https?:\/\//);
+    expect(content.thumbnailUrl).toContain("/images/pitch-thumbnails/");
+    expect(content.thumbnailLinkUrl).toBeDefined();
+  });
+
+  it("a block with neither thumbnail field set renders no thumbnail (purely additive)", async () => {
+    await resetRow("pitch.vip");
+    __invalidatePitchContentCacheForTests();
+    const content = await getPitchContent("VIP_PITCH");
+    expect(content.thumbnailUrl).toBeUndefined();
+    expect(content.thumbnailLinkUrl).toBeUndefined();
+  });
+
+  it("a pre-existing saved LAUNCHPAD_PITCH row without thumbnail fields does NOT inherit the shipped default thumbnail", async () => {
+    // Simulates a row saved before Task #1820 (or any admin save that omits
+    // the thumbnail fields): the default's thumbnail must not leak in via
+    // the DB-value-over-default merge, or an existing customized block would
+    // silently gain a thumbnail nobody configured.
+    await setPitchContent(
+      "LAUNCHPAD_PITCH",
+      { heading: "Legacy heading", line: "Legacy line", buttonLabel: "Go", buttonUrl: "https://example.test/legacy" },
+      null,
+    );
+    __invalidatePitchContentCacheForTests();
+    const content = await getPitchContent("LAUNCHPAD_PITCH");
+    expect(content.heading).toBe("Legacy heading");
+    expect(content.thumbnailUrl).toBeUndefined();
+    expect(content.thumbnailLinkUrl).toBeUndefined();
+    await resetRow("pitch.launchpad");
+  });
+
+  it("setPitchContent stores an absolute thumbnail URL and passes it through unqualified", async () => {
+    await setPitchContent(
+      "MENTORSHIP_PITCH",
+      {
+        heading: "H",
+        line: "L",
+        buttonLabel: "B",
+        buttonUrl: "https://example.test/plans",
+        thumbnailUrl: "https://cdn.example.test/thumb.gif",
+        thumbnailLinkUrl: "https://example.test/plans",
+      },
+      null,
+    );
+    const content = await getPitchContent("MENTORSHIP_PITCH");
+    expect(content.thumbnailUrl).toBe("https://cdn.example.test/thumb.gif");
+    expect(content.thumbnailLinkUrl).toBe("https://example.test/plans");
+    await resetRow("pitch.mentorship");
+  });
+
+  it("validatePitchContentUpdate accepts an empty thumbnail (clears it) and rejects a non-string thumbnail", async () => {
+    const cleared = validatePitchContentUpdate({
+      heading: "H",
+      line: "L",
+      buttonLabel: "B",
+      buttonUrl: "https://example.test",
+      thumbnailUrl: "",
+      thumbnailLinkUrl: "",
+    });
+    expect(cleared.ok).toBe(true);
+    if (cleared.ok) {
+      expect(cleared.content.thumbnailUrl).toBeUndefined();
+      expect(cleared.content.thumbnailLinkUrl).toBeUndefined();
+    }
+
+    const withThumbnail = validatePitchContentUpdate({
+      heading: "H",
+      line: "L",
+      buttonLabel: "B",
+      buttonUrl: "https://example.test",
+      thumbnailUrl: "https://cdn.example.test/x.gif",
+      thumbnailLinkUrl: "https://example.test/plans",
+    });
+    expect(withThumbnail.ok).toBe(true);
+    if (withThumbnail.ok) {
+      expect(withThumbnail.content.thumbnailUrl).toBe("https://cdn.example.test/x.gif");
+    }
+
+    const invalid = validatePitchContentUpdate({
+      heading: "H",
+      line: "L",
+      buttonLabel: "B",
+      buttonUrl: "https://example.test",
+      thumbnailUrl: 123,
+    });
+    expect(invalid.ok).toBe(false);
+  });
+
   it("a saved row can omit a field, which falls back to the default for just that field", async () => {
     // setPitchContent always writes the full validated object, but a
     // hand-edited/legacy row could be partial — parseStoredContent must

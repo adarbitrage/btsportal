@@ -1,3 +1,4 @@
+- [Optional-field default merge trap](default-merge-optional-field-trap.md) — `{...default, ...stored}` leaks new default-only fields onto every pre-existing saved row missing them; gate new-field defaults on "no saved row at all", not "field absent in saved row".
 - [Email/SMS transport seam](email-transport-seam.md) — lib/email-transport.ts owns ALL sgMail.send + twilioClient.messages.create calls; dev suppression gate; guard test enforces the seam.
 - [Customized email templates skip starter refresh](email-template-customized-skip.md) — starter_hash NULL rows are boot-skipped forever; fix stale copy via the admin editor PUT (versioned+audited), never seed edits.
 - [Onboarding step migrations chain, don't replace](onboarding-six-step-migration-chain.md) — superseded step-contract migrations must be kept + run in historical order at boot, frozen to literal step numbers, never the live constant.

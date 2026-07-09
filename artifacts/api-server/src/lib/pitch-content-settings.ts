@@ -16,6 +16,7 @@
 import { db, systemSettingsTable } from "@workspace/db";
 import { eq, inArray } from "drizzle-orm";
 import { getPortalUrl } from "./portal-url-settings";
+import { qualifyPublicAssetUrl } from "./seed-templates";
 
 export type PitchBlockKey =
   | "LAUNCHPAD_PITCH"
@@ -35,6 +36,17 @@ export interface PitchContent {
   line: string;
   buttonLabel: string;
   buttonUrl: string;
+  /**
+   * Task #1820: optional email-safe thumbnail (typically an animated GIF
+   * with a play button baked into the image file) rendered above the pitch
+   * heading, linked via `thumbnailLinkUrl`. Both fields are optional and
+   * independent of each other — a block with neither set renders exactly as
+   * before this task. May be a root-relative public-asset path (e.g.
+   * `/images/pitch-thumbnails/...`), which is qualified to an absolute URL
+   * via `qualifyPublicAssetUrl` at read time, or an absolute URL already.
+   */
+  thumbnailUrl?: string;
+  thumbnailLinkUrl?: string;
 }
 
 const SETTING_KEYS: Record<PitchBlockKey, string> = {
@@ -64,6 +76,11 @@ function defaultContentFor(key: PitchBlockKey, plansUrl: string): PitchContent {
         line: "Unlock software access and your first coaching calls with a LaunchPad upgrade.",
         buttonLabel: "Explore LaunchPad",
         buttonUrl: plansUrl,
+        // Task #1820: placeholder animated GIF wired in by default so the
+        // new thumbnail slot is exercised end-to-end out of the box. An
+        // admin can clear or replace both fields from the Settings UI.
+        thumbnailUrl: "/images/pitch-thumbnails/launchpad-placeholder.gif",
+        thumbnailLinkUrl: plansUrl,
       };
     case "MENTORSHIP_PITCH":
       return {
@@ -95,6 +112,14 @@ function parseStoredContent(raw: unknown): Partial<PitchContent> | null {
   const out: Partial<PitchContent> = {};
   for (const field of ["heading", "line", "buttonLabel", "buttonUrl"] as const) {
     if (typeof obj[field] === "string") out[field] = obj[field] as string;
+  }
+  // Task #1820: optional fields. A stored empty string means "explicitly
+  // cleared" and must NOT be carried through as a truthy value — omit it so
+  // downstream rendering treats it the same as "never set".
+  for (const field of ["thumbnailUrl", "thumbnailLinkUrl"] as const) {
+    if (typeof obj[field] === "string" && (obj[field] as string).trim()) {
+      out[field] = (obj[field] as string).trim();
+    }
   }
   return out;
 }
@@ -142,9 +167,33 @@ function mergeWithDefault(
   key: PitchBlockKey,
   stored: Partial<PitchContent> | undefined,
   plansUrl: string,
+  portalUrl: string | null,
 ): PitchContent {
   const def = defaultContentFor(key, plansUrl);
-  return stored ? { ...def, ...stored } : def;
+  // Task #1820: the shipped thumbnail default must ONLY apply when there is
+  // no saved row at all for this block (fresh installs / never-touched
+  // blocks). Any existing saved row — even one predating this task that has
+  // neither thumbnail field — must NOT inherit the default thumbnail; a
+  // legacy row's absence of thumbnailUrl/thumbnailLinkUrl means "no
+  // thumbnail", not "use the default". This keeps the change purely
+  // additive for every already-saved pitch block.
+  const merged = stored
+    ? { ...def, ...stored, thumbnailUrl: stored.thumbnailUrl, thumbnailLinkUrl: stored.thumbnailLinkUrl }
+    : def;
+  // Task #1820: qualify a root-relative thumbnail path (e.g.
+  // `/images/pitch-thumbnails/...`) to an absolute URL the same way
+  // renderPersonBlock's photoUrl is qualified — an already-absolute URL
+  // passes through untouched, and `/objects/...` paths are rejected (not
+  // email-safe) by qualifyPublicAssetUrl itself.
+  if (merged.thumbnailUrl) {
+    const qualified = qualifyPublicAssetUrl(merged.thumbnailUrl, portalUrl);
+    if (qualified) {
+      merged.thumbnailUrl = qualified;
+    } else if (merged.thumbnailUrl.startsWith("/objects/")) {
+      delete merged.thumbnailUrl;
+    }
+  }
+  return merged;
 }
 
 /**
@@ -168,10 +217,10 @@ export async function getAllPitchContent(): Promise<
     }
     cache = { loadedAt: now, rows: dbValues };
   }
-  const plansUrl = await resolvePlansUrl();
+  const [plansUrl, portalUrl] = await Promise.all([resolvePlansUrl(), getPortalUrl()]);
   const out = {} as Record<PitchBlockKey, PitchContent>;
   for (const key of PITCH_BLOCK_KEYS) {
-    out[key] = mergeWithDefault(key, dbValues[key], plansUrl);
+    out[key] = mergeWithDefault(key, dbValues[key], plansUrl, portalUrl);
   }
   return out;
 }
@@ -194,15 +243,26 @@ export function validatePitchContentUpdate(
       return { ok: false, error: `${field} is required and must be a non-empty string` };
     }
   }
-  return {
-    ok: true,
-    content: {
-      heading: (obj.heading as string).trim(),
-      line: (obj.line as string).trim(),
-      buttonLabel: (obj.buttonLabel as string).trim(),
-      buttonUrl: (obj.buttonUrl as string).trim(),
-    },
+  // Task #1820: optional thumbnail fields. Absent/empty is valid (no
+  // thumbnail); when present they must be strings. An empty string clears
+  // the field (handled by parseStoredContent trimming it away on read).
+  for (const field of ["thumbnailUrl", "thumbnailLinkUrl"] as const) {
+    const val = obj[field];
+    if (val !== undefined && val !== null && typeof val !== "string") {
+      return { ok: false, error: `${field} must be a string when provided` };
+    }
+  }
+  const content: PitchContent = {
+    heading: (obj.heading as string).trim(),
+    line: (obj.line as string).trim(),
+    buttonLabel: (obj.buttonLabel as string).trim(),
+    buttonUrl: (obj.buttonUrl as string).trim(),
   };
+  const thumbnailUrl = typeof obj.thumbnailUrl === "string" ? obj.thumbnailUrl.trim() : "";
+  const thumbnailLinkUrl = typeof obj.thumbnailLinkUrl === "string" ? obj.thumbnailLinkUrl.trim() : "";
+  if (thumbnailUrl) content.thumbnailUrl = thumbnailUrl;
+  if (thumbnailLinkUrl) content.thumbnailLinkUrl = thumbnailLinkUrl;
+  return { ok: true, content };
 }
 
 /** Upsert one pitch content block. Invalidates the read cache. */

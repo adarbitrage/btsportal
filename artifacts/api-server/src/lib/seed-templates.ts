@@ -231,15 +231,40 @@ export function renderPitchBlock(params: {
   line: string;
   buttonLabel: string;
   buttonUrl: string;
+  /**
+   * Task #1820: optional video-style visual hook rendered above the
+   * heading — an `<a href="thumbnailLinkUrl"><img src="thumbnailUrl"></a>`,
+   * email-safe (width attribute + inline `max-width:100%`, no CSS overlays
+   * — the play button must be baked into the image file itself). Renders
+   * nothing extra when either field is absent; both must be set together to
+   * render (a thumbnail with no link target would be dead weight, and a
+   * link with no image has nothing to click).
+   */
+  thumbnailUrl?: string;
+  thumbnailLinkUrl?: string;
 } | null): string {
   if (!params) return "";
-  const { heading, line, buttonLabel, buttonUrl } = params;
+  const { heading, line, buttonLabel, buttonUrl, thumbnailUrl, thumbnailLinkUrl } = params;
+  // Restrained ~280px wide per the task's stacking discipline — with up to
+  // three pitch blocks stacked at the bottom of an email, full-bleed
+  // animated GIFs would turn the footer into a billboard.
+  const thumbnailHtml =
+    thumbnailUrl && thumbnailLinkUrl
+      ? `<tr><td style="padding:0 0 14px;text-align:center;">
+<a href="${thumbnailLinkUrl}" style="text-decoration:none;"><img src="${thumbnailUrl}" alt="${heading}" width="280" style="width:280px;max-width:100%;height:auto;display:inline-block;border:0;border-radius:6px;"></a>
+</td></tr>`
+      : "";
   return `
 <table width="100%" cellpadding="0" cellspacing="0" style="margin:24px 0 0;border-top:1px solid #e5e7eb;">
 <tr><td style="padding:20px 0 0;text-align:center;">
+<table width="100%" cellpadding="0" cellspacing="0">
+${thumbnailHtml}
+<tr><td style="text-align:center;">
 <p style="margin:0 0 4px;font-size:15px;font-weight:bold;color:#1a1a2e;">${heading}</p>
 <p style="margin:0 0 14px;font-size:14px;color:#4b5563;">${line}</p>
 <a href="${buttonUrl}" style="display:inline-block;background:${BTS_ACCENT_COLOR};color:#ffffff;padding:10px 22px;border-radius:6px;text-decoration:none;font-weight:bold;font-size:14px;">${buttonLabel}</a>
+</td></tr>
+</table>
 </td></tr>
 </table>`;
 }

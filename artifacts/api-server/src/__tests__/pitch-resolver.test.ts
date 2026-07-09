@@ -12,6 +12,7 @@ import {
   isMachineMember,
 } from "../lib/pitch-resolver";
 import { __invalidatePitchContentCacheForTests } from "../lib/pitch-content-settings";
+import { renderPitchBlock } from "../lib/seed-templates";
 
 // Task #1715: the tier-based upgrade pitch stack. `pitchStackForRank` is a
 // pure function tested directly against the exact matrix from the task; the
@@ -196,5 +197,55 @@ describe("renderPitchStackHtml", () => {
     // stack without the (stubbed) machine-member flag, so exercise the pure
     // path directly via the same contract renderPitchStackHtml relies on.
     expect(pitchStackForRank(6, true)).toEqual([]);
+  });
+
+  it("rank-0 stack (which includes the LaunchPad block's default thumbnail) renders an <img> tag", async () => {
+    const userId = await seedMember();
+    const html = await renderPitchStackHtml(userId);
+    expect(html).toContain("<img src=");
+    expect(html).toContain("pitch-thumbnails");
+  });
+});
+
+// Task #1820: optional thumbnail slot on renderPitchBlock — additive,
+// email-safe, and alt-texted to the heading.
+describe("renderPitchBlock (Task #1820 thumbnail slot)", () => {
+  const base = {
+    heading: "Test Heading",
+    line: "Test line",
+    buttonLabel: "Go",
+    buttonUrl: "https://example.test/plans",
+  };
+
+  it("renders exactly as before when no thumbnail fields are set", () => {
+    const html = renderPitchBlock(base);
+    expect(html).not.toContain("<img");
+    expect(html).toContain("Test Heading");
+  });
+
+  it("renders a linked <img> above the heading when both thumbnail fields are set", () => {
+    const html = renderPitchBlock({
+      ...base,
+      thumbnailUrl: "https://cdn.example.test/thumb.gif",
+      thumbnailLinkUrl: "https://example.test/plans",
+    });
+    expect(html).toContain('<a href="https://example.test/plans"');
+    expect(html).toContain('<img src="https://cdn.example.test/thumb.gif"');
+    expect(html).toContain('alt="Test Heading"');
+    expect(html).toContain('width="280"');
+    expect(html).toContain("max-width:100%");
+    const imgIndex = html.indexOf("<img");
+    const headingIndex = html.indexOf("Test Heading");
+    expect(imgIndex).toBeGreaterThan(-1);
+    expect(imgIndex).toBeLessThan(headingIndex);
+  });
+
+  it("renders no thumbnail when only one of the two fields is set", () => {
+    expect(renderPitchBlock({ ...base, thumbnailUrl: "https://cdn.example.test/thumb.gif" })).not.toContain("<img");
+    expect(renderPitchBlock({ ...base, thumbnailLinkUrl: "https://example.test/plans" })).not.toContain("<img");
+  });
+
+  it("returns empty string for null params (unchanged behavior)", () => {
+    expect(renderPitchBlock(null)).toBe("");
   });
 });
