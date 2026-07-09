@@ -95,6 +95,20 @@ export const LEGACY_CROSSWALK: readonly CrosswalkEntry[] = [
     confidence: "uncertain",
   },
   {
+    legacy: ["BTS Software", "Resources > BTS Software"],
+    current: "Apps (/apps) under Tools & Apps",
+    kind: "location",
+    note: "The old portal listed the software suite under 'Resources > BTS Software'. Today the BTS software suite (Flexy, DIYtrax, MetricMover, PixelPress, Gifster, ScrapeBot, CropBot) lives on the Apps page under Tools & Apps.",
+    confidence: "confirmed",
+  },
+  {
+    legacy: ["Compliance Form", "Resources > Compliance Form"],
+    current: "Compliance Review (/compliance) under Tools & Apps",
+    kind: "location",
+    note: "The old portal's 'Resources > Compliance Form' submission page is today's Compliance Review page under Tools & Apps — the single place members submit ad creatives/copy for compliance review.",
+    confidence: "confirmed",
+  },
+  {
     legacy: ["General Support", "support desk", "help desk"],
     current: "Support (/support)",
     kind: "location",

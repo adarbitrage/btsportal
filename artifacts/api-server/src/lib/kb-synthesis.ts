@@ -653,14 +653,22 @@ interface AtomicDefinition {
 
 const MAX_ATOMIC_DEFS_PER_NODE = 3;
 
+// Exported for the prompt-contract test (Task #1808): short "What is X?"
+// definition docs get the SAME navigation grounding as the main consolidation
+// prompt, so they can never repeat stale old-portal navigation from sources.
+export function buildAtomicDefinitionSystemPrompt(): string {
+  return `You review consolidated BTS (Build Test Scale) affiliate-marketing material for ONE topic and identify KEY TERMS that deserve their own short standalone definition document (like an entry answering "What is an angle?").
+Only include a term when the material actually DEFINES or explains it AND it is a reusable concept a member would look up on its own — never a passing mention. Return AT MOST ${MAX_ATOMIC_DEFS_PER_NODE}.
+Return ONLY JSON: {"definitions":[{"term":"<the term>","definition":"<2-4 sentence plain-language definition in member vocabulary>"}]}. Return {"definitions":[]} if none qualify.
+BRAND RULES: say "Build Test Scale" / "BTS" (never "TCE" or "Cherrington"); no coach surnames; ${NO_MEMBER_NAMES_RULE}.
+${buildNavigationGroundingSection()}`;
+}
+
 async function extractAtomicDefinitions(
   node: TaxonomyNode,
   extracts: { source: SourceDoc; extract: string }[],
 ): Promise<AtomicDefinition[]> {
-  const system = `You review consolidated BTS (Build Test Scale) affiliate-marketing material for ONE topic and identify KEY TERMS that deserve their own short standalone definition document (like an entry answering "What is an angle?").
-Only include a term when the material actually DEFINES or explains it AND it is a reusable concept a member would look up on its own — never a passing mention. Return AT MOST ${MAX_ATOMIC_DEFS_PER_NODE}.
-Return ONLY JSON: {"definitions":[{"term":"<the term>","definition":"<2-4 sentence plain-language definition in member vocabulary>"}]}. Return {"definitions":[]} if none qualify.
-BRAND RULES: say "Build Test Scale" / "BTS" (never "TCE" or "Cherrington"); no coach surnames; ${NO_MEMBER_NAMES_RULE}.`;
+  const system = buildAtomicDefinitionSystemPrompt();
   const user = `TOPIC NODE: "${node.label}" (root: ${node.root}).\n\nMATERIAL:\n${extracts
     .map((e, i) => `[SOURCE ${i + 1}]\n${e.extract}`)
     .join("\n\n")}`;
