@@ -37,7 +37,7 @@
  * renewal-charger.ts).
  */
 
-import sgMail from "@sendgrid/mail";
+import { gatedSendEmail } from "./email-transport";
 import { db, subscriptionsTable, btsOrdersTable, checkoutIdempotencyTable, refundIdempotencyTable } from "@workspace/db";
 import { sql, count, and, gte, eq } from "drizzle-orm";
 import { getChargerHeartbeat, claimDigestRun, releaseDigestClaim } from "./billing-heartbeat.js";
@@ -300,7 +300,7 @@ export async function runBillingDigest(
     if (emailSenderOverride) {
       await emailSenderOverride({ to, from, subject, text });
     } else {
-      await sgMail.send({ to, from, subject, text });
+      await gatedSendEmail({ to, from, subject, text });
     }
     console.log(`[BillingDigest] Sent to ${to}`);
     return { outcome: "sent", recipient: to };

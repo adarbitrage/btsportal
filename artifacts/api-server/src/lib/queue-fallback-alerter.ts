@@ -66,7 +66,7 @@ import {
   type AlertKind,
   type DeliveryChannel,
 } from "./queue-fallback-alerter-state";
-import sgMail from "@sendgrid/mail";
+import { gatedSendEmail } from "./email-transport";
 import {
   createOnCallDispatcher,
   createPollRunner,
@@ -400,7 +400,7 @@ const defaultProbes = {
     if (!ensureSendGridInitialized()) {
       return { ok: true, skipped: true, reason: "sendgrid_not_configured" };
     }
-    await sgMail.send({
+    await gatedSendEmail({
       to,
       from: defaultOpsAlertFromEmail(),
       subject: "[TEST] BTS on-call destination probe",

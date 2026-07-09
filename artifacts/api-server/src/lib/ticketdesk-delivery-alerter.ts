@@ -54,7 +54,7 @@
  *   - TICKETDESK_DELIVERY_ALERTER_POLL_MS            (default 60s)
  */
 
-import sgMail from "@sendgrid/mail";
+import { gatedSendEmail } from "./email-transport";
 import {
   getStuckTicketDeliveryStats,
   TICKETDESK_STUCK_MINUTES_DEFAULT,
@@ -176,7 +176,6 @@ type DeliveryFn = (
   payload: TicketDeskDeliveryAlertPayload,
 ) => Promise<DeliveryResult>;
 
-let sgMailInitialized = false;
 
 function describeBacklog(stats: StuckTicketDeliveryStats): string {
   const parts: string[] = [];
@@ -326,16 +325,12 @@ const defaultDeliveries: Record<DeliveryChannel, DeliveryFn> = {
         reason: "sendgrid_not_configured",
       };
     }
-    if (!sgMailInitialized) {
-      sgMail.setApiKey(process.env.SENDGRID_API_KEY);
-      sgMailInitialized = true;
-    }
     const from =
       process.env.OPS_ALERT_FROM_EMAIL ??
       process.env.FROM_EMAIL ??
       "noreply@buildtestscale.com";
     const { subject, text } = computeTicketDeskDeliveryEmail(p);
-    await sgMail.send({ to, from, subject, text });
+    await gatedSendEmail({ to, from, subject, text });
     return { channel: "email", ok: true };
   },
 

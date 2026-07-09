@@ -34,7 +34,7 @@
  *     System Health first.
  */
 
-import sgMail from "@sendgrid/mail";
+import { gatedSendEmail } from "./email-transport";
 import { getCoachingCallTemplateTopUpHealth } from "./coaching-call-template-topup";
 
 type DeliveryChannel = "pagerduty" | "email" | "slack";
@@ -99,8 +99,6 @@ export interface DeliveryResult {
 type DeliveryFn = (
   payload: CoachingCallTopUpAlertPayload,
 ) => Promise<DeliveryResult>;
-
-let sgMailInitialized = false;
 
 const FIRE_SUMMARY =
   "Recurring coaching-call auto top-up is stale — no successful run in over 2× its interval, so active series are at risk of running dry";
@@ -198,10 +196,6 @@ const defaultDeliveries: Record<DeliveryChannel, DeliveryFn> = {
         reason: "sendgrid_not_configured",
       };
     }
-    if (!sgMailInitialized) {
-      sgMail.setApiKey(process.env.SENDGRID_API_KEY);
-      sgMailInitialized = true;
-    }
     const from =
       process.env.OPS_ALERT_FROM_EMAIL ??
       process.env.FROM_EMAIL ??
@@ -228,7 +222,7 @@ const defaultDeliveries: Record<DeliveryChannel, DeliveryFn> = {
             "",
             "Confirm via /admin/system.",
           ].join("\n");
-    await sgMail.send({ to, from, subject, text });
+    await gatedSendEmail({ to, from, subject, text });
     return { channel: "email", ok: true };
   },
 

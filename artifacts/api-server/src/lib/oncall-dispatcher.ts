@@ -39,6 +39,7 @@
  */
 
 import sgMail from "@sendgrid/mail";
+import { gatedSendEmail } from "./email-transport";
 
 export type DeliveryChannel = "pagerduty" | "email" | "slack";
 export type AlertKind = "fire" | "clear";
@@ -298,7 +299,7 @@ export function createOnCallDispatcher<TPayload, TKey>(
         };
       }
       const msg = opts.buildMessages(payload).email;
-      await sgMail.send({
+      await gatedSendEmail({
         to,
         from: defaultOpsAlertFromEmail(),
         subject: msg.subject,

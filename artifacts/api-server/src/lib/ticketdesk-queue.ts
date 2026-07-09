@@ -24,7 +24,7 @@
 
 import { Queue, Worker, type Job, type ConnectionOptions } from "bullmq";
 import IORedis from "ioredis";
-import sgMail from "@sendgrid/mail";
+import { gatedSendEmail } from "./email-transport";
 import * as ticketDesk from "./ticketdesk-client";
 import { type TicketDeskConversationInput } from "./ticketdesk-client";
 import { QUEUE_REDIS_OPTIONS, makeThrottledRedisErrorLogger } from "./redis";
@@ -54,10 +54,6 @@ const FROM_NAME_DEFAULT = process.env.FROM_NAME_DEFAULT || "Build Test Scale";
  */
 const SUPPORT_INBOX_EMAIL =
   process.env.SUPPORT_INBOX_EMAIL || "support@buildtestscale.com";
-
-if (SENDGRID_API_KEY) {
-  sgMail.setApiKey(SENDGRID_API_KEY);
-}
 
 let connection: IORedis | null = null;
 let queue: Queue | null = null;
@@ -165,8 +161,6 @@ export async function sendSupportFallbackEmail(
     return;
   }
 
-  sgMail.setApiKey(SENDGRID_API_KEY);
-
   const subject = `[Support Ticket Not Delivered] ${data.btsTicketNumber} — ${data.subject}`;
   const text = [
     `A member support ticket was NOT delivered to TicketDesk.`,
@@ -201,7 +195,7 @@ export async function sendSupportFallbackEmail(
 `.trim();
 
   try {
-    await sgMail.send({
+    await gatedSendEmail({
       to: SUPPORT_INBOX_EMAIL,
       from: { email: FROM_EMAIL_TRANSACTIONAL, name: FROM_NAME_DEFAULT },
       subject,

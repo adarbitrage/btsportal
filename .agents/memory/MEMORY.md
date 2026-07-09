@@ -1,3 +1,4 @@
+- [Email/SMS transport seam](email-transport-seam.md) — lib/email-transport.ts owns ALL sgMail.send + twilioClient.messages.create calls; dev suppression gate; guard test enforces the seam.
 - [Onboarding step migrations chain, don't replace](onboarding-six-step-migration-chain.md) — superseded step-contract migrations must be kept + run in historical order at boot, frozen to literal step numbers, never the live constant.
 - [Lifecycle email image/token seams](lifecycle-email-image-and-token-seams.md) — one qualifyPublicAssetUrl seam for images; a real "raw {{token}} in Gmail" bug was a test-script variable omission, not a template engine bug.
 - [Grant-repair rank reuse bug](onboarding-repair-finder-launchpad-gap.md) — never reuse a partner-assignment (rank-floored) eligibility helper to compute variant-resolution rank; keep the two ranks separately computed.

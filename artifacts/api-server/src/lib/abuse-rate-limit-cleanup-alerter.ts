@@ -36,7 +36,7 @@
  *     sweep configured.
  */
 
-import sgMail from "@sendgrid/mail";
+import { gatedSendEmail } from "./email-transport";
 import { getAbuseRateLimitCleanupStatus } from "./abuse-rate-limit-cleanup";
 
 type DeliveryChannel = "pagerduty" | "email" | "slack";
@@ -102,8 +102,6 @@ export interface DeliveryResult {
 type DeliveryFn = (
   payload: AbuseRateLimitCleanupAlertPayload,
 ) => Promise<DeliveryResult>;
-
-let sgMailInitialized = false;
 
 const FIRE_SUMMARY =
   "Abuse rate-limit cleanup sweep is stale — the hourly sweep has not reported a run in > 2h, leaving the per-key memory backstop unmaintained";
@@ -190,10 +188,6 @@ const defaultDeliveries: Record<DeliveryChannel, DeliveryFn> = {
         reason: "sendgrid_not_configured",
       };
     }
-    if (!sgMailInitialized) {
-      sgMail.setApiKey(process.env.SENDGRID_API_KEY);
-      sgMailInitialized = true;
-    }
     const from =
       process.env.OPS_ALERT_FROM_EMAIL ??
       process.env.FROM_EMAIL ??
@@ -219,7 +213,7 @@ const defaultDeliveries: Record<DeliveryChannel, DeliveryFn> = {
             "",
             "Confirm via /admin/system.",
           ].join("\n");
-    await sgMail.send({ to, from, subject, text });
+    await gatedSendEmail({ to, from, subject, text });
     return { channel: "email", ok: true };
   },
 

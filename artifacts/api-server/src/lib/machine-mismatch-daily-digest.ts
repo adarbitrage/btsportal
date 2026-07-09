@@ -31,7 +31,7 @@
  *     firing even on quiet days when no email is sent.
  */
 
-import sgMail from "@sendgrid/mail";
+import { gatedSendEmail } from "./email-transport";
 import {
   db,
   userProductsTable,
@@ -95,8 +95,6 @@ function getWindowMs(): number {
     24 * 60 * 60 * 1000,
   );
 }
-
-let sgMailInitialized = false;
 
 type EmailSender = (msg: {
   to: string;
@@ -460,11 +458,7 @@ export async function runMachineMismatchDigest(
     if (emailSenderOverride) {
       await emailSenderOverride({ to, from, subject, text, html });
     } else {
-      if (!sgMailInitialized) {
-        sgMail.setApiKey(process.env.SENDGRID_API_KEY as string);
-        sgMailInitialized = true;
-      }
-      await sgMail.send({ to, from, subject, text, html });
+      await gatedSendEmail({ to, from, subject, text, html });
     }
   } catch (err) {
     const reason = err instanceof Error ? err.message : String(err);

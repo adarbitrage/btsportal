@@ -44,7 +44,7 @@
  *     AUTH_RATE_LIMIT_ALERTER_POLL_MS) with safe defaults.
  */
 
-import sgMail from "@sendgrid/mail";
+import { gatedSendEmail } from "./email-transport";
 import { db, auditLogTable } from "@workspace/db";
 import { and, eq, gte, sql } from "drizzle-orm";
 import { logAuditEvent } from "./audit-log";
@@ -196,8 +196,6 @@ type DeliveryFn = (
   payload: AuthRateLimitAlertPayload,
 ) => Promise<DeliveryResult>;
 
-let sgMailInitialized = false;
-
 function buildFireSummary(stats: AuthRateLimitBurstStats): string {
   const minutes = Math.round(stats.windowMs / 60000);
   const ipSuffix =
@@ -286,10 +284,6 @@ const defaultDeliveries: Record<DeliveryChannel, DeliveryFn> = {
         reason: "sendgrid_not_configured",
       };
     }
-    if (!sgMailInitialized) {
-      sgMail.setApiKey(process.env.SENDGRID_API_KEY);
-      sgMailInitialized = true;
-    }
     const from =
       process.env.OPS_ALERT_FROM_EMAIL ??
       process.env.FROM_EMAIL ??
@@ -320,7 +314,7 @@ const defaultDeliveries: Record<DeliveryChannel, DeliveryFn> = {
             "",
             "Marking the alert resolved.",
           ].join("\n");
-    await sgMail.send({ to, from, subject, text });
+    await gatedSendEmail({ to, from, subject, text });
     return { channel: "email", ok: true };
   },
 

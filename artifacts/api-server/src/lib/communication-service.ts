@@ -1,6 +1,7 @@
 import { Queue, type JobsOptions, type Job } from "bullmq";
-import sgMail from "@sendgrid/mail";
 import twilio from "twilio";
+import type sgMail from "@sendgrid/mail";
+import { gatedSendEmail, gatedSendSms } from "./email-transport";
 import {
   db,
   emailTemplatesTable,
@@ -53,9 +54,6 @@ const FROM_NAME_DEFAULT = process.env.FROM_NAME_DEFAULT || brandStrings("bts").f
 const TWILIO_CALLBACK_BASE =
   process.env.PORTAL_URL || "https://portal.buildtestscale.com";
 
-if (SENDGRID_API_KEY) {
-  sgMail.setApiKey(SENDGRID_API_KEY);
-}
 
 let twilioClient: ReturnType<typeof twilio> | null = null;
 if (TWILIO_ACCOUNT_SID && TWILIO_AUTH_TOKEN) {
@@ -649,7 +647,14 @@ async function sendEmailDirect(params: {
       },
     };
 
-    const [response] = await sgMail.send(msg);
+    const sendResult = await gatedSendEmail(msg);
+    if ("devSuppressed" in sendResult) {
+      await db.update(communicationLogTable)
+        .set({ status: "dev_suppressed", errorMessage: "dev_suppressed" })
+        .where(eq(communicationLogTable.id, logEntry.id));
+      return { status: "skipped", reason: "dev_suppressed", logId: logEntry.id };
+    }
+    const [response] = sendResult;
     const messageId = response?.headers?.["x-message-id"] || "";
 
     await db.update(communicationLogTable)
@@ -709,18 +714,25 @@ async function sendSmsDirect(params: {
   }
 
   try {
-    const message = await twilioClient.messages.create({
+    const smsResult = await gatedSendSms(twilioClient, {
       to,
       from: TWILIO_PHONE_NUMBER,
       body,
       statusCallback: `${TWILIO_CALLBACK_BASE}/api/webhooks/twilio`,
     });
 
+    if ("devSuppressed" in smsResult) {
+      await db.update(communicationLogTable)
+        .set({ status: "dev_suppressed", errorMessage: "dev_suppressed" })
+        .where(eq(communicationLogTable.id, logEntry.id));
+      return { status: "skipped", reason: "dev_suppressed", logId: logEntry.id };
+    }
+
     await db.update(communicationLogTable)
-      .set({ status: "sent", twilioMessageSid: message.sid })
+      .set({ status: "sent", twilioMessageSid: smsResult.sid })
       .where(eq(communicationLogTable.id, logEntry.id));
 
-    return { status: "sent", messageSid: message.sid, logId: logEntry.id };
+    return { status: "sent", messageSid: smsResult.sid, logId: logEntry.id };
   } catch (error: unknown) {
     const errorMessage = error instanceof Error ? error.message : String(error);
     console.error(`[Comms] SMS send failed to ${to}:`, errorMessage);

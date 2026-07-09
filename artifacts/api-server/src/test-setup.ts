@@ -14,3 +14,11 @@
 // exercise blocking can still override these env values at request time.
 process.env.BILLING_RATE_LIMIT_USER_MAX ??= "1000000";
 process.env.BILLING_RATE_LIMIT_IP_MAX ??= "1000000";
+
+// Dev outbound suppression gate (see lib/email-transport.ts).
+// Setting "*" means "let everything through", so all existing tests that mock
+// sgMail.send / twilioClient.messages.create continue to receive the real call
+// through the gate without any test-specific setup.  A test that wants to
+// exercise the gate itself can temporarily override or delete these values.
+process.env.DEV_EMAIL_ALLOWLIST ??= "*";
+process.env.DEV_SMS_ALLOWLIST ??= "*";

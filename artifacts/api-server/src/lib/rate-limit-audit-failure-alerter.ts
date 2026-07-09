@@ -42,7 +42,7 @@
  *     hide which instance has the broken DB connection).
  */
 
-import sgMail from "@sendgrid/mail";
+import { gatedSendEmail } from "./email-transport";
 import {
   getRateLimitAuditFailureStats,
   type RateLimitAuditFailureStats,
@@ -150,8 +150,6 @@ type DeliveryFn = (
   payload: RateLimitAuditFailureAlertPayload,
 ) => Promise<DeliveryResult>;
 
-let sgMailInitialized = false;
-
 function describeTopLimiters(stats: RateLimitAuditFailureStats): string {
   const entries = Object.entries(stats.byName)
     .map(([name, s]) => ({ name, count: s.count, lastError: s.lastError }))
@@ -237,10 +235,6 @@ const defaultDeliveries: Record<DeliveryChannel, DeliveryFn> = {
         reason: "sendgrid_not_configured",
       };
     }
-    if (!sgMailInitialized) {
-      sgMail.setApiKey(process.env.SENDGRID_API_KEY);
-      sgMailInitialized = true;
-    }
     const from =
       process.env.OPS_ALERT_FROM_EMAIL ??
       process.env.FROM_EMAIL ??
@@ -271,7 +265,7 @@ const defaultDeliveries: Record<DeliveryChannel, DeliveryFn> = {
             `Total dropped since process start: ${p.stats.totalCount}.`,
             "Confirm via /admin/system.",
           ].join("\n");
-    await sgMail.send({ to, from, subject, text });
+    await gatedSendEmail({ to, from, subject, text });
     return { channel: "email", ok: true };
   },
 

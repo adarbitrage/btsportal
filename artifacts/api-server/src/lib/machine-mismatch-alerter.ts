@@ -34,7 +34,7 @@
  * poll couldn't reach the DB.
  */
 
-import sgMail from "@sendgrid/mail";
+import { gatedSendEmail } from "./email-transport";
 import {
   db,
   userProductsTable,
@@ -154,8 +154,6 @@ type DeliveryFn = (
   payload: MachineMismatchAlertPayload,
 ) => Promise<DeliveryResult>;
 
-let sgMailInitialized = false;
-
 function buildFireSummary(stats: MachineMismatchStats): string {
   const hours = Math.round(stats.windowMs / (60 * 60 * 1000));
   return `Machine order mismatch — ${stats.total} mismatched orders in the last ${hours}h (threshold ${stats.threshold})`;
@@ -236,10 +234,6 @@ const defaultDeliveries: Record<DeliveryChannel, DeliveryFn> = {
         reason: "sendgrid_not_configured",
       };
     }
-    if (!sgMailInitialized) {
-      sgMail.setApiKey(process.env.SENDGRID_API_KEY);
-      sgMailInitialized = true;
-    }
     const from =
       process.env.OPS_ALERT_FROM_EMAIL ??
       process.env.FROM_EMAIL ??
@@ -270,7 +264,7 @@ const defaultDeliveries: Record<DeliveryChannel, DeliveryFn> = {
             "",
             "Marking the alert resolved.",
           ].join("\n");
-    await sgMail.send({ to, from, subject, text });
+    await gatedSendEmail({ to, from, subject, text });
     return { channel: "email", ok: true };
   },
 

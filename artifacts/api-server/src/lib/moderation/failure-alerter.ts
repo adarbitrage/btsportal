@@ -34,7 +34,7 @@
  *     the existing incident and the resolve event auto-closes it.
  */
 
-import sgMail from "@sendgrid/mail";
+import { gatedSendEmail } from "../email-transport";
 import {
   getModerationFailuresInWindowAggregated,
   getModerationFailureCumulativeStats,
@@ -123,8 +123,6 @@ export interface DeliveryResult {
 }
 
 type DeliveryFn = (payload: ModerationFailureAlertPayload) => Promise<DeliveryResult>;
-
-let sgMailInitialized = false;
 
 function describeKindBreakdown(window: ModerationFailureWindowStats): string {
   const parts: string[] = [];
@@ -227,16 +225,12 @@ const defaultDeliveries: Record<DeliveryChannel, DeliveryFn> = {
     if (!process.env.SENDGRID_API_KEY) {
       return { channel: "email", ok: true, skipped: true, reason: "sendgrid_not_configured" };
     }
-    if (!sgMailInitialized) {
-      sgMail.setApiKey(process.env.SENDGRID_API_KEY);
-      sgMailInitialized = true;
-    }
     const from =
       process.env.OPS_ALERT_FROM_EMAIL ??
       process.env.FROM_EMAIL ??
       "noreply@buildtestscale.com";
     const { subject, text } = computeModerationFailureEmail(p);
-    await sgMail.send({ to, from, subject, text });
+    await gatedSendEmail({ to, from, subject, text });
     return { channel: "email", ok: true };
   },
 
@@ -455,8 +449,6 @@ interface PodSilentState {
 
 const podSilentStates = new Map<string, PodSilentState>();
 
-let podSilentSgMailInitialized = false;
-
 const podSilentDefaultDeliveries: Record<DeliveryChannel, PodSilentDeliveryFn> = {
   pagerduty: async (p) => {
     const key = process.env.PAGERDUTY_INTEGRATION_KEY;
@@ -514,10 +506,6 @@ const podSilentDefaultDeliveries: Record<DeliveryChannel, PodSilentDeliveryFn> =
     if (!process.env.SENDGRID_API_KEY) {
       return { channel: "email", ok: true, skipped: true, reason: "sendgrid_not_configured" };
     }
-    if (!podSilentSgMailInitialized) {
-      sgMail.setApiKey(process.env.SENDGRID_API_KEY);
-      podSilentSgMailInitialized = true;
-    }
     const from =
       process.env.OPS_ALERT_FROM_EMAIL ??
       process.env.FROM_EMAIL ??
@@ -544,7 +532,7 @@ const podSilentDefaultDeliveries: Record<DeliveryChannel, PodSilentDeliveryFn> =
             "",
             "Confirm via /admin/system.",
           ].join("\n");
-    await sgMail.send({ to, from, subject, text });
+    await gatedSendEmail({ to, from, subject, text });
     return { channel: "email", ok: true };
   },
 
