@@ -31,6 +31,7 @@ import {
   getEffectiveTagSet,
   recordProposedToolTag,
 } from "./kb-tool-tags.js";
+import { callLLMWithRetry } from "./kb-synthesis.js";
 
 // ── Run-state flag (unified for manual and pipeline-triggered runs) ──────────
 
@@ -99,6 +100,9 @@ export interface TriageResult {
   suggestedTags: string[];
 }
 
+// Small JSON output + reasoning headroom (see gpt-5 starvation note in triageDoc).
+const TRIAGE_MAX_TOKENS = 4000;
+
 const ROOT_SET = new Set(HOME_ROOTS.map((r) => r.slug));
 const NODE_SET = new Set(ALL_NODES.map((n) => n.slug));
 const DOC_CLASS_SET = new Set<string>(DOC_CLASSES as readonly string[]);
@@ -126,33 +130,17 @@ export async function triageDoc(doc: {
   const effectiveTags = getEffectiveTags();
   const tagSet = getEffectiveTagSet();
 
-  const resp = await fetch(
-    process.env.AI_INTEGRATIONS_OPENAI_BASE_URL + "/chat/completions",
-    {
-      method: "POST",
-      headers: {
-        Authorization: "Bearer " + process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "gpt-5",
-        messages: [
-          { role: "system", content: buildTriagePrompt(effectiveTags.join(", ")) },
-          { role: "user", content: userMessage },
-        ],
-        max_completion_tokens: 500,
-      }),
-      signal: AbortSignal.timeout(30000),
-    },
+  // gpt-5 is a reasoning model: its invisible reasoning tokens count against
+  // max_completion_tokens, so the old 500-token budget starved on every call
+  // (200 OK, empty content, finish_reason=length). Give thousands of tokens of
+  // headroom and route through the shared retry/budget-escalation helper.
+  const raw = await callLLMWithRetry(
+    "triage",
+    buildTriagePrompt(effectiveTags.join(", ")),
+    userMessage,
+    TRIAGE_MAX_TOKENS,
+    true,
   );
-
-  if (!resp.ok) {
-    const err = await resp.text();
-    throw new Error(`AI triage error ${resp.status}: ${err.substring(0, 200)}`);
-  }
-
-  const json = (await resp.json()) as { choices: Array<{ message: { content: string } }> };
-  const raw = json.choices[0]?.message?.content ?? "";
 
   try {
     const parsed = JSON.parse(raw) as Partial<TriageResult> & {

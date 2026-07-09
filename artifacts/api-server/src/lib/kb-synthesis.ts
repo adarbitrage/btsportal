@@ -92,6 +92,9 @@ export interface SynthesisProgress {
   skippedCount: number;
   failedCount: number;
   failures: SynthesisRunFailure[];
+  // How many LLM calls hit reasoning-token starvation (finish_reason=length)
+  // and triggered a budget escalation this run.
+  lengthStarvedCalls: number;
   currentNode: string | null;
   startedAt: string | null;
   finishedAt: string | null;
@@ -108,6 +111,7 @@ let _state: SynthesisProgress = {
   skippedCount: 0,
   failedCount: 0,
   failures: [],
+  lengthStarvedCalls: 0,
   currentNode: null,
   startedAt: null,
   finishedAt: null,
@@ -187,6 +191,29 @@ export function isRateLimitError(msg: string): boolean {
   return msg.includes("429");
 }
 
+/**
+ * True when an LLM error message indicates reasoning-token starvation — a 200 OK
+ * with empty content and finish_reason=length (the model spent the whole
+ * max_completion_tokens budget on invisible reasoning). Exported for tests.
+ */
+export function isLengthStarvationError(msg: string): boolean {
+  return msg.includes("finish_reason=length");
+}
+
+// Budget-escalation ceiling: a starved call doubles its token budget per
+// attempt (4k→8k→16k…), never beyond this cap.
+export const LLM_ESCALATION_MAX_TOKENS = 32000;
+
+// Per-run tally of length-starved calls (how often escalation kicked in).
+// Reset at the start of each synthesis run; surfaced in state + run report.
+let _lengthStarvedCalls = 0;
+export function getLengthStarvedCallCount(): number {
+  return _lengthStarvedCalls;
+}
+export function resetLengthStarvedCallCount(): void {
+  _lengthStarvedCalls = 0;
+}
+
 export async function callLLM(system: string, user: string, maxTokens: number, jsonMode = false): Promise<string> {
   const base = process.env.AI_INTEGRATIONS_OPENAI_BASE_URL;
   const key = process.env.AI_INTEGRATIONS_OPENAI_API_KEY;
@@ -235,20 +262,37 @@ export async function callLLMWithRetry(
   user: string,
   maxTokens: number,
   jsonMode = false,
+  // Only SYNTHESIS-run calls should feed the per-run length-starved tally;
+  // this helper is also reused by triage/refine, whose starvations must not
+  // inflate synthesis run metrics. Synthesis call sites pass true.
+  countStarvation = false,
 ): Promise<string> {
   let lastErr: unknown;
   let attempt = 0;
   let maxAttempts = LLM_MAX_ATTEMPTS;
+  // Budget escalation: reasoning-token starvation (200 OK, empty content,
+  // finish_reason=length) is deterministic for a given prompt+budget — plain
+  // retries at the same budget just fail identically. Double the budget on each
+  // starved attempt instead (e.g. 4k→8k→16k), capped at LLM_ESCALATION_MAX_TOKENS.
+  let currentMaxTokens = maxTokens;
   while (attempt < maxAttempts) {
     attempt += 1;
     try {
-      return await callLLM(system, user, maxTokens, jsonMode);
+      return await callLLM(system, user, currentMaxTokens, jsonMode);
     } catch (err) {
       lastErr = err;
       const msg = err instanceof Error ? err.message : String(err);
       const rateLimited = isRateLimitError(msg);
+      const starved = isLengthStarvationError(msg);
       if (rateLimited) maxAttempts = LLM_MAX_ATTEMPTS_429;
-      console.error(`[Synthesis] ${label} attempt ${attempt}/${maxAttempts} failed: ${msg}`);
+      if (starved) {
+        if (countStarvation) _lengthStarvedCalls += 1;
+        currentMaxTokens = Math.min(currentMaxTokens * 2, LLM_ESCALATION_MAX_TOKENS);
+      }
+      console.error(
+        `[Synthesis] ${label} attempt ${attempt}/${maxAttempts} failed: ${msg}` +
+          (starved && attempt < maxAttempts ? ` — escalating budget to ${currentMaxTokens} tokens` : ""),
+      );
       if (attempt < maxAttempts) {
         const schedule = rateLimited ? LLM_RETRY_BACKOFF_429_MS : LLM_RETRY_BACKOFF_MS;
         await sleep(schedule[Math.min(attempt - 1, schedule.length - 1)]);
@@ -296,7 +340,7 @@ No preamble. Under ${MAP_EXTRACT_CHARS} characters.`;
 async function extractWindowForNode(node: TaxonomyNode, source: SourceDoc, window: string, windowIndex: number): Promise<string> {
   const system = buildMapExtractSystemPrompt(node);
   const user = `SOURCE TITLE: ${source.title}\n\nSOURCE CONTENT:\n${window}`;
-  return callLLMWithRetry(`map extract source ${source.id} node ${node.slug} window ${windowIndex}`, system, user, MAP_EXTRACT_MAX_TOKENS);
+  return callLLMWithRetry(`map extract source ${source.id} node ${node.slug} window ${windowIndex}`, system, user, MAP_EXTRACT_MAX_TOKENS, false, true);
 }
 
 // Map phase (whole source): walk EVERY window of the source and merge the
@@ -500,7 +544,7 @@ async function consolidate(
 
   const user = `Consolidate the following ${extracts.length} source extract(s) into one truth document for "${node.label}".\n\n${numbered}`;
 
-  const out = await callLLMWithRetry(`consolidate node ${node.slug}`, system, user, CONSOLIDATE_MAX_TOKENS);
+  const out = await callLLMWithRetry(`consolidate node ${node.slug}`, system, user, CONSOLIDATE_MAX_TOKENS, false, true);
   if (!out) throw new Error("AI returned an empty synthesis");
 
   // Split off the leading "# Title".
@@ -613,7 +657,7 @@ BRAND RULES: say "Build Test Scale" / "BTS" (never "TCE" or "Cherrington"); no c
     .map((e, i) => `[SOURCE ${i + 1}]\n${e.extract}`)
     .join("\n\n")}`;
   try {
-    const raw = await callLLMWithRetry(`atomic definitions node ${node.slug}`, system, user, ATOMIC_DEFS_MAX_TOKENS, true);
+    const raw = await callLLMWithRetry(`atomic definitions node ${node.slug}`, system, user, ATOMIC_DEFS_MAX_TOKENS, true, true);
     if (!raw) return [];
     const parsed = JSON.parse(raw) as { definitions?: unknown };
     if (!Array.isArray(parsed.definitions)) return [];
@@ -715,7 +759,7 @@ async function summarizeRevision(
   try {
     const system = `You compare a CURRENTLY PUBLISHED knowledge document with a PROPOSED REVISION of it and summarize, in 2-5 short markdown bullet points, what the revision ADDS, CHANGES or CORRECTS. Focus on substance a reviewer must check. Bullets only, no preamble. If nothing material changed, output exactly "- No material change; refreshed consolidation."`;
     const user = `TOPIC: "${node.label}"\n\n=== CURRENTLY PUBLISHED ===\n${priorContent.slice(0, 6000)}\n\n=== PROPOSED REVISION ===\n${newContent.slice(0, 6000)}`;
-    const out = await callLLMWithRetry(`revision diff node ${node.slug}`, system, user, REVISION_DIFF_MAX_TOKENS);
+    const out = await callLLMWithRetry(`revision diff node ${node.slug}`, system, user, REVISION_DIFF_MAX_TOKENS, false, true);
     return out?.trim() || fallback;
   } catch (err) {
     console.error(`[Synthesis] revision diff failed for node ${node.slug}:`, err instanceof Error ? err.message : err);
@@ -997,12 +1041,14 @@ export async function synthesizeNodesBackground(nodeSlugs: string[], scope = "no
     skippedCount: 0,
     failedCount: 0,
     failures: [],
+    lengthStarvedCalls: 0,
     currentNode: null,
     startedAt: new Date().toISOString(),
     finishedAt: null,
     error: null,
     runId: null,
   };
+  resetLengthStarvedCallCount();
 
   // Durable run report (synthesis hardening — mirrors kb_topic_index_runs). A
   // report-write failure must never block synthesis itself, so every write is
@@ -1032,6 +1078,7 @@ export async function synthesizeNodesBackground(nodeSlugs: string[], scope = "no
           skippedCount: _state.skippedCount,
           failedCount: _state.failedCount,
           failures: _state.failures,
+          lengthStarvedCalls: _state.lengthStarvedCalls,
           nodeOutcomes,
           ...(final ? { finishedAt: new Date(), error: fatalError ?? null } : {}),
         })
@@ -1078,6 +1125,7 @@ export async function synthesizeNodesBackground(nodeSlugs: string[], scope = "no
         await recordNodeFailureState(slug, message);
       }
       _state.processedNodes += 1;
+      _state.lengthStarvedCalls = getLengthStarvedCallCount();
       await persistRun(false);
     }
   } catch (err) {
@@ -1088,6 +1136,7 @@ export async function synthesizeNodesBackground(nodeSlugs: string[], scope = "no
     _state.running = false;
     _state.currentNode = null;
     _state.finishedAt = new Date().toISOString();
+    _state.lengthStarvedCalls = getLengthStarvedCallCount();
     await persistRun(true, fatalError);
   }
   return created;
@@ -1101,6 +1150,23 @@ export async function getLastSynthesisRun(): Promise<KbSynthesisRun | null> {
     .orderBy(desc(kbSynthesisRunsTable.startedAt))
     .limit(1);
   return rows[0] ?? null;
+}
+
+/**
+ * Nodes whose LAST synthesis attempt failed (lastError set) — these are picked
+ * up automatically by the next incremental run. Surfaced in the status endpoint
+ * so the UI can hint "N failed nodes pending retry".
+ */
+export async function getFailedNodesPendingRetry(): Promise<string[]> {
+  try {
+    const rows = await db
+      .select({ node: kbNodeSynthesisStateTable.node })
+      .from(kbNodeSynthesisStateTable)
+      .where(sql`${kbNodeSynthesisStateTable.lastError} IS NOT NULL`);
+    return rows.map((r) => r.node);
+  } catch {
+    return [];
+  }
 }
 
 /** Durable extract failures for a node (what made its synthesis fail). */

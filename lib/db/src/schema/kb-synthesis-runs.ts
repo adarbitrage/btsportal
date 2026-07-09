@@ -42,6 +42,9 @@ export const kbSynthesisRunsTable = pgTable("kb_synthesis_runs", {
   succeededCount: integer("succeeded_count").notNull().default(0),
   skippedCount: integer("skipped_count").notNull().default(0),
   failedCount: integer("failed_count").notNull().default(0),
+  // LLM calls that hit reasoning-token starvation (finish_reason=length) and
+  // triggered a budget escalation during this run.
+  lengthStarvedCalls: integer("length_starved_calls").notNull().default(0),
   // Fatal run-level error (per-node failures live in `failures`).
   error: text("error"),
   // Per-node failure reasons (durable — survives restarts).

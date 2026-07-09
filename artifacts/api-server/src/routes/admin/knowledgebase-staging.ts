@@ -9,8 +9,10 @@ import { scrubPrivateContent } from "../../lib/content-privacy-filter";
 import {
   undoAutoAction,
   runTriageBackground,
+  runAutoTriageOnDoc,
   isTriageRunning,
 } from "../../lib/kb-triage.js";
+import { callLLMWithRetry } from "../../lib/kb-synthesis.js";
 import { CITABLE_DOC_CLASSES } from "../../lib/kb-taxonomy.js";
 import { detectLegacyRefs } from "../../lib/kb-mining.js";
 import { blocksBulkConfirm, type RiskFlag } from "../../lib/kb-flags.js";
@@ -278,9 +280,10 @@ router.post("/run-triage", async (req: Request, res: Response) => {
       return;
     }
 
-    const { ids, includeStatuses } = req.body as {
+    const { ids, includeStatuses, includeAnalyzed } = req.body as {
       ids?: number[];
       includeStatuses?: string[];
+      includeAnalyzed?: boolean;
     };
 
     const statuses = includeStatuses ?? ["pending_review", "needs_review"];
@@ -293,19 +296,25 @@ router.post("/run-triage", async (req: Request, res: Response) => {
         .from(kbStagingDocsTable)
         .where(sql`${kbStagingDocsTable.id} = ANY(${ids})`);
     } else {
+      // Default: only docs never analyzed (no aiRecommendedAction stamp).
+      // includeAnalyzed=true opts into re-analyzing everything in scope.
       targetDocs = await db
         .select()
         .from(kbStagingDocsTable)
-        .where(sql`${kbStagingDocsTable.status} = ANY(${statuses})`);
+        .where(
+          includeAnalyzed
+            ? sql`${kbStagingDocsTable.status} = ANY(${statuses})`
+            : sql`${kbStagingDocsTable.status} = ANY(${statuses}) AND ${kbStagingDocsTable.aiRecommendedAction} IS NULL`,
+        );
     }
 
     if (targetDocs.length === 0) {
-      res.json({ message: "No documents to triage", triaged: 0 });
+      res.json({ message: includeAnalyzed ? "No documents to analyze" : "No unanalyzed documents — every doc in scope already has an AI analysis.", triaged: 0 });
       return;
     }
 
     res.json({
-      message: `Starting AI triage on ${targetDocs.length} documents in background.`,
+      message: `Starting AI analysis on ${targetDocs.length} document(s) in background.`,
       total: targetDocs.length,
       running: true,
     });
@@ -319,12 +328,43 @@ router.post("/run-triage", async (req: Request, res: Response) => {
   }
 });
 
+/**
+ * Synchronous single-doc AI analysis (review-dialog "Analyze with AI"). Blocks
+ * until done so the reviewer sees results in place. Refused while a batch run
+ * is in flight (shared LLM budget + the batch may already cover this doc).
+ */
+router.post("/:id/analyze", async (req: Request, res: Response) => {
+  try {
+    if (isTriageRunning()) {
+      res.status(409).json({ error: "A batch AI analysis is already running — try again when it finishes." });
+      return;
+    }
+    const id = parseInt(getParam(req.params.id));
+    const [doc] = await db.select().from(kbStagingDocsTable).where(eq(kbStagingDocsTable.id, id));
+    if (!doc) {
+      res.status(404).json({ error: "Document not found" });
+      return;
+    }
+    const result = await runAutoTriageOnDoc(doc);
+    const [updated] = await db.select().from(kbStagingDocsTable).where(eq(kbStagingDocsTable.id, id));
+    res.json({ result, document: updated });
+  } catch (err: unknown) {
+    res.status(500).json({ error: err instanceof Error ? err.message : "Unknown error" });
+  }
+});
+
 router.get("/triage-status", async (_req: Request, res: Response) => {
   try {
-    const [triaged, pending, needsReview] = await Promise.all([
+    const [triaged, pending, needsReview, unanalyzed] = await Promise.all([
       db.select({ cnt: count() }).from(kbStagingDocsTable).where(isNotNull(kbStagingDocsTable.aiRecommendedAction)),
       db.select({ cnt: count() }).from(kbStagingDocsTable).where(eq(kbStagingDocsTable.status, "needs_review")),
       db.select({ cnt: count() }).from(kbStagingDocsTable).where(eq(kbStagingDocsTable.status, "needs_review")),
+      db
+        .select({ cnt: count() })
+        .from(kbStagingDocsTable)
+        .where(
+          sql`${kbStagingDocsTable.status} IN ('pending_review','needs_review') AND ${kbStagingDocsTable.aiRecommendedAction} IS NULL`,
+        ),
     ]);
     const autoActions = await db
       .select({
@@ -340,6 +380,7 @@ router.get("/triage-status", async (_req: Request, res: Response) => {
       triaged: triaged[0].cnt,
       pendingTriage: pending[0].cnt,
       needsReview: needsReview[0].cnt,
+      unanalyzed: unanalyzed[0].cnt,
       autoActions: Object.fromEntries(autoActions.map((a) => [a.action, a.cnt])),
     });
   } catch (err: unknown) {
@@ -1098,55 +1139,54 @@ router.post("/:id/refine", async (req: Request, res: Response) => {
       .map((t) => `${t.role === "user" ? "Reviewer" : "Assistant"}: ${t.content}`)
       .join("\n");
 
-    const systemPrompt = `You are refining a BTS (Build Test Scale) knowledge-base truth document per a reviewer's instruction, in an ongoing conversation.
+    const systemPrompt = `You are refining a BTS (Build Test Scale) knowledge-base truth document with a human reviewer, in an ongoing conversation.
 ${sourceContext}
 
-Prefer SURGICAL edits. Return ONLY JSON of the form:
-{"edits":[{"find":"exact text to replace","replace":"new text","all":false}],"message":"one sentence summary"}
+This is a CONVERSATION, not an edit machine. First decide the reviewer's intent:
+- QUESTION / DISCUSSION (they ask about the draft, the sources, wording options, or say things like "what do you think", "why does it say X", "should we…"): DO NOT edit. Return ONLY {"reply":"<your answer or proposal>"} — answer from the draft and the source material, and when a change seems warranted, PROPOSE it concretely and ask whether to apply it.
+- EDIT REQUEST (a clear instruction to change the draft, or the reviewer confirms a proposal you made, e.g. "yes do that", "apply it"): make the change as below.
+
+For EDITS, prefer SURGICAL edits. Return ONLY JSON of the form:
+{"edits":[{"find":"exact text to replace","replace":"new text","all":false}],"message":"one sentence summary","changes":["human-readable description of each edit: what changed, where, and why"]}
 - "find" must be an EXACT substring of the current draft (copy it verbatim). Use "all":true only to replace every occurrence; otherwise "find" must match exactly once.
-- If the change is too broad for find/replace, instead return {"rewrite":"<full revised markdown body>","message":"..."}.
+- If the change is too broad for find/replace, instead return {"rewrite":"<full revised markdown body>","message":"...","changes":["..."]}.
+- "changes" must let the reviewer verify each edit without diffing: name the section/heading affected and summarize before → after.
 - Apply ONLY the requested change; preserve correct facts, headings and structure otherwise.
 - You are given the ORIGINAL SOURCE MATERIAL this draft was consolidated from. When the reviewer asks to add, expand or correct content, PULL from that source material — do not invent facts and do not merely reshuffle the existing draft text.
 BRAND RULES: say "Build Test Scale" / "BTS" (never "TCE" or "Cherrington"); no coach surnames; support email is support@buildtestscale.com.`;
 
     const userContent = `${priorTurns ? `CONVERSATION SO FAR:\n${priorTurns}\n\n` : ""}INSTRUCTION: ${instruction.trim()}\n\nTITLE: ${doc.title}\n\nCURRENT DRAFT:\n${current.substring(0, 12000)}${sourceMaterial ? `\n\n──────────\nORIGINAL SOURCE MATERIAL (for lookback; strongest first):\n${sourceMaterial}` : ""}`;
 
-    const resp = await fetch(
-      process.env.AI_INTEGRATIONS_OPENAI_BASE_URL + "/chat/completions",
-      {
-        method: "POST",
-        headers: {
-          Authorization: "Bearer " + process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          model: "gpt-5",
-          messages: [
-            { role: "system", content: systemPrompt },
-            { role: "user", content: userContent },
-          ],
-          response_format: { type: "json_object" },
-          max_completion_tokens: 4000,
-        }),
-        signal: AbortSignal.timeout(90000),
-      },
-    );
+    // Shared retry helper: rate-limit-aware backoff + budget escalation on
+    // reasoning-token starvation (the raw single-shot fetch was the old
+    // silent-failure path).
+    const rawContent = (
+      await callLLMWithRetry("refine", systemPrompt, userContent, 4000, true)
+    ).trim();
 
-    if (!resp.ok) {
-      throw new Error("AI refine failed: " + resp.status);
-    }
-
-    const json = (await resp.json()) as { choices: Array<{ message: { content: string } }> };
-    const rawContent = (json.choices[0]?.message?.content ?? "").trim();
-    if (!rawContent) {
-      throw new Error("AI returned an empty refine response");
-    }
-
-    let parsed: { edits?: unknown; rewrite?: unknown; message?: unknown };
+    let parsed: { edits?: unknown; rewrite?: unknown; message?: unknown; reply?: unknown; changes?: unknown };
     try {
       parsed = JSON.parse(rawContent);
     } catch {
       throw new Error("AI returned malformed refine JSON");
+    }
+
+    const userId = (req as unknown as { userId: number }).userId;
+
+    // Discussion turn: the model answered/proposed without editing. The draft
+    // is untouched; the turn is still persisted so the thread survives reloads.
+    const reply = typeof parsed.reply === "string" ? parsed.reply.trim() : "";
+    if (reply && !Array.isArray(parsed.edits) && typeof parsed.rewrite !== "string") {
+      await db.insert(kbTriageAuditLogTable).values({
+        stagingDocId: id,
+        eventType: "refined",
+        confidenceScore: null,
+        actorUserId: userId,
+        aiReasoning: `Discussed (no edit) per instruction: ${instruction.trim().substring(0, 300)} — ${reply.substring(0, 1200)}`,
+        docTitle: doc.title,
+      });
+      res.json({ document: doc, mode: "discussion", assistantMessage: reply, changes: [], instruction: instruction.trim() });
+      return;
     }
 
     // Patch-first: try the surgical edits. Fall back to a full rewrite only when
@@ -1171,8 +1211,23 @@ BRAND RULES: say "Build Test Scale" / "BTS" (never "TCE" or "Cherrington"); no c
       typeof parsed.message === "string" && parsed.message.trim()
         ? parsed.message.trim()
         : "Draft updated.";
-
-    const userId = (req as unknown as { userId: number }).userId;
+    // Per-edit human-readable change descriptions (model-provided). Fallback:
+    // derive a terse find→replace listing so applied edits are never opaque.
+    const changes: string[] = Array.isArray(parsed.changes)
+      ? parsed.changes.map(String).filter((c) => c.trim()).slice(0, 12)
+      : [];
+    if (changes.length === 0 && mode === "patch" && Array.isArray(parsed.edits)) {
+      for (const e of parsed.edits.slice(0, 12)) {
+        const edit = e as { find?: unknown; replace?: unknown };
+        if (typeof edit?.find === "string") {
+          const from = edit.find.length > 80 ? edit.find.slice(0, 80) + "…" : edit.find;
+          const to = typeof edit.replace === "string"
+            ? (edit.replace.length > 80 ? edit.replace.slice(0, 80) + "…" : edit.replace)
+            : "";
+          changes.push(`Replaced "${from}" with "${to}"`);
+        }
+      }
+    }
 
     const [updated] = await db
       .update(kbStagingDocsTable)
@@ -1185,11 +1240,13 @@ BRAND RULES: say "Build Test Scale" / "BTS" (never "TCE" or "Cherrington"); no c
       eventType: "refined",
       confidenceScore: null,
       actorUserId: userId,
-      aiReasoning: `Refined (${mode}) per instruction: ${instruction.trim().substring(0, 300)} — ${assistantMessage.substring(0, 200)}`,
+      aiReasoning:
+        `Refined (${mode}) per instruction: ${instruction.trim().substring(0, 300)} — ${assistantMessage.substring(0, 200)}` +
+        (changes.length ? `\nCHANGES:\n${changes.map((c) => `• ${c.substring(0, 300)}`).join("\n")}` : ""),
       docTitle: doc.title,
     });
 
-    res.json({ document: updated, mode, assistantMessage, instruction: instruction.trim() });
+    res.json({ document: updated, mode, assistantMessage, changes, instruction: instruction.trim() });
   } catch (err: unknown) {
     res.status(500).json({ error: err instanceof Error ? err.message : "Unknown error" });
   }

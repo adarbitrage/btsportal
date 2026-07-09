@@ -13,3 +13,5 @@ description: Small completion budgets on gpt-5 return EMPTY content with finish_
 - Log failed classify/parse attempts (attempt count + finish reason) so this is diagnosable from workflow logs next time.
 
 Also bit the KB synthesis engine (map-extract 700-token budget → 100% empty-content failures once the silent raw-window fallback was removed). Budgets there now carry thousands of tokens of headroom, and callLLM throws on empty content instead of returning "".
+
+**Budget escalation pattern:** finish_reason=length starvation is deterministic for a given prompt+budget — same-budget retries fail identically; the fix is doubling the token budget per starved retry (capped), not more retries. When a shared retry helper feeds a per-run metric, scope the tally to the owning pipeline's call sites or unrelated callers inflate its run report.

@@ -211,6 +211,60 @@ describe("synthesis LLM hardening", () => {
     expect(fetchMock).toHaveBeenCalledTimes(2);
   }, 20000);
 
+  it("escalates token budget on finish_reason=length starvation and tallies it per run", async () => {
+    const { LLM_ESCALATION_MAX_TOKENS, getLengthStarvedCallCount, resetLengthStarvedCallCount } =
+      await import("./kb-synthesis");
+    resetLengthStarvedCallCount();
+    const starvedResp = {
+      ok: true,
+      json: async () => ({ choices: [{ finish_reason: "length", message: { content: "" } }] }),
+    };
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(starvedResp)
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ choices: [{ message: { content: "escalated-ok" } }] }),
+      });
+    vi.stubGlobal("fetch", fetchMock);
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    await expect(callLLMWithRetry("test", "s", "u", 4000, false, true)).resolves.toBe("escalated-ok");
+    // Second attempt must carry the DOUBLED budget (4000 → 8000).
+    const secondBody = JSON.parse(fetchMock.mock.calls[1][1].body as string);
+    expect(secondBody.max_completion_tokens).toBe(8000);
+    expect(getLengthStarvedCallCount()).toBe(1);
+    resetLengthStarvedCallCount();
+    expect(getLengthStarvedCallCount()).toBe(0);
+  }, 20000);
+
+  it("escalation is capped at the ceiling and non-synthesis callers never feed the tally", async () => {
+    const { LLM_ESCALATION_MAX_TOKENS, getLengthStarvedCallCount, resetLengthStarvedCallCount } =
+      await import("./kb-synthesis");
+    resetLengthStarvedCallCount();
+    const starvedResp = () => ({
+      ok: true,
+      json: async () => ({ choices: [{ finish_reason: "length", message: { content: "" } }] }),
+    });
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(starvedResp())
+      .mockResolvedValueOnce(starvedResp())
+      .mockResolvedValueOnce(starvedResp());
+    vi.stubGlobal("fetch", fetchMock);
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    // Start just under the cap: doubling must clamp AT the cap, never beyond.
+    await expect(
+      callLLMWithRetry("triage doc 1", "s", "u", LLM_ESCALATION_MAX_TOKENS - 1000),
+    ).rejects.toThrow(/empty content/);
+    const bodies = fetchMock.mock.calls.map((c) => JSON.parse(c[1].body as string).max_completion_tokens);
+    expect(bodies).toEqual([
+      LLM_ESCALATION_MAX_TOKENS - 1000,
+      LLM_ESCALATION_MAX_TOKENS,
+      LLM_ESCALATION_MAX_TOKENS,
+    ]);
+    // Default countStarvation=false (triage/refine) must NOT inflate the
+    // synthesis run tally.
+    expect(getLengthStarvedCallCount()).toBe(0);
+  }, 20000);
+
   it("callLLMWithRetry throws loudly after exhausting attempts (no silent fallback)", async () => {
     const fetchMock = vi.fn().mockResolvedValue({ ok: false, status: 500, json: async () => ({}) });
     vi.stubGlobal("fetch", fetchMock);

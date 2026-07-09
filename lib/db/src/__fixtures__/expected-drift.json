@@ -28,6 +28,7 @@
       "kb_screened_exchanges.context_bound | bool | NOT NULL",
       "kb_screened_exchanges.emergency_split | bool | NOT NULL",
       "kb_screened_exchanges.passage | text | NOT NULL",
+      "kb_synthesis_runs.length_starved_calls | int4 | NOT NULL",
       "knowledgebase_docs.audience | text | NOT NULL",
       "knowledgebase_docs.source_label | text | NULL",
       "knowledgebase_docs.source_path | text | NULL",

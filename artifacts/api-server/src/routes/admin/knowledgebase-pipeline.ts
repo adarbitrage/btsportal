@@ -37,6 +37,7 @@ import {
   synthesizeNodesBackground,
   getSynthesisState,
   getLastSynthesisRun,
+  getFailedNodesPendingRetry,
   isSynthesisRunning,
   isValidSynthesisNode,
   resolveSynthesisScope,
@@ -1697,11 +1698,14 @@ router.get("/synthesis-nodes", async (_req: Request, res: Response) => {
 /** Synthesis progress + last durable run report (survives restarts). */
 router.get("/synthesis-status", async (_req: Request, res: Response) => {
   try {
-    const lastRun = await getLastSynthesisRun();
-    res.json({ ...getSynthesisState(), lastRun });
+    const [lastRun, failedNodesPendingRetry] = await Promise.all([
+      getLastSynthesisRun(),
+      getFailedNodesPendingRetry(),
+    ]);
+    res.json({ ...getSynthesisState(), lastRun, failedNodesPendingRetry });
   } catch {
     // Never let the durable-report lookup break live progress polling.
-    res.json({ ...getSynthesisState(), lastRun: null });
+    res.json({ ...getSynthesisState(), lastRun: null, failedNodesPendingRetry: [] });
   }
 });
 

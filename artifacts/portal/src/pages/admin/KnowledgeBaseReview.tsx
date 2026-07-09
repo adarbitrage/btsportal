@@ -41,6 +41,8 @@ import {
   Search,
   ChevronLeft,
   ChevronRight,
+  ChevronUp,
+  ChevronDown,
   Sparkles,
   ListFilter,
   Layers,
@@ -161,6 +163,8 @@ interface StagingDoc {
   updateKind: string | null;
   targetLiveDocId: number | null;
   updateSummary: string | null;
+  // Stamped by AI analysis (triage); null = never analyzed.
+  aiRecommendedAction: string | null;
 }
 
 interface StatusCounts {
@@ -230,6 +234,7 @@ interface TriageStatus {
   triaged: number;
   pendingTriage: number;
   needsReview: number;
+  unanalyzed?: number;
 }
 
 // Topic-index run status (Task #1794): live progress + durable last-run report
@@ -533,12 +538,20 @@ export default function KnowledgeBaseReview() {
   const [coverageLoading, setCoverageLoading] = useState(false);
   const [showCoverage, setShowCoverage] = useState(false);
   const [navGaps, setNavGaps] = useState<NavGapFlagRow[]>([]);
-  const [synthScope, setSynthScope] = useState<SynthScope>("all");
+  // Default to Incremental: full-corpus "All nodes" runs take ~13h and cost
+  // real LLM budget, so the expensive scope is opt-in behind a confirm dialog.
+  const [synthScope, setSynthScope] = useState<SynthScope>("incremental");
+  const [confirmSynthAll, setConfirmSynthAll] = useState(false);
+  const [failedNodesPendingRetry, setFailedNodesPendingRetry] = useState<string[]>([]);
   const [synthRoot, setSynthRoot] = useState("process");
   const [loading, setLoading] = useState(true);
   const [processing, setProcessing] = useState(false);
   const [pushing, setPushing] = useState(false);
   const [triaging, setTriaging] = useState(false);
+  const [includeAnalyzed, setIncludeAnalyzed] = useState(false);
+  const [analyzingDoc, setAnalyzingDoc] = useState(false);
+  const [chatWide, setChatWide] = useState(false);
+  const [chatOpen, setChatOpen] = useState(false);
   const [topicIndex, setTopicIndex] = useState<TopicIndexStatus | null>(null);
   const topicIndexPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const [importing, setImporting] = useState(false);
@@ -773,7 +786,35 @@ export default function KnowledgeBaseReview() {
     }
   };
 
+  // Failed-nodes hint for the Synthesize control ("N failed nodes pending
+  // retry" — incremental scope picks them up automatically). Best-effort.
+  const fetchSynthesisStatus = useCallback(async () => {
+    try {
+      const res = await authFetch("/admin/knowledgebase/pipeline/synthesis-status");
+      if (!res.ok) return;
+      const data = await res.json();
+      if (Array.isArray(data.failedNodesPendingRetry)) {
+        setFailedNodesPendingRetry(data.failedNodesPendingRetry);
+      }
+    } catch {
+      // hint only — ignore
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchSynthesisStatus();
+  }, [fetchSynthesisStatus]);
+
+  const startSynthesis = () => {
+    if (synthScope === "all") {
+      setConfirmSynthAll(true);
+      return;
+    }
+    runSynthesis();
+  };
+
   const runSynthesis = async () => {
+    setConfirmSynthAll(false);
     setProcessing(true);
     try {
       const body: Record<string, unknown> = { scope: synthScope };
@@ -789,6 +830,7 @@ export default function KnowledgeBaseReview() {
         return;
       }
       toast({ title: data.message ?? "Synthesizing…", description: "New truth-doc drafts land in the review queue." });
+      setTimeout(fetchSynthesisStatus, 2000);
     } catch {
       toast({ title: "Failed to start synthesis", variant: "destructive" });
     } finally {
@@ -841,13 +883,41 @@ export default function KnowledgeBaseReview() {
       const res = await authFetch("/admin/knowledgebase/staging/run-triage", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ includeStatuses: ["pending_review", "needs_review"] }),
+        body: JSON.stringify({ includeStatuses: ["pending_review", "needs_review"], includeAnalyzed }),
       });
       const data = await res.json();
       toast({ title: data.message });
+      // "Nothing to do" responses don't start a background run — stop polling.
+      if (!data.running) setTriaging(false);
     } catch {
       toast({ title: "Failed to start analysis", variant: "destructive" });
       setTriaging(false);
+    }
+  };
+
+  // Synchronous per-doc analysis from the review dialog. Blocks the button
+  // (not the whole dialog) and refreshes the doc in place when done.
+  const analyzeSelectedDoc = async () => {
+    if (!selectedDoc || analyzingDoc) return;
+    setAnalyzingDoc(true);
+    try {
+      const res = await authFetch(`/admin/knowledgebase/staging/${selectedDoc.id}/analyze`, { method: "POST" });
+      const data = await res.json();
+      if (!res.ok) {
+        toast({ title: data.error ?? "Analysis failed", variant: "destructive" });
+        return;
+      }
+      if (data.document) {
+        setSelectedDoc(data.document);
+        fetchInsights(data.document.id);
+      }
+      toast({ title: "AI analysis complete" });
+      fetchDocs();
+      fetchTriageStatus();
+    } catch {
+      toast({ title: "Analysis failed", variant: "destructive" });
+    } finally {
+      setAnalyzingDoc(false);
     }
   };
 
@@ -1049,11 +1119,20 @@ export default function KnowledgeBaseReview() {
       });
       if (!res.ok) throw new Error("Refine failed");
       const data = await res.json();
-      setSelectedDoc(data.document);
-      setEditContent(data.document.editedContent || data.document.content);
-      setRefineThread((prev) => [...prev, { role: "assistant", content: data.assistantMessage || "Draft updated." }]);
-      fetchDocs();
-      fetchInsights(selectedDoc.id);
+      // Richer change descriptions: append the per-edit summary so the
+      // reviewer can verify what changed without diffing.
+      const changeList: string[] = Array.isArray(data.changes) ? data.changes : [];
+      const bubble =
+        (data.assistantMessage || "Draft updated.") +
+        (changeList.length ? "\n\nChanges:\n" + changeList.map((c: string) => `• ${c}`).join("\n") : "");
+      setRefineThread((prev) => [...prev, { role: "assistant", content: bubble }]);
+      if (data.mode !== "discussion") {
+        // Only edit turns touch the draft; discussion turns leave it as-is.
+        setSelectedDoc(data.document);
+        setEditContent(data.document.editedContent || data.document.content);
+        fetchDocs();
+        fetchInsights(selectedDoc.id);
+      }
     } catch {
       toast({ title: "Refine failed", variant: "destructive" });
       setRefineThread((prev) => prev.slice(0, -1));
@@ -1246,8 +1325,8 @@ export default function KnowledgeBaseReview() {
   // ── Detail / edit dialog (shared) ─────────────────────────────────────────────
   function renderDetailDialog() {
     return (
-      <Dialog open={!!selectedDoc} onOpenChange={(open) => { if (!open) { setSelectedDoc(null); setEditMode(false); } }}>
-        <DialogContent className="max-w-4xl max-h-[88vh] overflow-y-auto">
+      <Dialog open={!!selectedDoc} onOpenChange={(open) => { if (!open) { setSelectedDoc(null); setEditMode(false); setChatOpen(false); setChatWide(false); } }}>
+        <DialogContent className="max-w-[1150px] w-[92vw] sm:max-w-[1150px] h-[88vh] flex flex-col overflow-hidden">
           {selectedDoc && (
             <>
               <DialogHeader>
@@ -1296,7 +1375,7 @@ export default function KnowledgeBaseReview() {
               )}
 
               {editMode ? (
-                <div className="space-y-4 mt-4">
+                <div className="flex-1 min-h-0 overflow-y-auto space-y-4 mt-4 pr-1">
                   <div>
                     <Label>Title</Label>
                     <Input value={editTitle} onChange={(e) => setEditTitle(e.target.value)} />
@@ -1371,7 +1450,9 @@ export default function KnowledgeBaseReview() {
                   </div>
                 </div>
               ) : (
-                <div className="mt-4 space-y-4">
+                <div className="flex-1 min-h-0 flex flex-col gap-3 mt-4">
+                {/* Top pane: the document + panels (independently scrollable) */}
+                <div className="flex-1 min-h-0 overflow-y-auto space-y-4 pr-1">
                   <div className="flex gap-2 flex-wrap">
                     <Badge variant="secondary">{selectedDoc.category}</Badge>
                     {selectedDoc.docClassTarget && (
@@ -1581,37 +1662,106 @@ export default function KnowledgeBaseReview() {
                     )}
                   </div>
 
-                  {/* Refine chat — threaded, corpus-aware refinement */}
-                  <div className="rounded-lg border border-violet-200 bg-violet-50/60 p-3 space-y-2">
+                  {selectedDoc.adminNotes && (
+                    <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                      <p className="text-sm font-medium text-yellow-800">Admin Notes</p>
+                      <p className="text-sm text-yellow-700 mt-1">{selectedDoc.adminNotes}</p>
+                    </div>
+                  )}
+                </div>
+
+                {/* Bottom pane: refine chat — threaded, corpus-aware refinement.
+                    Collapsed by default; opens to ~1/3 of the dialog height with
+                    a one-click expand toggle to ~2/3 (chat-dominant). Thread
+                    scrolls, input stays pinned at the bottom and auto-grows. */}
+                {!chatOpen ? (
+                  <button
+                    type="button"
+                    onClick={() => setChatOpen(true)}
+                    className="shrink-0 flex items-center justify-between rounded-lg border border-violet-200 bg-violet-50/60 px-3 py-2 text-sm font-medium text-violet-800 hover:bg-violet-100/70 transition-colors"
+                  >
+                    <span className="flex items-center gap-2">
+                      <Wand2 className="w-4 h-4" />Refine with AI
+                      {refineThread.length > 0 && (
+                        <span className="text-xs font-normal text-violet-600">
+                          ({refineThread.length} message{refineThread.length === 1 ? "" : "s"})
+                        </span>
+                      )}
+                    </span>
+                    <ChevronUp className="w-4 h-4" />
+                  </button>
+                ) : (
+                <div className={`${chatWide ? "h-2/3" : "h-1/3"} shrink-0 min-h-0 flex flex-col rounded-lg border border-violet-200 bg-violet-50/60 transition-all`}>
+                  <div className="flex items-center justify-between px-3 py-2 border-b border-violet-100">
                     <div className="flex items-center gap-2 text-sm font-medium text-violet-800">
                       <Wand2 className="w-4 h-4" />Refine with AI
                     </div>
-                    {refineThread.length > 0 && (
-                      <div className="max-h-56 overflow-y-auto space-y-2 rounded-md bg-white/70 border border-violet-100 p-2">
-                        {refineThread.map((turn, i) => (
-                          <div
-                            key={i}
-                            className={turn.role === "user" ? "flex justify-end" : "flex justify-start"}
-                          >
-                            <div
-                              className={
-                                "max-w-[85%] rounded-lg px-3 py-1.5 text-sm " +
-                                (turn.role === "user"
-                                  ? "bg-violet-600 text-white"
-                                  : "bg-gray-100 text-gray-800")
-                              }
-                            >
-                              {turn.content}
-                            </div>
-                          </div>
-                        ))}
+                    <div className="flex items-center gap-1">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 px-2 text-violet-700"
+                        onClick={() => setChatWide((w) => !w)}
+                        title={chatWide ? "Shrink chat to 1/3 height" : "Expand chat to 2/3 height"}
+                      >
+                        {chatWide ? <ChevronDown className="w-4 h-4" /> : <ChevronUp className="w-4 h-4" />}
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 px-2 text-violet-700"
+                        onClick={() => { setChatOpen(false); setChatWide(false); }}
+                        title="Collapse chat"
+                      >
+                        <XCircle className="w-4 h-4" />
+                      </Button>
+                    </div>
+                  </div>
+                  <div className="flex-1 min-h-0 overflow-y-auto space-y-2 p-2">
+                    {refineThread.length === 0 && (
+                      <p className="text-xs text-violet-700/80 px-1 pt-1">
+                        Ask a question about this draft or its sources, or give an edit
+                        instruction — questions are answered without touching the draft.
+                      </p>
+                    )}
+                    {refineThread.map((turn, i) => (
+                      <div
+                        key={i}
+                        className={turn.role === "user" ? "flex justify-end" : "flex justify-start"}
+                      >
+                        <div
+                          className={
+                            "max-w-[85%] md:max-w-[720px] rounded-lg px-3 py-1.5 text-sm whitespace-pre-wrap break-words " +
+                            (turn.role === "user"
+                              ? "bg-violet-600 text-white"
+                              : "bg-white border border-violet-100 text-gray-800")
+                          }
+                        >
+                          {turn.content}
+                        </div>
+                      </div>
+                    ))}
+                    {redrafting && (
+                      <div className="flex justify-start">
+                        <div className="rounded-lg px-3 py-1.5 text-sm bg-white border border-violet-100 text-gray-500 flex items-center gap-2">
+                          <Loader2 className="w-3.5 h-3.5 animate-spin" /> Thinking…
+                        </div>
                       </div>
                     )}
+                  </div>
+                  <div className="p-2 border-t border-violet-100 space-y-2">
                     <Textarea
                       value={instruction}
                       onChange={(e) => setInstruction(e.target.value)}
-                      rows={2}
-                      placeholder='e.g. "Add the source detail on picking an angle" or "Tighten the intro"'
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" && !e.shiftKey) {
+                          e.preventDefault();
+                          runRefine();
+                        }
+                      }}
+                      rows={Math.min(6, Math.max(2, instruction.split("\n").length))}
+                      className="resize-none bg-white"
+                      placeholder='Ask or instruct — e.g. "Why does it say X?" or "Tighten the intro"'
                     />
                     <div className="flex justify-end">
                       <Button size="sm" onClick={runRefine} disabled={redrafting || !instruction.trim()} className="bg-violet-600 hover:bg-violet-700">
@@ -1620,17 +1770,12 @@ export default function KnowledgeBaseReview() {
                       </Button>
                     </div>
                   </div>
-
-                  {selectedDoc.adminNotes && (
-                    <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
-                      <p className="text-sm font-medium text-yellow-800">Admin Notes</p>
-                      <p className="text-sm text-yellow-700 mt-1">{selectedDoc.adminNotes}</p>
-                    </div>
-                  )}
+                </div>
+                )}
                 </div>
               )}
 
-              <DialogFooter className="mt-6">
+              <DialogFooter className="mt-4 shrink-0">
                 {editMode ? (
                   <>
                     <Button variant="outline" onClick={() => setEditMode(false)}>Cancel</Button>
@@ -1641,6 +1786,16 @@ export default function KnowledgeBaseReview() {
                   </>
                 ) : (
                   <>
+                    <Button
+                      variant="outline"
+                      onClick={analyzeSelectedDoc}
+                      disabled={analyzingDoc || triaging}
+                      title={triaging ? "A batch AI analysis is running — per-doc analysis is disabled until it finishes." : undefined}
+                      className="border-violet-300 text-violet-700 hover:bg-violet-50"
+                    >
+                      {analyzingDoc ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Sparkles className="w-4 h-4 mr-2" />}
+                      {analyzingDoc ? "Analyzing…" : selectedDoc.aiRecommendedAction ? "Re-analyze" : "Analyze with AI"}
+                    </Button>
                     <Button variant="outline" onClick={() => setEditMode(true)}>
                       <Edit3 className="w-4 h-4 mr-2" />Edit
                     </Button>
@@ -1706,10 +1861,28 @@ export default function KnowledgeBaseReview() {
                 Re-verify Track
               </Button>
             )}
-            <Button onClick={runTriage} disabled title="Temporarily disabled while the document-review intake is being mapped out" className="bg-violet-600 hover:bg-violet-700">
-              {triaging ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Sparkles className="w-4 h-4 mr-2" />}
-              {triaging ? "Analyzing…" : "Run AI Analysis"}
-            </Button>
+            <div className="flex items-center gap-1.5">
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button onClick={runTriage} disabled={triaging} className="bg-violet-600 hover:bg-violet-700">
+                    {triaging ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Sparkles className="w-4 h-4 mr-2" />}
+                    {triaging ? "Analyzing…" : "Run AI Analysis"}
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent className="max-w-xs">
+                  Analyzes staged drafts: suggested taxonomy, risk flags and a recommendation. By default only docs that have never been analyzed are processed{typeof triageStatus?.unanalyzed === "number" ? ` (${triageStatus.unanalyzed} pending)` : ""}. Tick "include analyzed" to re-run everything.
+                </TooltipContent>
+              </Tooltip>
+              <label className="flex items-center gap-1 text-[11px] text-gray-600 cursor-pointer select-none" title="Re-analyze docs that already have an AI analysis too">
+                <input
+                  type="checkbox"
+                  checked={includeAnalyzed}
+                  onChange={(e) => setIncludeAnalyzed(e.target.checked)}
+                  className="h-3.5 w-3.5 accent-violet-600"
+                />
+                include analyzed
+              </label>
+            </div>
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button onClick={buildTopicIndex} disabled={processing} variant="outline">
@@ -1725,12 +1898,20 @@ export default function KnowledgeBaseReview() {
               <Select value={synthScope} onValueChange={(v) => setSynthScope(v as SynthScope)}>
                 <SelectTrigger className="h-9 w-[150px] text-xs"><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">All nodes</SelectItem>
+                  <SelectItem value="incremental">Incremental (new + failed)</SelectItem>
                   <SelectItem value="shelf">One shelf…</SelectItem>
                   <SelectItem value="covered">Covered only</SelectItem>
-                  <SelectItem value="incremental">Incremental (new)</SelectItem>
+                  <SelectItem value="all">All nodes (full run)</SelectItem>
                 </SelectContent>
               </Select>
+              {failedNodesPendingRetry.length > 0 && (
+                <span
+                  className="text-[11px] text-amber-700 whitespace-nowrap"
+                  title={`Failed nodes: ${failedNodesPendingRetry.slice(0, 15).join(", ")}${failedNodesPendingRetry.length > 15 ? "…" : ""} — an incremental run retries them automatically.`}
+                >
+                  {failedNodesPendingRetry.length} failed node{failedNodesPendingRetry.length === 1 ? "" : "s"} pending retry
+                </span>
+              )}
               {synthScope === "shelf" && (
                 <Select value={synthRoot} onValueChange={setSynthRoot}>
                   <SelectTrigger className="h-9 w-[130px] text-xs"><SelectValue /></SelectTrigger>
@@ -1741,7 +1922,7 @@ export default function KnowledgeBaseReview() {
               )}
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <Button onClick={runSynthesis} disabled={processing} variant="outline">
+                  <Button onClick={startSynthesis} disabled={processing} variant="outline">
                     {processing ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Play className="w-4 h-4 mr-2" />}
                     Synthesize
                   </Button>
@@ -2303,6 +2484,45 @@ export default function KnowledgeBaseReview() {
       </div>
 
       {renderDetailDialog()}
+
+      {/* Confirm gate for the expensive full-corpus synthesis run */}
+      <Dialog open={confirmSynthAll} onOpenChange={setConfirmSynthAll}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="w-5 h-5 text-amber-500" />
+              Run synthesis on ALL nodes?
+            </DialogTitle>
+          </DialogHeader>
+          <div className="text-sm text-gray-600 space-y-2">
+            <p>
+              This will re-synthesize{" "}
+              <span className="font-medium">
+                {nodeCounts.length > 0 ? `all ${nodeCounts.length} taxonomy nodes` : "every taxonomy node"}
+              </span>{" "}
+              — a full-corpus run can take many hours (a prior full run took ~13h) and uses significant
+              AI budget.
+            </p>
+            <p className="text-amber-700">
+              It also creates <span className="font-medium">new drafts for nodes that are already
+              current</span>, adding duplicate documents to the review queue.
+            </p>
+            <p>
+              The default <span className="font-medium">Incremental</span> scope already covers new
+              material and automatically retries failed nodes
+              {failedNodesPendingRetry.length > 0
+                ? ` (${failedNodesPendingRetry.length} currently pending retry)`
+                : ""}.
+            </p>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setConfirmSynthAll(false)}>Cancel</Button>
+            <Button onClick={runSynthesis} className="bg-amber-600 hover:bg-amber-700">
+              <Play className="w-4 h-4 mr-2" />Run all nodes
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Source screening surface */}
       <Dialog open={showSources} onOpenChange={setShowSources}>
