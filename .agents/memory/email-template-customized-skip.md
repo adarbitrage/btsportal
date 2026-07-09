@@ -20,3 +20,10 @@ version snapshot + audit entry; keeps starterHash NULL). A working one-shot
 script (login as founding super admin, PUT starter content, verify footer,
 real SendGrid test send via temp workflow with DEV_EMAIL_ALLOWLIST) exists:
 `artifacts/api-server/src/scripts/fix-signup-attempted-footer.ts`.
+
+**Dev/prod split:** customization state is PER-DATABASE. signup_attempted was
+admin-owned (NULL hash) only in dev; prod's row stayed starter-tracked, so the
+publish-time boot refresh fixed prod's footer automatically — always read-only
+query prod's starter_hash before assuming prod needs the dev repair. Also: the
+audit-writes test has clobbered the shared dev row before ("ADMIN OVERRIDE for
+audit-writes test", NULL hash); restore from starter content if seen.
