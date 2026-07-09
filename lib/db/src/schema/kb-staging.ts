@@ -133,6 +133,17 @@ export const kbStagingDocsTable = pgTable("kb_staging_docs", {
   // map version to find drafts written against an outdated navigation.
   navMapVersion: text("nav_map_version"),
 
+  // ── Retrieval self-test (Task #1804) ────────────────────────────────────
+  // Result of the "will the assistant find this doc?" self-test run during AI
+  // analysis: the model's member-phrased questions each run through the REAL
+  // shared hybrid retrieval path (vs live docs) plus ad-hoc draft scoring
+  // (draft embeddings are NEVER stored — computed per run and discarded).
+  // Shape: { ranAt, semanticAvailable, memberQuestions, results:[{question,
+  // draftLexRank, draftSemanticScore, clearsFloor, wouldSurface, passed,
+  // topLiveTitle, topLiveLexRank, topLiveSemanticScore }], passedCount,
+  // failedCount }. Null = never self-tested.
+  retrievalSelfTest: jsonb("retrieval_self_test"),
+
   // Upload-specific fields (added alongside the KB upload feature)
   audience: text("audience").notNull().default("member"),
   sourceObjectPath: text("source_object_path"),

@@ -44,6 +44,41 @@ export interface RetrievalTurn {
   content: string;
 }
 
+/**
+ * An EPHEMERAL draft evaluated through the shared ranking path (Task #1804).
+ * Never persisted, never embedded into the DB — it exists only for the
+ * duration of one retrieval call so the review self-test measures the draft
+ * with EXACTLY the ranking the live assistant uses.
+ */
+export interface EphemeralCandidate {
+  title: string;
+  content: string;
+  /** Doc class the draft would publish as (drives the curated-tier rule). */
+  docClass?: string | null;
+  /** Taxonomy tags the draft would carry (drives the tag-boost tier). */
+  tags?: string[];
+  /**
+   * Pre-computed ad-hoc embedding of the draft text (computed once per
+   * self-test run by the caller and DISCARDED afterwards). null/omitted =
+   * lexical-only assessment for the draft.
+   */
+  embedding?: number[] | null;
+}
+
+/** How the ephemeral candidate fared inside the shared retrieval/ranking path. */
+export interface CandidateAssessment {
+  /** ts_rank of the draft vs the SAME primary tsquery (incl. synonym OR). */
+  lexRank: number;
+  /** Cosine of draft embedding vs the SAME query embedding (0 if unavailable). */
+  semanticScore: number;
+  /** False = query or candidate embedding unavailable this run. */
+  semanticAvailable: boolean;
+  /** Draft clears the live confidence bar (lexical OR semantic floor). */
+  clearsFloor: boolean;
+  /** Draft ranked within the limit in the shared tier/blend merge vs live docs. */
+  wouldSurface: boolean;
+}
+
 export interface SurfaceRetrievalOptions {
   surface: RetrievalSurface;
   /** Category scope to retrieve within. Empty → no member-facing results. */
@@ -52,6 +87,8 @@ export interface SurfaceRetrievalOptions {
   limit?: number;
   /** Prior turns (EXCLUDING the current message) for follow-up resolution. */
   history?: RetrievalTurn[];
+  /** Ephemeral draft to assess through the same ranking (never returned in docs). */
+  candidate?: EphemeralCandidate;
 }
 
 export interface RetrievedDoc {
@@ -93,6 +130,8 @@ export interface SurfaceRetrievalResult {
   isNavigationQuery: boolean;
   /** Controlled tags the query referenced (drove the tag boost). */
   detectedTags: string[];
+  /** Present only when an ephemeral candidate was passed in the options. */
+  candidate?: CandidateAssessment;
 }
 
 /**
@@ -261,6 +300,57 @@ function scrubDoc(d: RetrievedDoc): RetrievedDoc {
 const ROW_COLUMNS = sql`id, title, content, category, doc_class, home_root, node, tags, source_path, source_label`;
 
 // ───────────────────────────────────────────────────────────────────────────
+// Shared hybrid tier/blend ordering (single source of truth).
+// ───────────────────────────────────────────────────────────────────────────
+
+/** Cosine similarity between two embedding vectors (0 when either is empty). */
+export function cosineSimilarity(a: number[], b: number[]): number {
+  let dot = 0, na = 0, nb = 0;
+  for (let i = 0; i < Math.min(a.length, b.length); i++) {
+    dot += a[i] * b[i];
+    na += a[i] * a[i];
+    nb += b[i] * b[i];
+  }
+  if (na === 0 || nb === 0) return 0;
+  return dot / (Math.sqrt(na) * Math.sqrt(nb));
+}
+
+/** The minimal doc shape the shared hybrid ordering needs. */
+export interface HybridRankable {
+  docClass: string | null;
+  tags: string[];
+  rank: number;
+  semanticScore: number;
+}
+
+/**
+ * Sort a pool with the EXACT tier rules the live hybrid merge uses:
+ * curated/overview/navigation precedence, then detected-tag boost, then the
+ * lexical+semantic blend. Mutates + returns the array. This is the ONLY
+ * implementation of the ordering — the live merge and the review self-test's
+ * candidate assessment both go through it (no parallel ranking math).
+ */
+export function sortHybridPool<T extends HybridRankable>(
+  pool: T[],
+  detectedTags: readonly string[],
+): T[] {
+  const maxLex = pool.reduce((m, d) => Math.max(m, d.rank), 0);
+  const tagSet = new Set(detectedTags);
+  const curatedTier = (d: HybridRankable) =>
+    d.docClass === "curated" || d.docClass === "overview" || d.docClass === "navigation" ? 0 : 1;
+  const tagTier = (d: HybridRankable) => (d.tags.some((t) => tagSet.has(t)) ? 0 : 1);
+  const blended = (d: HybridRankable) =>
+    LEXICAL_BLEND_WEIGHT * (maxLex > 0 ? d.rank / maxLex : 0) +
+    SEMANTIC_BLEND_WEIGHT * d.semanticScore;
+  return pool.sort(
+    (a, b) =>
+      curatedTier(a) - curatedTier(b) ||
+      tagTier(a) - tagTier(b) ||
+      blended(b) - blended(a),
+  );
+}
+
+// ───────────────────────────────────────────────────────────────────────────
 // Main entry point.
 // ───────────────────────────────────────────────────────────────────────────
 
@@ -317,7 +407,13 @@ export async function retrieveSurfaceAware(
   // The query embedding is fetched IN PARALLEL with the primary lexical query.
   // null (no key / API failure / empty query) = lexical-only turn — identical
   // to pre-hybrid behaviour by construction.
-  const [primary, queryEmbedding] = await Promise.all([
+  // When an ephemeral candidate was passed, score it against the EXACT same
+  // primary tsquery (incl. the synonym OR) the live docs are matched with —
+  // computed in SQL so stemming/ranking are identical; nothing is stored.
+  const candidateText = opts.candidate
+    ? `${opts.candidate.title}\n\n${opts.candidate.content}`
+    : null;
+  const [primary, queryEmbedding, candidateLexResult] = await Promise.all([
     db.execute(sql`
       SELECT ${ROW_COLUMNS},
         ts_rank(search_vector, ${primaryTsquery}) AS rank
@@ -332,6 +428,15 @@ export async function retrieveSurfaceAware(
       console.error("[kb-retrieval] query embedding failed — lexical-only this turn:", err);
       return null;
     }),
+    candidateText != null
+      ? db
+          .execute(sql`
+            SELECT ts_rank(to_tsvector('english', ${candidateText}), ${primaryTsquery}) AS rank`)
+          .catch((err) => {
+            console.error("[kb-retrieval] candidate lexical scoring failed:", err);
+            return null;
+          })
+      : Promise.resolve(null),
   ]);
 
   const rows = primary.rows as Record<string, unknown>[];
@@ -418,6 +523,7 @@ export async function retrieveSurfaceAware(
   // rows (no key / no embeddings / API failure), the lexical rows keep their
   // SQL ordering untouched — pre-hybrid behaviour exactly.
   let docs: RetrievedDoc[];
+  let mergedPool: RetrievedDoc[];
   if (semanticRows.length > 0) {
     const lexDocs = rows.map((r) => mapRow(r, false));
     const byId = new Map<number, RetrievedDoc>();
@@ -428,24 +534,56 @@ export async function retrieveSurfaceAware(
       if (existing) existing.semanticScore = Math.max(existing.semanticScore, sd.semanticScore);
       else byId.set(sd.id, sd);
     }
-    const pool = [...byId.values()];
-    const maxLex = pool.reduce((m, d) => Math.max(m, d.rank), 0);
-    const tagSet = new Set(detectedTags);
-    const curatedTier = (d: RetrievedDoc) =>
-      d.docClass === "curated" || d.docClass === "overview" || d.docClass === "navigation" ? 0 : 1;
-    const tagTier = (d: RetrievedDoc) => (d.tags.some((t) => tagSet.has(t)) ? 0 : 1);
-    const blended = (d: RetrievedDoc) =>
-      LEXICAL_BLEND_WEIGHT * (maxLex > 0 ? d.rank / maxLex : 0) +
-      SEMANTIC_BLEND_WEIGHT * d.semanticScore;
-    pool.sort(
-      (a, b) =>
-        curatedTier(a) - curatedTier(b) ||
-        tagTier(a) - tagTier(b) ||
-        blended(b) - blended(a),
-    );
-    docs = pool.slice(0, limit);
+    mergedPool = sortHybridPool([...byId.values()], detectedTags);
+    docs = mergedPool.slice(0, limit);
   } else {
-    docs = rows.slice(0, limit).map((r) => mapRow(r, false));
+    mergedPool = rows.map((r) => mapRow(r, false));
+    docs = mergedPool.slice(0, limit);
+  }
+
+  // ── Ephemeral candidate assessment (Task #1804) ───────────────────────────
+  // Inject the draft as a pseudo-doc into a COPY of the merged pool and rank
+  // it with the SAME sortHybridPool ordering the live merge uses. The
+  // candidate is never included in the returned docs and nothing is stored.
+  let candidateAssessment: CandidateAssessment | undefined;
+  if (opts.candidate) {
+    const lexRow = candidateLexResult
+      ? (candidateLexResult.rows as Array<{ rank: unknown }>)[0]
+      : undefined;
+    const candLexRank = lexRow ? parseFloat(String(lexRow.rank ?? 0)) || 0 : 0;
+    const candEmbedding = opts.candidate.embedding ?? null;
+    const semanticAvailable = queryEmbedding != null && candEmbedding != null;
+    const candSemanticScore = semanticAvailable
+      ? cosineSimilarity(queryEmbedding!, candEmbedding!)
+      : 0;
+
+    const candidateDoc: HybridRankable & { isCandidate: true } = {
+      isCandidate: true,
+      docClass: opts.candidate.docClass ?? null,
+      tags: opts.candidate.tags ?? [],
+      rank: candLexRank,
+      semanticScore: candSemanticScore,
+    };
+    const assessmentPool: Array<HybridRankable & { isCandidate?: boolean }> = [
+      ...mergedPool.map((d) => ({
+        docClass: d.docClass,
+        tags: d.tags,
+        rank: d.rank,
+        semanticScore: d.semanticScore,
+      })),
+      candidateDoc,
+    ];
+    sortHybridPool(assessmentPool, detectedTags);
+    const position = assessmentPool.findIndex((d) => d.isCandidate);
+
+    candidateAssessment = {
+      lexRank: candLexRank,
+      semanticScore: candSemanticScore,
+      semanticAvailable,
+      clearsFloor:
+        candLexRank >= CONFIDENCE_FLOOR || candSemanticScore >= SEMANTIC_CONFIDENCE_FLOOR,
+      wouldSurface: position >= 0 && position < limit,
+    };
   }
 
   // Prepend the navigation-grounded doc so it leads navigation answers (dedup).
@@ -477,5 +615,6 @@ export async function retrieveSurfaceAware(
     topSemanticScore,
     isNavigationQuery: navQuery,
     detectedTags,
+    ...(candidateAssessment ? { candidate: candidateAssessment } : {}),
   };
 }

@@ -112,5 +112,6 @@ export * from "./partner-assignments";
 export * from "./kickoff-coaches";
 export * from "./kb-tool-tags";
 export * from "./kb-name-flag-dismissals";
+export * from "./kb-proposed-synonyms";
 export * from "./call-bookings";
 export * from "./partner-notes";

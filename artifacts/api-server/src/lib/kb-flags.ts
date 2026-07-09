@@ -47,7 +47,11 @@ export type RiskFlagType =
   // "Related topics" hygiene (Task #1801): the draft's Related-topics list
   // names taxonomy topics that don't match the doc's placement, or is the
   // boilerplate every-sibling dump. Non-critical — guides the human edit.
-  | "related_topics_mismatch";
+  | "related_topics_mismatch"
+  // Retrieval self-test (Task #1804): the draft failed some of its own
+  // AI-generated member questions through the real retrieval path — likely too
+  // thin / missing the vocabulary members would actually use. Non-critical.
+  | "retrieval_gap";
 
 export interface RiskFlag {
   type: RiskFlagType;
@@ -222,6 +226,32 @@ export function computeRelatedTopicsFlag(input: {
     severity: "medium",
     message: "Related-topics list doesn't match the doc's subject",
     detail: `${parts.join(" ")} Trim the "Related topics" section to genuinely adjacent topics before publishing.`,
+  };
+}
+
+// ── Retrieval self-test flag (Task #1804) ────────────────────────────────────
+
+/**
+ * Compute the retrieval_gap flag from a stored self-test result. Pure. Flags
+ * whenever at least one member question failed; the detail names the failing
+ * questions so the reviewer knows which vocabulary to fold into the draft.
+ * NON-critical by design (medium) — it never trips needsExpert and never
+ * blocks bulk confirm; it guides the human edit.
+ */
+export function computeRetrievalSelfTestFlag(selfTest: {
+  results: Array<{ question: string; passed: boolean }>;
+} | null | undefined): RiskFlag | null {
+  if (!selfTest || !Array.isArray(selfTest.results) || selfTest.results.length === 0) return null;
+  const failing = selfTest.results.filter((r) => !r.passed);
+  if (failing.length === 0) return null;
+  const total = selfTest.results.length;
+  return {
+    type: "retrieval_gap",
+    severity: "medium",
+    message: `Fails retrieval self-test (${failing.length}/${total} member questions)`,
+    detail: `The assistant likely would NOT find this doc for: ${failing
+      .map((f) => `"${f.question}"`)
+      .join("; ")}. Consider adding the member's own vocabulary for these asks to the draft.`,
   };
 }
 

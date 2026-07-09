@@ -17,10 +17,13 @@ import { kbStagingDocsTable, kbTriageAuditLogTable } from "@workspace/db/schema"
 import { eq } from "drizzle-orm";
 import {
   computeRiskFlags,
+  computeRetrievalSelfTestFlag,
   gatherFlagContext,
   maxSeverity,
   type RiskFlag,
 } from "./kb-flags.js";
+import { runRetrievalSelfTest, type RetrievalSelfTest } from "./kb-retrieval-selftest.js";
+import { recordProposedSynonym } from "./kb-proposed-synonyms.js";
 import {
   HOME_ROOTS,
   ALL_NODES,
@@ -75,9 +78,37 @@ TIPS-AND-TRICKS RULE (short, tool-driven "tips and tricks" walkthroughs — e.g.
 
 CATEGORIES (legacy field, pick one): curriculum | strategy | sop | faq | platform_guide
 
+TITLE RULES (the title is a RETRIEVAL SURFACE — the assistant finds docs by
+matching member questions against title + content, so a title written in
+member vocabulary is found; a clever or internal title is invisible):
+- Lead with the canonical curriculum vocabulary and exact tool names members
+  use ("Flexy", "Blitz", "7 Pillars", the affiliate network's real name) — the
+  words a member would literally type when asking about this topic.
+- Say what the doc ANSWERS, not what session it came from ("How to Set Up
+  Flexy Campaign Tracking", never "Coaching Call 14 Notes" or "Q&A Replay").
+- No dates, coach names, filler ("Complete Guide", "Everything About"), or
+  internal jargon a member wouldn't search for.
+
+STAKES CONTEXT for doc class + tags: doc class decides how the assistant may
+USE the doc — "curated"/"overview" content is CITABLE (quoted to members as
+BTS truth), while "transcript" is training-only background. If the content
+touches money, refunds, guarantees, legal, compliance or anything a member
+could act on to their detriment, prefer the conservative class and say why in
+"reasoning". Tags drive retrieval boosts: a wrong tool tag actively ROUTES the
+wrong members here, so only tag tools the doc genuinely teaches.
+
+MEMBER QUESTIONS: write 3-5 questions a REAL member would ask that this doc
+should answer — casual member phrasing (how members actually talk in chat),
+not textbook rewordings of the title. These power a retrieval self-test.
+
+SYNONYM GAPS: if members would use a casual phrase/nickname for this doc's
+topic that the doc itself never says (e.g. "money back" for refund policy),
+report it in "suggestedAliases" with the canonical term the doc DOES use.
+Only genuinely different vocabulary — not trivial rephrasings. [] if none.
+
 Respond ONLY with valid JSON (no markdown, no extra text):
 {
-  "cleanedTitle": <improved concise title, max 80 chars>,
+  "cleanedTitle": <improved concise title following TITLE RULES, max 80 chars>,
   "summary": <one-sentence summary of what it teaches, max 150 chars>,
   "suggestedCategory": <one of the 5 categories>,
   "suggestedHomeRoot": <${ROOT_LIST}>,
@@ -85,6 +116,8 @@ Respond ONLY with valid JSON (no markdown, no extra text):
   "suggestedDocClass": <${DOC_CLASSES.join(" | ")}>,
   "suggestedTags": <array of 0-4 tag slugs>,
   "observedTools": <array of names of any third-party or in-house SOFTWARE / TOOL / PLATFORM the document tells the member to use that is NOT already in the tag list above; plain names, [] if none>,
+  "memberQuestions": <array of 3-5 member-phrased questions this doc should answer>,
+  "suggestedAliases": <array of {"memberPhrase": <casual member wording>, "canonicalTerm": <the doc's own word(s) for it>}, [] if none>,
   "reasoning": <1-2 sentence note on quality / brand or privacy issues>
 }`;
 }
@@ -98,10 +131,15 @@ export interface TriageResult {
   suggestedNode: string | null;
   suggestedDocClass: string | null;
   suggestedTags: string[];
+  /** 3-5 member-phrased questions the doc should answer (retrieval self-test). */
+  memberQuestions: string[];
+  /** Uncovered member phrasings → canonical terms (synonym-gap proposals). */
+  suggestedAliases: Array<{ memberPhrase: string; canonicalTerm: string }>;
 }
 
-// Small JSON output + reasoning headroom (see gpt-5 starvation note in triageDoc).
-const TRIAGE_MAX_TOKENS = 4000;
+// JSON output + reasoning headroom (see gpt-5 starvation note in triageDoc).
+// Bumped from 4000 when memberQuestions/suggestedAliases were added (#1804).
+const TRIAGE_MAX_TOKENS = 6000;
 
 const ROOT_SET = new Set(HOME_ROOTS.map((r) => r.slug));
 const NODE_SET = new Set(ALL_NODES.map((n) => n.slug));
@@ -146,6 +184,8 @@ export async function triageDoc(doc: {
     const parsed = JSON.parse(raw) as Partial<TriageResult> & {
       suggestedTags?: unknown;
       observedTools?: unknown;
+      memberQuestions?: unknown;
+      suggestedAliases?: unknown;
     };
     const tags = Array.isArray(parsed.suggestedTags)
       ? parsed.suggestedTags.map(String).filter((t) => tagSet.has(t)).slice(0, 4)
@@ -168,6 +208,20 @@ export async function triageDoc(doc: {
     const docClass = typeof parsed.suggestedDocClass === "string" && DOC_CLASS_SET.has(parsed.suggestedDocClass)
       ? parsed.suggestedDocClass
       : null;
+    const memberQuestions = Array.isArray(parsed.memberQuestions)
+      ? parsed.memberQuestions.map(String).map((q) => q.trim()).filter(Boolean).slice(0, 5)
+      : [];
+    const suggestedAliases = Array.isArray(parsed.suggestedAliases)
+      ? (parsed.suggestedAliases as unknown[])
+          .filter((a): a is { memberPhrase: unknown; canonicalTerm: unknown } =>
+            typeof a === "object" && a !== null)
+          .map((a) => ({
+            memberPhrase: String(a.memberPhrase ?? "").trim(),
+            canonicalTerm: String(a.canonicalTerm ?? "").trim(),
+          }))
+          .filter((a) => a.memberPhrase && a.canonicalTerm)
+          .slice(0, 5)
+      : [];
     return {
       suggestedCategory: parsed.suggestedCategory || "curriculum",
       cleanedTitle: (parsed.cleanedTitle || doc.title).substring(0, 80),
@@ -177,6 +231,8 @@ export async function triageDoc(doc: {
       suggestedNode: node,
       suggestedDocClass: docClass,
       suggestedTags: tags,
+      memberQuestions,
+      suggestedAliases,
     };
   } catch {
     throw new Error(`Failed to parse triage response: ${raw.substring(0, 200)}`);
@@ -198,6 +254,35 @@ export async function runAutoTriageOnDoc(
 ): Promise<AutoTriageDocResult> {
   const result = await triageDoc(doc);
 
+  // Synonym-gap proposals (Task #1804): uncovered member phrasings go to the
+  // human-approval queue (mirrors observedTools). Fire-and-forget.
+  for (const alias of result.suggestedAliases) {
+    void recordProposedSynonym(alias.memberPhrase, alias.canonicalTerm, doc.title);
+  }
+
+  // Retrieval self-test (Task #1804): run each member question through the
+  // REAL retrieval path vs live docs + score the draft ad-hoc (embeddings are
+  // computed per run and discarded — never stored for staging docs). A
+  // self-test failure must never fail analysis.
+  let selfTest: RetrievalSelfTest | null = null;
+  if (result.memberQuestions.length > 0) {
+    try {
+      selfTest = await runRetrievalSelfTest(
+        {
+          title: result.cleanedTitle || doc.title,
+          content: doc.editedContent ?? doc.content,
+          // The class/tags the draft would publish with — they drive the
+          // curated-tier and tag-tier rules inside the shared ranking.
+          docClass: result.suggestedDocClass ?? doc.docClassTarget ?? null,
+          tags: result.suggestedTags ?? [],
+        },
+        result.memberQuestions,
+      );
+    } catch (err) {
+      console.error(`[KB Triage] retrieval self-test failed for doc ${doc.id}:`, err);
+    }
+  }
+
   const ctx = await gatherFlagContext({ title: doc.title, aiCleanedTitle: result.cleanedTitle });
   const flags = computeRiskFlags({
     title: result.cleanedTitle || doc.title,
@@ -212,6 +297,10 @@ export async function runAutoTriageOnDoc(
     duplicateTitle: ctx.duplicateTitle,
     conflictsWithVerified: ctx.conflictsWithVerified,
   });
+
+  // Non-critical retrieval-gap flag when the doc fails its own questions.
+  const selfTestFlag = computeRetrievalSelfTestFlag(selfTest);
+  if (selfTestFlag) flags.push(selfTestFlag);
 
   const conflictFlag = flags.find((f) => f.type === "conflict");
   const needsExpert = maxSeverity(flags) === "critical";
@@ -233,6 +322,7 @@ export async function runAutoTriageOnDoc(
       aiSummary: result.summary,
       aiSuggestedTaxonomy,
       riskFlags: flags,
+      retrievalSelfTest: selfTest,
       needsExpert,
       conflictData: conflictFlag ? { message: conflictFlag.message, detail: conflictFlag.detail } : null,
       status: "needs_review" as typeof doc.status,

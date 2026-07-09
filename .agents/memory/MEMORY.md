@@ -154,4 +154,5 @@
 - [KB Related-topics adjacency lockstep](kb-related-topics-adjacency.md) — NODE_NEIGHBORS feeds BOTH synthesis section and the mismatch flag; synthesis output must never self-flag; new taxonomy nodes need a neighbors entry.
 - [Stale-nav sweep is manual-only](kb-stale-nav-sweep.md) — main runs it ONCE after merge in dev (console workflow, npx tsx …/sweep-stale-nav.ts); never boot/scheduled; append-only reviewer callouts, idempotent.
 - [KB hybrid semantic retrieval](kb-semantic-hybrid-retrieval.md) — Replit AI proxy has NO /embeddings; direct OPENAI_API_KEY seam, graceful lexical-only dormancy, floor calibration pending key.
+- [KB Analyze retrieval self-test](kb-analyze-retrieval-selftest.md) — triage self-tests drafts via real retrieveSurfaceAware; staging never stores embeddings; retrieval_gap non-blocking; synonym approvals are code-map markers; keep selftest SQL in lockstep with kb-retrieval.ts.
 - [possible_member_name flag vocab](kb-member-name-flag-vocab.md) — suppress false positives ONLY via exact-pair allowlists/stopwords (never structural rules); flags are computed live, so "removing" = extending analyzer vocabulary.

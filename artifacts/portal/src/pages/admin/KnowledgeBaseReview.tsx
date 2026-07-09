@@ -165,6 +165,29 @@ interface StagingDoc {
   updateSummary: string | null;
   // Stamped by AI analysis (triage); null = never analyzed.
   aiRecommendedAction: string | null;
+  // Retrieval self-test (Task #1804); null = never self-tested.
+  retrievalSelfTest: RetrievalSelfTest | null;
+}
+
+interface SelfTestQuestionResult {
+  question: string;
+  draftLexRank: number;
+  draftSemanticScore: number;
+  clearsFloor: boolean;
+  wouldSurface: boolean;
+  passed: boolean;
+  topLiveTitle: string | null;
+  topLiveLexRank: number;
+  topLiveSemanticScore: number;
+}
+
+interface RetrievalSelfTest {
+  ranAt: string;
+  semanticAvailable: boolean;
+  memberQuestions: string[];
+  results: SelfTestQuestionResult[];
+  passedCount: number;
+  failedCount: number;
 }
 
 interface StatusCounts {
@@ -427,6 +450,48 @@ function RiskChips({ flags, needsExpert }: { flags: RiskFlag[] | null; needsExpe
           {f.detail && <TooltipContent className="max-w-xs">{f.detail}</TooltipContent>}
         </Tooltip>
       ))}
+    </div>
+  );
+}
+
+// ── Retrieval self-test panel (Task #1804) ─────────────────────────────────────
+// "Would the assistant find this doc?" — each AI-generated member question was
+// run through the real retrieval path; a fail means the draft likely wouldn't
+// surface for that ask (add the member's vocabulary to the draft).
+
+function SelfTestPanel({ selfTest }: { selfTest: RetrievalSelfTest }) {
+  const allPassed = selfTest.failedCount === 0;
+  return (
+    <div className={`mt-3 p-3 rounded-lg border ${allPassed ? "bg-green-50 border-green-200" : "bg-amber-50 border-amber-200"}`}>
+      <div className="flex items-center gap-2 text-sm font-semibold text-gray-800">
+        {allPassed
+          ? <CheckCircle className="w-4 h-4 text-green-600" />
+          : <AlertTriangle className="w-4 h-4 text-amber-600" />}
+        Retrieval self-test: {selfTest.passedCount}/{selfTest.results.length} member questions find this doc
+        {!selfTest.semanticAvailable && (
+          <span className="text-[10px] font-normal text-gray-500">(keyword matching only)</span>
+        )}
+      </div>
+      <div className="mt-2 space-y-1">
+        {selfTest.results.map((r, i) => (
+          <div key={i} className="flex items-start gap-2 text-xs bg-white rounded border p-2">
+            {r.passed
+              ? <CheckCircle className="w-3.5 h-3.5 text-green-600 mt-0.5 shrink-0" />
+              : <XCircle className="w-3.5 h-3.5 text-red-500 mt-0.5 shrink-0" />}
+            <div className="min-w-0">
+              <div className="text-gray-800">"{r.question}"</div>
+              <div className="text-[10px] text-gray-500 mt-0.5">
+                {r.passed
+                  ? "This draft would surface for this question."
+                  : !r.clearsFloor
+                  ? "The draft doesn't match this question's wording — add this vocabulary to the draft."
+                  : "Live docs currently outrank the draft for this question."}
+                {r.topLiveTitle && <> Best live match: "{r.topLiveTitle}".</>}
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
@@ -1427,6 +1492,11 @@ export default function KnowledgeBaseReview() {
                 <div className="mt-3">
                   <RiskChips flags={selectedDoc.riskFlags} needsExpert={selectedDoc.needsExpert} />
                 </div>
+              )}
+
+              {/* Retrieval self-test (Task #1804) */}
+              {!editMode && selectedDoc.retrievalSelfTest && selectedDoc.retrievalSelfTest.results?.length > 0 && (
+                <SelfTestPanel selfTest={selectedDoc.retrievalSelfTest} />
               )}
 
               {editMode ? (
