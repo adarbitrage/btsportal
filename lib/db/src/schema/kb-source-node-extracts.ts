@@ -38,6 +38,15 @@ export const kbSourceNodeExtractsTable = pgTable("kb_source_node_extracts", {
   // The finished map-phase extract (may be the literal "NONE" marker when the
   // source has nothing usable for this node — cached so it isn't recomputed).
   extract: text("extract").notNull(),
+  // Honest outcome of the last extraction attempt (Task: synthesis hardening).
+  //  - 'ok':     the extract completed; a fingerprint match may reuse it.
+  //  - 'failed': the LLM extraction failed after retries. The row records the
+  //              failure durably but is NEVER treated as a cache hit, so the
+  //              next run retries it (self-heal). The old silent behavior —
+  //              caching a raw-window fallback as if it succeeded — is gone.
+  status: text("status").notNull().default("ok"),
+  // Failure reason when status='failed' (null when ok).
+  error: text("error"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 }, (table) => [

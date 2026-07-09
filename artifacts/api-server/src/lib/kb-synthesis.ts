@@ -5,6 +5,10 @@ import {
   aiLiveDocumentsTable,
   kbNodeSynthesisStateTable,
   kbSourceNodeExtractsTable,
+  kbSynthesisRunsTable,
+  type KbSynthesisRun,
+  type SynthesisRunFailure,
+  type SynthesisRunNodeOutcome,
 } from "@workspace/db/schema";
 import { sql, inArray, eq, and, desc } from "drizzle-orm";
 import { recordNavGapsForNode, navDocCrossLinksMarkdown } from "./kb-nav-gaps.js";
@@ -83,10 +87,16 @@ export interface SynthesisProgress {
   totalNodes: number;
   processedNodes: number;
   createdDrafts: number;
+  // Honest per-node outcome counts (synthesis hardening).
+  succeededCount: number;
+  skippedCount: number;
+  failedCount: number;
+  failures: SynthesisRunFailure[];
   currentNode: string | null;
   startedAt: string | null;
   finishedAt: string | null;
   error: string | null;
+  runId: number | null;
 }
 
 let _state: SynthesisProgress = {
@@ -94,10 +104,15 @@ let _state: SynthesisProgress = {
   totalNodes: 0,
   processedNodes: 0,
   createdDrafts: 0,
+  succeededCount: 0,
+  skippedCount: 0,
+  failedCount: 0,
+  failures: [],
   currentNode: null,
   startedAt: null,
   finishedAt: null,
   error: null,
+  runId: null,
 };
 
 export function getSynthesisState(): SynthesisProgress {
@@ -146,6 +161,32 @@ function dominantAuthority(sources: SourceDoc[]): AuthorityRole {
 
 // ── LLM plumbing ────────────────────────────────────────────────────────────
 
+// Retry budgets (synthesis hardening — mirrors the topic-index classifier).
+// Rate limits (429) get more attempts + much longer backoff: the generic
+// 1s/3s schedule converts a transient 429 burst into degraded output.
+// gpt-5 is a reasoning model: its (invisible) reasoning tokens count against
+// max_completion_tokens. Tight budgets return 200 OK with EMPTY content +
+// finish_reason=length — the dev pilot showed the old 700-token map budget
+// starving on every call (previously masked by the raw-window fallback). Give
+// thousands of tokens of headroom above the visible output size.
+const MAP_EXTRACT_MAX_TOKENS = 4000;      // visible output capped at ~1200 chars
+const CONSOLIDATE_MAX_TOKENS = 16000;     // full truth-doc + reasoning headroom
+const ATOMIC_DEFS_MAX_TOKENS = 5000;      // small JSON + reasoning headroom
+const REVISION_DIFF_MAX_TOKENS = 4000;    // few bullets + reasoning headroom
+const LLM_TIMEOUT_MS = 180_000;
+
+const LLM_MAX_ATTEMPTS = 3;
+const LLM_RETRY_BACKOFF_MS = [1000, 3000];
+const LLM_MAX_ATTEMPTS_429 = 5;
+const LLM_RETRY_BACKOFF_429_MS = [5000, 15000, 30000, 60000];
+
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+/** True when an LLM error message indicates a rate limit (429). Exported for tests. */
+export function isRateLimitError(msg: string): boolean {
+  return msg.includes("429");
+}
+
 export async function callLLM(system: string, user: string, maxTokens: number, jsonMode = false): Promise<string> {
   const base = process.env.AI_INTEGRATIONS_OPENAI_BASE_URL;
   const key = process.env.AI_INTEGRATIONS_OPENAI_API_KEY;
@@ -166,11 +207,55 @@ export async function callLLM(system: string, user: string, maxTokens: number, j
       ...(jsonMode ? { response_format: { type: "json_object" } } : {}),
       max_completion_tokens: maxTokens,
     }),
-    signal: AbortSignal.timeout(90000),
+    signal: AbortSignal.timeout(LLM_TIMEOUT_MS),
   });
   if (!resp.ok) throw new Error(`AI synthesis call failed: ${resp.status}`);
-  const json = (await resp.json()) as { choices?: Array<{ message?: { content?: string } }> };
-  return (json.choices?.[0]?.message?.content ?? "").trim();
+  const json = (await resp.json()) as {
+    choices?: Array<{ finish_reason?: string; message?: { content?: string } }>;
+  };
+  const content = (json.choices?.[0]?.message?.content ?? "").trim();
+  // Reasoning-token starvation returns 200 OK with EMPTY content and
+  // finish_reason=length. That is a FAILURE, never a valid empty answer —
+  // treating it as output was the topic-index silent-degradation bug.
+  if (!content) {
+    const finish = json.choices?.[0]?.finish_reason ?? "unknown";
+    throw new Error(`AI synthesis call returned empty content (finish_reason=${finish})`);
+  }
+  return content;
+}
+
+/**
+ * callLLM with bounded retries + rate-limit-aware backoff. Throws only after
+ * all attempts are exhausted — callers must treat that throw as a real failure
+ * (loud), never substitute silent fallback content.
+ */
+export async function callLLMWithRetry(
+  label: string,
+  system: string,
+  user: string,
+  maxTokens: number,
+  jsonMode = false,
+): Promise<string> {
+  let lastErr: unknown;
+  let attempt = 0;
+  let maxAttempts = LLM_MAX_ATTEMPTS;
+  while (attempt < maxAttempts) {
+    attempt += 1;
+    try {
+      return await callLLM(system, user, maxTokens, jsonMode);
+    } catch (err) {
+      lastErr = err;
+      const msg = err instanceof Error ? err.message : String(err);
+      const rateLimited = isRateLimitError(msg);
+      if (rateLimited) maxAttempts = LLM_MAX_ATTEMPTS_429;
+      console.error(`[Synthesis] ${label} attempt ${attempt}/${maxAttempts} failed: ${msg}`);
+      if (attempt < maxAttempts) {
+        const schedule = rateLimited ? LLM_RETRY_BACKOFF_429_MS : LLM_RETRY_BACKOFF_MS;
+        await sleep(schedule[Math.min(attempt - 1, schedule.length - 1)]);
+      }
+    }
+  }
+  throw lastErr instanceof Error ? lastErr : new Error(String(lastErr));
 }
 
 // ── Hearsay guard (Task: keep member hearsay out of truth docs) ──────────────
@@ -208,28 +293,27 @@ ${FLAG_PRESERVATION_GUARD}
 No preamble. Under ${MAP_EXTRACT_CHARS} characters.`;
 }
 
-async function extractWindowForNode(node: TaxonomyNode, source: SourceDoc, window: string): Promise<string> {
+async function extractWindowForNode(node: TaxonomyNode, source: SourceDoc, window: string, windowIndex: number): Promise<string> {
   const system = buildMapExtractSystemPrompt(node);
   const user = `SOURCE TITLE: ${source.title}\n\nSOURCE CONTENT:\n${window}`;
-  const out = await callLLM(system, user, 700);
-  return out;
+  return callLLMWithRetry(`map extract source ${source.id} node ${node.slug} window ${windowIndex}`, system, user, MAP_EXTRACT_MAX_TOKENS);
 }
 
 // Map phase (whole source): walk EVERY window of the source and merge the
 // per-window extracts into one, so material past the old 6k cutoff is no longer
 // dropped. Returns the "NONE" marker when nothing usable was found. Windows run
 // sequentially within a source (the per-source fan-out is bounded by the caller).
+//
+// Hardening: a window that fails after its retry budget FAILS the whole source
+// extract (throws). The old behavior — silently substituting the raw window
+// text, which then got CACHED under the content fingerprint as if it were a
+// successful extract — is gone: a failure is loud, recorded, and retried on the
+// next run.
 async function extractForNode(node: TaxonomyNode, source: SourceDoc): Promise<string> {
   const windows = contentWindows(source.content, MAP_WINDOW_CHARS, MAP_WINDOW_OVERLAP);
   const fragments: string[] = [];
-  for (const window of windows) {
-    try {
-      fragments.push(await extractWindowForNode(node, source, window));
-    } catch (err) {
-      console.error(`[Synthesis] map extract failed for source ${source.id} window:`, err instanceof Error ? err.message : err);
-      // Fall back to the raw window text so the source still contributes.
-      fragments.push(window.slice(0, MAP_EXTRACT_CHARS));
-    }
+  for (let i = 0; i < windows.length; i++) {
+    fragments.push(await extractWindowForNode(node, source, windows[i], i));
   }
   return mergeWindowExtracts(fragments);
 }
@@ -269,6 +353,7 @@ async function getOrExtractForNode(
       .select({
         extract: kbSourceNodeExtractsTable.extract,
         contentFingerprint: kbSourceNodeExtractsTable.contentFingerprint,
+        status: kbSourceNodeExtractsTable.status,
       })
       .from(kbSourceNodeExtractsTable)
       .where(
@@ -278,7 +363,10 @@ async function getOrExtractForNode(
         ),
       )
       .limit(1);
-    if (cached[0] && cached[0].contentFingerprint === fingerprint) {
+    // A cache hit requires the fingerprint AND an honest 'ok' outcome. A row
+    // with status='failed' is a durable failure record, never reusable output —
+    // reruns fall through here and retry the extraction (self-heal).
+    if (cached[0] && cached[0].contentFingerprint === fingerprint && cached[0].status === "ok") {
       return { extract: cached[0].extract, flags };
     }
   } catch (err) {
@@ -286,15 +374,35 @@ async function getOrExtractForNode(
     console.error(`[Synthesis] extract-cache read failed for source ${source.id} / node ${node.slug}:`, err instanceof Error ? err.message : err);
   }
 
-  const extract = await extractForNode(node, resolvedSource);
+  let extract: string;
+  try {
+    extract = await extractForNode(node, resolvedSource);
+  } catch (err) {
+    // Extraction failed after all retries. Record the failure DURABLY (so run
+    // reports and reruns see it) and rethrow — never cache fallback content as
+    // if it succeeded.
+    const message = err instanceof Error ? err.message : String(err);
+    try {
+      await db
+        .insert(kbSourceNodeExtractsTable)
+        .values({ sourceDocId: source.id, node: node.slug, contentFingerprint: fingerprint, extract: "", status: "failed", error: message })
+        .onConflictDoUpdate({
+          target: [kbSourceNodeExtractsTable.sourceDocId, kbSourceNodeExtractsTable.node],
+          set: { contentFingerprint: fingerprint, extract: "", status: "failed", error: message, updatedAt: new Date() },
+        });
+    } catch (persistErr) {
+      console.error(`[Synthesis] failed to persist extract failure for source ${source.id} / node ${node.slug}:`, persistErr instanceof Error ? persistErr.message : persistErr);
+    }
+    throw err;
+  }
 
   try {
     await db
       .insert(kbSourceNodeExtractsTable)
-      .values({ sourceDocId: source.id, node: node.slug, contentFingerprint: fingerprint, extract })
+      .values({ sourceDocId: source.id, node: node.slug, contentFingerprint: fingerprint, extract, status: "ok", error: null })
       .onConflictDoUpdate({
         target: [kbSourceNodeExtractsTable.sourceDocId, kbSourceNodeExtractsTable.node],
-        set: { contentFingerprint: fingerprint, extract, updatedAt: new Date() },
+        set: { contentFingerprint: fingerprint, extract, status: "ok", error: null, updatedAt: new Date() },
       });
   } catch (err) {
     // Persisting the cache is best-effort; the extract is still returned/used.
@@ -392,7 +500,7 @@ async function consolidate(
 
   const user = `Consolidate the following ${extracts.length} source extract(s) into one truth document for "${node.label}".\n\n${numbered}`;
 
-  const out = await callLLM(system, user, 4000);
+  const out = await callLLMWithRetry(`consolidate node ${node.slug}`, system, user, CONSOLIDATE_MAX_TOKENS);
   if (!out) throw new Error("AI returned an empty synthesis");
 
   // Split off the leading "# Title".
@@ -505,7 +613,7 @@ BRAND RULES: say "Build Test Scale" / "BTS" (never "TCE" or "Cherrington"); no c
     .map((e, i) => `[SOURCE ${i + 1}]\n${e.extract}`)
     .join("\n\n")}`;
   try {
-    const raw = await callLLM(system, user, 1500, true);
+    const raw = await callLLMWithRetry(`atomic definitions node ${node.slug}`, system, user, ATOMIC_DEFS_MAX_TOKENS, true);
     if (!raw) return [];
     const parsed = JSON.parse(raw) as { definitions?: unknown };
     if (!Array.isArray(parsed.definitions)) return [];
@@ -607,7 +715,7 @@ async function summarizeRevision(
   try {
     const system = `You compare a CURRENTLY PUBLISHED knowledge document with a PROPOSED REVISION of it and summarize, in 2-5 short markdown bullet points, what the revision ADDS, CHANGES or CORRECTS. Focus on substance a reviewer must check. Bullets only, no preamble. If nothing material changed, output exactly "- No material change; refreshed consolidation."`;
     const user = `TOPIC: "${node.label}"\n\n=== CURRENTLY PUBLISHED ===\n${priorContent.slice(0, 6000)}\n\n=== PROPOSED REVISION ===\n${newContent.slice(0, 6000)}`;
-    const out = await callLLM(system, user, 700);
+    const out = await callLLMWithRetry(`revision diff node ${node.slug}`, system, user, REVISION_DIFF_MAX_TOKENS);
     return out?.trim() || fallback;
   } catch (err) {
     console.error(`[Synthesis] revision diff failed for node ${node.slug}:`, err instanceof Error ? err.message : err);
@@ -829,6 +937,8 @@ export async function synthesizeNode(nodeSlug: string): Promise<SynthesizeResult
         sourceDocIds: linkedIds,
         sourceCount: linkedIds.length,
         lastDraftId: draft?.id ?? null,
+        lastError: null,
+        lastAttemptAt: new Date(),
       })
       .onConflictDoUpdate({
         target: kbNodeSynthesisStateTable.node,
@@ -838,6 +948,8 @@ export async function synthesizeNode(nodeSlug: string): Promise<SynthesizeResult
           sourceDocIds: linkedIds,
           sourceCount: linkedIds.length,
           lastDraftId: draft?.id ?? null,
+          lastError: null,
+          lastAttemptAt: new Date(),
         },
       });
   } catch (err) {
@@ -873,7 +985,7 @@ export async function synthesizeAllNodesBackground(): Promise<number[]> {
  * exposed via {@link getSynthesisState}. Returns the created draft ids so the
  * caller can triage exactly the new drafts.
  */
-export async function synthesizeNodesBackground(nodeSlugs: string[]): Promise<number[]> {
+export async function synthesizeNodesBackground(nodeSlugs: string[], scope = "nodes"): Promise<number[]> {
   if (_state.running) return [];
   const slugs = [...new Set(nodeSlugs)].filter((s) => isNode(s));
   _state = {
@@ -881,34 +993,167 @@ export async function synthesizeNodesBackground(nodeSlugs: string[]): Promise<nu
     totalNodes: slugs.length,
     processedNodes: 0,
     createdDrafts: 0,
+    succeededCount: 0,
+    skippedCount: 0,
+    failedCount: 0,
+    failures: [],
     currentNode: null,
     startedAt: new Date().toISOString(),
     finishedAt: null,
     error: null,
+    runId: null,
+  };
+
+  // Durable run report (synthesis hardening — mirrors kb_topic_index_runs). A
+  // report-write failure must never block synthesis itself, so every write is
+  // wrapped; but the run report is what makes outcomes survive a restart.
+  const nodeOutcomes: SynthesisRunNodeOutcome[] = [];
+  let runId: number | null = null;
+  try {
+    const [run] = await db
+      .insert(kbSynthesisRunsTable)
+      .values({ scope, totalNodes: slugs.length })
+      .returning({ id: kbSynthesisRunsTable.id });
+    runId = run?.id ?? null;
+    _state.runId = runId;
+  } catch (err) {
+    console.error("[Synthesis] failed to create run report row:", err instanceof Error ? err.message : err);
+  }
+
+  const persistRun = async (final: boolean, fatalError?: string) => {
+    if (runId === null) return;
+    try {
+      await db
+        .update(kbSynthesisRunsTable)
+        .set({
+          processedNodes: _state.processedNodes,
+          createdDrafts: _state.createdDrafts,
+          succeededCount: _state.succeededCount,
+          skippedCount: _state.skippedCount,
+          failedCount: _state.failedCount,
+          failures: _state.failures,
+          nodeOutcomes,
+          ...(final ? { finishedAt: new Date(), error: fatalError ?? null } : {}),
+        })
+        .where(eq(kbSynthesisRunsTable.id, runId));
+    } catch (err) {
+      console.error("[Synthesis] failed to persist run report:", err instanceof Error ? err.message : err);
+    }
   };
 
   const created: number[] = [];
+  let fatalError: string | undefined;
   try {
     for (const slug of slugs) {
       _state.currentNode = slug;
+      const nodeStartedAt = Date.now();
       try {
         const result = await synthesizeNode(slug);
+        if (result.skippedReason) {
+          _state.skippedCount += 1;
+          nodeOutcomes.push({ node: slug, outcome: "skipped", skippedReason: result.skippedReason, durationMs: Date.now() - nodeStartedAt });
+          // A skip is a valid terminal outcome — clear any stale failure state
+          // so the node doesn't stay flagged as "affected" forever.
+          await clearNodeFailureState(slug);
+        } else {
+          _state.succeededCount += 1;
+          nodeOutcomes.push({
+            node: slug,
+            outcome: "created",
+            draftId: result.draftId,
+            atomicDraftIds: result.atomicDraftIds,
+            sourceCount: result.sourceCount,
+            durationMs: Date.now() - nodeStartedAt,
+          });
+        }
         if (result.draftId) created.push(result.draftId);
         created.push(...result.atomicDraftIds);
       } catch (err) {
-        console.error(`[Synthesis] Failed to synthesize node ${slug}:`, err instanceof Error ? err.message : err);
+        const message = err instanceof Error ? err.message : String(err);
+        console.error(`[Synthesis] Failed to synthesize node ${slug}:`, message);
+        _state.failedCount += 1;
+        const sourceFailures = await getNodeExtractFailures(slug);
+        _state.failures.push({ node: slug, error: message, ...(sourceFailures.length ? { sourceFailures } : {}) });
+        nodeOutcomes.push({ node: slug, outcome: "failed", error: message, durationMs: Date.now() - nodeStartedAt });
+        await recordNodeFailureState(slug, message);
       }
       _state.processedNodes += 1;
+      await persistRun(false);
     }
   } catch (err) {
-    _state.error = err instanceof Error ? err.message : "Unknown error";
+    fatalError = err instanceof Error ? err.message : "Unknown error";
+    _state.error = fatalError;
     console.error("[Synthesis] Run failed:", err);
   } finally {
     _state.running = false;
     _state.currentNode = null;
     _state.finishedAt = new Date().toISOString();
+    await persistRun(true, fatalError);
   }
   return created;
+}
+
+/** Latest durable synthesis run report (null when none has ever run). */
+export async function getLastSynthesisRun(): Promise<KbSynthesisRun | null> {
+  const rows = await db
+    .select()
+    .from(kbSynthesisRunsTable)
+    .orderBy(desc(kbSynthesisRunsTable.startedAt))
+    .limit(1);
+  return rows[0] ?? null;
+}
+
+/** Durable extract failures for a node (what made its synthesis fail). */
+async function getNodeExtractFailures(nodeSlug: string): Promise<Array<{ sourceDocId: number; error: string }>> {
+  try {
+    const rows = await db
+      .select({ sourceDocId: kbSourceNodeExtractsTable.sourceDocId, error: kbSourceNodeExtractsTable.error })
+      .from(kbSourceNodeExtractsTable)
+      .where(and(eq(kbSourceNodeExtractsTable.node, nodeSlug), eq(kbSourceNodeExtractsTable.status, "failed")));
+    return rows.map((r) => ({ sourceDocId: r.sourceDocId, error: r.error ?? "unknown" }));
+  } catch {
+    return [];
+  }
+}
+
+// Record a node-level synthesis failure WITHOUT clobbering the durable success
+// bookkeeping (sourceDocIds / lastSynthesizedAt / lastDraftId stay untouched on
+// conflict) — the failure only sets lastError/lastAttemptAt, which is what makes
+// the node "affected" again so the next incremental run retries it.
+async function recordNodeFailureState(nodeSlug: string, message: string): Promise<void> {
+  const node = ALL_NODES.find((n) => n.slug === nodeSlug);
+  try {
+    await db
+      .insert(kbNodeSynthesisStateTable)
+      .values({
+        node: nodeSlug,
+        homeRoot: node?.root ?? "process",
+        // lastSynthesizedAt is NOT NULL (defaults now()); for a first-ever
+        // failed attempt the default is cosmetic — lastError being set is what
+        // marks the node affected/unhealed regardless.
+        lastError: message.slice(0, 2000),
+        lastAttemptAt: new Date(),
+      })
+      .onConflictDoUpdate({
+        target: kbNodeSynthesisStateTable.node,
+        set: { lastError: message.slice(0, 2000), lastAttemptAt: new Date() },
+      });
+  } catch (err) {
+    console.error(`[Synthesis] failed to record failure state for node ${nodeSlug}:`, err instanceof Error ? err.message : err);
+  }
+}
+
+// Clear stale failure state when a node terminates in a valid skip (update-only:
+// a node with no state row needs none).
+async function clearNodeFailureState(nodeSlug: string): Promise<void> {
+  try {
+    await db
+      .update(kbNodeSynthesisStateTable)
+      .set({ lastError: null, lastAttemptAt: new Date() })
+      .where(eq(kbNodeSynthesisStateTable.node, nodeSlug));
+  } catch (err) {
+    console.error(`[Synthesis] failed to clear failure state for node ${nodeSlug}:`, err instanceof Error ? err.message : err);
+  }
 }
 
 // ── Selective scope resolution (Part 2) ──────────────────────────────────────
@@ -959,20 +1204,26 @@ export async function resolveSynthesisScope(opts: ResolveScopeOpts): Promise<str
 
 // ── Incremental detection (Part 2) ───────────────────────────────────────────
 
-/** The durable synthesis state keyed by node → recorded source-id set. */
-async function getSynthesisStateSets(): Promise<Map<string, Set<number>>> {
+/** The durable synthesis state keyed by node → recorded source-id set + failure. */
+async function getSynthesisStateSets(): Promise<Map<string, { ids: Set<number>; lastError: string | null }>> {
   const rows = await db
-    .select({ node: kbNodeSynthesisStateTable.node, ids: kbNodeSynthesisStateTable.sourceDocIds })
+    .select({
+      node: kbNodeSynthesisStateTable.node,
+      ids: kbNodeSynthesisStateTable.sourceDocIds,
+      lastError: kbNodeSynthesisStateTable.lastError,
+    })
     .from(kbNodeSynthesisStateTable);
-  const map = new Map<string, Set<number>>();
-  for (const r of rows) map.set(r.node, new Set((r.ids ?? []) as number[]));
+  const map = new Map<string, { ids: Set<number>; lastError: string | null }>();
+  for (const r of rows) map.set(r.node, { ids: new Set((r.ids ?? []) as number[]), lastError: r.lastError ?? null });
   return map;
 }
 
 /**
  * Nodes affected by newly-classified sources — i.e. a node is affected when it
- * has linked sources now AND either it was never synthesized, or its current
- * linked-source set contains an id that was not present at the last synthesis.
+ * has linked sources now AND either it was never synthesized, its current
+ * linked-source set contains an id that was not present at the last synthesis,
+ * OR its last synthesis attempt FAILED (lastError set — synthesis hardening:
+ * incremental reruns self-heal failed nodes).
  * This is the engine behind real incremental runs: re-synthesize only these.
  */
 export async function getAffectedNodes(): Promise<string[]> {
@@ -982,7 +1233,7 @@ export async function getAffectedNodes(): Promise<string[]> {
     const ids = current.get(node.slug) ?? [];
     if (ids.length === 0) continue;
     const prev = states.get(node.slug);
-    if (!prev || ids.some((id) => !prev.has(id))) affected.push(node.slug);
+    if (!prev || prev.lastError !== null || ids.some((id) => !prev.ids.has(id))) affected.push(node.slug);
   }
   return affected;
 }
@@ -1085,7 +1336,7 @@ export async function getSynthesisCoverage(): Promise<{
     const newSourceCount = incorp.get(n.slug)?.newCount ?? 0;
     const ids = current.get(n.slug) ?? [];
     const prev = states.get(n.slug);
-    const isAffected = ids.length > 0 && (!prev || ids.some((id) => !prev.has(id)));
+    const isAffected = ids.length > 0 && (!prev || prev.lastError !== null || ids.some((id) => !prev.ids.has(id)));
     if (isAffected) affectedCount += 1;
 
     const live = liveByNode.get(n.slug);

@@ -568,3 +568,14 @@ if [ -n "$DATABASE_URL" ]; then
     -f lib/db/drizzle/0107_kb_navigation_docs.sql \
     >/dev/null
 fi
+
+# Synthesis Engine hardening (extract-cache honest outcomes, per-node failure
+# state, kb_synthesis_runs run reports). Additive columns + one new table.
+# Applying here keeps the live-schema-drift gate green so the conditional push
+# stays skipped. Idempotent (ADD COLUMN / CREATE TABLE / INDEX IF NOT EXISTS).
+if [ -n "$DATABASE_URL" ]; then
+  psql "$DATABASE_URL" \
+    -v ON_ERROR_STOP=1 \
+    -f lib/db/drizzle/0109_kb_synthesis_hardening.sql \
+    >/dev/null
+fi

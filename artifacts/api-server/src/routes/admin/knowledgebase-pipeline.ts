@@ -36,6 +36,7 @@ import {
   synthesizeNode,
   synthesizeNodesBackground,
   getSynthesisState,
+  getLastSynthesisRun,
   isSynthesisRunning,
   isValidSynthesisNode,
   resolveSynthesisScope,
@@ -1693,9 +1694,15 @@ router.get("/synthesis-nodes", async (_req: Request, res: Response) => {
   }
 });
 
-/** Synthesis progress. */
-router.get("/synthesis-status", (_req: Request, res: Response) => {
-  res.json(getSynthesisState());
+/** Synthesis progress + last durable run report (survives restarts). */
+router.get("/synthesis-status", async (_req: Request, res: Response) => {
+  try {
+    const lastRun = await getLastSynthesisRun();
+    res.json({ ...getSynthesisState(), lastRun });
+  } catch {
+    // Never let the durable-report lookup break live progress polling.
+    res.json({ ...getSynthesisState(), lastRun: null });
+  }
 });
 
 /**
@@ -1743,7 +1750,7 @@ router.post("/synthesize", async (req: Request, res: Response) => {
       scope,
       targetNodes,
     });
-    synthesizeNodesBackground(targetNodes)
+    synthesizeNodesBackground(targetNodes, scope)
       .then(async (createdIds) => {
         if (createdIds.length === 0) return;
         const drafts = await db
@@ -1826,7 +1833,7 @@ router.post("/scan-core-training-changes", async (_req: Request, res: Response) 
       material: scan.material,
       affectedNodes: scan.affectedNodes,
     });
-    synthesizeNodesBackground(scan.affectedNodes)
+    synthesizeNodesBackground(scan.affectedNodes, "core-training-changes")
       .then(async (createdIds) => {
         if (createdIds.length === 0) return;
         const drafts = await db

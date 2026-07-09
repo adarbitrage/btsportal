@@ -11,3 +11,5 @@ description: Small completion budgets on gpt-5 return EMPTY content with finish_
 - Any `callLLM`/chat-completions call to gpt-5 that parses structured output needs a budget with thousands of tokens of headroom beyond the expected visible output. Never cap tightly.
 - When an LLM pipeline suddenly 100%-errors but the provider probe is fine, check `finish_reason` and whether `content` is empty before suspecting the backend.
 - Log failed classify/parse attempts (attempt count + finish reason) so this is diagnosable from workflow logs next time.
+
+Also bit the KB synthesis engine (map-extract 700-token budget → 100% empty-content failures once the silent raw-window fallback was removed). Budgets there now carry thousands of tokens of headroom, and callLLM throws on empty content instead of returning "".

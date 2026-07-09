@@ -98,6 +98,7 @@ export * from "./payment-methods";
 export * from "./ai-source-documents";
 export * from "./kb-source-node-links";
 export * from "./kb-topic-index-runs";
+export * from "./kb-synthesis-runs";
 export * from "./kb-nav-gap-flags";
 export * from "./kb-node-synthesis-state";
 export * from "./kb-source-node-extracts";

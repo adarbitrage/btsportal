@@ -35,6 +35,14 @@ export const kbNodeSynthesisStateTable = pgTable("kb_node_synthesis_state", {
   // The main truth-doc draft the last synthesis created (nullable — a run can
   // legitimately produce no draft when there was no usable material).
   lastDraftId: integer("last_draft_id"),
+  // Honest failure state (synthesis hardening): when the last synthesis ATTEMPT
+  // for this node failed, the reason lands here (cleared on the next success).
+  // getAffectedNodes() treats a node with lastError set as affected, so
+  // incremental reruns self-heal failed nodes.
+  lastError: text("last_error"),
+  // When the node was last ATTEMPTED (success or failure). lastSynthesizedAt
+  // only moves on success.
+  lastAttemptAt: timestamp("last_attempt_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 }, (table) => [

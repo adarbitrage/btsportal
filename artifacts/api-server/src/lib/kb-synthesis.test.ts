@@ -168,3 +168,54 @@ describe("screener-flag threading (extract phase → consolidation)", () => {
     ).not.toBe(fingerprintContent("v2-hearsay-guard\ncontent"));
   });
 });
+
+// ── Synthesis hardening: retry + empty-content detection ─────────────────────
+import { vi, beforeEach, afterEach } from "vitest";
+import { callLLM, callLLMWithRetry, isRateLimitError } from "./kb-synthesis";
+
+describe("synthesis LLM hardening", () => {
+  const env = { ...process.env };
+  beforeEach(() => {
+    process.env.AI_INTEGRATIONS_OPENAI_BASE_URL = "http://ai.test";
+    process.env.AI_INTEGRATIONS_OPENAI_API_KEY = "test-key";
+  });
+  afterEach(() => {
+    process.env = { ...env };
+    vi.restoreAllMocks();
+  });
+
+  it("isRateLimitError detects 429s in error messages", () => {
+    expect(isRateLimitError("AI synthesis call failed: 429")).toBe(true);
+    expect(isRateLimitError("AI synthesis call failed: 500")).toBe(false);
+    expect(isRateLimitError("timeout")).toBe(false);
+  });
+
+  it("callLLM throws on 200-with-empty-content (reasoning-token starvation), never returns ''", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ choices: [{ finish_reason: "length", message: { content: "" } }] }),
+    }));
+    await expect(callLLM("s", "u", 100)).rejects.toThrow(/empty content.*finish_reason=length/);
+  });
+
+  it("callLLMWithRetry retries transient failures and returns the eventual success", async () => {
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce({ ok: false, status: 500, json: async () => ({}) })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ choices: [{ message: { content: "recovered" } }] }),
+      });
+    vi.stubGlobal("fetch", fetchMock);
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    await expect(callLLMWithRetry("test", "s", "u", 100)).resolves.toBe("recovered");
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  }, 20000);
+
+  it("callLLMWithRetry throws loudly after exhausting attempts (no silent fallback)", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: false, status: 500, json: async () => ({}) });
+    vi.stubGlobal("fetch", fetchMock);
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    await expect(callLLMWithRetry("test", "s", "u", 100)).rejects.toThrow("AI synthesis call failed: 500");
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+  }, 20000);
+});
