@@ -610,6 +610,67 @@ router.post("/duplicates/resolve", async (req: Request, res: Response) => {
   }
 });
 
+// Undo a duplicate-cluster merge for ONE draft: restore it to needs_review and
+// clear mergedIntoId. Conditional UPDATE (status='merged' only) makes it
+// idempotent and safe under concurrent review — a doc someone else already
+// touched is never clobbered. Audit trail records the undo.
+router.post("/duplicates/unmerge", async (req: Request, res: Response) => {
+  try {
+    const { id } = req.body as { id?: number };
+    if (!id || typeof id !== "number") {
+      res.status(400).json({ error: "id is required" });
+      return;
+    }
+
+    const [doc] = await db
+      .select()
+      .from(kbStagingDocsTable)
+      .where(eq(kbStagingDocsTable.id, id));
+    if (!doc) {
+      res.status(404).json({ error: "Document not found" });
+      return;
+    }
+
+    const userId = (req as unknown as { userId: number }).userId;
+    const previousMergedIntoId = doc.mergedIntoId;
+
+    // Transaction: the status restore and its audit row land together or not
+    // at all — never "restored but no audit trail".
+    const restored = await db.transaction(async (tx) => {
+      const [row] = await tx
+        .update(kbStagingDocsTable)
+        .set({ status: "needs_review", mergedIntoId: null })
+        .where(
+          and(
+            eq(kbStagingDocsTable.id, id),
+            eq(kbStagingDocsTable.status, "merged"),
+          ),
+        )
+        .returning();
+      if (!row) return null;
+
+      await tx.insert(kbTriageAuditLogTable).values({
+        stagingDocId: row.id,
+        eventType: "unmerged",
+        confidenceScore: null,
+        actorUserId: userId,
+        aiReasoning: `Unmerged from duplicate cluster${previousMergedIntoId ? ` (was merged into #${previousMergedIntoId})` : ""}; restored to needs_review.`,
+        docTitle: row.title,
+      });
+      return row;
+    });
+
+    if (!restored) {
+      res.status(409).json({ error: `Document is not in merged status (status: ${doc.status})` });
+      return;
+    }
+
+    res.json({ doc: restored });
+  } catch (err: unknown) {
+    res.status(500).json({ error: err instanceof Error ? err.message : "Unknown error" });
+  }
+});
+
 // AI merge proposal: a "best of" merged draft for a cluster the reviewer can
 // edit before accepting as the canonical's content. Returns the proposal only —
 // NOTHING is written until the reviewer resolves the cluster. Loud failures

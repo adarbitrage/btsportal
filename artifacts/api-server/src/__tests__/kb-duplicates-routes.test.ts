@@ -230,6 +230,64 @@ describe("KB duplicate grouping & merge aid routes", () => {
     expect(dead.status).toBe(404);
   });
 
+  it("POST /duplicates/unmerge restores a merged draft to needs_review with an audit row; 409s non-merged; 404s missing", async () => {
+    const canonicalId = await seedStaging({ title: `${TEST_TAG} unmerge canonical`, content: BODY });
+    const mergedId = await seedStaging({ title: `${TEST_TAG} unmerge victim`, content: BODY });
+
+    await request(app)
+      .post("/api/duplicates/resolve")
+      .set("Cookie", adminCookie)
+      .send({ canonicalId, mergedIds: [mergedId] });
+
+    const [before] = await db.select().from(kbStagingDocsTable).where(eq(kbStagingDocsTable.id, mergedId));
+    expect(before.status).toBe("merged");
+    expect(before.mergedIntoId).toBe(canonicalId);
+
+    const res = await request(app)
+      .post("/api/duplicates/unmerge")
+      .set("Cookie", adminCookie)
+      .send({ id: mergedId });
+    expect(res.status).toBe(200);
+    expect(res.body.doc.status).toBe("needs_review");
+    expect(res.body.doc.mergedIntoId).toBeNull();
+
+    const [after] = await db.select().from(kbStagingDocsTable).where(eq(kbStagingDocsTable.id, mergedId));
+    expect(after.status).toBe("needs_review");
+    expect(after.mergedIntoId).toBeNull();
+
+    const audit = await db
+      .select()
+      .from(kbTriageAuditLogTable)
+      .where(eq(kbTriageAuditLogTable.stagingDocId, mergedId));
+    const unmergedEvents = audit.filter((a) => a.eventType === "unmerged");
+    expect(unmergedEvents).toHaveLength(1);
+    expect(unmergedEvents[0].aiReasoning).toContain(`#${canonicalId}`);
+
+    // Replay: draft is no longer merged → conditional UPDATE matches nothing → 409.
+    const replay = await request(app)
+      .post("/api/duplicates/unmerge")
+      .set("Cookie", adminCookie)
+      .send({ id: mergedId });
+    expect(replay.status).toBe(409);
+    const audit2 = await db
+      .select()
+      .from(kbTriageAuditLogTable)
+      .where(eq(kbTriageAuditLogTable.stagingDocId, mergedId));
+    expect(audit2.filter((a) => a.eventType === "unmerged")).toHaveLength(1);
+
+    const missing = await request(app)
+      .post("/api/duplicates/unmerge")
+      .set("Cookie", adminCookie)
+      .send({ id: 999999999 });
+    expect(missing.status).toBe(404);
+
+    const badInput = await request(app)
+      .post("/api/duplicates/unmerge")
+      .set("Cookie", adminCookie)
+      .send({});
+    expect(badInput.status).toBe(400);
+  });
+
   it("POST /duplicates/propose-merge validates input (no LLM call on bad input)", async () => {
     const res = await request(app)
       .post("/api/duplicates/propose-merge")

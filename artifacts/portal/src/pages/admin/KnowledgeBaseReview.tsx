@@ -1093,6 +1093,24 @@ export default function KnowledgeBaseReview() {
     }
   };
 
+  const unmergeDoc = async (id: number) => {
+    try {
+      const res = await authFetch("/admin/knowledgebase/staging/duplicates/unmerge", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => null);
+        throw new Error(typeof data?.error === "string" ? data.error : "Unmerge failed");
+      }
+      toast({ title: "Draft restored to needs review" });
+      fetchDocs();
+    } catch (err) {
+      toast({ title: "Unmerge failed", description: err instanceof Error ? err.message : undefined, variant: "destructive" });
+    }
+  };
+
   const mergeSelected = async () => {
     const ids = Array.from(mergeIds);
     if (ids.length < 2) {
@@ -2691,6 +2709,18 @@ export default function KnowledgeBaseReview() {
                               <XCircle className="w-4 h-4" />
                             </Button>
                           </>
+                        )}
+                        {doc.status === "merged" && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="text-purple-700 border-purple-300 hover:bg-purple-50 text-xs"
+                            title={`Restore this draft to needs review${doc.mergedIntoId ? ` (currently merged into #${doc.mergedIntoId})` : ""}`}
+                            data-testid={`button-unmerge-${doc.id}`}
+                            onClick={(e) => { e.stopPropagation(); unmergeDoc(doc.id); }}
+                          >
+                            Unmerge
+                          </Button>
                         )}
                         <Button size="sm" variant="ghost" onClick={(e) => { e.stopPropagation(); openDoc(doc); }}>
                           <Eye className="w-4 h-4" />
