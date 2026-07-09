@@ -24,3 +24,6 @@ marker-based integration test is therefore flaky against the shared dev DB (whic
 app boot-seeds with the real KB). Lock the behavior with a UNIT test on the synonym
 mapping instead (voice-synonyms.test.ts). globalSetup only syncs schema; it does NOT
 seed KB.
+
+## Concepts/strategy layer (July 2026)
+CONCEPT_SYNONYM_GROUPS in lib/voice-synonyms.ts maps casual phrasings ("aren't getting clicks", "which product should I promote") to concepts-corpus lexemes (angle/headline/creative/offer/testing/scaling/metrics/cpa/placement); spread into VOICE_SYNONYM_GROUPS so the shared chat+voice path expands them. Landmine set (password / live coaching / commissions) must stay unexpanded — a static forbidden-word trigger guard lives in kb-concepts-synonyms.test.ts. Note: the Offer Strategy doc lexically matches "commissions" legitimately; negative guards for that query must assert empty EXPANSION, not absent doc. Chat injects FULL doc content via exported buildRagContext (routes/chat.ts); voice's 400-char trim is deliberate and guarded in kb-full-content-injection.test.ts.

@@ -139,6 +139,19 @@ export async function searchKnowledgebase(
   return result.docs.map((d) => ({ title: d.title, content: d.content, category: d.category }));
 }
 
+/**
+ * Assemble the retrieved KB docs into the prompt context block injected into
+ * the model's system prompt. Deliberately includes the ENTIRE content of every
+ * doc — chat is the deep assistant, so no truncation happens here (voice's
+ * 400-char trim lives in searchKnowledgebaseForVoice and is voice-only).
+ * Exported for the full-content injection regression test.
+ */
+export function buildRagContext(
+  docs: Array<{ title: string; content: string; category: string }>,
+): string {
+  return docs.map((r) => `[${r.category}] ${r.title}:\n${r.content}`).join("\n\n---\n\n");
+}
+
 async function getActiveSystemPrompt(): Promise<string> {
   const [prompt] = await db
     .select()
@@ -242,10 +255,7 @@ router.post("/chat", async (req, res): Promise<void> => {
     .replace(/\{\{daily_limit\}\}/g, String(config.dailyLimit));
 
   if (retrieval.confident && ragResults.length > 0) {
-    const ragContext = ragResults
-      .map((r) => `[${r.category}] ${r.title}:\n${r.content}`)
-      .join("\n\n---\n\n");
-    systemPrompt += `\n\n## Relevant Knowledge Base Articles\n\n${ragContext}`;
+    systemPrompt += `\n\n## Relevant Knowledge Base Articles\n\n${buildRagContext(ragResults)}`;
   } else {
     systemPrompt += `\n\n## Knowledge Base Search Result\n\nNo confident match — the knowledge base has no verified answer for this query. You must not fabricate an answer based on general affiliate marketing knowledge, and you must not stitch one together from loosely-related snippets. Follow Rule 12: tell the member you don't have a verified answer to that yet, then route them — conceptual or strategy questions to a live coaching call, and account, billing, or technical questions to a support ticket ([SUGGEST_TICKET]) or support@buildtestscale.com.`;
 

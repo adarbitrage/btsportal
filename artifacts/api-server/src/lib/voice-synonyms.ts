@@ -29,6 +29,177 @@ export interface VoiceSynonymGroup {
   triggers: string[];
 }
 
+/**
+ * Concepts/strategy vocabulary (Task: concepts synonym layer). The concepts
+ * home-root corpus (angles, headlines & copy, creative strategy, offer
+ * strategy, testing methodology, scaling strategy, metrics & unit economics,
+ * traffic & placements) uses curriculum vocabulary members won't naturally
+ * type — "why isn't my ad getting clicks?" vs "Headlines & Copy". These groups
+ * map casual member phrasings onto the canonical lexemes those docs actually
+ * carry, exactly like the operations groups above them do for support terms.
+ *
+ * LANDMINE (see voice-synonyms.test.ts / kb-concepts-synonyms.test.ts): no
+ * trigger here may fire on **password**, **live coaching / coaching call /
+ * live call**, or **commissions / paid** — those queries must stay unexpanded.
+ */
+export const CONCEPT_SYNONYM_GROUPS: VoiceSynonymGroup[] = [
+  {
+    // "Why would anyone buy this" phrasings → the Angles doc.
+    canonical: ["angle"],
+    triggers: [
+      "what makes people buy",
+      "makes people want to buy",
+      "reason to buy",
+      "why would someone buy",
+      "why would anyone buy",
+      "why people buy",
+      "how do i stand out",
+      "way to sell the product",
+      "different ways to sell",
+      "hook for my ad",
+      "hooks for my ads",
+    ],
+  },
+  {
+    // "Nobody is clicking my ad" phrasings → the Headlines & Copy doc.
+    canonical: ["headline"],
+    triggers: [
+      "aren't getting clicks",
+      "isn't getting clicks",
+      "isn't my ad getting clicks",
+      "ad getting clicks",
+      "ads getting clicks",
+      "not getting clicks",
+      "not getting any clicks",
+      "no clicks",
+      "getting no clicks",
+      "nobody is clicking",
+      "no one is clicking",
+      "people aren't clicking",
+      "get more clicks",
+      "low click through",
+      "title of my ad",
+      "title for my ad",
+    ],
+  },
+  {
+    // Ad image / visual phrasings → the Creative Strategy doc.
+    canonical: ["creative"],
+    triggers: [
+      "ad image",
+      "ad images",
+      "image for my ad",
+      "images for my ads",
+      "picture for my ad",
+      "pictures for my ads",
+      "ad picture",
+      "what image should i use",
+      "which image should i use",
+    ],
+  },
+  {
+    // "Which product should I promote" phrasings → the Offer Strategy doc.
+    canonical: ["offer"],
+    triggers: [
+      "which product should i promote",
+      "what product should i promote",
+      "what should i promote",
+      "which product should i pick",
+      "which product should i choose",
+      "pick a product",
+      "choose a product",
+      "product to promote",
+      "what should i sell",
+      "good product to promote",
+    ],
+  },
+  {
+    // "Did my test work" / testing-round phrasings → the Testing Methodology doc.
+    canonical: ["testing"],
+    triggers: [
+      "my test worked",
+      "did my test work",
+      "is my test working",
+      "if my test worked",
+      "test results",
+      "split test",
+      "split testing",
+      "a b test",
+      "ab test",
+      "testing round",
+      "round one",
+      "round 1",
+      "round 2",
+      "round two",
+      "how long should i test",
+      "how long should i run my test",
+    ],
+  },
+  {
+    // Budget-increase phrasings → the Scaling Strategy doc.
+    canonical: ["scaling"],
+    triggers: [
+      "increase my budget",
+      "raise my budget",
+      "increase the budget",
+      "raise the budget",
+      "add more budget",
+      "push more budget",
+      "spend more on my campaign",
+      "ramp up my campaign",
+      "scale up",
+      "grow my campaign",
+    ],
+  },
+  {
+    // "Am I profitable / read my numbers" phrasings → Metrics & Unit Economics.
+    canonical: ["metrics", "cpa"],
+    triggers: [
+      "my numbers",
+      "read the numbers",
+      "am i profitable",
+      "is my campaign profitable",
+      "is this profitable",
+      "losing money",
+      "break even",
+      "breaking even",
+      "breakeven",
+      "cost per acquisition",
+      "cost per sale",
+      "unit economics",
+    ],
+  },
+  {
+    // "Where do my ads show up" phrasings → the Traffic & Placements doc.
+    canonical: ["placement"],
+    triggers: [
+      "where my ads run",
+      "where my ads show",
+      "where do my ads appear",
+      "where will my ad show",
+      "where my ad shows up",
+      "traffic source",
+      "traffic sources",
+      "which sites my ads",
+      "ad spots",
+    ],
+  },
+  {
+    // "What phase/stage am I in" phrasings → the testing/scaling process docs
+    // (the curriculum's build → test → scale progression).
+    canonical: ["testing", "scaling"],
+    triggers: [
+      "what phase am i in",
+      "which phase am i in",
+      "what phase should i be in",
+      "next phase",
+      "what stage am i in",
+      "which stage am i in",
+      "what stage should i be in",
+    ],
+  },
+];
+
 export const VOICE_SYNONYM_GROUPS: VoiceSynonymGroup[] = [
   {
     canonical: ["refund"],
@@ -155,6 +326,8 @@ export const VOICE_SYNONYM_GROUPS: VoiceSynonymGroup[] = [
       "community feed",
     ],
   },
+  // Concepts/strategy vocabulary — casual phrasings → curriculum topics.
+  ...CONCEPT_SYNONYM_GROUPS,
 ];
 
 /**
