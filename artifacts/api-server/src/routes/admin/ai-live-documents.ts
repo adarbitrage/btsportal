@@ -12,6 +12,7 @@ import {
 import { runTriageBackground } from "../../lib/kb-triage.js";
 import { scanCoreTrainingSourceChanges } from "../../lib/kb-source-change-scan.js";
 import { embedLiveDocumentInBackground, CLEARED_EMBEDDING_FIELDS } from "../../lib/kb-embeddings.js";
+import { clusterDuplicates } from "../../lib/kb-duplicates.js";
 
 // Lifecycle management for the "Live AI Documents" corpus — the assistant's
 // citable set (Task #1665). Mounted at /admin/ai-live-documents. Reads/writes
@@ -89,6 +90,55 @@ router.get("/admin/ai-live-documents", requirePermission("chat:view"), async (re
     .orderBy(orderBy);
 
   res.json(docs.map((d) => ({ ...d, chunkCount: chunkCount(d.content) })));
+});
+
+// Near-duplicate report for the LIVE corpus (Task #1834). Reuses the pure
+// clustering helpers from the staging duplicate review aid (Task #1825) to
+// surface clusters of published docs that look like the same concept
+// (title-variant or high content similarity). INFORMATIONAL ONLY — nothing
+// here writes; resolution stays manual via the existing live-doc editor /
+// send-to-review / soft-delete actions. Registered before any /:id route so
+// "duplicates" is never parsed as a document id.
+router.get("/admin/ai-live-documents/duplicates", requirePermission("chat:view"), async (_req, res): Promise<void> => {
+  try {
+    const docs = await db
+      .select({
+        id: aiLiveDocumentsTable.id,
+        title: aiLiveDocumentsTable.title,
+        content: aiLiveDocumentsTable.content,
+        category: aiLiveDocumentsTable.category,
+        slug: aiLiveDocumentsTable.slug,
+        updatedAt: aiLiveDocumentsTable.updatedAt,
+      })
+      .from(aiLiveDocumentsTable)
+      .where(isNull(aiLiveDocumentsTable.deletedAt));
+
+    const clusters = clusterDuplicates(docs.map((d) => ({ id: d.id, title: d.title, content: d.content })));
+    const byId = new Map(docs.map((d) => [d.id, d]));
+
+    const payload = clusters.map((c) => ({
+      key: c.key,
+      docs: c.docIds
+        .map((id) => byId.get(id))
+        .filter((d): d is NonNullable<typeof d> => Boolean(d))
+        .map((d) => ({
+          id: d.id,
+          title: d.title,
+          category: d.category,
+          slug: d.slug,
+          updatedAt: d.updatedAt,
+          contentPreview: d.content.slice(0, 200),
+        })),
+    }));
+
+    res.json({
+      clusters: payload,
+      clusteredDocCount: payload.reduce((n, c) => n + c.docs.length, 0),
+      scannedDocCount: docs.length,
+    });
+  } catch (err: unknown) {
+    res.status(500).json({ error: err instanceof Error ? err.message : "Unknown error" });
+  }
 });
 
 router.post("/admin/ai-live-documents", requirePermission("chat:manage"), async (req, res): Promise<void> => {

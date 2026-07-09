@@ -19,10 +19,11 @@ import {
 import { Label } from "@/components/ui/label";
 import {
   Sparkles, Plus, Pencil, Trash2, Search, FileText, Send, RotateCcw,
-  AlertTriangle, RefreshCw, Wand2, X,
+  AlertTriangle, RefreshCw, Wand2, X, Copy, ChevronDown, ChevronRight,
 } from "lucide-react";
 import {
   fetchAiLiveDocuments,
+  fetchAiLiveDocumentDuplicates,
   createAiLiveDocument,
   updateAiLiveDocument,
   deleteAiLiveDocument,
@@ -73,11 +74,22 @@ export default function LiveAIDocuments() {
   const [editContent, setEditContent] = useState("");
   const [editConfirmed, setEditConfirmed] = useState(false);
 
-  const invalidate = () => queryClient.invalidateQueries({ queryKey: ["admin-ai-live-documents"] });
+  const invalidate = () => {
+    queryClient.invalidateQueries({ queryKey: ["admin-ai-live-documents"] });
+    queryClient.invalidateQueries({ queryKey: ["admin-ai-live-documents-duplicates"] });
+  };
 
   const { data: docs, isLoading } = useQuery({
     queryKey: ["admin-ai-live-documents", categoryFilter, searchQuery, showDeleted],
     queryFn: () => fetchAiLiveDocuments({ category: categoryFilter, search: searchQuery, deleted: showDeleted }),
+  });
+
+  // Near-duplicate report (informational only — resolution stays manual).
+  const [dupsOpen, setDupsOpen] = useState(false);
+  const { data: dupReport } = useQuery({
+    queryKey: ["admin-ai-live-documents-duplicates"],
+    queryFn: fetchAiLiveDocumentDuplicates,
+    enabled: !showDeleted,
   });
 
   const createMutation = useMutation({
@@ -240,6 +252,76 @@ export default function LiveAIDocuments() {
             <Trash2 className="w-4 h-4 mr-1" /> {showDeleted ? "Viewing Deleted" : "Deleted"}
           </Button>
         </div>
+
+        {!showDeleted && dupReport && dupReport.clusters.length > 0 && (
+          <Card className="border-amber-500/40">
+            <CardContent className="p-4">
+              <button
+                type="button"
+                className="flex items-center gap-2 w-full text-left"
+                onClick={() => setDupsOpen((v) => !v)}
+              >
+                {dupsOpen ? <ChevronDown className="w-4 h-4 shrink-0" /> : <ChevronRight className="w-4 h-4 shrink-0" />}
+                <Copy className="w-4 h-4 text-amber-600 dark:text-amber-500 shrink-0" />
+                <span className="text-sm font-medium">
+                  Possible duplicates: {dupReport.clusters.length} group{dupReport.clusters.length === 1 ? "" : "s"} of similar published documents
+                  ({dupReport.clusteredDocCount} docs)
+                </span>
+              </button>
+              <p className="text-xs text-muted-foreground mt-1 ml-6">
+                These documents look like the same concept (title variants or very similar content), which can make the
+                assistant give conflicting answers. Informational only — resolve manually by editing, sending to review,
+                or deleting the redundant version.
+              </p>
+              {dupsOpen && (
+                <div className="mt-3 ml-6 space-y-3">
+                  {dupReport.clusters.map((cluster) => (
+                    <div key={cluster.key} className="rounded-md border p-3">
+                      <div className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">
+                        {cluster.key}
+                      </div>
+                      <div className="space-y-2">
+                        {cluster.docs.map((d) => {
+                          const full = docs?.find((x) => x.id === d.id);
+                          return (
+                            <div key={d.id} className="flex items-start justify-between gap-3">
+                              <div className="min-w-0">
+                                <div className="text-sm font-medium truncate">{d.title}</div>
+                                <div className="text-xs text-muted-foreground truncate">
+                                  <Badge variant="secondary" className="mr-2">{categoryLabel(d.category)}</Badge>
+                                  {d.updatedAt ? `Updated ${format(new Date(d.updatedAt), "MMM d, yyyy")}` : ""}
+                                </div>
+                                <div className="text-xs text-muted-foreground/80 truncate mt-0.5">{d.contentPreview}</div>
+                              </div>
+                              {full && (
+                                <div className="flex items-center gap-1 shrink-0">
+                                  <Button
+                                    variant="ghost" size="sm" className="p-1.5 h-auto text-primary hover:text-primary"
+                                    title="Send to review (recommended edit path)"
+                                    onClick={() => openReview(full)}
+                                  >
+                                    <Send className="w-4 h-4" />
+                                  </Button>
+                                  <Button
+                                    variant="ghost" size="sm" className="p-1.5 h-auto"
+                                    title="Direct edit (escape hatch — bypasses review)"
+                                    onClick={() => openEdit(full)}
+                                  >
+                                    <Pencil className="w-4 h-4" />
+                                  </Button>
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )}
 
         <Card>
           <CardContent className="p-0">

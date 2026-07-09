@@ -856,6 +856,27 @@ export function scanAiLiveSourceChanges() {
   return adminFetch<AiLiveSourceScanResult>(`/admin/ai-live-documents/scan-source-changes`, { method: "POST" });
 }
 
+// Near-duplicate report for the live corpus — informational only; resolution
+// stays manual via the existing editor / send-to-review / delete actions.
+export interface AiLiveDuplicateDoc {
+  id: number;
+  title: string;
+  category: string;
+  slug: string | null;
+  updatedAt: string | null;
+  contentPreview: string;
+}
+
+export interface AiLiveDuplicatesReport {
+  clusters: Array<{ key: string; docs: AiLiveDuplicateDoc[] }>;
+  clusteredDocCount: number;
+  scannedDocCount: number;
+}
+
+export function fetchAiLiveDocumentDuplicates() {
+  return adminFetch<AiLiveDuplicatesReport>(`/admin/ai-live-documents/duplicates`);
+}
+
 export function dismissAiLiveDocumentFlag(id: number) {
   return adminFetch<AiLiveDocument>(`/admin/ai-live-documents/${id}/dismiss-flag`, { method: "POST" });
 }
