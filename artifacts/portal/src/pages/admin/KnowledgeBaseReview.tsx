@@ -1725,6 +1725,7 @@ export default function KnowledgeBaseReview() {
           {selectedDoc && (
             <>
               <DialogHeader>
+                <div className="text-[10px] font-mono text-gray-400 mb-0.5">#{selectedDoc.id}</div>
                 <div className="flex items-center gap-2 flex-wrap">
                   <DialogTitle className="text-lg">
                     {editMode ? "Edit Document" : selectedDoc.title}
@@ -3145,6 +3146,7 @@ export default function KnowledgeBaseReview() {
                           onClick={(e) => e.stopPropagation()}
                         />
                         <div className="flex-1 min-w-0">
+                          <div className="text-[10px] font-mono text-gray-400 mb-0.5">#{doc.id}</div>
                           <div className="flex items-center gap-2 flex-wrap">
                             <h3 className="font-semibold text-gray-900 truncate">{doc.title}</h3>
                             <Badge variant="outline" className={STATUS_COLORS[doc.status] || ""}>
