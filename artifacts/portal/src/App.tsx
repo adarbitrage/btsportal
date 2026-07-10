@@ -24,6 +24,7 @@ import Advantage from "@/pages/Advantage";
 import ComplianceReview from "@/pages/ComplianceReview";
 import ComplianceSubmit from "@/pages/ComplianceSubmit";
 import PrimeCorporate from "@/pages/PrimeCorporate";
+import VipArbitrage from "@/pages/VipArbitrage";
 import AdCredit from "@/pages/AdCredit";
 import CoachingRecruitment from "@/pages/CoachingRecruitment";
 import SelfPromoting from "@/pages/SelfPromoting";
@@ -513,6 +514,7 @@ function Router() {
       <Route path="/compliance/submit">{() => <EntitlementRoute component={ComplianceSubmit} entitlement="software:base" />}</Route>
       <Route path="/compliance">{() => <EntitlementRoute component={ComplianceReview} entitlement="software:base" />}</Route>
       <Route path="/prime-corporate">{() => <ProtectedRoute component={PrimeCorporate} />}</Route>
+      <Route path="/vip-arbitrage">{() => <ProtectedRoute component={VipArbitrage} />}</Route>
       <Route path="/ad-credit">{() => <ProtectedRoute component={AdCredit} />}</Route>
       <Route path="/coaching/recruitment">{() => <ProtectedRoute component={CoachingRecruitment} />}</Route>
       <Route path="/self-promoting">{() => <ProtectedRoute component={SelfPromoting} />}</Route>

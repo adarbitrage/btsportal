@@ -191,11 +191,10 @@ async function resolvePlansUrl(): Promise<string> {
 
 // Task #1824: default button URL (and thumbnail destination) for the VIP
 // Arbitrage block, computed fresh via the same pattern as `resolvePlansUrl`
-// so it always reflects the current portal URL setting. NOTE (verified
-// 2026-07-09): no `/vip-arbitrage` route exists yet — the SPA static
-// catch-all serves this path with a 200 that client-renders NotFound. The
-// compliance gate guarantees no member traffic reaches it until this task's
-// landing page is built as a separate, counsel-reviewed effort.
+// so it always reflects the current portal URL setting. The portal's
+// `/vip-arbitrage` landing page (Task #1852) serves this route; the
+// compliance gate in pitch-resolver.ts still keeps the email block itself
+// suppressed until counsel marks the content `reviewed`.
 async function resolveVipArbitrageUrl(): Promise<string> {
   const portalUrl = await getPortalUrl();
   return portalUrl ? `${portalUrl.replace(/\/+$/, "")}/vip-arbitrage` : "/vip-arbitrage";
