@@ -25,6 +25,18 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import { useToast } from "@/hooks/use-toast";
 import { authFetch } from "@/lib/auth";
 import { Link } from "wouter";
@@ -56,6 +68,7 @@ import {
   ShieldCheck,
   GitCompare,
   Radar,
+  Wrench,
 } from "lucide-react";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -424,12 +437,6 @@ function maxSeverity(flags: RiskFlag[] | null): FlagSeverity | null {
   return flags.reduce<FlagSeverity>((acc, f) => (SEVERITY_RANK[f.severity] > SEVERITY_RANK[acc] ? f.severity : acc), "low");
 }
 
-function isBlocking(doc: StagingDoc): boolean {
-  if (doc.needsExpert) return true;
-  const sev = maxSeverity(doc.riskFlags);
-  return sev === "critical" || sev === "high";
-}
-
 // ── Risk-flag chips ─────────────────────────────────────────────────────────────
 
 function RiskChips({ flags, needsExpert }: { flags: RiskFlag[] | null; needsExpert: boolean }) {
@@ -625,6 +632,8 @@ export default function KnowledgeBaseReview() {
   // real LLM budget, so the expensive scope is opt-in behind a confirm dialog.
   const [synthScope, setSynthScope] = useState<SynthScope>("incremental");
   const [confirmSynthAll, setConfirmSynthAll] = useState(false);
+  const [showSynthDialog, setShowSynthDialog] = useState(false);
+  const [topicIndexOpen, setTopicIndexOpen] = useState(false);
   const [failedNodesPendingRetry, setFailedNodesPendingRetry] = useState<string[]>([]);
   const [synthRoot, setSynthRoot] = useState("process");
   const [loading, setLoading] = useState(true);
@@ -1099,30 +1108,6 @@ export default function KnowledgeBaseReview() {
     }
   };
 
-  const bulkApprove = async () => {
-    // Only confirm docs WITHOUT blocking flags client-side; server enforces too.
-    const eligible = docs.filter((d) => d.status === "needs_review" && !isBlocking(d)).map((d) => d.id);
-    if (eligible.length === 0) {
-      toast({ title: "No eligible docs", description: "Conflict / high-stakes docs must be reviewed individually." });
-      return;
-    }
-    try {
-      const res = await authFetch("/admin/knowledgebase/staging/bulk-approve", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ids: eligible }),
-      });
-      const data = await res.json();
-      toast({
-        title: `Approved ${data.approved} documents`,
-        description: data.blocked ? `${data.blocked} held back (need individual review)` : undefined,
-      });
-      fetchDocs();
-    } catch {
-      toast({ title: "Bulk approve failed", variant: "destructive" });
-    }
-  };
-
   const unmergeDoc = async (id: number) => {
     try {
       const res = await authFetch("/admin/knowledgebase/staging/duplicates/unmerge", {
@@ -1426,9 +1411,16 @@ export default function KnowledgeBaseReview() {
   };
 
   const totalCount = Object.values(statusCounts).reduce((s, c) => s + c, 0);
-  const pageNeedsReview = docs.filter((d) => d.status === "needs_review");
-  const pageSafeCount = pageNeedsReview.filter((d) => !isBlocking(d)).length;
-  const pageBlockedCount = pageNeedsReview.length - pageSafeCount;
+  // Advanced filters tucked behind the "Filters" popover — count non-default
+  // ones so a narrowed list is never a mystery.
+  const activeAdvancedFilters = [
+    riskFilter !== "all",
+    docTypeFilter !== "all",
+    docClassFilter !== "all",
+    updateKindFilter !== "all",
+    tagFilter !== "all",
+    staleOnly,
+  ].filter(Boolean).length;
 
   // ── Possible-duplicates view (Task #1825) ─────────────────────────────────────
   if (showDuplicates) {
@@ -2122,171 +2114,166 @@ export default function KnowledgeBaseReview() {
   return (
     <AppLayout>
       <div className="space-y-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">Knowledge Base Truth-Doc Review</h1>
-            <p className="text-gray-600 mt-1">
-              AI drafts &amp; flags · every member-facing doc is human-verified before it goes live
-            </p>
-          </div>
-          <div className="flex items-center gap-2 flex-wrap">
-            <Button
-              variant="outline"
-              onClick={() => window.open(`${import.meta.env.BASE_URL}docs/tips-and-tricks-categorization-sop.pdf`, "_blank", "noopener,noreferrer")}
-              title="How to categorize tips-and-tricks content (Nano Banana, Grok, Anstrex, headlines)"
-            >
-              <FileText className="w-4 h-4 mr-2" />
-              Tips SOP
-            </Button>
-            <Button variant="outline" onClick={loadSources} disabled={sourcesLoading}>
-              {sourcesLoading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <ShieldCheck className="w-4 h-4 mr-2" />}
-              Sources
-            </Button>
-            <Button variant="outline" onClick={importCurated} disabled title="Temporarily disabled while the document-review intake is being mapped out">
-              {importing ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <FileText className="w-4 h-4 mr-2" />}
-              Import Curated
-            </Button>
-            {(statusCounts.approved || 0) > 0 && (
-              <Button onClick={pushApproved} disabled={pushing} className="bg-[#1a56db] hover:bg-[#1a56db]/90">
-                {pushing ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Upload className="w-4 h-4 mr-2" />}
-                Publish {statusCounts.approved}
-              </Button>
-            )}
-            {(docTypeCounts.existing_doc || 0) > 0 && (
-              <Button onClick={loadGuidedQueue} variant="outline" disabled title="Temporarily disabled while the document-review intake is being mapped out" className="border-amber-300 text-amber-700 hover:bg-amber-50">
-                <Layers className="w-4 h-4 mr-2" />
-                Re-verify Track
-              </Button>
-            )}
-            <div className="flex items-center gap-1.5">
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button onClick={runTriage} disabled={triaging} className="bg-violet-600 hover:bg-violet-700">
-                    {triaging ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Sparkles className="w-4 h-4 mr-2" />}
-                    {triaging ? "Analyzing…" : "Run AI Analysis"}
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent className="max-w-xs">
-                  Analyzes staged drafts: suggested taxonomy, risk flags and a recommendation. By default only docs that have never been analyzed are processed{typeof triageStatus?.unanalyzed === "number" ? ` (${triageStatus.unanalyzed} pending)` : ""}. Tick "include analyzed" to re-run everything.
-                </TooltipContent>
-              </Tooltip>
-              <label className="flex items-center gap-1 text-[11px] text-gray-600 cursor-pointer select-none" title="Re-analyze docs that already have an AI analysis too">
-                <input
-                  type="checkbox"
-                  checked={includeAnalyzed}
-                  onChange={(e) => setIncludeAnalyzed(e.target.checked)}
-                  className="h-3.5 w-3.5 accent-violet-600"
-                />
-                include analyzed
-              </label>
-            </div>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button onClick={buildTopicIndex} disabled={processing} variant="outline">
-                  {processing ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Layers className="w-4 h-4 mr-2" />}
-                  Build Topic Index
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent className="max-w-xs">
-                Classifies every screened source document into the taxonomy node(s) it informs. Run this before synthesizing.
-              </TooltipContent>
-            </Tooltip>
-            <div className="flex items-center gap-1">
-              <Select value={synthScope} onValueChange={(v) => setSynthScope(v as SynthScope)}>
-                <SelectTrigger className="h-9 w-[150px] text-xs"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="incremental">Incremental (new + failed)</SelectItem>
-                  <SelectItem value="shelf">One shelf…</SelectItem>
-                  <SelectItem value="covered">Covered only</SelectItem>
-                  <SelectItem value="all">All nodes (full run)</SelectItem>
-                </SelectContent>
-              </Select>
-              {failedNodesPendingRetry.length > 0 && (
-                <span
-                  className="text-[11px] text-amber-700 whitespace-nowrap"
-                  title={`Failed nodes: ${failedNodesPendingRetry.slice(0, 15).join(", ")}${failedNodesPendingRetry.length > 15 ? "…" : ""} — an incremental run retries them automatically.`}
-                >
-                  {failedNodesPendingRetry.length} failed node{failedNodesPendingRetry.length === 1 ? "" : "s"} pending retry
-                </span>
-              )}
-              {synthScope === "shelf" && (
-                <Select value={synthRoot} onValueChange={setSynthRoot}>
-                  <SelectTrigger className="h-9 w-[130px] text-xs"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    {HOME_ROOTS.map((r) => (<SelectItem key={r.value} value={r.value}>{r.label}</SelectItem>))}
-                  </SelectContent>
-                </Select>
-              )}
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button onClick={startSynthesis} disabled={processing} variant="outline">
-                    {processing ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Play className="w-4 h-4 mr-2" />}
-                    Synthesize
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent className="max-w-xs">
-                  Consolidates a node's linked sources into ONE truth-doc draft with multi-source provenance and a corroboration count (needs review). Scope controls which nodes run: all, one shelf, only nodes with sources, or just those with newly-classified material (incremental). Nothing goes live until a human approves and publishes.
-                </TooltipContent>
-              </Tooltip>
-            </div>
-            <Button onClick={toggleCoverage} variant="outline">
-              <Layers className="w-4 h-4 mr-2" />
-              {showCoverage ? "Hide Coverage" : "Coverage"}
-            </Button>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button onClick={() => setShowDuplicates(true)} variant="outline" className="border-purple-300 text-purple-700 hover:bg-purple-50" data-testid="button-possible-duplicates">
-                  <GitCompare className="w-4 h-4 mr-2" />
-                  Possible Duplicates
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent className="max-w-xs">
-                Groups needs-review drafts that look like the same concept (title variants or very similar content) so you can keep one and mark the rest merged. The kept draft still goes through normal review.
-              </TooltipContent>
-            </Tooltip>
-            {/*
-              Blitz change-monitoring (Task #1564) — DORMANT. The plumbing to
-              detect changed core-training sources and propose reference-doc
-              revisions exists on the backend, but the feature is intentionally
-              OFF: this button stays disabled (no boot hook, no schedule). It is
-              the only entry point to that plumbing.
-            */}
-            <Button
-              variant="outline"
-              disabled
-              title="Coming soon — automatic detection of changed Blitz/core-training content is not enabled yet."
-            >
-              <Radar className="w-4 h-4 mr-2" />
-              Scan for changes
-            </Button>
-          </div>
+        {/* Standard admin header: full-width title + subheader */}
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">Knowledge Base Truth-Doc Review</h1>
+          <p className="text-gray-600 mt-1">
+            AI drafts &amp; flags · every member-facing doc is human-verified before it goes live
+          </p>
         </div>
 
-        {/* Topic-index run progress + durable last-run report (Task #1794). */}
-        {topicIndex && (topicIndex.running || topicIndex.qualityCheckRunning || topicIndex.lastRun) && (
-          <Card className="border-slate-200">
-            <CardContent className="py-4 px-4 space-y-3">
-              <div className="flex items-center justify-between flex-wrap gap-2">
-                <div className="flex items-center gap-3 flex-wrap">
-                  <span className="font-semibold text-sm text-gray-900">Topic Index</span>
-                  {topicIndex.running ? (
-                    <span className="flex items-center gap-2 text-xs text-blue-700">
-                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                      Classifying {topicIndex.processed}/{topicIndex.total} sources…
-                    </span>
-                  ) : topicIndex.lastRun ? (
-                    <span className="text-xs text-gray-500">
-                      Last run {new Date(topicIndex.lastRun.startedAt).toLocaleString()}
-                      {topicIndex.lastRun.finishedAt ? "" : " (interrupted)"}
-                      {topicIndex.lastRun.force ? " · full re-classify" : " · incremental"}
-                    </span>
-                  ) : null}
-                  {topicIndex.qualityCheckRunning && (
-                    <span className="flex items-center gap-1.5 text-xs text-violet-700">
-                      <Loader2 className="w-3.5 h-3.5 animate-spin" /> quality spot-check running…
-                    </span>
-                  )}
-                </div>
+        {/* Compact action row */}
+        <div className="flex items-center gap-2 flex-wrap">
+          <div className="flex items-center gap-1.5">
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button size="sm" onClick={runTriage} disabled={triaging} className="bg-violet-600 hover:bg-violet-700">
+                  {triaging ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Sparkles className="w-4 h-4 mr-2" />}
+                  {triaging ? "Analyzing…" : "Run AI Analysis"}
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent className="max-w-xs">
+                Analyzes staged drafts: suggested taxonomy, risk flags and a recommendation. By default only docs that have never been analyzed are processed{typeof triageStatus?.unanalyzed === "number" ? ` (${triageStatus.unanalyzed} pending)` : ""}. Tick "include analyzed" to re-run everything.
+              </TooltipContent>
+            </Tooltip>
+            <label className="flex items-center gap-1 text-[11px] text-gray-600 cursor-pointer select-none" title="Re-analyze docs that already have an AI analysis too">
+              <input
+                type="checkbox"
+                checked={includeAnalyzed}
+                onChange={(e) => setIncludeAnalyzed(e.target.checked)}
+                className="h-3.5 w-3.5 accent-violet-600"
+              />
+              include analyzed
+            </label>
+          </div>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => window.open(`${import.meta.env.BASE_URL}docs/tips-and-tricks-categorization-sop.pdf`, "_blank", "noopener,noreferrer")}
+            title="How to categorize tips-and-tricks content (Nano Banana, Grok, Anstrex, headlines)"
+          >
+            <FileText className="w-4 h-4 mr-2" />
+            Tips SOP
+          </Button>
+          {(statusCounts.approved || 0) > 0 && (
+            <Button size="sm" onClick={pushApproved} disabled={pushing} className="bg-[#1a56db] hover:bg-[#1a56db]/90">
+              {pushing ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Upload className="w-4 h-4 mr-2" />}
+              Publish {statusCounts.approved}
+            </Button>
+          )}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button size="sm" variant="outline" data-testid="button-pipeline-tools">
+                <Wrench className="w-4 h-4 mr-2" />
+                Pipeline tools
+                <ChevronDown className="w-3.5 h-3.5 ml-1.5" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" className="w-64">
+              <DropdownMenuItem onSelect={loadSources} disabled={sourcesLoading}>
+                {sourcesLoading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <ShieldCheck className="w-4 h-4 mr-2" />}
+                Sources
+              </DropdownMenuItem>
+              <DropdownMenuItem onSelect={importCurated} disabled title="Temporarily disabled while the document-review intake is being mapped out">
+                {importing ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <FileText className="w-4 h-4 mr-2" />}
+                Import Curated
+              </DropdownMenuItem>
+              {(docTypeCounts.existing_doc || 0) > 0 && (
+                <DropdownMenuItem onSelect={loadGuidedQueue} disabled title="Temporarily disabled while the document-review intake is being mapped out">
+                  <Layers className="w-4 h-4 mr-2" />
+                  Re-verify Track
+                </DropdownMenuItem>
+              )}
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onSelect={buildTopicIndex} disabled={processing} title="Classifies every screened source document into the taxonomy node(s) it informs. Run this before synthesizing.">
+                {processing ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Layers className="w-4 h-4 mr-2" />}
+                Build Topic Index
+              </DropdownMenuItem>
+              <DropdownMenuItem onSelect={() => setShowSynthDialog(true)} disabled={processing}>
+                {processing ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Play className="w-4 h-4 mr-2" />}
+                Synthesize…
+              </DropdownMenuItem>
+              <DropdownMenuItem onSelect={toggleCoverage}>
+                <Layers className="w-4 h-4 mr-2" />
+                {showCoverage ? "Hide Coverage" : "Coverage"}
+              </DropdownMenuItem>
+              <DropdownMenuItem onSelect={() => setShowDuplicates(true)} data-testid="button-possible-duplicates">
+                <GitCompare className="w-4 h-4 mr-2" />
+                Possible Duplicates
+              </DropdownMenuItem>
+              {/*
+                Blitz change-monitoring (Task #1564) — DORMANT. The plumbing to
+                detect changed core-training sources and propose reference-doc
+                revisions exists on the backend, but the feature is intentionally
+                OFF: this item stays disabled (no boot hook, no schedule). It is
+                the only entry point to that plumbing.
+              */}
+              <DropdownMenuItem disabled title="Coming soon — automatic detection of changed Blitz/core-training content is not enabled yet.">
+                <Radar className="w-4 h-4 mr-2" />
+                Scan for changes
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+
+        {/* Topic-index summary (Task #1794, decluttered): one-line health
+            summary with a warning tint when something is flagged; click to
+            expand the full last-run detail. */}
+        {topicIndex && (topicIndex.running || topicIndex.qualityCheckRunning || topicIndex.lastRun) && (() => {
+          const lastRun = topicIndex.lastRun;
+          const degradedCount = lastRun ? lastRun.lexicalCount + lastRun.failedCount : 0;
+          const flagged =
+            !!lastRun &&
+            (lastRun.duplicateFlags.length > 0 || degradedCount > 0 || !!lastRun.error || !lastRun.finishedAt);
+          return (
+          <Card className={flagged ? "border-amber-300 bg-amber-50/50" : "border-slate-200"}>
+            <CardContent className="py-0 px-0">
+              <button
+                type="button"
+                onClick={() => setTopicIndexOpen((o) => !o)}
+                aria-expanded={topicIndexOpen}
+                data-testid="button-topic-index-summary"
+                className="w-full flex items-center gap-2 py-2.5 px-4 text-left text-sm"
+              >
+                {flagged
+                  ? <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
+                  : <Layers className="w-4 h-4 text-gray-400 shrink-0" />}
+                <span className="font-semibold text-gray-900 shrink-0">Topic Index</span>
+                {topicIndex.running ? (
+                  <span className="flex items-center gap-2 text-xs text-blue-700 min-w-0 truncate">
+                    <Loader2 className="w-3.5 h-3.5 animate-spin shrink-0" />
+                    Classifying {topicIndex.processed}/{topicIndex.total} sources…
+                  </span>
+                ) : lastRun ? (
+                  <span className="text-xs text-gray-500 min-w-0 truncate">
+                    Last run {new Date(lastRun.startedAt).toLocaleString()}
+                    {lastRun.finishedAt ? "" : " (interrupted)"}
+                    {lastRun.force ? " · full re-classify" : " · incremental"}
+                    {flagged
+                      ? <span className="text-amber-700">
+                          {" · "}
+                          {[
+                            lastRun.duplicateFlags.length > 0 ? `${lastRun.duplicateFlags.length} duplicate group${lastRun.duplicateFlags.length === 1 ? "" : "s"}` : null,
+                            degradedCount > 0 ? `${degradedCount} degraded` : null,
+                            lastRun.error ? "run error" : null,
+                          ].filter(Boolean).join(" · ")}
+                        </span>
+                      : <span className="text-emerald-700"> · healthy</span>}
+                  </span>
+                ) : null}
+                {topicIndex.qualityCheckRunning && (
+                  <span className="flex items-center gap-1.5 text-xs text-violet-700 shrink-0">
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" /> spot-check running…
+                  </span>
+                )}
+                <span className="ml-auto flex items-center gap-1 text-[11px] text-gray-500 shrink-0">
+                  {topicIndexOpen ? "Hide details" : "Details"}
+                  {topicIndexOpen ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+                </span>
+              </button>
+              {topicIndexOpen && (
+              <div className="px-4 pb-4 space-y-3">
+              <div className="flex justify-end">
                 <Button onClick={runTopicIndexQualityCheck} variant="ghost" size="sm"
                   disabled={topicIndex.running || topicIndex.qualityCheckRunning}
                   title="Re-classify a sample of healthy sources with the current model and compare against stored links (no changes are saved).">
@@ -2349,9 +2336,12 @@ export default function KnowledgeBaseReview() {
                   </ul>
                 </details>
               )}
+              </div>
+              )}
             </CardContent>
           </Card>
-        )}
+          );
+        })()}
 
         {showCoverage && (
           <Card className="border-slate-200">
@@ -2475,22 +2465,27 @@ export default function KnowledgeBaseReview() {
           </Card>
         )}
 
-        {/* Analysis status banner */}
-        {triageStatus && (triageStatus.running || triageStatus.needsReview > 0) && (
-          <Card className="bg-violet-50 border-violet-200">
-            <CardContent className="py-3 px-4">
-              <div className="flex items-center gap-3 text-sm">
-                <Sparkles className="w-4 h-4 text-violet-600" />
-                <span className="text-violet-800 font-medium">
-                  {triageStatus.running ? "AI analysis running…" : "AI analysis idle"}
-                </span>
-                {triageStatus.needsReview > 0 && (
-                  <span className="text-amber-700">{triageStatus.needsReview} awaiting your review</span>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-        )}
+        {/* Analysis progress strip — shown ONLY while a background run is in
+            progress; disappears entirely once it finishes. */}
+        {triageStatus?.running && (() => {
+          const totalToTriage = triageStatus.triaged + triageStatus.pendingTriage;
+          const pct = totalToTriage > 0 ? Math.round((triageStatus.triaged / totalToTriage) * 100) : 0;
+          return (
+            <Card className="bg-violet-50 border-violet-200" data-testid="strip-ai-analysis-running">
+              <CardContent className="py-3 px-4 space-y-2">
+                <div className="flex items-center gap-3 text-sm">
+                  <Loader2 className="w-4 h-4 text-violet-600 animate-spin" />
+                  <span className="text-violet-800 font-medium">
+                    AI analysis running… {triageStatus.triaged} of {totalToTriage} analyzed
+                  </span>
+                </div>
+                <div className="w-full bg-violet-100 rounded-full h-1.5">
+                  <div className="bg-violet-600 h-1.5 rounded-full transition-all" style={{ width: `${pct}%` }} />
+                </div>
+              </CardContent>
+            </Card>
+          );
+        })()}
 
         {/* Status filter tabs */}
         <div className="flex flex-wrap gap-2">
@@ -2519,80 +2514,19 @@ export default function KnowledgeBaseReview() {
           )}
         </div>
 
-        {/* Risk-first triage row */}
+        {/* Search + primary drill-downs + advanced filters (one row) */}
         <div className="flex items-center gap-2 flex-wrap">
-          <span className="text-sm text-gray-500">Risk:</span>
-          {[
-            ["all", "All"],
-            ["flagged", `Flagged (${riskCounts.flagged})`],
-            ["blocking", `Blocking (${riskCounts.blocking})`],
-            ["needs_expert", `Needs Expert (${riskCounts.needs_expert})`],
-          ].map(([key, label]) => (
-            <button
-              key={key}
-              onClick={() => { setRiskFilter(key); setPage(1); }}
-              className={`px-2.5 py-1 rounded-md text-xs font-medium transition-colors ${riskFilter === key ? "bg-red-600 text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200"}`}
-            >
-              {label}
-            </button>
-          ))}
-          <button
-            onClick={() => { setStaleOnly((v) => !v); setPage(1); }}
-            className={`px-2.5 py-1 rounded-md text-xs font-medium transition-colors ${staleOnly ? "bg-amber-600 text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200"}`}
-          >
-            Stale refs ({riskCounts.stale})
-          </button>
-        </div>
-
-        {/* Doc-type + doc-class + shelf facets (primary) */}
-        <div className="flex items-center gap-2 flex-wrap">
-          <span className="text-sm text-gray-500">Type:</span>
-          {[
-            ["all", "All"],
-            ["truth_draft", `${DOC_TYPE_LABEL.truth_draft} (${docTypeCounts.truth_draft || 0})`],
-            ...Object.keys(docTypeCounts)
-              .filter((k) => k && k !== "truth_draft" && k !== "existing_doc")
-              .map((k) => [k, `${DOC_TYPE_LABEL[k] ?? k} (${docTypeCounts[k]})`]),
-          ].map(([key, label]) => (
-            <button
-              key={key}
-              onClick={() => { setDocTypeFilter(key); setPage(1); }}
-              className={`px-2.5 py-1 rounded-md text-xs font-medium transition-colors ${docTypeFilter === key ? "bg-indigo-600 text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200"}`}
-            >
-              {label}
-            </button>
-          ))}
-          <span className="text-sm text-gray-500 ml-3">Class:</span>
-          {[
-            ["all", "All"],
-            ["citable", `Citable (${docClassCounts.citable || 0})`],
-            ["non_citable", `Non-citable (${docClassCounts.non_citable || 0})`],
-          ].map(([key, label]) => (
-            <button
-              key={key}
-              onClick={() => { setDocClassFilter(key); setPage(1); }}
-              className={`px-2.5 py-1 rounded-md text-xs font-medium transition-colors ${docClassFilter === key ? "bg-emerald-600 text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200"}`}
-            >
-              {label}
-            </button>
-          ))}
-          <span className="text-sm text-gray-500 ml-3">Change:</span>
-          {[
-            ["all", "All"],
-            ["new", `New (${updateKindCounts.new || 0})`],
-            ["update", `Update (${updateKindCounts.update || 0})`],
-          ].map(([key, label]) => (
-            <button
-              key={key}
-              onClick={() => { setUpdateKindFilter(key); setPage(1); }}
-              className={`px-2.5 py-1 rounded-md text-xs font-medium transition-colors ${updateKindFilter === key ? "bg-amber-600 text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200"}`}
-            >
-              {label}
-            </button>
-          ))}
-          <span className="text-sm text-gray-500 ml-3">Shelf:</span>
+          <div className="relative flex-1 min-w-[200px]">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+            <Input
+              placeholder="Search documents..."
+              value={searchQuery}
+              onChange={(e) => { setSearchQuery(e.target.value); setPage(1); }}
+              className="pl-10"
+            />
+          </div>
           <Select value={shelfFilter} onValueChange={(v) => { setShelfFilter(v); setPage(1); }}>
-            <SelectTrigger className="h-7 w-[160px] text-xs"><SelectValue /></SelectTrigger>
+            <SelectTrigger className="h-9 w-[160px] text-xs"><SelectValue /></SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All shelves</SelectItem>
               {HOME_ROOTS.map((r) => {
@@ -2607,9 +2541,8 @@ export default function KnowledgeBaseReview() {
             </SelectContent>
           </Select>
           {/* Node is the PRIMARY synthesis drill-down (Shelf → Node) */}
-          <span className="text-sm text-gray-500 ml-3">Node:</span>
           <Select value={nodeFilter} onValueChange={(v) => { setNodeFilter(v); setPage(1); }}>
-            <SelectTrigger className="h-7 w-[220px] text-xs"><SelectValue /></SelectTrigger>
+            <SelectTrigger className="h-9 w-[200px] text-xs"><SelectValue /></SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All nodes</SelectItem>
               {nodeCounts.map((n) => (
@@ -2617,55 +2550,139 @@ export default function KnowledgeBaseReview() {
               ))}
             </SelectContent>
           </Select>
-        </div>
-
-        {/* Tag facet (secondary) */}
-        <div className="flex items-center gap-2 flex-wrap">
-          {tagCounts.length > 0 && (
-            <>
-              <span className="text-sm text-gray-500 ml-3">Tag:</span>
-              <Select value={tagFilter} onValueChange={(v) => { setTagFilter(v); setPage(1); }}>
-                <SelectTrigger className="h-7 w-[200px] text-xs"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All tags</SelectItem>
-                  {tagCounts.map((t) => (
-                    <SelectItem key={t.tag} value={t.tag}>{t.tag} ({t.count})</SelectItem>
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button
+                variant="outline"
+                size="sm"
+                className={activeAdvancedFilters > 0 ? "border-violet-300 text-violet-700 bg-violet-50 hover:bg-violet-100" : ""}
+                data-testid="button-advanced-filters"
+              >
+                <ListFilter className="w-4 h-4 mr-2" />
+                Filters{activeAdvancedFilters > 0 ? ` (${activeAdvancedFilters})` : ""}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent align="end" className="w-[380px] space-y-4">
+              <div className="space-y-1.5">
+                <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Risk</span>
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  {[
+                    ["all", "All"],
+                    ["flagged", `Flagged (${riskCounts.flagged})`],
+                    ["blocking", `Blocking (${riskCounts.blocking})`],
+                    ["needs_expert", `Needs Expert (${riskCounts.needs_expert})`],
+                  ].map(([key, label]) => (
+                    <button
+                      key={key}
+                      onClick={() => { setRiskFilter(key); setPage(1); }}
+                      className={`px-2.5 py-1 rounded-md text-xs font-medium transition-colors ${riskFilter === key ? "bg-red-600 text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200"}`}
+                    >
+                      {label}
+                    </button>
                   ))}
-                </SelectContent>
-              </Select>
-            </>
-          )}
-        </div>
-
-        <div className="flex items-center gap-3">
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-            <Input
-              placeholder="Search documents..."
-              value={searchQuery}
-              onChange={(e) => { setSearchQuery(e.target.value); setPage(1); }}
-              className="pl-10"
-            />
-          </div>
+                  <button
+                    onClick={() => { setStaleOnly((v) => !v); setPage(1); }}
+                    className={`px-2.5 py-1 rounded-md text-xs font-medium transition-colors ${staleOnly ? "bg-amber-600 text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200"}`}
+                  >
+                    Stale refs ({riskCounts.stale})
+                  </button>
+                </div>
+              </div>
+              <div className="space-y-1.5">
+                <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Type</span>
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  {[
+                    ["all", "All"],
+                    ["truth_draft", `${DOC_TYPE_LABEL.truth_draft} (${docTypeCounts.truth_draft || 0})`],
+                    ...Object.keys(docTypeCounts)
+                      .filter((k) => k && k !== "truth_draft" && k !== "existing_doc")
+                      .map((k) => [k, `${DOC_TYPE_LABEL[k] ?? k} (${docTypeCounts[k]})`]),
+                  ].map(([key, label]) => (
+                    <button
+                      key={key}
+                      onClick={() => { setDocTypeFilter(key); setPage(1); }}
+                      className={`px-2.5 py-1 rounded-md text-xs font-medium transition-colors ${docTypeFilter === key ? "bg-indigo-600 text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200"}`}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div className="space-y-1.5">
+                <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Class</span>
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  {[
+                    ["all", "All"],
+                    ["citable", `Citable (${docClassCounts.citable || 0})`],
+                    ["non_citable", `Non-citable (${docClassCounts.non_citable || 0})`],
+                  ].map(([key, label]) => (
+                    <button
+                      key={key}
+                      onClick={() => { setDocClassFilter(key); setPage(1); }}
+                      className={`px-2.5 py-1 rounded-md text-xs font-medium transition-colors ${docClassFilter === key ? "bg-emerald-600 text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200"}`}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div className="space-y-1.5">
+                <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Change</span>
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  {[
+                    ["all", "All"],
+                    ["new", `New (${updateKindCounts.new || 0})`],
+                    ["update", `Update (${updateKindCounts.update || 0})`],
+                  ].map(([key, label]) => (
+                    <button
+                      key={key}
+                      onClick={() => { setUpdateKindFilter(key); setPage(1); }}
+                      className={`px-2.5 py-1 rounded-md text-xs font-medium transition-colors ${updateKindFilter === key ? "bg-amber-600 text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200"}`}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              {tagCounts.length > 0 && (
+                <div className="space-y-1.5">
+                  <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Tag</span>
+                  <Select value={tagFilter} onValueChange={(v) => { setTagFilter(v); setPage(1); }}>
+                    <SelectTrigger className="h-8 w-full text-xs"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All tags</SelectItem>
+                      {tagCounts.map((t) => (
+                        <SelectItem key={t.tag} value={t.tag}>{t.tag} ({t.count})</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+              {activeAdvancedFilters > 0 && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="w-full text-gray-500"
+                  onClick={() => {
+                    setRiskFilter("all");
+                    setDocTypeFilter("all");
+                    setDocClassFilter("all");
+                    setUpdateKindFilter("all");
+                    setTagFilter("all");
+                    setStaleOnly(false);
+                    setPage(1);
+                  }}
+                >
+                  Clear filters
+                </Button>
+              )}
+            </PopoverContent>
+          </Popover>
           {mergeIds.size >= 2 && (
-            <Button onClick={mergeSelected} disabled={merging} variant="outline" className="border-purple-300 text-purple-700">
+            <Button onClick={mergeSelected} disabled={merging} variant="outline" size="sm" className="border-purple-300 text-purple-700">
               {merging ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Merge className="w-4 h-4 mr-2" />}
               Merge {mergeIds.size} Selected
             </Button>
-          )}
-          {statusFilter === "needs_review" && docs.length > 0 && (
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button onClick={bulkApprove} variant="outline" className="border-green-300 text-green-700" disabled={pageSafeCount === 0}>
-                  <CheckCircle className="w-4 h-4 mr-2" />
-                  Confirm Safe on Page ({pageSafeCount})
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent className="max-w-xs">
-                Approves the {pageSafeCount} safe doc(s) on this page.
-                {pageBlockedCount > 0 && ` ${pageBlockedCount} flagged doc(s) are held back — open and adjudicate them one at a time.`}
-              </TooltipContent>
-            </Tooltip>
           )}
         </div>
 
@@ -2690,6 +2707,8 @@ export default function KnowledgeBaseReview() {
               return (
                 <Card
                   key={doc.id}
+                  onClick={() => openDoc(doc)}
+                  data-testid={`card-staging-doc-${doc.id}`}
                   className={`transition-colors hover:border-[#1a56db]/30 cursor-pointer ${
                     mergeIds.has(doc.id) ? "ring-2 ring-purple-400 border-purple-300" : ""
                   } ${doc.needsExpert || sev === "critical" ? "border-l-4 border-l-red-400" : sev === "high" ? "border-l-4 border-l-orange-400" : ""}`}
@@ -2704,7 +2723,7 @@ export default function KnowledgeBaseReview() {
                           className="mt-1.5 rounded border-gray-300"
                           onClick={(e) => e.stopPropagation()}
                         />
-                        <div className="flex-1 min-w-0" onClick={() => openDoc(doc)}>
+                        <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 flex-wrap">
                             <h3 className="font-semibold text-gray-900 truncate">{doc.title}</h3>
                             <Badge variant="outline" className={STATUS_COLORS[doc.status] || ""}>
@@ -2761,20 +2780,8 @@ export default function KnowledgeBaseReview() {
                           )}
                         </div>
                       </div>
-                      <div className="flex items-center gap-1 shrink-0">
-                        {doc.status === "needs_review" && (
-                          <>
-                            <Button size="sm" variant="ghost" className="text-green-600 hover:text-green-700 hover:bg-green-50"
-                              onClick={(e) => { e.stopPropagation(); updateDoc(doc.id, { status: "approved" }); }}>
-                              <CheckCircle className="w-4 h-4" />
-                            </Button>
-                            <Button size="sm" variant="ghost" className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                              onClick={(e) => { e.stopPropagation(); updateDoc(doc.id, { status: "rejected" }); }}>
-                              <XCircle className="w-4 h-4" />
-                            </Button>
-                          </>
-                        )}
-                        {doc.status === "merged" && (
+                      {doc.status === "merged" && (
+                        <div className="flex items-center gap-1 shrink-0">
                           <Button
                             size="sm"
                             variant="outline"
@@ -2785,11 +2792,8 @@ export default function KnowledgeBaseReview() {
                           >
                             Unmerge
                           </Button>
-                        )}
-                        <Button size="sm" variant="ghost" onClick={(e) => { e.stopPropagation(); openDoc(doc); }}>
-                          <Eye className="w-4 h-4" />
-                        </Button>
-                      </div>
+                        </div>
+                      )}
                     </div>
                   </CardContent>
                 </Card>
@@ -2817,6 +2821,66 @@ export default function KnowledgeBaseReview() {
       {renderDetailDialog()}
 
       <LiveDocDialog liveDocId={viewLiveDocId} onClose={() => setViewLiveDocId(null)} />
+
+      {/* Synthesis scope picker (moved out of the header into Pipeline tools) */}
+      <Dialog open={showSynthDialog} onOpenChange={setShowSynthDialog}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Play className="w-5 h-5 text-gray-600" />
+              Synthesize truth-doc drafts
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <p className="text-sm text-gray-600">
+              Consolidates each node's linked sources into ONE truth-doc draft with multi-source
+              provenance (needs review). Nothing goes live until a human approves and publishes.
+            </p>
+            <div className="space-y-1.5">
+              <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Scope</span>
+              <Select value={synthScope} onValueChange={(v) => setSynthScope(v as SynthScope)}>
+                <SelectTrigger className="h-9 w-full text-sm"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="incremental">Incremental (new + failed)</SelectItem>
+                  <SelectItem value="shelf">One shelf…</SelectItem>
+                  <SelectItem value="covered">Covered only</SelectItem>
+                  <SelectItem value="all">All nodes (full run)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            {synthScope === "shelf" && (
+              <div className="space-y-1.5">
+                <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Shelf</span>
+                <Select value={synthRoot} onValueChange={setSynthRoot}>
+                  <SelectTrigger className="h-9 w-full text-sm"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {HOME_ROOTS.map((r) => (<SelectItem key={r.value} value={r.value}>{r.label}</SelectItem>))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+            {failedNodesPendingRetry.length > 0 && (
+              <p
+                className="text-xs text-amber-700"
+                title={`Failed nodes: ${failedNodesPendingRetry.slice(0, 15).join(", ")}${failedNodesPendingRetry.length > 15 ? "…" : ""}`}
+              >
+                {failedNodesPendingRetry.length} failed node{failedNodesPendingRetry.length === 1 ? "" : "s"} pending retry — an
+                incremental run retries them automatically.
+              </p>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowSynthDialog(false)}>Cancel</Button>
+            <Button
+              onClick={() => { setShowSynthDialog(false); startSynthesis(); }}
+              disabled={processing}
+              data-testid="button-run-synthesis"
+            >
+              <Play className="w-4 h-4 mr-2" />Synthesize
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Confirm gate for the expensive full-corpus synthesis run */}
       <Dialog open={confirmSynthAll} onOpenChange={setConfirmSynthAll}>
