@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll, afterAll } from "vitest";
+import { describe, it, expect, beforeAll, afterAll, vi } from "vitest";
 import request from "supertest";
 import jwt from "jsonwebtoken";
 import bcrypt from "bcryptjs";
@@ -11,6 +11,16 @@ import {
   kbTriageAuditLogTable,
 } from "@workspace/db";
 import { eq, inArray } from "drizzle-orm";
+
+// Capture the exact prompt the merge proposal feeds the LLM so we can assert it
+// is built ONLY from the selected subset of drafts (no real network call).
+const llmCalls: Array<{ label: string; systemPrompt: string; userContent: string }> = [];
+vi.mock("../lib/kb-synthesis.js", () => ({
+  callLLMWithRetry: vi.fn(async (label: string, systemPrompt: string, userContent: string) => {
+    llmCalls.push({ label, systemPrompt, userContent });
+    return JSON.stringify({ title: "Merged canonical title", content: "Merged canonical body." });
+  }),
+}));
 
 import { buildTestAppWithRouters } from "./test-app";
 import knowledgebaseStagingRouter from "../routes/admin/knowledgebase-staging";
@@ -295,4 +305,92 @@ describe("KB duplicate grouping & merge aid routes", () => {
       .send({ ids: [123456789] });
     expect(res.status).toBe(400);
   });
+
+  it("POST /duplicates/propose-merge builds the proposal from ONLY the selected subset", async () => {
+    const canonicalId = await seedStaging({ title: `${TEST_TAG} propose canonical`, content: `${BODY} canonical-only-marker` });
+    const selected = await seedStaging({ title: `${TEST_TAG} propose selected`, content: `${BODY} selected-only-marker` });
+    const excluded = await seedStaging({ title: `${TEST_TAG} propose excluded`, content: `${BODY} excluded-only-marker` });
+
+    llmCalls.length = 0;
+    const res = await request(app)
+      .post("/api/duplicates/propose-merge")
+      .set("Cookie", adminCookie)
+      .send({ ids: [canonicalId, selected] }); // excluded deliberately left out
+    expect(res.status).toBe(200);
+    expect(res.body.sourceIds.sort((a: number, b: number) => a - b)).toEqual([canonicalId, selected].sort((a, b) => a - b));
+    expect(res.body.sourceIds).not.toContain(excluded);
+
+    // The prompt the LLM saw must include the selected drafts' bodies and NOT
+    // the excluded draft's — proving the merge is scoped to the subset.
+    expect(llmCalls).toHaveLength(1);
+    const { userContent } = llmCalls[0];
+    expect(userContent).toContain("canonical-only-marker");
+    expect(userContent).toContain("selected-only-marker");
+    expect(userContent).not.toContain("excluded-only-marker");
+    expect(userContent).not.toContain(`staging #${excluded}`);
+  });
+
+  it("resolve with a SUBSET marks only the selected drafts merged, leaving excluded ones in needs_review", async () => {
+    const canonicalId = await seedStaging({ title: `${TEST_TAG} subset canonical`, content: BODY });
+    const mergeMe = await seedStaging({ title: `${TEST_TAG} subset true dup`, content: BODY });
+    const keepSeparate = await seedStaging({ title: `${TEST_TAG} subset distinct`, content: BODY });
+
+    const res = await request(app)
+      .post("/api/duplicates/resolve")
+      .set("Cookie", adminCookie)
+      .send({ canonicalId, mergedIds: [mergeMe] }); // keepSeparate deliberately excluded
+    expect(res.status).toBe(200);
+    expect(res.body.merged).toBe(1);
+    expect(res.body.mergedIds).toEqual([mergeMe]);
+
+    const [mergedRow] = await db.select().from(kbStagingDocsTable).where(eq(kbStagingDocsTable.id, mergeMe));
+    expect(mergedRow.status).toBe("merged");
+    expect(mergedRow.mergedIntoId).toBe(canonicalId);
+
+    // The excluded draft is untouched — still its own needs-review draft.
+    const [excludedRow] = await db.select().from(kbStagingDocsTable).where(eq(kbStagingDocsTable.id, keepSeparate));
+    expect(excludedRow.status).toBe("needs_review");
+    expect(excludedRow.mergedIntoId).toBeNull();
+  });
+
+  it("GET /duplicates/merged groups merged drafts by canonical; restore removes a draft from the list", async () => {
+    const canonicalId = await seedStaging({ title: `${TEST_TAG} merged-list canonical`, content: BODY });
+    const mergedA = await seedStaging({ title: `${TEST_TAG} merged-list victim A`, content: BODY });
+    const mergedB = await seedStaging({ title: `${TEST_TAG} merged-list victim B`, content: BODY });
+
+    await request(app)
+      .post("/api/duplicates/resolve")
+      .set("Cookie", adminCookie)
+      .send({ canonicalId, mergedIds: [mergedA, mergedB] });
+
+    const listed = await request(app).get("/api/duplicates/merged").set("Cookie", adminCookie);
+    expect(listed.status).toBe(200);
+    const group = (listed.body.groups as MergedGroupShape[]).find((g) => g.canonicalId === canonicalId);
+    expect(group).toBeDefined();
+    expect(group!.canonicalTitle).toBe(`${TEST_TAG} merged-list canonical`);
+    expect(group!.docs.map((d) => d.id).sort((a, b) => a - b)).toEqual([mergedA, mergedB].sort((a, b) => a - b));
+
+    // Restore one → it leaves the merged list and returns to needs_review.
+    const restore = await request(app)
+      .post("/api/duplicates/unmerge")
+      .set("Cookie", adminCookie)
+      .send({ id: mergedA });
+    expect(restore.status).toBe(200);
+
+    const [restored] = await db.select().from(kbStagingDocsTable).where(eq(kbStagingDocsTable.id, mergedA));
+    expect(restored.status).toBe("needs_review");
+    expect(restored.mergedIntoId).toBeNull();
+
+    const afterList = await request(app).get("/api/duplicates/merged").set("Cookie", adminCookie);
+    const groupAfter = (afterList.body.groups as MergedGroupShape[]).find((g) => g.canonicalId === canonicalId);
+    expect(groupAfter).toBeDefined();
+    expect(groupAfter!.docs.map((d) => d.id)).toEqual([mergedB]);
+  });
 });
+
+interface MergedGroupShape {
+  canonicalId: number;
+  canonicalTitle: string | null;
+  canonicalStatus: string | null;
+  docs: Array<{ id: number; title: string; homeRoot: string | null; node: string | null; createdAt: string }>;
+}

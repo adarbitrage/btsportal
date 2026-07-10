@@ -568,6 +568,76 @@ router.get("/duplicates", async (_req: Request, res: Response) => {
   }
 });
 
+// Drafts previously merged into a canonical during cluster resolution, grouped
+// by the canonical they were folded into. Merged drafts leave the needs-review
+// pool so they never show up in /duplicates — this feeds the "Restore" list on
+// the Possible Duplicates screen so a wrong merge can be undone here.
+router.get("/duplicates/merged", async (_req: Request, res: Response) => {
+  try {
+    const mergedDocs = await db
+      .select({
+        id: kbStagingDocsTable.id,
+        title: kbStagingDocsTable.title,
+        homeRoot: kbStagingDocsTable.homeRoot,
+        node: kbStagingDocsTable.node,
+        mergedIntoId: kbStagingDocsTable.mergedIntoId,
+        createdAt: kbStagingDocsTable.createdAt,
+      })
+      .from(kbStagingDocsTable)
+      .where(eq(kbStagingDocsTable.status, "merged"));
+
+    // Only merges we can offer a restore-into context for (mergedIntoId set).
+    const withCanonical = mergedDocs.filter(
+      (d): d is typeof d & { mergedIntoId: number } => d.mergedIntoId != null,
+    );
+
+    const canonicalIds = [...new Set(withCanonical.map((d) => d.mergedIntoId))];
+    const canonicalRows = canonicalIds.length
+      ? await db
+          .select({
+            id: kbStagingDocsTable.id,
+            title: kbStagingDocsTable.title,
+            status: kbStagingDocsTable.status,
+          })
+          .from(kbStagingDocsTable)
+          .where(inArray(kbStagingDocsTable.id, canonicalIds))
+      : [];
+    const canonicalById = new Map(canonicalRows.map((c) => [c.id, c]));
+
+    const groupsMap = new Map<
+      number,
+      {
+        canonicalId: number;
+        canonicalTitle: string | null;
+        canonicalStatus: string | null;
+        docs: Array<{ id: number; title: string; homeRoot: string | null; node: string | null; createdAt: Date }>;
+      }
+    >();
+    for (const d of withCanonical) {
+      let g = groupsMap.get(d.mergedIntoId);
+      if (!g) {
+        const canon = canonicalById.get(d.mergedIntoId);
+        g = {
+          canonicalId: d.mergedIntoId,
+          canonicalTitle: canon?.title ?? null,
+          canonicalStatus: canon?.status ?? null,
+          docs: [],
+        };
+        groupsMap.set(d.mergedIntoId, g);
+      }
+      g.docs.push({ id: d.id, title: d.title, homeRoot: d.homeRoot, node: d.node, createdAt: d.createdAt });
+    }
+
+    const groups = [...groupsMap.values()].sort(
+      (a, b) => b.docs.length - a.docs.length || (a.canonicalTitle ?? "").localeCompare(b.canonicalTitle ?? ""),
+    );
+
+    res.json({ groups, mergedDocCount: withCanonical.length });
+  } catch (err: unknown) {
+    res.status(500).json({ error: err instanceof Error ? err.message : "Unknown error" });
+  }
+});
+
 // Batch live-corpus similarity for the NORMAL review flow: a map of
 // stagingDocId → best similar-live-doc match across all needs-review drafts
 // (excluding each draft's own explicit update target).
