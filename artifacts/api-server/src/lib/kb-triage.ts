@@ -29,7 +29,8 @@ import { recordProposedSynonym } from "./kb-proposed-synonyms.js";
 import {
   HOME_ROOTS,
   ALL_NODES,
-  DOC_CLASSES,
+  CITABLE_DOC_CLASSES,
+  isCitableDocClass,
   CEILINGS,
 } from "./kb-taxonomy.js";
 import {
@@ -52,6 +53,16 @@ export function isTriageRunning(): boolean {
 const NODE_LIST = ALL_NODES.map((n) => `${n.slug} (${n.root})`).join(", ");
 const ROOT_LIST = HOME_ROOTS.map((r) => r.slug).join(" | ");
 
+// Citeable-only review pipeline (Task #1873): every doc in AI Document Review
+// exists to be approved and promoted into the live, citeable KB. The
+// non-citeable `transcript` class belongs to the separate AI Source Knowledge
+// corpus and is NEVER a valid suggestion here — so triage may only ever propose
+// a citeable class (curated / overview / navigation).
+const REVIEW_DOC_CLASSES = CITABLE_DOC_CLASSES.join(" | ");
+// Fallback when the model proposes a non-citeable / invalid class: the general
+// citeable answer class. A review doc's suggested class is never non-citeable.
+const DEFAULT_REVIEW_DOC_CLASS = "curated";
+
 // The tag vocabulary is now the DB-backed EFFECTIVE vocabulary (admin-managed
 // tool tags + code concept/troubleshooting tags), so the tag list is injected
 // per-call rather than baked into a module const.
@@ -69,12 +80,12 @@ BTS BRAND RULES (note violations in "reasoning", do not silently fix):
 TAXONOMY:
 - home root (pick ONE): ${ROOT_LIST}
 - node (pick ONE that fits the home root): ${NODE_LIST}
-- doc class (pick ONE): ${DOC_CLASSES.join(" | ")}
+- doc class (pick ONE): ${REVIEW_DOC_CLASSES} — every review doc is CITEABLE; never suggest a training-only class
 - ceiling (how far the assistant may go with this doc — pick ONE): ${CEILINGS.join(" | ")} — "operational" = concrete how-to steps a member executes; "conceptual" = principles/strategy/why; "troubleshooting" = diagnosing and fixing a specific problem.
 - tags (pick 0-4 from): ${tagList}
 
 TIPS-AND-TRICKS RULE (short, tool-driven "tips and tricks" walkthroughs — e.g. Nano Banana, Grok Imagine, Anstrex ad copy, headline formulas — that show a member how to get one specific thing done, usually with a named piece of software):
-- These are training source material. Keep doc class = "transcript" (training-only, non-citable) — never suggest "curated" or "overview" for a tip.
+- Even a tip in review is a CITEABLE answer doc — suggest doc class "curated" (or "overview" if it is more of an orientation/map). NEVER a training-only class.
 - Pick home root by intent: a REPEATABLE CAMPAIGN BUILD STEP (make/resize/animate/edit a creative, or a step in launching/tracking/testing/scaling a campaign) => home root "process", node USUALLY "creative-assets". A CROSS-CAMPAIGN SKILL or principle (how to write copy, choose angles, structure tests) => home root "concepts", node from: headlines-and-copy, creative-strategy, testing-methodology, angles.
 - Rule of thumb: if the payoff is AN ASSET the member produced => process/creative-assets; if the payoff is A WAY OF WRITING OR THINKING they reuse => a concepts node.
 - The specific SOFTWARE a tip uses is a TOOL TAG, never a node — never invent a node named after a tool. Put known tools in "suggestedTags" and any unknown tool in "observedTools".
@@ -93,13 +104,14 @@ member vocabulary is found; a clever or internal title is invisible):
 - No dates, coach names, filler ("Complete Guide", "Everything About"), or
   internal jargon a member wouldn't search for.
 
-STAKES CONTEXT for doc class + tags: doc class decides how the assistant may
-USE the doc — "curated"/"overview" content is CITABLE (quoted to members as
-BTS truth), while "transcript" is training-only background. If the content
-touches money, refunds, guarantees, legal, compliance or anything a member
-could act on to their detriment, prefer the conservative class and say why in
-"reasoning". Tags drive retrieval boosts: a wrong tool tag actively ROUTES the
-wrong members here, so only tag tools the doc genuinely teaches.
+STAKES CONTEXT for doc class + tags: every review doc is CITABLE (quoted to
+members as BTS truth) once approved — the doc class only chooses WHICH citeable
+shape fits: "curated" = a direct answer doc (FAQ, glossary, tool guide),
+"overview" = an orientation / map doc, "navigation" = a click-path walkthrough.
+If the content touches money, refunds, guarantees, legal, compliance or anything
+a member could act on to their detriment, note it in "reasoning". Tags drive
+retrieval boosts: a wrong tool tag actively ROUTES the wrong members here, so
+only tag tools the doc genuinely teaches.
 
 MEMBER QUESTIONS: write 3-5 questions a REAL member would ask that this doc
 should answer — casual member phrasing (how members actually talk in chat),
@@ -117,7 +129,7 @@ Respond ONLY with valid JSON (no markdown, no extra text):
   "suggestedCategory": <one of the 5 categories>,
   "suggestedHomeRoot": <${ROOT_LIST}>,
   "suggestedNode": <a node slug from the list>,
-  "suggestedDocClass": <${DOC_CLASSES.join(" | ")}>,
+  "suggestedDocClass": <${REVIEW_DOC_CLASSES}>,
   "suggestedCeiling": <${CEILINGS.join(" | ")}>,
   "suggestedCeilingReason": <one short sentence, max 140 chars, saying WHY this ceiling fits (what the assistant may do with this doc and where it must hand off)>,
   "suggestedTags": <array of 0-4 tag slugs>,
@@ -152,7 +164,6 @@ const TRIAGE_MAX_TOKENS = 6000;
 
 const ROOT_SET = new Set(HOME_ROOTS.map((r) => r.slug));
 const NODE_SET = new Set(ALL_NODES.map((n) => n.slug));
-const DOC_CLASS_SET = new Set<string>(DOC_CLASSES as readonly string[]);
 const CEILING_SET = new Set<string>(CEILINGS as readonly string[]);
 
 export async function triageDoc(doc: {
@@ -215,9 +226,13 @@ export async function triageDoc(doc: {
     const node = typeof parsed.suggestedNode === "string" && NODE_SET.has(parsed.suggestedNode)
       ? parsed.suggestedNode
       : null;
-    const docClass = typeof parsed.suggestedDocClass === "string" && DOC_CLASS_SET.has(parsed.suggestedDocClass)
-      ? parsed.suggestedDocClass
-      : null;
+    // Citeable-only review pipeline (Task #1873): a review doc's suggested class
+    // must always be citeable. A non-citeable (e.g. `transcript`) or invalid
+    // value resolves to the general citeable answer class instead of being
+    // stored as-is or left null — the AI can never propose non-citeable here.
+    const docClass = isCitableDocClass(parsed.suggestedDocClass)
+      ? (parsed.suggestedDocClass as string)
+      : DEFAULT_REVIEW_DOC_CLASS;
     const ceiling = typeof parsed.suggestedCeiling === "string" && CEILING_SET.has(parsed.suggestedCeiling)
       ? parsed.suggestedCeiling
       : null;
@@ -349,6 +364,19 @@ export async function runAutoTriageOnDoc(
   const effectiveHomeRoot = doc.homeRoot ?? result.suggestedHomeRoot ?? null;
   const effectiveNode = doc.node ?? result.suggestedNode ?? null;
 
+  // Citeable-only review pipeline (Task #1873): review docs exist to be
+  // published + cited, so the class the SELF-TEST scores against is always
+  // citeable — result.suggestedDocClass is now constrained to a citeable class,
+  // so an UNFILED doc resolves to one. Guard the legacy edge where a doc is
+  // still FILED under a non-citeable class: score it citeable so the result
+  // reflects title/content (not a spurious non-citeable fallback), and surface
+  // a warning prompting the reviewer to re-file it.
+  const filedNonCitable =
+    doc.docClassTarget != null && !isCitableDocClass(doc.docClassTarget);
+  const selfTestDocClass = isCitableDocClass(effectiveDocClass)
+    ? (effectiveDocClass as string)
+    : DEFAULT_REVIEW_DOC_CLASS;
+
   // Taxonomy-suggestion lock (mirrors the title lock): once a doc HAS a filed
   // placement (set by the synthesis pipeline or a reviewer), re-analysis must
   // not churn out a fresh suggestion that second-guesses the intentional
@@ -396,7 +424,11 @@ export async function runAutoTriageOnDoc(
     // #1868). Scoring against the actual published tags (not a per-run AI
     // guess) keeps the current/suggested title scores stable across runs and
     // consistent with the post-save re-score.
-    docClass: effectiveDocClass,
+    //
+    // Citeable-only (Task #1873): review docs always score as citeable —
+    // selfTestDocClass coerces the legacy non-citeable edge to a citeable class
+    // so the verdict reflects title/content, never a non-citeable fallback.
+    docClass: selfTestDocClass,
     tags: resolveSelfTestTags(doc, result.suggestedTags),
   };
   const runTest = async (title: string): Promise<RetrievalSelfTest | null> => {
@@ -465,6 +497,18 @@ export async function runAutoTriageOnDoc(
     duplicateTitle: ctx.duplicateTitle,
     conflictsWithVerified: ctx.conflictsWithVerified,
   });
+
+  // Citeable-only review pipeline (Task #1873): a legacy review doc still filed
+  // under a non-citeable class would never surface to members. Surface a
+  // warning prompting the reviewer to re-file it as a citeable class.
+  if (filedNonCitable) {
+    flags.push({
+      type: "non_citable_review_doc",
+      severity: "high",
+      message: "Filed under a non-citeable class — review docs must be citeable",
+      detail: `This review doc is filed as "${doc.docClassTarget}", which is never surfaced to members. Re-file it as a citeable class (curated / overview / navigation) so it can be published and cited.`,
+    });
+  }
 
   // Non-critical retrieval-gap flag when the doc fails its own questions.
   const selfTestFlag = computeRetrievalSelfTestFlag(selfTest);
@@ -575,13 +619,22 @@ export async function rescoreSelfTestForTitle(
   if (!questions.length) return; // never self-tested — nothing to re-score
 
   const suggested = doc.aiSuggestedTaxonomy as { docClass?: string | null; tags?: string[] } | null;
+  // Citeable-only (Task #1873): score the re-test against the class this review
+  // doc would actually PUBLISH with, coerced to a citeable class exactly like
+  // the analysis path (runAutoTriageOnDoc). Without this, a legacy doc still
+  // carrying a non-citeable target/suggestion (e.g. transcript) re-scores as
+  // non-citeable and never surfaces in retrieval — the 0/5 bug this task fixes.
+  const rawSelfTestDocClass = doc.docClassTarget ?? suggested?.docClass ?? null;
+  const selfTestDocClass = isCitableDocClass(rawSelfTestDocClass)
+    ? rawSelfTestDocClass
+    : DEFAULT_REVIEW_DOC_CLASS;
   let selfTest: RetrievalSelfTest;
   try {
     selfTest = await runRetrievalSelfTest(
       {
         title,
         content: doc.editedContent ?? doc.content,
-        docClass: doc.docClassTarget ?? suggested?.docClass ?? null,
+        docClass: selfTestDocClass,
         // Score against the tags the doc would actually PUBLISH with — filed
         // taxonomyTags first, AI suggestion only for never-filed docs (Task
         // #1868). Must match the analysis path or scores drift between runs.

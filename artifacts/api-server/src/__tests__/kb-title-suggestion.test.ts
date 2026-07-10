@@ -292,14 +292,17 @@ describe("filed placement is authoritative (Task #1847)", () => {
     }
   });
 
-  it("never-filed doc: falls back to the AI-suggested doc class for the self-test", async () => {
+  it("never-filed doc: self-tests as a citeable class even when the run suggests transcript (Task #1873)", async () => {
+    // triageJson suggests docClass "transcript" (non-citeable); a review doc is
+    // citeable-only, so the suggestion is coerced to the citeable default and
+    // the self-test scores it as citeable — never a non-citeable fallback.
     llmMock.mockResolvedValue(triageJson("T"));
     await runAutoTriageOnDoc(
       baseDoc({ docClassTarget: null, homeRoot: null, node: null }),
     );
     expect(
       (runRetrievalSelfTestMock.mock.calls[0][0] as { docClass: string | null }).docClass,
-    ).toBe("transcript");
+    ).toBe("curated");
   });
 
   it("flags are judged against ONE coherent FILED placement — never a filed/suggested hybrid", async () => {
@@ -352,7 +355,9 @@ describe("filed placement is authoritative (Task #1847)", () => {
     expect(set.aiSuggestedTaxonomy).toMatchObject({
       homeRoot: "process",
       node: "testing",
-      docClass: "transcript",
+      // The run suggested "transcript"; review docs are citeable-only, so the
+      // stored suggestion is the citeable default instead (Task #1873).
+      docClass: "curated",
       ceiling: "operational",
     });
     expect(set.aiSuggestedCategory).toBe("curriculum");
@@ -445,6 +450,35 @@ describe("rescoreSelfTestForTitle", () => {
     const doc = baseDoc({ retrievalSelfTest: passingSelfTest(["q"]) as never });
     await rescoreSelfTestForTitle(doc, "Stored Title");
     expect(updateSetCalls.length).toBe(0);
+  });
+
+  it("legacy unfiled doc suggesting transcript: re-scores as a citeable class (Task #1873)", async () => {
+    // A never-filed review doc still carrying a non-citeable AI suggestion
+    // (transcript) must re-score citeable, never fall back to non-citeable.
+    const questions = ["how do i run testing rounds?"];
+    const doc = baseDoc({
+      docClassTarget: null,
+      aiSuggestedTaxonomy: { docClass: "transcript" } as never,
+      retrievalSelfTest: passingSelfTest(questions) as never,
+    });
+    await rescoreSelfTestForTitle(doc, "Stored Title");
+    expect(
+      (runRetrievalSelfTestMock.mock.calls[0][0] as { docClass: string | null }).docClass,
+    ).toBe("curated");
+  });
+
+  it("legacy doc FILED as transcript: re-scores as a citeable class (Task #1873)", async () => {
+    // Even a doc mistakenly filed under a non-citeable class re-scores citeable,
+    // so its retrieval verdict reflects how it would publish once re-filed.
+    const questions = ["how do i run testing rounds?"];
+    const doc = baseDoc({
+      docClassTarget: "transcript",
+      retrievalSelfTest: passingSelfTest(questions) as never,
+    });
+    await rescoreSelfTestForTitle(doc, "Stored Title");
+    expect(
+      (runRetrievalSelfTestMock.mock.calls[0][0] as { docClass: string | null }).docClass,
+    ).toBe("curated");
   });
 });
 

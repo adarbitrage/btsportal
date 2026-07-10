@@ -399,14 +399,25 @@ const SEVERITY_STYLES: Record<FlagSeverity, { chip: string; banner: string; labe
 
 const SEVERITY_RANK: Record<FlagSeverity, number> = { critical: 3, high: 2, medium: 1, low: 0 };
 
-// Canonical doc classes (mirror api-server kb-taxonomy.ts DOC_CLASSES /
-// CITABLE_DOC_CLASSES). "reference" was UI-only drift and has been removed.
+// Canonical doc classes for AI Document Review (mirror api-server kb-taxonomy.ts
+// CITABLE_DOC_CLASSES). Every review doc exists to be approved + promoted into
+// the live, citeable KB, so only citeable classes are selectable here — the
+// non-citeable `transcript` class belongs to AI Source Knowledge (Task #1873).
+// "reference" was UI-only drift and has been removed.
 const DOC_CLASS_OPTIONS = [
   { value: "curated", label: "Curated (citable)" },
   { value: "overview", label: "Overview (citable)" },
   { value: "navigation", label: "Navigation (citable walkthrough)" },
-  { value: "transcript", label: "Transcript (training-only, non-citable)" },
 ];
+
+// Values a review doc's Doc Class field may hold — used to reject any legacy
+// non-citeable filed/suggested value when initializing the editor.
+const CITABLE_DOC_CLASS_VALUES = new Set(DOC_CLASS_OPTIONS.map((c) => c.value));
+// Every review doc is citeable, so an unfiled doc with no usable citeable value
+// defaults here rather than to an empty (savable-as-null) class (Task #1873).
+const DEFAULT_REVIEW_DOC_CLASS = "curated";
+const asCitableDocClass = (value: string | null | undefined): string =>
+  value && CITABLE_DOC_CLASS_VALUES.has(value) ? value : "";
 
 // Canonical home roots ("shelves") — mirror kb-taxonomy.ts HOME_ROOTS. These are
 // the only valid shelf values; the editor picks from them rather than free text.
@@ -1354,7 +1365,14 @@ export default function KnowledgeBaseReview() {
     setEditTitle(doc.title);
     setEditHomeRoot(doc.homeRoot ?? doc.aiSuggestedTaxonomy?.homeRoot ?? "");
     setEditNode(doc.node ?? doc.aiSuggestedTaxonomy?.node ?? "");
-    setEditDocClass(doc.docClassTarget ?? doc.aiSuggestedTaxonomy?.docClass ?? "");
+    // Citeable-only: default to the filed citeable class, else the AI's citeable
+    // suggestion, else the citeable default — never a non-citeable (e.g. legacy
+    // transcript) value, and never empty (which could save as a null class).
+    setEditDocClass(
+      asCitableDocClass(doc.docClassTarget) ||
+        asCitableDocClass(doc.aiSuggestedTaxonomy?.docClass) ||
+        DEFAULT_REVIEW_DOC_CLASS,
+    );
     setEditCeiling(doc.ceiling ?? doc.aiSuggestedTaxonomy?.ceiling ?? "");
     setEditTaxonomyTags(Array.isArray(doc.taxonomyTags) ? doc.taxonomyTags : []);
     setTagSearch("");
@@ -1372,7 +1390,10 @@ export default function KnowledgeBaseReview() {
     if (!s) return;
     if (s.homeRoot != null) setEditHomeRoot(s.homeRoot);
     if (s.node != null) setEditNode(s.node);
-    if (s.docClass != null) setEditDocClass(s.docClass);
+    // Citeable-only (Task #1873): never inject a non-citeable (e.g. legacy
+    // transcript) doc class, even from an AI suggestion on a legacy doc.
+    const citeable = asCitableDocClass(s.docClass);
+    if (citeable) setEditDocClass(citeable);
     if (s.ceiling != null) setEditCeiling(s.ceiling);
     if (Array.isArray(s.tags) && s.tags.length > 0) {
       setEditTaxonomyTags((prev) => Array.from(new Set([...prev, ...s.tags!])));

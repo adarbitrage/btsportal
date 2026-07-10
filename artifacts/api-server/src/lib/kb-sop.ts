@@ -113,6 +113,8 @@ const FLAG_MEANINGS = {
     "The \"Related topics\" list names off-subject topics or is the generic every-sibling dump. Trim to genuinely adjacent subjects.",
   retrieval_gap:
     "The draft failed some of its own AI-generated member questions through the real retrieval path — likely too thin or missing the vocabulary members would use. Add that vocabulary.",
+  non_citable_review_doc:
+    "This review doc is filed under a non-citeable class (e.g. legacy transcript) and would never be surfaced to members. Re-file it as a citeable class (curated / overview / navigation) so it can be published and cited.",
 } satisfies Record<RiskFlagType, string>;
 
 // ── Public shapes ────────────────────────────────────────────────────────────

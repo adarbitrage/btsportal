@@ -51,7 +51,11 @@ export type RiskFlagType =
   // Retrieval self-test (Task #1804): the draft failed some of its own
   // AI-generated member questions through the real retrieval path — likely too
   // thin / missing the vocabulary members would actually use. Non-critical.
-  | "retrieval_gap";
+  | "retrieval_gap"
+  // Citeable-only review pipeline (Task #1873): a review doc is filed under a
+  // non-citeable class (e.g. legacy `transcript`). Review docs exist to be
+  // published + cited, so this must be re-filed as a citeable class.
+  | "non_citable_review_doc";
 
 /**
  * Runtime roster of every {@link RiskFlagType}. The reviewer SOP (kb-sop.ts)
@@ -76,6 +80,7 @@ export const RISK_FLAG_TYPES = [
   "privacy_residue",
   "related_topics_mismatch",
   "retrieval_gap",
+  "non_citable_review_doc",
 ] as const;
 
 // Mutual exhaustiveness: every listed value is a RiskFlagType, and every
