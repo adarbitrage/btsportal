@@ -262,6 +262,22 @@ export async function runAutoTriageOnDoc(
   const titleLocked = doc.aiTitleDecision != null;
   const effectiveTitle = titleLocked ? doc.title : (result.cleanedTitle || doc.title);
 
+  // Filed placement is authoritative (Task #1847). Analysis suggestions are
+  // ADVISORY ONLY: every judging path (retrieval self-test, risk flags) must
+  // evaluate the doc as it is FILED and would publish. The AI's per-run
+  // suggestion is only a fallback for fields the doc has never been filed
+  // with. One coherent placement — never a filed/suggested hybrid.
+  const effectiveDocClass = doc.docClassTarget ?? result.suggestedDocClass ?? null;
+  const effectiveHomeRoot = doc.homeRoot ?? result.suggestedHomeRoot ?? null;
+  const effectiveNode = doc.node ?? result.suggestedNode ?? null;
+
+  // Taxonomy-suggestion lock (mirrors the title lock): once a doc HAS a filed
+  // placement (set by the synthesis pipeline or a reviewer), re-analysis must
+  // not churn out a fresh suggestion that second-guesses the intentional
+  // filing — the stored suggestion (if any) stays as-is, purely advisory.
+  const taxonomyLocked =
+    doc.homeRoot != null || doc.node != null || doc.docClassTarget != null;
+
   // Synonym-gap proposals (Task #1804): uncovered member phrasings go to the
   // human-approval queue (mirrors observedTools). Fire-and-forget.
   for (const alias of result.suggestedAliases) {
@@ -297,8 +313,9 @@ export async function runAutoTriageOnDoc(
           title: effectiveTitle,
           content: effectiveContent,
           // The class/tags the draft would publish with — they drive the
-          // curated-tier and tag-tier rules inside the shared ranking.
-          docClass: result.suggestedDocClass ?? doc.docClassTarget ?? null,
+          // curated-tier and tag-tier rules inside the shared ranking. FILED
+          // class first — suggestions never demote a filed doc (Task #1847).
+          docClass: effectiveDocClass,
           tags: result.suggestedTags ?? [],
         },
         result.memberQuestions,
@@ -316,11 +333,11 @@ export async function runAutoTriageOnDoc(
     title: effectiveTitle,
     content: effectiveContent,
     authorityRole: doc.authorityRole,
-    docClassTarget: result.suggestedDocClass ?? doc.docClassTarget,
-    homeRoot: result.suggestedHomeRoot ?? doc.homeRoot,
-    // Prefer the doc's ACTUAL filed node (reviewers may have re-filed it);
-    // fall back to the AI suggestion for never-filed drafts.
-    node: doc.node ?? result.suggestedNode,
+    // ONE coherent placement, filed-first (Task #1847): flags are judged
+    // against the doc as filed, never a filed/suggested hybrid.
+    docClassTarget: effectiveDocClass,
+    homeRoot: effectiveHomeRoot,
+    node: effectiveNode,
     corroborationCount: doc.corroborationCount ?? 0,
     duplicateTitle: ctx.duplicateTitle,
     conflictsWithVerified: ctx.conflictsWithVerified,
@@ -353,11 +370,13 @@ export async function runAutoTriageOnDoc(
     .update(kbStagingDocsTable)
     .set({
       aiRecommendedAction: "needs_review",
-      aiSuggestedCategory: result.suggestedCategory,
-      // Never regenerate a decided/edited suggestion (Task #1839).
+      // Never regenerate a decided/edited suggestion (Task #1839), and never
+      // regenerate taxonomy suggestions for a doc with a filed placement
+      // (Task #1847) — the stored suggestion stays stable and advisory.
+      ...(taxonomyLocked ? {} : { aiSuggestedCategory: result.suggestedCategory }),
       ...(titleLocked ? {} : { aiCleanedTitle: result.cleanedTitle }),
       aiSummary: result.summary,
-      aiSuggestedTaxonomy,
+      ...(taxonomyLocked ? {} : { aiSuggestedTaxonomy }),
       riskFlags: flags,
       retrievalSelfTest: selfTest,
       needsExpert,

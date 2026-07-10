@@ -59,11 +59,16 @@ const gatherFlagContextMock = vi.fn(async (_arg?: unknown) => ({
   duplicateTitle: null,
   conflictsWithVerified: null,
 }));
+const computeRiskFlagsInputs: Record<string, unknown>[] = [];
 vi.mock("../lib/kb-flags.js", async (importOriginal) => {
   const actual = await importOriginal<typeof import("../lib/kb-flags.js")>();
   return {
     ...actual,
     gatherFlagContext: (arg: unknown) => gatherFlagContextMock(arg),
+    computeRiskFlags: (input: Record<string, unknown>) => {
+      computeRiskFlagsInputs.push(input);
+      return actual.computeRiskFlags(input as never);
+    },
   };
 });
 
@@ -150,6 +155,7 @@ const triageJson = (cleanedTitle: string) =>
 
 beforeEach(() => {
   updateSetCalls.length = 0;
+  computeRiskFlagsInputs.length = 0;
   runRetrievalSelfTestMock.mockReset();
   llmMock.mockReset();
   gatherFlagContextMock.mockClear();
@@ -188,6 +194,83 @@ describe("title-suggestion lifecycle in analysis", () => {
       );
     },
   );
+});
+
+describe("filed placement is authoritative (Task #1847)", () => {
+  it("curated-FILED doc: self-tests as curated even when the run suggests transcript", async () => {
+    // triageJson suggests docClass "transcript"; the doc is filed curated.
+    llmMock.mockResolvedValue(triageJson("T"));
+    await runAutoTriageOnDoc(baseDoc({ docClassTarget: "curated" }));
+    expect(runRetrievalSelfTestMock).toHaveBeenCalledTimes(1);
+    expect(
+      (runRetrievalSelfTestMock.mock.calls[0][0] as { docClass: string | null }).docClass,
+    ).toBe("curated");
+  });
+
+  it("never-filed doc: falls back to the AI-suggested doc class for the self-test", async () => {
+    llmMock.mockResolvedValue(triageJson("T"));
+    await runAutoTriageOnDoc(
+      baseDoc({ docClassTarget: null, homeRoot: null, node: null }),
+    );
+    expect(
+      (runRetrievalSelfTestMock.mock.calls[0][0] as { docClass: string | null }).docClass,
+    ).toBe("transcript");
+  });
+
+  it("flags are judged against ONE coherent FILED placement — never a filed/suggested hybrid", async () => {
+    // Filed: concepts/angles/curated. Suggestion (triageJson): process/testing/transcript.
+    llmMock.mockResolvedValue(triageJson("T"));
+    await runAutoTriageOnDoc(
+      baseDoc({ homeRoot: "concepts", node: "angles", docClassTarget: "curated" }),
+    );
+    expect(computeRiskFlagsInputs).toHaveLength(1);
+    expect(computeRiskFlagsInputs[0]).toMatchObject({
+      homeRoot: "concepts",
+      node: "angles",
+      docClassTarget: "curated",
+    });
+  });
+
+  it("flags fall back to the suggestion per-field only for never-filed fields", async () => {
+    llmMock.mockResolvedValue(triageJson("T"));
+    await runAutoTriageOnDoc(
+      baseDoc({ homeRoot: null, node: null, docClassTarget: "curated" }),
+    );
+    expect(computeRiskFlagsInputs[0]).toMatchObject({
+      homeRoot: "process", // suggested (never filed)
+      node: "testing", // suggested (never filed)
+      docClassTarget: "curated", // filed wins
+    });
+  });
+
+  it("FILED doc: re-analysis never regenerates the taxonomy suggestion (advisory + stable)", async () => {
+    llmMock.mockResolvedValue(triageJson("T"));
+    await runAutoTriageOnDoc(
+      baseDoc({
+        homeRoot: "process",
+        node: "testing",
+        docClassTarget: "curated",
+        aiSuggestedTaxonomy: { homeRoot: "operations", node: "navigation" } as never,
+      }),
+    );
+    const set = updateSetCalls.find((s) => "aiRecommendedAction" in s)!;
+    expect("aiSuggestedTaxonomy" in set).toBe(false);
+    expect("aiSuggestedCategory" in set).toBe(false);
+  });
+
+  it("never-filed doc: re-analysis still stores a fresh taxonomy suggestion", async () => {
+    llmMock.mockResolvedValue(triageJson("T"));
+    await runAutoTriageOnDoc(
+      baseDoc({ homeRoot: null, node: null, docClassTarget: null }),
+    );
+    const set = updateSetCalls.find((s) => "aiRecommendedAction" in s)!;
+    expect(set.aiSuggestedTaxonomy).toMatchObject({
+      homeRoot: "process",
+      node: "testing",
+      docClass: "transcript",
+    });
+    expect(set.aiSuggestedCategory).toBe("curriculum");
+  });
 });
 
 describe("related-topics auto-fix persistence in analysis", () => {

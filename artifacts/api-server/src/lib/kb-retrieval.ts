@@ -375,6 +375,11 @@ export async function retrieveSurfaceAware(
         FROM ai_live_documents
         WHERE home_root = 'operations' AND node = 'navigation'
           AND audience <> 'admin' AND ${citableDocFilter()}
+        ORDER BY CASE doc_class
+            WHEN 'navigation' THEN 0
+            WHEN 'overview' THEN 1
+            ELSE 2
+          END, id ASC
         LIMIT 1`);
       const r = (navRows.rows as Record<string, unknown>[])[0];
       if (r) navDoc = mapRow(r, true);
