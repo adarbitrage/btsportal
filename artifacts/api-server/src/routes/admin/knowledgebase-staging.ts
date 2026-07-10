@@ -1,7 +1,7 @@
 import { getParam } from "../../lib/params";
 import { Router, Request, Response } from "express";
 import { db } from "@workspace/db";
-import { kbStagingDocsTable, knowledgebaseDocsTable, aiLiveDocumentsTable, aiLiveDocumentVersionsTable, kbDocProvenanceTable, kbTriageAuditLogTable, aiSourceDocumentsTable, kbTranscriptSourcesTable, kbNameFlagDismissalsTable, systemSettingsTable } from "@workspace/db/schema";
+import { kbStagingDocsTable, knowledgebaseDocsTable, aiLiveDocumentsTable, aiLiveDocumentVersionsTable, kbDocProvenanceTable, kbTriageAuditLogTable, aiSourceDocumentsTable, kbTranscriptSourcesTable, kbNameFlagDismissalsTable } from "@workspace/db/schema";
 import { eq, desc, sql, count, and, ne, isNotNull, inArray } from "drizzle-orm";
 import { requirePermission } from "../../middleware/rbac.js";
 import { resolveNavGapsForPublishedDoc } from "../../lib/kb-nav-gaps.js";
@@ -12,8 +12,6 @@ import {
   runAutoTriageOnDoc,
   isTriageRunning,
   rescoreSelfTestForTitle,
-  isTitleAutoAcceptEnabled,
-  TITLE_AUTO_ACCEPT_SETTING_KEY,
 } from "../../lib/kb-triage.js";
 import { callLLMWithRetry } from "../../lib/kb-synthesis.js";
 import { CITABLE_DOC_CLASSES } from "../../lib/kb-taxonomy.js";
@@ -27,6 +25,7 @@ import {
   CEILINGS,
   HANDOFF_TARGETS,
   getNodeBySlug,
+  resolveHomeRoot,
 } from "../../lib/kb-taxonomy.js";
 import { retrieveSurfaceAware } from "../../lib/kb-retrieval.js";
 import { applyRefineEdits } from "../../lib/transcript-cleaner.js";
@@ -35,6 +34,7 @@ import { analyzeDraftForReview, isPrivacyProtectedPair } from "../../lib/kb-revi
 import { getNameFlagVocab, invalidateNameFlagVocab } from "../../lib/kb-name-flag-vocab.js";
 import { clusterDuplicates, findLiveSimilar } from "../../lib/kb-duplicates.js";
 import { embedLiveDocumentInBackground, CLEARED_EMBEDDING_FIELDS } from "../../lib/kb-embeddings.js";
+import { getEffectiveTagGroups } from "../../lib/kb-tool-tags.js";
 
 export { runTriageBackground } from "../../lib/kb-triage.js";
 
@@ -370,11 +370,13 @@ router.post("/:id/analyze", async (req: Request, res: Response) => {
 });
 
 /**
- * Title-suggestion lifecycle (Task #1839). The AI-suggested title
+ * Title-suggestion lifecycle (Task #1865). The AI-suggested title
  * (aiCleanedTitle) is only ever a SUGGESTION — the stored title is what
  * displays and publishes. Accept applies it; dismiss keeps the stored title
  * and re-scores the stored retrieval self-test (retrieval only, no LLM)
- * against it. Either way the decision locks: re-analysis never regenerates.
+ * against it. Nothing is ever auto-applied. The decision does NOT lock:
+ * analysis always re-proposes a fresh suggestion and clears the prior
+ * accept/dismiss/edit decision so it is actionable on click.
  */
 router.post("/:id/title-suggestion/accept", async (req: Request, res: Response) => {
   try {
@@ -392,10 +394,14 @@ router.post("/:id/title-suggestion/accept", async (req: Request, res: Response) 
       res.status(409).json({ error: "Title suggestion already decided" });
       return;
     }
+    const accepted = doc.aiCleanedTitle.trim();
     await db
       .update(kbStagingDocsTable)
-      .set({ title: doc.aiCleanedTitle.trim(), aiTitleDecision: "accepted" })
+      .set({ title: accepted, aiTitleDecision: "accepted" })
       .where(eq(kbStagingDocsTable.id, id));
+    // The self-test was scored against the (former) stored title — re-score it
+    // against the newly-accepted title so the verdict is honest. Retrieval only.
+    await rescoreSelfTestForTitle({ ...doc, aiTitleDecision: "accepted" }, accepted);
     const [updated] = await db.select().from(kbStagingDocsTable).where(eq(kbStagingDocsTable.id, id));
     res.json(updated);
   } catch (err: unknown) {
@@ -433,49 +439,6 @@ router.post("/:id/title-suggestion/dismiss", async (req: Request, res: Response)
   }
 });
 
-// ── Title auto-accept setting (Task #1848) ───────────────────────────────────
-// Off-by-default admin toggle: during analysis, a title suggestion that is
-// STRICTLY better on every self-test question (and preserves canonical names)
-// is auto-applied with an audit-log entry instead of waiting for review.
-router.get("/title-auto-accept", async (_req: Request, res: Response) => {
-  try {
-    res.json({ enabled: await isTitleAutoAcceptEnabled() });
-  } catch (err: unknown) {
-    res.status(500).json({ error: err instanceof Error ? err.message : "Unknown error" });
-  }
-});
-
-router.put("/title-auto-accept", async (req: Request, res: Response) => {
-  try {
-    const enabled = req.body?.enabled;
-    if (typeof enabled !== "boolean") {
-      res.status(400).json({ error: "enabled must be a boolean" });
-      return;
-    }
-    const actorId = (req as Request & { userId?: number }).userId;
-    const updatedBy = actorId != null ? String(actorId) : null;
-    await db
-      .insert(systemSettingsTable)
-      .values({
-        key: TITLE_AUTO_ACCEPT_SETTING_KEY,
-        value: { enabled },
-        category: "knowledge_base",
-        description: "Auto-accept strictly-better AI title suggestions during KB analysis",
-        updatedBy,
-      })
-      .onConflictDoUpdate({
-        target: systemSettingsTable.key,
-        set: {
-          value: { enabled },
-          updatedBy,
-          updatedAt: new Date(),
-        },
-      });
-    res.json({ enabled });
-  } catch (err: unknown) {
-    res.status(500).json({ error: err instanceof Error ? err.message : "Unknown error" });
-  }
-});
 
 router.get("/triage-status", async (_req: Request, res: Response) => {
   try {
@@ -944,6 +907,18 @@ router.get("/reviewer-sop", async (_req: Request, res: Response) => {
   }
 });
 
+// Controlled tag vocabulary for the reviewer's grouped multi-select (Task
+// #1865): Concept / Tool / Troubleshooting families. Registered before "/:id"
+// so the literal path wins. The tool family is DB-managed (enabled set);
+// concept + troubleshooting are the fixed code baseline.
+router.get("/tag-vocabulary", async (_req: Request, res: Response) => {
+  try {
+    res.json(getEffectiveTagGroups());
+  } catch (err: unknown) {
+    res.status(500).json({ error: err instanceof Error ? err.message : "Unknown error" });
+  }
+});
+
 router.get("/:id", async (req: Request, res: Response) => {
   try {
     const id = parseInt(getParam(req.params.id));
@@ -974,11 +949,11 @@ router.patch("/:id", async (req: Request, res: Response) => {
       title,
       category,
       tags,
+      taxonomyTags,
       homeRoot,
       node,
       docClassTarget,
       ceiling,
-      handoff,
       needsExpert,
       navApp,
       navArea,
@@ -988,9 +963,10 @@ router.patch("/:id", async (req: Request, res: Response) => {
     if (status) updates.status = status;
     if (adminNotes !== undefined) updates.adminNotes = adminNotes;
     if (editedContent !== undefined) updates.editedContent = editedContent;
-    // Human title edit (Task #1839): locks the AI title suggestion (analysis
-    // never regenerates it) and re-scores the stored retrieval self-test
-    // against the new title after the update (retrieval only, no LLM).
+    // Human title edit (Task #1865): records the decision as "edited" and
+    // re-scores the stored retrieval self-test against the new title after the
+    // update (retrieval only, no LLM). This does NOT lock the suggestion —
+    // analysis always re-proposes a fresh one and clears the decision.
     let titleEdited = false;
     if (title) {
       updates.title = title;
@@ -1005,13 +981,19 @@ router.patch("/:id", async (req: Request, res: Response) => {
     }
     if (category) updates.category = category;
     if (tags !== undefined) updates.tags = tags;
+    // Controlled taxonomy tags (Task #1865): the reviewer's grouped multi-select
+    // writes taxonomyTags (jsonb), NOT the legacy free-text `tags` column.
+    if (taxonomyTags !== undefined) {
+      updates.taxonomyTags = Array.isArray(taxonomyTags)
+        ? taxonomyTags.filter((t: unknown): t is string => typeof t === "string")
+        : [];
+    }
     // Taxonomy fields the editor sends — previously dropped on the floor, so
     // reviewer edits to shelf / node / doc-class never persisted.
     if (homeRoot !== undefined) updates.homeRoot = homeRoot || null;
     if (node !== undefined) updates.node = node || null;
     if (docClassTarget !== undefined) updates.docClassTarget = docClassTarget || null;
     if (ceiling !== undefined) updates.ceiling = ceiling || null;
-    if (handoff !== undefined) updates.handoff = handoff || null;
     if (needsExpert !== undefined) updates.needsExpert = needsExpert;
     if (navApp !== undefined) updates.navApp = navApp || null;
     if (navArea !== undefined) updates.navArea = navArea || null;
@@ -1296,7 +1278,10 @@ router.post("/push-approved", async (_req: Request, res: Response) => {
               .update(aiLiveDocumentsTable)
               .set({
                 title: scrubPrivateContent(doc.title),
-                category: doc.category,
+                // Retrieval scope is driven by the doc's Shelf (home root), not
+                // the legacy staging Category (Task #1865). category holds the
+                // home-root slug so retrieval (which scopes on category) works.
+                category: resolveHomeRoot(doc.homeRoot),
                 content,
                 audience: doc.audience ?? "member",
                 docClass,
@@ -1329,7 +1314,9 @@ router.post("/push-approved", async (_req: Request, res: Response) => {
             .insert(aiLiveDocumentsTable)
             .values({
               title: scrubPrivateContent(doc.title),
-              category: doc.category,
+              // Retrieval scope driven by Shelf (home root), not legacy Category
+              // (Task #1865). onConflictDoUpdate mirrors this via EXCLUDED.category.
+              category: resolveHomeRoot(doc.homeRoot),
               content,
               audience: doc.audience ?? "member",
               docClass,

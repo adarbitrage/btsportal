@@ -56,6 +56,7 @@ import {
   ChevronRight,
   ChevronUp,
   ChevronDown,
+  Plus,
   Sparkles,
   ListFilter,
   Layers,
@@ -95,7 +96,6 @@ interface SuggestedTaxonomy {
   docClass?: string | null;
   blitzSection?: number | null;
   ceiling?: string | null;
-  handoff?: string | null;
 }
 
 // Reviewer SOP (Task #1851) — mirrors the api-server ReviewerSop shape. The
@@ -224,7 +224,6 @@ export interface TitleComparison {
   improved: boolean;
   strictlyBetter: boolean;
   brandFix: boolean;
-  autoAccepted: boolean;
 }
 
 export interface RetrievalSelfTest {
@@ -394,14 +393,6 @@ const SEVERITY_STYLES: Record<FlagSeverity, { chip: string; banner: string; labe
 
 const SEVERITY_RANK: Record<FlagSeverity, number> = { critical: 3, high: 2, medium: 1, low: 0 };
 
-const CATEGORIES = [
-  { value: "curriculum", label: "Curriculum" },
-  { value: "strategy", label: "Strategy" },
-  { value: "sop", label: "SOP" },
-  { value: "faq", label: "FAQ" },
-  { value: "platform_guide", label: "Platform Guide" },
-];
-
 // Canonical doc classes (mirror api-server kb-taxonomy.ts DOC_CLASSES /
 // CITABLE_DOC_CLASSES). "reference" was UI-only drift and has been removed.
 const DOC_CLASS_OPTIONS = [
@@ -423,6 +414,20 @@ const HOME_ROOT_LABEL: Record<string, string> = Object.fromEntries(
 );
 const shelfLabel = (v: string | null | undefined) =>
   v ? HOME_ROOT_LABEL[v] ?? v : "";
+
+// Canonical depth ceilings — mirror kb-taxonomy.ts CEILINGS. The editor picks
+// from these three instead of free text (Task #1865). Ceiling stays advisory /
+// dormant at answer-time; this only captures it.
+const CEILING_OPTIONS = [
+  { value: "operational", label: "Operational" },
+  { value: "conceptual", label: "Conceptual" },
+  { value: "troubleshooting", label: "Troubleshooting" },
+];
+const CEILING_LABEL: Record<string, string> = Object.fromEntries(
+  CEILING_OPTIONS.map((c) => [c.value, c.label]),
+);
+const ceilingLabel = (v: string | null | undefined) =>
+  v ? CEILING_LABEL[v] ?? v : "";
 
 // Origin facet — keyed off the clean origin_type column (6 canonical values).
 const ORIGIN_OPTIONS = [
@@ -676,10 +681,6 @@ export default function KnowledgeBaseReview() {
   const [pushing, setPushing] = useState(false);
   const [triaging, setTriaging] = useState(false);
   const [includeAnalyzed, setIncludeAnalyzed] = useState(false);
-  // Off-by-default admin setting (Task #1848): auto-accept strictly-better,
-  // meaning-preserving title suggestions during analysis.
-  const [titleAutoAccept, setTitleAutoAccept] = useState(false);
-  const [titleAutoAcceptSaving, setTitleAutoAcceptSaving] = useState(false);
   const [analyzingDoc, setAnalyzingDoc] = useState(false);
   const [chatWide, setChatWide] = useState(false);
   const [chatOpen, setChatOpen] = useState(false);
@@ -704,13 +705,23 @@ export default function KnowledgeBaseReview() {
   const [editMode, setEditMode] = useState(false);
   const [editContent, setEditContent] = useState("");
   const [editTitle, setEditTitle] = useState("");
-  const [editCategory, setEditCategory] = useState("");
-  const [editTags, setEditTags] = useState("");
   const [editHomeRoot, setEditHomeRoot] = useState("");
   const [editNode, setEditNode] = useState("");
   const [editDocClass, setEditDocClass] = useState("");
   const [editCeiling, setEditCeiling] = useState("");
-  const [editHandoff, setEditHandoff] = useState("");
+  // Controlled taxonomy tags (Task #1865): the editor writes taxonomyTags, not
+  // the legacy free-text `tags` column.
+  const [editTaxonomyTags, setEditTaxonomyTags] = useState<string[]>([]);
+  const [tagSearch, setTagSearch] = useState("");
+  const [tagPickerOpen, setTagPickerOpen] = useState(false);
+  const [tagVocab, setTagVocab] = useState<{ concept: string[]; tool: string[]; troubleshooting: string[] }>({
+    concept: [],
+    tool: [],
+    troubleshooting: [],
+  });
+  // Provenance & Authority is collapsed to a one-line summary by default
+  // (Task #1865); Show More expands the full detail.
+  const [provenanceExpanded, setProvenanceExpanded] = useState(false);
   const [adminNotes, setAdminNotes] = useState("");
   // AI taxonomy suggestion (Task #1851): dismiss is per-doc + advisory-only
   // (the suggestion itself is never persisted; applying it just fills the editor).
@@ -839,44 +850,30 @@ export default function KnowledgeBaseReview() {
     fetchTriageStatus();
   }, [fetchTriageStatus]);
 
-  // Load the off-by-default title auto-accept setting (Task #1848).
+  // Load the controlled taxonomy tag vocabulary (Task #1865), grouped into
+  // Concept / Tool / Troubleshooting for the editor's multi-select.
   useEffect(() => {
     (async () => {
       try {
-        const res = await authFetch("/admin/knowledgebase/staging/title-auto-accept");
+        const res = await authFetch("/admin/knowledgebase/staging/tag-vocabulary");
         if (res.ok) {
           const data = await res.json();
-          setTitleAutoAccept(data.enabled === true);
+          setTagVocab({
+            concept: Array.isArray(data.concept) ? data.concept : [],
+            tool: Array.isArray(data.tool) ? data.tool : [],
+            troubleshooting: Array.isArray(data.troubleshooting) ? data.troubleshooting : [],
+          });
         }
       } catch {
-        // ignore — defaults to off
+        // ignore — the multi-select degrades to empty groups
       }
     })();
   }, []);
 
-  const saveTitleAutoAccept = async (enabled: boolean) => {
-    setTitleAutoAcceptSaving(true);
-    setTitleAutoAccept(enabled); // optimistic
-    try {
-      const res = await authFetch("/admin/knowledgebase/staging/title-auto-accept", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ enabled }),
-      });
-      if (!res.ok) throw new Error("failed");
-      const data = await res.json();
-      setTitleAutoAccept(data.enabled === true);
-      toast({
-        title: enabled
-          ? "Auto-accept on: strictly-better title suggestions apply automatically"
-          : "Auto-accept off: title suggestions wait for review",
-      });
-    } catch {
-      setTitleAutoAccept(!enabled); // revert
-      toast({ title: "Couldn't update the setting", variant: "destructive" });
-    } finally {
-      setTitleAutoAcceptSaving(false);
-    }
+  const toggleTaxonomyTag = (tag: string) => {
+    setEditTaxonomyTags((prev) =>
+      prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag],
+    );
   };
 
   useEffect(() => {
@@ -1335,15 +1332,16 @@ export default function KnowledgeBaseReview() {
     fetchInsights(doc.id);
     setEditContent(doc.editedContent || doc.content);
     setEditTitle(doc.title);
-    setEditCategory(doc.category);
-    setEditTags(doc.tags);
     setEditHomeRoot(doc.homeRoot ?? doc.aiSuggestedTaxonomy?.homeRoot ?? "");
     setEditNode(doc.node ?? doc.aiSuggestedTaxonomy?.node ?? "");
     setEditDocClass(doc.docClassTarget ?? doc.aiSuggestedTaxonomy?.docClass ?? "");
     setEditCeiling(doc.ceiling ?? doc.aiSuggestedTaxonomy?.ceiling ?? "");
-    setEditHandoff(doc.handoff ?? doc.aiSuggestedTaxonomy?.handoff ?? "");
+    setEditTaxonomyTags(Array.isArray(doc.taxonomyTags) ? doc.taxonomyTags : []);
+    setTagSearch("");
+    setTagPickerOpen(false);
     setAdminNotes(doc.adminNotes || "");
     setSuggestDismissed(false);
+    setProvenanceExpanded(false);
   };
 
   // Apply the full AI taxonomy suggestion into the editor fields (Task #1851).
@@ -1356,7 +1354,9 @@ export default function KnowledgeBaseReview() {
     if (s.node != null) setEditNode(s.node);
     if (s.docClass != null) setEditDocClass(s.docClass);
     if (s.ceiling != null) setEditCeiling(s.ceiling);
-    if (s.handoff != null) setEditHandoff(s.handoff);
+    if (Array.isArray(s.tags) && s.tags.length > 0) {
+      setEditTaxonomyTags((prev) => Array.from(new Set([...prev, ...s.tags!])));
+    }
     setSuggestDismissed(true);
   };
 
@@ -1364,15 +1364,13 @@ export default function KnowledgeBaseReview() {
     if (!selectedDoc) return;
     await updateDoc(selectedDoc.id, {
       title: editTitle,
-      category: editCategory,
-      tags: editTags,
+      taxonomyTags: editTaxonomyTags,
       editedContent: editContent,
       adminNotes,
       homeRoot: editHomeRoot || null,
       node: editNode || null,
       docClassTarget: editDocClass || null,
       ceiling: editCeiling || null,
-      handoff: editHandoff || null,
       ...(approve ? { status: "approved" } : {}),
     });
     setEditMode(false);
@@ -1658,7 +1656,9 @@ export default function KnowledgeBaseReview() {
               <div>
                 <h2 className="text-xl font-bold text-gray-900 mb-1">{doc.title}</h2>
                 <div className="flex items-center gap-2 flex-wrap">
-                  <Badge variant="secondary" className="text-xs">{doc.category}</Badge>
+                  {ceilingLabel(doc.ceiling) && (
+                    <Badge variant="secondary" className="text-xs">{ceilingLabel(doc.ceiling)}</Badge>
+                  )}
                   <Badge variant="outline" className="text-[10px] bg-indigo-50 text-indigo-700 border-indigo-200">Existing doc</Badge>
                   {doc.homeRoot && (
                     <Badge variant="outline" className="text-[10px] bg-sky-50 text-sky-700 border-sky-200">
@@ -1831,25 +1831,14 @@ export default function KnowledgeBaseReview() {
                     <Label>Title</Label>
                     <Input value={editTitle} onChange={(e) => setEditTitle(e.target.value)} />
                   </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <Label>Category</Label>
-                      <Select value={editCategory} onValueChange={setEditCategory}>
-                        <SelectTrigger><SelectValue placeholder="Category" /></SelectTrigger>
-                        <SelectContent>
-                          {CATEGORIES.map((c) => (<SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div>
-                      <Label>Doc Class</Label>
-                      <Select value={editDocClass} onValueChange={setEditDocClass}>
-                        <SelectTrigger><SelectValue placeholder="Doc class" /></SelectTrigger>
-                        <SelectContent>
-                          {DOC_CLASS_OPTIONS.map((c) => (<SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>))}
-                        </SelectContent>
-                      </Select>
-                    </div>
+                  <div>
+                    <Label>Doc Class</Label>
+                    <Select value={editDocClass} onValueChange={setEditDocClass}>
+                      <SelectTrigger><SelectValue placeholder="Doc class" /></SelectTrigger>
+                      <SelectContent>
+                        {DOC_CLASS_OPTIONS.map((c) => (<SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>))}
+                      </SelectContent>
+                    </Select>
                   </div>
                   {/* Taxonomy editor */}
                   <div className="rounded-lg border bg-sky-50/50 p-3 space-y-3">
@@ -1864,7 +1853,16 @@ export default function KnowledgeBaseReview() {
                             Shelf: <span className="font-medium">{shelfLabel(selectedDoc.aiSuggestedTaxonomy.homeRoot) || "—"}</span>
                             {" · "}Node: <span className="font-medium">{selectedDoc.aiSuggestedTaxonomy.node || "—"}</span>
                             {" · "}Doc class: <span className="font-medium">{selectedDoc.aiSuggestedTaxonomy.docClass || "—"}</span>
+                            {" · "}Ceiling: <span className="font-medium">{ceilingLabel(selectedDoc.aiSuggestedTaxonomy.ceiling) || "—"}</span>
                           </div>
+                          {Array.isArray(selectedDoc.aiSuggestedTaxonomy.tags) && selectedDoc.aiSuggestedTaxonomy.tags.length > 0 && (
+                            <div className="flex flex-wrap gap-1 pt-0.5">
+                              <span>Tags:</span>
+                              {selectedDoc.aiSuggestedTaxonomy.tags.map((t) => (
+                                <Badge key={t} variant="outline" className="text-[10px] bg-white/70">{t}</Badge>
+                              ))}
+                            </div>
+                          )}
                         </div>
                         <div className="flex shrink-0 gap-1">
                           <Button size="sm" variant="outline" className="h-6 px-2 text-[11px]" onClick={applySuggestedTaxonomy}>Apply</Button>
@@ -1889,16 +1887,100 @@ export default function KnowledgeBaseReview() {
                       </div>
                       <div>
                         <Label className="text-xs">Ceiling</Label>
-                        <Input value={editCeiling} onChange={(e) => setEditCeiling(e.target.value)} />
-                      </div>
-                      <div>
-                        <Label className="text-xs">Handoff</Label>
-                        <Input value={editHandoff} onChange={(e) => setEditHandoff(e.target.value)} />
+                        <Select value={editCeiling || "none"} onValueChange={(v) => setEditCeiling(v === "none" ? "" : v)}>
+                          <SelectTrigger className="h-9"><SelectValue placeholder="Pick a ceiling" /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="none">— Unassigned —</SelectItem>
+                            {CEILING_OPTIONS.map((c) => (<SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>))}
+                          </SelectContent>
+                        </Select>
                       </div>
                     </div>
+                    {/* Controlled taxonomy tags (Task #1865): grouped multi-select
+                        over the Concept / Tool / Troubleshooting vocabulary. */}
                     <div>
-                      <Label className="text-xs">Tags (comma separated)</Label>
-                      <Input value={editTags} onChange={(e) => setEditTags(e.target.value)} />
+                      <Label className="text-xs">Tags</Label>
+                      <div className="mt-1 flex flex-wrap items-center gap-1.5">
+                        {editTaxonomyTags.length === 0 && (
+                          <span className="text-[11px] text-gray-400">No tags selected</span>
+                        )}
+                        {editTaxonomyTags.map((tag) => (
+                          <Badge key={tag} variant="secondary" className="text-[11px] gap-1 pr-1">
+                            {tag}
+                            <button
+                              type="button"
+                              className="rounded-sm hover:bg-gray-300/60 p-0.5"
+                              onClick={() => toggleTaxonomyTag(tag)}
+                              aria-label={`Remove ${tag}`}
+                            >
+                              <XCircle className="w-3 h-3" />
+                            </button>
+                          </Badge>
+                        ))}
+                        <Popover open={tagPickerOpen} onOpenChange={setTagPickerOpen}>
+                          <PopoverTrigger asChild>
+                            <Button size="sm" variant="outline" className="h-6 px-2 text-[11px]">
+                              <Plus className="w-3 h-3 mr-1" />Add tag
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent align="start" className="w-72 p-0">
+                            <div className="p-2 border-b">
+                              <Input
+                                value={tagSearch}
+                                onChange={(e) => setTagSearch(e.target.value)}
+                                placeholder="Search tags…"
+                                className="h-8 text-xs"
+                              />
+                            </div>
+                            <div className="max-h-64 overflow-y-auto p-2 space-y-3">
+                              {([
+                                { key: "concept", label: "Concept" },
+                                { key: "tool", label: "Tool" },
+                                { key: "troubleshooting", label: "Troubleshooting" },
+                              ] as const).map((group) => {
+                                const q = tagSearch.trim().toLowerCase();
+                                const items = tagVocab[group.key].filter(
+                                  (t) => !q || t.toLowerCase().includes(q),
+                                );
+                                if (items.length === 0) return null;
+                                return (
+                                  <div key={group.key}>
+                                    <div className="text-[10px] font-semibold uppercase tracking-wide text-gray-400 mb-1">
+                                      {group.label}
+                                    </div>
+                                    <div className="flex flex-wrap gap-1">
+                                      {items.map((tag) => {
+                                        const active = editTaxonomyTags.includes(tag);
+                                        return (
+                                          <button
+                                            key={tag}
+                                            type="button"
+                                            onClick={() => toggleTaxonomyTag(tag)}
+                                            className={`text-[11px] rounded-full border px-2 py-0.5 transition ${
+                                              active
+                                                ? "bg-sky-600 border-sky-600 text-white"
+                                                : "bg-white border-gray-200 text-gray-700 hover:border-sky-300"
+                                            }`}
+                                          >
+                                            {tag}
+                                          </button>
+                                        );
+                                      })}
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                              {tagVocab.concept.length === 0 &&
+                                tagVocab.tool.length === 0 &&
+                                tagVocab.troubleshooting.length === 0 && (
+                                  <div className="text-[11px] text-gray-400 py-2 text-center">
+                                    No tag vocabulary available.
+                                  </div>
+                                )}
+                            </div>
+                          </PopoverContent>
+                        </Popover>
+                      </div>
                     </div>
                   </div>
                   <div>
@@ -1914,16 +1996,23 @@ export default function KnowledgeBaseReview() {
                 <div className="flex-1 min-h-0 flex flex-col gap-3 mt-4">
                 {/* Top pane: the document + panels (independently scrollable) */}
                 <div className="flex-1 min-h-0 overflow-y-auto space-y-4 pr-1">
+                  {/* Taxonomy summary (Task #1865) — Shelf / Node / Ceiling /
+                      Doc class + controlled taxonomy tags. The legacy Category
+                      badge and free-text tags are retired. */}
                   <div className="flex gap-2 flex-wrap">
-                    <Badge variant="secondary">{selectedDoc.category}</Badge>
+                    {selectedDoc.homeRoot && (
+                      <Badge variant="outline" className="text-xs bg-sky-50 text-sky-700 border-sky-200">
+                        <FolderTree className="w-3 h-3 mr-1" />{shelfLabel(selectedDoc.homeRoot)}{selectedDoc.node ? ` / ${selectedDoc.node}` : ""}
+                      </Badge>
+                    )}
                     {selectedDoc.docClassTarget && (
                       <Badge variant="outline" className="text-xs bg-emerald-50 text-emerald-700 border-emerald-200">
                         {selectedDoc.docClassTarget}
                       </Badge>
                     )}
-                    {selectedDoc.homeRoot && (
-                      <Badge variant="outline" className="text-xs bg-sky-50 text-sky-700 border-sky-200">
-                        <FolderTree className="w-3 h-3 mr-1" />{selectedDoc.homeRoot}{selectedDoc.node ? ` / ${selectedDoc.node}` : ""}
+                    {selectedDoc.ceiling && (
+                      <Badge variant="outline" className="text-xs bg-violet-50 text-violet-700 border-violet-200">
+                        Ceiling: {ceilingLabel(selectedDoc.ceiling)}
                       </Badge>
                     )}
                     {selectedDoc.taxonomyTags?.map((tag) => (
@@ -1986,11 +2075,40 @@ export default function KnowledgeBaseReview() {
                     </div>
                   )}
 
-                  {/* Provenance panel */}
+                  {/* Provenance panel — collapsed to a one-line summary by
+                      default (Task #1865); Show More reveals the full detail. */}
                   <div className="rounded-lg border bg-gray-50 p-3 text-sm space-y-2">
-                    <div className="flex items-center gap-2 font-medium text-gray-700">
-                      <Link2 className="w-4 h-4" />Provenance &amp; Authority
+                    <div className="flex items-center gap-2">
+                      <Link2 className="w-4 h-4 text-gray-700 shrink-0" />
+                      <div className="min-w-0 flex-1 text-gray-600 truncate">
+                        <span className="font-medium text-gray-700">Provenance &amp; Authority</span>
+                        <span className="text-gray-300 mx-1.5">·</span>
+                        <span className="text-gray-400">Origin:</span>{" "}
+                        {selectedDoc.originType ? ORIGIN_LABEL[selectedDoc.originType] ?? selectedDoc.originType : selectedDoc.source || "—"}
+                        <span className="text-gray-300 mx-1.5">·</span>
+                        <span className="text-gray-400">Authority:</span>{" "}
+                        {selectedDoc.authorityRole ? AUTHORITY_LABEL[selectedDoc.authorityRole] ?? selectedDoc.authorityRole : "—"}
+                        <span className="text-gray-300 mx-1.5">·</span>
+                        <span className="text-gray-400">Corroboration:</span>{" "}
+                        {selectedDoc.corroborationCount > 0
+                          ? `${selectedDoc.corroborationCount} other source(s)`
+                          : "single source"}
+                      </div>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="h-6 px-2 text-[11px] shrink-0"
+                        onClick={() => setProvenanceExpanded((v) => !v)}
+                      >
+                        {provenanceExpanded ? (
+                          <><ChevronUp className="w-3 h-3 mr-1" />Show less</>
+                        ) : (
+                          <><ChevronDown className="w-3 h-3 mr-1" />Show more</>
+                        )}
+                      </Button>
                     </div>
+                    {provenanceExpanded && (
+                    <>
                     <div className="grid grid-cols-2 gap-x-4 gap-y-1">
                       <p className="text-gray-600">
                         <span className="text-gray-400">Origin:</span>{" "}
@@ -2071,6 +2189,8 @@ export default function KnowledgeBaseReview() {
                       <p className="text-amber-700">
                         <span className="text-amber-500">Legacy refs:</span> {selectedDoc.staleReferences.join(", ")}
                       </p>
+                    )}
+                    </>
                     )}
                   </div>
 
@@ -2383,28 +2503,6 @@ export default function KnowledgeBaseReview() {
               />
               include analyzed
             </label>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <label className="flex items-center gap-1 text-[11px] text-gray-600 cursor-pointer select-none">
-                  <input
-                    type="checkbox"
-                    checked={titleAutoAccept}
-                    disabled={titleAutoAcceptSaving}
-                    onChange={(e) => saveTitleAutoAccept(e.target.checked)}
-                    className="h-3.5 w-3.5 accent-violet-600"
-                  />
-                  auto-accept titles
-                </label>
-              </TooltipTrigger>
-              <TooltipContent className="max-w-xs">
-                Off by default. When on, analysis auto-applies a suggested title only when it
-                scores <span className="font-medium">strictly better</span> on every member
-                self-test question (it surfaces this doc for more questions and regresses none)
-                AND keeps all canonical names (Flexy, Blitz, 7 Pillars, BTS). Every auto-accept
-                is written to the triage audit log. All other suggestions still wait for your
-                explicit review.
-              </TooltipContent>
-            </Tooltip>
           </div>
           <Button
             size="sm"

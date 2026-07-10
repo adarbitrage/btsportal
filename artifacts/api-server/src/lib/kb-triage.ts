@@ -24,13 +24,13 @@ import {
   STALE_LEGACY_PATTERNS,
   type RiskFlag,
 } from "./kb-flags.js";
-import { systemSettingsTable } from "@workspace/db/schema";
 import { runRetrievalSelfTest, type RetrievalSelfTest } from "./kb-retrieval-selftest.js";
 import { recordProposedSynonym } from "./kb-proposed-synonyms.js";
 import {
   HOME_ROOTS,
   ALL_NODES,
   DOC_CLASSES,
+  CEILINGS,
 } from "./kb-taxonomy.js";
 import {
   getEffectiveTags,
@@ -70,6 +70,7 @@ TAXONOMY:
 - home root (pick ONE): ${ROOT_LIST}
 - node (pick ONE that fits the home root): ${NODE_LIST}
 - doc class (pick ONE): ${DOC_CLASSES.join(" | ")}
+- ceiling (how far the assistant may go with this doc — pick ONE): ${CEILINGS.join(" | ")} — "operational" = concrete how-to steps a member executes; "conceptual" = principles/strategy/why; "troubleshooting" = diagnosing and fixing a specific problem.
 - tags (pick 0-4 from): ${tagList}
 
 TIPS-AND-TRICKS RULE (short, tool-driven "tips and tricks" walkthroughs — e.g. Nano Banana, Grok Imagine, Anstrex ad copy, headline formulas — that show a member how to get one specific thing done, usually with a named piece of software):
@@ -117,6 +118,7 @@ Respond ONLY with valid JSON (no markdown, no extra text):
   "suggestedHomeRoot": <${ROOT_LIST}>,
   "suggestedNode": <a node slug from the list>,
   "suggestedDocClass": <${DOC_CLASSES.join(" | ")}>,
+  "suggestedCeiling": <${CEILINGS.join(" | ")}>,
   "suggestedTags": <array of 0-4 tag slugs>,
   "observedTools": <array of names of any third-party or in-house SOFTWARE / TOOL / PLATFORM the document tells the member to use that is NOT already in the tag list above; plain names, [] if none>,
   "memberQuestions": <array of 3-5 member-phrased questions this doc should answer>,
@@ -133,6 +135,7 @@ export interface TriageResult {
   suggestedHomeRoot: string | null;
   suggestedNode: string | null;
   suggestedDocClass: string | null;
+  suggestedCeiling: string | null;
   suggestedTags: string[];
   /** 3-5 member-phrased questions the doc should answer (retrieval self-test). */
   memberQuestions: string[];
@@ -147,6 +150,7 @@ const TRIAGE_MAX_TOKENS = 6000;
 const ROOT_SET = new Set(HOME_ROOTS.map((r) => r.slug));
 const NODE_SET = new Set(ALL_NODES.map((n) => n.slug));
 const DOC_CLASS_SET = new Set<string>(DOC_CLASSES as readonly string[]);
+const CEILING_SET = new Set<string>(CEILINGS as readonly string[]);
 
 export async function triageDoc(doc: {
   title: string;
@@ -211,6 +215,9 @@ export async function triageDoc(doc: {
     const docClass = typeof parsed.suggestedDocClass === "string" && DOC_CLASS_SET.has(parsed.suggestedDocClass)
       ? parsed.suggestedDocClass
       : null;
+    const ceiling = typeof parsed.suggestedCeiling === "string" && CEILING_SET.has(parsed.suggestedCeiling)
+      ? parsed.suggestedCeiling
+      : null;
     const memberQuestions = Array.isArray(parsed.memberQuestions)
       ? parsed.memberQuestions.map(String).map((q) => q.trim()).filter(Boolean).slice(0, 5)
       : [];
@@ -233,6 +240,7 @@ export async function triageDoc(doc: {
       suggestedHomeRoot: root,
       suggestedNode: node,
       suggestedDocClass: docClass,
+      suggestedCeiling: ceiling,
       suggestedTags: tags,
       memberQuestions,
       suggestedAliases,
@@ -253,16 +261,6 @@ export async function triageDoc(doc: {
  * retired coach surnames, dropped networks, legacy email domains)? */
 export function titleViolatesBrandRules(title: string): boolean {
   return STALE_LEGACY_PATTERNS.some(({ re }) => re.test(title));
-}
-
-/** Canonical vocabulary that must survive a title rewrite for auto-accept. */
-export const CANONICAL_TITLE_TERMS: readonly string[] = ["flexy", "blitz", "7 pillars", "bts"];
-
-/** True when every canonical term present in `current` also appears in `suggested`. */
-export function preservesCanonicalNames(current: string, suggested: string): boolean {
-  const cur = current.toLowerCase();
-  const sug = suggested.toLowerCase();
-  return CANONICAL_TITLE_TERMS.every((t) => !cur.includes(t) || sug.includes(t));
 }
 
 /**
@@ -297,23 +295,6 @@ function summarizeOutcome(title: string, test: RetrievalSelfTest) {
   };
 }
 
-/** Off-by-default admin setting: auto-accept strictly-better title suggestions. */
-export const TITLE_AUTO_ACCEPT_SETTING_KEY = "kb_title_auto_accept";
-
-export async function isTitleAutoAcceptEnabled(): Promise<boolean> {
-  try {
-    const rows = await db
-      .select({ value: systemSettingsTable.value })
-      .from(systemSettingsTable)
-      .where(eq(systemSettingsTable.key, TITLE_AUTO_ACCEPT_SETTING_KEY));
-    const value = rows[0]?.value as { enabled?: unknown } | boolean | undefined;
-    if (typeof value === "boolean") return value;
-    return value?.enabled === true;
-  } catch {
-    return false; // fail closed — auto-accept stays off
-  }
-}
-
 // ── Analyze a single doc (no auto-action; always → needs_review) ──────────────
 
 export interface AutoTriageDocResult {
@@ -328,12 +309,6 @@ export async function runAutoTriageOnDoc(
   doc: typeof kbStagingDocsTable.$inferSelect,
 ): Promise<AutoTriageDocResult> {
   const result = await triageDoc(doc);
-
-  // Title-suggestion lock (Task #1839): once the reviewer accepted, dismissed
-  // or hand-edited the title, re-analysis must NOT churn out a new suggestion
-  // — the stored title stands, and everything downstream (flags, self-test,
-  // duplicate check) is computed against it.
-  const titleLocked = doc.aiTitleDecision != null;
 
   // Filed placement is authoritative (Task #1847). Analysis suggestions are
   // ADVISORY ONLY: every judging path (retrieval self-test, risk flags) must
@@ -372,16 +347,17 @@ export async function runAutoTriageOnDoc(
   });
   const effectiveContent = relFix.content;
 
-  // Retrieval self-test (Task #1804) + evidence-based title gate (Task #1848).
+  // Retrieval self-test (Task #1804) + always-on title comparison (Task #1865).
   // Each member question runs through the REAL retrieval path vs live docs,
   // with the draft scored ad-hoc (embeddings computed per run and discarded —
   // never stored for staging docs). A self-test failure must never fail
   // analysis.
   //
-  // When the LLM proposes a different title (and the suggestion isn't locked),
-  // BOTH titles are scored through the same questions. The suggestion is only
-  // surfaced when it measurably improves retrieval or fixes a brand/canonical
-  // naming violation; otherwise it is suppressed and the stored title stands.
+  // When the LLM proposes a different title, BOTH titles are scored through the
+  // same questions and the before/after comparison is ALWAYS attached — the
+  // suggestion is surfaced regardless of any prior title decision and is never
+  // auto-applied. The STORED title stands and everything downstream (flags,
+  // self-test verdict) judges it; acceptance is accept-on-click only.
   const draftBase = {
     content: effectiveContent,
     // The class/tags the draft would publish with — they drive the
@@ -399,81 +375,49 @@ export async function runAutoTriageOnDoc(
     }
   };
 
-  const proposedTitle = titleLocked ? null : (result.cleanedTitle || "").trim();
+  const proposedTitle = (result.cleanedTitle || "").trim();
   const hasProposal = !!proposedTitle && proposedTitle !== doc.title.trim();
 
   let selfTest: RetrievalSelfTest | null = null;
   let surfacedSuggestion: string | null = null; // what gets persisted to aiCleanedTitle
-  let autoAccept = false;
-  let standingTitle = doc.title;
 
   if (!hasProposal) {
-    // No (new) suggestion — single self-test against the standing title.
-    standingTitle = doc.title;
-    if (result.memberQuestions.length > 0) selfTest = await runTest(standingTitle);
+    // No (new) suggestion — single self-test against the stored title.
+    if (result.memberQuestions.length > 0) selfTest = await runTest(doc.title);
   } else {
+    // Always surface the fresh suggestion and always attach the before/after
+    // comparison (Task #1865). The stored title stands; the verdict (selfTest,
+    // flags) is judged against it — the reviewer applies the suggestion on
+    // click, nothing is auto-replaced.
+    surfacedSuggestion = proposedTitle;
     const currentTest = result.memberQuestions.length > 0 ? await runTest(doc.title) : null;
-    const suggestedTest = result.memberQuestions.length > 0 ? await runTest(proposedTitle!) : null;
+    const suggestedTest = result.memberQuestions.length > 0 ? await runTest(proposedTitle) : null;
 
-    const brandFix =
-      titleViolatesBrandRules(doc.title) && !titleViolatesBrandRules(proposedTitle!);
-    const { improved, strictlyBetter } =
-      currentTest && suggestedTest
-        ? compareTitleOutcomes(currentTest, suggestedTest)
-        : { improved: false, strictlyBetter: false };
-
-    const surface = improved || brandFix;
-    if (!surface) {
-      // Evidence gate: no measurable win, no brand fix — no suggestion. The
-      // stored title stands and everything downstream judges it.
-      standingTitle = doc.title;
-      selfTest = currentTest;
-      if (currentTest && suggestedTest) {
-        selfTest = {
-          ...currentTest,
-          titleComparison: {
-            current: summarizeOutcome(doc.title, currentTest),
-            suggested: summarizeOutcome(proposedTitle!, suggestedTest),
-            improved,
-            strictlyBetter,
-            brandFix,
-            autoAccepted: false,
-          },
-        };
-      }
-    } else {
-      surfacedSuggestion = proposedTitle;
-      standingTitle = proposedTitle!;
-      selfTest = suggestedTest;
-
-      // Off-by-default auto-accept: strictly better on every question AND
-      // canonical tool names preserved AND no brand violation introduced.
-      autoAccept =
-        strictlyBetter &&
-        !titleViolatesBrandRules(proposedTitle!) &&
-        preservesCanonicalNames(doc.title, proposedTitle!) &&
-        (await isTitleAutoAcceptEnabled());
-
-      if (currentTest && suggestedTest) {
-        selfTest = {
-          ...suggestedTest,
-          titleComparison: {
-            current: summarizeOutcome(doc.title, currentTest),
-            suggested: summarizeOutcome(proposedTitle!, suggestedTest),
-            improved,
-            strictlyBetter,
-            brandFix,
-            autoAccepted: autoAccept,
-          },
-        };
-      }
+    selfTest = currentTest;
+    if (currentTest && suggestedTest) {
+      const brandFix =
+        titleViolatesBrandRules(doc.title) && !titleViolatesBrandRules(proposedTitle);
+      const { improved, strictlyBetter } = compareTitleOutcomes(currentTest, suggestedTest);
+      selfTest = {
+        ...currentTest,
+        titleComparison: {
+          current: summarizeOutcome(doc.title, currentTest),
+          suggested: summarizeOutcome(proposedTitle, suggestedTest),
+          improved,
+          strictlyBetter,
+          brandFix,
+        },
+      };
     }
   }
-  const finalTitle = standingTitle;
+  // The stored title always stands — analysis never replaces it (Task #1865).
+  const finalTitle = doc.title;
 
+  // Duplicate / conflict checks judge the title that would publish — the STORED
+  // title, never the un-accepted suggestion.
   const ctx = await gatherFlagContext({
     title: doc.title,
-    aiCleanedTitle: surfacedSuggestion,
+    aiCleanedTitle: null,
   });
   const flags = computeRiskFlags({
     title: finalTitle,
@@ -500,6 +444,7 @@ export async function runAutoTriageOnDoc(
     homeRoot: result.suggestedHomeRoot,
     node: result.suggestedNode,
     docClass: result.suggestedDocClass,
+    ceiling: result.suggestedCeiling,
     tags: result.suggestedTags,
     category: result.suggestedCategory,
   };
@@ -516,17 +461,14 @@ export async function runAutoTriageOnDoc(
     .update(kbStagingDocsTable)
     .set({
       aiRecommendedAction: "needs_review",
-      // Never regenerate a decided/edited suggestion (Task #1839), and never
-      // regenerate taxonomy suggestions for a doc with a filed placement
+      // Never regenerate taxonomy suggestions for a doc with a filed placement
       // (Task #1847) — the stored suggestion stays stable and advisory.
       ...(taxonomyLocked ? {} : { aiSuggestedCategory: result.suggestedCategory }),
-      // Evidence gate (Task #1848): only a measurably-better (or brand-fixing)
-      // suggestion is persisted; otherwise the suggestion slot is cleared and
-      // the stored title stands untouched.
-      ...(titleLocked ? {} : { aiCleanedTitle: surfacedSuggestion }),
-      // Auto-accept (off-by-default admin setting): apply the strictly-better
-      // suggestion as the stored title and lock the decision.
-      ...(autoAccept ? { title: surfacedSuggestion!, aiTitleDecision: "accepted" } : {}),
+      // Analysis ALWAYS re-proposes a fresh title and clears any prior
+      // accept/dismiss/edit decision (Task #1865), so the new suggestion is
+      // actionable on click. The stored title itself is never touched here.
+      aiCleanedTitle: surfacedSuggestion,
+      aiTitleDecision: null,
       aiSummary: result.summary,
       ...(taxonomyLocked ? {} : { aiSuggestedTaxonomy }),
       riskFlags: flags,
@@ -546,20 +488,6 @@ export async function runAutoTriageOnDoc(
     aiReasoning: result.reasoning,
     docTitle: doc.title,
   });
-
-  if (autoAccept && surfacedSuggestion) {
-    const cmp = selfTest?.titleComparison;
-    await db.insert(kbTriageAuditLogTable).values({
-      stagingDocId: doc.id,
-      eventType: "title_auto_accepted",
-      confidenceScore: null,
-      actorUserId: null,
-      aiReasoning: `Auto-accepted title "${surfacedSuggestion}" over "${doc.title}" (admin setting on): strictly better on every self-test question${
-        cmp ? ` (${cmp.current.passedCount}/${cmp.current.total} → ${cmp.suggested.passedCount}/${cmp.suggested.total} member questions pass)` : ""
-      }${cmp?.brandFix ? "; also fixes a brand/canonical-naming violation" : ""}.`,
-      docTitle: surfacedSuggestion,
-    });
-  }
 
   return {
     id: doc.id,

@@ -55,9 +55,10 @@ export interface TitleOutcomeSummary {
 }
 
 /**
- * Evidence-based title comparison (Task #1848): both the stored title and the
- * AI-proposed title were scored through the SAME self-test questions, and the
- * suggestion is only surfaced when `improved` or `brandFix` holds.
+ * Title comparison (Task #1865): both the stored title and the AI-proposed
+ * title are scored through the SAME self-test questions. The comparison is
+ * ALWAYS attached when a fresh suggestion exists — it is advisory only and the
+ * reviewer applies the suggestion on click (never auto-accepted).
  */
 export interface TitleComparison {
   current: TitleOutcomeSummary;
@@ -68,8 +69,6 @@ export interface TitleComparison {
   strictlyBetter: boolean;
   /** Current title violates brand/canonical-naming rules; suggestion fixes it. */
   brandFix: boolean;
-  /** Suggestion was auto-applied by the off-by-default admin setting. */
-  autoAccepted: boolean;
 }
 
 export interface RetrievalSelfTest {

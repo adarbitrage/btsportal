@@ -51,6 +51,7 @@ async function seedStaging(opts: {
   source?: string;
   content?: string;
   editedContent?: string;
+  homeRoot?: string;
 }): Promise<number> {
   const [row] = await db
     .insert(kbStagingDocsTable)
@@ -61,6 +62,7 @@ async function seedStaging(opts: {
       editedContent: opts.editedContent,
       status: opts.status,
       source: opts.source ?? "blitz",
+      homeRoot: opts.homeRoot,
     })
     .returning({ id: kbStagingDocsTable.id });
   seededStagingIds.push(row.id);
@@ -94,6 +96,7 @@ describe("POST /admin/knowledgebase/staging/push-approved", () => {
       category: "curriculum",
       status: "approved",
       content: "How to set up a campaign in DIYTrax — full walkthrough.",
+      homeRoot: "process",
     });
     const stagingIdB = await seedStaging({
       title: titleB,
@@ -101,6 +104,7 @@ describe("POST /admin/knowledgebase/staging/push-approved", () => {
       status: "approved",
       content: "Original raw transcript",
       editedContent: "Edited and cleaned SOP content",
+      homeRoot: "concepts",
     });
 
     const res = await request(app)
@@ -131,10 +135,12 @@ describe("POST /admin/knowledgebase/staging/push-approved", () => {
       .from(aiLiveDocumentsTable)
       .where(eq(aiLiveDocumentsTable.title, titleB));
     expect(liveA).toBeDefined();
-    expect(liveA.category).toBe("curriculum");
+    // Category is now derived from the doc's Shelf (home_root) on publish,
+    // no longer the retired reviewer Category field (Task #1865).
+    expect(liveA.category).toBe("process");
     expect(liveA.content).toContain("DIYTrax");
     expect(liveB).toBeDefined();
-    expect(liveB.category).toBe("sop");
+    expect(liveB.category).toBe("concepts");
     // edited_content takes precedence over content
     expect(liveB.content).toBe("Edited and cleaned SOP content");
   });
@@ -147,6 +153,7 @@ describe("POST /admin/knowledgebase/staging/push-approved", () => {
       category: "strategy",
       status: "approved",
       content: "first version",
+      homeRoot: "process",
     });
     let res = await request(app).post("/api/push-approved").set("Cookie", adminCookie);
     expect(res.status).toBe(200);
@@ -164,6 +171,7 @@ describe("POST /admin/knowledgebase/staging/push-approved", () => {
       category: "platform_guide",
       status: "approved",
       content: "second version with updated guidance",
+      homeRoot: "operations",
     });
     res = await request(app).post("/api/push-approved").set("Cookie", adminCookie);
     expect(res.status).toBe(200);
@@ -175,7 +183,8 @@ describe("POST /admin/knowledgebase/staging/push-approved", () => {
       .where(eq(aiLiveDocumentsTable.title, title));
     expect(liveAfterSecond.id).toBe(idAfterFirst); // same row, upserted
     expect(liveAfterSecond.content).toBe("second version with updated guidance");
-    expect(liveAfterSecond.category).toBe("platform_guide");
+    // Category re-derived from the new doc's Shelf (home_root) on re-push.
+    expect(liveAfterSecond.category).toBe("operations");
 
     // Both staging rows are now "published"
     const stagedRows = await db

@@ -189,6 +189,27 @@ export function isEffectiveTag(value: unknown): value is string {
   return typeof value === "string" && cache.tagSet.has(value);
 }
 
+/**
+ * The effective tag vocabulary grouped by controlled family for the reviewer's
+ * grouped multi-select (Task #1865). Concept + troubleshooting are the code
+ * baseline; tool tags are the DB-managed enabled set (whatever is not part of
+ * the code baseline in the effective list).
+ */
+export interface EffectiveTagGroups {
+  concept: string[];
+  tool: string[];
+  troubleshooting: string[];
+}
+
+export function getEffectiveTagGroups(): EffectiveTagGroups {
+  const codeVocab = new Set<string>(CODE_VOCAB_TAGS);
+  return {
+    concept: [...CONCEPT_TAGS],
+    tool: cache.tags.filter((t) => !codeVocab.has(t)),
+    troubleshooting: [TROUBLESHOOTING_TAG],
+  };
+}
+
 /** Filter a candidate tag list down to the effective vocabulary (deduped, lowercased). */
 export function normalizeEffectiveTags(tags: readonly string[] | null | undefined): string[] {
   if (!tags) return [];
