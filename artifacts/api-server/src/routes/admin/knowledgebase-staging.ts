@@ -850,10 +850,12 @@ router.post("/duplicates/propose-merge", async (req: Request, res: Response) => 
 The variants were synthesized independently (one per taxonomy node), so they overlap heavily. Combine the strongest content:
 - Keep the clearest explanation of the concept.
 - Union the unique, correct details/examples/steps from every variant; drop redundancy.
-- Preserve markdown structure (## headings, bullets, numbered steps).
-- Preserve any reviewer-facing markers verbatim if present ("> ⚠️ SOURCE CONFLICT (for reviewer):", "[SITUATIONAL]" etc.) — never silently drop them.
+- WRITE IN NATURAL, FLOWING PROSE, exactly like the rest of the knowledge base reads — mostly well-organized paragraphs that connect related ideas. This is the most important rule.
+- DO NOT stuff the document with "##" headings. Do not open a new heading for every idea. Use NO headings at all when the document is short; add at most one or two only if it is genuinely long and a reader would otherwise get lost. Fold heading-fragmented variant content back into readable paragraphs.
+- KEEP numbered or bulleted lists ONLY where the content is genuinely list-like — sequential steps, discrete checklist items, or a short set of distinct options. Never convert flowing explanation into a bullet dump.
+- Preserve any reviewer-facing markers VERBATIM if present ("> ⚠️ SOURCE CONFLICT (for reviewer):", "[SITUATIONAL]" etc.) — never silently drop them.
 - BRAND RULES: say "Build Test Scale" / "BTS" (never "TCE" or "Cherrington"); no coach surnames; support email is support@buildtestscale.com.
-Return ONLY JSON: {"title":"<single canonical title>","content":"<full merged markdown body>"} — no preamble.`;
+Return ONLY JSON: {"title":"<single canonical title>","content":"<full merged prose body>"} — no preamble.`;
 
     const userContent = docs
       .map((d, i) => `=== VARIANT ${i + 1} (staging #${d.id}) — "${d.title}" [${d.homeRoot ?? "?"}/${d.node ?? "?"}] ===\n${(d.editedContent ?? d.content).substring(0, 9000)}`)
@@ -876,6 +878,69 @@ Return ONLY JSON: {"title":"<single canonical title>","content":"<full merged ma
     }
 
     res.json({ proposedTitle: proposedTitle || docs[0].title, proposedContent, sourceIds: docs.map((d) => d.id) });
+  } catch (err: unknown) {
+    res.status(500).json({ error: err instanceof Error ? err.message : "Unknown error" });
+  }
+});
+
+// Permanently delete a single duplicate draft from the Possible Duplicates
+// review page. Soft-delete (status -> 'deleted') rather than a row DROP so the
+// triage audit trail — which FK-cascades on a hard row delete — survives; the
+// draft is gone from every review surface (needs_review / merged lists never
+// query 'deleted') and there is no restore path, so it does not reappear.
+// Idempotent under a double-click: a doc already deleted is a soft success.
+// The two-step confirmation guarding this lives in the UI.
+router.delete("/duplicates/:id", async (req: Request, res: Response) => {
+  try {
+    const id = parseInt(getParam(req.params.id));
+    if (!Number.isInteger(id) || id <= 0) {
+      res.status(400).json({ error: "A valid numeric id is required" });
+      return;
+    }
+
+    const [doc] = await db
+      .select()
+      .from(kbStagingDocsTable)
+      .where(eq(kbStagingDocsTable.id, id));
+    if (!doc) {
+      res.status(404).json({ error: "Document not found" });
+      return;
+    }
+    if (doc.status === "deleted") {
+      res.json({ id, alreadyDeleted: true });
+      return;
+    }
+    // This surface only shows needs-review duplicate drafts. Refuse to delete an
+    // already-approved/merged/rejected doc through here — those have their own
+    // lifecycle (e.g. merged drafts are restored, not deleted) and reaching this
+    // endpoint with one is a misuse, not a duplicate cleanup.
+    if (doc.status !== "needs_review") {
+      res.status(409).json({ error: `Only needs-review drafts can be deleted here (status: ${doc.status}).` });
+      return;
+    }
+
+    const userId = (req as unknown as { userId: number }).userId;
+
+    // Transaction: the status flip and its audit row land together or not at
+    // all — never "deleted with no audit trail". The audit row survives because
+    // this is a soft delete (the doc row itself is not removed).
+    await db.transaction(async (tx) => {
+      await tx
+        .update(kbStagingDocsTable)
+        .set({ status: "deleted", mergedIntoId: null })
+        .where(eq(kbStagingDocsTable.id, id));
+
+      await tx.insert(kbTriageAuditLogTable).values({
+        stagingDocId: id,
+        eventType: "deleted_duplicate",
+        confidenceScore: null,
+        actorUserId: userId,
+        aiReasoning: `Permanently deleted from the Possible Duplicates review page (was status: ${doc.status}).`,
+        docTitle: doc.title,
+      });
+    });
+
+    res.json({ id, deleted: true });
   } catch (err: unknown) {
     res.status(500).json({ error: err instanceof Error ? err.message : "Unknown error" });
   }

@@ -330,6 +330,60 @@ describe("KB duplicate grouping & merge aid routes", () => {
     expect(userContent).not.toContain(`staging #${excluded}`);
   });
 
+  it("DELETE /duplicates/:id soft-deletes with an audit row, is idempotent, and 404s/400s bad input", async () => {
+    const victim = await seedStaging({ title: `${TEST_TAG} delete victim`, content: BODY });
+
+    const res = await request(app)
+      .delete(`/api/duplicates/${victim}`)
+      .set("Cookie", adminCookie);
+    expect(res.status).toBe(200);
+    expect(res.body).toMatchObject({ id: victim, deleted: true });
+
+    // Soft-delete: row still exists but its status excludes it from every
+    // review surface (needs_review / merged lists never query 'deleted').
+    const [row] = await db.select().from(kbStagingDocsTable).where(eq(kbStagingDocsTable.id, victim));
+    expect(row.status).toBe("deleted");
+    expect(row.mergedIntoId).toBeNull();
+
+    const audit = await db
+      .select()
+      .from(kbTriageAuditLogTable)
+      .where(eq(kbTriageAuditLogTable.stagingDocId, victim));
+    expect(audit.filter((a) => a.eventType === "deleted_duplicate")).toHaveLength(1);
+
+    // It must NOT reappear in the duplicates listing.
+    const listed = await request(app).get("/api/duplicates").set("Cookie", adminCookie);
+    const stillListed = (listed.body.clusters as Array<{ docs: Array<{ id: number }> }>).some((c) =>
+      c.docs.some((d) => d.id === victim),
+    );
+    expect(stillListed).toBe(false);
+
+    // Idempotent replay: already-deleted is a soft success, no second audit row.
+    const replay = await request(app)
+      .delete(`/api/duplicates/${victim}`)
+      .set("Cookie", adminCookie);
+    expect(replay.status).toBe(200);
+    expect(replay.body).toMatchObject({ id: victim, alreadyDeleted: true });
+    const audit2 = await db
+      .select()
+      .from(kbTriageAuditLogTable)
+      .where(eq(kbTriageAuditLogTable.stagingDocId, victim));
+    expect(audit2.filter((a) => a.eventType === "deleted_duplicate")).toHaveLength(1);
+
+    // A non-needs_review draft (e.g. already approved) cannot be deleted here.
+    const approved = await seedStaging({ title: `${TEST_TAG} approved not-deletable`, content: BODY, status: "approved" });
+    const conflict = await request(app).delete(`/api/duplicates/${approved}`).set("Cookie", adminCookie);
+    expect(conflict.status).toBe(409);
+    const [approvedRow] = await db.select().from(kbStagingDocsTable).where(eq(kbStagingDocsTable.id, approved));
+    expect(approvedRow.status).toBe("approved");
+
+    const missing = await request(app).delete("/api/duplicates/999999999").set("Cookie", adminCookie);
+    expect(missing.status).toBe(404);
+
+    const bad = await request(app).delete("/api/duplicates/abc").set("Cookie", adminCookie);
+    expect(bad.status).toBe(400);
+  });
+
   it("resolve with a SUBSET marks only the selected drafts merged, leaving excluded ones in needs_review", async () => {
     const canonicalId = await seedStaging({ title: `${TEST_TAG} subset canonical`, content: BODY });
     const mergeMe = await seedStaging({ title: `${TEST_TAG} subset true dup`, content: BODY });
