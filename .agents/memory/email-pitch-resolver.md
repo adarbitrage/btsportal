@@ -29,6 +29,8 @@ copy changes need no deploy).
 false, marked TODO) — do not assume it's wired to real Machine-product data
 yet; a future task must implement it before the "hide the Machine pitch for
 existing Machine members" requirement is actually met.
+(`isVipArbitrageMember` is NO LONGER a stub — it's a real DB check on active
+`vip_arbitrage` product grants; see vip-arbitrage-compliance-gate.md.)
 
 **Testing gotcha:** integration tests that seed a user + send an email via
 `CommunicationService` must delete `communication_log` rows for that user

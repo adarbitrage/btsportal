@@ -5,7 +5,12 @@ description: How the 3rd email pitch slot (VIP Arbitrage, a Reg D 506(c) securit
 
 Slot 3 (`VIP_ARBITRAGE_PITCH`, redefined from the retired BTS VIP tier pitch) is independent of BTS VIP tier rank — it renders
 at every member rank (0 through 6+), gated only by two orthogonal things:
-1. `isVipArbitrageMember` stub (mirrors `isMachineMember`, always false).
+1. `isVipArbitrageMember` — real DB-backed check: true iff the member holds an
+   active, non-expired grant of the `vip_arbitrage` product (a rank-0,
+   zero-entitlement boot-seeded product that Machine-side VIP Arbitrage
+   purchases land as via the machine-purchase key mapping). DB-fresh per send,
+   no caching. `vip_arbitrage` is deliberately absent from `PRODUCT_RANK` and
+   grants no entitlements — it exists purely as a purchase marker.
 2. A `reviewed` compliance flag on the pitch content itself.
 
 **Why:** securities marketing copy must never reach a member's inbox before

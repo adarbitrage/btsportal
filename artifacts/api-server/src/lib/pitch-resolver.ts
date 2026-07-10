@@ -34,25 +34,46 @@ export async function isMachineMember(_userId: number): Promise<boolean> {
 }
 
 /**
- * Whether a member is already a VIP Arbitrage member (the managed media
- * buying program), which should suppress the VIP Arbitrage pitch from their
- * stack.
- *
- * STUBBED per Task #1824: mirrors `isMachineMember` exactly — always
- * returns `false` until the not-yet-landed Machine daily cross-system sync
- * (hashed-email join, never-block, daily cadence) lands. That sync is
- * required to populate BOTH `machine_member` AND `vip_arbitrage_member` on
- * the schema — the latter sourced from the Machine-side VIP Arbitrage
- * member list. The signature (async, keyed by userId) is intentionally
- * already shaped for a DB-backed implementation so the swap is a drop-in
- * change with no other caller needing to change.
- *
- * TODO(vip-arbitrage-member-flag): once `vip_arbitrage_member` (or
- * equivalent) exists on the schema — landing with the future Machine
- * cross-system sync task — replace this body with a real read.
+ * Product slug that records a VIP Arbitrage purchase (the Machine-side
+ * Reg D 506(c) managed media-buying investment program). Seeded at boot by
+ * `seed-vip-arbitrage-product.ts`; grants land via the Machine purchase
+ * pipeline (`vip_arbitrage` key in machine-product-key-mappings.ts) or a
+ * manual admin grant. Deliberately absent from PRODUCT_RANK (rank 0) and
+ * carries no entitlement keys — holding it only suppresses the pitch.
  */
-export async function isVipArbitrageMember(_userId: number): Promise<boolean> {
-  return false;
+export const VIP_ARBITRAGE_PRODUCT_SLUG = "vip_arbitrage";
+
+/**
+ * Whether a member is already a VIP Arbitrage member (holds the managed
+ * media-buying investment program), which should suppress the VIP Arbitrage
+ * pitch from their stack — an investor must never be pitched the offering
+ * they already hold.
+ *
+ * Real implementation (Task #1854, replacing the Task #1824 stub): reads
+ * the member's product grants — a VIP Arbitrage purchase lands as a
+ * `vip_arbitrage` grant in `user_products` (via the Machine purchase
+ * pipeline or an admin grant). Uses the same active + non-expired predicate
+ * as `resolveMemberRank`, and like it is queried DB-fresh on every call so
+ * a new purchase suppresses the pitch on the member's very next send.
+ * Non-active (cancelled/refunded) or expired grants do NOT count — a
+ * refunded investor legitimately re-enters the pitch audience.
+ */
+export async function isVipArbitrageMember(userId: number): Promise<boolean> {
+  const now = new Date();
+  const [row] = await db
+    .select({ id: userProductsTable.id })
+    .from(userProductsTable)
+    .innerJoin(productsTable, eq(userProductsTable.productId, productsTable.id))
+    .where(
+      and(
+        eq(userProductsTable.userId, userId),
+        eq(productsTable.slug, VIP_ARBITRAGE_PRODUCT_SLUG),
+        eq(userProductsTable.status, "active"),
+        or(isNull(userProductsTable.expiresAt), gte(userProductsTable.expiresAt, now)),
+      ),
+    )
+    .limit(1);
+  return row !== undefined;
 }
 
 /**

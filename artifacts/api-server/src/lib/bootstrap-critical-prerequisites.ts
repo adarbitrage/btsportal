@@ -4,6 +4,7 @@ import { runTapfiliateColumnMigration } from "./tapfiliate-migration";
 import { seedYseProducts } from "./seed-yse-products";
 import { seedMachineBrandProducts } from "./seed-machine-brand-products";
 import { seedVipProduct } from "./seed-vip-product";
+import { seedVipArbitrageProduct } from "./seed-vip-arbitrage-product";
 import { reconcileEntitlementKeys } from "./reconcile-entitlement-keys";
 import { seedMachineProductKeyMappings } from "./machine-product-key-mappings";
 import {
@@ -206,6 +207,18 @@ export async function bootstrapCriticalPrerequisites(): Promise<PrerequisiteResu
   } catch (err) {
     console.error("[Bootstrap] seedVipProduct() threw:", err);
     missing.push("seedVipProduct");
+  }
+
+  // 1a-3. VIP Arbitrage product (Task #1854) — a Machine-side investment
+  //       program whose Portal row exists purely to record purchases so
+  //       isVipArbitrageMember (pitch-resolver.ts) can suppress the VIP
+  //       Arbitrage email pitch for existing holders. No entitlement keys,
+  //       no rank, no expiry. Idempotent: insert-if-missing on slug.
+  try {
+    await seedVipArbitrageProduct();
+  } catch (err) {
+    console.error("[Bootstrap] seedVipArbitrageProduct() threw:", err);
+    missing.push("seedVipArbitrageProduct");
   }
 
   // 1b. Default machine_product_key_mappings rows so the receiver can

@@ -82,6 +82,12 @@ const SINGLE_KEY_MACHINE_PRODUCT_KEY_MAPPINGS: ReadonlyArray<MachineProductKeyMa
     portalSlug: "test_like_mad",
     notes: "Test Like Mad front-end offer. Identity mapping per Dispatch 2.",
   },
+  {
+    machineKey: "vip_arbitrage",
+    portalSlug: "vip_arbitrage",
+    notes:
+      "VIP Arbitrage (Machine-side Reg D 506(c) investment program). Grant records membership only — no portal entitlements; suppresses the VIP Arbitrage email pitch (Task #1854).",
+  },
 ];
 
 /**

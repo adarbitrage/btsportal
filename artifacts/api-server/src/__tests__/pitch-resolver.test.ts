@@ -16,6 +16,7 @@ import {
 } from "../lib/pitch-resolver";
 import { __invalidatePitchContentCacheForTests } from "../lib/pitch-content-settings";
 import { renderPitchBlock } from "../lib/seed-templates";
+import { seedVipArbitrageProduct } from "../lib/seed-vip-arbitrage-product";
 
 // Task #1824: the tier-based upgrade pitch stack. `pitchStackForRank` is a
 // pure function tested directly against the exact matrix from the task; the
@@ -136,10 +137,64 @@ describe("isMachineMember stub", () => {
   });
 });
 
-describe("isVipArbitrageMember stub", () => {
-  it("always returns false (TODO: real DB-backed implementation), mirroring isMachineMember", async () => {
-    expect(await isVipArbitrageMember(1)).toBe(false);
-    expect(await isVipArbitrageMember(999999)).toBe(false);
+// Task #1854: isVipArbitrageMember is now a real DB-backed check against
+// active `vip_arbitrage` product grants (the row a Machine-side VIP Arbitrage
+// purchase lands as). The boot seeder is idempotent, so calling it here keeps
+// the suite green on a DB the api-server hasn't booted against yet.
+describe("isVipArbitrageMember (DB-backed, Task #1854)", () => {
+  beforeAll(async () => {
+    // Idempotent boot seed — keeps this suite green (and order-independent)
+    // on a DB the api-server hasn't booted against yet.
+    await seedVipArbitrageProduct();
+  });
+
+  it("returns false for a member with no products at all", async () => {
+    const userId = await seedMember();
+    expect(await isVipArbitrageMember(userId)).toBe(false);
+  });
+
+  it("returns false for a member holding other products but not vip_arbitrage", async () => {
+    const userId = await seedMember();
+    await grantActiveProduct(userId, "lifetime");
+    expect(await isVipArbitrageMember(userId)).toBe(false);
+  });
+
+  it("returns true for a member with an active, non-expiring vip_arbitrage grant", async () => {
+    const userId = await seedMember();
+    await grantActiveProduct(userId, "vip_arbitrage");
+    expect(await isVipArbitrageMember(userId)).toBe(true);
+  });
+
+  it("ignores an expired vip_arbitrage grant", async () => {
+    const userId = await seedMember();
+    const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    await grantActiveProduct(userId, "vip_arbitrage", yesterday);
+    expect(await isVipArbitrageMember(userId)).toBe(false);
+  });
+
+  it("ignores a non-active (e.g. refunded/cancelled) vip_arbitrage grant", async () => {
+    const userId = await seedMember();
+    const productId = await productIdFor("vip_arbitrage");
+    await db.insert(userProductsTable).values({
+      userId,
+      productId,
+      status: "cancelled",
+      purchasedAt: new Date(),
+    });
+    expect(await isVipArbitrageMember(userId)).toBe(false);
+  });
+
+  it("reflects a fresh purchase immediately (no caching)", async () => {
+    const userId = await seedMember();
+    expect(await isVipArbitrageMember(userId)).toBe(false);
+    await grantActiveProduct(userId, "vip_arbitrage");
+    expect(await isVipArbitrageMember(userId)).toBe(true);
+  });
+
+  it("does not contribute to member rank (vip_arbitrage is outside PRODUCT_RANK)", async () => {
+    const userId = await seedMember();
+    await grantActiveProduct(userId, "vip_arbitrage");
+    expect(await resolveMemberRank(userId)).toBe(0);
   });
 });
 
@@ -211,6 +266,13 @@ describe("resolvePitchStack (DB-backed)", () => {
     const userId = await seedMember();
     await grantActiveProduct(userId, "vip");
     expect(await resolvePitchStack(userId)).toEqual(["MACHINE_PITCH", "VIP_ARBITRAGE_PITCH"]);
+  });
+
+  it("suppresses VIP_ARBITRAGE_PITCH end-to-end for a member holding an active vip_arbitrage grant (Task #1854)", async () => {
+    const userId = await seedMember();
+    await grantActiveProduct(userId, "vip_arbitrage");
+    // vip_arbitrage carries no rank, so the member is otherwise rank 0.
+    expect(await resolvePitchStack(userId)).toEqual(["LAUNCHPAD_PITCH", "MACHINE_PITCH"]);
   });
 });
 
