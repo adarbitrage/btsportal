@@ -19,6 +19,16 @@ import { callLLMWithRetry } from "../../lib/kb-synthesis.js";
 import { CITABLE_DOC_CLASSES } from "../../lib/kb-taxonomy.js";
 import { detectLegacyRefs } from "../../lib/kb-mining.js";
 import { blocksBulkConfirm, type RiskFlag } from "../../lib/kb-flags.js";
+import { buildReviewerSop } from "../../lib/kb-sop.js";
+import {
+  HOME_ROOTS,
+  ALL_NODES,
+  DOC_CLASSES,
+  CEILINGS,
+  HANDOFF_TARGETS,
+  getNodeBySlug,
+} from "../../lib/kb-taxonomy.js";
+import { retrieveSurfaceAware } from "../../lib/kb-retrieval.js";
 import { applyRefineEdits } from "../../lib/transcript-cleaner.js";
 import { resolveSourceContentForSynthesis } from "../../lib/kb-value-screener.js";
 import { analyzeDraftForReview, isPrivacyProtectedPair } from "../../lib/kb-review-risk.js";
@@ -923,6 +933,17 @@ router.delete("/name-flag-dismissals/:dismissalId", async (req: Request, res: Re
   }
 });
 
+// Reviewer SOP (Task #1851) — the in-app "how to review a draft" reference,
+// derived from the live taxonomy + flag registries so it can't drift. Static
+// (no DB); registered before "/:id" so the literal path wins.
+router.get("/reviewer-sop", async (_req: Request, res: Response) => {
+  try {
+    res.json(buildReviewerSop());
+  } catch (err: unknown) {
+    res.status(500).json({ error: err instanceof Error ? err.message : "Unknown error" });
+  }
+});
+
 router.get("/:id", async (req: Request, res: Response) => {
   try {
     const id = parseInt(getParam(req.params.id));
@@ -1677,12 +1698,31 @@ router.post("/:id/refine", async (req: Request, res: Response) => {
       .map((t) => `${t.role === "user" ? "Reviewer" : "Assistant"}: ${t.content}`)
       .join("\n");
 
+    // Placement context (Task #1851): the draft's FILED shelf / node / doc-class
+    // charter, so the refine chat can push back on edits that would drag content
+    // outside where this doc belongs. Derived from the live taxonomy registry.
+    const sop = buildReviewerSop();
+    const filedDocClass = (doc.docClassTarget ?? "").trim();
+    const dcInfo = sop.docClasses.find((c) => c.slug === filedDocClass) ?? null;
+    const rootInfo = doc.homeRoot ? sop.homeRoots.find((r) => r.slug === doc.homeRoot) ?? null : null;
+    const nodeInfo = getNodeBySlug(doc.node);
+    const hasPlacement = !!(rootInfo || nodeInfo || dcInfo);
+    const placementContext = hasPlacement
+      ? `FILED PLACEMENT — where this draft currently lives. Respect it unless the reviewer explicitly re-files the doc:
+- Shelf (home root): ${rootInfo ? `${rootInfo.label} — ${rootInfo.description}` : doc.homeRoot || "unassigned"}
+- Node: ${nodeInfo ? nodeInfo.label : doc.node || "unassigned"}
+- Doc class: ${dcInfo ? `${dcInfo.label}${dcInfo.citable ? " (citable)" : " (non-citable)"} — ${dcInfo.charter}` : filedDocClass || "unset"}`
+      : "FILED PLACEMENT: this draft has no shelf / node / doc class assigned yet.";
+
     const systemPrompt = `You are refining a BTS (Build Test Scale) knowledge-base truth document with a human reviewer, in an ongoing conversation.
 ${sourceContext}
 
+${placementContext}
+
 This is a CONVERSATION, not an edit machine. First decide the reviewer's intent:
 - QUESTION / DISCUSSION (they ask about the draft, the sources, wording options, or say things like "what do you think", "why does it say X", "should we…"): DO NOT edit. Return ONLY {"reply":"<your answer or proposal>"} — answer from the draft and the source material, and when a change seems warranted, PROPOSE it concretely and ask whether to apply it.
-- EDIT REQUEST (a clear instruction to change the draft, or the reviewer confirms a proposal you made, e.g. "yes do that", "apply it"): make the change as below.
+- OUT-OF-PLACEMENT EDIT (a clear instruction to ADD substantive new subject matter that falls OUTSIDE this doc's filed shelf / node / doc-class charter — e.g. adding refund policy to a testing-methodology doc, or strategy to a navigation doc): DO NOT edit yet, and DO NOT re-file the doc yourself. Return ONLY {"placementCheck":{"query":"<3-8 keywords to search the corpus for where this content belongs>","summary":"<one sentence: what the reviewer wants to add>","concern":"<one sentence: why it may not belong in THIS doc>"}}. EXCEPTION: if the reviewer has ALREADY acknowledged the mismatch or overrides it (e.g. "add it here anyway", "I know, put it here", "ignore that, do it", or they asked again after you pushed back), then treat it as a normal EDIT and apply it.
+- EDIT REQUEST (any other clear instruction to change the draft that stays WITHIN its placement, or the reviewer confirms a proposal you made, e.g. "yes do that", "apply it"): make the change as below.
 
 For EDITS, prefer SURGICAL edits. Return ONLY JSON of the form:
 {"edits":[{"find":"exact text to replace","replace":"new text","all":false}],"message":"one sentence summary","changes":["human-readable description of each edit: what changed, where, and why"]}
@@ -1702,7 +1742,7 @@ BRAND RULES: say "Build Test Scale" / "BTS" (never "TCE" or "Cherrington"); no c
       await callLLMWithRetry("refine", systemPrompt, userContent, 4000, true)
     ).trim();
 
-    let parsed: { edits?: unknown; rewrite?: unknown; message?: unknown; reply?: unknown; changes?: unknown };
+    let parsed: { edits?: unknown; rewrite?: unknown; message?: unknown; reply?: unknown; changes?: unknown; placementCheck?: unknown };
     try {
       parsed = JSON.parse(rawContent);
     } catch {
@@ -1710,6 +1750,168 @@ BRAND RULES: say "Build Test Scale" / "BTS" (never "TCE" or "Cherrington"); no c
     }
 
     const userId = (req as unknown as { userId: number }).userId;
+
+    // Placement pushback (Task #1851): the reviewer asked to add subject matter
+    // that falls outside this doc's filed shelf / node / doc-class charter. The
+    // draft is NOT edited; instead we search the live corpus + other staging
+    // drafts via retrieval to answer "already covered in X / belongs in Y /
+    // genuine gap", and surface an advice bubble (with an optional target the
+    // reviewer can leave a note on). Overrides bypass this branch upstream.
+    const pc = parsed.placementCheck;
+    if (
+      pc &&
+      typeof pc === "object" &&
+      !Array.isArray(pc) &&
+      !Array.isArray(parsed.edits) &&
+      typeof parsed.rewrite !== "string"
+    ) {
+      const pcObj = pc as { query?: unknown; summary?: unknown; concern?: unknown };
+      const query = typeof pcObj.query === "string" ? pcObj.query.trim() : "";
+      const summary = typeof pcObj.summary === "string" ? pcObj.summary.trim() : "";
+      const concern = typeof pcObj.concern === "string" ? pcObj.concern.trim() : "";
+
+      // Search the live corpus (published truth docs) for existing coverage.
+      type Candidate = { kind: "live" | "staging"; id: number; title: string; snippet: string };
+      const candidates: Candidate[] = [];
+      if (query) {
+        try {
+          const live = await retrieveSurfaceAware(query, {
+            surface: "chat",
+            categories: HOME_ROOTS.map((r) => r.slug),
+            limit: 5,
+          });
+          for (const d of live.docs) {
+            candidates.push({
+              kind: "live",
+              id: d.id,
+              title: d.title,
+              snippet: (d.content ?? "").replace(/\s+/g, " ").substring(0, 400),
+            });
+          }
+        } catch {
+          // Retrieval is best-effort; fall through with whatever we have.
+        }
+
+        // And other in-flight staging drafts (a sibling draft may already own it).
+        try {
+          const stagingRows = await db
+            .select({
+              id: kbStagingDocsTable.id,
+              title: kbStagingDocsTable.title,
+              content: kbStagingDocsTable.content,
+              editedContent: kbStagingDocsTable.editedContent,
+            })
+            .from(kbStagingDocsTable)
+            .where(
+              and(
+                ne(kbStagingDocsTable.id, id),
+                ne(kbStagingDocsTable.status, "rejected"),
+                sql`to_tsvector('english', ${kbStagingDocsTable.title} || ' ' || coalesce(${kbStagingDocsTable.editedContent}, ${kbStagingDocsTable.content}, '')) @@ plainto_tsquery('english', ${query})`,
+              ),
+            )
+            .limit(4);
+          for (const r of stagingRows) {
+            candidates.push({
+              kind: "staging",
+              id: r.id,
+              title: r.title,
+              snippet: (r.editedContent ?? r.content ?? "").replace(/\s+/g, " ").substring(0, 400),
+            });
+          }
+        } catch {
+          // Ignore lexical search failures (e.g. empty tsquery).
+        }
+      }
+
+      const allowedLive = new Set(candidates.filter((c) => c.kind === "live").map((c) => c.id));
+      const allowedStaging = new Set(candidates.filter((c) => c.kind === "staging").map((c) => c.id));
+
+      const corpusText = candidates.length
+        ? candidates
+            .map(
+              (c, i) =>
+                `[${i + 1}] ${c.kind === "live" ? "LIVE" : "STAGING"} #${c.id} — ${c.title}\n${c.snippet}`,
+            )
+            .join("\n\n")
+        : "(no existing coverage found in the live corpus or other staging drafts)";
+
+      const verdictSystem = `You advise a BTS knowledge-base reviewer on WHERE a piece of content belongs. You do NOT edit anything.
+${placementContext}
+
+The reviewer wants to add to THIS draft: ${summary || instruction.trim()}
+Why it may not belong here: ${concern || "(the content falls outside this doc's placement)"}
+
+EXISTING COVERAGE found by searching the corpus for "${query}":
+${corpusText}
+
+Decide ONE verdict:
+- "already_covered": the content already exists in one of the LIVE/STAGING docs above — point there instead of duplicating.
+- "belongs_elsewhere": it isn't written yet but clearly belongs in a different doc/shelf than this one (name the best target if one of the candidates fits).
+- "genuine_gap": nothing covers it and it doesn't fit an existing doc — a new doc (or a re-file of this one) is warranted.
+- "fits_here": on reflection it is actually within this doc's placement after all — the reviewer can proceed with the edit.
+
+Return ONLY JSON: {"verdict":"already_covered|belongs_elsewhere|genuine_gap|fits_here","message":"<2-4 sentences of plain-language guidance to the reviewer>","target":{"kind":"live|staging","id":<number>,"title":"<title>"}|null}
+- "target" may ONLY be one of the numbered candidates above (use its exact kind + id + title), or null. Never invent an id.`;
+
+      const rawVerdict = (
+        await callLLMWithRetry("refine-placement", verdictSystem, "Give your verdict now.", 3000, true)
+      ).trim();
+
+      let verdictParsed: { verdict?: unknown; message?: unknown; target?: unknown };
+      try {
+        verdictParsed = JSON.parse(rawVerdict);
+      } catch {
+        throw new Error("AI returned malformed placement verdict JSON");
+      }
+
+      const verdictRaw = typeof verdictParsed.verdict === "string" ? verdictParsed.verdict.trim() : "";
+      const verdict = ["already_covered", "belongs_elsewhere", "genuine_gap", "fits_here"].includes(verdictRaw)
+        ? verdictRaw
+        : "genuine_gap";
+      const guidance =
+        typeof verdictParsed.message === "string" && verdictParsed.message.trim()
+          ? verdictParsed.message.trim()
+          : concern || "This addition may not belong in this document.";
+
+      // Validate the AI's target against what retrieval actually returned — never
+      // trust a hallucinated id. Staging targets that point at this same draft or
+      // aren't note-able (no adminNotes support) are still fine to reference.
+      let target: { kind: "live" | "staging"; id: number; title: string } | null = null;
+      const t = verdictParsed.target;
+      if (t && typeof t === "object" && !Array.isArray(t)) {
+        const tk = (t as { kind?: unknown }).kind;
+        const ti = (t as { id?: unknown }).id;
+        const tt = (t as { title?: unknown }).title;
+        const idNum = typeof ti === "number" ? ti : Number(ti);
+        if (
+          (tk === "live" && allowedLive.has(idNum)) ||
+          (tk === "staging" && allowedStaging.has(idNum))
+        ) {
+          const match = candidates.find((c) => c.kind === tk && c.id === idNum);
+          target = { kind: tk as "live" | "staging", id: idNum, title: (typeof tt === "string" && tt) || match?.title || "" };
+        }
+      }
+
+      await db.insert(kbTriageAuditLogTable).values({
+        stagingDocId: id,
+        eventType: "refined",
+        confidenceScore: null,
+        actorUserId: userId,
+        aiReasoning: `Placement pushback (${verdict}) on instruction: ${instruction.trim().substring(0, 200)} — ${guidance.substring(0, 1000)}${target ? ` [target: ${target.kind} #${target.id}]` : ""}`,
+        docTitle: doc.title,
+      });
+
+      res.json({
+        document: doc,
+        mode: "placement",
+        assistantMessage: guidance,
+        verdict,
+        target,
+        changes: [],
+        instruction: instruction.trim(),
+      });
+      return;
+    }
 
     // Discussion turn: the model answered/proposed without editing. The draft
     // is untouched; the turn is still persisted so the thread survives reloads.
@@ -1785,6 +1987,80 @@ BRAND RULES: say "Build Test Scale" / "BTS" (never "TCE" or "Cherrington"); no c
     });
 
     res.json({ document: updated, mode, assistantMessage, changes, instruction: instruction.trim() });
+  } catch (err: unknown) {
+    res.status(500).json({ error: err instanceof Error ? err.message : "Unknown error" });
+  }
+});
+
+// Leave-a-note on the placement target (Task #1851). Opt-in follow-up to a
+// placement-pushback verdict: the reviewer chooses to record a note on the doc
+// the content really belongs to, so its future editor sees the overlap. Live
+// docs carry it on ai_live_documents.reviewer_notes; staging drafts on
+// kb_staging_docs.admin_notes. Append-only (existing note preserved + separated).
+router.post("/:id/leave-note", async (req: Request, res: Response) => {
+  try {
+    const sourceId = parseInt(getParam(req.params.id));
+    const { targetKind, targetId, note } = req.body as {
+      targetKind?: unknown;
+      targetId?: unknown;
+      note?: unknown;
+    };
+
+    const kind = targetKind === "live" || targetKind === "staging" ? targetKind : null;
+    const tId = typeof targetId === "number" ? targetId : Number(targetId);
+    const text = typeof note === "string" ? note.trim() : "";
+    if (!kind || !Number.isFinite(tId) || !text) {
+      res.status(400).json({ error: "targetKind ('live'|'staging'), targetId, and note are required" });
+      return;
+    }
+
+    const [source] = await db
+      .select({ id: kbStagingDocsTable.id, title: kbStagingDocsTable.title })
+      .from(kbStagingDocsTable)
+      .where(eq(kbStagingDocsTable.id, sourceId));
+    if (!source) {
+      res.status(404).json({ error: "Source draft not found" });
+      return;
+    }
+
+    const userId = (req as unknown as { userId: number }).userId;
+    const stamp = new Date().toISOString().slice(0, 10);
+    const attribution = `[Reviewer note ${stamp} — flagged while reviewing “${source.title}” (#${sourceId})]`;
+    const entry = `${attribution}\n${text}`;
+
+    if (kind === "live") {
+      const [target] = await db
+        .select({ id: aiLiveDocumentsTable.id, title: aiLiveDocumentsTable.title, reviewerNotes: aiLiveDocumentsTable.reviewerNotes })
+        .from(aiLiveDocumentsTable)
+        .where(and(eq(aiLiveDocumentsTable.id, tId), sql`${aiLiveDocumentsTable.deletedAt} IS NULL`));
+      if (!target) {
+        res.status(404).json({ error: "Target live document not found" });
+        return;
+      }
+      const merged = target.reviewerNotes ? `${target.reviewerNotes}\n\n${entry}` : entry;
+      await db
+        .update(aiLiveDocumentsTable)
+        .set({ reviewerNotes: merged, updatedAt: new Date() })
+        .where(eq(aiLiveDocumentsTable.id, tId));
+      res.json({ ok: true, targetKind: kind, targetId: tId, targetTitle: target.title });
+      return;
+    }
+
+    // staging target
+    const [target] = await db
+      .select({ id: kbStagingDocsTable.id, title: kbStagingDocsTable.title, adminNotes: kbStagingDocsTable.adminNotes })
+      .from(kbStagingDocsTable)
+      .where(eq(kbStagingDocsTable.id, tId));
+    if (!target) {
+      res.status(404).json({ error: "Target staging draft not found" });
+      return;
+    }
+    const merged = target.adminNotes ? `${target.adminNotes}\n\n${entry}` : entry;
+    await db
+      .update(kbStagingDocsTable)
+      .set({ adminNotes: merged })
+      .where(eq(kbStagingDocsTable.id, tId));
+    res.json({ ok: true, targetKind: kind, targetId: tId, targetTitle: target.title });
   } catch (err: unknown) {
     res.status(500).json({ error: err instanceof Error ? err.message : "Unknown error" });
   }

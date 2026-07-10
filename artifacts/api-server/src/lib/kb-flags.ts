@@ -53,6 +53,40 @@ export type RiskFlagType =
   // thin / missing the vocabulary members would actually use. Non-critical.
   | "retrieval_gap";
 
+/**
+ * Runtime roster of every {@link RiskFlagType}. The reviewer SOP (kb-sop.ts)
+ * iterates this to build its flag catalog, so a new flag can't silently ship
+ * without a SOP entry. The two type-level asserts below make this list and the
+ * union mutually exhaustive: adding a flag to the union without listing it here
+ * (or vice-versa) is a compile error.
+ */
+export const RISK_FLAG_TYPES = [
+  "conflict",
+  "high_stakes",
+  "va_sourced_strategy",
+  "weak_source",
+  "stale_legacy",
+  "single_source",
+  "possible_duplicate",
+  "source_conflict",
+  "navigation_conflict",
+  "navigation_drift",
+  "situational_content",
+  "time_sensitive",
+  "privacy_residue",
+  "related_topics_mismatch",
+  "retrieval_gap",
+] as const;
+
+// Mutual exhaustiveness: every listed value is a RiskFlagType, and every
+// RiskFlagType is listed. Either direction failing is a compile error.
+type _FlagsAreSubset = (typeof RISK_FLAG_TYPES)[number] extends RiskFlagType ? true : never;
+type _FlagsAreSuperset = RiskFlagType extends (typeof RISK_FLAG_TYPES)[number] ? true : never;
+const _assertFlagsSubset: _FlagsAreSubset = true;
+const _assertFlagsSuperset: _FlagsAreSuperset = true;
+void _assertFlagsSubset;
+void _assertFlagsSuperset;
+
 export interface RiskFlag {
   type: RiskFlagType;
   severity: FlagSeverity;

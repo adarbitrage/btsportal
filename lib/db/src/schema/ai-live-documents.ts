@@ -74,6 +74,12 @@ export const aiLiveDocumentsTable = pgTable(
     ceiling: text("ceiling"),
     // Where to hand off when the ceiling is hit (e.g. 'coaching' | 'support').
     handoff: text("handoff"),
+    // Free-text reviewer notes (Task #1851). Set from the KB review screen when a
+    // reviewer, refining a different draft, opts to leave a note on THIS live doc
+    // (e.g. "an overlap on X was flagged elsewhere — fold it in on next edit").
+    // Append-only in practice; surfaced to the future editor of this doc. NULL =
+    // no notes. Landed additively (ADD COLUMN IF NOT EXISTS) — see post-merge.sh.
+    reviewerNotes: text("reviewer_notes"),
     // Declared navigation coverage (Task #1776) — set only on `navigation`-class
     // docs: fixed-vocabulary app slug + normalized area label. Publishing a nav
     // doc auto-resolves the matching open kb_nav_gap_flags row.

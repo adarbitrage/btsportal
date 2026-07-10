@@ -69,6 +69,7 @@ import {
   GitCompare,
   Radar,
   Wrench,
+  BookOpen,
 } from "lucide-react";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -95,6 +96,18 @@ interface SuggestedTaxonomy {
   blitzSection?: number | null;
   ceiling?: string | null;
   handoff?: string | null;
+}
+
+// Reviewer SOP (Task #1851) — mirrors the api-server ReviewerSop shape. The
+// listings are registry-derived server-side; the client just renders them.
+interface ReviewerSop {
+  intro: string;
+  sections: { id: string; title: string; body: string[] }[];
+  homeRoots: { slug: string; label: string; description: string; nodes: { slug: string; label: string }[] }[];
+  docClasses: { slug: string; label: string; citable: boolean; charter: string }[];
+  ceilings: { slug: string; description: string }[];
+  handoffs: { target: string; node: string; nodeLabel: string; description: string }[];
+  flags: { type: string; meaning: string }[];
 }
 
 interface SynthSource {
@@ -650,6 +663,11 @@ export default function KnowledgeBaseReview() {
   const [synthScope, setSynthScope] = useState<SynthScope>("incremental");
   const [confirmSynthAll, setConfirmSynthAll] = useState(false);
   const [showSynthDialog, setShowSynthDialog] = useState(false);
+  // Reviewer SOP (Task #1851): the in-app "how to review" reference, fetched
+  // lazily on first open. Registry-derived server-side so it never drifts.
+  const [sopOpen, setSopOpen] = useState(false);
+  const [sop, setSop] = useState<ReviewerSop | null>(null);
+  const [sopLoading, setSopLoading] = useState(false);
   const [topicIndexOpen, setTopicIndexOpen] = useState(false);
   const [failedNodesPendingRetry, setFailedNodesPendingRetry] = useState<string[]>([]);
   const [synthRoot, setSynthRoot] = useState("process");
@@ -694,11 +712,26 @@ export default function KnowledgeBaseReview() {
   const [editCeiling, setEditCeiling] = useState("");
   const [editHandoff, setEditHandoff] = useState("");
   const [adminNotes, setAdminNotes] = useState("");
+  // AI taxonomy suggestion (Task #1851): dismiss is per-doc + advisory-only
+  // (the suggestion itself is never persisted; applying it just fills the editor).
+  const [suggestDismissed, setSuggestDismissed] = useState(false);
   const [instruction, setInstruction] = useState("");
   const [redrafting, setRedrafting] = useState(false);
   const [reviewInsights, setReviewInsights] = useState<ReviewInsights | null>(null);
   const [insightsLoading, setInsightsLoading] = useState(false);
-  const [refineThread, setRefineThread] = useState<Array<{ role: string; content: string }>>([]);
+  const [refineThread, setRefineThread] = useState<
+    Array<{
+      role: string;
+      content: string;
+      // Placement-pushback turns (Task #1851) carry an optional note target so
+      // the reviewer can opt into leaving a note on the doc it belongs to.
+      placement?: {
+        verdict: string;
+        target: { kind: "live" | "staging"; id: number; title: string } | null;
+        noted?: boolean;
+      };
+    }>
+  >([]);
   const chatThreadRef = useRef<HTMLDivElement | null>(null);
   const [mergeIds, setMergeIds] = useState<Set<number>>(new Set());
   const [merging, setMerging] = useState(false);
@@ -1310,6 +1343,21 @@ export default function KnowledgeBaseReview() {
     setEditCeiling(doc.ceiling ?? doc.aiSuggestedTaxonomy?.ceiling ?? "");
     setEditHandoff(doc.handoff ?? doc.aiSuggestedTaxonomy?.handoff ?? "");
     setAdminNotes(doc.adminNotes || "");
+    setSuggestDismissed(false);
+  };
+
+  // Apply the full AI taxonomy suggestion into the editor fields (Task #1851).
+  // Advisory only — it fills the editor; nothing is persisted until the reviewer
+  // saves. Each field is applied only when the suggestion actually offers one.
+  const applySuggestedTaxonomy = () => {
+    const s = selectedDoc?.aiSuggestedTaxonomy;
+    if (!s) return;
+    if (s.homeRoot != null) setEditHomeRoot(s.homeRoot);
+    if (s.node != null) setEditNode(s.node);
+    if (s.docClass != null) setEditDocClass(s.docClass);
+    if (s.ceiling != null) setEditCeiling(s.ceiling);
+    if (s.handoff != null) setEditHandoff(s.handoff);
+    setSuggestDismissed(true);
   };
 
   const saveEdit = async (approve: boolean) => {
@@ -1373,6 +1421,19 @@ export default function KnowledgeBaseReview() {
       // Richer change descriptions: append the per-edit summary so the
       // reviewer can verify what changed without diffing.
       const changeList: string[] = Array.isArray(data.changes) ? data.changes : [];
+      // Placement pushback (Task #1851): advice-only, draft untouched. Carry the
+      // verdict + optional note target so the thread can offer "leave a note".
+      if (data.mode === "placement") {
+        setRefineThread((prev) => [
+          ...prev,
+          {
+            role: "assistant",
+            content: data.assistantMessage || "This may not belong in this document.",
+            placement: { verdict: data.verdict, target: data.target ?? null },
+          },
+        ]);
+        return;
+      }
       const bubble =
         (data.assistantMessage || "Draft updated.") +
         (changeList.length ? "\n\nChanges:\n" + changeList.map((c: string) => `• ${c}`).join("\n") : "");
@@ -1390,6 +1451,37 @@ export default function KnowledgeBaseReview() {
       throw new Error("refine-failed");
     } finally {
       setRedrafting(false);
+    }
+  };
+
+  // Leave-a-note (Task #1851): opt-in follow-up to a placement-pushback verdict.
+  // Records a short reviewer note on the target doc (live doc.reviewer_notes /
+  // draft.admin_notes) so its future editor sees the overlap flagged here.
+  const leaveNoteOnTarget = async (turnIndex: number) => {
+    if (!selectedDoc) return;
+    const turn = refineThread[turnIndex];
+    const target = turn?.placement?.target;
+    if (!target) return;
+    const note = window.prompt(
+      `Leave a note on “${target.title}” so its next editor sees this overlap:`,
+      turn.content.length > 240 ? turn.content.slice(0, 240) + "…" : turn.content,
+    );
+    if (note == null || !note.trim()) return;
+    try {
+      const res = await authFetch(`/admin/knowledgebase/staging/${selectedDoc.id}/leave-note`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ targetKind: target.kind, targetId: target.id, note: note.trim() }),
+      });
+      if (!res.ok) throw new Error("Failed");
+      setRefineThread((prev) =>
+        prev.map((t, i) =>
+          i === turnIndex && t.placement ? { ...t, placement: { ...t.placement, noted: true } } : t,
+        ),
+      );
+      toast({ title: "Note left", description: `Recorded on “${target.title}”.` });
+    } catch {
+      toast({ title: "Couldn't leave the note", variant: "destructive" });
     }
   };
 
@@ -1432,6 +1524,22 @@ export default function KnowledgeBaseReview() {
     const next = lines.join("\n");
     await updateDoc(selectedDoc.id, { editedContent: next });
     setEditContent(next);
+  };
+
+  // Open the Reviewer SOP dialog, lazily loading it on first open (Task #1851).
+  const openSop = async () => {
+    setSopOpen(true);
+    if (sop || sopLoading) return;
+    setSopLoading(true);
+    try {
+      const res = await authFetch("/admin/knowledgebase/staging/reviewer-sop");
+      if (!res.ok) throw new Error("Failed");
+      setSop(await res.json());
+    } catch {
+      toast({ title: "Couldn't load the reviewer guide", variant: "destructive" });
+    } finally {
+      setSopLoading(false);
+    }
   };
 
   const loadSources = async () => {
@@ -1747,13 +1855,23 @@ export default function KnowledgeBaseReview() {
                   <div className="rounded-lg border bg-sky-50/50 p-3 space-y-3">
                     <div className="flex items-center gap-2 text-sm font-medium text-sky-800">
                       <FolderTree className="w-4 h-4" />Taxonomy
-                      {selectedDoc.aiSuggestedTaxonomy && (
-                        <span className="text-[11px] font-normal text-sky-600">
-                          AI suggests: {selectedDoc.aiSuggestedTaxonomy.homeRoot ?? "—"}
-                          {selectedDoc.aiSuggestedTaxonomy.node ? ` / ${selectedDoc.aiSuggestedTaxonomy.node}` : ""}
-                        </span>
-                      )}
                     </div>
+                    {selectedDoc.aiSuggestedTaxonomy && !suggestDismissed && (
+                      <div className="rounded-md border border-sky-200 bg-white/70 px-2.5 py-2 text-[11px] text-sky-800 flex items-start justify-between gap-2">
+                        <div className="space-y-0.5">
+                          <div className="font-medium">AI suggests:</div>
+                          <div>
+                            Shelf: <span className="font-medium">{shelfLabel(selectedDoc.aiSuggestedTaxonomy.homeRoot) || "—"}</span>
+                            {" · "}Node: <span className="font-medium">{selectedDoc.aiSuggestedTaxonomy.node || "—"}</span>
+                            {" · "}Doc class: <span className="font-medium">{selectedDoc.aiSuggestedTaxonomy.docClass || "—"}</span>
+                          </div>
+                        </div>
+                        <div className="flex shrink-0 gap-1">
+                          <Button size="sm" variant="outline" className="h-6 px-2 text-[11px]" onClick={applySuggestedTaxonomy}>Apply</Button>
+                          <Button size="sm" variant="ghost" className="h-6 px-2 text-[11px]" onClick={() => setSuggestDismissed(true)}>Dismiss</Button>
+                        </div>
+                      </div>
+                    )}
                     <div className="grid grid-cols-2 gap-3">
                       <div>
                         <Label className="text-xs">Shelf (home root)</Label>
@@ -2127,6 +2245,28 @@ export default function KnowledgeBaseReview() {
                           }
                         >
                           {turn.content}
+                          {turn.placement?.target && (
+                            <div className="mt-2 pt-2 border-t border-violet-100 flex items-center gap-2 flex-wrap">
+                              <span className="text-[11px] text-gray-500">
+                                Belongs with: <span className="font-medium">{turn.placement.target.title}</span>
+                                <span className="ml-1 text-gray-400">
+                                  ({turn.placement.target.kind === "live" ? "live doc" : "draft"} #{turn.placement.target.id})
+                                </span>
+                              </span>
+                              {turn.placement.noted ? (
+                                <span className="text-[11px] text-emerald-600 font-medium">✓ Note left</span>
+                              ) : (
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="h-6 px-2 text-[11px]"
+                                  onClick={() => leaveNoteOnTarget(i)}
+                                >
+                                  Leave a note on it
+                                </Button>
+                              )}
+                            </div>
+                          )}
                         </div>
                       </div>
                     ))}
@@ -2274,6 +2414,16 @@ export default function KnowledgeBaseReview() {
           >
             <FileText className="w-4 h-4 mr-2" />
             Tips SOP
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={openSop}
+            title="How to review a truth-doc draft: workflow, taxonomy, doc classes, ceilings/handoffs and the risk-flag catalog"
+            data-testid="button-reviewer-sop"
+          >
+            <BookOpen className="w-4 h-4 mr-2" />
+            Reviewer Guide
           </Button>
           {(statusCounts.approved || 0) > 0 && (
             <Button size="sm" onClick={pushApproved} disabled={pushing} className="bg-[#1a56db] hover:bg-[#1a56db]/90">
@@ -2939,6 +3089,96 @@ export default function KnowledgeBaseReview() {
       </div>
 
       {renderDetailDialog()}
+
+      {/* Reviewer SOP reference (Task #1851) — registry-derived, drift-guarded. */}
+      <Dialog open={sopOpen} onOpenChange={setSopOpen}>
+        <DialogContent className="max-w-[900px] w-[92vw] sm:max-w-[900px] h-[88vh] flex flex-col overflow-hidden">
+          <DialogHeader>
+            <DialogTitle className="text-lg flex items-center gap-2">
+              <BookOpen className="w-5 h-5" /> Reviewer Guide — Truth-Doc Review SOP
+            </DialogTitle>
+          </DialogHeader>
+          <div className="flex-1 min-h-0 overflow-y-auto pr-1 space-y-5 text-sm">
+            {sopLoading && (
+              <div className="flex items-center gap-2 text-gray-500 py-8 justify-center">
+                <Loader2 className="w-4 h-4 animate-spin" /> Loading…
+              </div>
+            )}
+            {sop && (
+              <>
+                <p className="text-gray-700">{sop.intro}</p>
+
+                {sop.sections.map((s) => (
+                  <div key={s.id}>
+                    <h3 className="font-semibold text-gray-900 mb-1">{s.title}</h3>
+                    <ul className="list-disc pl-5 space-y-1 text-gray-700">
+                      {s.body.map((b, i) => (<li key={i}>{b}</li>))}
+                    </ul>
+                  </div>
+                ))}
+
+                <div>
+                  <h3 className="font-semibold text-gray-900 mb-1">Shelves &amp; nodes</h3>
+                  <div className="space-y-2">
+                    {sop.homeRoots.map((r) => (
+                      <div key={r.slug} className="rounded-md border bg-sky-50/50 p-2">
+                        <div className="font-medium text-sky-800">{r.label} <span className="text-xs font-normal text-sky-600">({r.slug})</span></div>
+                        <div className="text-xs text-gray-600">{r.description}</div>
+                        <div className="text-xs text-gray-700 mt-1">
+                          {r.nodes.map((n) => n.label).join(" · ")}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div>
+                  <h3 className="font-semibold text-gray-900 mb-1">Doc classes</h3>
+                  <ul className="space-y-1 text-gray-700">
+                    {sop.docClasses.map((c) => (
+                      <li key={c.slug}>
+                        <span className="font-medium">{c.label}</span>{" "}
+                        <span className={c.citable ? "text-emerald-600 text-xs" : "text-gray-400 text-xs"}>
+                          {c.citable ? "citable" : "non-citable"}
+                        </span>
+                        <div className="text-xs text-gray-600">{c.charter}</div>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <h3 className="font-semibold text-gray-900 mb-1">Depth ceilings</h3>
+                    <ul className="space-y-1 text-gray-700 text-xs">
+                      {sop.ceilings.map((c) => (
+                        <li key={c.slug}><span className="font-medium">{c.slug}</span>: {c.description}</li>
+                      ))}
+                    </ul>
+                  </div>
+                  <div>
+                    <h3 className="font-semibold text-gray-900 mb-1">Handoffs</h3>
+                    <ul className="space-y-1 text-gray-700 text-xs">
+                      {sop.handoffs.map((h) => (
+                        <li key={h.target}><span className="font-medium">{h.target}</span> → {h.nodeLabel}: {h.description}</li>
+                      ))}
+                    </ul>
+                  </div>
+                </div>
+
+                <div>
+                  <h3 className="font-semibold text-gray-900 mb-1">Risk-flag catalog</h3>
+                  <ul className="space-y-1 text-gray-700 text-xs">
+                    {sop.flags.map((f) => (
+                      <li key={f.type}><span className="font-mono text-[11px] bg-gray-100 px-1 rounded">{f.type}</span> — {f.meaning}</li>
+                    ))}
+                  </ul>
+                </div>
+              </>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <LiveDocDialog liveDocId={viewLiveDocId} onClose={() => setViewLiveDocId(null)} />
 

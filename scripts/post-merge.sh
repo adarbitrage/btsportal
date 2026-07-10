@@ -487,6 +487,19 @@ if [ -n "$DATABASE_URL" ]; then
     >/dev/null
 fi
 
+# Reviewer notes on live docs (Task #1851). Additive, nullable text column
+# `ai_live_documents.reviewer_notes` set from the KB review screen when a
+# reviewer opts to leave an overlap note on an existing live doc. The drift gate
+# only fires push --force when the schema is out of sync, so add this column
+# explicitly and idempotently (ADD COLUMN IF NOT EXISTS) so prod picks it up on
+# merge even when the drift gate short-circuits. No backfill — NULL = no notes.
+if [ -n "$DATABASE_URL" ]; then
+  psql "$DATABASE_URL" \
+    -v ON_ERROR_STOP=1 \
+    -f lib/db/drizzle/0114_ai_live_docs_reviewer_notes.sql \
+    >/dev/null
+fi
+
 # Admin-manageable TOOL-tag vocabulary + AI-proposes queue (Task #1586). New
 # tables, so the drift gate DOES fire push --force — but apply the companion
 # .sql explicitly and idempotently (CREATE TABLE / INDEX IF NOT EXISTS) so prod
