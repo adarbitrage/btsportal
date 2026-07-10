@@ -26,6 +26,7 @@ import { startAbuseRateLimitCleanupJob } from "./lib/abuse-rate-limit-cleanup";
 import { startQueueFallbackAuditCleanupJob } from "./lib/queue-fallback-audit-cleanup";
 import { startAuthRateLimitAuditCleanupJob } from "./lib/auth-rate-limit-audit-cleanup";
 import { startUpgradePromptEventsCleanupJob } from "./lib/upgrade-prompt-events-cleanup";
+import { startContentGapQuestionsCleanupJob } from "./lib/content-gap-questions-cleanup";
 import { startAuditLogRetentionJob } from "./lib/audit-log-retention";
 import { startYseGrantRetryJob } from "./lib/yse-grant-retry";
 import { setupRetellAgentKb, setCachedRetellSetupResult } from "./lib/retell-agent-setup";
@@ -240,6 +241,7 @@ startAbuseRateLimitCleanupJob();
 startQueueFallbackAuditCleanupJob();
 startAuthRateLimitAuditCleanupJob();
 startUpgradePromptEventsCleanupJob();
+startContentGapQuestionsCleanupJob();
 startAuditLogRetentionJob();
 startYseGrantRetryJob();
 setupRetellAgentKb({ forceRepoint: true })
