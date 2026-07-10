@@ -119,6 +119,7 @@ Respond ONLY with valid JSON (no markdown, no extra text):
   "suggestedNode": <a node slug from the list>,
   "suggestedDocClass": <${DOC_CLASSES.join(" | ")}>,
   "suggestedCeiling": <${CEILINGS.join(" | ")}>,
+  "suggestedCeilingReason": <one short sentence, max 140 chars, saying WHY this ceiling fits (what the assistant may do with this doc and where it must hand off)>,
   "suggestedTags": <array of 0-4 tag slugs>,
   "observedTools": <array of names of any third-party or in-house SOFTWARE / TOOL / PLATFORM the document tells the member to use that is NOT already in the tag list above; plain names, [] if none>,
   "memberQuestions": <array of 3-5 member-phrased questions this doc should answer>,
@@ -136,6 +137,8 @@ export interface TriageResult {
   suggestedNode: string | null;
   suggestedDocClass: string | null;
   suggestedCeiling: string | null;
+  /** One-line rationale for the suggested ceiling (advisory only). */
+  suggestedCeilingReason: string;
   suggestedTags: string[];
   /** 3-5 member-phrased questions the doc should answer (retrieval self-test). */
   memberQuestions: string[];
@@ -218,6 +221,9 @@ export async function triageDoc(doc: {
     const ceiling = typeof parsed.suggestedCeiling === "string" && CEILING_SET.has(parsed.suggestedCeiling)
       ? parsed.suggestedCeiling
       : null;
+    const ceilingReason = typeof parsed.suggestedCeilingReason === "string"
+      ? parsed.suggestedCeilingReason.trim().substring(0, 140)
+      : "";
     const memberQuestions = Array.isArray(parsed.memberQuestions)
       ? parsed.memberQuestions.map(String).map((q) => q.trim()).filter(Boolean).slice(0, 5)
       : [];
@@ -241,6 +247,7 @@ export async function triageDoc(doc: {
       suggestedNode: node,
       suggestedDocClass: docClass,
       suggestedCeiling: ceiling,
+      suggestedCeilingReason: ceilingReason,
       suggestedTags: tags,
       memberQuestions,
       suggestedAliases,
@@ -293,6 +300,29 @@ function summarizeOutcome(title: string, test: RetrievalSelfTest) {
     total: test.results.length,
     passedQuestions: test.results.filter((r) => r.passed).map((r) => r.question),
   };
+}
+
+/**
+ * The tags a doc's retrieval self-test must score against — the tags it would
+ * actually PUBLISH with (Task #1868). Once a doc has a filed placement its
+ * controlled `taxonomyTags` are authoritative (they're what publish copies into
+ * the live doc and what live retrieval's tag-tier boost reads); the AI's
+ * per-run suggested tags are only a fallback for a doc that has never been
+ * filed. Never reads the vestigial free-text `tags` column. Mirrors the
+ * filed-first doc-class resolution so the analysis path and the post-save
+ * re-score path always score against the SAME tag source.
+ */
+export function resolveSelfTestTags(
+  doc: {
+    homeRoot: string | null;
+    node: string | null;
+    docClassTarget: string | null;
+    taxonomyTags: string[] | null;
+  },
+  aiSuggestedTags: string[] | null | undefined,
+): string[] {
+  const filed = doc.homeRoot != null || doc.node != null || doc.docClassTarget != null;
+  return filed ? (doc.taxonomyTags ?? []) : (aiSuggestedTags ?? []);
 }
 
 // ── Analyze a single doc (no auto-action; always → needs_review) ──────────────
@@ -362,9 +392,12 @@ export async function runAutoTriageOnDoc(
     content: effectiveContent,
     // The class/tags the draft would publish with — they drive the
     // curated-tier and tag-tier rules inside the shared ranking. FILED
-    // class first — suggestions never demote a filed doc (Task #1847).
+    // class/tags first — suggestions never demote a filed doc (Task #1847,
+    // #1868). Scoring against the actual published tags (not a per-run AI
+    // guess) keeps the current/suggested title scores stable across runs and
+    // consistent with the post-save re-score.
     docClass: effectiveDocClass,
-    tags: result.suggestedTags ?? [],
+    tags: resolveSelfTestTags(doc, result.suggestedTags),
   };
   const runTest = async (title: string): Promise<RetrievalSelfTest | null> => {
     try {
@@ -449,6 +482,22 @@ export async function runAutoTriageOnDoc(
     category: result.suggestedCategory,
   };
 
+  // Ceiling advisory (Task #1868): unlike the rest of the taxonomy suggestion
+  // (frozen once the doc is filed), the depth ceiling is re-evaluated on EVERY
+  // run — even for filed docs — because re-checking it is cheap and never
+  // cascades into retrieval / related-topics filing. Surfaced ONLY when the AI's
+  // fresh proposal differs from (or is missing on) the doc's current ceiling;
+  // cleared to null when they agree. Never auto-applied, and refreshing it here
+  // does NOT reopen the home-root / node / doc-class lock (dedicated columns,
+  // written outside the taxonomyLocked gate).
+  const currentCeiling = doc.ceiling ?? null;
+  const proposedCeiling = result.suggestedCeiling; // validated ∈ CEILINGS or null
+  const surfaceCeiling = !!proposedCeiling && proposedCeiling !== currentCeiling;
+  const ceilingAdvisory = {
+    aiSuggestedCeiling: surfaceCeiling ? proposedCeiling : null,
+    aiSuggestedCeilingReason: surfaceCeiling ? (result.suggestedCeilingReason || null) : null,
+  };
+
   // Persist the related-topics auto-fix where the reviewed content actually
   // lives: editedContent when the doc already has one, otherwise content.
   const contentUpdates: Partial<typeof kbStagingDocsTable.$inferInsert> = {};
@@ -471,6 +520,8 @@ export async function runAutoTriageOnDoc(
       aiTitleDecision: null,
       aiSummary: result.summary,
       ...(taxonomyLocked ? {} : { aiSuggestedTaxonomy }),
+      // Always refreshed — even for filed docs (see ceilingAdvisory above).
+      ...ceilingAdvisory,
       riskFlags: flags,
       retrievalSelfTest: selfTest,
       needsExpert,
@@ -531,7 +582,10 @@ export async function rescoreSelfTestForTitle(
         title,
         content: doc.editedContent ?? doc.content,
         docClass: doc.docClassTarget ?? suggested?.docClass ?? null,
-        tags: suggested?.tags ?? [],
+        // Score against the tags the doc would actually PUBLISH with — filed
+        // taxonomyTags first, AI suggestion only for never-filed docs (Task
+        // #1868). Must match the analysis path or scores drift between runs.
+        tags: resolveSelfTestTags(doc, suggested?.tags),
       },
       questions,
     );

@@ -79,7 +79,12 @@ vi.mock("../lib/kb-flags.js", async (importOriginal) => {
   };
 });
 
-import { runAutoTriageOnDoc, rescoreSelfTestForTitle, replaceRetrievalGapFlag } from "../lib/kb-triage.js";
+import {
+  runAutoTriageOnDoc,
+  rescoreSelfTestForTitle,
+  replaceRetrievalGapFlag,
+  resolveSelfTestTags,
+} from "../lib/kb-triage.js";
 import { computeRetrievalSelfTestFlag, type RiskFlag } from "../lib/kb-flags.js";
 import type { RetrievalSelfTest } from "../lib/kb-retrieval-selftest.js";
 import type { kbStagingDocsTable } from "@workspace/db/schema";
@@ -133,13 +138,17 @@ const baseDoc = (overrides: Partial<StagingDoc> = {}): StagingDoc =>
     editedContent: null,
     homeRoot: "process",
     node: "testing",
+    taxonomyTags: [],
     docClassTarget: null,
+    ceiling: null,
     authorityRole: null,
     corroborationCount: 0,
     riskFlags: [],
     aiCleanedTitle: null,
     aiTitleDecision: null,
     aiSuggestedTaxonomy: null,
+    aiSuggestedCeiling: null,
+    aiSuggestedCeilingReason: null,
     retrievalSelfTest: null,
     needsExpert: false,
     ...overrides,
@@ -154,6 +163,7 @@ const triageJson = (cleanedTitle: string) =>
     suggestedNode: "testing",
     suggestedDocClass: "transcript",
     suggestedCeiling: "operational",
+    suggestedCeilingReason: "How-to steps; hand off pricing to a coach.",
     suggestedTags: [],
     observedTools: [],
     memberQuestions: ["how do i run testing rounds?"],
@@ -435,6 +445,125 @@ describe("rescoreSelfTestForTitle", () => {
     const doc = baseDoc({ retrievalSelfTest: passingSelfTest(["q"]) as never });
     await rescoreSelfTestForTitle(doc, "Stored Title");
     expect(updateSetCalls.length).toBe(0);
+  });
+});
+
+describe("resolveSelfTestTags — filed-first tag source (Task #1868)", () => {
+  it("filed doc: uses the doc's controlled taxonomyTags, ignoring the AI suggestion", () => {
+    const tags = resolveSelfTestTags(
+      { homeRoot: "process", node: "testing", docClassTarget: null, taxonomyTags: ["filed-a", "filed-b"] },
+      ["ai-x", "ai-y"],
+    );
+    expect(tags).toEqual(["filed-a", "filed-b"]);
+  });
+
+  it("filed only by docClassTarget: still filed → taxonomyTags win", () => {
+    const tags = resolveSelfTestTags(
+      { homeRoot: null, node: null, docClassTarget: "curated", taxonomyTags: ["filed"] },
+      ["ai"],
+    );
+    expect(tags).toEqual(["filed"]);
+  });
+
+  it("never-filed doc: falls back to the AI-suggested tags", () => {
+    const tags = resolveSelfTestTags(
+      { homeRoot: null, node: null, docClassTarget: null, taxonomyTags: [] },
+      ["ai-x"],
+    );
+    expect(tags).toEqual(["ai-x"]);
+  });
+
+  it("never-filed doc with no AI tags: empty array (never null)", () => {
+    expect(
+      resolveSelfTestTags({ homeRoot: null, node: null, docClassTarget: null, taxonomyTags: null }, undefined),
+    ).toEqual([]);
+  });
+});
+
+describe("self-test scores against filed tags in BOTH paths (Task #1868)", () => {
+  it("analysis: filed doc self-tests with its taxonomyTags, not the AI-suggested tags", async () => {
+    // triageJson suggests []; the doc is filed with real tags.
+    llmMock.mockResolvedValue(triageJson("AI Suggested Title"));
+    suggestedTitleWins("AI Suggested Title");
+    await runAutoTriageOnDoc(
+      baseDoc({ homeRoot: "process", node: "testing", taxonomyTags: ["angles", "offers"] }),
+    );
+    // Every self-test (both titles) must score against the FILED tags.
+    for (const call of runRetrievalSelfTestMock.mock.calls) {
+      expect((call[0] as { tags: string[] }).tags).toEqual(["angles", "offers"]);
+    }
+  });
+
+  it("analysis: never-filed doc falls back to the AI-suggested tags", async () => {
+    // "flexy" is the only tag in the mocked effective-tag vocabulary, so it
+    // survives triage's tag validation and reaches the self-test.
+    llmMock.mockResolvedValue(
+      JSON.stringify({
+        ...JSON.parse(triageJson("T")),
+        suggestedTags: ["flexy"],
+      }),
+    );
+    await runAutoTriageOnDoc(
+      baseDoc({ homeRoot: null, node: null, docClassTarget: null, taxonomyTags: [] }),
+    );
+    expect((runRetrievalSelfTestMock.mock.calls[0][0] as { tags: string[] }).tags).toEqual(["flexy"]);
+  });
+
+  it("re-score: filed doc uses its taxonomyTags, not aiSuggestedTaxonomy.tags", async () => {
+    const questions = ["how do i run testing rounds?"];
+    const doc = baseDoc({
+      homeRoot: "process",
+      node: "testing",
+      taxonomyTags: ["angles"],
+      retrievalSelfTest: passingSelfTest(questions) as never,
+      aiSuggestedTaxonomy: { tags: ["stale-ai-tag"] } as never,
+    });
+    await rescoreSelfTestForTitle(doc, "Stored Title");
+    expect(runRetrievalSelfTestMock).toHaveBeenCalledWith(
+      expect.objectContaining({ tags: ["angles"] }),
+      questions,
+    );
+  });
+});
+
+describe("ceiling advisory — always re-evaluated (Task #1868)", () => {
+  it("filed doc with a DIFFERENT ceiling: surfaces the suggestion even though taxonomy is locked", async () => {
+    llmMock.mockResolvedValue(triageJson("T")); // suggestedCeiling "operational"
+    await runAutoTriageOnDoc(
+      baseDoc({ homeRoot: "process", node: "testing", docClassTarget: "curated", ceiling: "conceptual" }),
+    );
+    const set = updateSetCalls.find((s) => "aiRecommendedAction" in s)!;
+    // Taxonomy suggestion stays suppressed for the filed doc …
+    expect("aiSuggestedTaxonomy" in set).toBe(false);
+    // … but the ceiling advisory is written regardless.
+    expect(set.aiSuggestedCeiling).toBe("operational");
+    expect(set.aiSuggestedCeilingReason).toBe("How-to steps; hand off pricing to a coach.");
+  });
+
+  it("ceiling already matches: advisory cleared to null", async () => {
+    llmMock.mockResolvedValue(triageJson("T")); // suggestedCeiling "operational"
+    await runAutoTriageOnDoc(
+      baseDoc({ homeRoot: "process", node: "testing", docClassTarget: "curated", ceiling: "operational" }),
+    );
+    const set = updateSetCalls.find((s) => "aiRecommendedAction" in s)!;
+    expect(set.aiSuggestedCeiling).toBeNull();
+    expect(set.aiSuggestedCeilingReason).toBeNull();
+  });
+
+  it("doc has NO ceiling yet: surfaces the suggestion", async () => {
+    llmMock.mockResolvedValue(triageJson("T"));
+    await runAutoTriageOnDoc(baseDoc({ ceiling: null }));
+    const set = updateSetCalls.find((s) => "aiRecommendedAction" in s)!;
+    expect(set.aiSuggestedCeiling).toBe("operational");
+  });
+
+  it("LLM proposes no ceiling: advisory cleared even if the doc has one", async () => {
+    llmMock.mockResolvedValue(
+      JSON.stringify({ ...JSON.parse(triageJson("T")), suggestedCeiling: null }),
+    );
+    await runAutoTriageOnDoc(baseDoc({ ceiling: "operational" }));
+    const set = updateSetCalls.find((s) => "aiRecommendedAction" in s)!;
+    expect(set.aiSuggestedCeiling).toBeNull();
   });
 });
 

@@ -153,6 +153,18 @@ export const kbStagingDocsTable = pgTable("kb_staging_docs", {
   // Once non-null, re-analysis never regenerates the suggestion.
   aiTitleDecision: text("ai_title_decision"),
 
+  // ── AI ceiling advisory (Task #1868) ─────────────────────────────────────
+  // Unlike the rest of aiSuggestedTaxonomy (frozen once a doc has a filed
+  // placement), the depth-ceiling proposal is re-evaluated on EVERY analysis
+  // run — even for filed docs — because re-checking the ceiling is cheap and
+  // does not cascade into retrieval / related-topics filing. Surfaced
+  // (non-null) only when the AI's evaluated ceiling differs from (or is missing
+  // on) the doc's current ceiling; cleared to null when they agree. Advisory
+  // only — never auto-applied and never reopens the home-root / node / doc-class
+  // lock. `aiSuggestedCeilingReason` is the AI's one-line rationale.
+  aiSuggestedCeiling: text("ai_suggested_ceiling"),
+  aiSuggestedCeilingReason: text("ai_suggested_ceiling_reason"),
+
   // Upload-specific fields (added alongside the KB upload feature)
   audience: text("audience").notNull().default("member"),
   sourceObjectPath: text("source_object_path"),

@@ -181,6 +181,12 @@ interface StagingDoc {
   conflictData: ConflictData | null;
   staleReferences: string[] | null;
   aiSuggestedTaxonomy: SuggestedTaxonomy | null;
+  // Ceiling advisory (Task #1868): re-evaluated on EVERY analysis run, even for
+  // filed docs. Non-null only when the AI's fresh ceiling differs from the
+  // doc's current ceiling. Advisory — reviewer applies on click WITHOUT
+  // reopening the filed home-root / node / doc-class.
+  aiSuggestedCeiling: string | null;
+  aiSuggestedCeilingReason: string | null;
   needsExpert: boolean;
   aiCleanedTitle: string | null;
   // Title-suggestion decision (Task #1839): null = pending,
@@ -2019,6 +2025,39 @@ export default function KnowledgeBaseReview() {
                       <Badge key={tag} variant="outline" className="text-xs">{tag}</Badge>
                     ))}
                   </div>
+
+                  {/* Ceiling advisory (Task #1868). Re-evaluated on EVERY analysis
+                      run — surfaces even for filed docs (unlike the taxonomy
+                      suggestion, which is suppressed once filed). Applying it sets
+                      ONLY the ceiling; the filed home-root / node / doc-class are
+                      untouched. */}
+                  {selectedDoc.aiSuggestedCeiling &&
+                    selectedDoc.aiSuggestedCeiling !== selectedDoc.ceiling && (
+                    <div className="rounded-lg border border-violet-300 bg-violet-50 p-3 text-sm">
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-1.5 font-medium text-violet-800">
+                          <Sparkles className="w-3.5 h-3.5" />
+                          Suggested ceiling: {ceilingLabel(selectedDoc.aiSuggestedCeiling)}
+                          {selectedDoc.ceiling && (
+                            <span className="font-normal text-violet-600">
+                              {" "}(currently {ceilingLabel(selectedDoc.ceiling)})
+                            </span>
+                          )}
+                        </div>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="h-6 px-2 text-[11px]"
+                          onClick={() => updateDoc(selectedDoc.id, { ceiling: selectedDoc.aiSuggestedCeiling })}
+                        >
+                          Apply
+                        </Button>
+                      </div>
+                      {selectedDoc.aiSuggestedCeilingReason && (
+                        <p className="mt-1 text-violet-700">{selectedDoc.aiSuggestedCeilingReason}</p>
+                      )}
+                    </div>
+                  )}
 
                   {/* New-vs-Update panel (Synthesis Engine Part 3). A proposed
                       revision supersedes an existing published Live AI Document —

@@ -603,3 +603,15 @@ if [ -n "$DATABASE_URL" ]; then
     -f lib/db/drizzle/0111_kb_name_flag_dismissals.sql \
     >/dev/null
 fi
+
+# Always-on KB ceiling advisory (Task #1868). Two additive kb_staging_docs
+# columns (ai_suggested_ceiling / ai_suggested_ceiling_reason) for the
+# re-evaluated-every-run depth-ceiling proposal. Applying here keeps the
+# live-schema-drift gate green so the conditional push stays skipped. Idempotent
+# (ADD COLUMN IF NOT EXISTS).
+if [ -n "$DATABASE_URL" ]; then
+  psql "$DATABASE_URL" \
+    -v ON_ERROR_STOP=1 \
+    -f lib/db/drizzle/0115_kb_staging_ceiling_advisory.sql \
+    >/dev/null
+fi
