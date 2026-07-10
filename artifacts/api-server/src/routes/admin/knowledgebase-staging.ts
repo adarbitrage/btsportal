@@ -678,14 +678,123 @@ router.get("/live-similarity", async (_req: Request, res: Response) => {
 // Idempotent / concurrent-safe: only docs still in needs_review are merged.
 router.post("/duplicates/resolve", async (req: Request, res: Response) => {
   try {
-    const { canonicalId, mergedIds, title, content } = req.body as {
+    const { canonicalId, mergedIds, title, content, createNew } = req.body as {
       canonicalId?: number;
       mergedIds?: number[];
       title?: string;
       content?: string;
+      createNew?: boolean;
     };
 
-    if (!canonicalId || !Array.isArray(mergedIds) || mergedIds.length === 0) {
+    if (!Array.isArray(mergedIds) || mergedIds.length === 0) {
+      res.status(400).json({ error: "a non-empty mergedIds array is required" });
+      return;
+    }
+
+    const userId = (req as unknown as { userId: number }).userId;
+
+    // ── New-canonical path (Task #1893): the AI-merged draft becomes its OWN
+    // new needs_review document, and EVERY selected source draft is folded into
+    // it — no existing draft is overwritten. Metadata (home root, node, doc
+    // class, etc.) is inherited from a source draft so the new doc lands in the
+    // same shelf/node. The new doc still goes through normal review.
+    if (createNew) {
+      const newTitle = typeof title === "string" ? title.trim() : "";
+      const newContent = typeof content === "string" ? content.trim() : "";
+      if (!newTitle || !newContent) {
+        res.status(400).json({ error: "title and content are required to create a merged document" });
+        return;
+      }
+
+      const sources = await db
+        .select()
+        .from(kbStagingDocsTable)
+        .where(inArray(kbStagingDocsTable.id, mergedIds));
+      if (sources.length === 0) {
+        res.status(404).json({ error: "No source drafts found to merge" });
+        return;
+      }
+      // Prefer a still-reviewable source as the metadata donor.
+      const donor = sources.find((s) => s.status === "needs_review") ?? sources[0];
+
+      // Sentinel to roll the transaction back when nothing actually merges.
+      const RESOLVE_NOOP = Symbol("resolve-noop");
+      try {
+        const result = await db.transaction(async (tx) => {
+          const [created] = await tx
+            .insert(kbStagingDocsTable)
+            .values({
+              title: newTitle,
+              content: newContent,
+              category: donor.category,
+              status: "needs_review",
+              homeRoot: donor.homeRoot,
+              node: donor.node,
+              docClassTarget: donor.docClassTarget,
+              docType: donor.docType,
+              audience: donor.audience,
+              originType: "ai_synthesized",
+            })
+            .returning();
+
+          // Conditional flip = idempotent & concurrency-safe: only drafts still
+          // in needs_review are folded in; anything already resolved is skipped.
+          const merged = await tx
+            .update(kbStagingDocsTable)
+            .set({ status: "merged", mergedIntoId: created.id })
+            .where(
+              and(
+                inArray(kbStagingDocsTable.id, mergedIds),
+                eq(kbStagingDocsTable.status, "needs_review"),
+              ),
+            )
+            .returning({ id: kbStagingDocsTable.id, title: kbStagingDocsTable.title });
+
+          // No draft actually flipped (e.g. a double-submit replay) — roll back
+          // so we never orphan an AI-merge doc with nothing merged into it.
+          if (merged.length === 0) throw RESOLVE_NOOP;
+
+          for (const m of merged) {
+            await tx.insert(kbTriageAuditLogTable).values({
+              stagingDocId: m.id,
+              eventType: "merged_duplicate",
+              confidenceScore: null,
+              actorUserId: userId,
+              aiReasoning: `Merged into new AI-merged document #${created.id} ("${newTitle}") via cluster resolution.`,
+              docTitle: m.title,
+            });
+          }
+          await tx.insert(kbTriageAuditLogTable).values({
+            stagingDocId: created.id,
+            eventType: "ai_merge_created",
+            confidenceScore: null,
+            actorUserId: userId,
+            aiReasoning: `Created from AI merge of drafts ${merged.map((m) => `#${m.id}`).join(", ")}.`,
+            docTitle: created.title,
+          });
+
+          return { created, merged };
+        });
+
+        res.json({
+          canonical: result.created,
+          created: true,
+          merged: result.merged.length,
+          mergedIds: result.merged.map((m) => m.id),
+          skipped: mergedIds.filter((id) => !result.merged.some((m) => m.id === id)),
+        });
+      } catch (txErr) {
+        if (txErr === RESOLVE_NOOP) {
+          res.status(409).json({ error: "All selected drafts have already been resolved" });
+          return;
+        }
+        throw txErr;
+      }
+      return;
+    }
+
+    // ── Manual-keep path: keep ONE existing draft, fold the rest into it ──
+    if (!canonicalId) {
       res.status(400).json({ error: "canonicalId and a non-empty mergedIds array are required" });
       return;
     }
@@ -706,8 +815,6 @@ router.post("/duplicates/resolve", async (req: Request, res: Response) => {
       res.status(409).json({ error: `Canonical document is no longer in needs_review (status: ${canonical.status})` });
       return;
     }
-
-    const userId = (req as unknown as { userId: number }).userId;
 
     // Apply reviewer edits to the canonical (status stays needs_review).
     const canonicalUpdates: Record<string, unknown> = {};

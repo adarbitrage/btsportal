@@ -225,6 +225,10 @@ export default function KnowledgeBaseDuplicates({ onBack }: { onBack: () => void
     .filter((d): d is DupDoc => Boolean(d));
   const validKeptId = keptId != null && selectedDocs.some((d) => d.id === keptId) ? keptId : null;
   const mergeTargetIds = selectedDocs.filter((d) => d.id !== validKeptId).map((d) => d.id);
+  // When an AI merge draft has been generated it becomes its OWN kept document
+  // (Task #1893): all selected drafts fold into it, so there's no "pick an
+  // existing card to keep" step.
+  const hasAiMerge = canonicalContent != null;
 
   function toggleSelected(id: number) {
     setSelectedIds((prev) => {
@@ -287,31 +291,58 @@ export default function KnowledgeBaseDuplicates({ onBack }: { onBack: () => void
   }
 
   async function resolveMerge() {
-    if (validKeptId == null) {
-      toast({ title: "Choose a draft to keep", description: "Pick which selected draft to keep before merging.", variant: "destructive" });
-      return;
-    }
-    if (mergeTargetIds.length === 0) {
-      toast({ title: "Select at least one draft to merge", description: "Add another draft to fold into the kept one.", variant: "destructive" });
-      return;
+    // AI-merge path (Task #1893): the generated draft is saved as its OWN new
+    // document and ALL selected drafts are folded into it.
+    if (hasAiMerge) {
+      if (!canonicalTitle.trim()) {
+        toast({ title: "Add a title", description: "Give the AI-merged document a title before saving.", variant: "destructive" });
+        return;
+      }
+      if (!canonicalContent || !canonicalContent.trim()) {
+        toast({ title: "AI merge is empty", description: "The merged content can't be blank — edit it or discard the AI draft.", variant: "destructive" });
+        return;
+      }
+      if (selectedDocs.length < 2) {
+        toast({ title: "Select at least two drafts", description: "Pick the drafts the AI merge should replace.", variant: "destructive" });
+        return;
+      }
+    } else {
+      if (validKeptId == null) {
+        toast({ title: "Choose a draft to keep", description: "Pick which selected draft to keep before merging.", variant: "destructive" });
+        return;
+      }
+      if (mergeTargetIds.length === 0) {
+        toast({ title: "Select at least one draft to merge", description: "Add another draft to fold into the kept one.", variant: "destructive" });
+        return;
+      }
     }
     setResolving(true);
     try {
+      const body = hasAiMerge
+        ? {
+            createNew: true,
+            mergedIds: selectedDocs.map((d) => d.id),
+            title: canonicalTitle.trim(),
+            content: canonicalContent ?? undefined,
+          }
+        : {
+            canonicalId: validKeptId,
+            mergedIds: mergeTargetIds,
+            title: canonicalTitle.trim() || undefined,
+            content: canonicalContent ?? undefined,
+          };
       const res = await authFetch("/admin/knowledgebase/staging/duplicates/resolve", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          canonicalId: validKeptId,
-          mergedIds: mergeTargetIds,
-          title: canonicalTitle.trim() || undefined,
-          content: canonicalContent ?? undefined,
-        }),
+        body: JSON.stringify(body),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Failed to resolve duplicates");
       toast({
-        title: `Kept 1, marked ${data.merged} merged`,
-        description: "The kept draft stays in Needs Review for normal approval. Unselected drafts were left untouched.",
+        title: hasAiMerge ? `Saved AI merge, marked ${data.merged} merged` : `Kept 1, marked ${data.merged} merged`,
+        description: hasAiMerge
+          ? "The new AI-merged document is in Needs Review for normal approval. The originals were folded into it."
+          : "The kept draft stays in Needs Review for normal approval. Unselected drafts were left untouched.",
       });
       clearSelection();
       fetchClusters();
@@ -469,10 +500,16 @@ export default function KnowledgeBaseDuplicates({ onBack }: { onBack: () => void
               {proposing ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Sparkles className="w-4 h-4 mr-2" />}
               {proposing ? "Drafting…" : "AI merge draft"}
             </Button>
-            <Button onClick={resolveMerge} disabled={resolving || validKeptId == null || mergeTargetIds.length === 0}
+            <Button onClick={resolveMerge}
+              disabled={
+                resolving ||
+                (hasAiMerge
+                  ? !canonicalTitle.trim() || selectedDocs.length < 2
+                  : validKeptId == null || mergeTargetIds.length === 0)
+              }
               className="bg-purple-600 hover:bg-purple-700" data-testid="button-resolve-cluster">
               {resolving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Merge className="w-4 h-4 mr-2" />}
-              Keep 1, mark {mergeTargetIds.length} merged
+              {hasAiMerge ? `Keep AI merge, mark ${selectedDocs.length} merged` : `Keep 1, mark ${mergeTargetIds.length} merged`}
             </Button>
           </div>
         </div>
@@ -481,28 +518,24 @@ export default function KnowledgeBaseDuplicates({ onBack }: { onBack: () => void
           <CardContent className="py-3 px-4 space-y-3">
             <div className="text-sm text-purple-900 font-medium flex items-center gap-2">
               <GitCompare className="w-4 h-4" />
-              {selectedDocs.length} drafts selected to merge{" "}
-              {validKeptId == null ? "— choose which one to keep." : "— the others are marked merged (nothing is auto-approved)."}
+              {hasAiMerge ? (
+                <>The AI merge below becomes a <strong>new document</strong> — all {selectedDocs.length} selected drafts fold into it (nothing is auto-approved).</>
+              ) : (
+                <>
+                  {selectedDocs.length} drafts selected to merge{" "}
+                  {validKeptId == null ? "— choose which one to keep." : "— the others are marked merged (nothing is auto-approved)."}
+                </>
+              )}
             </div>
-            <div>
-              <Label className="text-xs">Canonical title (editable — this becomes the kept draft's title)</Label>
-              <Input
-                value={canonicalTitle}
-                onChange={(e) => setCanonicalTitle(e.target.value)}
-                className="bg-white"
-                placeholder={validKeptId == null ? "Pick a draft to keep first" : undefined}
-              />
-            </div>
-            {canonicalContent != null && (
+            {!hasAiMerge && (
               <div>
-                <Label className="text-xs flex items-center gap-1.5">
-                  <Sparkles className="w-3 h-3 text-violet-600" />
-                  AI-merged draft (editable — applied to the kept draft on resolve; clear it to keep the original text)
-                </Label>
-                <Textarea value={canonicalContent} onChange={(e) => setCanonicalContent(e.target.value)} rows={10} className="font-mono text-xs bg-white" />
-                <Button variant="ghost" size="sm" className="mt-1 h-6 px-2 text-[11px] text-gray-500" onClick={() => setCanonicalContent(null)}>
-                  Discard AI draft — keep the selected draft's own content
-                </Button>
+                <Label className="text-xs">Canonical title (editable — this becomes the kept draft's title)</Label>
+                <Input
+                  value={canonicalTitle}
+                  onChange={(e) => setCanonicalTitle(e.target.value)}
+                  className="bg-white"
+                  placeholder={validKeptId == null ? "Pick a draft to keep first" : undefined}
+                />
               </div>
             )}
           </CardContent>
@@ -516,14 +549,51 @@ export default function KnowledgeBaseDuplicates({ onBack }: { onBack: () => void
           </Card>
         ) : (
           <div className="grid gap-3" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))" }}>
+            {/* AI merge draft renders as its OWN kept card (Task #1893). */}
+            {hasAiMerge && (
+              <Card key="ai-merge" className="flex flex-col ring-2 ring-violet-500 border-violet-300" data-testid="card-ai-merge">
+                <CardContent className="p-4 space-y-2 flex flex-col flex-1 min-h-0">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex items-center gap-1.5">
+                      <Sparkles className="w-4 h-4 text-violet-600 shrink-0" />
+                      <h3 className="font-semibold text-sm text-gray-900">New AI-merged document</h3>
+                    </div>
+                    <Badge className="bg-violet-600 shrink-0">Keeping</Badge>
+                  </div>
+                  <div>
+                    <Label className="text-xs">Title (editable)</Label>
+                    <Input
+                      value={canonicalTitle}
+                      onChange={(e) => setCanonicalTitle(e.target.value)}
+                      className="bg-white"
+                      data-testid="input-ai-merge-title"
+                    />
+                  </div>
+                  <div className="flex flex-col flex-1 min-h-0">
+                    <Label className="text-xs">Merged content (editable)</Label>
+                    <Textarea
+                      value={canonicalContent ?? ""}
+                      onChange={(e) => setCanonicalContent(e.target.value)}
+                      className="font-mono text-xs bg-white flex-1 min-h-[14rem]"
+                      data-testid="textarea-ai-merge-content"
+                    />
+                  </div>
+                  <Button variant="ghost" size="sm" className="h-6 px-2 text-[11px] text-gray-500 self-start" onClick={() => setCanonicalContent(null)}>
+                    Discard AI draft — keep an existing draft instead
+                  </Button>
+                </CardContent>
+              </Card>
+            )}
             {selectedDocs.map((doc) => {
-              const isKept = doc.id === validKeptId;
+              const isKept = !hasAiMerge && doc.id === validKeptId;
               return (
                 <Card key={doc.id} className={`flex flex-col ${isKept ? "ring-2 ring-purple-500 border-purple-300" : "opacity-95"}`}>
                   <CardContent className="p-4 space-y-2 flex flex-col flex-1 min-h-0">
                     <div className="flex items-start justify-between gap-2">
                       <h3 className="font-semibold text-sm text-gray-900">{doc.title}</h3>
-                      {isKept ? (
+                      {hasAiMerge ? (
+                        <Badge variant="outline" className="shrink-0 text-violet-700 border-violet-300">Will be merged</Badge>
+                      ) : isKept ? (
                         <Badge className="bg-purple-600 shrink-0">Keeping</Badge>
                       ) : (
                         <Button size="sm" variant="outline" className="h-6 px-2 text-[11px] shrink-0" onClick={() => pickKept(doc)} data-testid={`button-keep-${doc.id}`}>

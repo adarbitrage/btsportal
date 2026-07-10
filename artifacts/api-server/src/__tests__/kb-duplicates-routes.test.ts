@@ -188,6 +188,77 @@ describe("KB duplicate grouping & merge aid routes", () => {
     expect(replay.body.skipped.sort((a: number, b: number) => a - b)).toEqual([idB, idC].sort((a, b) => a - b));
   });
 
+  it("resolve createNew makes a new needs_review doc, folds ALL sources into it, is auditable & reversible", async () => {
+    const idA = await seedStaging({ title: `${TEST_TAG} createnew A`, content: `${BODY} createnew-a` });
+    const idB = await seedStaging({ title: `${TEST_TAG} createnew B`, content: `${BODY} createnew-b` });
+    const idC = await seedStaging({ title: `${TEST_TAG} createnew C`, content: `${BODY} createnew-c` });
+
+    const res = await request(app)
+      .post("/api/duplicates/resolve")
+      .set("Cookie", adminCookie)
+      .send({
+        createNew: true,
+        mergedIds: [idA, idB, idC],
+        title: `${TEST_TAG} the AI merge doc`,
+        content: "Best-of merged content authored by the AI.",
+      });
+    expect(res.status).toBe(200);
+    expect(res.body.created).toBe(true);
+    expect(res.body.merged).toBe(3);
+    const newId = res.body.canonical.id as number;
+    seededStagingIds.push(newId);
+    expect(newId).not.toBe(idA);
+    expect(res.body.canonical.status).toBe("needs_review");
+    expect(res.body.canonical.title).toBe(`${TEST_TAG} the AI merge doc`);
+    expect(res.body.canonical.content).toBe("Best-of merged content authored by the AI.");
+
+    // Every original is now merged into the NEW doc, gone from the review queue.
+    const sources = await db.select().from(kbStagingDocsTable).where(inArray(kbStagingDocsTable.id, [idA, idB, idC]));
+    for (const row of sources) {
+      expect(row.status).toBe("merged");
+      expect(row.mergedIntoId).toBe(newId);
+    }
+
+    // Auditable: a merged_duplicate row per source + an ai_merge_created row on the new doc.
+    const srcAudit = await db.select().from(kbTriageAuditLogTable).where(inArray(kbTriageAuditLogTable.stagingDocId, [idA, idB, idC]));
+    expect(srcAudit.filter((a) => a.eventType === "merged_duplicate")).toHaveLength(3);
+    const newAudit = await db.select().from(kbTriageAuditLogTable).where(eq(kbTriageAuditLogTable.stagingDocId, newId));
+    expect(newAudit.filter((a) => a.eventType === "ai_merge_created")).toHaveLength(1);
+
+    // Reversible: unmerge one source restores it to needs_review; new doc untouched.
+    const undo = await request(app).post("/api/duplicates/unmerge").set("Cookie", adminCookie).send({ id: idA });
+    expect(undo.status).toBe(200);
+    const [restored] = await db.select().from(kbStagingDocsTable).where(eq(kbStagingDocsTable.id, idA));
+    expect(restored.status).toBe("needs_review");
+    const [newDoc] = await db.select().from(kbStagingDocsTable).where(eq(kbStagingDocsTable.id, newId));
+    expect(newDoc.status).toBe("needs_review");
+
+    // Idempotent replay: sources already merged → nothing flips → 409, no orphan doc.
+    const before = await db.select().from(kbStagingDocsTable).where(eq(kbStagingDocsTable.status, "needs_review"));
+    const replay = await request(app)
+      .post("/api/duplicates/resolve")
+      .set("Cookie", adminCookie)
+      .send({ createNew: true, mergedIds: [idB, idC], title: "x", content: "y" });
+    expect(replay.status).toBe(409);
+    const after = await db.select().from(kbStagingDocsTable).where(eq(kbStagingDocsTable.status, "needs_review"));
+    expect(after.length).toBe(before.length); // no new orphan doc created
+  });
+
+  it("resolve createNew rejects missing title/content", async () => {
+    const id1 = await seedStaging({ title: `${TEST_TAG} createnew-bad 1`, content: BODY });
+    const id2 = await seedStaging({ title: `${TEST_TAG} createnew-bad 2`, content: BODY });
+    const noTitle = await request(app)
+      .post("/api/duplicates/resolve")
+      .set("Cookie", adminCookie)
+      .send({ createNew: true, mergedIds: [id1, id2], content: "body only" });
+    expect(noTitle.status).toBe(400);
+    const noContent = await request(app)
+      .post("/api/duplicates/resolve")
+      .set("Cookie", adminCookie)
+      .send({ createNew: true, mergedIds: [id1, id2], title: "title only" });
+    expect(noContent.status).toBe(400);
+  });
+
   it("rejects resolve with a non-needs_review canonical, missing ids, or canonical in mergedIds", async () => {
     const approvedId = await seedStaging({ title: `${TEST_TAG} approved doc`, content: BODY, status: "approved" });
     const pendingId = await seedStaging({ title: `${TEST_TAG} pending doc`, content: BODY });
