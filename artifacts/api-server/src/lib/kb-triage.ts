@@ -21,8 +21,10 @@ import {
   autoFixRelatedTopics,
   gatherFlagContext,
   maxSeverity,
+  STALE_LEGACY_PATTERNS,
   type RiskFlag,
 } from "./kb-flags.js";
+import { systemSettingsTable } from "@workspace/db/schema";
 import { runRetrievalSelfTest, type RetrievalSelfTest } from "./kb-retrieval-selftest.js";
 import { recordProposedSynonym } from "./kb-proposed-synonyms.js";
 import {
@@ -240,6 +242,78 @@ export async function triageDoc(doc: {
   }
 }
 
+// ── Evidence-based title suggestions (Task #1848) ────────────────────────────
+//
+// A proposed title is only surfaced to the reviewer when it MEASURABLY beats
+// the current title through the retrieval self-test (same member questions,
+// real retrieval path) or fixes a brand/canonical-naming violation. Otherwise
+// the suggestion is suppressed and the stored title stands untouched.
+
+/** Does a title violate the brand/canonical-naming rules (legacy brand names,
+ * retired coach surnames, dropped networks, legacy email domains)? */
+export function titleViolatesBrandRules(title: string): boolean {
+  return STALE_LEGACY_PATTERNS.some(({ re }) => re.test(title));
+}
+
+/** Canonical vocabulary that must survive a title rewrite for auto-accept. */
+export const CANONICAL_TITLE_TERMS: readonly string[] = ["flexy", "blitz", "7 pillars", "bts"];
+
+/** True when every canonical term present in `current` also appears in `suggested`. */
+export function preservesCanonicalNames(current: string, suggested: string): boolean {
+  const cur = current.toLowerCase();
+  const sug = suggested.toLowerCase();
+  return CANONICAL_TITLE_TERMS.every((t) => !cur.includes(t) || sug.includes(t));
+}
+
+/**
+ * Pure comparison of two self-test outcomes for the SAME question list.
+ * - improved: more questions pass, or a question that failed to surface under
+ *   the current title newly surfaces under the suggested one.
+ * - strictlyBetter: improved AND no regression on any question (pass stays a
+ *   pass, surfacing stays surfaced).
+ */
+export function compareTitleOutcomes(
+  current: RetrievalSelfTest,
+  suggested: RetrievalSelfTest,
+): { improved: boolean; strictlyBetter: boolean } {
+  const curByQ = new Map(current.results.map((r) => [r.question, r]));
+  let improved = suggested.passedCount > current.passedCount;
+  let regressed = false;
+  for (const s of suggested.results) {
+    const c = curByQ.get(s.question);
+    if (!c) continue;
+    if ((!c.passed && s.passed) || (!c.wouldSurface && s.wouldSurface)) improved = true;
+    if ((c.passed && !s.passed) || (c.wouldSurface && !s.wouldSurface)) regressed = true;
+  }
+  return { improved, strictlyBetter: improved && !regressed };
+}
+
+function summarizeOutcome(title: string, test: RetrievalSelfTest) {
+  return {
+    title,
+    passedCount: test.passedCount,
+    total: test.results.length,
+    passedQuestions: test.results.filter((r) => r.passed).map((r) => r.question),
+  };
+}
+
+/** Off-by-default admin setting: auto-accept strictly-better title suggestions. */
+export const TITLE_AUTO_ACCEPT_SETTING_KEY = "kb_title_auto_accept";
+
+export async function isTitleAutoAcceptEnabled(): Promise<boolean> {
+  try {
+    const rows = await db
+      .select({ value: systemSettingsTable.value })
+      .from(systemSettingsTable)
+      .where(eq(systemSettingsTable.key, TITLE_AUTO_ACCEPT_SETTING_KEY));
+    const value = rows[0]?.value as { enabled?: unknown } | boolean | undefined;
+    if (typeof value === "boolean") return value;
+    return value?.enabled === true;
+  } catch {
+    return false; // fail closed — auto-accept stays off
+  }
+}
+
 // ── Analyze a single doc (no auto-action; always → needs_review) ──────────────
 
 export interface AutoTriageDocResult {
@@ -260,7 +334,6 @@ export async function runAutoTriageOnDoc(
   // — the stored title stands, and everything downstream (flags, self-test,
   // duplicate check) is computed against it.
   const titleLocked = doc.aiTitleDecision != null;
-  const effectiveTitle = titleLocked ? doc.title : (result.cleanedTitle || doc.title);
 
   // Filed placement is authoritative (Task #1847). Analysis suggestions are
   // ADVISORY ONLY: every judging path (retrieval self-test, risk flags) must
@@ -299,38 +372,111 @@ export async function runAutoTriageOnDoc(
   });
   const effectiveContent = relFix.content;
 
-  // Retrieval self-test (Task #1804): run each member question through the
-  // REAL retrieval path vs live docs + score the draft ad-hoc (embeddings are
-  // computed per run and discarded — never stored for staging docs). A
-  // self-test failure must never fail analysis. Runs against whichever title
-  // actually stands (the suggestion when pending, the stored title when the
-  // suggestion was decided/edited) so the test matches what publish would use.
-  let selfTest: RetrievalSelfTest | null = null;
-  if (result.memberQuestions.length > 0) {
+  // Retrieval self-test (Task #1804) + evidence-based title gate (Task #1848).
+  // Each member question runs through the REAL retrieval path vs live docs,
+  // with the draft scored ad-hoc (embeddings computed per run and discarded —
+  // never stored for staging docs). A self-test failure must never fail
+  // analysis.
+  //
+  // When the LLM proposes a different title (and the suggestion isn't locked),
+  // BOTH titles are scored through the same questions. The suggestion is only
+  // surfaced when it measurably improves retrieval or fixes a brand/canonical
+  // naming violation; otherwise it is suppressed and the stored title stands.
+  const draftBase = {
+    content: effectiveContent,
+    // The class/tags the draft would publish with — they drive the
+    // curated-tier and tag-tier rules inside the shared ranking. FILED
+    // class first — suggestions never demote a filed doc (Task #1847).
+    docClass: effectiveDocClass,
+    tags: result.suggestedTags ?? [],
+  };
+  const runTest = async (title: string): Promise<RetrievalSelfTest | null> => {
     try {
-      selfTest = await runRetrievalSelfTest(
-        {
-          title: effectiveTitle,
-          content: effectiveContent,
-          // The class/tags the draft would publish with — they drive the
-          // curated-tier and tag-tier rules inside the shared ranking. FILED
-          // class first — suggestions never demote a filed doc (Task #1847).
-          docClass: effectiveDocClass,
-          tags: result.suggestedTags ?? [],
-        },
-        result.memberQuestions,
-      );
+      return await runRetrievalSelfTest({ title, ...draftBase }, result.memberQuestions);
     } catch (err) {
       console.error(`[KB Triage] retrieval self-test failed for doc ${doc.id}:`, err);
+      return null;
+    }
+  };
+
+  const proposedTitle = titleLocked ? null : (result.cleanedTitle || "").trim();
+  const hasProposal = !!proposedTitle && proposedTitle !== doc.title.trim();
+
+  let selfTest: RetrievalSelfTest | null = null;
+  let surfacedSuggestion: string | null = null; // what gets persisted to aiCleanedTitle
+  let autoAccept = false;
+  let standingTitle = doc.title;
+
+  if (!hasProposal) {
+    // No (new) suggestion — single self-test against the standing title.
+    standingTitle = doc.title;
+    if (result.memberQuestions.length > 0) selfTest = await runTest(standingTitle);
+  } else {
+    const currentTest = result.memberQuestions.length > 0 ? await runTest(doc.title) : null;
+    const suggestedTest = result.memberQuestions.length > 0 ? await runTest(proposedTitle!) : null;
+
+    const brandFix =
+      titleViolatesBrandRules(doc.title) && !titleViolatesBrandRules(proposedTitle!);
+    const { improved, strictlyBetter } =
+      currentTest && suggestedTest
+        ? compareTitleOutcomes(currentTest, suggestedTest)
+        : { improved: false, strictlyBetter: false };
+
+    const surface = improved || brandFix;
+    if (!surface) {
+      // Evidence gate: no measurable win, no brand fix — no suggestion. The
+      // stored title stands and everything downstream judges it.
+      standingTitle = doc.title;
+      selfTest = currentTest;
+      if (currentTest && suggestedTest) {
+        selfTest = {
+          ...currentTest,
+          titleComparison: {
+            current: summarizeOutcome(doc.title, currentTest),
+            suggested: summarizeOutcome(proposedTitle!, suggestedTest),
+            improved,
+            strictlyBetter,
+            brandFix,
+            autoAccepted: false,
+          },
+        };
+      }
+    } else {
+      surfacedSuggestion = proposedTitle;
+      standingTitle = proposedTitle!;
+      selfTest = suggestedTest;
+
+      // Off-by-default auto-accept: strictly better on every question AND
+      // canonical tool names preserved AND no brand violation introduced.
+      autoAccept =
+        strictlyBetter &&
+        !titleViolatesBrandRules(proposedTitle!) &&
+        preservesCanonicalNames(doc.title, proposedTitle!) &&
+        (await isTitleAutoAcceptEnabled());
+
+      if (currentTest && suggestedTest) {
+        selfTest = {
+          ...suggestedTest,
+          titleComparison: {
+            current: summarizeOutcome(doc.title, currentTest),
+            suggested: summarizeOutcome(proposedTitle!, suggestedTest),
+            improved,
+            strictlyBetter,
+            brandFix,
+            autoAccepted: autoAccept,
+          },
+        };
+      }
     }
   }
+  const finalTitle = standingTitle;
 
   const ctx = await gatherFlagContext({
     title: doc.title,
-    aiCleanedTitle: titleLocked ? null : result.cleanedTitle,
+    aiCleanedTitle: surfacedSuggestion,
   });
   const flags = computeRiskFlags({
-    title: effectiveTitle,
+    title: finalTitle,
     content: effectiveContent,
     authorityRole: doc.authorityRole,
     // ONE coherent placement, filed-first (Task #1847): flags are judged
@@ -374,7 +520,13 @@ export async function runAutoTriageOnDoc(
       // regenerate taxonomy suggestions for a doc with a filed placement
       // (Task #1847) — the stored suggestion stays stable and advisory.
       ...(taxonomyLocked ? {} : { aiSuggestedCategory: result.suggestedCategory }),
-      ...(titleLocked ? {} : { aiCleanedTitle: result.cleanedTitle }),
+      // Evidence gate (Task #1848): only a measurably-better (or brand-fixing)
+      // suggestion is persisted; otherwise the suggestion slot is cleared and
+      // the stored title stands untouched.
+      ...(titleLocked ? {} : { aiCleanedTitle: surfacedSuggestion }),
+      // Auto-accept (off-by-default admin setting): apply the strictly-better
+      // suggestion as the stored title and lock the decision.
+      ...(autoAccept ? { title: surfacedSuggestion!, aiTitleDecision: "accepted" } : {}),
       aiSummary: result.summary,
       ...(taxonomyLocked ? {} : { aiSuggestedTaxonomy }),
       riskFlags: flags,
@@ -394,6 +546,20 @@ export async function runAutoTriageOnDoc(
     aiReasoning: result.reasoning,
     docTitle: doc.title,
   });
+
+  if (autoAccept && surfacedSuggestion) {
+    const cmp = selfTest?.titleComparison;
+    await db.insert(kbTriageAuditLogTable).values({
+      stagingDocId: doc.id,
+      eventType: "title_auto_accepted",
+      confidenceScore: null,
+      actorUserId: null,
+      aiReasoning: `Auto-accepted title "${surfacedSuggestion}" over "${doc.title}" (admin setting on): strictly better on every self-test question${
+        cmp ? ` (${cmp.current.passedCount}/${cmp.current.total} → ${cmp.suggested.passedCount}/${cmp.suggested.total} member questions pass)` : ""
+      }${cmp?.brandFix ? "; also fixes a brand/canonical-naming violation" : ""}.`,
+      docTitle: surfacedSuggestion,
+    });
+  }
 
   return {
     id: doc.id,

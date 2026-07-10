@@ -198,6 +198,22 @@ interface SelfTestQuestionResult {
   topLiveSemanticScore: number;
 }
 
+export interface TitleOutcomeSummary {
+  title: string;
+  passedCount: number;
+  total: number;
+  passedQuestions: string[];
+}
+
+export interface TitleComparison {
+  current: TitleOutcomeSummary;
+  suggested: TitleOutcomeSummary;
+  improved: boolean;
+  strictlyBetter: boolean;
+  brandFix: boolean;
+  autoAccepted: boolean;
+}
+
 export interface RetrievalSelfTest {
   ranAt: string;
   semanticAvailable: boolean;
@@ -205,6 +221,7 @@ export interface RetrievalSelfTest {
   results: SelfTestQuestionResult[];
   passedCount: number;
   failedCount: number;
+  titleComparison?: TitleComparison;
 }
 
 interface StatusCounts {
@@ -641,6 +658,10 @@ export default function KnowledgeBaseReview() {
   const [pushing, setPushing] = useState(false);
   const [triaging, setTriaging] = useState(false);
   const [includeAnalyzed, setIncludeAnalyzed] = useState(false);
+  // Off-by-default admin setting (Task #1848): auto-accept strictly-better,
+  // meaning-preserving title suggestions during analysis.
+  const [titleAutoAccept, setTitleAutoAccept] = useState(false);
+  const [titleAutoAcceptSaving, setTitleAutoAcceptSaving] = useState(false);
   const [analyzingDoc, setAnalyzingDoc] = useState(false);
   const [chatWide, setChatWide] = useState(false);
   const [chatOpen, setChatOpen] = useState(false);
@@ -784,6 +805,46 @@ export default function KnowledgeBaseReview() {
   useEffect(() => {
     fetchTriageStatus();
   }, [fetchTriageStatus]);
+
+  // Load the off-by-default title auto-accept setting (Task #1848).
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await authFetch("/admin/knowledgebase/staging/title-auto-accept");
+        if (res.ok) {
+          const data = await res.json();
+          setTitleAutoAccept(data.enabled === true);
+        }
+      } catch {
+        // ignore — defaults to off
+      }
+    })();
+  }, []);
+
+  const saveTitleAutoAccept = async (enabled: boolean) => {
+    setTitleAutoAcceptSaving(true);
+    setTitleAutoAccept(enabled); // optimistic
+    try {
+      const res = await authFetch("/admin/knowledgebase/staging/title-auto-accept", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ enabled }),
+      });
+      if (!res.ok) throw new Error("failed");
+      const data = await res.json();
+      setTitleAutoAccept(data.enabled === true);
+      toast({
+        title: enabled
+          ? "Auto-accept on: strictly-better title suggestions apply automatically"
+          : "Auto-accept off: title suggestions wait for review",
+      });
+    } catch {
+      setTitleAutoAccept(!enabled); // revert
+      toast({ title: "Couldn't update the setting", variant: "destructive" });
+    } finally {
+      setTitleAutoAcceptSaving(false);
+    }
+  };
 
   useEffect(() => {
     if (triaging) {
@@ -1591,7 +1652,44 @@ export default function KnowledgeBaseReview() {
                   <div className="flex items-center gap-2 text-violet-800 font-medium mb-1">
                     <Sparkles className="w-4 h-4" />AI suggests a clearer title
                   </div>
-                  <p className="text-gray-800 mb-2">“{selectedDoc.aiCleanedTitle}”</p>
+                  {(() => {
+                    const cmp = selectedDoc.retrievalSelfTest?.titleComparison;
+                    if (!cmp) return null;
+                    return (
+                      <div className="mb-2 rounded-md border border-violet-100 bg-white p-2 text-[13px] text-gray-700 space-y-1.5">
+                        <p className="text-[11px] font-medium text-gray-500">
+                          Why this suggestion — measured against {cmp.current.total} member question{cmp.current.total === 1 ? "" : "s"}:
+                        </p>
+                        <div className="flex items-start gap-2">
+                          <span className="text-gray-400 shrink-0">Current:</span>
+                          <span>
+                            “{cmp.current.title}” — finds this doc for{" "}
+                            <span className="font-semibold">{cmp.current.passedCount} of {cmp.current.total}</span>
+                          </span>
+                        </div>
+                        <div className="flex items-start gap-2">
+                          <span className="text-violet-500 shrink-0">Suggested:</span>
+                          <span>
+                            “{cmp.suggested.title}” — finds this doc for{" "}
+                            <span className="font-semibold text-violet-700">{cmp.suggested.passedCount} of {cmp.suggested.total}</span>
+                          </span>
+                        </div>
+                        {cmp.suggested.passedCount > cmp.current.passedCount && (
+                          <p className="text-emerald-700 text-[12px]">
+                            +{cmp.suggested.passedCount - cmp.current.passedCount} more member question{cmp.suggested.passedCount - cmp.current.passedCount === 1 ? "" : "s"} would surface this doc.
+                          </p>
+                        )}
+                        {cmp.brandFix && (
+                          <p className="text-amber-700 text-[12px]">
+                            The current title uses outdated/off-brand naming; the suggestion corrects it.
+                          </p>
+                        )}
+                      </div>
+                    );
+                  })()}
+                  {!selectedDoc.retrievalSelfTest?.titleComparison && (
+                    <p className="text-gray-800 mb-2">“{selectedDoc.aiCleanedTitle}”</p>
+                  )}
                   <div className="flex items-center gap-2">
                     <Button
                       size="sm"
@@ -2145,6 +2243,28 @@ export default function KnowledgeBaseReview() {
               />
               include analyzed
             </label>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <label className="flex items-center gap-1 text-[11px] text-gray-600 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={titleAutoAccept}
+                    disabled={titleAutoAcceptSaving}
+                    onChange={(e) => saveTitleAutoAccept(e.target.checked)}
+                    className="h-3.5 w-3.5 accent-violet-600"
+                  />
+                  auto-accept titles
+                </label>
+              </TooltipTrigger>
+              <TooltipContent className="max-w-xs">
+                Off by default. When on, analysis auto-applies a suggested title only when it
+                scores <span className="font-medium">strictly better</span> on every member
+                self-test question (it surfaces this doc for more questions and regresses none)
+                AND keeps all canonical names (Flexy, Blitz, 7 Pillars, BTS). Every auto-accept
+                is written to the triage audit log. All other suggestions still wait for your
+                explicit review.
+              </TooltipContent>
+            </Tooltip>
           </div>
           <Button
             size="sm"

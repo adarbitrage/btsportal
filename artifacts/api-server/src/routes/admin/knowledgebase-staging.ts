@@ -1,7 +1,7 @@
 import { getParam } from "../../lib/params";
 import { Router, Request, Response } from "express";
 import { db } from "@workspace/db";
-import { kbStagingDocsTable, knowledgebaseDocsTable, aiLiveDocumentsTable, aiLiveDocumentVersionsTable, kbDocProvenanceTable, kbTriageAuditLogTable, aiSourceDocumentsTable, kbTranscriptSourcesTable, kbNameFlagDismissalsTable } from "@workspace/db/schema";
+import { kbStagingDocsTable, knowledgebaseDocsTable, aiLiveDocumentsTable, aiLiveDocumentVersionsTable, kbDocProvenanceTable, kbTriageAuditLogTable, aiSourceDocumentsTable, kbTranscriptSourcesTable, kbNameFlagDismissalsTable, systemSettingsTable } from "@workspace/db/schema";
 import { eq, desc, sql, count, and, ne, isNotNull, inArray } from "drizzle-orm";
 import { requirePermission } from "../../middleware/rbac.js";
 import { resolveNavGapsForPublishedDoc } from "../../lib/kb-nav-gaps.js";
@@ -12,6 +12,8 @@ import {
   runAutoTriageOnDoc,
   isTriageRunning,
   rescoreSelfTestForTitle,
+  isTitleAutoAcceptEnabled,
+  TITLE_AUTO_ACCEPT_SETTING_KEY,
 } from "../../lib/kb-triage.js";
 import { callLLMWithRetry } from "../../lib/kb-synthesis.js";
 import { CITABLE_DOC_CLASSES } from "../../lib/kb-taxonomy.js";
@@ -416,6 +418,50 @@ router.post("/:id/title-suggestion/dismiss", async (req: Request, res: Response)
     await rescoreSelfTestForTitle({ ...doc, aiTitleDecision: "dismissed" }, doc.title);
     const [updated] = await db.select().from(kbStagingDocsTable).where(eq(kbStagingDocsTable.id, id));
     res.json(updated);
+  } catch (err: unknown) {
+    res.status(500).json({ error: err instanceof Error ? err.message : "Unknown error" });
+  }
+});
+
+// ── Title auto-accept setting (Task #1848) ───────────────────────────────────
+// Off-by-default admin toggle: during analysis, a title suggestion that is
+// STRICTLY better on every self-test question (and preserves canonical names)
+// is auto-applied with an audit-log entry instead of waiting for review.
+router.get("/title-auto-accept", async (_req: Request, res: Response) => {
+  try {
+    res.json({ enabled: await isTitleAutoAcceptEnabled() });
+  } catch (err: unknown) {
+    res.status(500).json({ error: err instanceof Error ? err.message : "Unknown error" });
+  }
+});
+
+router.put("/title-auto-accept", async (req: Request, res: Response) => {
+  try {
+    const enabled = req.body?.enabled;
+    if (typeof enabled !== "boolean") {
+      res.status(400).json({ error: "enabled must be a boolean" });
+      return;
+    }
+    const actorId = (req as Request & { userId?: number }).userId;
+    const updatedBy = actorId != null ? String(actorId) : null;
+    await db
+      .insert(systemSettingsTable)
+      .values({
+        key: TITLE_AUTO_ACCEPT_SETTING_KEY,
+        value: { enabled },
+        category: "knowledge_base",
+        description: "Auto-accept strictly-better AI title suggestions during KB analysis",
+        updatedBy,
+      })
+      .onConflictDoUpdate({
+        target: systemSettingsTable.key,
+        set: {
+          value: { enabled },
+          updatedBy,
+          updatedAt: new Date(),
+        },
+      });
+    res.json({ enabled });
   } catch (err: unknown) {
     res.status(500).json({ error: err instanceof Error ? err.message : "Unknown error" });
   }

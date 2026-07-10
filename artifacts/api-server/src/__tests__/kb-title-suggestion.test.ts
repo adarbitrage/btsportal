@@ -17,8 +17,12 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 
 // ── Seams ────────────────────────────────────────────────────────────────────
 
-const { updateSetCalls, mockDb } = vi.hoisted(() => {
+const { updateSetCalls, insertValues, selectResultRef, mockDb } = vi.hoisted(() => {
   const updateSetCalls: Record<string, unknown>[] = [];
+  const insertValues: Record<string, unknown>[] = [];
+  // Rows returned by the sole db.select() in this module (the auto-accept
+  // setting lookup). Default [] → setting reads as off (fail closed).
+  const selectResultRef: { current: unknown[] } = { current: [] };
   const mockDb = {
     update: () => ({
       set: (values: Record<string, unknown>) => {
@@ -26,12 +30,17 @@ const { updateSetCalls, mockDb } = vi.hoisted(() => {
         return { where: async () => undefined };
       },
     }),
-    insert: () => ({ values: async () => undefined }),
+    insert: () => ({
+      values: async (v: Record<string, unknown>) => {
+        insertValues.push(v);
+        return undefined;
+      },
+    }),
     select: () => ({
-      from: () => ({ where: async () => [] }),
+      from: () => ({ where: async () => selectResultRef.current }),
     }),
   };
-  return { updateSetCalls, mockDb };
+  return { updateSetCalls, insertValues, selectResultRef, mockDb };
 });
 
 vi.mock("@workspace/db", () => ({ db: mockDb }));
@@ -155,7 +164,9 @@ const triageJson = (cleanedTitle: string) =>
 
 beforeEach(() => {
   updateSetCalls.length = 0;
+  insertValues.length = 0;
   computeRiskFlagsInputs.length = 0;
+  selectResultRef.current = []; // auto-accept setting off by default
   runRetrievalSelfTestMock.mockReset();
   llmMock.mockReset();
   gatherFlagContextMock.mockClear();
@@ -164,16 +175,35 @@ beforeEach(() => {
   );
 });
 
+/** Mock the dual self-test so the SUGGESTED title beats the stored one:
+ * the stored title fails every question, the suggested title passes. Keyed on
+ * the title passed to runRetrievalSelfTest so both calls resolve correctly. */
+function suggestedTitleWins(suggested: string) {
+  runRetrievalSelfTestMock.mockImplementation(
+    async (draft: { title: string }, questions: string[]) =>
+      draft.title === suggested ? passingSelfTest(questions) : failingSelfTest(questions),
+  );
+}
+
 describe("title-suggestion lifecycle in analysis", () => {
-  it("pending doc: regenerates the suggestion and self-tests the SUGGESTED title", async () => {
+  it("pending doc: surfaces a measurably-better suggestion and self-tests BOTH titles", async () => {
     llmMock.mockResolvedValue(triageJson("AI Suggested Title"));
+    suggestedTitleWins("AI Suggested Title");
     await runAutoTriageOnDoc(baseDoc());
     const set = updateSetCalls.find((s) => "aiRecommendedAction" in s)!;
     expect(set.aiCleanedTitle).toBe("AI Suggested Title");
-    expect(runRetrievalSelfTestMock).toHaveBeenCalledTimes(1);
-    expect((runRetrievalSelfTestMock.mock.calls[0][0] as { title: string }).title).toBe(
-      "AI Suggested Title",
+    // Both the stored and the suggested title were scored (evidence gate).
+    expect(runRetrievalSelfTestMock).toHaveBeenCalledTimes(2);
+    const scoredTitles = runRetrievalSelfTestMock.mock.calls.map(
+      (c) => (c[0] as { title: string }).title,
     );
+    expect(scoredTitles).toEqual(expect.arrayContaining(["Stored Title", "AI Suggested Title"]));
+    // The standing self-test is the suggested one, and carries the comparison.
+    const cmp = (set.retrievalSelfTest as RetrievalSelfTest).titleComparison!;
+    expect(cmp.improved).toBe(true);
+    expect(cmp.current.title).toBe("Stored Title");
+    expect(cmp.suggested.title).toBe("AI Suggested Title");
+    expect(cmp.autoAccepted).toBe(false);
   });
 
   it.each(["accepted", "dismissed", "edited"] as const)(
@@ -196,15 +226,100 @@ describe("title-suggestion lifecycle in analysis", () => {
   );
 });
 
+describe("evidence-based title gate (Task #1848)", () => {
+  it("suppresses a suggestion that does NOT beat the stored title", async () => {
+    // Both titles pass every question equally → no measurable win.
+    llmMock.mockResolvedValue(triageJson("Equally Good Title"));
+    // default mock: both titles pass all questions
+    await runAutoTriageOnDoc(baseDoc());
+    const set = updateSetCalls.find((s) => "aiRecommendedAction" in s)!;
+    // Suggestion is cleared; the stored title stands untouched.
+    expect(set.aiCleanedTitle).toBeNull();
+    expect("title" in set).toBe(false);
+    // The stored title is what everything downstream judges.
+    expect((set.retrievalSelfTest as RetrievalSelfTest).titleComparison!.improved).toBe(false);
+    expect(computeRiskFlagsInputs[0]).toMatchObject({ title: "Stored Title" });
+    // Flag context judges the stored title (no surfaced suggestion).
+    expect(gatherFlagContextMock).toHaveBeenCalledWith(
+      expect.objectContaining({ aiCleanedTitle: null }),
+    );
+  });
+
+  it("surfaces a suggestion that FIXES a brand violation even without a retrieval win", async () => {
+    // Stored title carries a dropped affiliate-network name; suggestion is clean.
+    // Retrieval is equal (default mock passes both) — brandFix alone surfaces it.
+    llmMock.mockResolvedValue(triageJson("Clean Modern Title"));
+    await runAutoTriageOnDoc(baseDoc({ title: "MaxWeb Payouts Guide" }));
+    const set = updateSetCalls.find((s) => "aiRecommendedAction" in s)!;
+    expect(set.aiCleanedTitle).toBe("Clean Modern Title");
+    const cmp = (set.retrievalSelfTest as RetrievalSelfTest).titleComparison!;
+    expect(cmp.brandFix).toBe(true);
+  });
+});
+
+describe("title auto-accept setting (Task #1848)", () => {
+  it("auto-accepts a strictly-better suggestion when the setting is ON", async () => {
+    selectResultRef.current = [{ value: { enabled: true } }];
+    llmMock.mockResolvedValue(triageJson("Strictly Better Title"));
+    suggestedTitleWins("Strictly Better Title");
+    await runAutoTriageOnDoc(baseDoc());
+    const set = updateSetCalls.find((s) => "aiRecommendedAction" in s)!;
+    // Applied as the stored title and the decision is locked.
+    expect(set.title).toBe("Strictly Better Title");
+    expect(set.aiTitleDecision).toBe("accepted");
+    expect(set.aiCleanedTitle).toBe("Strictly Better Title");
+    expect((set.retrievalSelfTest as RetrievalSelfTest).titleComparison!.autoAccepted).toBe(true);
+    // An audit-log entry records the auto-accept.
+    expect(insertValues.some((v) => v.eventType === "title_auto_accepted")).toBe(true);
+  });
+
+  it("does NOT auto-accept when the setting is OFF (surfaces for review only)", async () => {
+    selectResultRef.current = []; // off
+    llmMock.mockResolvedValue(triageJson("Strictly Better Title"));
+    suggestedTitleWins("Strictly Better Title");
+    await runAutoTriageOnDoc(baseDoc());
+    const set = updateSetCalls.find((s) => "aiRecommendedAction" in s)!;
+    expect(set.aiCleanedTitle).toBe("Strictly Better Title");
+    expect("title" in set).toBe(false); // stored title not overwritten
+    expect(set.aiTitleDecision).toBeUndefined();
+    expect(insertValues.some((v) => v.eventType === "title_auto_accepted")).toBe(false);
+  });
+
+  it("does NOT auto-accept a brand-fix-only suggestion (not strictly better)", async () => {
+    selectResultRef.current = [{ value: { enabled: true } }];
+    // Equal retrieval (default passes both) + brand fix → surfaced but not
+    // strictly better, so auto-accept must NOT fire.
+    llmMock.mockResolvedValue(triageJson("Clean Modern Title"));
+    await runAutoTriageOnDoc(baseDoc({ title: "MaxWeb Payouts Guide" }));
+    const set = updateSetCalls.find((s) => "aiRecommendedAction" in s)!;
+    expect(set.aiCleanedTitle).toBe("Clean Modern Title");
+    expect("title" in set).toBe(false);
+    expect(insertValues.some((v) => v.eventType === "title_auto_accepted")).toBe(false);
+  });
+
+  it("does NOT auto-accept when a canonical name would be dropped", async () => {
+    selectResultRef.current = [{ value: { enabled: true } }];
+    // Stored title carries a canonical term (Flexy); suggestion drops it.
+    llmMock.mockResolvedValue(triageJson("Generic Rewrite"));
+    suggestedTitleWins("Generic Rewrite");
+    await runAutoTriageOnDoc(baseDoc({ title: "Flexy Setup Walkthrough" }));
+    const set = updateSetCalls.find((s) => "aiRecommendedAction" in s)!;
+    // Still surfaced (strictly better retrieval) but NOT auto-applied.
+    expect(set.aiCleanedTitle).toBe("Generic Rewrite");
+    expect("title" in set).toBe(false);
+    expect(insertValues.some((v) => v.eventType === "title_auto_accepted")).toBe(false);
+  });
+});
+
 describe("filed placement is authoritative (Task #1847)", () => {
   it("curated-FILED doc: self-tests as curated even when the run suggests transcript", async () => {
     // triageJson suggests docClass "transcript"; the doc is filed curated.
     llmMock.mockResolvedValue(triageJson("T"));
     await runAutoTriageOnDoc(baseDoc({ docClassTarget: "curated" }));
-    expect(runRetrievalSelfTestMock).toHaveBeenCalledTimes(1);
-    expect(
-      (runRetrievalSelfTestMock.mock.calls[0][0] as { docClass: string | null }).docClass,
-    ).toBe("curated");
+    // Every self-test (both titles) must judge the doc as FILED (curated).
+    for (const call of runRetrievalSelfTestMock.mock.calls) {
+      expect((call[0] as { docClass: string | null }).docClass).toBe("curated");
+    }
   });
 
   it("never-filed doc: falls back to the AI-suggested doc class for the self-test", async () => {

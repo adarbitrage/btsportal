@@ -45,6 +45,33 @@ export interface SelfTestQuestionResult {
   topLiveSemanticScore: number;
 }
 
+/** Per-title outcome summary for the evidence-based title comparison. */
+export interface TitleOutcomeSummary {
+  title: string;
+  passedCount: number;
+  total: number;
+  /** Questions that pass under this title. */
+  passedQuestions: string[];
+}
+
+/**
+ * Evidence-based title comparison (Task #1848): both the stored title and the
+ * AI-proposed title were scored through the SAME self-test questions, and the
+ * suggestion is only surfaced when `improved` or `brandFix` holds.
+ */
+export interface TitleComparison {
+  current: TitleOutcomeSummary;
+  suggested: TitleOutcomeSummary;
+  /** Suggested title measurably beats the current one. */
+  improved: boolean;
+  /** Improved with zero regressions (every question at least as good). */
+  strictlyBetter: boolean;
+  /** Current title violates brand/canonical-naming rules; suggestion fixes it. */
+  brandFix: boolean;
+  /** Suggestion was auto-applied by the off-by-default admin setting. */
+  autoAccepted: boolean;
+}
+
 export interface RetrievalSelfTest {
   ranAt: string;
   /** False = OPENAI_API_KEY absent/failed — lexical-only self-test this run. */
@@ -53,6 +80,8 @@ export interface RetrievalSelfTest {
   results: SelfTestQuestionResult[];
   passedCount: number;
   failedCount: number;
+  /** Present only when a title suggestion was measured this run (Task #1848). */
+  titleComparison?: TitleComparison;
 }
 
 /** Injectable deps so unit tests never touch the DB / OpenAI / live retrieval. */

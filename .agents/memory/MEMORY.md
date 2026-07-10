@@ -59,8 +59,6 @@
 - [Coach Google OAuth (Drive+Calendar)](coach-google-oauth-drive.md) — callback MUST be public + signed state; ingest unions all Drives; pre-calendar-scope grants need reconnect surfaced as needsCalendarReconnect (coach-calendar-scope-reconnect.md); Meet notes in meet-recording-ingest-feasibility.md.
 - [Pack booking member leak](pack-booking-member-leak.md) — coachNotes/actionItems are coach-only; member book+reschedule must use MEMBER_BOOKING_COLUMNS projection, never raw `.returning()`.
 - [GHL coaching topic visibility](ghl-coaching-topic-visibility.md) — discussion-topic goes to appointment Internal Notes (fire-and-forget post-COMMIT, self-labeling body); title-preview + contact-note rejected.
-<<<<<<< HEAD
-=======
 - [Coaching attendance-targeted emails](coaching-attendance-targeting.md) — session-feedback targets attendance rows (entitlement-audience fallback); recording-ready targets registrants only; static Coaching.tsx populates no attendance.
 - [Pack coaching recording ingest](coaching-recording-ingest.md) — Meet recording + Gemini notes auto-linked to a booking; COACH/ADMIN-ONLY; Drive-pluggable via env, no-ops without creds.
 - [1-on-1 coach roster boot-seeded](session-pack-coaches-roster.md) — real coaches in session_pack_coaches via idempotent app.ts boot seed; legacy fakes removed by exact name; separate from old coachesTable group system.
@@ -128,5 +126,6 @@
 - [KB hybrid semantic retrieval](kb-semantic-hybrid-retrieval.md) — Replit AI proxy has NO /embeddings; direct OPENAI_API_KEY seam, graceful lexical-only dormancy, floor calibration pending key.
 - [KB Analyze retrieval self-test](kb-analyze-retrieval-selftest.md) — triage self-tests drafts via real retrieveSurfaceAware; staging never stores embeddings; retrieval_gap non-blocking; synonym approvals are code-map markers; keep selftest SQL in lockstep with kb-retrieval.ts.
 - [KB filed placement authoritative](kb-filed-placement-authoritative.md) — triage self-test/flags judge the FILED placement; AI taxonomy suggestions are advisory fallbacks + locked once filed; nav grounding orders navigation>overview (real nav map doc is 'overview').
+- [KB evidence-based title suggestions](kb-evidence-based-title-suggestions.md) — title proposals surface only when they measurably improve retrieval or fix a brand/canonical violation (both titles scored via self-test, stored as titleComparison); off-by-default kb_title_auto_accept applies strictly-better meaning-preserving ones + audit-logs; respects the aiTitleDecision lock.
 - [possible_member_name flag vocab](kb-member-name-flag-vocab.md) — suppress false positives ONLY via exact-pair allowlists/stopwords (never structural rules); flags are computed live, so "removing" = extending analyzer vocabulary.
 - [Content-gap capture is inert](content-gap-capture-inert.md) — unanswered member questions captured (dedup upsert + 180d/5000-row sweep) at member chat/voice call sites ONLY; self-test never imports it; normalizeQuestion strips punctuation (test-tag trap).
