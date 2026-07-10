@@ -1196,9 +1196,23 @@ export default function KnowledgeBaseReview() {
       toast({ title: "Document updated" });
       fetchDocs();
       if (selectedDoc?.id === id) {
-        const updated = await res.json();
+        const updated: StagingDoc = await res.json();
         setSelectedDoc(updated);
         fetchInsights(id);
+        // Re-hydrate the editor's local field state from the freshly-saved
+        // document. A targeted in-place update (e.g. the ceiling "Apply"
+        // button) otherwise leaves the edit form showing the stale values it
+        // captured when the doc was first opened — making Apply look broken and
+        // causing a later save to clobber the applied change. Mirror openDoc's
+        // initialization here.
+        setEditContent(updated.editedContent || updated.content);
+        setEditTitle(updated.title);
+        setEditHomeRoot(updated.homeRoot ?? updated.aiSuggestedTaxonomy?.homeRoot ?? "");
+        setEditNode(updated.node ?? updated.aiSuggestedTaxonomy?.node ?? "");
+        setEditDocClass(updated.docClassTarget ?? updated.aiSuggestedTaxonomy?.docClass ?? "");
+        setEditCeiling(updated.ceiling ?? updated.aiSuggestedTaxonomy?.ceiling ?? "");
+        setEditTaxonomyTags(Array.isArray(updated.taxonomyTags) ? updated.taxonomyTags : []);
+        setAdminNotes(updated.adminNotes || "");
       }
     } catch {
       toast({ title: "Update failed", variant: "destructive" });
