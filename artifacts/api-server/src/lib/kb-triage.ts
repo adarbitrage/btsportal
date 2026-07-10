@@ -512,6 +512,29 @@ export async function runAutoTriageOnDoc(
     category: result.suggestedCategory,
   };
 
+  // Filed-but-untagged tag refresh (Task #1881): a doc filed with an empty
+  // controlled `taxonomyTags` can never otherwise get AI tag help, because the
+  // taxonomy-suggestion lock (above) skips regenerating the whole suggestion.
+  // When a FILED doc has NO tags, re-analysis writes a fresh, advisory-only
+  // suggestion that PRESERVES the doc's own filed placement (home root / node /
+  // doc class / ceiling) and only fills in the freshly analyzed tags — so
+  // clicking Apply adds tags without ever second-guessing the intentional
+  // filing. Filed docs that already HAVE tags keep their suggestion frozen (no
+  // tag churn); unfiled docs get the full suggestion as before. This mirrors the
+  // advisory ceiling path and never touches the legacy `tags` text column.
+  const filedTagsEmpty =
+    !Array.isArray(doc.taxonomyTags) || doc.taxonomyTags.length === 0;
+  const refreshFiledTags =
+    taxonomyLocked && filedTagsEmpty && result.suggestedTags.length > 0;
+  const filedTagSuggestion = {
+    homeRoot: doc.homeRoot,
+    node: doc.node,
+    docClass: doc.docClassTarget,
+    ceiling: doc.ceiling,
+    tags: result.suggestedTags,
+    category: doc.category,
+  };
+
   // Ceiling advisory (Task #1868): unlike the rest of the taxonomy suggestion
   // (frozen once the doc is filed), the depth ceiling is re-evaluated on EVERY
   // run — even for filed docs — because re-checking it is cheap and never
@@ -541,7 +564,15 @@ export async function runAutoTriageOnDoc(
       aiCleanedTitle: surfacedSuggestion,
       aiTitleDecision: null,
       aiSummary: result.summary,
-      ...(taxonomyLocked ? {} : { aiSuggestedTaxonomy }),
+      // Unfiled docs get the full fresh suggestion. Filed docs keep their
+      // suggestion frozen (Task #1847) UNLESS they were filed with NO tags —
+      // then re-analysis refreshes ONLY the tags, preserving the filed
+      // placement (Task #1881). The legacy `tags` text column is never touched.
+      ...(taxonomyLocked
+        ? refreshFiledTags
+          ? { aiSuggestedTaxonomy: filedTagSuggestion }
+          : {}
+        : { aiSuggestedTaxonomy }),
       // Always refreshed — even for filed docs (see ceilingAdvisory above).
       ...ceilingAdvisory,
       riskFlags: flags,

@@ -558,6 +558,80 @@ describe("ceiling advisory — always re-evaluated (Task #1868)", () => {
   });
 });
 
+describe("filed-but-untagged tag refresh (Task #1881)", () => {
+  const suggestTags = (tags: string[]) =>
+    JSON.stringify({ ...JSON.parse(triageJson("T")), suggestedTags: tags });
+
+  it("filed doc with NO tags: refreshes aiSuggestedTaxonomy.tags, preserving the filed placement", async () => {
+    // "flexy" is the only tag in the mocked effective-tag vocabulary, so it
+    // survives triage's tag validation and reaches the suggestion.
+    llmMock.mockResolvedValue(suggestTags(["flexy"]));
+    await runAutoTriageOnDoc(
+      baseDoc({
+        homeRoot: "concepts",
+        node: "angles",
+        docClassTarget: "curated",
+        ceiling: "conceptual",
+        taxonomyTags: [],
+      }),
+    );
+    const set = updateSetCalls.find((s) => "aiRecommendedAction" in s)!;
+    const sugg = set.aiSuggestedTaxonomy as {
+      homeRoot: string | null;
+      node: string | null;
+      docClass: string | null;
+      ceiling: string | null;
+      tags: string[];
+    };
+    // Fresh tags are surfaced …
+    expect(sugg.tags).toEqual(["flexy"]);
+    // … but the filed placement is preserved verbatim — never the run's
+    // suggested process/testing/transcript — so Apply only adds tags.
+    expect(sugg.homeRoot).toBe("concepts");
+    expect(sugg.node).toBe("angles");
+    expect(sugg.docClass).toBe("curated");
+    expect(sugg.ceiling).toBe("conceptual");
+    // The legacy free-text `tags` column is never written.
+    expect("tags" in set).toBe(false);
+  });
+
+  it("filed doc that already HAS tags: suggestion stays frozen (no tag churn)", async () => {
+    llmMock.mockResolvedValue(suggestTags(["flexy"]));
+    await runAutoTriageOnDoc(
+      baseDoc({
+        homeRoot: "concepts",
+        node: "angles",
+        docClassTarget: "curated",
+        taxonomyTags: ["angles"],
+      }),
+    );
+    const set = updateSetCalls.find((s) => "aiRecommendedAction" in s)!;
+    expect("aiSuggestedTaxonomy" in set).toBe(false);
+    expect("tags" in set).toBe(false);
+  });
+
+  it("filed & untagged but the run yields NO tags: nothing surfaced (no empty suggestion)", async () => {
+    llmMock.mockResolvedValue(suggestTags([]));
+    await runAutoTriageOnDoc(
+      baseDoc({ homeRoot: "concepts", node: "angles", docClassTarget: "curated", taxonomyTags: [] }),
+    );
+    const set = updateSetCalls.find((s) => "aiRecommendedAction" in s)!;
+    expect("aiSuggestedTaxonomy" in set).toBe(false);
+  });
+
+  it("unfiled doc: still gets the FULL suggestion (incl. the run's placement) as before", async () => {
+    llmMock.mockResolvedValue(suggestTags(["flexy"]));
+    await runAutoTriageOnDoc(
+      baseDoc({ homeRoot: null, node: null, docClassTarget: null, taxonomyTags: [] }),
+    );
+    const set = updateSetCalls.find((s) => "aiRecommendedAction" in s)!;
+    const sugg = set.aiSuggestedTaxonomy as { homeRoot: string | null; tags: string[] };
+    // The run's suggested placement drives the full suggestion for unfiled docs.
+    expect(sugg.homeRoot).toBe("process");
+    expect(sugg.tags).toEqual(["flexy"]);
+  });
+});
+
 describe("replaceRetrievalGapFlag", () => {
   const gap: RiskFlag = { type: "retrieval_gap", severity: "medium", message: "old" };
   const other: RiskFlag = { type: "conflict", severity: "critical", message: "keep me" };
