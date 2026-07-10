@@ -20,3 +20,11 @@ block must go through one seam — `isPitchBlockReviewed()` /
 `renderPitchBlock` directly for a gated key. Every blast/preview script must
 be updated to use the same seam; a script that renders pitch content on its
 own bypass path is a compliance hole.
+
+**Visibility (compliance ask):** the gate's live-vs-suppressed state is a
+compliance status, NOT a health problem — surfaces that show it (System Health
+`vipArbitragePitch` block, the dedicated `vip_arbitrage_pitch_review_gate`
+audit action written only when the flag actually flips) must never degrade
+overall health status for "suppressed", and a status read failure must report
+"suppressed" (mirror the send path's fail-closed behavior) so no surface ever
+claims "live" while sends would suppress.

@@ -1560,6 +1560,52 @@ export default function SystemHealth() {
                 </Card>
               )}
 
+              {health.services?.vipArbitragePitch && (() => {
+                const vip = health.services.vipArbitragePitch as {
+                  reviewed: boolean;
+                  status: "live" | "suppressed";
+                };
+                const isLive = vip.reviewed === true;
+                return (
+                  <Card data-testid="card-vip-arbitrage-pitch">
+                    <CardHeader>
+                      <CardTitle className="text-base flex items-center gap-2">
+                        <ShieldAlert className="w-4 h-4" />VIP Arbitrage Pitch Compliance
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-3">
+                        <div className="flex justify-between">
+                          <span className="text-sm text-muted-foreground">Status</span>
+                          <Badge
+                            variant={isLive ? "success" : "secondary"}
+                            data-testid="vip-arbitrage-pitch-status"
+                          >
+                            {isLive ? "Live in member emails" : "Suppressed"}
+                          </Badge>
+                        </div>
+                        <p className="text-xs text-muted-foreground">
+                          {isLive
+                            ? "Securities counsel has approved the VIP Arbitrage pitch copy — the block renders in member emails. Uncheck the review box in Settings → Pitch Content to suppress it immediately."
+                            : "The VIP Arbitrage pitch block (Reg D 506(c) securities marketing) is suppressed from all member emails until securities counsel approves it in Settings → Pitch Content. Suppressed is the normal fail-closed state."}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          Every flip of the review gate is recorded in the{" "}
+                          <Link
+                            href="/admin/audit-log?actionType=vip_arbitrage_pitch_review_gate"
+                            className="underline underline-offset-2 hover:text-foreground"
+                            data-testid="vip-arbitrage-pitch-audit-link"
+                          >
+                            audit log
+                          </Link>{" "}
+                          with who changed it and when.
+                        </p>
+                      </div>
+                    </CardContent>
+                  </Card>
+                );
+              })()}
+
               {health.services?.abuseRateLimitCleanup && (() => {
                 const arl = health.services.abuseRateLimitCleanup as {
                   enabled: boolean;

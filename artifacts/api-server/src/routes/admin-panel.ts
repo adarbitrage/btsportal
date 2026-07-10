@@ -77,6 +77,7 @@ import {
 } from "../lib/auth-rate-limit-alert-settings";
 import {
   getAllPitchContent,
+  getPitchContent,
   setPitchContent,
   validatePitchContentUpdate,
   isPitchContentSettingKey,
@@ -4248,6 +4249,29 @@ router.get("/admin/system/health", requirePermission("system:view"), async (_req
       health: getCoachingCallTemplateTopUpHealth(),
     };
 
+    // Task #1853: surface the VIP Arbitrage pitch compliance gate so an
+    // admin (or compliance) can see whether the securities-marketing block
+    // is currently LIVE in member emails or still suppressed, without
+    // opening the Pitch Content settings card. Reads through the same
+    // strict fail-closed parse the send-time gate uses (anything but a
+    // stored literal `true` is "suppressed"). A read failure reports
+    // suppressed — that mirrors exactly what the send path would do (the
+    // gate fails closed on a content-load fallback), so the card never
+    // claims "live" when sends would actually suppress. This is a
+    // compliance status, not a health problem: suppressed is the normal
+    // fail-closed state and must NOT degrade overallStatus.
+    let vipArbitragePitchReviewed = false;
+    try {
+      const vipContent = await getPitchContent("VIP_ARBITRAGE_PITCH");
+      vipArbitragePitchReviewed = vipContent.reviewed === true;
+    } catch (err) {
+      console.error("[Admin] system/health: failed to read VIP Arbitrage pitch gate:", err);
+    }
+    const vipArbitragePitch = {
+      reviewed: vipArbitragePitchReviewed,
+      status: vipArbitragePitchReviewed ? "live" : "suppressed",
+    };
+
     res.json({
       status: overallStatus,
       services: {
@@ -4270,6 +4294,7 @@ router.get("/admin/system/health", requirePermission("system:view"), async (_req
         liveChatEmbed,
         ticketDeskDeliveryGate,
         voiceAgent,
+        vipArbitragePitch,
         missingCriticalSecrets,
         portalUrl,
       },
@@ -5235,6 +5260,21 @@ router.put("/admin/pitch-content/:key", requirePermission("settings:manage"), as
       res.status(400).json({ error: validated.error });
       return;
     }
+    // Task #1853: capture the VIP Arbitrage compliance gate's state BEFORE
+    // this save so a flip of `reviewed` gets its own dedicated audit entry
+    // (who/when/direction) — compliance needs to be able to answer "when did
+    // the securities-marketing block go live (or get suppressed) and who did
+    // it" from the audit log without diffing generic content-update entries.
+    // Reads through the same strict fail-closed parse as the send-time gate.
+    let previousReviewed: boolean | null = null;
+    if (key === "VIP_ARBITRAGE_PITCH") {
+      try {
+        const prior = await getPitchContent(key);
+        previousReviewed = prior.reviewed === true;
+      } catch (err) {
+        console.error("[Admin] Failed to read prior VIP Arbitrage reviewed state:", err);
+      }
+    }
     await setPitchContent(key, validated.content, req.userEmail || (req.userId ? String(req.userId) : null));
     await logAdminAction(
       req,
@@ -5244,6 +5284,22 @@ router.put("/admin/pitch-content/:key", requirePermission("settings:manage"), as
       `Updated pitch content block: ${key}`,
       { key, content: validated.content },
     );
+    if (key === "VIP_ARBITRAGE_PITCH") {
+      const newReviewed = validated.content.reviewed === true;
+      if (previousReviewed !== null && previousReviewed !== newReviewed) {
+        await logAdminAction(
+          req,
+          "vip_arbitrage_pitch_review_gate",
+          key,
+          "pitch",
+          newReviewed
+            ? "VIP Arbitrage pitch block APPROVED by securities counsel review — block is now LIVE in member emails"
+            : "VIP Arbitrage pitch block review revoked — block is now SUPPRESSED from all member emails",
+          { previousReviewed, reviewed: newReviewed },
+          { complianceGate: "vip_arbitrage_pitch", live: newReviewed },
+        );
+      }
+    }
     const content = await getAllPitchContent();
     res.json(content);
   } catch (error) {
