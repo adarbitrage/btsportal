@@ -1,0 +1,56 @@
+Make a precise content-editing pass directly on the Document Review drafts
+(the kb_staging_docs rows) in this project's database. Edit rows directly — do NOT
+create a boot/startup hook, migration, or seed script. For context, the merged plan is
+Task #1871 ("Remove internal taxonomy labels from AI answers").
+STEP 0 — Audit first (ground yourself in live data before editing). Run and report:
+  - # drafts containing a line '## Related topics'         (expect ~88)
+  - # occurrences of the pattern '(see ...)'                (expect 5, across 2 docs)
+  - # drafts containing 'for reviewer'                      (expect ~11 — MUST be preserved)
+If these are wildly different from expected, STOP and report before editing.
+STEP 1 — Remove the taxonomy footer from every draft, precisely:
+  - Find the line exactly equal to '## Related topics'.
+  - Delete that line and each following line that is ONE of:
+      * a blank line,
+      * a bold label of the form '**...:**' (e.g. '**Other stages:**',
+        '**Related topics:**', '**Related concepts:**',
+        '**Go deeper — the skills behind this stage:**',
+        '**Where this applies — process stages:**'),
+      * a bullet line starting with '- '.
+  - STOP at the FIRST line that is none of the above. In practice that is either the end
+    of the document OR a line beginning with '>' (a '⚠️ ... (for reviewer)' note).
+  - DO NOT delete the '> ...' reviewer notes — leave them fully intact.
+  - SAFETY: if, inside that block, you hit a normal sentence/paragraph (not blank / not a
+    '**...:**' label / not a '- ' bullet), STOP and report that doc instead of deleting.
+  - Trim any leftover trailing blank lines the removal creates.
+STEP 2 — Remove the 5 inline taxonomy cross-references. These are the ONLY ones — remove
+each parenthetical plus the single space before it, keeping the sentence's end punctuation:
+  - '(see Tracking & Site Setup)'                          — in "Creative Assets Overview — Ads, Advertorials, and Landing Pages"
+  - '(see Angles; Headlines & Copy; Creative Strategy)'     — in "Scaling Strategy — Adding Budget Without Breaking the Campaign"
+  - '(see Traffic & Placements; Creative Strategy)'         — same doc
+  - '(see Offer Strategy; Angles)'                          — same doc
+  - '(see Testing Methodology; Metrics & Unit Economics)'   — same doc
+STEP 3 — DO NOT TOUCH any of these (they are legitimate content):
+  - '→' arrow UI/funnel paths (e.g. "Settings → Domains", "ad → LP → offer")
+  - 'see the ...' natural prose
+  - '> - Position A/B ...' source-conflict blockquotes in doc bodies
+  - '> ⚠️ ... (for reviewer)' navigation notes
+  - any normal prose that happens to mention a topic name
+STEP 4 — Inject two passages (verbatim), only if not already present:
+Into the draft titled "MetricMover Overview — Landing Page Split Testing", append:
+Connecting a domain in Flexy:
+- In Flexy, go to Settings → Domains → Connect domain.
+- Connecting a domain here means choosing your own unique subdomain on a BTS-owned domain. BTS owns both consumerwatchdog.io and thecuttingedge.today, so you don't buy a domain — you add your own subdomain in front of the one that matches your template. In the domain field, enter it as youruniquesubdomain.consumerwatchdog.io (consumer-watchdog template) or youruniquesubdomain.thecuttingedge.today (cutting-edge template). Replace "youruniquesubdomain" with something unique to you — don't copy the example text.
+- After entering your subdomain, choose "add record manually", click "verify records", and wait up to ~30 seconds for it to verify. Then connect it to your cloned, active website. If you haven't yet cloned a website to use for your campaign, do that before connecting a domain.
+Into the draft titled "What is DIYTrax?", append:
+What DIYTrax does:
+- Creates multiple campaign types: direct-link, landing-page, multi-path, and multi-option campaigns.
+- Rotates and tests your landing-page variants and offers, so you can find winners by data.
+- Gives in-depth analytics across ads, landing pages, and offers, plus revenue data — so you optimize toward profit, not guesses.
+- Lets you add new landing pages or edit offers in your rotation without touching code, and adjust the rotation in real time.
+STEP 5 — Verify and report:
+  - '## Related topics' should now appear in 0 drafts.
+  - '(see ...)' should now appear in 0 drafts.
+  - 'for reviewer' should STILL appear in ~11 drafts (unchanged).
+  - Both passages present in their target drafts.
+  - Show 2–3 before/after snippets, including one of the 11 reviewer-note docs to prove
+    its note survived.
