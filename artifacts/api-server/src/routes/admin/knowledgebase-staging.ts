@@ -103,7 +103,7 @@ router.get("/", async (req: Request, res: Response) => {
       where = sql`${where} AND ${kbStagingDocsTable.homeRoot} = ${homeRootFilter}`;
     }
     if (search) {
-      where = sql`${where} AND to_tsvector('english', ${kbStagingDocsTable.title} || ' ' || ${kbStagingDocsTable.content}) @@ plainto_tsquery('english', ${search})`;
+      where = sql`${where} AND to_tsvector('english', ${kbStagingDocsTable.title} || ' ' || coalesce(${kbStagingDocsTable.editedContent}, ${kbStagingDocsTable.content}, '')) @@ plainto_tsquery('english', ${search})`;
     }
     if (originFilter && originFilter !== "all") {
       if (originFilter === "unlabeled") {
