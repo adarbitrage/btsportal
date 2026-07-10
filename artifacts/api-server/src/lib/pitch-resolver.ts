@@ -34,6 +34,28 @@ export async function isMachineMember(_userId: number): Promise<boolean> {
 }
 
 /**
+ * Whether a member is already a VIP Arbitrage member (the managed media
+ * buying program), which should suppress the VIP Arbitrage pitch from their
+ * stack.
+ *
+ * STUBBED per Task #1824: mirrors `isMachineMember` exactly — always
+ * returns `false` until the not-yet-landed Machine daily cross-system sync
+ * (hashed-email join, never-block, daily cadence) lands. That sync is
+ * required to populate BOTH `machine_member` AND `vip_arbitrage_member` on
+ * the schema — the latter sourced from the Machine-side VIP Arbitrage
+ * member list. The signature (async, keyed by userId) is intentionally
+ * already shaped for a DB-backed implementation so the swap is a drop-in
+ * change with no other caller needing to change.
+ *
+ * TODO(vip-arbitrage-member-flag): once `vip_arbitrage_member` (or
+ * equivalent) exists on the schema — landing with the future Machine
+ * cross-system sync task — replace this body with a real read.
+ */
+export async function isVipArbitrageMember(_userId: number): Promise<boolean> {
+  return false;
+}
+
+/**
  * Highest product rank across the member's currently-active, non-expired
  * product grants — the same max-active-rank approach as the onboarding
  * variant resolver (`onboarding-variant.ts`). Unlike that resolver, this
@@ -66,37 +88,84 @@ export async function resolveMemberRank(userId: number): Promise<number> {
 }
 
 /**
- * Ordered pitch-block stack for a given rank + Machine-member flag, per the
- * exact Task #1715 matrix:
- *   rank 0 (free/frontend-only)    -> LaunchPad, Machine, VIP
- *   rank 1 (LaunchPad)             -> Mentorship, Machine, VIP
- *   ranks 2-5 (3month..lifetime)   -> Machine, VIP
- *   rank 6+ (VIP)                  -> Machine
- * `machineMember = true` removes MACHINE_PITCH from the stack wherever it
- * appears, closing the gap (never leaving an empty slot in the middle) — a
- * VIP + Machine member therefore resolves to an empty stack.
+ * Ordered pitch-block stack for a given rank + Machine/VIP-Arbitrage-member
+ * flags, per the exact Task #1824 matrix:
+ *   rank 0 (free/frontend-only)    -> LaunchPad, Machine, VIPArb
+ *   rank 1 (LaunchPad)             -> Mentorship, Machine, VIPArb
+ *   ranks 2-5 (3month..lifetime)   -> Machine, VIPArb
+ *   rank 6+ (BTS VIP)              -> Machine, VIPArb
+ * VIP Arbitrage is a separate, cross-system product (like Machine) — the
+ * BTS VIP product no longer suppresses or triggers anything in this slot,
+ * so it's universal across every rank, including 6+. `machineMember = true`
+ * removes MACHINE_PITCH and `vipArbitrageMember = true` removes
+ * VIP_ARBITRAGE_PITCH, each closing the gap independently (never leaving an
+ * empty slot in the middle) — a member with both flags therefore resolves
+ * to whatever pitch(es) remain, or an empty stack if neither remains.
  */
-export function pitchStackForRank(rank: number, machineMember: boolean): PitchBlockKey[] {
+export function pitchStackForRank(
+  rank: number,
+  machineMember: boolean,
+  vipArbitrageMember: boolean,
+): PitchBlockKey[] {
   let stack: PitchBlockKey[];
   if (rank <= 0) {
-    stack = ["LAUNCHPAD_PITCH", "MACHINE_PITCH", "VIP_PITCH"];
+    stack = ["LAUNCHPAD_PITCH", "MACHINE_PITCH", "VIP_ARBITRAGE_PITCH"];
   } else if (rank === 1) {
-    stack = ["MENTORSHIP_PITCH", "MACHINE_PITCH", "VIP_PITCH"];
-  } else if (rank >= 2 && rank <= 5) {
-    stack = ["MACHINE_PITCH", "VIP_PITCH"];
+    stack = ["MENTORSHIP_PITCH", "MACHINE_PITCH", "VIP_ARBITRAGE_PITCH"];
   } else {
-    stack = ["MACHINE_PITCH"];
+    stack = ["MACHINE_PITCH", "VIP_ARBITRAGE_PITCH"];
   }
-  return machineMember ? stack.filter((key) => key !== "MACHINE_PITCH") : stack;
+  return stack.filter((key) => {
+    if (key === "MACHINE_PITCH" && machineMember) return false;
+    if (key === "VIP_ARBITRAGE_PITCH" && vipArbitrageMember) return false;
+    return true;
+  });
 }
 
-/** Resolve the ordered pitch stack for a member (fresh rank + stub flag). */
+/** Resolve the ordered pitch stack for a member (fresh rank + stub flags). */
 export async function resolvePitchStack(userId: number): Promise<PitchBlockKey[]> {
-  const [rank, machineMember] = await Promise.all([
+  const [rank, machineMember, vipArbitrageMember] = await Promise.all([
     resolveMemberRank(userId),
     isMachineMember(userId),
+    isVipArbitrageMember(userId),
   ]);
-  return pitchStackForRank(rank, machineMember);
+  return pitchStackForRank(rank, machineMember, vipArbitrageMember);
+}
+
+/**
+ * Task #1824 compliance gate: whether a resolved pitch block is actually
+ * allowed to render. Every block except VIP_ARBITRAGE_PITCH is always
+ * renderable — VIP Arbitrage is a Reg D 506(c) securities offering, so its
+ * copy is securities marketing that must never reach a member's inbox
+ * before securities counsel has explicitly signed off. Fails closed: a
+ * missing `reviewed` field, a stored value that isn't the literal boolean
+ * `true`, or a content-load fallback (DB read failure -> shipped default,
+ * which is always `reviewed: false`) all resolve to "not renderable".
+ */
+export function isPitchBlockReviewed(key: PitchBlockKey, content: PitchContentForGate): boolean {
+  if (key !== "VIP_ARBITRAGE_PITCH") return true;
+  return content.reviewed === true;
+}
+
+interface PitchContentForGate {
+  reviewed?: boolean;
+}
+
+/**
+ * THE single seam every send path — the resolver's own
+ * `renderPitchStackHtml` as well as the `blast-all-emails*` scripts that
+ * render a pitch stack outside the normal per-member resolver flow — must
+ * go through to render a pitch block's HTML. Wraps `renderPitchBlock` with
+ * the `isPitchBlockReviewed` gate so no caller can bypass compliance review
+ * by calling `renderPitchBlock` directly for a gated block.
+ */
+export function renderGatedPitchBlock(
+  key: PitchBlockKey,
+  content: (Parameters<typeof renderPitchBlock>[0] & PitchContentForGate) | null | undefined,
+  emphasis?: Parameters<typeof renderPitchBlock>[1],
+): string {
+  if (!content || !isPitchBlockReviewed(key, content)) return "";
+  return renderPitchBlock(content, emphasis);
 }
 
 /**
@@ -123,7 +192,7 @@ export async function renderPitchStackHtml(userId: number): Promise<string> {
   const rows = stack
     .map((key, index) => {
       const emphasis = index === 0 ? "primary" : index === 1 ? "secondary" : "tertiary";
-      const block = renderPitchBlock(contentByKey[key], emphasis);
+      const block = renderGatedPitchBlock(key, contentByKey[key], emphasis);
       if (!block) return "";
       const topPadding = index === 0 ? "20px" : "14px";
       return `<tr><td style="padding:${topPadding} 0 0;">${block}</td></tr>`;

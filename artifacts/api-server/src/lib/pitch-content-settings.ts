@@ -22,13 +22,13 @@ export type PitchBlockKey =
   | "LAUNCHPAD_PITCH"
   | "MENTORSHIP_PITCH"
   | "MACHINE_PITCH"
-  | "VIP_PITCH";
+  | "VIP_ARBITRAGE_PITCH";
 
 export const PITCH_BLOCK_KEYS: PitchBlockKey[] = [
   "LAUNCHPAD_PITCH",
   "MENTORSHIP_PITCH",
   "MACHINE_PITCH",
-  "VIP_PITCH",
+  "VIP_ARBITRAGE_PITCH",
 ];
 
 export interface PitchContent {
@@ -47,13 +47,27 @@ export interface PitchContent {
    */
   thumbnailUrl?: string;
   thumbnailLinkUrl?: string;
+  /**
+   * Task #1824: hard compliance gate for VIP_ARBITRAGE_PITCH only. VIP
+   * Arbitrage is a Reg D 506(c) securities offering, so its pitch copy is
+   * securities marketing — it must never reach a member's inbox before
+   * securities counsel has signed off. Defaults to `false` (suppressed) for
+   * every other block this field is simply ignored. See
+   * `pitch-resolver.ts`'s `isPitchBlockReviewed`/`renderGatedPitchBlock` for
+   * the single seam that enforces this.
+   */
+  reviewed?: boolean;
 }
 
 const SETTING_KEYS: Record<PitchBlockKey, string> = {
   LAUNCHPAD_PITCH: "pitch.launchpad",
   MENTORSHIP_PITCH: "pitch.mentorship",
   MACHINE_PITCH: "pitch.machine",
-  VIP_PITCH: "pitch.vip",
+  // Task #1824: retired `pitch.vip` (VIP_PITCH) without migrating its value —
+  // that copy pitched the wrong product (BTS VIP status) and was never
+  // reviewed for the new securities-marketing content. `pitch.vip_arbitrage`
+  // is a brand-new key that starts empty/suppressed.
+  VIP_ARBITRAGE_PITCH: "pitch.vip_arbitrage",
 };
 
 const CATEGORY = "pitch";
@@ -68,7 +82,7 @@ export function getPitchContentSettingKeys(): string[] {
 
 // Placeholder copy only — the owner supplies real copy later via the admin
 // Settings UI. Marked clearly so nobody mistakes these for final copy.
-function defaultContentFor(key: PitchBlockKey, plansUrl: string): PitchContent {
+function defaultContentFor(key: PitchBlockKey, plansUrl: string, vipArbitrageUrl: string): PitchContent {
   switch (key) {
     case "LAUNCHPAD_PITCH":
       return {
@@ -96,12 +110,18 @@ function defaultContentFor(key: PitchBlockKey, plansUrl: string): PitchContent {
         buttonLabel: "Learn About Machine",
         buttonUrl: plansUrl,
       };
-    case "VIP_PITCH":
+    case "VIP_ARBITRAGE_PITCH":
+      // Task #1824: securities marketing copy (Reg D 506(c) offering) — this
+      // is a placeholder ONLY and MUST stay suppressed (reviewed: false)
+      // until securities counsel signs off on real copy. The gate in
+      // pitch-resolver.ts prevents this block from ever rendering while
+      // `reviewed` is not explicitly `true`.
       return {
-        heading: "[Placeholder] Go all-in with VIP",
-        line: "Unlock VIP status for the top-tier BTS experience.",
-        buttonLabel: "See VIP Status",
-        buttonUrl: plansUrl,
+        heading: "[Placeholder — NOT REVIEWED] VIP Arbitrage",
+        line: "[Placeholder — awaiting securities counsel review before this may be sent.]",
+        buttonLabel: "Learn More",
+        buttonUrl: vipArbitrageUrl,
+        reviewed: false,
       };
   }
 }
@@ -120,6 +140,12 @@ function parseStoredContent(raw: unknown): Partial<PitchContent> | null {
     if (typeof obj[field] === "string" && (obj[field] as string).trim()) {
       out[field] = (obj[field] as string).trim();
     }
+  }
+  // Task #1824: `reviewed` must be read strictly — anything other than the
+  // literal boolean `true` (missing field, malformed value, non-boolean
+  // type) resolves to "not reviewed" so the compliance gate fails closed.
+  if (obj.reviewed === true) {
+    out.reviewed = true;
   }
   return out;
 }
@@ -163,13 +189,26 @@ async function resolvePlansUrl(): Promise<string> {
   return portalUrl ? `${portalUrl.replace(/\/+$/, "")}/plans` : "/plans";
 }
 
+// Task #1824: default button URL (and thumbnail destination) for the VIP
+// Arbitrage block, computed fresh via the same pattern as `resolvePlansUrl`
+// so it always reflects the current portal URL setting. NOTE (verified
+// 2026-07-09): no `/vip-arbitrage` route exists yet — the SPA static
+// catch-all serves this path with a 200 that client-renders NotFound. The
+// compliance gate guarantees no member traffic reaches it until this task's
+// landing page is built as a separate, counsel-reviewed effort.
+async function resolveVipArbitrageUrl(): Promise<string> {
+  const portalUrl = await getPortalUrl();
+  return portalUrl ? `${portalUrl.replace(/\/+$/, "")}/vip-arbitrage` : "/vip-arbitrage";
+}
+
 function mergeWithDefault(
   key: PitchBlockKey,
   stored: Partial<PitchContent> | undefined,
   plansUrl: string,
+  vipArbitrageUrl: string,
   portalUrl: string | null,
 ): PitchContent {
-  const def = defaultContentFor(key, plansUrl);
+  const def = defaultContentFor(key, plansUrl, vipArbitrageUrl);
   // Task #1820: the shipped thumbnail default must ONLY apply when there is
   // no saved row at all for this block (fresh installs / never-touched
   // blocks). Any existing saved row — even one predating this task that has
@@ -217,10 +256,14 @@ export async function getAllPitchContent(): Promise<
     }
     cache = { loadedAt: now, rows: dbValues };
   }
-  const [plansUrl, portalUrl] = await Promise.all([resolvePlansUrl(), getPortalUrl()]);
+  const [plansUrl, vipArbitrageUrl, portalUrl] = await Promise.all([
+    resolvePlansUrl(),
+    resolveVipArbitrageUrl(),
+    getPortalUrl(),
+  ]);
   const out = {} as Record<PitchBlockKey, PitchContent>;
   for (const key of PITCH_BLOCK_KEYS) {
-    out[key] = mergeWithDefault(key, dbValues[key], plansUrl, portalUrl);
+    out[key] = mergeWithDefault(key, dbValues[key], plansUrl, vipArbitrageUrl, portalUrl);
   }
   return out;
 }
@@ -252,6 +295,14 @@ export function validatePitchContentUpdate(
       return { ok: false, error: `${field} must be a string when provided` };
     }
   }
+  // Task #1824: `reviewed` is the compliance gate for VIP_ARBITRAGE_PITCH.
+  // It must be an explicit boolean when provided — never inferred/defaulted
+  // to `true` from a content edit — so saving new copy can never
+  // accidentally flip the gate open. Absent is valid (treated as `false`
+  // downstream via parseStoredContent/mergeWithDefault).
+  if (obj.reviewed !== undefined && typeof obj.reviewed !== "boolean") {
+    return { ok: false, error: "reviewed must be a boolean when provided" };
+  }
   const content: PitchContent = {
     heading: (obj.heading as string).trim(),
     line: (obj.line as string).trim(),
@@ -262,6 +313,9 @@ export function validatePitchContentUpdate(
   const thumbnailLinkUrl = typeof obj.thumbnailLinkUrl === "string" ? obj.thumbnailLinkUrl.trim() : "";
   if (thumbnailUrl) content.thumbnailUrl = thumbnailUrl;
   if (thumbnailLinkUrl) content.thumbnailLinkUrl = thumbnailLinkUrl;
+  // Explicit boolean only — `reviewed: false` must be preserved (not
+  // stripped by a truthiness check) since that's the fail-closed default.
+  if (typeof obj.reviewed === "boolean") content.reviewed = obj.reviewed;
   return { ok: true, content };
 }
 

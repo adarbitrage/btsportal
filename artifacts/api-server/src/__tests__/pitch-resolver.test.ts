@@ -10,11 +10,14 @@ import {
   resolvePitchStack,
   renderPitchStackHtml,
   isMachineMember,
+  isVipArbitrageMember,
+  isPitchBlockReviewed,
+  renderGatedPitchBlock,
 } from "../lib/pitch-resolver";
 import { __invalidatePitchContentCacheForTests } from "../lib/pitch-content-settings";
 import { renderPitchBlock } from "../lib/seed-templates";
 
-// Task #1715: the tier-based upgrade pitch stack. `pitchStackForRank` is a
+// Task #1824: the tier-based upgrade pitch stack. `pitchStackForRank` is a
 // pure function tested directly against the exact matrix from the task; the
 // DB-backed pieces (`resolveMemberRank`, `resolvePitchStack`,
 // `renderPitchStackHtml`) use the pre-existing dev-seeded products
@@ -71,37 +74,58 @@ afterAll(async () => {
 });
 
 describe("pitchStackForRank (pure matrix)", () => {
-  it("rank 0 (free/frontend-only) gets LaunchPad, Machine, VIP", () => {
-    expect(pitchStackForRank(0, false)).toEqual(["LAUNCHPAD_PITCH", "MACHINE_PITCH", "VIP_PITCH"]);
+  it("rank 0 (free/frontend-only) gets LaunchPad, Machine, VIP Arbitrage", () => {
+    expect(pitchStackForRank(0, false, false)).toEqual([
+      "LAUNCHPAD_PITCH",
+      "MACHINE_PITCH",
+      "VIP_ARBITRAGE_PITCH",
+    ]);
   });
 
-  it("rank 1 (LaunchPad) gets Mentorship, Machine, VIP", () => {
-    expect(pitchStackForRank(1, false)).toEqual(["MENTORSHIP_PITCH", "MACHINE_PITCH", "VIP_PITCH"]);
+  it("rank 1 (LaunchPad) gets Mentorship, Machine, VIP Arbitrage", () => {
+    expect(pitchStackForRank(1, false, false)).toEqual([
+      "MENTORSHIP_PITCH",
+      "MACHINE_PITCH",
+      "VIP_ARBITRAGE_PITCH",
+    ]);
   });
 
-  it("ranks 2-5 (3month..lifetime) get Machine, VIP", () => {
+  it("ranks 2-5 (3month..lifetime) get Machine, VIP Arbitrage", () => {
     for (const rank of [2, 3, 4, 5]) {
-      expect(pitchStackForRank(rank, false)).toEqual(["MACHINE_PITCH", "VIP_PITCH"]);
+      expect(pitchStackForRank(rank, false, false)).toEqual(["MACHINE_PITCH", "VIP_ARBITRAGE_PITCH"]);
     }
   });
 
-  it("rank 6+ (VIP) gets Machine only", () => {
-    expect(pitchStackForRank(6, false)).toEqual(["MACHINE_PITCH"]);
-    expect(pitchStackForRank(7, false)).toEqual(["MACHINE_PITCH"]);
+  it("rank 6+ (BTS VIP) gets Machine, VIP Arbitrage — VIP no longer changes this slot", () => {
+    expect(pitchStackForRank(6, false, false)).toEqual(["MACHINE_PITCH", "VIP_ARBITRAGE_PITCH"]);
+    expect(pitchStackForRank(7, false, false)).toEqual(["MACHINE_PITCH", "VIP_ARBITRAGE_PITCH"]);
   });
 
   it("negative rank is treated the same as rank 0", () => {
-    expect(pitchStackForRank(-1, false)).toEqual(["LAUNCHPAD_PITCH", "MACHINE_PITCH", "VIP_PITCH"]);
+    expect(pitchStackForRank(-1, false, false)).toEqual([
+      "LAUNCHPAD_PITCH",
+      "MACHINE_PITCH",
+      "VIP_ARBITRAGE_PITCH",
+    ]);
   });
 
   it("machineMember=true suppresses MACHINE_PITCH at every rank, closing the gap", () => {
-    expect(pitchStackForRank(0, true)).toEqual(["LAUNCHPAD_PITCH", "VIP_PITCH"]);
-    expect(pitchStackForRank(1, true)).toEqual(["MENTORSHIP_PITCH", "VIP_PITCH"]);
-    expect(pitchStackForRank(3, true)).toEqual(["VIP_PITCH"]);
+    expect(pitchStackForRank(0, true, false)).toEqual(["LAUNCHPAD_PITCH", "VIP_ARBITRAGE_PITCH"]);
+    expect(pitchStackForRank(1, true, false)).toEqual(["MENTORSHIP_PITCH", "VIP_ARBITRAGE_PITCH"]);
+    expect(pitchStackForRank(3, true, false)).toEqual(["VIP_ARBITRAGE_PITCH"]);
+    expect(pitchStackForRank(6, true, false)).toEqual(["VIP_ARBITRAGE_PITCH"]);
   });
 
-  it("machineMember=true at rank 6+ (VIP + Machine) resolves to an empty stack", () => {
-    expect(pitchStackForRank(6, true)).toEqual([]);
+  it("vipArbitrageMember=true suppresses VIP_ARBITRAGE_PITCH at every rank, closing the gap", () => {
+    expect(pitchStackForRank(0, false, true)).toEqual(["LAUNCHPAD_PITCH", "MACHINE_PITCH"]);
+    expect(pitchStackForRank(1, false, true)).toEqual(["MENTORSHIP_PITCH", "MACHINE_PITCH"]);
+    expect(pitchStackForRank(3, false, true)).toEqual(["MACHINE_PITCH"]);
+    expect(pitchStackForRank(6, false, true)).toEqual(["MACHINE_PITCH"]);
+  });
+
+  it("both flags true leaves only the tier-specific block (rank 0 keeps LaunchPad; rank 6+ is empty)", () => {
+    expect(pitchStackForRank(0, true, true)).toEqual(["LAUNCHPAD_PITCH"]);
+    expect(pitchStackForRank(6, true, true)).toEqual([]);
   });
 });
 
@@ -109,6 +133,13 @@ describe("isMachineMember stub", () => {
   it("always returns false (TODO: real DB-backed implementation)", async () => {
     expect(await isMachineMember(1)).toBe(false);
     expect(await isMachineMember(999999)).toBe(false);
+  });
+});
+
+describe("isVipArbitrageMember stub", () => {
+  it("always returns false (TODO: real DB-backed implementation), mirroring isMachineMember", async () => {
+    expect(await isVipArbitrageMember(1)).toBe(false);
+    expect(await isVipArbitrageMember(999999)).toBe(false);
   });
 });
 
@@ -167,36 +198,88 @@ describe("resolveMemberRank (DB-backed, fresh read every call)", () => {
 describe("resolvePitchStack (DB-backed)", () => {
   it("returns the rank-0 stack for a member with no products", async () => {
     const userId = await seedMember();
-    expect(await resolvePitchStack(userId)).toEqual(["LAUNCHPAD_PITCH", "MACHINE_PITCH", "VIP_PITCH"]);
+    expect(await resolvePitchStack(userId)).toEqual(["LAUNCHPAD_PITCH", "MACHINE_PITCH", "VIP_ARBITRAGE_PITCH"]);
   });
 
   it("returns the rank-1 stack for a LaunchPad member", async () => {
     const userId = await seedMember();
     await grantActiveProduct(userId, "launchpad");
-    expect(await resolvePitchStack(userId)).toEqual(["MENTORSHIP_PITCH", "MACHINE_PITCH", "VIP_PITCH"]);
+    expect(await resolvePitchStack(userId)).toEqual(["MENTORSHIP_PITCH", "MACHINE_PITCH", "VIP_ARBITRAGE_PITCH"]);
   });
 
-  it("returns the machine-only stack for a VIP member", async () => {
+  it("returns the machine+vip-arbitrage stack for a VIP member (VIP no longer changes this slot)", async () => {
     const userId = await seedMember();
     await grantActiveProduct(userId, "vip");
-    expect(await resolvePitchStack(userId)).toEqual(["MACHINE_PITCH"]);
+    expect(await resolvePitchStack(userId)).toEqual(["MACHINE_PITCH", "VIP_ARBITRAGE_PITCH"]);
+  });
+});
+
+describe("isPitchBlockReviewed (Task #1824 compliance gate)", () => {
+  it("is always true for non-VIP-Arbitrage blocks, regardless of `reviewed`", () => {
+    expect(isPitchBlockReviewed("LAUNCHPAD_PITCH", {})).toBe(true);
+    expect(isPitchBlockReviewed("MENTORSHIP_PITCH", { reviewed: false })).toBe(true);
+    expect(isPitchBlockReviewed("MACHINE_PITCH", { reviewed: undefined })).toBe(true);
+  });
+
+  it("is false for VIP_ARBITRAGE_PITCH when reviewed is missing or false", () => {
+    expect(isPitchBlockReviewed("VIP_ARBITRAGE_PITCH", {})).toBe(false);
+    expect(isPitchBlockReviewed("VIP_ARBITRAGE_PITCH", { reviewed: false })).toBe(false);
+  });
+
+  it("is true for VIP_ARBITRAGE_PITCH only when reviewed is the literal boolean true", () => {
+    expect(isPitchBlockReviewed("VIP_ARBITRAGE_PITCH", { reviewed: true })).toBe(true);
+  });
+});
+
+describe("renderGatedPitchBlock (the single gated rendering seam)", () => {
+  const base = {
+    heading: "VIP Arbitrage Heading",
+    line: "VIP Arbitrage line",
+    buttonLabel: "Go",
+    buttonUrl: "https://example.test/vip-arbitrage",
+  };
+
+  it("suppresses VIP_ARBITRAGE_PITCH when not reviewed, even with fully-populated content", () => {
+    expect(renderGatedPitchBlock("VIP_ARBITRAGE_PITCH", { ...base, reviewed: false })).toBe("");
+    expect(renderGatedPitchBlock("VIP_ARBITRAGE_PITCH", base as any)).toBe("");
+  });
+
+  it("renders VIP_ARBITRAGE_PITCH once reviewed: true is set", () => {
+    const html = renderGatedPitchBlock("VIP_ARBITRAGE_PITCH", { ...base, reviewed: true });
+    expect(html).toContain("VIP Arbitrage Heading");
+  });
+
+  it("renders non-gated blocks unconditionally, matching raw renderPitchBlock", () => {
+    const content = { heading: "Machine Heading", line: "x", buttonLabel: "Go", buttonUrl: "https://x.test" };
+    expect(renderGatedPitchBlock("MACHINE_PITCH", content)).toBe(renderPitchBlock(content));
+  });
+
+  it("returns empty string for null/undefined content (fail closed, no crash)", () => {
+    expect(renderGatedPitchBlock("VIP_ARBITRAGE_PITCH", null)).toBe("");
+    expect(renderGatedPitchBlock("MACHINE_PITCH", null)).toBe("");
   });
 });
 
 describe("renderPitchStackHtml", () => {
-  it("renders non-empty HTML containing every block's heading for a rank-0 member", async () => {
+  it("renders non-empty HTML containing every renderable block's heading for a rank-0 member", async () => {
     const userId = await seedMember();
     const html = await renderPitchStackHtml(userId);
     expect(html.length).toBeGreaterThan(0);
     expect(html).toContain("LaunchPad");
-    expect(html).toContain("VIP");
   });
 
-  it("returns an empty string for an empty stack", async () => {
-    // A VIP holder's stack is machine-only; we can't reach a truly empty
-    // stack without the (stubbed) machine-member flag, so exercise the pure
+  it("never renders the VIP Arbitrage block content even though it's in the rank-0 stack (default reviewed: false)", async () => {
+    const userId = await seedMember();
+    const html = await renderPitchStackHtml(userId);
+    // The shipped default heading is a placeholder that would be an obvious
+    // giveaway if the gate were bypassed.
+    expect(html).not.toContain("VIP Arbitrage");
+  });
+
+  it("returns an empty string for an empty stack", () => {
+    // Both stub flags true collapses the stack entirely; exercise the pure
     // path directly via the same contract renderPitchStackHtml relies on.
-    expect(pitchStackForRank(6, true)).toEqual([]);
+    expect(pitchStackForRank(6, true, true)).toEqual([]);
   });
 
   it("rank-0 stack (which includes the LaunchPad block's default thumbnail) renders an <img> tag", async () => {

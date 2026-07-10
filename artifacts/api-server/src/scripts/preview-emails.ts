@@ -87,6 +87,10 @@ const PREVIEW_SLUGS = [
 let samplePersonBlockWithPhoto = ""; // John — accountability partner, has a photo
 let samplePersonBlockNoPhoto = "";   // Jean — accountability partner, photoUrl intentionally NULL
 
+// Static hand-written sample content only — never render live/gated pitch
+// settings (e.g. VIP Arbitrage) here. Any preview of real pitch content must
+// go through the gated seam in pitch-resolver.ts (renderGatedPitchBlock),
+// not this raw renderPitchBlock call.
 const SAMPLE_PITCH_BLOCK = renderPitchBlock({
   heading: "Ready for more 1-on-1 support?",
   line: "Book time with a coach to work through your next milestone.",

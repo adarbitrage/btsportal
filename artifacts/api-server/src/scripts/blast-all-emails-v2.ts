@@ -27,8 +27,8 @@
 
 import sgMail from "@sendgrid/mail";
 import { CommunicationService } from "../lib/communication-service.js";
-import { renderPersonBlock, renderPitchBlock } from "../lib/seed-templates.js";
-import { pitchStackForRank } from "../lib/pitch-resolver.js";
+import { renderPersonBlock } from "../lib/seed-templates.js";
+import { pitchStackForRank, renderGatedPitchBlock } from "../lib/pitch-resolver.js";
 import { getAllPitchContent } from "../lib/pitch-content-settings.js";
 import { getPortalUrl, __invalidatePortalUrlCacheForTests } from "../lib/portal-url-settings.js";
 import { formatInMemberTimezone } from "../lib/member-timezone.js";
@@ -151,12 +151,18 @@ async function loadRoster(): Promise<{
   };
 }
 
-/** Render the pitch-block HTML for a given rank (no machineMember flag). */
-async function renderPitchHtmlForRank(rank: number): Promise<string> {
-  const stack = pitchStackForRank(rank, false);
+/**
+ * Render the pitch-block HTML for a given rank (no machineMember/
+ * vipArbitrageMember flags — this blast path has no per-recipient DB lookup
+ * for those stub flags, same as before Task #1824). Goes through the single
+ * gated rendering seam (`renderGatedPitchBlock`) so this bulk path can never
+ * bypass the VIP Arbitrage compliance gate.
+ */
+export async function renderPitchHtmlForRank(rank: number): Promise<string> {
+  const stack = pitchStackForRank(rank, false, false);
   if (stack.length === 0) return "";
   const contentByKey = await getAllPitchContent();
-  return stack.map((key) => renderPitchBlock(contentByKey[key])).join("");
+  return stack.map((key) => renderGatedPitchBlock(key, contentByKey[key])).join("");
 }
 
 // ─── job model ──────────────────────────────────────────────────────────────
@@ -665,7 +671,11 @@ async function main(): Promise<void> {
   }
 }
 
-main().catch((err: unknown) => {
-  console.error("[blast-v2] Fatal error:", err);
-  process.exit(1);
-});
+// Only auto-run when executed directly (e.g. `tsx blast-all-emails-v2.ts`),
+// not when imported by tests that reuse `renderPitchHtmlForRank`.
+if (import.meta.url === `file://${process.argv[1]}`) {
+  main().catch((err: unknown) => {
+    console.error("[blast-v2] Fatal error:", err);
+    process.exit(1);
+  });
+}

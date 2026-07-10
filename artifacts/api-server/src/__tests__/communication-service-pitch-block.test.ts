@@ -133,7 +133,7 @@ beforeEach(() => {
 });
 
 describe("CommunicationService populates {{pitch_block_html}} for lifecycle sends", () => {
-  it("sendEmailNow renders the rank-0 stack (LaunchPad, Machine, VIP) for a member with no products", async () => {
+  it("sendEmailNow renders the rank-0 stack (LaunchPad, Machine) for a member with no products; VIP Arbitrage is gated off by default (Task #1824)", async () => {
     const userId = await seedMember();
     const result = await CommunicationService.sendEmailNow({
       templateSlug: LIFECYCLE_TEMPLATE_SLUG,
@@ -143,11 +143,11 @@ describe("CommunicationService populates {{pitch_block_html}} for lifecycle send
     expect(result.status).toBe("sent");
     const html = (sendMock.mock.calls.at(-1)![0] as { html: string }).html;
     expect(html).toContain("LaunchPad");
-    expect(html).toContain("VIP");
+    expect(html).not.toContain("VIP Arbitrage");
     expect(html).not.toContain("{{pitch_block_html}}");
   });
 
-  it("sendEmailNow renders the rank-1 stack (Mentorship, Machine, VIP) for a LaunchPad member", async () => {
+  it("sendEmailNow renders the rank-1 stack (Mentorship, Machine, VIP Arbitrage) for a LaunchPad member", async () => {
     const userId = await seedMember();
     await grantLaunchpad(userId);
     const result = await CommunicationService.sendEmailNow({

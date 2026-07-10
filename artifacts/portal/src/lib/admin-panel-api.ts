@@ -1318,7 +1318,7 @@ export const adminPanelApi = {
     if (!res.ok) throw new Error("Failed to fetch pitch content");
     return res.json() as Promise<
       Record<
-        "LAUNCHPAD_PITCH" | "MENTORSHIP_PITCH" | "MACHINE_PITCH" | "VIP_PITCH",
+        "LAUNCHPAD_PITCH" | "MENTORSHIP_PITCH" | "MACHINE_PITCH" | "VIP_ARBITRAGE_PITCH",
         {
           heading: string;
           line: string;
@@ -1326,13 +1326,14 @@ export const adminPanelApi = {
           buttonUrl: string;
           thumbnailUrl?: string;
           thumbnailLinkUrl?: string;
+          reviewed?: boolean;
         }
       >
     >;
   },
 
   async updatePitchContent(
-    key: "LAUNCHPAD_PITCH" | "MENTORSHIP_PITCH" | "MACHINE_PITCH" | "VIP_PITCH",
+    key: "LAUNCHPAD_PITCH" | "MENTORSHIP_PITCH" | "MACHINE_PITCH" | "VIP_ARBITRAGE_PITCH",
     content: {
       heading: string;
       line: string;
@@ -1340,6 +1341,7 @@ export const adminPanelApi = {
       buttonUrl: string;
       thumbnailUrl?: string;
       thumbnailLinkUrl?: string;
+      reviewed?: boolean;
     },
   ) {
     const res = await authFetch(`/admin/pitch-content/${encodeURIComponent(key)}`, {
@@ -1352,7 +1354,7 @@ export const adminPanelApi = {
     }
     return res.json() as Promise<
       Record<
-        "LAUNCHPAD_PITCH" | "MENTORSHIP_PITCH" | "MACHINE_PITCH" | "VIP_PITCH",
+        "LAUNCHPAD_PITCH" | "MENTORSHIP_PITCH" | "MACHINE_PITCH" | "VIP_ARBITRAGE_PITCH",
         {
           heading: string;
           line: string;
@@ -1360,6 +1362,7 @@ export const adminPanelApi = {
           buttonUrl: string;
           thumbnailUrl?: string;
           thumbnailLinkUrl?: string;
+          reviewed?: boolean;
         }
       >
     >;

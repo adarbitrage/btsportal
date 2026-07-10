@@ -3,6 +3,7 @@ import { AdminLayout } from "@/components/layout/AdminLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Settings, Save, Plus, Bell, Send, CheckCircle2, XCircle, AlertCircle, History, ShieldAlert, RotateCcw, Archive, ExternalLink, ChevronDown, ChevronRight, Gauge, LifeBuoy } from "lucide-react";
 import { TICKETDESK_URL } from "@/config/support";
@@ -1251,7 +1252,7 @@ function alertConfigActorDisplay(event: AlertConfigHistoryEvent): string {
   return "System";
 }
 
-type PitchBlockKey = "LAUNCHPAD_PITCH" | "MENTORSHIP_PITCH" | "MACHINE_PITCH" | "VIP_PITCH";
+type PitchBlockKey = "LAUNCHPAD_PITCH" | "MENTORSHIP_PITCH" | "MACHINE_PITCH" | "VIP_ARBITRAGE_PITCH";
 
 interface PitchContentValue {
   heading: string;
@@ -1260,20 +1261,22 @@ interface PitchContentValue {
   buttonUrl: string;
   thumbnailUrl?: string;
   thumbnailLinkUrl?: string;
+  /** Task #1824: compliance gate, VIP_ARBITRAGE_PITCH only. See below. */
+  reviewed?: boolean;
 }
 
 const PITCH_BLOCK_LABELS: Record<PitchBlockKey, string> = {
   LAUNCHPAD_PITCH: "LaunchPad Pitch",
   MENTORSHIP_PITCH: "Mentorship Pitch",
   MACHINE_PITCH: "Machine Pitch",
-  VIP_PITCH: "VIP Pitch",
+  VIP_ARBITRAGE_PITCH: "VIP Arbitrage Pitch",
 };
 
 const PITCH_BLOCK_ORDER: PitchBlockKey[] = [
   "LAUNCHPAD_PITCH",
   "MENTORSHIP_PITCH",
   "MACHINE_PITCH",
-  "VIP_PITCH",
+  "VIP_ARBITRAGE_PITCH",
 ];
 
 const EMPTY_PITCH_CONTENT: PitchContentValue = {
@@ -1283,14 +1286,20 @@ const EMPTY_PITCH_CONTENT: PitchContentValue = {
   buttonUrl: "",
   thumbnailUrl: "",
   thumbnailLinkUrl: "",
+  reviewed: false,
 };
 
 /**
- * Task #1715: editable content for the four tier-based upgrade pitch blocks
- * (LaunchPad/Mentorship/Machine/VIP) that the email pitch resolver stacks
- * into the `pitch_block_html` slot at send time based on the recipient's
- * product rank. Copy-only — which block(s) a given member sees is decided
- * server-side by `pitch-resolver.ts`'s rank matrix, not here.
+ * Task #1824: editable content for the four tier-based upgrade pitch blocks
+ * (LaunchPad/Mentorship/Machine/VIP Arbitrage) that the email pitch resolver
+ * stacks into the `pitch_block_html` slot at send time based on the
+ * recipient's product rank. Copy-only — which block(s) a given member sees
+ * is decided server-side by `pitch-resolver.ts`'s rank matrix, not here.
+ *
+ * VIP Arbitrage is a Reg D 506(c) securities offering, so its block carries
+ * an extra hard compliance gate (the "Reviewed by securities counsel"
+ * toggle below) that every other block doesn't have — the server enforces
+ * this gate independently (fail-closed) regardless of what this UI sends.
  */
 function PitchContentCard() {
   const { toast } = useToast();
@@ -1299,7 +1308,7 @@ function PitchContentCard() {
     LAUNCHPAD_PITCH: EMPTY_PITCH_CONTENT,
     MENTORSHIP_PITCH: EMPTY_PITCH_CONTENT,
     MACHINE_PITCH: EMPTY_PITCH_CONTENT,
-    VIP_PITCH: EMPTY_PITCH_CONTENT,
+    VIP_ARBITRAGE_PITCH: EMPTY_PITCH_CONTENT,
   });
   const [loading, setLoading] = useState(true);
   const [savingKey, setSavingKey] = useState<PitchBlockKey | null>(null);
@@ -1323,6 +1332,11 @@ function PitchContentCard() {
     setDrafts((prev) => ({ ...prev, [key]: { ...prev[key], [field]: value } }));
   };
 
+  /** Task #1824: dedicated boolean setter for the `reviewed` compliance gate. */
+  const setReviewedDraft = (key: PitchBlockKey, value: boolean) => {
+    setDrafts((prev) => ({ ...prev, [key]: { ...prev[key], reviewed: value } }));
+  };
+
   const isDirty = (key: PitchBlockKey) => {
     if (!content) return false;
     const a = content[key];
@@ -1333,7 +1347,8 @@ function PitchContentCard() {
       a.buttonLabel !== b.buttonLabel ||
       a.buttonUrl !== b.buttonUrl ||
       (a.thumbnailUrl ?? "") !== (b.thumbnailUrl ?? "") ||
-      (a.thumbnailLinkUrl ?? "") !== (b.thumbnailLinkUrl ?? "")
+      (a.thumbnailLinkUrl ?? "") !== (b.thumbnailLinkUrl ?? "") ||
+      (a.reviewed ?? false) !== (b.reviewed ?? false)
     );
   };
 
@@ -1430,6 +1445,25 @@ function PitchContentCard() {
                 the same as the logo and coach photos — root-relative paths only resolve correctly once the portal
                 URL setting is configured.
               </p>
+              {key === "VIP_ARBITRAGE_PITCH" && (
+                <div className="rounded-md border border-amber-300 bg-amber-50 dark:bg-amber-950/30 dark:border-amber-900 p-3 space-y-2">
+                  <div className="flex items-start gap-2">
+                    <Checkbox
+                      id="vip-arbitrage-reviewed"
+                      checked={drafts[key].reviewed ?? false}
+                      onCheckedChange={(checked) => setReviewedDraft(key, checked === true)}
+                    />
+                    <label htmlFor="vip-arbitrage-reviewed" className="text-sm leading-tight">
+                      Reviewed and approved by securities counsel
+                    </label>
+                  </div>
+                  <p className="text-xs text-muted-foreground leading-relaxed">
+                    VIP Arbitrage is a Reg D 506(c) securities offering. This block will{" "}
+                    <strong>never render in any member email</strong> — no matter what copy is saved above — until
+                    this box is checked and saved. Uncheck it any time to immediately suppress the block again.
+                  </p>
+                </div>
+              )}
               <div className="flex justify-end">
                 <Button
                   size="sm"

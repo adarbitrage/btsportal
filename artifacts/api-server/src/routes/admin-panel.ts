@@ -5205,9 +5205,14 @@ router.put("/admin/oncall-destinations", requirePermission("settings:manage"), a
   }
 });
 
-// Task #1715: editable pitch content blocks (LaunchPad/Mentorship/Machine/VIP)
-// consumed by the email pitch resolver. Content-only — no send-time logic
-// lives here; see pitch-resolver.ts for the rank/stack matrix.
+// Task #1824: editable pitch content blocks (LaunchPad/Mentorship/Machine/VIP
+// Arbitrage) consumed by the email pitch resolver. Content-only — no
+// send-time logic or the VIP Arbitrage compliance gate live here; see
+// pitch-resolver.ts for the rank/stack matrix and the gate seam
+// (isPitchBlockReviewed/renderGatedPitchBlock). `validatePitchContentUpdate`
+// still allows saving unreviewed copy — that's intentional, so a draft can
+// be prepared and reviewed inside the admin UI before the compliance
+// checkbox is flipped.
 router.get("/admin/pitch-content", requirePermission("settings:view"), async (_req: Request, res: Response) => {
   try {
     const content = await getAllPitchContent();

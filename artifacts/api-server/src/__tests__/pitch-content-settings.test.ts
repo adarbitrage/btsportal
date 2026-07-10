@@ -34,10 +34,16 @@ afterAll(async () => {
 
 describe("isPitchContentSettingKey / getPitchContentSettingKeys", () => {
   it("recognizes all four reserved pitch.* keys", () => {
-    expect(settingKeys.sort()).toEqual(["pitch.launchpad", "pitch.machine", "pitch.mentorship", "pitch.vip"].sort());
+    expect(settingKeys.sort()).toEqual(
+      ["pitch.launchpad", "pitch.machine", "pitch.mentorship", "pitch.vip_arbitrage"].sort(),
+    );
     for (const key of settingKeys) {
       expect(isPitchContentSettingKey(key)).toBe(true);
     }
+  });
+
+  it("no longer recognizes the retired pitch.vip key (Task #1824)", () => {
+    expect(isPitchContentSettingKey("pitch.vip")).toBe(false);
   });
 
   it("rejects unrelated keys", () => {
@@ -91,7 +97,7 @@ describe("getAllPitchContent / getPitchContent (default fallback + DB override)"
 
   it("returns a well-formed PitchContent for every block key", async () => {
     const all = await getAllPitchContent();
-    const keys: PitchBlockKey[] = ["LAUNCHPAD_PITCH", "MENTORSHIP_PITCH", "MACHINE_PITCH", "VIP_PITCH"];
+    const keys: PitchBlockKey[] = ["LAUNCHPAD_PITCH", "MENTORSHIP_PITCH", "MACHINE_PITCH", "VIP_ARBITRAGE_PITCH"];
     for (const key of keys) {
       expect(typeof all[key].heading).toBe("string");
       expect(typeof all[key].line).toBe("string");
@@ -99,6 +105,14 @@ describe("getAllPitchContent / getPitchContent (default fallback + DB override)"
       expect(typeof all[key].buttonUrl).toBe("string");
       expect(all[key].heading.length).toBeGreaterThan(0);
     }
+  });
+
+  it("VIP_ARBITRAGE_PITCH default is reviewed: false and its buttonUrl points at /vip-arbitrage (Task #1824)", async () => {
+    await resetRow("pitch.vip_arbitrage");
+    __invalidatePitchContentCacheForTests();
+    const content = await getPitchContent("VIP_ARBITRAGE_PITCH");
+    expect(content.reviewed).toBe(false);
+    expect(content.buttonUrl.endsWith("/vip-arbitrage")).toBe(true);
   });
 
   it("DB value overrides the shipped default once saved", async () => {
@@ -145,9 +159,9 @@ describe("getAllPitchContent / getPitchContent (default fallback + DB override)"
   });
 
   it("a block with neither thumbnail field set renders no thumbnail (purely additive)", async () => {
-    await resetRow("pitch.vip");
+    await resetRow("pitch.vip_arbitrage");
     __invalidatePitchContentCacheForTests();
-    const content = await getPitchContent("VIP_PITCH");
+    const content = await getPitchContent("VIP_ARBITRAGE_PITCH");
     expect(content.thumbnailUrl).toBeUndefined();
     expect(content.thumbnailLinkUrl).toBeUndefined();
   });
@@ -232,14 +246,100 @@ describe("getAllPitchContent / getPitchContent (default fallback + DB override)"
     // hand-edited/legacy row could be partial — parseStoredContent must
     // tolerate that and mergeWithDefault must fill only the missing field.
     await db.insert(systemSettingsTable).values({
-      key: "pitch.vip",
+      key: "pitch.vip_arbitrage",
       value: { heading: "Only heading set" },
       category: "pitch",
     });
     __invalidatePitchContentCacheForTests();
-    const content = await getPitchContent("VIP_PITCH");
+    const content = await getPitchContent("VIP_ARBITRAGE_PITCH");
     expect(content.heading).toBe("Only heading set");
     expect(content.line.length).toBeGreaterThan(0);
-    await resetRow("pitch.vip");
+    await resetRow("pitch.vip_arbitrage");
+  });
+});
+
+// Task #1824: the `reviewed` compliance gate. VIP Arbitrage is a Reg D
+// 506(c) securities offering — its pitch content must never resolve as
+// "reviewed" unless the stored value is the literal boolean `true`. These
+// tests cover the fail-closed contract independent of the resolver-level
+// gate tested in pitch-resolver.test.ts.
+describe("reviewed field (Task #1824 compliance gate — fail closed)", () => {
+  afterAll(async () => {
+    await resetRow("pitch.vip_arbitrage");
+  });
+
+  it("validatePitchContentUpdate rejects a non-boolean reviewed value", () => {
+    const result = validatePitchContentUpdate({
+      heading: "H",
+      line: "L",
+      buttonLabel: "B",
+      buttonUrl: "https://example.test",
+      reviewed: "true",
+    });
+    expect(result.ok).toBe(false);
+  });
+
+  it("validatePitchContentUpdate preserves an explicit reviewed: false (not stripped as falsy)", () => {
+    const result = validatePitchContentUpdate({
+      heading: "H",
+      line: "L",
+      buttonLabel: "B",
+      buttonUrl: "https://example.test",
+      reviewed: false,
+    });
+    expect(result.ok).toBe(true);
+    if (result.ok) expect(result.content.reviewed).toBe(false);
+  });
+
+  it("validatePitchContentUpdate accepts and preserves reviewed: true", () => {
+    const result = validatePitchContentUpdate({
+      heading: "H",
+      line: "L",
+      buttonLabel: "B",
+      buttonUrl: "https://example.test",
+      reviewed: true,
+    });
+    expect(result.ok).toBe(true);
+    if (result.ok) expect(result.content.reviewed).toBe(true);
+  });
+
+  it("omitting reviewed entirely on update is valid (treated as false downstream)", () => {
+    const result = validatePitchContentUpdate({
+      heading: "H",
+      line: "L",
+      buttonLabel: "B",
+      buttonUrl: "https://example.test",
+    });
+    expect(result.ok).toBe(true);
+    if (result.ok) expect(result.content.reviewed).toBeUndefined();
+  });
+
+  it("a stored reviewed: true round-trips as true through getPitchContent", async () => {
+    await setPitchContent(
+      "VIP_ARBITRAGE_PITCH",
+      { heading: "Reviewed copy", line: "L", buttonLabel: "B", buttonUrl: "https://example.test", reviewed: true },
+      "counsel@example.test",
+    );
+    const content = await getPitchContent("VIP_ARBITRAGE_PITCH");
+    expect(content.reviewed).toBe(true);
+  });
+
+  it("a stored malformed (non-boolean) reviewed value in the DB fails closed to false", async () => {
+    await resetRow("pitch.vip_arbitrage");
+    await db.insert(systemSettingsTable).values({
+      key: "pitch.vip_arbitrage",
+      value: { heading: "H", line: "L", buttonLabel: "B", buttonUrl: "https://example.test", reviewed: "true" },
+      category: "pitch",
+    });
+    __invalidatePitchContentCacheForTests();
+    const content = await getPitchContent("VIP_ARBITRAGE_PITCH");
+    expect(content.reviewed).toBe(false);
+  });
+
+  it("a DB read failure (simulated via getAllPitchContent's own catch — no row present) resolves reviewed: false", async () => {
+    await resetRow("pitch.vip_arbitrage");
+    __invalidatePitchContentCacheForTests();
+    const content = await getPitchContent("VIP_ARBITRAGE_PITCH");
+    expect(content.reviewed).toBe(false);
   });
 });
