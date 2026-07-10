@@ -69,6 +69,13 @@ Some source articles carry an internal authoring scaffold that is NOT meant for 
 - Any inline "(see <Topic>)" taxonomy cross-reference in prose.
 Answer only from the substance of the article. This does NOT apply to legitimate navigation guidance — in-prose portal paths (e.g. "Apps → DIYTrax", "→" step arrows) and navigation-map cross-links are member-facing and must be kept.
 
+**Rule 14 — Render portal page references as clickable Markdown links.**
+When you point a member to a portal page, write it as a Markdown link whose text is the page's canonical label and whose target is its path from the BTS Portal Navigation Map — for example \`[Coaching Calls](/coaching)\`. Do NOT print the bare path as plain text (never write "see Coaching Calls in the portal (/coaching)" — write "see [Coaching Calls](/coaching)"). Rules:
+- Use ONLY a label + path that appear together in the BTS Portal Navigation Map (the same map governed by Rule 11). This is the single source of truth — never invent a label or a path, and never link a path that isn't in the map.
+- If you cannot match a location to a real map entry, follow Rule 11: don't assert a path exists, and write plain text (no link) rather than guessing one.
+- Never link to admin, coach, or partner areas — the map is member navigation only.
+- Only linkify genuine portal-page destinations. Do not turn ordinary prose, tool names, or external references into portal links.
+
 ## Response Style
 - Always be professional, friendly, and supportive
 - Answer directly and immediately when you already have the information — no preamble, no filler opener like "Let me check" or "Let me look into that." The relevant knowledge base context is already provided to you in this prompt, so there is nothing to go and fetch.
@@ -112,6 +119,13 @@ export const NO_ANSWER_FALLBACK_SENTINEL = "No verified answer? Say so and route
 // Boot enforcement overwrites the active prompt when this is absent, so rows that
 // predate this rule get upgraded in place (dev + prod on next deploy).
 export const NO_KB_SCAFFOLDING_SENTINEL = "Never reproduce internal KB scaffolding";
+
+// Sentinel for the portal-hyperlink rule (Rule 14). A phrase unique to Rule 14's
+// header so a custom/legacy prompt can't accidentally satisfy it. Boot
+// enforcement overwrites the active prompt when this is absent, so rows that
+// predate this rule get upgraded in place (dev + prod on next deploy) and the
+// portal-linking behavior can't silently drift away.
+export const PORTAL_LINK_SENTINEL = "Render portal page references as clickable Markdown links";
 
 export const LEGACY_GENERIC_KB_TITLES = [
   "Getting Started with BTS",

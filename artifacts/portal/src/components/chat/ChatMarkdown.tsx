@@ -1,12 +1,29 @@
 import { useState, useCallback } from "react";
+import { useLocation } from "wouter";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
 import { oneLight } from "react-syntax-highlighter/dist/esm/styles/prism";
 import { Check, Copy } from "lucide-react";
+import { flattenNavigationMap } from "@workspace/portal-nav-map";
 
 interface ChatMarkdownProps {
   content: string;
+}
+
+// The set of real member-portal paths the AI may deep-link to. Sourced from the
+// single nav-map registry (@workspace/portal-nav-map) so a link only renders
+// when it resolves to a known page — an unknown/removed path degrades to plain
+// text (Rule 14). Computed once per module load; the map is a static registry.
+const KNOWN_PORTAL_PATHS: ReadonlySet<string> = new Set(
+  flattenNavigationMap().map((item) => item.path),
+);
+
+/** A same-origin portal path like "/coaching" (not "//host" or "/api/..."). */
+function isInternalPortalPath(href: string): boolean {
+  if (!href.startsWith("/") || href.startsWith("//")) return false;
+  const path = href.split(/[?#]/)[0];
+  return KNOWN_PORTAL_PATHS.has(path);
 }
 
 function CopyButton({ code }: { code: string }) {
@@ -30,11 +47,61 @@ function CopyButton({ code }: { code: string }) {
 }
 
 export function ChatMarkdown({ content }: ChatMarkdownProps) {
+  const [, navigate] = useLocation();
+
   return (
     <div className="chat-markdown prose prose-sm max-w-none prose-headings:text-foreground prose-p:text-foreground prose-strong:text-foreground prose-li:text-foreground">
       <ReactMarkdown
         remarkPlugins={[remarkGfm]}
         components={{
+          a({ href, children }) {
+            // Internal portal page → in-app navigation (no full reload).
+            if (href && isInternalPortalPath(href)) {
+              return (
+                <a
+                  href={href}
+                  onClick={(e) => {
+                    // Let the browser handle modified clicks (new tab, etc.).
+                    if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+                    e.preventDefault();
+                    navigate(href);
+                  }}
+                  className="text-primary font-medium underline underline-offset-2 hover:text-primary/80 cursor-pointer"
+                >
+                  {children}
+                </a>
+              );
+            }
+            // External web link → new tab with safe rel.
+            if (href && /^https?:\/\//i.test(href)) {
+              return (
+                <a
+                  href={href}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-primary font-medium underline underline-offset-2 hover:text-primary/80"
+                >
+                  {children}
+                </a>
+              );
+            }
+            // mailto:/tel: (remark-gfm autolinks bare emails like the support
+            // address) — keep as a normal anchor so it stays clickable.
+            if (href && /^(mailto:|tel:)/i.test(href)) {
+              return (
+                <a
+                  href={href}
+                  className="text-primary font-medium underline underline-offset-2 hover:text-primary/80"
+                >
+                  {children}
+                </a>
+              );
+            }
+            // Unknown/non-portal path (e.g. a bare "/made-up") or unknown scheme
+            // — degrade to plain text so a broken/unsafe link is never rendered
+            // (Rule 14).
+            return <>{children}</>;
+          },
           code({ className, children, ...props }) {
             const match = /language-(\w+)/.exec(className || "");
             const codeString = String(children).replace(/\n$/, "");

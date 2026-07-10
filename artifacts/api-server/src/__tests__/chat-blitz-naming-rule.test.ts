@@ -12,6 +12,7 @@ import {
   NAVIGATION_SOURCE_SENTINEL,
   NO_ANSWER_FALLBACK_SENTINEL,
   NO_KB_SCAFFOLDING_SENTINEL,
+  PORTAL_LINK_SENTINEL,
 } from "../lib/chat-system-prompt";
 
 // ensureKBGrounding() touches the DB and a handful of seed/scrub modules. Mock
@@ -155,6 +156,14 @@ describe("Rules 8-12 — behaviour rules (Task #1407 prompt surgery)", () => {
     expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain("(see <Topic>)");
   });
 
+  it("carries the Rule 14 portal-hyperlink rule with a concrete Markdown-link example", () => {
+    expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain("Rule 14");
+    expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain(PORTAL_LINK_SENTINEL);
+    // A concrete label+path link example, and it ties back to the nav map as SoT.
+    expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain("[Coaching Calls](/coaching)");
+    expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain("BTS Portal Navigation Map");
+  });
+
   it("every behaviour-rule sentinel is a substring of the prompt so none can drift away", () => {
     for (const sentinel of [
       DEEP_ASSISTANT_SENTINEL,
@@ -164,6 +173,7 @@ describe("Rules 8-12 — behaviour rules (Task #1407 prompt surgery)", () => {
       NAVIGATION_SOURCE_SENTINEL,
       NO_ANSWER_FALLBACK_SENTINEL,
       NO_KB_SCAFFOLDING_SENTINEL,
+      PORTAL_LINK_SENTINEL,
     ]) {
       expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain(sentinel);
     }
@@ -223,6 +233,7 @@ describe("ensureKBGrounding() active-prompt sentinel upgrade", () => {
     ["NAVIGATION_SOURCE_SENTINEL", NAVIGATION_SOURCE_SENTINEL],
     ["NO_ANSWER_FALLBACK_SENTINEL", NO_ANSWER_FALLBACK_SENTINEL],
     ["NO_KB_SCAFFOLDING_SENTINEL", NO_KB_SCAFFOLDING_SENTINEL],
+    ["PORTAL_LINK_SENTINEL", PORTAL_LINK_SENTINEL],
   ])("overwrites an active prompt missing %s", async (_name, sentinel) => {
     const stale = ANTI_HALLUCINATION_SYSTEM_PROMPT.replace(sentinel, "redacted");
     expect(stale).not.toContain(sentinel);
