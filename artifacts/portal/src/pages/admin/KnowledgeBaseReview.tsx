@@ -71,6 +71,7 @@ import {
   Radar,
   Wrench,
   BookOpen,
+  Undo2,
 } from "lucide-react";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -1196,7 +1197,11 @@ export default function KnowledgeBaseReview() {
     }
   };
 
-  const updateDoc = async (id: number, updates: Record<string, unknown>) => {
+  const updateDoc = async (
+    id: number,
+    updates: Record<string, unknown>,
+    opts?: { closeDialog?: boolean },
+  ) => {
     try {
       const res = await authFetch(`/admin/knowledgebase/staging/${id}`, {
         method: "PATCH",
@@ -1206,7 +1211,9 @@ export default function KnowledgeBaseReview() {
       if (!res.ok) throw new Error("Update failed");
       toast({ title: "Document updated" });
       fetchDocs();
-      if (selectedDoc?.id === id) {
+      if (opts?.closeDialog) {
+        setSelectedDoc(null);
+      } else if (selectedDoc?.id === id) {
         const updated: StagingDoc = await res.json();
         setSelectedDoc(updated);
         fetchInsights(id);
@@ -2532,6 +2539,13 @@ export default function KnowledgeBaseReview() {
                           <XCircle className="w-4 h-4 mr-2" />Reject
                         </Button>
                       </>
+                    )}
+                    {(selectedDoc.status === "approved" || selectedDoc.status === "rejected") && (
+                      <Button onClick={() => updateDoc(selectedDoc.id, { status: "needs_review" }, { closeDialog: true })}
+                        variant="outline"
+                        className="border-amber-300 text-amber-700 hover:bg-amber-50">
+                        <Undo2 className="w-4 h-4 mr-2" />Send back to review
+                      </Button>
                     )}
                   </>
                 )}
