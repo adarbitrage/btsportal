@@ -34,6 +34,7 @@ import {
   DEPTH_CEILING_SENTINEL,
   NAVIGATION_SOURCE_SENTINEL,
   NO_ANSWER_FALLBACK_SENTINEL,
+  NO_KB_SCAFFOLDING_SENTINEL,
   LEGACY_GENERIC_KB_TITLES,
 } from "./chat-system-prompt";
 import { ensureFoundingSuperAdmins } from "./ensure-founding-superadmins";
@@ -606,7 +607,8 @@ export async function ensureKBGrounding(): Promise<void> {
       !activePrompt.content.includes(CLARIFY_FIRST_SENTINEL) ||
       !activePrompt.content.includes(DEPTH_CEILING_SENTINEL) ||
       !activePrompt.content.includes(NAVIGATION_SOURCE_SENTINEL) ||
-      !activePrompt.content.includes(NO_ANSWER_FALLBACK_SENTINEL))
+      !activePrompt.content.includes(NO_ANSWER_FALLBACK_SENTINEL) ||
+      !activePrompt.content.includes(NO_KB_SCAFFOLDING_SENTINEL))
   ) {
     await db
       .update(chatSystemPromptsTable)

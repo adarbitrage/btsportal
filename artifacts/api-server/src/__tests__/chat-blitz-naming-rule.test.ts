@@ -11,6 +11,7 @@ import {
   DEPTH_CEILING_SENTINEL,
   NAVIGATION_SOURCE_SENTINEL,
   NO_ANSWER_FALLBACK_SENTINEL,
+  NO_KB_SCAFFOLDING_SENTINEL,
 } from "../lib/chat-system-prompt";
 
 // ensureKBGrounding() touches the DB and a handful of seed/scrub modules. Mock
@@ -146,6 +147,14 @@ describe("Rules 8-12 — behaviour rules (Task #1407 prompt surgery)", () => {
     expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain("no confident match");
   });
 
+  it("carries the Rule 13 internal-KB-scaffold suppression rule", () => {
+    expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain("Rule 13");
+    expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain(NO_KB_SCAFFOLDING_SENTINEL);
+    // Names the scaffold labels it must suppress and preserves nav guidance.
+    expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain("## Related topics");
+    expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain("(see <Topic>)");
+  });
+
   it("every behaviour-rule sentinel is a substring of the prompt so none can drift away", () => {
     for (const sentinel of [
       DEEP_ASSISTANT_SENTINEL,
@@ -154,6 +163,7 @@ describe("Rules 8-12 — behaviour rules (Task #1407 prompt surgery)", () => {
       DEPTH_CEILING_SENTINEL,
       NAVIGATION_SOURCE_SENTINEL,
       NO_ANSWER_FALLBACK_SENTINEL,
+      NO_KB_SCAFFOLDING_SENTINEL,
     ]) {
       expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain(sentinel);
     }
@@ -212,6 +222,7 @@ describe("ensureKBGrounding() active-prompt sentinel upgrade", () => {
     ["DEPTH_CEILING_SENTINEL", DEPTH_CEILING_SENTINEL],
     ["NAVIGATION_SOURCE_SENTINEL", NAVIGATION_SOURCE_SENTINEL],
     ["NO_ANSWER_FALLBACK_SENTINEL", NO_ANSWER_FALLBACK_SENTINEL],
+    ["NO_KB_SCAFFOLDING_SENTINEL", NO_KB_SCAFFOLDING_SENTINEL],
   ])("overwrites an active prompt missing %s", async (_name, sentinel) => {
     const stale = ANTI_HALLUCINATION_SYSTEM_PROMPT.replace(sentinel, "redacted");
     expect(stale).not.toContain(sentinel);

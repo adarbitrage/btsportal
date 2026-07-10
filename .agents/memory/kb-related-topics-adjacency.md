@@ -1,19 +1,23 @@
 ---
-name: KB Related-topics adjacency lockstep
-description: Curated NODE_NEIGHBORS drives both synthesis Related-topics section and the analysis-time mismatch flag; keep them in lockstep.
+name: KB Related-topics scaffold removed (adjacency dormant)
+description: Internal "## Related topics" taxonomy scaffolding is banned from member-facing AI answers; a chat-time sentinel is the durable guard.
 ---
-The "## Related topics" section in synthesized KB drafts is built from the curated
-NODE_NEIGHBORS adjacency in kb-taxonomy (relatedNodesFor), NOT every root sibling.
-The analysis-time `related_topics_mismatch` risk flag (kb-flags, medium, non-blocking,
-NOT in blocksBulkConfirm) validates drafts against the same map: allowed = doc's root
-(+ process↔concepts pairing; operations stands alone) plus curated neighbors; also
-detects the boilerplate full-root dump. Free-prose entries (non-taxonomy labels) are
-deliberately ignored to avoid false positives.
+Internal taxonomy scaffolding must NOT appear in member-facing AI answers: the
+"## Related topics" section, bold taxonomy labels, and `(see <Topic>)` prose
+cross-links were removed from the whole KB pipeline (synthesis output, analysis-time
+auto-refill, and the retired `related_topics_mismatch` risk flag).
 
-**Why:** the old generic every-sibling dump wasted assistant context and cross-shelf
-entries misled retrieval; both ends share one vocabulary so synthesis output can never
-self-flag (drift-guarded in kb-related-topics.test.ts).
+The durable guard is a single chat-time safety net (Rule 13 + a scaffolding sentinel
+in the system prompt, boot-enforced), NOT per-doc auto-fix.
 
-**How to apply:** adding/renaming a taxonomy node requires updating NODE_NEIGHBORS
-(test enforces every node has ≥1 valid, non-self neighbor). Any change to the
-relatedTopicsMarkdown format must keep parseRelatedTopicEntries parsing it.
+**Preserved — do NOT confuse with scaffolding:** legitimate nav grounding (portal
+paths in prose, nav cross-link markdown) stays. If you ever reintroduce curated
+cross-links, express them as nav grounding, never as a "## Related topics" taxonomy
+dump — the chat sentinel strips the scaffold form regardless.
+
+**Why:** the every-topic scaffold leaked internal KB structure into answers and
+wasted assistant context; centralizing the guard at chat time (not per-doc) keeps it
+robust to prompt/model changes.
+
+**Dormant leftover:** `NODE_NEIGHBORS` / `relatedNodesFor` in kb-taxonomy have no
+production callers anymore; safe to remove in a later cleanup.

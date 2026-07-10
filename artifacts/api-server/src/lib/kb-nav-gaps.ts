@@ -112,10 +112,9 @@ export async function recordNavGapsForNode(nodeSlug: string, texts: readonly str
 /**
  * Deterministic (non-LLM) cross-link section pointing a concept/process doc at
  * the published navigation walkthroughs for the apps its material references.
- * Mirrors the depth-ladder relatedTopicsMarkdown contract: appended verbatim to
- * the synthesized body so click-paths stay OUT of prose and the wiring never
- * depends on the model. Returns "" when no app is referenced or none of the
- * referenced apps has a published nav doc.
+ * Appended verbatim to the synthesized body so click-paths stay OUT of prose and
+ * the wiring never depends on the model. Returns "" when no app is referenced or
+ * none of the referenced apps has a published nav doc.
  */
 export async function navDocCrossLinksMarkdown(texts: readonly string[]): Promise<string> {
   const apps = new Set<string>();

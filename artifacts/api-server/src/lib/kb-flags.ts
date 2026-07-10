@@ -15,7 +15,6 @@ import { db } from "@workspace/db";
 import { knowledgebaseDocsTable } from "@workspace/db/schema";
 import { eq, isNotNull, and } from "drizzle-orm";
 import { scrubPrivateContent } from "./content-privacy-filter";
-import { ALL_NODES, getNodeBySlug, isHomeRoot, NODE_NEIGHBORS } from "./kb-taxonomy.js";
 import {
   hasSourceConflictMarker,
   hasNavigationConflictMarker,
@@ -44,10 +43,6 @@ export type RiskFlagType =
   | "situational_content"
   | "time_sensitive"
   | "privacy_residue"
-  // "Related topics" hygiene (Task #1801): the draft's Related-topics list
-  // names taxonomy topics that don't match the doc's placement, or is the
-  // boilerplate every-sibling dump. Non-critical — guides the human edit.
-  | "related_topics_mismatch"
   // Retrieval self-test (Task #1804): the draft failed some of its own
   // AI-generated member questions through the real retrieval path — likely too
   // thin / missing the vocabulary members would actually use. Non-critical.
@@ -78,7 +73,6 @@ export const RISK_FLAG_TYPES = [
   "situational_content",
   "time_sensitive",
   "privacy_residue",
-  "related_topics_mismatch",
   "retrieval_gap",
   "non_citable_review_doc",
 ] as const;
@@ -166,212 +160,6 @@ function matchPatterns(
   return hits;
 }
 
-// ── "Related topics" hygiene (Task #1801) ────────────────────────────────────
-//
-// Synthesized drafts end with a "## Related topics" section. Historically this
-// was the every-sibling dump (and sometimes lists topics from a different
-// shelf entirely, e.g. "Billing & Refunds" on a testing doc). The assistant
-// reads these lists as prose, so off-subject entries waste context and mislead.
-// This pure check compares the list against the doc's taxonomy placement:
-//  - an entry naming a taxonomy topic from a root the doc's placement doesn't
-//    pair with (process↔concepts pair; operations stands alone) is a MISMATCH;
-//  - a list reproducing an ENTIRE root's node list (minus at most the doc's
-//    own node) is the generic BOILERPLATE default.
-// Entries that don't match any taxonomy label are ignored (free-prose topics
-// are the reviewer's call), keeping false positives off genuinely-edited lists.
-
-const NODE_BY_LABEL: ReadonlyMap<string, { slug: string; root: string; label: string }> = new Map(
-  ALL_NODES.map((n) => [n.label.trim().toLowerCase(), n]),
-);
-
-/** Extract the bullet entries of the draft's "## Related topics" section ([] when absent). */
-export function parseRelatedTopicEntries(content: string): string[] {
-  const lines = content.split("\n");
-  const start = lines.findIndex((l) => /^##\s+related topics\s*$/i.test(l.trim()));
-  if (start === -1) return [];
-  const entries: string[] = [];
-  for (let i = start + 1; i < lines.length; i++) {
-    const line = lines[i].trim();
-    if (/^##[^#]/.test(line)) break; // next section
-    const m = line.match(/^[-*]\s+(.+?)\s*$/);
-    if (m) entries.push(m[1].replace(/\*\*/g, "").trim());
-  }
-  return entries;
-}
-
-/** The roots whose topics legitimately appear in a doc's Related-topics list. */
-function allowedRootsFor(docRoot: string): ReadonlySet<string> {
-  if (docRoot === "process" || docRoot === "concepts") return new Set(["process", "concepts"]);
-  return new Set([docRoot]);
-}
-
-/**
- * Compute the related_topics_mismatch flag for a draft (null when clean or
- * when the doc's placement is unknown / no Related-topics section exists).
- */
-export function computeRelatedTopicsFlag(input: {
-  content: string;
-  homeRoot?: string | null;
-  node?: string | null;
-}): RiskFlag | null {
-  const entries = parseRelatedTopicEntries(input.content);
-  if (entries.length === 0) return null;
-
-  const docNode = getNodeBySlug(input.node ?? null);
-  const docRoot = docNode?.root ?? (isHomeRoot(input.homeRoot) ? input.homeRoot! : null);
-  if (!docRoot) return null; // no placement to judge against
-
-  const allowedRoots = allowedRootsFor(docRoot);
-  const neighborSlugs = new Set(docNode ? NODE_NEIGHBORS[docNode.slug] ?? [] : []);
-
-  // Mismatched entries: named taxonomy topics outside the allowed roots (and
-  // not an explicitly-curated neighbor).
-  const matched = entries
-    .map((e) => ({ entry: e, node: NODE_BY_LABEL.get(e.trim().toLowerCase()) ?? null }))
-    .filter((x) => x.node !== null) as Array<{ entry: string; node: { slug: string; root: string; label: string } }>;
-  const mismatched = matched.filter(
-    (x) => !allowedRoots.has(x.node.root) && !neighborSlugs.has(x.node.slug),
-  );
-
-  // Boilerplate: the list reproduces an entire root's node list (minus at most
-  // the doc's own node) — the generic every-sibling default.
-  const matchedSlugs = new Set(matched.map((x) => x.node.slug));
-  const boilerplateRoots: string[] = [];
-  for (const root of new Set(ALL_NODES.map((n) => n.root))) {
-    const rootSlugs = ALL_NODES.filter((n) => n.root === root).map((n) => n.slug);
-    const expected = rootSlugs.filter((s) => s !== docNode?.slug);
-    if (expected.length >= 2 && expected.every((s) => matchedSlugs.has(s))) {
-      boilerplateRoots.push(root);
-    }
-  }
-
-  if (mismatched.length === 0 && boilerplateRoots.length === 0) return null;
-
-  const parts: string[] = [];
-  if (mismatched.length > 0) {
-    parts.push(
-      `Off-subject entries for this doc's placement (${docNode ? docNode.label : docRoot}): ${mismatched
-        .map((x) => `"${x.entry}"`)
-        .join(", ")}.`,
-    );
-  }
-  if (boilerplateRoots.length > 0) {
-    parts.push(
-      `Lists every ${boilerplateRoots.join(" + ")} topic — the generic default list, not genuinely adjacent subjects.`,
-    );
-  }
-  return {
-    type: "related_topics_mismatch",
-    severity: "medium",
-    message: "Related-topics list doesn't match the doc's subject",
-    detail: `${parts.join(" ")} Trim the "Related topics" section to genuinely adjacent topics before publishing.`,
-  };
-}
-
-// ── Related-topics auto-fix (Task #1839) ────────────────────────────────────
-//
-// Deterministic (no LLM) cleanup of a doc's "## Related topics" section during
-// analysis: removes the same entries computeRelatedTopicsFlag would flag —
-// off-subject taxonomy entries and boilerplate full-root dumps — while
-// preserving free-prose (non-taxonomy) entries. If the cleanup empties the
-// list and the doc has a filed node, the section is refilled from the curated
-// NODE_NEIGHBORS adjacency. Idempotent: output content never re-flags for the
-// same placement, and re-running changes nothing. Docs with no placement are
-// left untouched (flagging stays the human's signal).
-
-export function autoFixRelatedTopics(input: {
-  content: string;
-  homeRoot?: string | null;
-  node?: string | null;
-}): { content: string; changed: boolean } {
-  const unchanged = { content: input.content, changed: false };
-  const docNode = getNodeBySlug(input.node ?? null);
-  const docRoot = docNode?.root ?? (isHomeRoot(input.homeRoot) ? input.homeRoot! : null);
-  if (!docRoot) return unchanged; // no placement — never touch, leave for the human
-
-  const lines = input.content.split("\n");
-  const start = lines.findIndex((l) => /^##\s+related topics\s*$/i.test(l.trim()));
-  if (start === -1) return unchanged;
-  let end = lines.length;
-  for (let i = start + 1; i < lines.length; i++) {
-    if (/^##[^#]/.test(lines[i].trim())) { end = i; break; }
-  }
-
-  const allowedRoots = allowedRootsFor(docRoot);
-  const neighborSlugs = new Set(docNode ? NODE_NEIGHBORS[docNode.slug] ?? [] : []);
-
-  // First pass: classify the section's entries exactly as the flag does.
-  const entryNodeFor = (raw: string) =>
-    NODE_BY_LABEL.get(raw.replace(/\*\*/g, "").trim().toLowerCase()) ?? null;
-  const matched: Array<{ slug: string; root: string }> = [];
-  for (let i = start + 1; i < end; i++) {
-    const m = lines[i].trim().match(/^[-*]\s+(.+?)\s*$/);
-    if (!m) continue;
-    const n = entryNodeFor(m[1]);
-    if (n) matched.push({ slug: n.slug, root: n.root });
-  }
-  const matchedSlugs = new Set(matched.map((x) => x.slug));
-  const boilerplateRoots = new Set<string>();
-  for (const root of new Set(ALL_NODES.map((n) => n.root))) {
-    const expected = ALL_NODES.filter((n) => n.root === root && n.slug !== docNode?.slug).map((n) => n.slug);
-    if (expected.length >= 2 && expected.every((s) => matchedSlugs.has(s))) {
-      boilerplateRoots.add(root);
-    }
-  }
-
-  const shouldRemove = (n: { slug: string; root: string }) =>
-    boilerplateRoots.has(n.root) || (!allowedRoots.has(n.root) && !neighborSlugs.has(n.slug));
-
-  // Second pass: keep every non-offending line (free prose, headers, blanks).
-  const kept: string[] = [];
-  let keptBullets = 0;
-  for (let i = start + 1; i < end; i++) {
-    const m = lines[i].trim().match(/^[-*]\s+(.+?)\s*$/);
-    if (m) {
-      const n = entryNodeFor(m[1]);
-      if (n && shouldRemove(n)) continue; // drop offending taxonomy entry
-      keptBullets++;
-    }
-    kept.push(lines[i]);
-  }
-
-  // Drop bold group labels left with no bullets beneath them, and collapse
-  // runs of blank lines the removals left behind.
-  const withoutOrphanHeaders: string[] = [];
-  for (let i = 0; i < kept.length; i++) {
-    const line = kept[i].trim();
-    if (/^\*\*.+\*\*:?\s*$/.test(line)) {
-      let hasBullet = false;
-      for (let j = i + 1; j < kept.length; j++) {
-        const next = kept[j].trim();
-        if (/^[-*]\s+/.test(next)) { hasBullet = true; break; }
-        if (next !== "") break; // next group label / prose — this group is empty
-      }
-      if (!hasBullet) continue;
-    }
-    withoutOrphanHeaders.push(kept[i]);
-  }
-  const collapsed: string[] = [];
-  for (const l of withoutOrphanHeaders) {
-    if (l.trim() === "" && collapsed[collapsed.length - 1]?.trim() === "") continue;
-    collapsed.push(l);
-  }
-  while (collapsed.length && collapsed[collapsed.length - 1].trim() === "") collapsed.pop();
-
-  // Refill from the curated adjacency when the cleanup emptied the list and
-  // the doc has a filed node to derive neighbors from.
-  let body = collapsed;
-  if (keptBullets === 0 && docNode) {
-    const neighbors = (NODE_NEIGHBORS[docNode.slug] ?? [])
-      .map((s) => getNodeBySlug(s))
-      .filter((n): n is NonNullable<ReturnType<typeof getNodeBySlug>> => !!n);
-    body = neighbors.map((n) => `- ${n.label}`);
-  }
-
-  const rebuilt = [...lines.slice(0, start + 1), ...body, ...lines.slice(end)].join("\n");
-  return rebuilt === input.content ? unchanged : { content: rebuilt, changed: true };
-}
-
 // ── Retrieval self-test flag (Task #1804) ────────────────────────────────────
 
 /**
@@ -406,7 +194,7 @@ export interface ComputeFlagsInput {
   authorityRole?: string | null;
   docClassTarget?: string | null;
   homeRoot?: string | null;
-  /** Taxonomy node slug the doc is filed under (drives Related-topics hygiene). */
+  /** Taxonomy node slug the doc is filed under (retained for callers; no longer drives any flag). */
   node?: string | null;
   /** How many distinct sources corroborate this claim (>=2 = corroborated). */
   corroborationCount?: number;
@@ -539,14 +327,6 @@ export function computeRiskFlags(input: ComputeFlagsInput): RiskFlag[] {
         "Matches the privacy scrub rules (member/coach name, email, phone or legacy brand). Auto-scrubbed at publish, but verify the passage reads correctly.",
     });
   }
-
-  // "Related topics" list vs taxonomy placement (Task #1801).
-  const relatedFlag = computeRelatedTopicsFlag({
-    content: input.content,
-    homeRoot: input.homeRoot,
-    node: input.node,
-  });
-  if (relatedFlag) flags.push(relatedFlag);
 
   // Single-source vs corroborated.
   const corroboration = input.corroborationCount ?? 1;

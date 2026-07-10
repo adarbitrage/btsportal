@@ -364,49 +364,6 @@ describe("filed placement is authoritative (Task #1847)", () => {
   });
 });
 
-describe("related-topics auto-fix persistence in analysis", () => {
-  const dirtyContent =
-    "# Doc\n\nBody.\n\n## Related topics\n- Billing & Refunds\n- Launch";
-
-  it("persists the fix to `content` when there is no editedContent", async () => {
-    llmMock.mockResolvedValue(triageJson("T"));
-    await runAutoTriageOnDoc(baseDoc({ content: dirtyContent }));
-    const set = updateSetCalls.find((s) => "aiRecommendedAction" in s)!;
-    expect(set.content).toContain("- Launch");
-    expect(set.content).not.toContain("Billing & Refunds");
-    expect("editedContent" in set).toBe(false);
-  });
-
-  it("persists the fix to `editedContent` when the doc has one", async () => {
-    llmMock.mockResolvedValue(triageJson("T"));
-    await runAutoTriageOnDoc(baseDoc({ editedContent: dirtyContent }));
-    const set = updateSetCalls.find((s) => "aiRecommendedAction" in s)!;
-    expect(set.editedContent).not.toContain("Billing & Refunds");
-    expect("content" in set).toBe(false);
-  });
-
-  it("never rewrites an UNFILED doc, even when the AI suggests a taxonomy", async () => {
-    // triageJson suggests process/testing — auto-fix must ignore it and judge
-    // by the FILED placement only, so an unfiled doc is left untouched and the
-    // mismatch flag stays a human signal.
-    llmMock.mockResolvedValue(triageJson("T"));
-    await runAutoTriageOnDoc(baseDoc({ content: dirtyContent, homeRoot: null, node: null }));
-    const set = updateSetCalls.find((s) => "aiRecommendedAction" in s)!;
-    expect("content" in set).toBe(false);
-    expect("editedContent" in set).toBe(false);
-  });
-
-  it("does not persist anything when the section is already clean (idempotent)", async () => {
-    llmMock.mockResolvedValue(triageJson("T"));
-    await runAutoTriageOnDoc(
-      baseDoc({ content: "# Doc\n\nBody.\n\n## Related topics\n- Launch" }),
-    );
-    const set = updateSetCalls.find((s) => "aiRecommendedAction" in s)!;
-    expect("content" in set).toBe(false);
-    expect("editedContent" in set).toBe(false);
-  });
-});
-
 describe("rescoreSelfTestForTitle", () => {
   it("no stored self-test: does nothing (no retrieval, no write)", async () => {
     await rescoreSelfTestForTitle(baseDoc(), "Stored Title");

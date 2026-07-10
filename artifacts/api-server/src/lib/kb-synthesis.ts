@@ -25,7 +25,6 @@ import {
   isNode,
   AUTHORITY_ROLES,
   nodeImportance,
-  relatedNodesFor,
   type AuthorityRole,
   type NodeImportance,
   type TaxonomyNode,
@@ -507,12 +506,6 @@ export const NO_MEMBER_NAMES_RULE = `never include member names — refer to mem
 // Exported so the consolidation prompt contract is unit-testable (mirrors
 // buildMapExtractSystemPrompt).
 export function buildConsolidateSystemPrompt(node: TaxonomyNode, depthGuidance: string): string {
-  // Genuinely adjacent topics only (curated NODE_NEIGHBORS), not every sibling
-  // in the root — keeps prose cross-links on-subject.
-  const relatedNodes = relatedNodesFor(node.slug)
-    .map((n) => n.label)
-    .join(", ");
-
   return `You are the BTS (Build Test Scale) knowledge synthesist. You consolidate knowledge that appears across MANY source documents into ONE authoritative truth document for a single topic node.
 TOPIC NODE: "${node.label}" (root: ${node.root}).
 ${depthGuidance}
@@ -523,7 +516,6 @@ RULES:
 - ${SITUATIONAL_NUMBER_RULES}
 - ${HEARSAY_GUARD}
 - Layer the doc: a summary/orientation first, then the detail.
-- Add brief cross-links in prose to closely related topics where natural (related here: ${relatedNodes || "n/a"}).
 - BRAND RULES: say "Build Test Scale" / "BTS" (never "TCE" or "Cherrington"); no coach surnames; ${NO_MEMBER_NAMES_RULE}; support email is support@buildtestscale.com.
 - ${buildNavigationGroundingSection()}
 - Output MARKDOWN only. First line MUST be a single "# Title" heading, then the body. No preamble, no meta commentary about sources.`;
@@ -604,40 +596,6 @@ async function consolidateAll(
   }
   // The partials may themselves exceed the budget — fold again.
   return consolidateAll(node, tier, partials);
-}
-
-// ── Depth-ladder cross-linking ────────────────────────────────────────────────
-//
-// Deterministic (non-LLM) cross-link contract so the depth ladder is always
-// wired both ways: an OVERVIEW (process stage) points down to the CONCEPT deep
-// dives, and a CURATED concept points up to the process stages where it applies.
-// Appended verbatim to every synthesized body so the structure never depends on
-// the model remembering to add prose links.
-// Tightened (Task: tighten "Related topics"): instead of dumping EVERY sibling
-// in the root(s) — the boilerplate the reviewers flagged — the section is built
-// from the node's curated NODE_NEIGHBORS adjacency (kb-taxonomy), grouped under
-// the same depth-ladder headers. Exported for unit tests.
-export function relatedTopicsMarkdown(node: TaxonomyNode): string {
-  const neighbors = relatedNodesFor(node.slug);
-  const bullets = (root: TaxonomyNode["root"]) =>
-    neighbors.filter((n) => n.root === root).map((n) => `- ${n.label}`);
-
-  const sections: string[] = [];
-  if (node.root === "process") {
-    const concepts = bullets("concepts");
-    if (concepts.length) sections.push(`**Go deeper — the skills behind this stage:**\n${concepts.join("\n")}`);
-    const stages = bullets("process");
-    if (stages.length) sections.push(`**Adjacent stages:**\n${stages.join("\n")}`);
-  } else if (node.root === "concepts") {
-    const stages = bullets("process");
-    if (stages.length) sections.push(`**Where this applies — process stages:**\n${stages.join("\n")}`);
-    const concepts = bullets("concepts");
-    if (concepts.length) sections.push(`**Related concepts:**\n${concepts.join("\n")}`);
-  } else {
-    const siblings = bullets(node.root);
-    if (siblings.length) sections.push(`**Related topics:**\n${siblings.join("\n")}`);
-  }
-  return sections.length ? `\n\n## Related topics\n${sections.join("\n\n")}` : "";
 }
 
 // ── Atomic definition docs ────────────────────────────────────────────────────
@@ -849,7 +807,7 @@ export async function synthesizeNode(nodeSlug: string): Promise<SynthesizeResult
   // Deterministic navigation screen: if the model ignored the navigation
   // grounding and a legacy portal-location phrase survived, append a visible
   // NAVIGATION CONFLICT callout so it is rewritten or flagged — never silent.
-  const body = applyNavigationScreen(consolidated) + relatedTopicsMarkdown(node) + navCrossLinks;
+  const body = applyNavigationScreen(consolidated) + navCrossLinks;
   const navMapVersion = getNavMapVersion();
 
   const contributing = usable.map((e) => e.source);
@@ -927,7 +885,7 @@ export async function synthesizeNode(nodeSlug: string): Promise<SynthesizeResult
   const definitions = await extractAtomicDefinitions(node, usable);
   for (const def of definitions) {
     const defTitle = `What is ${def.term}?`;
-    const defBody = applyNavigationScreen(def.definition) + relatedTopicsMarkdown(node);
+    const defBody = applyNavigationScreen(def.definition);
     try {
       // An atomic term doc may already be published — revise it (by exact title)
       // rather than spawning a duplicate.

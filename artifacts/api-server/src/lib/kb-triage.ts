@@ -18,7 +18,6 @@ import { eq } from "drizzle-orm";
 import {
   computeRiskFlags,
   computeRetrievalSelfTestFlag,
-  autoFixRelatedTopics,
   gatherFlagContext,
   maxSeverity,
   STALE_LEGACY_PATTERNS,
@@ -390,20 +389,7 @@ export async function runAutoTriageOnDoc(
     void recordProposedSynonym(alias.memberPhrase, alias.canonicalTerm, doc.title);
   }
 
-  // Related-topics auto-fix (Task #1839): deterministically clean the
-  // "## Related topics" section against the doc's placement BEFORE flags and
-  // the self-test run, so the mismatch flag only survives when something
-  // genuinely can't be auto-resolved (e.g. no placement).
-  // Judged against the doc's FILED placement only — never the AI's suggested
-  // taxonomy. An unfiled doc has no placement to judge against, so it is never
-  // rewritten (the mismatch flag stays a human signal there).
-  const baseContent = doc.editedContent ?? doc.content;
-  const relFix = autoFixRelatedTopics({
-    content: baseContent,
-    homeRoot: doc.homeRoot,
-    node: doc.node,
-  });
-  const effectiveContent = relFix.content;
+  const effectiveContent = doc.editedContent ?? doc.content;
 
   // Retrieval self-test (Task #1804) + always-on title comparison (Task #1865).
   // Each member question runs through the REAL retrieval path vs live docs,
@@ -542,14 +528,6 @@ export async function runAutoTriageOnDoc(
     aiSuggestedCeilingReason: surfaceCeiling ? (result.suggestedCeilingReason || null) : null,
   };
 
-  // Persist the related-topics auto-fix where the reviewed content actually
-  // lives: editedContent when the doc already has one, otherwise content.
-  const contentUpdates: Partial<typeof kbStagingDocsTable.$inferInsert> = {};
-  if (relFix.changed) {
-    if (doc.editedContent != null) contentUpdates.editedContent = relFix.content;
-    else contentUpdates.content = relFix.content;
-  }
-
   await db
     .update(kbStagingDocsTable)
     .set({
@@ -571,7 +549,6 @@ export async function runAutoTriageOnDoc(
       needsExpert,
       conflictData: conflictFlag ? { message: conflictFlag.message, detail: conflictFlag.detail } : null,
       status: "needs_review" as typeof doc.status,
-      ...contentUpdates,
     })
     .where(eq(kbStagingDocsTable.id, doc.id));
 

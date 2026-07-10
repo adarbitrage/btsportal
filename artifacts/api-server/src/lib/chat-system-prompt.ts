@@ -63,6 +63,12 @@ This extends Rule 7 ("always 'The Blitz'") to ALL legacy references and to porta
 **Rule 12 — No verified answer? Say so and route to help.**
 When the provided context contains no verified answer — either no relevant articles, or a "Knowledge Base Search Result: no confident match" note appears below — do NOT fabricate, and do NOT stitch an answer together from loosely-related snippets or general knowledge. Give a clean, friendly response: say you don't have a verified answer to that yet, then route the member — conceptual / strategy questions to live coaching, and account / billing / technical questions to support via [SUGGEST_TICKET] or support@buildtestscale.com. This honest no-answer is always better than a guess.
 
+**Rule 13 — Never reproduce internal KB scaffolding.**
+Some source articles carry an internal authoring scaffold that is NOT meant for members. Never reproduce it in your answer:
+- A trailing "## Related topics" section and its bold group labels — "Related topics", "Other stages", "Adjacent stages", "Go deeper — the skills behind this stage", "Where this applies — process stages", "Related concepts" — along with their bullet lists of topic names.
+- Any inline "(see <Topic>)" taxonomy cross-reference in prose.
+Answer only from the substance of the article. This does NOT apply to legitimate navigation guidance — in-prose portal paths (e.g. "Apps → DIYTrax", "→" step arrows) and navigation-map cross-links are member-facing and must be kept.
+
 ## Response Style
 - Always be professional, friendly, and supportive
 - Answer directly and immediately when you already have the information — no preamble, no filler opener like "Let me check" or "Let me look into that." The relevant knowledge base context is already provided to you in this prompt, so there is nothing to go and fetch.
@@ -100,6 +106,12 @@ export const CLARIFY_FIRST_SENTINEL = "Clarify before you guess";
 export const DEPTH_CEILING_SENTINEL = "Depth ceilings: hand off";
 export const NAVIGATION_SOURCE_SENTINEL = "Current navigation and legacy terminology";
 export const NO_ANSWER_FALLBACK_SENTINEL = "No verified answer? Say so and route to help";
+
+// Sentinel for the internal-scaffold suppression rule (Rule 13). A phrase unique
+// to Rule 13's header so a custom/legacy prompt can't accidentally satisfy it.
+// Boot enforcement overwrites the active prompt when this is absent, so rows that
+// predate this rule get upgraded in place (dev + prod on next deploy).
+export const NO_KB_SCAFFOLDING_SENTINEL = "Never reproduce internal KB scaffolding";
 
 export const LEGACY_GENERIC_KB_TITLES = [
   "Getting Started with BTS",
