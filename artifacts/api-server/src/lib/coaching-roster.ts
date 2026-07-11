@@ -60,6 +60,9 @@ export interface RosterVa {
   // when the surname is genuinely unknown — never invent one. Until a surname is
   // recorded here the LLM first-name-only prompt guidance is the sole mechanism.
   surname?: string;
+  // Root-relative path to a headshot shipped in the portal's public dir,
+  // mirroring how RosterCoach carries photoUrl. Omit when no photo exists yet.
+  photoUrl?: string;
   sortOrder: number;
   // Whether this VA offers free 1-on-1 VA calls. When true, oneOnOneVaCalendar
   // must be set so there's something to book against.
@@ -74,17 +77,18 @@ export interface RosterVa {
 }
 
 export const VA_ROSTER: RosterVa[] = [
-  { name: "John", sortOrder: 5, doesOneOnOneVaCalls: false },
+  { name: "John", sortOrder: 5, doesOneOnOneVaCalls: false, photoUrl: "/partner-photos/john.jpg" },
   {
     name: "Neil",
     sortOrder: 6,
     doesOneOnOneVaCalls: true,
+    photoUrl: "/partner-photos/neil.png",
     oneOnOneVaCalendar: {
       bookingCalendarId: "x7BqsXymYCRmojmiORPq",
       bookingLocationId: "r9hM0kL1vtRvIf3mtjgF",
     },
   },
-  { name: "Mikha", sortOrder: 7, doesOneOnOneVaCalls: false },
+  { name: "Mikha", sortOrder: 7, doesOneOnOneVaCalls: false, photoUrl: "/partner-photos/mikha.jpg" },
 ];
 
 // Legacy demo profiles seeded before the real roster existed. Removed by exact
@@ -296,7 +300,7 @@ async function seedVaRoster(): Promise<void> {
     }
 
     const [existing] = await db
-      .select({ id: coachesTable.id })
+      .select({ id: coachesTable.id, photoUrl: coachesTable.photoUrl })
       .from(coachesTable)
       .where(and(eq(coachesTable.name, va.name), eq(coachesTable.type, "va")))
       .limit(1);
@@ -315,6 +319,9 @@ async function seedVaRoster(): Promise<void> {
           // Never clobber an existing link with null because the user row hasn't
           // been created yet on this boot.
           ...(userId !== null ? { userId } : {}),
+          // Only seed the photo when the stored value is null/empty so that an
+          // admin-uploaded photo (via the Coach Profiles editor) is never clobbered.
+          ...(!existing.photoUrl?.trim() && va.photoUrl ? { photoUrl: va.photoUrl } : {}),
         })
         .where(eq(coachesTable.id, existing.id));
       coachId = existing.id;
@@ -330,6 +337,7 @@ async function seedVaRoster(): Promise<void> {
           doesGroupCalls: false,
           doesPrivateCoaching: false,
           doesOneOnOneVaCalls: va.doesOneOnOneVaCalls,
+          photoUrl: va.photoUrl ?? null,
         })
         .returning({ id: coachesTable.id });
       coachId = ins.id;

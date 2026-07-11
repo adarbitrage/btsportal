@@ -6,6 +6,7 @@ import {
   qualifyPersonBlockImgSrcs,
   renderPersonBlock,
 } from "../lib/seed-templates";
+import { VA_ROSTER } from "../lib/coaching-roster";
 
 /**
  * Task #1717 + Task #1790: coach/partner photos are stored as root-relative
@@ -259,4 +260,43 @@ describe("partner-photos public assets exist and are real images", () => {
     expect(buffer[1]).toBe(0xd8);
     expect(buffer[2]).toBe(0xff);
   });
+});
+
+describe("VA_ROSTER photo coverage", () => {
+  const VAS_WITH_PHOTOS = ["John", "Neil", "Mikha"];
+
+  for (const vaName of VAS_WITH_PHOTOS) {
+    it(`${vaName} has a photoUrl in VA_ROSTER`, () => {
+      const va = VA_ROSTER.find((v) => v.name === vaName);
+      expect(va, `${vaName} not found in VA_ROSTER`).toBeDefined();
+      expect(va!.photoUrl, `${vaName}.photoUrl is missing`).toBeTruthy();
+      expect(va!.photoUrl).toMatch(/^\/partner-photos\//);
+    });
+
+    it(`${vaName}'s photo file exists in portal/public and is a real image`, () => {
+      const va = VA_ROSTER.find((v) => v.name === vaName)!;
+      const filePath = path.resolve(__dirname, "../../../portal/public", va.photoUrl!.replace(/^\//, ""));
+      expect(fs.existsSync(filePath), `expected photo at ${filePath}`).toBe(true);
+      const buffer = fs.readFileSync(filePath);
+      // Accept JPEG (FF D8 FF) or PNG (89 50 4E 47)
+      const isJpeg = buffer[0] === 0xff && buffer[1] === 0xd8 && buffer[2] === 0xff;
+      const isPng = buffer[0] === 0x89 && buffer[1] === 0x50 && buffer[2] === 0x4e && buffer[3] === 0x47;
+      expect(isJpeg || isPng, `${filePath} is not a valid JPEG or PNG`).toBe(true);
+    });
+
+    it(`${vaName}'s photo renders an absolute <img src> in a person block`, () => {
+      const va = VA_ROSTER.find((v) => v.name === vaName)!;
+      const html = renderPersonBlock({
+        name: va.name,
+        photoUrl: va.photoUrl,
+        bio: null,
+        callTypeLabel: "VA Call",
+        dateTimeLabel: "Tuesday, July 14 at 2:00 PM EDT",
+        portalUrl: "https://portal.buildtestscale.com",
+      });
+      expect(html).toContain("<img");
+      expect(html).toContain(`src="https://portal.buildtestscale.com${va.photoUrl}"`);
+      expect(html).not.toContain(`>${va.name.charAt(0)}<`);
+    });
+  }
 });
