@@ -1,19 +1,30 @@
 /**
  * send-pitch-thumbnail-verification.ts — Task #1820 acceptance send
  *
- * Sends ONE session_feedback email to adam@cherringtonmedia.com with the
- * LAUNCHPAD_PITCH block populated, using its default thumbnail
- * (/images/pitch-thumbnails/launchpad-placeholder.gif). Before the real send,
- * a PRE-FLIGHT PASS monkey-patches sgMail.send (nothing delivered), collects
- * every unique <img src> in the rendered HTML, and fetch-verifies each
- * returns 200 + image/*. If any asset fails (e.g. the placeholder GIF hasn't
- * been published to the live portal host yet), the entire run ABORTS with a
- * report — no real email is sent.
+ * DORMANT as of the email polish fix (Task #1831): the LAUNCHPAD_PITCH
+ * default thumbnail was REMOVED from `pitch-content-settings.ts` because the
+ * shipped placeholder asset (/images/pitch-thumbnails/launchpad-placeholder.gif)
+ * was confirmed to have never been published to the live portal host — it
+ * served the SPA's index.html fallback (200 text/html) instead of an image,
+ * guaranteeing a broken image in every LaunchPad-tier pitch. Since
+ * republishing the portal is on hold, shipping that default was the
+ * regression, not a config gap.
  *
- * IMPORTANT: this script can only pass once the placeholder GIF asset has
- * been published to production (task agents cannot publish — see the
- * publish-and-canary-required-closeout pattern). Run this AFTER publish, via
- * a temporary console workflow so SENDGRID_API_KEY is in process.env:
+ * This script will now ABORT at the "LAUNCHPAD_PITCH has no thumbnail
+ * configured" check below (by design) UNLESS an admin has explicitly set a
+ * real, published thumbnail for LAUNCHPAD_PITCH via the admin Settings UI.
+ * Do NOT re-add a default thumbnail here or in pitch-content-settings.ts to
+ * make this script pass again — that would reintroduce the exact regression
+ * this fix removed. Only run this after confirming (e.g. via curl) that a
+ * configured thumbnail URL actually serves `image/*`.
+ *
+ * Original behavior preserved below: sends ONE session_feedback email to
+ * adam@cherringtonmedia.com with the LAUNCHPAD_PITCH block populated. Before
+ * the real send, a PRE-FLIGHT PASS monkey-patches sgMail.send (nothing
+ * delivered), collects every unique <img src> in the rendered HTML, and
+ * fetch-verifies each returns 200 + image/*. If any asset fails, the entire
+ * run ABORTS with a report — no real email is sent. Run via a temporary
+ * console workflow so SENDGRID_API_KEY is in process.env:
  *
  *   PORTAL_URL=https://portal.buildtestscale.com \
  *     npx tsx artifacts/api-server/src/scripts/send-pitch-thumbnail-verification.ts

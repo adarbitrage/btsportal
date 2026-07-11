@@ -344,11 +344,17 @@ describe("renderPitchStackHtml", () => {
     expect(pitchStackForRank(6, true, true)).toEqual([]);
   });
 
-  it("rank-0 stack (which includes the LaunchPad block's default thumbnail) renders an <img> tag", async () => {
+  it("rank-0 stack renders with no default thumbnail (LaunchPad's placeholder GIF was never published)", async () => {
+    // Email polish fix: the LaunchPad block's default thumbnail was removed
+    // because the shipped asset was never published to the live portal host
+    // (verified serving the SPA fallback, not an image) and republishing is
+    // on hold. An admin-set thumbnail (via Settings) would still render an
+    // <img>; the shipped default no longer does.
     const userId = await seedMember();
     const html = await renderPitchStackHtml(userId);
-    expect(html).toContain("<img src=");
-    expect(html).toContain("pitch-thumbnails");
+    expect(html.length).toBeGreaterThan(0);
+    expect(html).not.toContain("<img src=");
+    expect(html).not.toContain("pitch-thumbnails");
   });
 });
 

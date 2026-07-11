@@ -90,11 +90,17 @@ function defaultContentFor(key: PitchBlockKey, plansUrl: string, vipArbitrageUrl
         line: "Unlock software access and your first coaching calls with a LaunchPad upgrade.",
         buttonLabel: "Explore LaunchPad",
         buttonUrl: plansUrl,
-        // Task #1820: placeholder animated GIF wired in by default so the
-        // new thumbnail slot is exercised end-to-end out of the box. An
-        // admin can clear or replace both fields from the Settings UI.
-        thumbnailUrl: "/images/pitch-thumbnails/launchpad-placeholder.gif",
-        thumbnailLinkUrl: plansUrl,
+        // Email polish fix (logo/pitch regression cleanup): the placeholder
+        // GIF at /images/pitch-thumbnails/launchpad-placeholder.gif was
+        // committed but never published to the live portal host — the
+        // static asset was verified serving the SPA's index.html fallback
+        // (text/html) instead of the actual GIF, so every send that included
+        // this default shipped a guaranteed broken image. Since republishing
+        // the portal is on an explicit hold, the safe fix is to NOT default
+        // to an unpublished asset at all; an admin can set a thumbnail for
+        // this block from the Settings UI once the asset is confirmed live.
+        // Do not restore this default without first confirming the asset
+        // 200s with an image/* content-type from the production host.
       };
     case "MENTORSHIP_PITCH":
       return {

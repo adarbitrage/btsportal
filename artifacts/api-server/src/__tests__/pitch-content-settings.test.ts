@@ -148,14 +148,18 @@ describe("getAllPitchContent / getPitchContent (default fallback + DB override)"
     await resetRow("pitch.machine");
   });
 
-  it("LAUNCHPAD_PITCH default includes the wired-in placeholder thumbnail, qualified to an absolute URL", async () => {
+  it("LAUNCHPAD_PITCH default has no thumbnail (the shipped placeholder GIF was never published)", async () => {
+    // Email polish fix: the default LaunchPad thumbnail was removed because
+    // the shipped asset (launchpad-placeholder.gif) was never published to
+    // the live portal host (verified serving the SPA's index.html fallback,
+    // not an image) and republishing is on hold. Shipping this default would
+    // guarantee a broken image in every LaunchPad-tier email. An admin can
+    // set a real thumbnail via Settings once the asset is confirmed live.
     await resetRow("pitch.launchpad");
     __invalidatePitchContentCacheForTests();
     const content = await getPitchContent("LAUNCHPAD_PITCH");
-    expect(content.thumbnailUrl).toBeDefined();
-    expect(content.thumbnailUrl).toMatch(/^https?:\/\//);
-    expect(content.thumbnailUrl).toContain("/images/pitch-thumbnails/");
-    expect(content.thumbnailLinkUrl).toBeDefined();
+    expect(content.thumbnailUrl).toBeUndefined();
+    expect(content.thumbnailLinkUrl).toBeUndefined();
   });
 
   it("a block with neither thumbnail field set renders no thumbnail (purely additive)", async () => {
