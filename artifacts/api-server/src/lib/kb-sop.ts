@@ -213,6 +213,17 @@ const SECTIONS: SopSection[] = [
     ],
   },
   {
+    id: "flag-lifecycle",
+    title: "Resolving flags and flagged passages",
+    body: [
+      "A draft cannot MOVE to approved while it still carries unresolved risk flags or un-dismissed flagged passages — every one must be fixed, resolved, or ignored first (drafts already approved are unaffected). Bulk-confirm applies the same rule.",
+      "Fix it: edit the draft (directly or via the refine chat). Flags are recomputed deterministically from the new text after every edit, so removing a flag's trigger clears the flag on its own. Editing never clears a flag whose trigger is still present.",
+      "Resolve/Ignore it: when a flag is a false positive or you've verified the content is fine as written, resolve it with an optional reason — this is recorded in the audit trail with your name. Resolving every critical flag also clears the \"needs expert\" hold. A resolution sticks to the flag's exact trigger: if re-analysis reproduces the same flag it stays resolved, but if it comes back with a NEW trigger it resurfaces for a fresh look.",
+      "Ignore a flagged passage: a passage highlight dismissed as \"fine\" is suppressed by its exact wording everywhere — including on future re-synthesized drafts that reproduce the identical passage — and can be undone. Possible-member-name highlights use the separate \"Not a name\" control instead, which is privacy-guarded.",
+      "You can also tell the refine chat to dismiss a flag explicitly (\"ignore the single-source flag\"). It will only ever dismiss what you explicitly name, and it will never claim an edit \"cleared\" a flag when it didn't.",
+    ],
+  },
+  {
     id: "self-test",
     title: "Reading the retrieval self-test",
     body: [

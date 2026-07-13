@@ -144,8 +144,22 @@ interface ReviewSource {
   date: string | null;
 }
 
+interface FlagState {
+  flag: RiskFlag;
+  resolved: boolean;
+  resolution: {
+    id: number;
+    reason: string | null;
+    resolvedBy: number | null;
+    resolvedAt: string;
+  } | null;
+}
+
 interface ReviewInsights {
   highlights: ReviewHighlight[];
+  dismissedHighlights?: Array<ReviewHighlight & { dismissalId: number }>;
+  flagStates?: FlagState[];
+  needsExpert?: boolean;
   sources: ReviewSource[];
 }
 
@@ -984,7 +998,9 @@ export default function KnowledgeBaseReview() {
 
   const handleGuidedApprove = async () => {
     if (!currentGuided) return;
-    await updateDoc(currentGuided.id, { status: "approved" });
+    // Approval gate (Task #1906): a blocked approve keeps the doc in the queue.
+    const ok = await updateDoc(currentGuided.id, { status: "approved" });
+    if (!ok) return;
     setGuidedDocs((prev) => prev.filter((d) => d.id !== currentGuided.id));
     setGuidedIndex((i) => Math.min(i, guidedDocs.length - 2));
   };
@@ -1206,17 +1222,35 @@ export default function KnowledgeBaseReview() {
     }
   };
 
+  // Returns true on success; false on failure — including the approval-gate
+  // 409 — so callers never close the dialog / advance past a blocked approve.
   const updateDoc = async (
     id: number,
     updates: Record<string, unknown>,
     opts?: { closeDialog?: boolean },
-  ) => {
+  ): Promise<boolean> => {
     try {
       const res = await authFetch(`/admin/knowledgebase/staging/${id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(updates),
       });
+      // Approval gate (Task #1906): the server refuses the transition to
+      // approved while unresolved flags / flagged passages remain.
+      if (res.status === 409) {
+        const data = await res.json().catch(() => null);
+        const flags = Array.isArray(data?.outstanding?.flags) ? data.outstanding.flags.length : 0;
+        const highlights = Array.isArray(data?.outstanding?.highlights) ? data.outstanding.highlights.length : 0;
+        toast({
+          title: "Can't approve yet",
+          description:
+            (typeof data?.error === "string" ? data.error : "Unresolved flags remain.") +
+            (flags || highlights ? ` (${flags} flag(s), ${highlights} flagged passage(s))` : ""),
+          variant: "destructive",
+        });
+        if (selectedDoc?.id === id) fetchInsights(id);
+        return false;
+      }
       if (!res.ok) throw new Error("Update failed");
       toast({ title: "Document updated" });
       fetchDocs();
@@ -1241,8 +1275,10 @@ export default function KnowledgeBaseReview() {
         setEditTaxonomyTags(Array.isArray(updated.taxonomyTags) ? updated.taxonomyTags : []);
         setAdminNotes(updated.adminNotes || "");
       }
+      return true;
     } catch {
       toast({ title: "Update failed", variant: "destructive" });
+      return false;
     }
   };
 
@@ -1348,6 +1384,102 @@ export default function KnowledgeBaseReview() {
     }
   };
 
+  // ── Flag lifecycle (Task #1906) ────────────────────────────────────────────
+  // Persistent "Ignore" for a flagged passage: suppressed by kind + exact
+  // wording EVERYWHERE (survives re-synthesis reproducing the same passage).
+  const dismissHighlight = async (h: ReviewHighlight) => {
+    if (!selectedDoc) return;
+    const reason = window.prompt(
+      `Ignore this ${h.label} passage? It stays ignored everywhere — including future re-synthesized drafts with the identical wording. Optional reason:`,
+      "",
+    );
+    if (reason === null) return;
+    try {
+      const res = await authFetch("/admin/knowledgebase/staging/highlight-dismissals", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          kind: h.kind,
+          excerpt: h.excerpt,
+          docId: selectedDoc.id,
+          reason: reason.trim() || undefined,
+        }),
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok) {
+        toast({ title: typeof data?.error === "string" ? data.error : "Failed to ignore passage", variant: "destructive" });
+        if (res.status === 409) fetchInsights(selectedDoc.id);
+        return;
+      }
+      toast({ title: "Passage ignored", description: "It will no longer flag — here or on re-synthesized drafts." });
+      fetchInsights(selectedDoc.id);
+    } catch {
+      toast({ title: "Failed to ignore passage", variant: "destructive" });
+    }
+  };
+
+  const undoHighlightDismissal = async (dismissalId: number) => {
+    try {
+      const res = await authFetch(`/admin/knowledgebase/staging/highlight-dismissals/${dismissalId}`, { method: "DELETE" });
+      if (!res.ok) throw new Error("Failed");
+      toast({ title: "Ignore removed", description: "The passage will flag again." });
+      if (selectedDoc) fetchInsights(selectedDoc.id);
+    } catch {
+      toast({ title: "Failed to remove", variant: "destructive" });
+    }
+  };
+
+  // Resolve / reopen a doc-level risk flag (audit-trailed). Resolving every
+  // critical flag clears the "needs expert" hold.
+  const resolveFlag = async (flag: RiskFlag) => {
+    if (!selectedDoc) return;
+    const reason = window.prompt(
+      `Resolve the "${flag.type}" flag? Recorded in the audit trail. Optional reason:`,
+      "",
+    );
+    if (reason === null) return;
+    try {
+      const res = await authFetch(`/admin/knowledgebase/staging/${selectedDoc.id}/flags/resolve`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ flagType: flag.type, reason: reason.trim() || undefined }),
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok) {
+        toast({ title: typeof data?.error === "string" ? data.error : "Failed to resolve flag", variant: "destructive" });
+        return;
+      }
+      toast({ title: `Flag "${flag.type}" resolved` });
+      setSelectedDoc((prev) => (prev && prev.id === selectedDoc.id ? { ...prev, needsExpert: !!data.needsExpert } : prev));
+      fetchInsights(selectedDoc.id);
+      fetchDocs();
+    } catch {
+      toast({ title: "Failed to resolve flag", variant: "destructive" });
+    }
+  };
+
+  const unresolveFlag = async (flagType: string) => {
+    if (!selectedDoc) return;
+    try {
+      const res = await authFetch(`/admin/knowledgebase/staging/${selectedDoc.id}/flags/unresolve`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ flagType }),
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok) {
+        toast({ title: typeof data?.error === "string" ? data.error : "Failed to reopen flag", variant: "destructive" });
+        return;
+      }
+      toast({ title: `Flag "${flagType}" reopened`, description: "It counts against approval again." });
+      setSelectedDoc((prev) => (prev && prev.id === selectedDoc.id ? { ...prev, needsExpert: !!data.needsExpert } : prev));
+      fetchInsights(selectedDoc.id);
+      fetchDocs();
+    } catch {
+      toast({ title: "Failed to reopen flag", variant: "destructive" });
+    }
+  };
+
   // Review-gate insights (Task #1752): fetched fresh whenever the draft text
   // changes (open / edit-save / refine) so highlights track the CURRENT text.
   const fetchInsights = async (docId: number) => {
@@ -1432,7 +1564,7 @@ export default function KnowledgeBaseReview() {
 
   const saveEdit = async (approve: boolean) => {
     if (!selectedDoc) return;
-    await updateDoc(selectedDoc.id, {
+    const ok = await updateDoc(selectedDoc.id, {
       title: editTitle,
       taxonomyTags: editTaxonomyTags,
       editedContent: editContent,
@@ -1443,7 +1575,8 @@ export default function KnowledgeBaseReview() {
       ceiling: editCeiling || null,
       ...(approve ? { status: "approved" } : {}),
     });
-    setEditMode(false);
+    // Blocked Save & Approve (409 gate): stay in edit mode — nothing saved.
+    if (ok) setEditMode(false);
   };
 
   // Raw persisted refine-thread rows (newest-first). Shared by the thread
@@ -1589,6 +1722,18 @@ export default function KnowledgeBaseReview() {
             placement: { verdict: data.verdict, target: data.target ?? null },
           },
         ]);
+        return;
+      }
+      // Flag-dismissal turn (Task #1906): the chat resolved/ignored flags the
+      // reviewer explicitly named. Draft text unchanged — refresh flag state.
+      if (data.mode === "dismissal") {
+        setRefineThread((prev) => [
+          ...prev,
+          { role: "assistant", content: data.assistantMessage || "Dismissed." },
+        ]);
+        if (data.document) setSelectedDoc(data.document);
+        fetchDocs();
+        fetchInsights(selectedDoc.id);
         return;
       }
       const bubble =
@@ -1913,10 +2058,62 @@ export default function KnowledgeBaseReview() {
                 </div>
               )}
 
-              {/* Risk flags */}
+              {/* Risk flags — with per-flag Resolve/Reopen lifecycle (Task #1906).
+                  A flag must be fixed (edit removes its trigger) or resolved
+                  before the draft can move to approved. */}
               {!editMode && (selectedDoc.riskFlags?.length || selectedDoc.needsExpert) && (
-                <div className="mt-3">
+                <div className="mt-3 space-y-2">
                   <RiskChips flags={selectedDoc.riskFlags} needsExpert={selectedDoc.needsExpert} />
+                  {(reviewInsights?.flagStates?.length ?? 0) > 0 && (
+                    <ul className="space-y-1.5">
+                      {reviewInsights!.flagStates!.map((fs) => (
+                        <li
+                          key={fs.flag.type}
+                          className={`rounded-md border p-2 text-xs flex items-start gap-2 ${fs.resolved ? "bg-emerald-50/60 border-emerald-200" : "bg-white"}`}
+                        >
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <Badge variant="outline" className={`text-[10px] ${SEVERITY_STYLES[fs.flag.severity]?.chip ?? ""}`}>
+                                {fs.flag.type}
+                              </Badge>
+                              {fs.resolved && (
+                                <span className="text-[10px] font-medium text-emerald-700">resolved</span>
+                              )}
+                              <span className={`truncate ${fs.resolved ? "text-gray-400 line-through" : "text-gray-700"}`} title={fs.flag.message}>
+                                {fs.flag.message}
+                              </span>
+                            </div>
+                            {fs.resolved && fs.resolution?.reason && (
+                              <p className="mt-0.5 text-[11px] text-emerald-800/80 truncate" title={fs.resolution.reason}>
+                                Reason: {fs.resolution.reason}
+                              </p>
+                            )}
+                          </div>
+                          {fs.resolved ? (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="h-6 px-2 text-[11px] shrink-0"
+                              onClick={() => unresolveFlag(fs.flag.type)}
+                              title="Reopen this flag — it counts against approval again"
+                            >
+                              Reopen
+                            </Button>
+                          ) : (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="h-6 px-2 text-[11px] shrink-0 text-emerald-700 border-emerald-200 hover:bg-emerald-50"
+                              onClick={() => resolveFlag(fs.flag)}
+                              title="Mark this flag resolved (audit-trailed). If re-analysis reproduces the same flag it stays resolved."
+                            >
+                              <CheckCircle className="w-3 h-3 mr-1" />Resolve
+                            </Button>
+                          )}
+                        </li>
+                      ))}
+                    </ul>
+                  )}
                 </div>
               )}
 
@@ -2411,7 +2608,9 @@ export default function KnowledgeBaseReview() {
                   </div>
 
                   {/* Review focus — risky passages with per-passage soften/cut (Task #1752) */}
-                  {(insightsLoading || (reviewInsights?.highlights?.length ?? 0) > 0) && (
+                  {(insightsLoading ||
+                    (reviewInsights?.highlights?.length ?? 0) > 0 ||
+                    (reviewInsights?.dismissedHighlights?.length ?? 0) > 0) && (
                     <div className="rounded-lg border border-amber-200 bg-amber-50/60 p-3 space-y-2">
                       <div className="flex items-center gap-2 text-sm font-medium text-amber-900">
                         <Radar className="w-4 h-4" />
@@ -2458,7 +2657,7 @@ export default function KnowledgeBaseReview() {
                                     >
                                       <XCircle className="w-3 h-3 mr-1" />Cut line
                                     </Button>
-                                    {h.kind === "possible_member_name" && (
+                                    {h.kind === "possible_member_name" ? (
                                       <Button
                                         size="sm"
                                         variant="outline"
@@ -2469,6 +2668,17 @@ export default function KnowledgeBaseReview() {
                                       >
                                         <CheckCircle className="w-3 h-3 mr-1" />Not a name
                                       </Button>
+                                    ) : (
+                                      <Button
+                                        size="sm"
+                                        variant="outline"
+                                        className="h-6 px-2 text-[11px] text-emerald-700 border-emerald-200 hover:bg-emerald-50"
+                                        disabled={redrafting}
+                                        onClick={() => dismissHighlight(h)}
+                                        title="This passage is fine — ignore it everywhere, including future re-synthesized drafts (undoable)"
+                                      >
+                                        <CheckCircle className="w-3 h-3 mr-1" />Ignore
+                                      </Button>
                                     )}
                                   </span>
                                 </div>
@@ -2476,6 +2686,34 @@ export default function KnowledgeBaseReview() {
                               </li>
                             ))}
                         </ul>
+                      )}
+                      {/* Ignored passages on this draft (Task #1906) — visible with undo */}
+                      {!insightsLoading && (reviewInsights?.dismissedHighlights?.length ?? 0) > 0 && (
+                        <div className="pt-1 border-t border-amber-100">
+                          <p className="text-[11px] font-medium text-amber-700 mb-1">
+                            Ignored passages ({reviewInsights!.dismissedHighlights!.length}) — suppressed everywhere, undo to re-flag
+                          </p>
+                          <ul className="space-y-1">
+                            {reviewInsights!.dismissedHighlights!.map((h, i) => (
+                              <li key={`dis-${h.kind}-${i}`} className="flex items-center gap-2 text-xs text-gray-500">
+                                <Badge variant="outline" className="text-[10px] text-gray-500">
+                                  {h.label}
+                                </Badge>
+                                <span className="font-mono truncate max-w-[20rem] line-through" title={h.excerpt}>
+                                  “{h.excerpt.length > 60 ? h.excerpt.slice(0, 60) + "…" : h.excerpt}”
+                                </span>
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  className="h-5 px-1.5 text-[10px] text-gray-500 hover:text-red-700"
+                                  onClick={() => undoHighlightDismissal(h.dismissalId)}
+                                >
+                                  Undo
+                                </Button>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
                       )}
                     </div>
                   )}
@@ -2654,7 +2892,13 @@ export default function KnowledgeBaseReview() {
                     </Button>
                     {selectedDoc.status === "needs_review" && (
                       <>
-                        <Button onClick={() => { updateDoc(selectedDoc.id, { status: "approved" }); setSelectedDoc(null); }}
+                        <Button
+                          onClick={async () => {
+                            // Approval gate (Task #1906): keep the dialog open on a
+                            // blocked approve so the reviewer sees what's outstanding.
+                            const ok = await updateDoc(selectedDoc.id, { status: "approved" });
+                            if (ok) setSelectedDoc(null);
+                          }}
                           className="bg-green-600 hover:bg-green-700">
                           <CheckCircle className="w-4 h-4 mr-2" />Approve
                         </Button>

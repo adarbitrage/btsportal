@@ -627,3 +627,15 @@ if [ -n "$DATABASE_URL" ]; then
     -f lib/db/drizzle/0115_kb_staging_ceiling_advisory.sql \
     >/dev/null
 fi
+
+# KB review flag lifecycle (Task #1906). Two additive tables: passage-highlight
+# dismissals (persist across re-synthesis) + doc-level risk-flag resolutions
+# (audit-trailed Resolve/Ignore). Applying here keeps the live-schema-drift gate
+# green so the conditional push stays skipped. Idempotent (CREATE TABLE IF NOT
+# EXISTS + guarded FK).
+if [ -n "$DATABASE_URL" ]; then
+  psql "$DATABASE_URL" \
+    -v ON_ERROR_STOP=1 \
+    -f lib/db/drizzle/0117_kb_flag_lifecycle.sql \
+    >/dev/null
+fi

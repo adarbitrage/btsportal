@@ -1,7 +1,7 @@
 import { getParam } from "../../lib/params";
 import { Router, Request, Response } from "express";
 import { db } from "@workspace/db";
-import { kbStagingDocsTable, knowledgebaseDocsTable, aiLiveDocumentsTable, aiLiveDocumentVersionsTable, kbDocProvenanceTable, kbTriageAuditLogTable, aiSourceDocumentsTable, kbTranscriptSourcesTable, kbNameFlagDismissalsTable } from "@workspace/db/schema";
+import { kbStagingDocsTable, knowledgebaseDocsTable, aiLiveDocumentsTable, aiLiveDocumentVersionsTable, kbDocProvenanceTable, kbTriageAuditLogTable, aiSourceDocumentsTable, kbTranscriptSourcesTable, kbNameFlagDismissalsTable, kbHighlightDismissalsTable, kbFlagResolutionsTable } from "@workspace/db/schema";
 import { eq, desc, sql, count, and, ne, isNotNull, inArray } from "drizzle-orm";
 import { requirePermission } from "../../middleware/rbac.js";
 import { resolveNavGapsForPublishedDoc } from "../../lib/kb-nav-gaps.js";
@@ -16,7 +16,7 @@ import {
 import { callLLMWithRetry } from "../../lib/kb-synthesis.js";
 import { CITABLE_DOC_CLASSES } from "../../lib/kb-taxonomy.js";
 import { detectLegacyRefs } from "../../lib/kb-mining.js";
-import { blocksBulkConfirm, type RiskFlag } from "../../lib/kb-flags.js";
+import { blocksBulkConfirm, RISK_FLAG_TYPES, type RiskFlag, type RiskFlagType } from "../../lib/kb-flags.js";
 import { buildReviewerSop } from "../../lib/kb-sop.js";
 import {
   HOME_ROOTS,
@@ -30,7 +30,14 @@ import {
 import { retrieveSurfaceAware } from "../../lib/kb-retrieval.js";
 import { applyRefineEdits } from "../../lib/transcript-cleaner.js";
 import { resolveSourceContentForSynthesis } from "../../lib/kb-value-screener.js";
-import { analyzeDraftForReview, isPrivacyProtectedPair } from "../../lib/kb-review-risk.js";
+import { analyzeDraftForReview, isPrivacyProtectedPair, HIGHLIGHT_META, type ReviewHighlightKind } from "../../lib/kb-review-risk.js";
+import {
+  normalizeExcerpt,
+  flagFingerprint,
+  getDocOutstanding,
+  recomputeNeedsExpert,
+  retriageDocFlags,
+} from "../../lib/kb-flag-lifecycle.js";
 import { getNameFlagVocab, invalidateNameFlagVocab } from "../../lib/kb-name-flag-vocab.js";
 import { clusterDuplicates, findLiveSimilar } from "../../lib/kb-duplicates.js";
 import { embedLiveDocumentInBackground, CLEARED_EMBEDDING_FIELDS } from "../../lib/kb-embeddings.js";
@@ -1396,6 +1403,138 @@ router.get("/tag-vocabulary", async (_req: Request, res: Response) => {
   }
 });
 
+// ── Passage-highlight dismissals (Task #1906) ────────────────────────────────
+// Persistent "Ignore" for review-insight highlights. Keyed on (kind +
+// normalized excerpt) — GLOBAL across drafts, so a dismissal survives
+// re-synthesis reproducing the identical passage. Registered BEFORE the /:id
+// routes so the literal path wins.
+router.get("/highlight-dismissals", async (_req: Request, res: Response) => {
+  try {
+    const rows = await db
+      .select()
+      .from(kbHighlightDismissalsTable)
+      .orderBy(desc(kbHighlightDismissalsTable.createdAt));
+    res.json({ dismissals: rows });
+  } catch (err: unknown) {
+    res.status(500).json({ error: err instanceof Error ? err.message : "Unknown error" });
+  }
+});
+
+router.post("/highlight-dismissals", async (req: Request, res: Response) => {
+  try {
+    const { kind, excerpt, docId, reason } = req.body as {
+      kind?: unknown;
+      excerpt?: unknown;
+      docId?: unknown;
+      reason?: unknown;
+    };
+    const kindStr = typeof kind === "string" ? kind.trim() : "";
+    if (!(kindStr in HIGHLIGHT_META)) {
+      res.status(400).json({ error: "Unknown highlight kind" });
+      return;
+    }
+    const excerptStr = typeof excerpt === "string" ? excerpt.trim() : "";
+    if (!excerptStr) {
+      res.status(400).json({ error: "An excerpt is required" });
+      return;
+    }
+    // SAFETY RAIL: name highlights have their own "Not a name" vocabulary path
+    // with privacy-protected-pair checks — never dismissible through here.
+    if (kindStr === "possible_member_name") {
+      res.status(400).json({ error: "Use the 'Not a name' dismissal for name highlights." });
+      return;
+    }
+    const docIdNum = typeof docId === "number" ? docId : Number(docId);
+
+    // The dismissal must correspond to a highlight that ACTUALLY exists on the
+    // doc's current text — a stale UI can never seed a phantom suppression.
+    let docTitle: string | null = null;
+    if (Number.isFinite(docIdNum)) {
+      const [doc] = await db
+        .select()
+        .from(kbStagingDocsTable)
+        .where(eq(kbStagingDocsTable.id, docIdNum));
+      if (!doc) {
+        res.status(404).json({ error: "Document not found" });
+        return;
+      }
+      docTitle = doc.title;
+      const highlights = analyzeDraftForReview(
+        doc.editedContent ?? doc.content,
+        await getNameFlagVocab(),
+      );
+      const norm = normalizeExcerpt(excerptStr);
+      const match = highlights.some(
+        (h) => h.kind === kindStr && normalizeExcerpt(h.excerpt) === norm,
+      );
+      if (!match) {
+        res.status(409).json({ error: "That passage is no longer flagged on this document — refresh and try again." });
+        return;
+      }
+    } else {
+      res.status(400).json({ error: "docId is required" });
+      return;
+    }
+
+    const [row] = await db
+      .insert(kbHighlightDismissalsTable)
+      .values({
+        kind: kindStr,
+        excerptNorm: normalizeExcerpt(excerptStr),
+        displayExcerpt: excerptStr,
+        stagingDocId: docIdNum,
+        dismissedBy: req.userId ?? null,
+        reason: typeof reason === "string" && reason.trim() ? reason.trim().substring(0, 500) : null,
+      })
+      .onConflictDoNothing({
+        target: [kbHighlightDismissalsTable.kind, kbHighlightDismissalsTable.excerptNorm],
+      })
+      .returning();
+
+    await db.insert(kbTriageAuditLogTable).values({
+      stagingDocId: docIdNum,
+      eventType: "highlight_dismissed",
+      confidenceScore: null,
+      actorUserId: req.userId ?? null,
+      aiReasoning: `Reviewer ignored ${HIGHLIGHT_META[kindStr as ReviewHighlightKind].label} highlight: "${excerptStr.substring(0, 200)}"${typeof reason === "string" && reason.trim() ? ` — ${reason.trim().substring(0, 300)}` : ""} (suppressed for this passage everywhere, survives re-synthesis)`,
+      docTitle,
+    });
+
+    res.json({ ok: true, dismissal: row ?? null });
+  } catch (err: unknown) {
+    res.status(500).json({ error: err instanceof Error ? err.message : "Unknown error" });
+  }
+});
+
+router.delete("/highlight-dismissals/:dismissalId", async (req: Request, res: Response) => {
+  try {
+    const id = parseInt(getParam(req.params.dismissalId));
+    if (!Number.isFinite(id)) {
+      res.status(400).json({ error: "Invalid id" });
+      return;
+    }
+    const [removed] = await db
+      .delete(kbHighlightDismissalsTable)
+      .where(eq(kbHighlightDismissalsTable.id, id))
+      .returning();
+    // Audit needs a doc to hang the event on; a dismissal created without a
+    // doc context (stagingDocId null) is still removed, just not audited.
+    if (removed && removed.stagingDocId != null) {
+      await db.insert(kbTriageAuditLogTable).values({
+        stagingDocId: removed.stagingDocId,
+        eventType: "highlight_dismissal_undone",
+        confidenceScore: null,
+        actorUserId: req.userId ?? null,
+        aiReasoning: `Reviewer removed the highlight dismissal for "${removed.displayExcerpt.substring(0, 200)}" (${removed.kind}) — the passage will flag again on future analyses.`,
+        docTitle: null,
+      });
+    }
+    res.json({ ok: true });
+  } catch (err: unknown) {
+    res.status(500).json({ error: err instanceof Error ? err.message : "Unknown error" });
+  }
+});
+
 router.get("/:id", async (req: Request, res: Response) => {
   try {
     const id = parseInt(getParam(req.params.id));
@@ -1413,6 +1552,107 @@ router.get("/:id", async (req: Request, res: Response) => {
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : "Unknown error";
     res.status(500).json({ error: message });
+  }
+});
+
+// ── Doc-level flag resolutions (Task #1906) ──────────────────────────────────
+// Resolve/Ignore a stored risk flag with an audit trail. The resolution is
+// pinned to the flag's fingerprint (message+detail), so deterministic re-triage
+// reproducing the SAME flag keeps it resolved, while a new trigger resurfaces.
+// Resolving every critical flag clears needs_expert.
+router.post("/:id/flags/resolve", async (req: Request, res: Response) => {
+  try {
+    const id = parseInt(getParam(req.params.id));
+    const { flagType, reason } = req.body as { flagType?: unknown; reason?: unknown };
+    const typeStr = typeof flagType === "string" ? flagType.trim() : "";
+    if (!(RISK_FLAG_TYPES as readonly string[]).includes(typeStr)) {
+      res.status(400).json({ error: "Unknown flag type" });
+      return;
+    }
+    const [doc] = await db.select().from(kbStagingDocsTable).where(eq(kbStagingDocsTable.id, id));
+    if (!doc) {
+      res.status(404).json({ error: "Document not found" });
+      return;
+    }
+    const flags = Array.isArray(doc.riskFlags) ? (doc.riskFlags as RiskFlag[]) : [];
+    const flag = flags.find((f) => f.type === typeStr);
+    if (!flag) {
+      res.status(409).json({ error: "That flag is not present on this document — refresh and try again." });
+      return;
+    }
+
+    const userId = (req as unknown as { userId: number }).userId;
+    const reasonStr = typeof reason === "string" && reason.trim() ? reason.trim().substring(0, 1000) : null;
+    const fingerprint = flagFingerprint(flag);
+    await db
+      .insert(kbFlagResolutionsTable)
+      .values({
+        stagingDocId: id,
+        flagType: typeStr,
+        fingerprint,
+        resolvedBy: userId,
+        reason: reasonStr,
+      })
+      .onConflictDoUpdate({
+        target: [kbFlagResolutionsTable.stagingDocId, kbFlagResolutionsTable.flagType],
+        set: { fingerprint, resolvedBy: userId, reason: reasonStr, createdAt: new Date() },
+      });
+
+    await db.insert(kbTriageAuditLogTable).values({
+      stagingDocId: id,
+      eventType: "flag_resolved",
+      confidenceScore: null,
+      actorUserId: userId,
+      aiReasoning: `Reviewer resolved the "${typeStr}" flag (${flag.severity}): ${flag.message}${reasonStr ? ` — reason: ${reasonStr}` : ""}`,
+      docTitle: doc.title,
+    });
+
+    const needsExpert = await recomputeNeedsExpert(id);
+    const outstanding = await getDocOutstanding(doc);
+    res.json({ ok: true, needsExpert, flagStates: outstanding.flagStates });
+  } catch (err: unknown) {
+    res.status(500).json({ error: err instanceof Error ? err.message : "Unknown error" });
+  }
+});
+
+router.post("/:id/flags/unresolve", async (req: Request, res: Response) => {
+  try {
+    const id = parseInt(getParam(req.params.id));
+    const { flagType } = req.body as { flagType?: unknown };
+    const typeStr = typeof flagType === "string" ? flagType.trim() : "";
+    if (!typeStr) {
+      res.status(400).json({ error: "flagType is required" });
+      return;
+    }
+    const [doc] = await db.select().from(kbStagingDocsTable).where(eq(kbStagingDocsTable.id, id));
+    if (!doc) {
+      res.status(404).json({ error: "Document not found" });
+      return;
+    }
+    const [removed] = await db
+      .delete(kbFlagResolutionsTable)
+      .where(
+        and(
+          eq(kbFlagResolutionsTable.stagingDocId, id),
+          eq(kbFlagResolutionsTable.flagType, typeStr),
+        ),
+      )
+      .returning();
+    if (removed) {
+      await db.insert(kbTriageAuditLogTable).values({
+        stagingDocId: id,
+        eventType: "flag_resolution_undone",
+        confidenceScore: null,
+        actorUserId: req.userId ?? null,
+        aiReasoning: `Reviewer reopened the "${typeStr}" flag — it counts against approval again.`,
+        docTitle: doc.title,
+      });
+    }
+    const needsExpert = await recomputeNeedsExpert(id);
+    const outstanding = await getDocOutstanding(doc);
+    res.json({ ok: true, needsExpert, flagStates: outstanding.flagStates });
+  } catch (err: unknown) {
+    res.status(500).json({ error: err instanceof Error ? err.message : "Unknown error" });
   }
 });
 
@@ -1480,6 +1720,37 @@ router.patch("/:id", async (req: Request, res: Response) => {
       updates.reviewedAt = new Date();
     }
 
+    // Approval gate (Task #1906): the TRANSITION to approved is blocked while
+    // unresolved risk flags or passage highlights remain — the reviewer must
+    // fix, resolve, or ignore each first. Docs ALREADY approved are untouched
+    // (they stay publishable); judged against the text about to be saved.
+    if (status === "approved") {
+      const [existingDoc] = await db
+        .select()
+        .from(kbStagingDocsTable)
+        .where(eq(kbStagingDocsTable.id, id));
+      if (!existingDoc) {
+        res.status(404).json({ error: "Document not found" });
+        return;
+      }
+      if (existingDoc.status !== "approved") {
+        const outstanding = await getDocOutstanding(
+          existingDoc,
+          editedContent !== undefined ? (editedContent ?? existingDoc.content) : undefined,
+        );
+        if (outstanding.activeFlags.length > 0 || outstanding.activeHighlights.length > 0) {
+          res.status(409).json({
+            error: "Unresolved flags or flagged passages remain — resolve, ignore, or fix each before approving.",
+            outstanding: {
+              flags: outstanding.activeFlags,
+              highlights: outstanding.activeHighlights,
+            },
+          });
+          return;
+        }
+      }
+    }
+
     const [updated] = await db
       .update(kbStagingDocsTable)
       .set(updates)
@@ -1489,6 +1760,22 @@ router.patch("/:id", async (req: Request, res: Response) => {
     if (!updated) {
       res.status(404).json({ error: "Document not found" });
       return;
+    }
+
+    // Deterministic re-triage (Task #1906): a content edit recomputes the
+    // stored risk flags from the NEW text (same pure rules as AI triage, no
+    // LLM) — a fixed trigger clears its flag; a resolved-but-unchanged flag is
+    // NOT resurrected (its fingerprint still matches the resolution).
+    if (editedContent !== undefined) {
+      await retriageDocFlags(id);
+      if (!titleEdited) {
+        const [retriaged] = await db
+          .select()
+          .from(kbStagingDocsTable)
+          .where(eq(kbStagingDocsTable.id, id));
+        res.json(retriaged ?? updated);
+        return;
+      }
     }
 
     if (titleEdited) {
@@ -1523,12 +1810,19 @@ router.post("/bulk-approve", async (req: Request, res: Response) => {
     for (const id of ids) {
       // Bulk-confirm is gated: a doc carrying a conflict / high-stakes (blocking)
       // risk flag must be opened and adjudicated one-by-one, never rubber-stamped.
+      // Task #1906: additionally, ANY unresolved flag or un-dismissed passage
+      // highlight blocks — same rule as the single-doc approval transition.
       const [doc] = await db
-        .select({ riskFlags: kbStagingDocsTable.riskFlags, needsExpert: kbStagingDocsTable.needsExpert })
+        .select()
         .from(kbStagingDocsTable)
         .where(eq(kbStagingDocsTable.id, id));
       if (!doc) continue;
       if (doc.needsExpert || blocksBulkConfirm((doc.riskFlags ?? []) as RiskFlag[])) {
+        blocked.push(id);
+        continue;
+      }
+      const outstanding = await getDocOutstanding(doc);
+      if (outstanding.activeFlags.length > 0 || outstanding.activeHighlights.length > 0) {
         blocked.push(id);
         continue;
       }
@@ -2177,6 +2471,21 @@ router.post("/:id/refine", async (req: Request, res: Response) => {
       .map((t) => `${t.role === "user" ? "Reviewer" : "Assistant"}: ${t.content}`)
       .join("\n");
 
+    // Flag lifecycle context (Task #1906): the doc's ACTIVE flags + highlights,
+    // numbered, so the chat can (a) be honest about what editing can and cannot
+    // clear, and (b) map an explicit "ignore that flag" ask onto a real target.
+    const lifecycle = await getDocOutstanding(doc);
+    const flagLines = lifecycle.activeFlags.map(
+      (f, i) => `F${i + 1}. type="${f.type}" (${f.severity}): ${f.message}`,
+    );
+    const highlightLines = lifecycle.activeHighlights.map(
+      (h, i) => `H${i + 1}. kind="${h.kind}" excerpt="${h.excerpt}"`,
+    );
+    const flagContext =
+      flagLines.length || highlightLines.length
+        ? `CURRENT REVIEW FLAGS on this draft (unresolved):\n${[...flagLines, ...highlightLines].join("\n")}`
+        : "CURRENT REVIEW FLAGS on this draft: none — nothing is currently blocking approval.";
+
     // Placement context (Task #1851): the draft's FILED shelf / node / doc-class
     // charter, so the refine chat can push back on edits that would drag content
     // outside where this doc belongs. Derived from the live taxonomy registry.
@@ -2198,11 +2507,16 @@ ${sourceContext}
 
 ${placementContext}
 
+${flagContext}
+
 This is a CONVERSATION, not an edit machine. First decide the reviewer's intent:
 - QUESTION / DISCUSSION (they ask about the draft, the sources, wording options, or say things like "what do you think", "why does it say X", "should we…"): DO NOT edit. Return ONLY {"reply":"<your answer or proposal>"} — answer from the draft and the source material, and when a change seems warranted, PROPOSE it concretely and ask whether to apply it.
 - CORPUS-WIDE / MULTI-DOCUMENT REQUEST (a clear instruction to change wording or terminology, flag a concept, or leave notes ACROSS other documents or the whole corpus — e.g. "rename X in all drafts", "flag this mistake in every affected doc", "add a note to the other docs that say Y"): DO NOT edit and DO NOT attempt the cross-document work — you can only see THIS draft and you CANNOT write notes on other documents. Return ONLY {"reply":"..."} briefly explaining that refine works on this single draft, and that the CORPUS SWEEP tool (Pipeline Tools → Corpus Sweep on the review page) is the right tool: it finds every affected staging draft and live doc and proposes a note on each for the reviewer to confirm. If part of the instruction applies to THIS draft only, say they can ask for that part separately. Never return an edits/rewrite payload for a corpus-wide ask, and never claim you changed or annotated other documents.
 - OUT-OF-PLACEMENT EDIT (a clear instruction to ADD substantive new subject matter that falls OUTSIDE this doc's filed shelf / node / doc-class charter — e.g. adding refund policy to a testing-methodology doc, or strategy to a navigation doc): DO NOT edit yet, and DO NOT re-file the doc yourself. Return ONLY {"placementCheck":{"query":"<3-8 keywords to search the corpus for where this content belongs>","summary":"<one sentence: what the reviewer wants to add>","concern":"<one sentence: why it may not belong in THIS doc>"}}. EXCEPTION: if the reviewer has ALREADY acknowledged the mismatch or overrides it (e.g. "add it here anyway", "I know, put it here", "ignore that, do it", or they asked again after you pushed back), then treat it as a normal EDIT and apply it.
+- FLAG DISMISSAL (an EXPLICIT instruction to ignore/resolve/dismiss one of the CURRENT REVIEW FLAGS listed above — e.g. "ignore the high-stakes flag", "that passage is fine, dismiss it", "mark the single-source flag resolved"): DO NOT edit. Return ONLY {"dismissals":[{"target":"flag","type":"<exact type from the F-list>","reason":"<why, per the reviewer>"} or {"target":"highlight","kind":"<exact kind from the H-list>","excerpt":"<the exact excerpt from the H-list>","reason":"<why>"}],"message":"one sentence confirming what was dismissed"}. Only items from the lists above may be dismissed; never invent a type/kind/excerpt, and never dismiss anything the reviewer did not explicitly ask about.
 - EDIT REQUEST (any other clear instruction to change the draft that stays WITHIN its placement, or the reviewer confirms a proposal you made, e.g. "yes do that", "apply it"): make the change as below.
+
+FLAG HONESTY: you cannot make a review flag disappear by editing unless the edit actually removes the flag's trigger from the text (flags are recomputed deterministically after every edit). Never claim an edit "cleared" or "resolved" a flag. If the reviewer wants a flag gone without a text change, tell them to use the flag's Resolve/Ignore control — or to explicitly ask you to dismiss it (FLAG DISMISSAL above).
 
 For EDITS, prefer SURGICAL edits. Return ONLY JSON of the form:
 {"edits":[{"find":"exact text to replace","replace":"new text","all":false}],"message":"one sentence summary","changes":["human-readable description of each edit: what changed, where, and why"]}
@@ -2225,7 +2539,7 @@ BRAND RULES: say "Build Test Scale" / "BTS" (never "TCE" or "Cherrington"); no c
       await callLLMWithRetry("refine", systemPrompt, userContent, 12000, true)
     ).trim();
 
-    let parsed: { edits?: unknown; rewrite?: unknown; message?: unknown; reply?: unknown; changes?: unknown; placementCheck?: unknown };
+    let parsed: { edits?: unknown; rewrite?: unknown; message?: unknown; reply?: unknown; changes?: unknown; placementCheck?: unknown; dismissals?: unknown };
     try {
       parsed = JSON.parse(rawContent);
     } catch {
@@ -2233,6 +2547,127 @@ BRAND RULES: say "Build Test Scale" / "BTS" (never "TCE" or "Cherrington"); no c
     }
 
     const userId = (req as unknown as { userId: number }).userId;
+
+    // Flag-dismissal turn (Task #1906): the reviewer explicitly asked the chat
+    // to ignore/resolve a flag or flagged passage. Every target is validated
+    // against the doc's CURRENT active flags/highlights — a hallucinated or
+    // stale target is skipped and reported, never silently applied. The draft
+    // text is untouched.
+    if (
+      Array.isArray(parsed.dismissals) &&
+      !Array.isArray(parsed.edits) &&
+      typeof parsed.rewrite !== "string"
+    ) {
+      const applied: string[] = [];
+      const skipped: string[] = [];
+      for (const raw of parsed.dismissals.slice(0, 10)) {
+        if (!raw || typeof raw !== "object") continue;
+        const d = raw as { target?: unknown; type?: unknown; kind?: unknown; excerpt?: unknown; reason?: unknown };
+        const reasonStr =
+          typeof d.reason === "string" && d.reason.trim()
+            ? d.reason.trim().substring(0, 500)
+            : `Dismissed via refine chat: ${instruction.trim().substring(0, 200)}`;
+
+        if (d.target === "flag" && typeof d.type === "string") {
+          const flag = lifecycle.activeFlags.find((f) => f.type === d.type);
+          if (!flag) {
+            skipped.push(`flag "${d.type}" (not an active flag on this draft)`);
+            continue;
+          }
+          const fingerprint = flagFingerprint(flag);
+          await db
+            .insert(kbFlagResolutionsTable)
+            .values({ stagingDocId: id, flagType: flag.type, fingerprint, resolvedBy: userId, reason: reasonStr })
+            .onConflictDoUpdate({
+              target: [kbFlagResolutionsTable.stagingDocId, kbFlagResolutionsTable.flagType],
+              set: { fingerprint, resolvedBy: userId, reason: reasonStr, createdAt: new Date() },
+            });
+          await db.insert(kbTriageAuditLogTable).values({
+            stagingDocId: id,
+            eventType: "flag_resolved",
+            confidenceScore: null,
+            actorUserId: userId,
+            aiReasoning: `Reviewer resolved the "${flag.type}" flag (${flag.severity}) via refine chat: ${flag.message} — reason: ${reasonStr}`,
+            docTitle: doc.title,
+          });
+          applied.push(`flag "${flag.type}"`);
+          continue;
+        }
+
+        if (d.target === "highlight" && typeof d.kind === "string" && typeof d.excerpt === "string") {
+          if (d.kind === "possible_member_name") {
+            skipped.push(`highlight "${d.excerpt}" (name highlights use the 'Not a name' control)`);
+            continue;
+          }
+          const norm = normalizeExcerpt(d.excerpt);
+          const h = lifecycle.activeHighlights.find(
+            (x) => x.kind === d.kind && normalizeExcerpt(x.excerpt) === norm,
+          );
+          if (!h) {
+            skipped.push(`highlight "${d.excerpt}" (not an active flagged passage on this draft)`);
+            continue;
+          }
+          await db
+            .insert(kbHighlightDismissalsTable)
+            .values({
+              kind: h.kind,
+              excerptNorm: normalizeExcerpt(h.excerpt),
+              displayExcerpt: h.excerpt,
+              stagingDocId: id,
+              dismissedBy: userId,
+              reason: reasonStr,
+            })
+            .onConflictDoNothing({
+              target: [kbHighlightDismissalsTable.kind, kbHighlightDismissalsTable.excerptNorm],
+            });
+          await db.insert(kbTriageAuditLogTable).values({
+            stagingDocId: id,
+            eventType: "highlight_dismissed",
+            confidenceScore: null,
+            actorUserId: userId,
+            aiReasoning: `Reviewer ignored the ${h.label} highlight via refine chat: "${h.excerpt.substring(0, 200)}" — reason: ${reasonStr}`,
+            docTitle: doc.title,
+          });
+          applied.push(`flagged passage "${h.excerpt.substring(0, 60)}"`);
+          continue;
+        }
+
+        skipped.push("unrecognized dismissal target");
+      }
+
+      await recomputeNeedsExpert(id);
+      const [freshDoc] = await db.select().from(kbStagingDocsTable).where(eq(kbStagingDocsTable.id, id));
+
+      const summary =
+        (applied.length
+          ? `Dismissed ${applied.join(", ")}.`
+          : "Nothing was dismissed.") +
+        (skipped.length ? ` Skipped: ${skipped.join("; ")}.` : "");
+      const assistantMsg =
+        typeof parsed.message === "string" && parsed.message.trim() && applied.length
+          ? `${parsed.message.trim()} ${skipped.length ? `Skipped: ${skipped.join("; ")}.` : ""}`.trim()
+          : summary;
+
+      await db.insert(kbTriageAuditLogTable).values({
+        stagingDocId: id,
+        eventType: "refined",
+        confidenceScore: null,
+        actorUserId: userId,
+        aiReasoning: `Dismissed flags (no edit) per instruction: ${instruction.trim().substring(0, 300)} — ${assistantMsg.substring(0, 1000)}`,
+        docTitle: doc.title,
+      });
+
+      res.json({
+        document: freshDoc ?? doc,
+        mode: "dismissal",
+        assistantMessage: assistantMsg,
+        applied,
+        skipped,
+        changes: [],
+        instruction: instruction.trim(),
+      });
+      return;
+    }
 
     // Placement pushback (Task #1851): the reviewer asked to add subject matter
     // that falls outside this doc's filed shelf / node / doc-class charter. The
@@ -2469,7 +2904,15 @@ Return ONLY JSON: {"verdict":"already_covered|belongs_elsewhere|genuine_gap|fits
       docTitle: doc.title,
     });
 
-    res.json({ document: updated, mode, assistantMessage, changes, instruction: instruction.trim() });
+    // Deterministic re-triage (Task #1906): recompute the stored risk flags
+    // from the NEW text so an edit that removed a trigger clears its flag.
+    await retriageDocFlags(id);
+    const [retriaged] = await db
+      .select()
+      .from(kbStagingDocsTable)
+      .where(eq(kbStagingDocsTable.id, id));
+
+    res.json({ document: retriaged ?? updated, mode, assistantMessage, changes, instruction: instruction.trim() });
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : "Unknown error";
     // Persist the failure to the refine thread too: if the client already
@@ -2591,10 +3034,11 @@ router.get("/:id/review-insights", async (req: Request, res: Response) => {
 
     // Derived name-flag vocabulary (cached; TTL-refreshed) so terminology —
     // including NEW terminology from future synthesis runs — never flags.
-    const highlights = analyzeDraftForReview(
-      doc.editedContent ?? doc.content,
-      await getNameFlagVocab(),
-    );
+    // Task #1906: dismissed highlights are split out (kind + normalized-excerpt
+    // suppression, survives re-synthesis), and the stored risk flags come back
+    // annotated with their resolution state so the UI can gate approval.
+    const lifecycle = await getDocOutstanding(doc);
+    const highlights = lifecycle.activeHighlights;
 
     // Provenance: the contributing source set. Enrich synthesisSources with the
     // transcript-source roster (coach, kind) and the source document's date.
@@ -2671,7 +3115,13 @@ router.get("/:id/review-insights", async (req: Request, res: Response) => {
       });
     }
 
-    res.json({ highlights, sources });
+    res.json({
+      highlights,
+      dismissedHighlights: lifecycle.dismissedHighlights,
+      flagStates: lifecycle.flagStates,
+      needsExpert: doc.needsExpert,
+      sources,
+    });
   } catch (err: unknown) {
     res.status(500).json({ error: err instanceof Error ? err.message : "Unknown error" });
   }
