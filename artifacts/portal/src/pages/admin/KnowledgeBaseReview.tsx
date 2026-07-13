@@ -781,6 +781,10 @@ export default function KnowledgeBaseReview() {
   const insightsRequestRef = useRef(0);
   // Duplicate grouping & similar-live-doc aids (Task #1825).
   const [showDuplicates, setShowDuplicates] = useState(false);
+  // Bumped when the detail dialog closes while the duplicates view is up so
+  // the duplicates list refreshes (Task #1902 — a doc opened from there may
+  // have been edited/approved in the dialog).
+  const [dupRefreshKey, setDupRefreshKey] = useState(0);
   const [liveSimilarMap, setLiveSimilarMap] = useState<Record<number, LiveSimilarMatch>>({});
   const [viewLiveDocId, setViewLiveDocId] = useState<number | null>(null);
 
@@ -1389,6 +1393,19 @@ export default function KnowledgeBaseReview() {
     setProvenanceExpanded(false);
   };
 
+  // Open a doc in the full review dialog by id (Task #1902) — used by the
+  // Possible Duplicates view, which only holds slim cluster payloads.
+  const openDocById = async (docId: number) => {
+    try {
+      const res = await authFetch(`/admin/knowledgebase/staging/${docId}`);
+      if (!res.ok) throw new Error((await res.json()).error || "Failed to load document");
+      const doc = (await res.json()) as StagingDoc;
+      openDoc(doc);
+    } catch (err) {
+      toast({ title: "Error opening document", description: err instanceof Error ? err.message : undefined, variant: "destructive" });
+    }
+  };
+
   // Apply the full AI taxonomy suggestion into the editor fields (Task #1851).
   // Advisory only — it fills the editor; nothing is persisted until the reviewer
   // saves. Each field is applied only when the suggestion actually offers one.
@@ -1638,10 +1655,19 @@ export default function KnowledgeBaseReview() {
   ].filter(Boolean).length;
 
   // ── Possible-duplicates view (Task #1825) ─────────────────────────────────────
+  // The shared detail dialog renders here too (Task #1902) so any document in a
+  // duplicate cluster — and any AI merge draft — opens in the full review view
+  // as an overlay: the duplicates page stays mounted underneath, so cluster
+  // selections are intact when the dialog closes.
   if (showDuplicates) {
     return (
       <AppLayout>
-        <KnowledgeBaseDuplicates onBack={() => { setShowDuplicates(false); fetchDocs(); fetchLiveSimilarity(); }} />
+        <KnowledgeBaseDuplicates
+          onBack={() => { setShowDuplicates(false); fetchDocs(); fetchLiveSimilarity(); }}
+          onOpenDoc={openDocById}
+          refreshKey={dupRefreshKey}
+        />
+        {renderDetailDialog()}
       </AppLayout>
     );
   }
@@ -1748,7 +1774,7 @@ export default function KnowledgeBaseReview() {
   // ── Detail / edit dialog (shared) ─────────────────────────────────────────────
   function renderDetailDialog() {
     return (
-      <Dialog open={!!selectedDoc} onOpenChange={(open) => { if (!open) { setSelectedDoc(null); setEditMode(false); setChatOpen(false); setChatWide(false); } }}>
+      <Dialog open={!!selectedDoc} onOpenChange={(open) => { if (!open) { setSelectedDoc(null); setEditMode(false); setChatOpen(false); setChatWide(false); if (showDuplicates) setDupRefreshKey((k) => k + 1); } }}>
         <DialogContent className="max-w-[1150px] w-[92vw] sm:max-w-[1150px] h-[88vh] flex flex-col overflow-hidden">
           {selectedDoc && (
             <>

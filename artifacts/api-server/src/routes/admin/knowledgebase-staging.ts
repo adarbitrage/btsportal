@@ -532,10 +532,18 @@ async function loadLiveDocsForSimilarity() {
 // duplicate are excluded. Each doc also carries its "similar live doc" match.
 router.get("/duplicates", async (_req: Request, res: Response) => {
   try {
-    const docs = await db
+    const allDocs = await db
       .select()
       .from(kbStagingDocsTable)
       .where(eq(kbStagingDocsTable.status, "needs_review"));
+
+    // Unconfirmed AI merge drafts (Task #1902) are near-copies of their own
+    // source drafts, so they would always cluster with them — exclude them
+    // from clustering and surface them separately for confirm/discard.
+    const pendingDraftRows = allDocs.filter(
+      (d) => Array.isArray(d.pendingMergeSourceIds) && d.pendingMergeSourceIds.length > 0,
+    );
+    const docs = allDocs.filter((d) => !pendingDraftRows.includes(d));
 
     const clusterInputs = docs.map((d) => ({
       id: d.id,
@@ -547,6 +555,7 @@ router.get("/duplicates", async (_req: Request, res: Response) => {
     const clusteredIds = new Set(clusters.flatMap((c) => c.docIds));
     const liveDocs = await loadLiveDocsForSimilarity();
     const byId = new Map(docs.map((d) => [d.id, d]));
+    const allById = new Map(allDocs.map((d) => [d.id, d]));
 
     const payload = clusters.map((c) => ({
       key: c.key,
@@ -562,7 +571,30 @@ router.get("/duplicates", async (_req: Request, res: Response) => {
         })),
     }));
 
-    res.json({ clusters: payload, clusteredDocCount: clusteredIds.size });
+    // Pending drafts carry their source titles so the UI can show what each
+    // draft proposes to replace (sources may have been resolved elsewhere —
+    // report only the ones still in needs_review as foldable).
+    const pendingDrafts = pendingDraftRows.map((d) => {
+      const sourceIds = (d.pendingMergeSourceIds ?? []) as number[];
+      return {
+        id: d.id,
+        title: d.title,
+        homeRoot: d.homeRoot,
+        node: d.node,
+        createdAt: d.createdAt,
+        sourceIds,
+        sources: sourceIds.map((sid) => {
+          const src = allById.get(sid);
+          return {
+            id: sid,
+            title: src?.title ?? null,
+            stillMergeable: src != null && !pendingDraftRows.includes(src),
+          };
+        }),
+      };
+    });
+
+    res.json({ clusters: payload, clusteredDocCount: clusteredIds.size, pendingDrafts });
   } catch (err: unknown) {
     res.status(500).json({ error: err instanceof Error ? err.message : "Unknown error" });
   }
@@ -932,10 +964,14 @@ router.post("/duplicates/unmerge", async (req: Request, res: Response) => {
   }
 });
 
-// AI merge proposal: a "best of" merged draft for a cluster the reviewer can
-// edit before accepting as the canonical's content. Returns the proposal only —
-// NOTHING is written until the reviewer resolves the cluster. Loud failures
-// (retry helper throws after exhausted attempts; no silent fallback).
+// AI merge proposal (Task #1902): generate a "best of" merged draft for the
+// selected drafts and PERSIST it immediately as a real needs_review staging doc
+// so the reviewer gets the full review surface (refine chat, insights, edits)
+// on it right away. The source drafts are NOT touched yet — they stay in
+// needs_review until the reviewer explicitly confirms the merge
+// (/duplicates/confirm-merge) or the draft is discarded
+// (/duplicates/discard-merge). Loud failures (retry helper throws after
+// exhausted attempts; no silent fallback).
 router.post("/duplicates/propose-merge", async (req: Request, res: Response) => {
   try {
     const { ids } = req.body as { ids?: number[] };
@@ -984,7 +1020,197 @@ Return ONLY JSON: {"title":"<single canonical title>","content":"<full merged pr
       throw new Error("AI merge proposal returned empty content");
     }
 
-    res.json({ proposedTitle: proposedTitle || docs[0].title, proposedContent, sourceIds: docs.map((d) => d.id) });
+    const userId = (req as unknown as { userId: number }).userId;
+    const sourceIds = docs.map((d) => d.id);
+    // Metadata donor: prefer a still-reviewable source so the draft lands in
+    // the same shelf/node (mirrors the resolve createNew path).
+    const donor = docs.find((s) => s.status === "needs_review") ?? docs[0];
+
+    // Persist the draft + its audit row atomically. The draft is immediately a
+    // normal needs_review doc (full review surface works on it); its pending
+    // state — "these sources are not folded in yet" — lives in
+    // pendingMergeSourceIds until confirm/discard.
+    const draft = await db.transaction(async (tx) => {
+      const [created] = await tx
+        .insert(kbStagingDocsTable)
+        .values({
+          title: proposedTitle || docs[0].title,
+          content: proposedContent,
+          category: donor.category,
+          status: "needs_review",
+          homeRoot: donor.homeRoot,
+          node: donor.node,
+          docClassTarget: donor.docClassTarget,
+          docType: donor.docType,
+          audience: donor.audience,
+          originType: "ai_synthesized",
+          pendingMergeSourceIds: sourceIds,
+        })
+        .returning();
+
+      await tx.insert(kbTriageAuditLogTable).values({
+        stagingDocId: created.id,
+        eventType: "ai_merge_draft_created",
+        confidenceScore: null,
+        actorUserId: userId,
+        aiReasoning: `AI merge draft generated from drafts ${sourceIds.map((id) => `#${id}`).join(", ")}; sources stay in needs_review until the merge is confirmed.`,
+        docTitle: created.title,
+      });
+
+      return created;
+    });
+
+    res.json({ draft, sourceIds });
+  } catch (err: unknown) {
+    res.status(500).json({ error: err instanceof Error ? err.message : "Unknown error" });
+  }
+});
+
+// Confirm a pending AI merge draft (Task #1902): fold every still-reviewable
+// source draft into it (status -> merged, mergedIntoId -> draft) and clear the
+// draft's pending marker. The draft itself stays in needs_review for normal
+// approval. Conditional flips keep this idempotent / concurrent-safe.
+router.post("/duplicates/confirm-merge", async (req: Request, res: Response) => {
+  try {
+    const { draftId } = req.body as { draftId?: number };
+    if (!draftId || typeof draftId !== "number") {
+      res.status(400).json({ error: "draftId is required" });
+      return;
+    }
+
+    const [draft] = await db
+      .select()
+      .from(kbStagingDocsTable)
+      .where(eq(kbStagingDocsTable.id, draftId));
+    if (!draft) {
+      res.status(404).json({ error: "Merge draft not found" });
+      return;
+    }
+    const sourceIds = Array.isArray(draft.pendingMergeSourceIds) ? draft.pendingMergeSourceIds : [];
+    if (sourceIds.length === 0) {
+      res.status(409).json({ error: "This document is not a pending AI merge draft" });
+      return;
+    }
+    if (draft.status !== "needs_review") {
+      res.status(409).json({ error: `Merge draft is no longer in needs_review (status: ${draft.status})` });
+      return;
+    }
+
+    const userId = (req as unknown as { userId: number }).userId;
+
+    // Sentinel to roll the transaction back when nothing actually merges —
+    // the draft keeps its pending marker so the reviewer can discard it.
+    const CONFIRM_NOOP = Symbol("confirm-noop");
+    try {
+      const result = await db.transaction(async (tx) => {
+        const merged = await tx
+          .update(kbStagingDocsTable)
+          .set({ status: "merged", mergedIntoId: draftId })
+          .where(
+            and(
+              inArray(kbStagingDocsTable.id, sourceIds),
+              eq(kbStagingDocsTable.status, "needs_review"),
+            ),
+          )
+          .returning({ id: kbStagingDocsTable.id, title: kbStagingDocsTable.title });
+
+        if (merged.length === 0) throw CONFIRM_NOOP;
+
+        const [updatedDraft] = await tx
+          .update(kbStagingDocsTable)
+          .set({ pendingMergeSourceIds: null })
+          .where(eq(kbStagingDocsTable.id, draftId))
+          .returning();
+
+        for (const m of merged) {
+          await tx.insert(kbTriageAuditLogTable).values({
+            stagingDocId: m.id,
+            eventType: "merged_duplicate",
+            confidenceScore: null,
+            actorUserId: userId,
+            aiReasoning: `Merged into AI merge draft #${draftId} ("${draft.title}") via confirmed merge.`,
+            docTitle: m.title,
+          });
+        }
+        await tx.insert(kbTriageAuditLogTable).values({
+          stagingDocId: draftId,
+          eventType: "ai_merge_confirmed",
+          confidenceScore: null,
+          actorUserId: userId,
+          aiReasoning: `Merge confirmed: drafts ${merged.map((m) => `#${m.id}`).join(", ")} folded into this AI merge draft.`,
+          docTitle: draft.title,
+        });
+
+        return { updatedDraft, merged };
+      });
+
+      res.json({
+        draft: result.updatedDraft,
+        merged: result.merged.length,
+        mergedIds: result.merged.map((m) => m.id),
+        skipped: sourceIds.filter((id) => !result.merged.some((m) => m.id === id)),
+      });
+    } catch (txErr) {
+      if (txErr === CONFIRM_NOOP) {
+        res.status(409).json({ error: "None of the source drafts are still in needs_review — nothing to merge. Discard the draft if it's no longer wanted." });
+        return;
+      }
+      throw txErr;
+    }
+  } catch (err: unknown) {
+    res.status(500).json({ error: err instanceof Error ? err.message : "Unknown error" });
+  }
+});
+
+// Discard a pending AI merge draft (Task #1902): soft-delete the draft
+// (status -> 'deleted', same as the duplicates delete path so the triage audit
+// trail survives) WITHOUT touching the source drafts — they were never folded
+// in. Idempotent: an already-deleted draft is a soft success.
+router.post("/duplicates/discard-merge", async (req: Request, res: Response) => {
+  try {
+    const { draftId } = req.body as { draftId?: number };
+    if (!draftId || typeof draftId !== "number") {
+      res.status(400).json({ error: "draftId is required" });
+      return;
+    }
+
+    const [draft] = await db
+      .select()
+      .from(kbStagingDocsTable)
+      .where(eq(kbStagingDocsTable.id, draftId));
+    if (!draft) {
+      res.status(404).json({ error: "Merge draft not found" });
+      return;
+    }
+    if (draft.status === "deleted") {
+      res.json({ id: draftId, alreadyDiscarded: true });
+      return;
+    }
+    const sourceIds = Array.isArray(draft.pendingMergeSourceIds) ? draft.pendingMergeSourceIds : [];
+    if (sourceIds.length === 0) {
+      res.status(409).json({ error: "This document is not a pending AI merge draft" });
+      return;
+    }
+
+    const userId = (req as unknown as { userId: number }).userId;
+
+    await db.transaction(async (tx) => {
+      await tx
+        .update(kbStagingDocsTable)
+        .set({ status: "deleted", mergedIntoId: null, pendingMergeSourceIds: null })
+        .where(eq(kbStagingDocsTable.id, draftId));
+
+      await tx.insert(kbTriageAuditLogTable).values({
+        stagingDocId: draftId,
+        eventType: "ai_merge_draft_discarded",
+        confidenceScore: null,
+        actorUserId: userId,
+        aiReasoning: `Pending AI merge draft discarded before confirmation; source drafts ${sourceIds.map((id) => `#${id}`).join(", ")} untouched.`,
+        docTitle: draft.title,
+      });
+    });
+
+    res.json({ id: draftId, discarded: true });
   } catch (err: unknown) {
     res.status(500).json({ error: err instanceof Error ? err.message : "Unknown error" });
   }

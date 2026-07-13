@@ -377,7 +377,7 @@ describe("KB duplicate grouping & merge aid routes", () => {
     expect(res.status).toBe(400);
   });
 
-  it("POST /duplicates/propose-merge builds the proposal from ONLY the selected subset", async () => {
+  it("POST /duplicates/propose-merge builds the proposal from ONLY the selected subset and persists it as a pending draft", async () => {
     const canonicalId = await seedStaging({ title: `${TEST_TAG} propose canonical`, content: `${BODY} canonical-only-marker` });
     const selected = await seedStaging({ title: `${TEST_TAG} propose selected`, content: `${BODY} selected-only-marker` });
     const excluded = await seedStaging({ title: `${TEST_TAG} propose excluded`, content: `${BODY} excluded-only-marker` });
@@ -399,6 +399,173 @@ describe("KB duplicate grouping & merge aid routes", () => {
     expect(userContent).toContain("selected-only-marker");
     expect(userContent).not.toContain("excluded-only-marker");
     expect(userContent).not.toContain(`staging #${excluded}`);
+
+    // Task #1902: the draft is a REAL needs_review staging doc from the moment
+    // it's generated, with the pending marker and an audit row — and the
+    // sources are untouched.
+    const draftId = res.body.draft.id as number;
+    seededStagingIds.push(draftId);
+    expect(res.body.draft.status).toBe("needs_review");
+    expect(res.body.draft.title).toBe("Merged canonical title");
+    expect(res.body.draft.content).toBe("Merged canonical body.");
+    expect(res.body.draft.originType).toBe("ai_synthesized");
+    expect((res.body.draft.pendingMergeSourceIds as number[]).sort((a, b) => a - b)).toEqual(
+      [canonicalId, selected].sort((a, b) => a - b),
+    );
+
+    const audit = await db.select().from(kbTriageAuditLogTable).where(eq(kbTriageAuditLogTable.stagingDocId, draftId));
+    expect(audit.filter((a) => a.eventType === "ai_merge_draft_created")).toHaveLength(1);
+
+    const sources = await db.select().from(kbStagingDocsTable).where(inArray(kbStagingDocsTable.id, [canonicalId, selected]));
+    for (const row of sources) {
+      expect(row.status).toBe("needs_review");
+      expect(row.mergedIntoId).toBeNull();
+    }
+  });
+
+  it("pending merge drafts are excluded from clustering and surfaced in pendingDrafts; confirm-merge folds sources in", async () => {
+    const concept = `Pd${TEST_TAG.replace(/-/g, "")} Pending Flow`;
+    const idA = await seedStaging({ title: `What is ${concept}?`, content: BODY });
+    const idB = await seedStaging({ title: concept, content: `${BODY} pending variant.` });
+
+    const proposed = await request(app)
+      .post("/api/duplicates/propose-merge")
+      .set("Cookie", adminCookie)
+      .send({ ids: [idA, idB] });
+    expect(proposed.status).toBe(200);
+    const draftId = proposed.body.draft.id as number;
+    seededStagingIds.push(draftId);
+
+    // The draft must NOT appear in any cluster (it would cluster with its own
+    // sources) — it rides the pendingDrafts list instead, with source titles.
+    const listed = await request(app).get("/api/duplicates").set("Cookie", adminCookie);
+    expect(listed.status).toBe(200);
+    const inCluster = (listed.body.clusters as Array<{ docs: Array<{ id: number }> }>).some((c) =>
+      c.docs.some((d) => d.id === draftId),
+    );
+    expect(inCluster).toBe(false);
+    const pending = (listed.body.pendingDrafts as Array<{ id: number; sourceIds: number[]; sources: Array<{ id: number; title: string | null; stillMergeable: boolean }> }>)
+      .find((p) => p.id === draftId);
+    expect(pending).toBeDefined();
+    expect(pending!.sourceIds.sort((a, b) => a - b)).toEqual([idA, idB].sort((a, b) => a - b));
+    for (const s of pending!.sources) expect(s.stillMergeable).toBe(true);
+    // The sources themselves still cluster together (still both needs_review).
+    const sourceCluster = (listed.body.clusters as Array<{ docs: Array<{ id: number }> }>).find((c) =>
+      c.docs.some((d) => d.id === idA),
+    );
+    expect(sourceCluster).toBeDefined();
+
+    // Confirm: sources flip to merged→draft, pending marker cleared, audited.
+    const confirm = await request(app)
+      .post("/api/duplicates/confirm-merge")
+      .set("Cookie", adminCookie)
+      .send({ draftId });
+    expect(confirm.status).toBe(200);
+    expect(confirm.body.merged).toBe(2);
+    expect(confirm.body.skipped).toEqual([]);
+    expect(confirm.body.draft.pendingMergeSourceIds).toBeNull();
+    expect(confirm.body.draft.status).toBe("needs_review"); // never auto-approved
+
+    const sources = await db.select().from(kbStagingDocsTable).where(inArray(kbStagingDocsTable.id, [idA, idB]));
+    for (const row of sources) {
+      expect(row.status).toBe("merged");
+      expect(row.mergedIntoId).toBe(draftId);
+    }
+    const srcAudit = await db.select().from(kbTriageAuditLogTable).where(inArray(kbTriageAuditLogTable.stagingDocId, [idA, idB]));
+    expect(srcAudit.filter((a) => a.eventType === "merged_duplicate")).toHaveLength(2);
+    const draftAudit = await db.select().from(kbTriageAuditLogTable).where(eq(kbTriageAuditLogTable.stagingDocId, draftId));
+    expect(draftAudit.filter((a) => a.eventType === "ai_merge_confirmed")).toHaveLength(1);
+
+    // Replay: pending marker already cleared → 409, nothing double-flips.
+    const replay = await request(app)
+      .post("/api/duplicates/confirm-merge")
+      .set("Cookie", adminCookie)
+      .send({ draftId });
+    expect(replay.status).toBe(409);
+
+    // Bad input
+    const bad = await request(app).post("/api/duplicates/confirm-merge").set("Cookie", adminCookie).send({});
+    expect(bad.status).toBe(400);
+    const missing = await request(app).post("/api/duplicates/confirm-merge").set("Cookie", adminCookie).send({ draftId: 999999999 });
+    expect(missing.status).toBe(404);
+    // A plain (non-pending) doc can't be confirmed.
+    const plain = await request(app).post("/api/duplicates/confirm-merge").set("Cookie", adminCookie).send({ draftId: idA });
+    expect(plain.status).toBe(409);
+  });
+
+  it("confirm-merge 409s (rolls back) when no source is still reviewable — draft keeps its pending marker", async () => {
+    const idA = await seedStaging({ title: `${TEST_TAG} noop src A`, content: BODY });
+    const idB = await seedStaging({ title: `${TEST_TAG} noop src B`, content: BODY });
+    const proposed = await request(app)
+      .post("/api/duplicates/propose-merge")
+      .set("Cookie", adminCookie)
+      .send({ ids: [idA, idB] });
+    const draftId = proposed.body.draft.id as number;
+    seededStagingIds.push(draftId);
+
+    // Sources get resolved elsewhere (e.g. approved) before confirmation.
+    await db.update(kbStagingDocsTable).set({ status: "approved" }).where(inArray(kbStagingDocsTable.id, [idA, idB]));
+
+    const confirm = await request(app)
+      .post("/api/duplicates/confirm-merge")
+      .set("Cookie", adminCookie)
+      .send({ draftId });
+    expect(confirm.status).toBe(409);
+
+    const [draft] = await db.select().from(kbStagingDocsTable).where(eq(kbStagingDocsTable.id, draftId));
+    expect(draft.status).toBe("needs_review");
+    expect((draft.pendingMergeSourceIds as number[]).sort((a, b) => a - b)).toEqual([idA, idB].sort((a, b) => a - b));
+    const sources = await db.select().from(kbStagingDocsTable).where(inArray(kbStagingDocsTable.id, [idA, idB]));
+    for (const row of sources) expect(row.status).toBe("approved");
+  });
+
+  it("discard-merge soft-deletes the draft, leaves originals untouched, and is idempotent", async () => {
+    const idA = await seedStaging({ title: `${TEST_TAG} discard src A`, content: BODY });
+    const idB = await seedStaging({ title: `${TEST_TAG} discard src B`, content: BODY });
+    const proposed = await request(app)
+      .post("/api/duplicates/propose-merge")
+      .set("Cookie", adminCookie)
+      .send({ ids: [idA, idB] });
+    const draftId = proposed.body.draft.id as number;
+    seededStagingIds.push(draftId);
+
+    const discard = await request(app)
+      .post("/api/duplicates/discard-merge")
+      .set("Cookie", adminCookie)
+      .send({ draftId });
+    expect(discard.status).toBe(200);
+    expect(discard.body).toMatchObject({ id: draftId, discarded: true });
+
+    const [draft] = await db.select().from(kbStagingDocsTable).where(eq(kbStagingDocsTable.id, draftId));
+    expect(draft.status).toBe("deleted"); // soft delete — audit trail survives
+    expect(draft.pendingMergeSourceIds).toBeNull();
+    const draftAudit = await db.select().from(kbTriageAuditLogTable).where(eq(kbTriageAuditLogTable.stagingDocId, draftId));
+    expect(draftAudit.filter((a) => a.eventType === "ai_merge_draft_discarded")).toHaveLength(1);
+
+    // Originals completely untouched.
+    const sources = await db.select().from(kbStagingDocsTable).where(inArray(kbStagingDocsTable.id, [idA, idB]));
+    for (const row of sources) {
+      expect(row.status).toBe("needs_review");
+      expect(row.mergedIntoId).toBeNull();
+    }
+
+    // Gone from pendingDrafts and never in clusters.
+    const listed = await request(app).get("/api/duplicates").set("Cookie", adminCookie);
+    expect((listed.body.pendingDrafts as Array<{ id: number }>).some((p) => p.id === draftId)).toBe(false);
+
+    // Idempotent replay + bad inputs.
+    const replay = await request(app).post("/api/duplicates/discard-merge").set("Cookie", adminCookie).send({ draftId });
+    expect(replay.status).toBe(200);
+    expect(replay.body).toMatchObject({ id: draftId, alreadyDiscarded: true });
+    const audit2 = await db.select().from(kbTriageAuditLogTable).where(eq(kbTriageAuditLogTable.stagingDocId, draftId));
+    expect(audit2.filter((a) => a.eventType === "ai_merge_draft_discarded")).toHaveLength(1);
+    const bad = await request(app).post("/api/duplicates/discard-merge").set("Cookie", adminCookie).send({});
+    expect(bad.status).toBe(400);
+    const missing = await request(app).post("/api/duplicates/discard-merge").set("Cookie", adminCookie).send({ draftId: 999999999 });
+    expect(missing.status).toBe(404);
+    // A plain (non-pending) doc can't be discarded through this path.
+    const plain = await request(app).post("/api/duplicates/discard-merge").set("Cookie", adminCookie).send({ draftId: idA });
+    expect(plain.status).toBe(409);
   });
 
   it("DELETE /duplicates/:id soft-deletes with an audit row, is idempotent, and 404s/400s bad input", async () => {

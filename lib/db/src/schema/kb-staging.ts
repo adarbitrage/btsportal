@@ -165,6 +165,17 @@ export const kbStagingDocsTable = pgTable("kb_staging_docs", {
   aiSuggestedCeiling: text("ai_suggested_ceiling"),
   aiSuggestedCeilingReason: text("ai_suggested_ceiling_reason"),
 
+  // ── Pending AI merge draft (Task #1902) ──────────────────────────────────
+  // Non-null ONLY while a doc is an UNCONFIRMED AI merge draft on the Possible
+  // Duplicates screen: the staging-doc ids it proposes to replace. The draft is
+  // a real needs_review doc from the moment it is generated (so refine chat /
+  // edits persist), but the sources are NOT folded into it until the reviewer
+  // confirms (confirm-merge clears this and flips the sources to merged) or
+  // discards (soft-deletes the draft, sources untouched). Pending drafts are
+  // excluded from duplicate clustering so a draft never clusters with its own
+  // sources.
+  pendingMergeSourceIds: jsonb("pending_merge_source_ids").$type<number[]>(),
+
   // Upload-specific fields (added alongside the KB upload feature)
   audience: text("audience").notNull().default("member"),
   sourceObjectPath: text("source_object_path"),
