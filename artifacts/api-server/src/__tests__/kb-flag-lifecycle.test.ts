@@ -9,7 +9,7 @@ import type { RiskFlag } from "../lib/kb-flags.js";
 import type { ReviewHighlight } from "../lib/kb-review-risk.js";
 
 const flag = (over: Partial<RiskFlag> = {}): RiskFlag => ({
-  type: "low_confidence",
+  type: "single_source",
   severity: "high",
   message: "Only one source backs this claim",
   detail: "Corroboration count: 1",
@@ -17,9 +17,9 @@ const flag = (over: Partial<RiskFlag> = {}): RiskFlag => ({
 });
 
 const highlight = (over: Partial<ReviewHighlight> = {}): ReviewHighlight => ({
-  kind: "member_specific_number",
+  kind: "situational_number",
   severity: "medium",
-  label: "Member-specific number",
+  label: "Situational number",
   excerpt: "$4,500 per month",
   line: 3,
   lineText: "Aim for $4,500 per month as your target.",
@@ -66,7 +66,7 @@ describe("flagFingerprint", () => {
 describe("partitionFlags", () => {
   const resolution = (over: Partial<Parameters<typeof partitionFlags>[1][number]> = {}) => ({
     id: 7,
-    flagType: "low_confidence",
+    flagType: "single_source",
     fingerprint: flagFingerprint(flag()),
     reason: "Verified against the contract",
     resolvedBy: 42,
@@ -110,7 +110,7 @@ describe("partitionFlags", () => {
 describe("partitionHighlights", () => {
   const dismissal = (over: Partial<Parameters<typeof partitionHighlights>[1][number]> = {}) => ({
     id: 11,
-    kind: "member_specific_number",
+    kind: "situational_number",
     excerptNorm: normalizeExcerpt("$4,500 per month"),
     ...over,
   });
