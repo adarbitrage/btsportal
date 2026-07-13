@@ -35,6 +35,15 @@ import { getNameFlagVocab, invalidateNameFlagVocab } from "../../lib/kb-name-fla
 import { clusterDuplicates, findLiveSimilar } from "../../lib/kb-duplicates.js";
 import { embedLiveDocumentInBackground, CLEARED_EMBEDDING_FIELDS } from "../../lib/kb-embeddings.js";
 import { getEffectiveTagGroups } from "../../lib/kb-tool-tags.js";
+import {
+  phraseSweepPreview,
+  phraseSweepConfirm,
+  startConceptSweep,
+  isConceptSweepRunning,
+  confirmConceptSweep,
+  listConceptSweepRuns,
+} from "../../lib/kb-corpus-sweep.js";
+import { kbCorpusSweepRunsTable } from "@workspace/db/schema";
 
 export { runTriageBackground } from "../../lib/kb-triage.js";
 
@@ -2062,6 +2071,14 @@ Return ONLY the full revised document body (markdown). No preamble, no explanati
 // editedContent; status stays needs_review (never auto-published). Each turn is
 // recorded in the audit log so the thread persists across sessions.
 router.post("/:id/refine", async (req: Request, res: Response) => {
+  // Long-run safety (Task #1903): the refine LLM work can outlive the HTTP
+  // connection (budget-escalation retries run minutes; the browser/proxy may
+  // abort first). Express keeps executing this handler after an abort, and
+  // every outcome — success OR failure — is persisted to the refine thread
+  // (kb_triage_audit_log) BEFORE responding, so the review page can poll the
+  // thread and pick the result up without the reviewer resubmitting. These
+  // outer-scope captures let the catch block persist a FAILED turn too.
+  let failCtx: { docId: number; docTitle: string; userId: number | null; instruction: string } | null = null;
   try {
     const id = parseInt(getParam(req.params.id));
     const { instruction, history } = req.body as {
@@ -2079,6 +2096,13 @@ router.post("/:id/refine", async (req: Request, res: Response) => {
       res.status(404).json({ error: "Document not found" });
       return;
     }
+
+    failCtx = {
+      docId: id,
+      docTitle: doc.title,
+      userId: (req as unknown as { userId?: number }).userId ?? null,
+      instruction: instruction.trim(),
+    };
 
     const current = doc.editedContent ?? doc.content;
 
@@ -2176,6 +2200,7 @@ ${placementContext}
 
 This is a CONVERSATION, not an edit machine. First decide the reviewer's intent:
 - QUESTION / DISCUSSION (they ask about the draft, the sources, wording options, or say things like "what do you think", "why does it say X", "should we…"): DO NOT edit. Return ONLY {"reply":"<your answer or proposal>"} — answer from the draft and the source material, and when a change seems warranted, PROPOSE it concretely and ask whether to apply it.
+- CORPUS-WIDE / MULTI-DOCUMENT REQUEST (a clear instruction to change wording or terminology, flag a concept, or leave notes ACROSS other documents or the whole corpus — e.g. "rename X in all drafts", "flag this mistake in every affected doc", "add a note to the other docs that say Y"): DO NOT edit and DO NOT attempt the cross-document work — you can only see THIS draft and you CANNOT write notes on other documents. Return ONLY {"reply":"..."} briefly explaining that refine works on this single draft, and that the CORPUS SWEEP tool (Pipeline Tools → Corpus Sweep on the review page) is the right tool: it finds every affected staging draft and live doc and proposes a note on each for the reviewer to confirm. If part of the instruction applies to THIS draft only, say they can ask for that part separately. Never return an edits/rewrite payload for a corpus-wide ask, and never claim you changed or annotated other documents.
 - OUT-OF-PLACEMENT EDIT (a clear instruction to ADD substantive new subject matter that falls OUTSIDE this doc's filed shelf / node / doc-class charter — e.g. adding refund policy to a testing-methodology doc, or strategy to a navigation doc): DO NOT edit yet, and DO NOT re-file the doc yourself. Return ONLY {"placementCheck":{"query":"<3-8 keywords to search the corpus for where this content belongs>","summary":"<one sentence: what the reviewer wants to add>","concern":"<one sentence: why it may not belong in THIS doc>"}}. EXCEPTION: if the reviewer has ALREADY acknowledged the mismatch or overrides it (e.g. "add it here anyway", "I know, put it here", "ignore that, do it", or they asked again after you pushed back), then treat it as a normal EDIT and apply it.
 - EDIT REQUEST (any other clear instruction to change the draft that stays WITHIN its placement, or the reviewer confirms a proposal you made, e.g. "yes do that", "apply it"): make the change as below.
 
@@ -2192,9 +2217,12 @@ BRAND RULES: say "Build Test Scale" / "BTS" (never "TCE" or "Cherrington"); no c
 
     // Shared retry helper: rate-limit-aware backoff + budget escalation on
     // reasoning-token starvation (the raw single-shot fetch was the old
-    // silent-failure path).
+    // silent-failure path). 12k initial budget: gpt-5 reasoning tokens eat
+    // max_completion_tokens, and refine prompts (draft + source material +
+    // conversation) routinely starved at 4k, sending the common case into
+    // multi-minute escalation retries. Escalation stays as the backstop.
     const rawContent = (
-      await callLLMWithRetry("refine", systemPrompt, userContent, 4000, true)
+      await callLLMWithRetry("refine", systemPrompt, userContent, 12000, true)
     ).trim();
 
     let parsed: { edits?: unknown; rewrite?: unknown; message?: unknown; reply?: unknown; changes?: unknown; placementCheck?: unknown };
@@ -2443,7 +2471,27 @@ Return ONLY JSON: {"verdict":"already_covered|belongs_elsewhere|genuine_gap|fits
 
     res.json({ document: updated, mode, assistantMessage, changes, instruction: instruction.trim() });
   } catch (err: unknown) {
-    res.status(500).json({ error: err instanceof Error ? err.message : "Unknown error" });
+    const msg = err instanceof Error ? err.message : "Unknown error";
+    // Persist the failure to the refine thread too: if the client already
+    // aborted, this is the ONLY place the outcome survives — the review page
+    // polls the thread and surfaces it, instead of a lost spinning turn.
+    if (failCtx) {
+      try {
+        await db.insert(kbTriageAuditLogTable).values({
+          stagingDocId: failCtx.docId,
+          eventType: "refined",
+          confidenceScore: null,
+          actorUserId: failCtx.userId,
+          aiReasoning: `Refine FAILED per instruction: ${failCtx.instruction.substring(0, 300)} — ⚠️ Refine failed: ${msg.substring(0, 600)}`,
+          docTitle: failCtx.docTitle,
+        });
+      } catch (persistErr) {
+        console.error(
+          `[Refine] could not persist failure turn for doc ${failCtx.docId}: ${persistErr instanceof Error ? persistErr.message : String(persistErr)}`,
+        );
+      }
+    }
+    res.status(500).json({ error: msg });
   }
 });
 
@@ -2711,6 +2759,152 @@ router.post("/import-curated", async (_req: Request, res: Response) => {
     }
 
     res.json({ imported, skipped, totalCurated: curated.length });
+  } catch (err: unknown) {
+    res.status(500).json({ error: err instanceof Error ? err.message : "Unknown error" });
+  }
+});
+
+// ── Corpus sweep (Task #1903) ─────────────────────────────────────────────────
+//
+// Cross-document correction proposals. Phrase mode: instant preview/confirm DB
+// search. Concept mode: background LLM job with durable run state on
+// kb_corpus_sweep_runs (survives restarts + connection timeouts). Both modes
+// write NOTES only (staging → admin_notes, live → reviewer_notes, append-only)
+// — never a document body. All routes inherit requirePermission("chat:manage").
+
+router.post("/sweep/phrase/preview", async (req: Request, res: Response) => {
+  try {
+    const { phrases } = req.body as { phrases?: unknown };
+    const clean = Array.isArray(phrases)
+      ? phrases.filter((p): p is string => typeof p === "string" && p.trim().length > 1)
+      : [];
+    if (clean.length === 0) {
+      res.status(400).json({ error: "At least one phrase (2+ characters) is required" });
+      return;
+    }
+    const matches = await phraseSweepPreview(clean);
+    res.json({ matches });
+  } catch (err: unknown) {
+    res.status(500).json({ error: err instanceof Error ? err.message : "Unknown error" });
+  }
+});
+
+router.post("/sweep/phrase/confirm", async (req: Request, res: Response) => {
+  try {
+    const { phrases, replacement, targets } = req.body as {
+      phrases?: unknown;
+      replacement?: unknown;
+      targets?: unknown;
+    };
+    const cleanPhrases = Array.isArray(phrases)
+      ? phrases.filter((p): p is string => typeof p === "string" && p.trim().length > 1)
+      : [];
+    const cleanTargets = Array.isArray(targets)
+      ? targets.filter(
+          (t): t is { kind: "staging" | "live"; id: number } =>
+            !!t &&
+            typeof t === "object" &&
+            ((t as { kind?: unknown }).kind === "staging" || (t as { kind?: unknown }).kind === "live") &&
+            Number.isInteger((t as { id?: unknown }).id),
+        )
+      : [];
+    if (cleanPhrases.length === 0 || typeof replacement !== "string" || !replacement.trim()) {
+      res.status(400).json({ error: "phrases and replacement are required" });
+      return;
+    }
+    if (cleanTargets.length === 0) {
+      res.status(400).json({ error: "Select at least one document" });
+      return;
+    }
+    const results = await phraseSweepConfirm(cleanPhrases, replacement.trim(), cleanTargets);
+    res.json({ results, written: results.filter((r) => r.ok).length });
+  } catch (err: unknown) {
+    res.status(500).json({ error: err instanceof Error ? err.message : "Unknown error" });
+  }
+});
+
+router.post("/sweep/concept", async (req: Request, res: Response) => {
+  try {
+    const { incorrectConcept, correctConcept } = req.body as {
+      incorrectConcept?: unknown;
+      correctConcept?: unknown;
+    };
+    if (
+      typeof incorrectConcept !== "string" ||
+      incorrectConcept.trim().length < 10 ||
+      typeof correctConcept !== "string" ||
+      correctConcept.trim().length < 10
+    ) {
+      res.status(400).json({
+        error: "Describe both the flawed concept and the correct framing (10+ characters each)",
+      });
+      return;
+    }
+    if (isConceptSweepRunning()) {
+      res.status(409).json({ error: "A concept sweep is already running — wait for it to finish" });
+      return;
+    }
+    const userId = (req as unknown as { userId?: number }).userId ?? null;
+    const runId = await startConceptSweep(incorrectConcept.trim(), correctConcept.trim(), userId);
+    res.json({ runId });
+  } catch (err: unknown) {
+    res.status(500).json({ error: err instanceof Error ? err.message : "Unknown error" });
+  }
+});
+
+router.get("/sweep/concept/runs", async (_req: Request, res: Response) => {
+  try {
+    const runs = await listConceptSweepRuns(10);
+    res.json({ runs });
+  } catch (err: unknown) {
+    res.status(500).json({ error: err instanceof Error ? err.message : "Unknown error" });
+  }
+});
+
+router.get("/sweep/concept/runs/:runId", async (req: Request, res: Response) => {
+  try {
+    const runId = parseInt(getParam(req.params.runId));
+    if (!Number.isInteger(runId)) {
+      res.status(400).json({ error: "Invalid run id" });
+      return;
+    }
+    const [run] = await db
+      .select()
+      .from(kbCorpusSweepRunsTable)
+      .where(eq(kbCorpusSweepRunsTable.id, runId));
+    if (!run) {
+      res.status(404).json({ error: "Run not found" });
+      return;
+    }
+    res.json({ run });
+  } catch (err: unknown) {
+    res.status(500).json({ error: err instanceof Error ? err.message : "Unknown error" });
+  }
+});
+
+router.post("/sweep/concept/runs/:runId/confirm", async (req: Request, res: Response) => {
+  try {
+    const runId = parseInt(getParam(req.params.runId));
+    const { targets } = req.body as { targets?: unknown };
+    const cleanTargets = Array.isArray(targets)
+      ? targets.filter(
+          (t): t is { kind: "staging" | "live"; id: number } =>
+            !!t &&
+            typeof t === "object" &&
+            ((t as { kind?: unknown }).kind === "staging" || (t as { kind?: unknown }).kind === "live") &&
+            Number.isInteger((t as { id?: unknown }).id),
+        )
+      : [];
+    if (cleanTargets.length === 0) {
+      res.status(400).json({ error: "Select at least one document" });
+      return;
+    }
+    const outcome = await confirmConceptSweep(runId, cleanTargets);
+    if ("error" in outcome) {
+      res.status(outcome.status ?? 500).json({ error: outcome.error });
+      return;
+    }
+    res.json({ written: outcome.written, results: outcome.results });
   } catch (err: unknown) {
     res.status(500).json({ error: err instanceof Error ? err.message : "Unknown error" });
   }

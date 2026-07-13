@@ -604,6 +604,18 @@ if [ -n "$DATABASE_URL" ]; then
     >/dev/null
 fi
 
+# Corpus sweep runs (Task #1903). One new additive table holding durable
+# background-job state for the concept-mode corpus sweep (progress + per-doc
+# verdicts survive restarts/timeouts). Applying here keeps the live-schema-drift
+# gate green so the conditional push stays skipped. Idempotent
+# (CREATE TABLE / INDEX IF NOT EXISTS).
+if [ -n "$DATABASE_URL" ]; then
+  psql "$DATABASE_URL" \
+    -v ON_ERROR_STOP=1 \
+    -f lib/db/drizzle/0116_kb_corpus_sweep_runs.sql \
+    >/dev/null
+fi
+
 # Always-on KB ceiling advisory (Task #1868). Two additive kb_staging_docs
 # columns (ai_suggested_ceiling / ai_suggested_ceiling_reason) for the
 # re-evaluated-every-run depth-ceiling proposal. Applying here keeps the

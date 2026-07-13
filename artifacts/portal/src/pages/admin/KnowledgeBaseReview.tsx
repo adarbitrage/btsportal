@@ -41,6 +41,7 @@ import { useToast } from "@/hooks/use-toast";
 import { authFetch } from "@/lib/auth";
 import { Link } from "wouter";
 import KnowledgeBaseDuplicates, { LiveDocDialog, type LiveSimilarMatch } from "./KnowledgeBaseDuplicates";
+import CorpusSweepDialog from "./CorpusSweepDialog";
 import {
   CheckCircle,
   XCircle,
@@ -752,6 +753,8 @@ export default function KnowledgeBaseReview() {
     Array<{
       role: string;
       content: string;
+      // Failed refine turns (Task #1903) render as an error bubble in-thread.
+      error?: boolean;
       // Placement-pushback turns (Task #1851) carry an optional note target so
       // the reviewer can opt into leaving a note on the doc it belongs to.
       placement?: {
@@ -785,6 +788,8 @@ export default function KnowledgeBaseReview() {
   // the duplicates list refreshes (Task #1902 — a doc opened from there may
   // have been edited/approved in the dialog).
   const [dupRefreshKey, setDupRefreshKey] = useState(0);
+  // Corpus Sweep dialog (Task #1903): cross-document correction notes.
+  const [showCorpusSweep, setShowCorpusSweep] = useState(false);
   const [liveSimilarMap, setLiveSimilarMap] = useState<Record<number, LiveSimilarMatch>>({});
   const [viewLiveDocId, setViewLiveDocId] = useState<number | null>(null);
 
@@ -1441,21 +1446,32 @@ export default function KnowledgeBaseReview() {
     setEditMode(false);
   };
 
+  // Raw persisted refine-thread rows (newest-first). Shared by the thread
+  // loader and the abort-recovery poller (Task #1903).
+  const fetchRefineThreadRows = async (
+    docId: number,
+  ): Promise<Array<{ id: number; reasoning: string | null }>> => {
+    const res = await authFetch(`/admin/knowledgebase/staging/${docId}/refine-thread`);
+    if (!res.ok) throw new Error("thread-fetch-failed");
+    const data = await res.json();
+    return data.thread || [];
+  };
+
   const loadRefineThread = async (docId: number) => {
     try {
-      const res = await authFetch(`/admin/knowledgebase/staging/${docId}/refine-thread`);
-      if (!res.ok) return;
-      const data = await res.json();
-      const rows: Array<{ reasoning: string | null }> = data.thread || [];
-      const turns: Array<{ role: string; content: string }> = [];
+      const rows = await fetchRefineThreadRows(docId);
+      const turns: Array<{ role: string; content: string; error?: boolean }> = [];
       // Persisted rows are newest-first; replay chronologically. Each row's
       // reasoning packs "…per instruction: <instr> — <assistant summary>".
+      // Failed turns (Task #1903) pack "Refine FAILED per instruction: <instr>
+      // — ⚠️ …" and render as error bubbles.
       for (const r of rows.slice().reverse()) {
         const reasoning = r.reasoning || "";
+        const failed = /^Refine FAILED per instruction:/.test(reasoning);
         const m = reasoning.match(/per instruction:\s*([\s\S]*?)\s+—\s+([\s\S]*)$/);
         if (m) {
           turns.push({ role: "user", content: m[1].trim() });
-          turns.push({ role: "assistant", content: m[2].trim() });
+          turns.push({ role: "assistant", content: m[2].trim(), ...(failed ? { error: true } : {}) });
         } else if (reasoning) {
           turns.push({ role: "assistant", content: reasoning });
         }
@@ -1466,20 +1482,98 @@ export default function KnowledgeBaseReview() {
     }
   };
 
+  // Abort recovery (Task #1903): the refine LLM call can outlive the HTTP
+  // connection (browser/proxy timeout) while the server keeps working and
+  // persists the outcome — success or failure — to the refine thread. When the
+  // POST dies at the network level, poll the thread for a row newer than the
+  // last one we saw, then reload the thread + draft instead of losing the turn.
+  const pollRefineOutcome = async (docId: number, lastRowId: number): Promise<boolean> => {
+    const deadline = Date.now() + 10 * 60 * 1000;
+    while (Date.now() < deadline) {
+      await new Promise((r) => setTimeout(r, 5000));
+      try {
+        const rows = await fetchRefineThreadRows(docId);
+        const newest = rows[0]?.id ?? 0;
+        if (newest > lastRowId) {
+          await loadRefineThread(docId);
+          // The turn may have edited the draft — refetch it (harmless for
+          // discussion turns; the body is unchanged).
+          try {
+            const res = await authFetch(`/admin/knowledgebase/staging/${docId}`);
+            if (res.ok) {
+              const doc = await res.json();
+              setSelectedDoc(doc);
+              setEditContent(doc.editedContent || doc.content);
+              fetchDocs();
+              fetchInsights(docId);
+            }
+          } catch {
+            /* draft refetch is best-effort; the thread already recovered */
+          }
+          return true;
+        }
+      } catch {
+        /* transient poll failure — keep waiting */
+      }
+    }
+    return false;
+  };
+
   // Core refine call — shared by the chat box (runRefine) and the per-passage
   // "Soften" control (softenHighlight). Builds on the existing /refine path.
   const sendRefine = async (myInstruction: string) => {
     if (!selectedDoc || !myInstruction.trim()) return;
+    const docId = selectedDoc.id;
     const priorHistory = refineThread;
     setRedrafting(true);
     setRefineThread((prev) => [...prev, { role: "user", content: myInstruction }]);
+    // Snapshot the newest persisted thread row BEFORE sending so the abort
+    // poller can detect the outcome row this turn will write (Task #1903).
+    let lastRowId = 0;
     try {
-      const res = await authFetch(`/admin/knowledgebase/staging/${selectedDoc.id}/refine`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ instruction: myInstruction, history: priorHistory }),
-      });
-      if (!res.ok) throw new Error("Refine failed");
+      lastRowId = (await fetchRefineThreadRows(docId))[0]?.id ?? 0;
+    } catch {
+      /* best-effort snapshot; 0 still works (any row counts as newer) */
+    }
+    try {
+      let res: Response;
+      try {
+        res = await authFetch(`/admin/knowledgebase/staging/${docId}/refine`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ instruction: myInstruction, history: priorHistory }),
+        });
+      } catch {
+        // Network-level failure (browser/proxy dropped the connection). The
+        // server keeps working and persists the outcome to the thread — poll
+        // for it instead of losing the turn.
+        const recovered = await pollRefineOutcome(docId, lastRowId);
+        if (!recovered) {
+          toast({
+            title: "Refine is taking unusually long",
+            description:
+              "The connection dropped and no result arrived yet. The result will appear in this thread when it finishes — reopen the draft later.",
+            variant: "destructive",
+          });
+        }
+        return;
+      }
+      if (!res.ok) {
+        // The server answered with an honest error (and persisted it to the
+        // thread) — surface it as an in-thread error bubble, not a toast.
+        let msg = "Refine failed";
+        try {
+          const body = await res.json();
+          if (body?.error) msg = String(body.error);
+        } catch {
+          /* non-JSON error body */
+        }
+        setRefineThread((prev) => [
+          ...prev,
+          { role: "assistant", content: `⚠️ Refine failed: ${msg}`, error: true },
+        ]);
+        return;
+      }
       const data = await res.json();
       // Richer change descriptions: append the per-edit summary so the
       // reviewer can verify what changed without diffing.
@@ -1509,9 +1603,13 @@ export default function KnowledgeBaseReview() {
         fetchInsights(selectedDoc.id);
       }
     } catch {
-      toast({ title: "Refine failed", variant: "destructive" });
-      setRefineThread((prev) => prev.slice(0, -1));
-      throw new Error("refine-failed");
+      // Unexpected client-side failure (e.g. malformed success payload). Keep
+      // the user turn and show an honest error bubble rather than silently
+      // discarding what happened.
+      setRefineThread((prev) => [
+        ...prev,
+        { role: "assistant", content: "⚠️ Refine failed: unexpected response — check the thread after reopening the draft.", error: true },
+      ]);
     } finally {
       setRedrafting(false);
     }
@@ -1552,11 +1650,9 @@ export default function KnowledgeBaseReview() {
     if (!selectedDoc || !instruction.trim()) return;
     const myInstruction = instruction.trim();
     setInstruction("");
-    try {
-      await sendRefine(myInstruction);
-    } catch {
-      setInstruction(myInstruction); // restore the box so the admin can retry
-    }
+    // sendRefine no longer throws — failures surface as in-thread error
+    // bubbles (server errors) or abort-recovery polling (network drops).
+    await sendRefine(myInstruction);
   };
 
   // Per-passage "Soften": canned refine instruction quoting the flagged excerpt.
@@ -2469,7 +2565,9 @@ export default function KnowledgeBaseReview() {
                             "max-w-[85%] md:max-w-[720px] rounded-lg px-3 py-1.5 text-sm whitespace-pre-wrap break-words " +
                             (turn.role === "user"
                               ? "bg-violet-600 text-white"
-                              : "bg-white border border-violet-100 text-gray-800")
+                              : turn.error
+                                ? "bg-red-50 border border-red-200 text-red-800"
+                                : "bg-white border border-violet-100 text-gray-800")
                           }
                         >
                           {turn.content}
@@ -2683,6 +2781,14 @@ export default function KnowledgeBaseReview() {
               <DropdownMenuItem onSelect={() => setShowDuplicates(true)} data-testid="button-possible-duplicates">
                 <GitCompare className="w-4 h-4 mr-2" />
                 Possible Duplicates
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onSelect={() => setShowCorpusSweep(true)}
+                data-testid="button-corpus-sweep"
+                title="Find every draft and live doc affected by a wording or concept problem and leave a proposed-correction note on each (notes only — never edits content)."
+              >
+                <Search className="w-4 h-4 mr-2" />
+                Corpus Sweep
               </DropdownMenuItem>
               {/*
                 Blitz change-monitoring (Task #1564) — DORMANT. The plumbing to
@@ -3397,6 +3503,8 @@ export default function KnowledgeBaseReview() {
       <LiveDocDialog liveDocId={viewLiveDocId} onClose={() => setViewLiveDocId(null)} />
 
       {/* Synthesis scope picker (moved out of the header into Pipeline tools) */}
+      <CorpusSweepDialog open={showCorpusSweep} onOpenChange={setShowCorpusSweep} />
+
       <Dialog open={showSynthDialog} onOpenChange={setShowSynthDialog}>
         <DialogContent className="max-w-md">
           <DialogHeader>
