@@ -836,7 +836,7 @@ router.post("/process-blitz-supplementary", async (req: Request, res: Response) 
         title: "Publisher Overview — Know Your Options",
         phase: "build", module: "Ad Creation", lessonType: "strategy",
         networkPath: "universal", publisherPath: "all", blitzOrder: 93,
-        content: `Caterpillar: Native ad publisher (internal codename for NewsBreak). Best for long-form native ads with headlines and descriptions. Supports image and video ad formats. Grasshopper: Display ad publisher. Banner-based advertising with various placement options. Crane: Display ad publisher. Similar to Grasshopper with different inventory and audience. Master: Premium publisher for scaling. Available after proving profitability with Caterpillar, Grasshopper, or Crane. Higher traffic volume, requires proven campaign performance.`,
+        content: `Caterpillar: Native ad publisher. Best for long-form native ads with headlines and descriptions. Supports image and video ad formats. Grasshopper: Display ad publisher. Banner-based advertising with various placement options. Crane: Display ad publisher. Similar to Grasshopper with different inventory and audience. Master: Premium publisher for scaling. Available after proving profitability with Caterpillar, Grasshopper, or Crane. Higher traffic volume, requires proven campaign performance.`,
       },
       {
         title: "What Happens After Round 1",
@@ -860,7 +860,7 @@ router.post("/process-blitz-supplementary", async (req: Request, res: Response) 
         title: "What's Working Now — Caterpillar Round 1 Recommendations",
         phase: "build", module: "Ad Creation", lessonType: "strategy",
         networkPath: "universal", publisherPath: "caterpillar", blitzOrder: 97,
-        content: `Current asset requirements for Caterpillar (NewsBreak) native ads: Headlines: 90 character limit. Test 5-10 headline variants. Use curiosity-driven, benefit-focused headlines. Images: 960x540 pixels (16:9 aspect ratio). Test static images, GIFs, and short video clips. Dynamic content macros: Use {city} and {state} macros in headlines for geo-personalization. Tips: Front-load the benefit in headlines. Use real-looking images (not stock photos). Test both emotional and logical angles.`,
+        content: `Current asset requirements for Caterpillar native ads: Headlines: 90 character limit. Test 5-10 headline variants. Use curiosity-driven, benefit-focused headlines. Images: 960x540 pixels (16:9 aspect ratio). Test static images, GIFs, and short video clips. Dynamic content macros: Use {city} and {state} macros in headlines for geo-personalization. Tips: Front-load the benefit in headlines. Use real-looking images (not stock photos). Test both emotional and logical angles.`,
       },
       {
         title: "What's Working Now — Grasshopper/Crane Round 1 Recommendations",

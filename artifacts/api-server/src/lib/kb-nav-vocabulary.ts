@@ -10,7 +10,7 @@
  *  - Tier 1: core stack apps — flag navigation gaps normally.
  *  - Tier 2: secondary apps — flag at lower priority.
  *  - Ignore list: retired/commentary networks (MaxWeb, Affiliati, Taboola,
- *    Outbrain, NewsBreak) — must NEVER generate gaps, even when action verbs
+ *    Outbrain) — must NEVER generate gaps, even when action verbs
  *    fire around them.
  * Everything else (Zoom, Gmail, Canva, ChatGPT, …) is simply not in the
  * vocabulary and is never flagged.
@@ -157,7 +157,6 @@ export const NAV_IGNORED_APPS: readonly { label: string; triggers: readonly stri
   { label: "Affiliati", triggers: ["affiliati"] },
   { label: "Taboola",   triggers: ["taboola"] },
   { label: "Outbrain",  triggers: ["outbrain"] },
-  { label: "NewsBreak", triggers: ["newsbreak", "news break"] },
 ] as const;
 
 // ───────────────────────────────────────────────────────────────────────────

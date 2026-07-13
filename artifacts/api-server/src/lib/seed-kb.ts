@@ -181,43 +181,6 @@ function readFile(filename: string): string {
   }
 }
 
-function parseCoachingTranscripts(raw: string): KBDoc[] {
-  const docs: KBDoc[] = [];
-  const sections = raw.split(/\n---\n/).map((s) => s.trim()).filter(Boolean);
-
-  for (const section of sections) {
-    const titleMatch = section.match(/^##\s+(.+)$/m);
-    if (!titleMatch) continue;
-
-    const rawTitle = titleMatch[1].trim();
-
-    const dialogLines: string[] = [];
-    for (const line of section.split("\n")) {
-      const trimmed = line.trim();
-      if (!trimmed) continue;
-      if (/^\d+$/.test(trimmed)) continue;
-      if (/^\d+:\d+:\d+\.\d+\s*-->\s*\d+:\d+:\d+\.\d+/.test(trimmed)) continue;
-      if (trimmed === "WEBVTT") continue;
-      if (trimmed.startsWith("##")) continue;
-      if (/^(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+\d+,\s+\d{4}/.test(trimmed)) continue;
-      if (/\bCentral Time\b|\bEastern Time\b|\bPacific Time\b|\bMountain Time\b/.test(trimmed)) continue;
-      if (/^ID:\s*\d/.test(trimmed)) continue;
-      dialogLines.push(trimmed);
-    }
-
-    const cleanedContent = dialogLines.join(" ").replace(/\s+/g, " ").trim();
-    if (cleanedContent.length < 200) continue;
-
-    const chunks = chunkText(cleanedContent, 2500).slice(0, 5);
-    chunks.forEach((chunk, i) => {
-      const chunkTitle = chunks.length > 1 ? `${rawTitle} (Part ${i + 1})` : rawTitle;
-      docs.push({ title: chunkTitle, category: "coaching", content: chunk });
-    });
-  }
-
-  return docs;
-}
-
 export async function seedKnowledgebaseFromFiles(): Promise<void> {
   console.log("[seed-kb] Ingesting BTS knowledge base files...");
 
@@ -234,9 +197,6 @@ export async function seedKnowledgebaseFromFiles(): Promise<void> {
 
   const glossaryRaw = readFile("glossary.txt");
   if (glossaryRaw) allDocs.push(...parseGlossary(glossaryRaw));
-
-  const coachingRaw = readFile("coaching-transcripts.txt");
-  if (coachingRaw) allDocs.push(...parseCoachingTranscripts(coachingRaw));
 
   if (allDocs.length === 0) {
     console.log("[seed-kb] No documents parsed, nothing to insert.");

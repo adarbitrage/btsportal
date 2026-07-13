@@ -71,6 +71,7 @@ import {
   stopPartnerEscalationAlerter,
 } from "./lib/partner-escalation-alerter";
 import { seedBlitzDocs } from "./lib/blitz-seed";
+import { repairConfidentialTermMentions } from "./lib/confidential-term-repair";
 import { seedCoreTrainingSources } from "./lib/seed-core-training-sources";
 import { bootstrapCriticalPrerequisites } from "./lib/bootstrap-critical-prerequisites";
 import { purgeSeedCommunityPosts } from "./lib/seed-post-cleanup";
@@ -174,9 +175,17 @@ let server: ReturnType<typeof app.listen> | null = null;
       .finally(() => {
         // After Blitz lessons are guaranteed present, mine core training into
         // the AI Source Knowledge corpus (idempotent; non-citable source).
-        seedCoreTrainingSources().catch((err) => {
-          console.error("[CoreTrainingSources] Startup seed failed:", err);
-        });
+        seedCoreTrainingSources()
+          .catch((err) => {
+            console.error("[CoreTrainingSources] Startup seed failed:", err);
+          })
+          .finally(() => {
+            // Last in the chain so it also sweeps anything the seeds above
+            // touched. Idempotent pure-data repair; no-ops once clean.
+            repairConfidentialTermMentions().catch((err) => {
+              console.error("[TermRepair] Startup repair failed:", err);
+            });
+          });
       });
   });
 })();

@@ -222,7 +222,6 @@ const KNOWN_TRAFFIC_SOURCES = [
   "Taboola",
   "Outbrain",
   "Revcontent",
-  "NewsBreak",
   "Zemanta",
 ] as const;
 

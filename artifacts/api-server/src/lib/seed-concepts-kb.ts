@@ -10,10 +10,11 @@ import type { Ceiling, HandoffTarget } from "./kb-taxonomy";
  * Authors the marketing-craft truth docs for the `concepts` home root: angles,
  * headlines & copy, creative strategy, offer strategy, testing methodology,
  * scaling strategy, metrics & unit economics, and traffic & placements. The
- * content is synthesised from the strategic coaching-call transcripts
- * (`knowledge-base/coaching-transcripts.txt`) — the recorded record of what the
- * BTS coaches actually teach — then verified and rewritten into current BTS
- * voice (no coach/member names, no legacy brand/nav, no transcript verbatim).
+ * content was synthesised from the strategic coaching-call transcripts (a
+ * retired raw corpus that has since been removed from the repo) — the recorded
+ * record of what the BTS coaches actually teach — then verified and rewritten
+ * into current BTS voice (no coach/member names, no legacy brand/nav, no
+ * transcript verbatim).
  *
  * Every doc is curated/overview, member-facing, and stamped with a FIXED
  * authored verification date so it is immediately citable

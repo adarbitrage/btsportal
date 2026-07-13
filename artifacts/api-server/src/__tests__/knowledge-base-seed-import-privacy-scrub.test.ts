@@ -34,7 +34,6 @@ const SOURCE_FILES = [
   "video-transcripts.txt",
   "qa-articles.txt",
   "glossary.txt",
-  "coaching-transcripts.txt",
 ];
 
 const TEST_TAG = `kb-seed-scrub-${randomUUID().slice(0, 8)}`;

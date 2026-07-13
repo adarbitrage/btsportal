@@ -57,17 +57,8 @@ export function discoverSources(): DiscoveredSource[] {
   const out: DiscoveredSource[] = [];
   const kbDir = firstExisting(KB_DIR_CANDIDATES);
 
-  // 1) Strategic coaching corpus — coaching-transcripts.txt, one per "## " header.
   if (kbDir) {
-    const file = path.join(kbDir, "coaching-transcripts.txt");
-    if (fs.existsSync(file)) {
-      const text = fs.readFileSync(file, "utf-8");
-      for (const m of text.matchAll(/^##\s+(.+?)\s*$/gm)) {
-        const name = m[1].trim();
-        if (name) out.push({ sourceName: name, sourceKind: "coaching_call", coachName: null, trustedPool: true });
-      }
-    }
-    // 3) Curriculum videos — video-transcripts.txt, one per "Title:" line.
+    // 1) Curriculum videos — video-transcripts.txt, one per "Title:" line.
     const vfile = path.join(kbDir, "video-transcripts.txt");
     if (fs.existsSync(vfile)) {
       const text = fs.readFileSync(vfile, "utf-8");
