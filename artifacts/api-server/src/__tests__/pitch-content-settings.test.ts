@@ -33,9 +33,9 @@ afterAll(async () => {
 });
 
 describe("isPitchContentSettingKey / getPitchContentSettingKeys", () => {
-  it("recognizes all four reserved pitch.* keys", () => {
+  it("recognizes all five reserved pitch.* keys", () => {
     expect(settingKeys.sort()).toEqual(
-      ["pitch.launchpad", "pitch.machine", "pitch.mentorship", "pitch.vip_arbitrage"].sort(),
+      ["pitch.launchpad", "pitch.machine", "pitch.machine_intro", "pitch.mentorship", "pitch.vip_arbitrage"].sort(),
     );
     for (const key of settingKeys) {
       expect(isPitchContentSettingKey(key)).toBe(true);
@@ -257,7 +257,7 @@ describe("getAllPitchContent / getPitchContent (default fallback + DB override)"
     __invalidatePitchContentCacheForTests();
     const content = await getPitchContent("VIP_ARBITRAGE_PITCH");
     expect(content.heading).toBe("Only heading set");
-    expect(content.line.length).toBeGreaterThan(0);
+    expect((content.line ?? "").length).toBeGreaterThan(0);
     await resetRow("pitch.vip_arbitrage");
   });
 });

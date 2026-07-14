@@ -1,16 +1,16 @@
 /**
- * Storage and retrieval for the four editable pitch-block content blocks
- * (Task #1715) consumed by `pitch-resolver.ts`'s `renderPitchStackHtml`.
+ * Storage and retrieval for the five editable pitch-block content blocks
+ * consumed by `pitch-resolver.ts`'s `renderPitchStackHtml`.
  * Values live in `system_settings` under reserved `pitch.*` keys so an admin
  * can change the copy/URL for any block from the Settings UI without a
  * deploy — mirrors the DB-value-over-shipped-default pattern used for
  * on-call destinations (`oncall-settings.ts`).
  *
- * Each block is heading + one line + a button label + a button URL. A saved
- * DB row may set only some fields; any field it omits falls back to the
- * shipped placeholder default (computed fresh each read so the default
- * button URL always points at the current portal's `/plans` page, even if
- * the portal URL setting changes later).
+ * Each block is heading + optional body paragraph + optional line + a button
+ * label + a button URL. A saved DB row may set only some fields; any field
+ * it omits falls back to the shipped placeholder default (computed fresh each
+ * read so the default button URL always points at the current portal's
+ * `/plans` page, even if the portal URL setting changes later).
  */
 
 import { db, systemSettingsTable } from "@workspace/db";
@@ -22,18 +22,34 @@ export type PitchBlockKey =
   | "LAUNCHPAD_PITCH"
   | "MENTORSHIP_PITCH"
   | "MACHINE_PITCH"
+  | "MACHINE_INTRO_PITCH"
   | "VIP_ARBITRAGE_PITCH";
 
 export const PITCH_BLOCK_KEYS: PitchBlockKey[] = [
   "LAUNCHPAD_PITCH",
   "MENTORSHIP_PITCH",
   "MACHINE_PITCH",
+  "MACHINE_INTRO_PITCH",
   "VIP_ARBITRAGE_PITCH",
 ];
 
 export interface PitchContent {
   heading: string;
-  line: string;
+  /**
+   * Task #1899: optional paragraph-length body copy, rendered between the
+   * heading and the CTA button. Supports `**bold**`, `*italic*`, and
+   * `__underline__` markers (transformed by the escape-then-transform seam
+   * in `renderGatedPitchBlock`). When absent, falls back to `line` for
+   * backward compatibility.
+   */
+  body?: string;
+  /**
+   * Short single-line copy rendered below the heading (pre-Task-#1899
+   * field). Still used by legacy blocks (e.g. VIP_ARBITRAGE_PITCH) and
+   * any block where an admin didn't supply `body`. Rendered as-is when
+   * `body` is absent; ignored when `body` is present.
+   */
+  line?: string;
   buttonLabel: string;
   buttonUrl: string;
   /**
@@ -63,6 +79,8 @@ const SETTING_KEYS: Record<PitchBlockKey, string> = {
   LAUNCHPAD_PITCH: "pitch.launchpad",
   MENTORSHIP_PITCH: "pitch.mentorship",
   MACHINE_PITCH: "pitch.machine",
+  // Task #1899: softer Machine intro for ranks 0–1 (no commission claim).
+  MACHINE_INTRO_PITCH: "pitch.machine_intro",
   // Task #1824: retired `pitch.vip` (VIP_PITCH) without migrating its value —
   // that copy pitched the wrong product (BTS VIP status) and was never
   // reviewed for the new securities-marketing content. `pitch.vip_arbitrage`
@@ -80,8 +98,11 @@ export function getPitchContentSettingKeys(): string[] {
   return Object.values(SETTING_KEYS);
 }
 
-// Placeholder copy only — the owner supplies real copy later via the admin
-// Settings UI. Marked clearly so nobody mistakes these for final copy.
+// Placeholder copy only — the boot seed in `seed-pitch-content.ts` supplies
+// real copy at startup (insert-only, never overwrites owner edits). These
+// defaults are intentionally sparse so a block with no saved row and no seed
+// row shows obviously placeholder copy rather than silently sending empty
+// strings.
 function defaultContentFor(key: PitchBlockKey, plansUrl: string, vipArbitrageUrl: string): PitchContent {
   switch (key) {
     case "LAUNCHPAD_PITCH":
@@ -90,17 +111,6 @@ function defaultContentFor(key: PitchBlockKey, plansUrl: string, vipArbitrageUrl
         line: "Unlock software access and your first coaching calls with a LaunchPad upgrade.",
         buttonLabel: "Explore LaunchPad",
         buttonUrl: plansUrl,
-        // Email polish fix (logo/pitch regression cleanup): the placeholder
-        // GIF at /images/pitch-thumbnails/launchpad-placeholder.gif was
-        // committed but never published to the live portal host — the
-        // static asset was verified serving the SPA's index.html fallback
-        // (text/html) instead of the actual GIF, so every send that included
-        // this default shipped a guaranteed broken image. Since republishing
-        // the portal is on an explicit hold, the safe fix is to NOT default
-        // to an unpublished asset at all; an admin can set a thumbnail for
-        // this block from the Settings UI once the asset is confirmed live.
-        // Do not restore this default without first confirming the asset
-        // 200s with an image/* content-type from the production host.
       };
     case "MENTORSHIP_PITCH":
       return {
@@ -114,6 +124,14 @@ function defaultContentFor(key: PitchBlockKey, plansUrl: string, vipArbitrageUrl
         heading: "[Placeholder] Automate it with Machine",
         line: "Let Machine handle the busywork so you can focus on growth.",
         buttonLabel: "Learn About Machine",
+        buttonUrl: plansUrl,
+      };
+    case "MACHINE_INTRO_PITCH":
+      // Task #1899: softer intro for ranks 0–1; no commission claim.
+      return {
+        heading: "[Placeholder] Meet The Machine",
+        line: "The AI-powered campaign engine our top affiliates run on.",
+        buttonLabel: "See The Machine",
         buttonUrl: plansUrl,
       };
     case "VIP_ARBITRAGE_PITCH":
@@ -138,6 +156,11 @@ function parseStoredContent(raw: unknown): Partial<PitchContent> | null {
   const out: Partial<PitchContent> = {};
   for (const field of ["heading", "line", "buttonLabel", "buttonUrl"] as const) {
     if (typeof obj[field] === "string") out[field] = obj[field] as string;
+  }
+  // Task #1899: `body` is an optional paragraph-length field. Stored empty
+  // string means "explicitly cleared" — treat the same as absent.
+  if (typeof obj.body === "string" && (obj.body as string).trim()) {
+    out.body = (obj.body as string);
   }
   // Task #1820: optional fields. A stored empty string means "explicitly
   // cleared" and must NOT be carried through as a truthy value — omit it so
@@ -221,7 +244,7 @@ function mergeWithDefault(
   // legacy row's absence of thumbnailUrl/thumbnailLinkUrl means "no
   // thumbnail", not "use the default". This keeps the change purely
   // additive for every already-saved pitch block.
-  const merged = stored
+  const merged: PitchContent = stored
     ? { ...def, ...stored, thumbnailUrl: stored.thumbnailUrl, thumbnailLinkUrl: stored.thumbnailLinkUrl }
     : def;
   // Task #1820: qualify a root-relative thumbnail path (e.g.
@@ -241,7 +264,7 @@ function mergeWithDefault(
 }
 
 /**
- * Resolve all four pitch content blocks, DB value (per-field) over shipped
+ * Resolve all five pitch content blocks, DB value (per-field) over shipped
  * default. Safe to call on every send that needs a pitch slot — cached for a
  * few seconds so per-send reads don't hammer the DB.
  */
@@ -285,11 +308,28 @@ export function validatePitchContentUpdate(
     return { ok: false, error: "Body must be an object" };
   }
   const obj = input as Record<string, unknown>;
-  for (const field of ["heading", "line", "buttonLabel", "buttonUrl"] as const) {
+  // heading, buttonLabel, buttonUrl are always required.
+  for (const field of ["heading", "buttonLabel", "buttonUrl"] as const) {
     const val = obj[field];
     if (typeof val !== "string" || !val.trim()) {
       return { ok: false, error: `${field} is required and must be a non-empty string` };
     }
+  }
+  // Task #1899: `body` is an optional paragraph-length field. `line` is also
+  // now optional — but at least one of `body` or `line` must be non-empty
+  // so blocks always have some copy (heading-only blocks aren't useful).
+  const bodyVal = obj.body;
+  const lineVal = obj.line;
+  if (bodyVal !== undefined && bodyVal !== null && typeof bodyVal !== "string") {
+    return { ok: false, error: "body must be a string when provided" };
+  }
+  if (lineVal !== undefined && lineVal !== null && typeof lineVal !== "string") {
+    return { ok: false, error: "line must be a string when provided" };
+  }
+  const hasBody = typeof bodyVal === "string" && (bodyVal as string).trim().length > 0;
+  const hasLine = typeof lineVal === "string" && (lineVal as string).trim().length > 0;
+  if (!hasBody && !hasLine) {
+    return { ok: false, error: "At least one of body or line is required and must be a non-empty string" };
   }
   // Task #1820: optional thumbnail fields. Absent/empty is valid (no
   // thumbnail); when present they must be strings. An empty string clears
@@ -310,10 +350,11 @@ export function validatePitchContentUpdate(
   }
   const content: PitchContent = {
     heading: (obj.heading as string).trim(),
-    line: (obj.line as string).trim(),
     buttonLabel: (obj.buttonLabel as string).trim(),
     buttonUrl: (obj.buttonUrl as string).trim(),
   };
+  if (hasBody) content.body = (bodyVal as string);
+  if (typeof lineVal === "string") content.line = (lineVal as string).trim();
   const thumbnailUrl = typeof obj.thumbnailUrl === "string" ? obj.thumbnailUrl.trim() : "";
   const thumbnailLinkUrl = typeof obj.thumbnailLinkUrl === "string" ? obj.thumbnailLinkUrl.trim() : "";
   if (thumbnailUrl) content.thumbnailUrl = thumbnailUrl;
@@ -351,4 +392,33 @@ export async function setPitchContent(
     });
   }
   cache = null;
+}
+
+/**
+ * Task #1899: insert-only setter used by the boot seed. Unlike `setPitchContent`
+ * (which upserts), this only writes when no saved row exists for this key —
+ * an existing owner edit is always preserved.
+ *
+ * Returns `true` if the row was inserted, `false` if it already existed.
+ */
+export async function setPitchContentIfAbsent(
+  key: PitchBlockKey,
+  content: PitchContent,
+): Promise<boolean> {
+  const settingKey = SETTING_KEYS[key];
+  const existing = await db
+    .select({ id: systemSettingsTable.id })
+    .from(systemSettingsTable)
+    .where(eq(systemSettingsTable.key, settingKey))
+    .limit(1);
+  if (existing.length > 0) return false;
+  await db.insert(systemSettingsTable).values({
+    key: settingKey,
+    value: content,
+    category: CATEGORY,
+    description: `Pitch content block: ${key}`,
+    updatedBy: "boot-seed",
+  });
+  cache = null;
+  return true;
 }

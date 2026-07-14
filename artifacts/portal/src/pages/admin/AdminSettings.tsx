@@ -1252,11 +1252,14 @@ function alertConfigActorDisplay(event: AlertConfigHistoryEvent): string {
   return "System";
 }
 
-type PitchBlockKey = "LAUNCHPAD_PITCH" | "MENTORSHIP_PITCH" | "MACHINE_PITCH" | "VIP_ARBITRAGE_PITCH";
+type PitchBlockKey = "LAUNCHPAD_PITCH" | "MENTORSHIP_PITCH" | "MACHINE_PITCH" | "MACHINE_INTRO_PITCH" | "VIP_ARBITRAGE_PITCH";
 
 interface PitchContentValue {
   heading: string;
-  line: string;
+  /** Task #1899: optional paragraph-length body copy (supports **bold**, *italic*, __underline__). */
+  body?: string;
+  /** Pre-Task-#1899 single-line copy. Used when body is absent. */
+  line?: string;
   buttonLabel: string;
   buttonUrl: string;
   thumbnailUrl?: string;
@@ -1266,9 +1269,10 @@ interface PitchContentValue {
 }
 
 const PITCH_BLOCK_LABELS: Record<PitchBlockKey, string> = {
-  LAUNCHPAD_PITCH: "LaunchPad Pitch",
-  MENTORSHIP_PITCH: "Mentorship Pitch",
-  MACHINE_PITCH: "Machine Pitch",
+  LAUNCHPAD_PITCH: "LaunchPad Pitch (rank 0 — free/frontend members)",
+  MENTORSHIP_PITCH: "Mentorship Pitch (rank 1 — LaunchPad members)",
+  MACHINE_PITCH: "Machine Pitch — Full (ranks 2+ — mentorship & VIP)",
+  MACHINE_INTRO_PITCH: "Machine Intro Pitch (ranks 0–1 — no commission claim)",
   VIP_ARBITRAGE_PITCH: "VIP Arbitrage Pitch",
 };
 
@@ -1276,11 +1280,13 @@ const PITCH_BLOCK_ORDER: PitchBlockKey[] = [
   "LAUNCHPAD_PITCH",
   "MENTORSHIP_PITCH",
   "MACHINE_PITCH",
+  "MACHINE_INTRO_PITCH",
   "VIP_ARBITRAGE_PITCH",
 ];
 
 const EMPTY_PITCH_CONTENT: PitchContentValue = {
   heading: "",
+  body: "",
   line: "",
   buttonLabel: "",
   buttonUrl: "",
@@ -1308,6 +1314,7 @@ function PitchContentCard() {
     LAUNCHPAD_PITCH: EMPTY_PITCH_CONTENT,
     MENTORSHIP_PITCH: EMPTY_PITCH_CONTENT,
     MACHINE_PITCH: EMPTY_PITCH_CONTENT,
+    MACHINE_INTRO_PITCH: EMPTY_PITCH_CONTENT,
     VIP_ARBITRAGE_PITCH: EMPTY_PITCH_CONTENT,
   });
   const [loading, setLoading] = useState(true);
@@ -1343,7 +1350,8 @@ function PitchContentCard() {
     const b = drafts[key];
     return (
       a.heading !== b.heading ||
-      a.line !== b.line ||
+      (a.body ?? "") !== (b.body ?? "") ||
+      (a.line ?? "") !== (b.line ?? "") ||
       a.buttonLabel !== b.buttonLabel ||
       a.buttonUrl !== b.buttonUrl ||
       (a.thumbnailUrl ?? "") !== (b.thumbnailUrl ?? "") ||
@@ -1393,9 +1401,25 @@ function PitchContentCard() {
                 />
               </div>
               <div className="grid gap-2">
-                <label className="text-xs text-muted-foreground">Body line</label>
+                <label className="text-xs text-muted-foreground">
+                  Body copy{" "}
+                  <span className="text-muted-foreground/70">(optional — paragraph rendered between heading and button; supports **bold**, *italic*, __underline__)</span>
+                </label>
+                <textarea
+                  className="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 resize-y"
+                  rows={4}
+                  value={drafts[key].body ?? ""}
+                  onChange={(e) => updateDraft(key, "body", e.target.value)}
+                  placeholder="Optional paragraph copy. Supports **bold**, *italic*, __underline__. When set, the body line below is ignored."
+                />
+              </div>
+              <div className="grid gap-2">
+                <label className="text-xs text-muted-foreground">
+                  Body line{" "}
+                  <span className="text-muted-foreground/70">(legacy single-line copy — used only when body copy above is empty)</span>
+                </label>
                 <Input
-                  value={drafts[key].line}
+                  value={drafts[key].line ?? ""}
                   onChange={(e) => updateDraft(key, "line", e.target.value)}
                 />
               </div>

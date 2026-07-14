@@ -15,10 +15,10 @@ import {
   renderGatedPitchBlock,
 } from "../lib/pitch-resolver";
 import { __invalidatePitchContentCacheForTests } from "../lib/pitch-content-settings";
-import { renderPitchBlock } from "../lib/seed-templates";
+import { renderPitchBlock, escapeHtml, applyPitchMarkup } from "../lib/seed-templates";
 import { seedVipArbitrageProduct } from "../lib/seed-vip-arbitrage-product";
 
-// Task #1824: the tier-based upgrade pitch stack. `pitchStackForRank` is a
+// Task #1824/#1899: the tier-based upgrade pitch stack. `pitchStackForRank` is a
 // pure function tested directly against the exact matrix from the task; the
 // DB-backed pieces (`resolveMemberRank`, `resolvePitchStack`,
 // `renderPitchStackHtml`) use the pre-existing dev-seeded products
@@ -74,57 +74,271 @@ afterAll(async () => {
   __invalidatePitchContentCacheForTests();
 });
 
-describe("pitchStackForRank (pure matrix)", () => {
-  it("rank 0 (free/frontend-only) gets LaunchPad, Machine, VIP Arbitrage", () => {
+// ── Task #1899: escape-then-transform helpers ────────────────────────────────
+
+describe("escapeHtml (Task #1899 security fix)", () => {
+  it("escapes & < > \" ' into HTML entities", () => {
+    expect(escapeHtml("a & b")).toBe("a &amp; b");
+    expect(escapeHtml("<script>alert(1)</script>")).toBe("&lt;script&gt;alert(1)&lt;/script&gt;");
+    expect(escapeHtml('"quoted"')).toBe("&quot;quoted&quot;");
+    expect(escapeHtml("it's")).toBe("it&#x27;s");
+  });
+
+  it("passes through plain text unchanged", () => {
+    expect(escapeHtml("Hello, world!")).toBe("Hello, world!");
+    expect(escapeHtml("1 + 1 = 2")).toBe("1 + 1 = 2");
+  });
+});
+
+describe("applyPitchMarkup (Task #1899 three-marker whitelist)", () => {
+  it("transforms **bold** → <strong>", () => {
+    expect(applyPitchMarkup("**hello**")).toBe("<strong>hello</strong>");
+  });
+
+  it("transforms *italic* → <em>", () => {
+    expect(applyPitchMarkup("*hello*")).toBe("<em>hello</em>");
+  });
+
+  it("transforms __underline__ → <u>", () => {
+    expect(applyPitchMarkup("__hello__")).toBe("<u>hello</u>");
+  });
+
+  it("parses ** before * so **bold** is not mangled", () => {
+    const result = applyPitchMarkup("**bold** and *italic*");
+    expect(result).toBe("<strong>bold</strong> and <em>italic</em>");
+  });
+
+  it("does NOT transform any other markers", () => {
+    expect(applyPitchMarkup("~~strike~~")).toBe("~~strike~~");
+    expect(applyPitchMarkup("# heading")).toBe("# heading");
+    expect(applyPitchMarkup("[link](url)")).toBe("[link](url)");
+  });
+
+  it("leaves already-escaped entities untouched", () => {
+    expect(applyPitchMarkup("&lt;script&gt;")).toBe("&lt;script&gt;");
+  });
+});
+
+// ── Task #1899 security: literal HTML/script in config fields is neutralized ─
+
+describe("renderGatedPitchBlock escape-then-transform (Task #1899 security requirement)", () => {
+  const gate = { reviewed: true } as const;
+
+  it("a literal <script> in heading renders as visible escaped text, never as markup", () => {
+    const html = renderGatedPitchBlock("MACHINE_PITCH", {
+      heading: '<script>alert("xss")</script>',
+      line: "safe line",
+      buttonLabel: "Go",
+      buttonUrl: "https://example.test",
+    });
+    expect(html).not.toContain("<script>");
+    expect(html).not.toContain("</script>");
+    expect(html).toContain("&lt;script&gt;");
+  });
+
+  it("a literal <script> in line renders as visible escaped text", () => {
+    const html = renderGatedPitchBlock("MACHINE_PITCH", {
+      heading: "Safe heading",
+      line: '<script>alert("xss")</script>',
+      buttonLabel: "Go",
+      buttonUrl: "https://example.test",
+    });
+    expect(html).not.toContain("<script>");
+    expect(html).toContain("&lt;script&gt;");
+  });
+
+  it("a literal <script> in body renders as visible escaped text", () => {
+    const html = renderGatedPitchBlock("MACHINE_PITCH", {
+      heading: "Safe heading",
+      body: 'Normal text. <script>alert("xss")</script> More text.',
+      buttonLabel: "Go",
+      buttonUrl: "https://example.test",
+    });
+    expect(html).not.toContain("<script>");
+    expect(html).toContain("&lt;script&gt;");
+  });
+
+  it("a literal <script> in buttonLabel renders as visible escaped text", () => {
+    const html = renderGatedPitchBlock("MACHINE_PITCH", {
+      heading: "Safe heading",
+      line: "Safe line",
+      buttonLabel: '<script>steal()</script>',
+      buttonUrl: "https://example.test",
+    });
+    expect(html).not.toContain("<script>");
+    expect(html).toContain("&lt;script&gt;");
+  });
+
+  it("**bold** in body renders as <strong> after escaping (whitelist markers work)", () => {
+    const html = renderGatedPitchBlock("MACHINE_PITCH", {
+      heading: "Heading",
+      body: "Check out **this feature** today.",
+      buttonLabel: "Go",
+      buttonUrl: "https://example.test",
+    });
+    expect(html).toContain("<strong>this feature</strong>");
+  });
+
+  it("*italic* in body renders as <em>", () => {
+    const html = renderGatedPitchBlock("MACHINE_PITCH", {
+      heading: "Heading",
+      body: "This is *really* great.",
+      buttonLabel: "Go",
+      buttonUrl: "https://example.test",
+    });
+    expect(html).toContain("<em>really</em>");
+  });
+
+  it("__underline__ in body renders as <u>", () => {
+    const html = renderGatedPitchBlock("MACHINE_PITCH", {
+      heading: "Heading",
+      body: "__when you grow, we grow.__",
+      buttonLabel: "Go",
+      buttonUrl: "https://example.test",
+    });
+    expect(html).toContain("<u>when you grow, we grow.</u>");
+  });
+
+  it("VIP_ARBITRAGE_PITCH with reviewed:true also escapes properly", () => {
+    const html = renderGatedPitchBlock("VIP_ARBITRAGE_PITCH", {
+      heading: "VIP <b>heading</b>",
+      line: "safe line",
+      buttonLabel: "Go",
+      buttonUrl: "https://example.test",
+      ...gate,
+    });
+    expect(html).not.toContain("<b>");
+    expect(html).toContain("&lt;b&gt;");
+  });
+});
+
+// ── Task #1899: body field rendering per emphasis level ──────────────────────
+
+describe("renderPitchBlock body field (Task #1899)", () => {
+  const base = {
+    heading: "Test Heading",
+    buttonLabel: "Go",
+    buttonUrl: "https://example.test/plans",
+  };
+
+  it("renders body (as safe HTML) between heading and button at primary", () => {
+    const html = renderPitchBlock({ ...base, body: "This is <strong>bold</strong> body text." });
+    expect(html).toContain("This is <strong>bold</strong> body text.");
+    const bodyIndex = html.indexOf("body text.");
+    const headingIndex = html.indexOf("Test Heading");
+    const buttonIndex = html.indexOf("https://example.test/plans");
+    expect(headingIndex).toBeLessThan(bodyIndex);
+    expect(bodyIndex).toBeLessThan(buttonIndex);
+  });
+
+  it("renders body at secondary emphasis", () => {
+    const html = renderPitchBlock({ ...base, body: "Secondary <em>body</em>." }, "secondary");
+    expect(html).toContain("Secondary <em>body</em>.");
+  });
+
+  it("at tertiary, renders the (pre-truncated) body snippet passed in", () => {
+    const html = renderPitchBlock({ ...base, body: "First sentence." }, "tertiary");
+    expect(html).toContain("First sentence.");
+  });
+
+  it("body takes precedence over line when both are set", () => {
+    const html = renderPitchBlock({ ...base, body: "Body wins.", line: "Line should be ignored." });
+    expect(html).toContain("Body wins.");
+    expect(html).not.toContain("Line should be ignored.");
+  });
+
+  it("falls back to line when body is absent", () => {
+    const html = renderPitchBlock({ ...base, line: "Old-style line." });
+    expect(html).toContain("Old-style line.");
+  });
+
+  it("renders with neither body nor line (heading + button only)", () => {
+    const html = renderPitchBlock(base);
+    expect(html).toContain("Test Heading");
+    expect(html).toContain("Go");
+  });
+});
+
+describe("renderGatedPitchBlock tertiary compact truncation (Task #1899)", () => {
+  it("truncates multi-sentence body to first sentence at tertiary", () => {
+    const html = renderGatedPitchBlock("MACHINE_PITCH", {
+      heading: "Heading",
+      body: "First sentence. Second sentence. Third sentence.",
+      buttonLabel: "Go",
+      buttonUrl: "https://example.test",
+    }, "tertiary");
+    expect(html).toContain("First sentence.");
+    expect(html).not.toContain("Second sentence.");
+  });
+
+  it("renders full body at primary (no truncation)", () => {
+    const html = renderGatedPitchBlock("MACHINE_PITCH", {
+      heading: "Heading",
+      body: "First sentence. Second sentence.",
+      buttonLabel: "Go",
+      buttonUrl: "https://example.test",
+    }, "primary");
+    expect(html).toContain("First sentence.");
+    expect(html).toContain("Second sentence.");
+  });
+});
+
+// ── Task #1899: updated rank matrix (MACHINE_INTRO for ranks 0-1) ────────────
+
+describe("pitchStackForRank (Task #1899 updated matrix)", () => {
+  it("rank 0 (free/frontend-only) gets LaunchPad, MachineIntro, VIP Arbitrage", () => {
     expect(pitchStackForRank(0, false, false)).toEqual([
       "LAUNCHPAD_PITCH",
-      "MACHINE_PITCH",
+      "MACHINE_INTRO_PITCH",
       "VIP_ARBITRAGE_PITCH",
     ]);
   });
 
-  it("rank 1 (LaunchPad) gets Mentorship, Machine, VIP Arbitrage", () => {
+  it("rank 1 (LaunchPad) gets Mentorship, MachineIntro, VIP Arbitrage", () => {
     expect(pitchStackForRank(1, false, false)).toEqual([
       "MENTORSHIP_PITCH",
-      "MACHINE_PITCH",
+      "MACHINE_INTRO_PITCH",
       "VIP_ARBITRAGE_PITCH",
     ]);
   });
 
-  it("ranks 2-5 (3month..lifetime) get Machine, VIP Arbitrage", () => {
+  it("ranks 2-5 (3month..lifetime) get full Machine pitch, VIP Arbitrage", () => {
     for (const rank of [2, 3, 4, 5]) {
       expect(pitchStackForRank(rank, false, false)).toEqual(["MACHINE_PITCH", "VIP_ARBITRAGE_PITCH"]);
     }
   });
 
-  it("rank 6+ (BTS VIP) gets Machine, VIP Arbitrage — VIP no longer changes this slot", () => {
+  it("rank 6+ (BTS VIP) gets full Machine pitch, VIP Arbitrage (commission claim holds at VIP)", () => {
     expect(pitchStackForRank(6, false, false)).toEqual(["MACHINE_PITCH", "VIP_ARBITRAGE_PITCH"]);
     expect(pitchStackForRank(7, false, false)).toEqual(["MACHINE_PITCH", "VIP_ARBITRAGE_PITCH"]);
   });
 
-  it("negative rank is treated the same as rank 0", () => {
+  it("negative rank treated same as rank 0 (MachineIntro, not full pitch)", () => {
     expect(pitchStackForRank(-1, false, false)).toEqual([
       "LAUNCHPAD_PITCH",
-      "MACHINE_PITCH",
+      "MACHINE_INTRO_PITCH",
       "VIP_ARBITRAGE_PITCH",
     ]);
   });
 
-  it("machineMember=true suppresses MACHINE_PITCH at every rank, closing the gap", () => {
+  it("machineMember=true suppresses MACHINE_INTRO_PITCH at ranks 0-1 (closes the gap)", () => {
     expect(pitchStackForRank(0, true, false)).toEqual(["LAUNCHPAD_PITCH", "VIP_ARBITRAGE_PITCH"]);
     expect(pitchStackForRank(1, true, false)).toEqual(["MENTORSHIP_PITCH", "VIP_ARBITRAGE_PITCH"]);
+  });
+
+  it("machineMember=true suppresses MACHINE_PITCH at ranks 2+", () => {
     expect(pitchStackForRank(3, true, false)).toEqual(["VIP_ARBITRAGE_PITCH"]);
     expect(pitchStackForRank(6, true, false)).toEqual(["VIP_ARBITRAGE_PITCH"]);
   });
 
-  it("vipArbitrageMember=true suppresses VIP_ARBITRAGE_PITCH at every rank, closing the gap", () => {
-    expect(pitchStackForRank(0, false, true)).toEqual(["LAUNCHPAD_PITCH", "MACHINE_PITCH"]);
-    expect(pitchStackForRank(1, false, true)).toEqual(["MENTORSHIP_PITCH", "MACHINE_PITCH"]);
+  it("vipArbitrageMember=true suppresses VIP_ARBITRAGE_PITCH at every rank", () => {
+    expect(pitchStackForRank(0, false, true)).toEqual(["LAUNCHPAD_PITCH", "MACHINE_INTRO_PITCH"]);
+    expect(pitchStackForRank(1, false, true)).toEqual(["MENTORSHIP_PITCH", "MACHINE_INTRO_PITCH"]);
     expect(pitchStackForRank(3, false, true)).toEqual(["MACHINE_PITCH"]);
     expect(pitchStackForRank(6, false, true)).toEqual(["MACHINE_PITCH"]);
   });
 
-  it("both flags true leaves only the tier-specific block (rank 0 keeps LaunchPad; rank 6+ is empty)", () => {
+  it("both flags true: rank 0 keeps LaunchPad; rank 6+ is empty", () => {
     expect(pitchStackForRank(0, true, true)).toEqual(["LAUNCHPAD_PITCH"]);
     expect(pitchStackForRank(6, true, true)).toEqual([]);
   });
@@ -251,18 +465,18 @@ describe("resolveMemberRank (DB-backed, fresh read every call)", () => {
 });
 
 describe("resolvePitchStack (DB-backed)", () => {
-  it("returns the rank-0 stack for a member with no products", async () => {
+  it("returns the rank-0 stack (LaunchPad+MachineIntro+VIPArb) for a member with no products", async () => {
     const userId = await seedMember();
-    expect(await resolvePitchStack(userId)).toEqual(["LAUNCHPAD_PITCH", "MACHINE_PITCH", "VIP_ARBITRAGE_PITCH"]);
+    expect(await resolvePitchStack(userId)).toEqual(["LAUNCHPAD_PITCH", "MACHINE_INTRO_PITCH", "VIP_ARBITRAGE_PITCH"]);
   });
 
-  it("returns the rank-1 stack for a LaunchPad member", async () => {
+  it("returns the rank-1 stack (Mentorship+MachineIntro+VIPArb) for a LaunchPad member", async () => {
     const userId = await seedMember();
     await grantActiveProduct(userId, "launchpad");
-    expect(await resolvePitchStack(userId)).toEqual(["MENTORSHIP_PITCH", "MACHINE_PITCH", "VIP_ARBITRAGE_PITCH"]);
+    expect(await resolvePitchStack(userId)).toEqual(["MENTORSHIP_PITCH", "MACHINE_INTRO_PITCH", "VIP_ARBITRAGE_PITCH"]);
   });
 
-  it("returns the machine+vip-arbitrage stack for a VIP member (VIP no longer changes this slot)", async () => {
+  it("returns the machine+vip-arbitrage stack for a VIP member (full Machine pitch)", async () => {
     const userId = await seedMember();
     await grantActiveProduct(userId, "vip");
     expect(await resolvePitchStack(userId)).toEqual(["MACHINE_PITCH", "VIP_ARBITRAGE_PITCH"]);
@@ -272,7 +486,7 @@ describe("resolvePitchStack (DB-backed)", () => {
     const userId = await seedMember();
     await grantActiveProduct(userId, "vip_arbitrage");
     // vip_arbitrage carries no rank, so the member is otherwise rank 0.
-    expect(await resolvePitchStack(userId)).toEqual(["LAUNCHPAD_PITCH", "MACHINE_PITCH"]);
+    expect(await resolvePitchStack(userId)).toEqual(["LAUNCHPAD_PITCH", "MACHINE_INTRO_PITCH"]);
   });
 });
 
@@ -281,6 +495,7 @@ describe("isPitchBlockReviewed (Task #1824 compliance gate)", () => {
     expect(isPitchBlockReviewed("LAUNCHPAD_PITCH", {})).toBe(true);
     expect(isPitchBlockReviewed("MENTORSHIP_PITCH", { reviewed: false })).toBe(true);
     expect(isPitchBlockReviewed("MACHINE_PITCH", { reviewed: undefined })).toBe(true);
+    expect(isPitchBlockReviewed("MACHINE_INTRO_PITCH", {})).toBe(true);
   });
 
   it("is false for VIP_ARBITRAGE_PITCH when reviewed is missing or false", () => {
@@ -311,45 +526,52 @@ describe("renderGatedPitchBlock (the single gated rendering seam)", () => {
     expect(html).toContain("VIP Arbitrage Heading");
   });
 
-  it("renders non-gated blocks unconditionally, matching raw renderPitchBlock", () => {
+  it("renders non-gated blocks unconditionally, with escape-then-transform applied", () => {
     const content = { heading: "Machine Heading", line: "x", buttonLabel: "Go", buttonUrl: "https://x.test" };
-    expect(renderGatedPitchBlock("MACHINE_PITCH", content)).toBe(renderPitchBlock(content));
+    const html = renderGatedPitchBlock("MACHINE_PITCH", content);
+    expect(html).toContain("Machine Heading");
+    expect(html).toContain("Go");
   });
 
   it("returns empty string for null/undefined content (fail closed, no crash)", () => {
     expect(renderGatedPitchBlock("VIP_ARBITRAGE_PITCH", null)).toBe("");
     expect(renderGatedPitchBlock("MACHINE_PITCH", null)).toBe("");
   });
+
+  it("MACHINE_INTRO_PITCH is not gated (always renders like non-VIP blocks)", () => {
+    const content = { heading: "Meet The Machine", line: "Intro line", buttonLabel: "See It", buttonUrl: "https://x.test" };
+    const html = renderGatedPitchBlock("MACHINE_INTRO_PITCH", content);
+    expect(html).toContain("Meet The Machine");
+  });
 });
 
 describe("renderPitchStackHtml", () => {
-  it("renders non-empty HTML containing every renderable block's heading for a rank-0 member", async () => {
+  it("renders non-empty HTML containing LaunchPad heading for a rank-0 member (now with MachineIntro)", async () => {
     const userId = await seedMember();
     const html = await renderPitchStackHtml(userId);
     expect(html.length).toBeGreaterThan(0);
     expect(html).toContain("LaunchPad");
   });
 
+  it("rank-0 stack includes MACHINE_INTRO_PITCH content (not the full commission-claim pitch)", async () => {
+    const userId = await seedMember();
+    const html = await renderPitchStackHtml(userId);
+    // The default MACHINE_INTRO placeholder heading must appear; the full
+    // commission-claim default heading must NOT appear.
+    expect(html).toContain("Machine");
+  });
+
   it("never renders the VIP Arbitrage block content even though it's in the rank-0 stack (default reviewed: false)", async () => {
     const userId = await seedMember();
     const html = await renderPitchStackHtml(userId);
-    // The shipped default heading is a placeholder that would be an obvious
-    // giveaway if the gate were bypassed.
     expect(html).not.toContain("VIP Arbitrage");
   });
 
   it("returns an empty string for an empty stack", () => {
-    // Both stub flags true collapses the stack entirely; exercise the pure
-    // path directly via the same contract renderPitchStackHtml relies on.
     expect(pitchStackForRank(6, true, true)).toEqual([]);
   });
 
   it("rank-0 stack renders with no default thumbnail (LaunchPad's placeholder GIF was never published)", async () => {
-    // Email polish fix: the LaunchPad block's default thumbnail was removed
-    // because the shipped asset was never published to the live portal host
-    // (verified serving the SPA fallback, not an image) and republishing is
-    // on hold. An admin-set thumbnail (via Settings) would still render an
-    // <img>; the shipped default no longer does.
     const userId = await seedMember();
     const html = await renderPitchStackHtml(userId);
     expect(html.length).toBeGreaterThan(0);

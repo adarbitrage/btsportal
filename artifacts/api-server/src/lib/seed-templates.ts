@@ -328,16 +328,66 @@ ${bioHtml}
 export type PitchEmphasis = "primary" | "secondary" | "tertiary";
 
 /**
- * Optional footer-adjacent pitch slot: heading, one line of copy, one CTA.
- * Renders nothing when `params` is `null`. The block itself carries NO
- * divider or outer margin — the stack wrapper in `pitch-resolver.ts`'s
- * `renderPitchStackHtml` owns the single divider that separates the whole
- * stack from the email body plus the (tight) inter-block spacing, so the
- * stack never renders one rule per pitch.
+ * Task #1899: HTML-escape a raw string so it is safe to inject into an HTML
+ * document or attribute. Replaces the five characters that have special meaning
+ * in HTML with their named character references.
+ *
+ * This is the FIRST step of the escape-then-transform pipeline applied in
+ * `pitch-resolver.ts`'s `renderGatedPitchBlock` — every copy field is escaped
+ * before the three-marker whitelist transform runs.
+ */
+export function escapeHtml(text: string): string {
+  return text
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#x27;");
+}
+
+/**
+ * Task #1899: apply the three-marker whitelist transform to an already-HTML-
+ * escaped string. Only these exact markers are honored — anything else passes
+ * through verbatim (including literal `<` already escaped to `&lt;`).
+ *
+ * Parse order matters: `**` must be consumed before `*` so `**bold**` doesn't
+ * partially match as `*` + `*bold*` + `*`.
+ *
+ * This is the SECOND step of the escape-then-transform pipeline — always run
+ * AFTER `escapeHtml`, never before, so user-supplied `<script>` text is
+ * already neutralized before this function touches the string.
+ */
+export function applyPitchMarkup(escaped: string): string {
+  return escaped
+    .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
+    .replace(/\*(.+?)\*/g, "<em>$1</em>")
+    .replace(/__(.+?)__/g, "<u>$1</u>");
+}
+
+/**
+ * Optional footer-adjacent pitch slot: heading, optional body paragraph or
+ * one-line copy, one CTA. Renders nothing when `params` is `null`. The block
+ * itself carries NO divider or outer margin — the stack wrapper in
+ * `pitch-resolver.ts`'s `renderPitchStackHtml` owns the single divider that
+ * separates the whole stack from the email body plus the (tight) inter-block
+ * spacing, so the stack never renders one rule per pitch.
+ *
+ * All string fields received here are expected to be ALREADY HTML-safe (i.e.
+ * they have been through `escapeHtml` + `applyPitchMarkup` at the
+ * `renderGatedPitchBlock` seam before this function is called). Direct callers
+ * outside the gated seam must apply that pipeline themselves.
  */
 export function renderPitchBlock(params: {
   heading: string;
-  line: string;
+  /**
+   * Task #1899: optional paragraph-length body copy (already safe HTML from
+   * the escape-then-transform seam). Rendered between the heading and the
+   * CTA button. When present, `line` is ignored. When absent, `line` is
+   * used as the single descriptive sentence.
+   */
+  body?: string;
+  /** Pre-Task-#1899 single-line copy. Ignored when `body` is present. */
+  line?: string;
   buttonLabel: string;
   buttonUrl: string;
   /**
@@ -353,13 +403,17 @@ export function renderPitchBlock(params: {
   thumbnailLinkUrl?: string;
 } | null, emphasis: PitchEmphasis = "primary"): string {
   if (!params) return "";
-  const { heading, line, buttonLabel, buttonUrl, thumbnailUrl, thumbnailLinkUrl } = params;
+  const { heading, body, line, buttonLabel, buttonUrl, thumbnailUrl, thumbnailLinkUrl } = params;
+  // `copy` is what we render between the heading and the CTA — body takes
+  // precedence over line when both are present.
+  const copy = body || line || "";
   if (emphasis === "tertiary") {
     // Quietest mention: a single fine-print line with a text-link CTA.
     // Deliberately no thumbnail — a visual hook would defeat the tertiary
-    // "one quiet line" discipline.
+    // "one quiet line" discipline. `copy` is already truncated to the first
+    // sentence by `renderGatedPitchBlock` before this is called.
     return `
-<p style="margin:0;font-size:12px;line-height:1.5;color:#6b7280;text-align:center;"><span style="font-weight:bold;color:#4b5563;">${heading}</span> ${line} <a href="${buttonUrl}" style="color:${BTS_ACCENT_COLOR};font-weight:bold;text-decoration:underline;white-space:nowrap;">${buttonLabel}</a></p>`;
+<p style="margin:0;font-size:12px;line-height:1.5;color:#6b7280;text-align:center;"><span style="font-weight:bold;color:#4b5563;">${heading}</span>${copy ? ` ${copy}` : ""} <a href="${buttonUrl}" style="color:${BTS_ACCENT_COLOR};font-weight:bold;text-decoration:underline;white-space:nowrap;">${buttonLabel}</a></p>`;
   }
   // Restrained ~280px wide per Task #1820's stacking discipline — with up to
   // three pitch blocks stacked at the bottom of an email, full-bleed
@@ -377,7 +431,7 @@ export function renderPitchBlock(params: {
 ${thumbnailHtml}
 <tr><td style="padding:0;text-align:center;">
 <p style="margin:0 0 3px;font-size:13px;font-weight:bold;color:#374151;">${heading}</p>
-<p style="margin:0 0 10px;font-size:12px;color:#6b7280;">${line}</p>
+${copy ? `<p style="margin:0 0 10px;font-size:12px;color:#6b7280;">${copy}</p>` : ""}
 <a href="${buttonUrl}" style="display:inline-block;background:#ffffff;color:${BTS_ACCENT_COLOR};border:1px solid #c7d2fe;padding:6px 14px;border-radius:6px;text-decoration:none;font-weight:bold;font-size:12px;">${buttonLabel}</a>
 </td></tr>
 </table>`;
@@ -388,7 +442,7 @@ ${thumbnailHtml}
 ${thumbnailHtml}
 <tr><td style="padding:0;text-align:center;">
 <p style="margin:0 0 4px;font-size:16px;font-weight:bold;color:#1a1a2e;">${heading}</p>
-<p style="margin:0 0 14px;font-size:14px;color:#4b5563;">${line}</p>
+${copy ? `<p style="margin:0 0 14px;font-size:14px;color:#4b5563;text-align:left;line-height:1.6;">${copy}</p>` : ""}
 <a href="${buttonUrl}" style="display:inline-block;background:${BTS_ACCENT_COLOR};color:#ffffff;padding:10px 24px;border-radius:6px;text-decoration:none;font-weight:bold;font-size:14px;">${buttonLabel}</a>
 </td></tr>
 </table>`;

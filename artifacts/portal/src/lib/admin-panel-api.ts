@@ -1311,17 +1311,18 @@ export const adminPanelApi = {
     }>;
   },
 
-  /** Task #1715: editable email pitch content blocks. Task #1820 added the
-   * optional thumbnailUrl/thumbnailLinkUrl fields. */
+  /** Task #1715: editable email pitch content blocks. Task #1820 added
+   * thumbnailUrl/thumbnailLinkUrl; Task #1899 added body + MACHINE_INTRO_PITCH. */
   async getPitchContent() {
     const res = await authFetch("/admin/pitch-content");
     if (!res.ok) throw new Error("Failed to fetch pitch content");
     return res.json() as Promise<
       Record<
-        "LAUNCHPAD_PITCH" | "MENTORSHIP_PITCH" | "MACHINE_PITCH" | "VIP_ARBITRAGE_PITCH",
+        "LAUNCHPAD_PITCH" | "MENTORSHIP_PITCH" | "MACHINE_PITCH" | "MACHINE_INTRO_PITCH" | "VIP_ARBITRAGE_PITCH",
         {
           heading: string;
-          line: string;
+          body?: string;
+          line?: string;
           buttonLabel: string;
           buttonUrl: string;
           thumbnailUrl?: string;
@@ -1333,10 +1334,11 @@ export const adminPanelApi = {
   },
 
   async updatePitchContent(
-    key: "LAUNCHPAD_PITCH" | "MENTORSHIP_PITCH" | "MACHINE_PITCH" | "VIP_ARBITRAGE_PITCH",
+    key: "LAUNCHPAD_PITCH" | "MENTORSHIP_PITCH" | "MACHINE_PITCH" | "MACHINE_INTRO_PITCH" | "VIP_ARBITRAGE_PITCH",
     content: {
       heading: string;
-      line: string;
+      body?: string;
+      line?: string;
       buttonLabel: string;
       buttonUrl: string;
       thumbnailUrl?: string;
@@ -1354,10 +1356,11 @@ export const adminPanelApi = {
     }
     return res.json() as Promise<
       Record<
-        "LAUNCHPAD_PITCH" | "MENTORSHIP_PITCH" | "MACHINE_PITCH" | "VIP_ARBITRAGE_PITCH",
+        "LAUNCHPAD_PITCH" | "MENTORSHIP_PITCH" | "MACHINE_PITCH" | "MACHINE_INTRO_PITCH" | "VIP_ARBITRAGE_PITCH",
         {
           heading: string;
-          line: string;
+          body?: string;
+          line?: string;
           buttonLabel: string;
           buttonUrl: string;
           thumbnailUrl?: string;

@@ -10,8 +10,8 @@
 import { db, productsTable, userProductsTable } from "@workspace/db";
 import { and, eq, gte, isNull, or } from "drizzle-orm";
 import { PRODUCT_RANK } from "./product-rank";
-import { renderPitchBlock } from "./seed-templates";
-import { getAllPitchContent, type PitchBlockKey } from "./pitch-content-settings";
+import { renderPitchBlock, escapeHtml, applyPitchMarkup, type PitchEmphasis } from "./seed-templates";
+import { getAllPitchContent, type PitchBlockKey, type PitchContent } from "./pitch-content-settings";
 
 export type { PitchBlockKey };
 
@@ -110,18 +110,24 @@ export async function resolveMemberRank(userId: number): Promise<number> {
 
 /**
  * Ordered pitch-block stack for a given rank + Machine/VIP-Arbitrage-member
- * flags, per the exact Task #1824 matrix:
- *   rank 0 (free/frontend-only)    -> LaunchPad, Machine, VIPArb
- *   rank 1 (LaunchPad)             -> Mentorship, Machine, VIPArb
- *   ranks 2-5 (3month..lifetime)   -> Machine, VIPArb
- *   rank 6+ (BTS VIP)              -> Machine, VIPArb
+ * flags, per the Task #1899 matrix:
+ *   rank 0 (free/frontend-only)    -> LaunchPad, MachineIntro, VIPArb
+ *   rank 1 (LaunchPad)             -> Mentorship, MachineIntro, VIPArb
+ *   ranks 2-5 (3month..lifetime)   -> Machine (full), VIPArb
+ *   rank 6+ (BTS VIP)              -> Machine (full), VIPArb
+ *
+ * Rank 6+ keeps the FULL Machine pitch because VIP sits above mentorship —
+ * the commission claim holds. Only ranks 0–1 switch to the softer intro
+ * that omits the commission claim (correct for non-mentorship tiers).
+ *
  * VIP Arbitrage is a separate, cross-system product (like Machine) — the
  * BTS VIP product no longer suppresses or triggers anything in this slot,
- * so it's universal across every rank, including 6+. `machineMember = true`
- * removes MACHINE_PITCH and `vipArbitrageMember = true` removes
- * VIP_ARBITRAGE_PITCH, each closing the gap independently (never leaving an
- * empty slot in the middle) — a member with both flags therefore resolves
- * to whatever pitch(es) remain, or an empty stack if neither remains.
+ * so it's universal across every rank, including 6+.
+ *
+ * `machineMember = true` removes BOTH Machine block variants (whichever is
+ * present for the given rank) and `vipArbitrageMember = true` removes
+ * VIP_ARBITRAGE_PITCH, each closing the gap independently — a member with
+ * both flags resolves to whatever pitch(es) remain, or an empty stack.
  */
 export function pitchStackForRank(
   rank: number,
@@ -130,14 +136,14 @@ export function pitchStackForRank(
 ): PitchBlockKey[] {
   let stack: PitchBlockKey[];
   if (rank <= 0) {
-    stack = ["LAUNCHPAD_PITCH", "MACHINE_PITCH", "VIP_ARBITRAGE_PITCH"];
+    stack = ["LAUNCHPAD_PITCH", "MACHINE_INTRO_PITCH", "VIP_ARBITRAGE_PITCH"];
   } else if (rank === 1) {
-    stack = ["MENTORSHIP_PITCH", "MACHINE_PITCH", "VIP_ARBITRAGE_PITCH"];
+    stack = ["MENTORSHIP_PITCH", "MACHINE_INTRO_PITCH", "VIP_ARBITRAGE_PITCH"];
   } else {
     stack = ["MACHINE_PITCH", "VIP_ARBITRAGE_PITCH"];
   }
   return stack.filter((key) => {
-    if (key === "MACHINE_PITCH" && machineMember) return false;
+    if ((key === "MACHINE_PITCH" || key === "MACHINE_INTRO_PITCH") && machineMember) return false;
     if (key === "VIP_ARBITRAGE_PITCH" && vipArbitrageMember) return false;
     return true;
   });
@@ -173,20 +179,81 @@ interface PitchContentForGate {
 }
 
 /**
+ * Task #1899: extract the first sentence from a string for the tertiary
+ * compact-line discipline. Splits at the first sentence boundary (`.`, `!`,
+ * or `?` followed by a space or end of string). If no boundary is found the
+ * whole string is returned — short enough that no truncation is needed.
+ * Applied to the raw body text BEFORE escaping so the boundary search works
+ * on plain text, not HTML.
+ */
+function firstSentence(text: string): string {
+  const m = text.match(/^.*?[.!?](?:\s|$)/);
+  return m ? m[0].trim() : text;
+}
+
+/**
+ * Task #1899: HTML-escape all string fields of a pitch content object, then
+ * apply the three-marker whitelist transform (`**bold**`, `*italic*`,
+ * `__underline__`). Returns a new object with safe HTML in every string field.
+ *
+ * The `heading` field is also transformed (bold/italic/underline in headings
+ * is intentional copy), but it is also re-used as the thumbnail `alt`
+ * attribute — `renderPitchBlock` uses the same escaped+transformed value
+ * there, which is harmless (the tags render as visible text in alt contexts,
+ * which is acceptable and intentional).
+ *
+ * Called inside `renderGatedPitchBlock` after the compliance gate so that
+ * escaping overhead is only incurred on blocks that will actually render.
+ */
+function escapePitchContent(content: Parameters<typeof renderPitchBlock>[0] & PitchContentForGate & { body?: string }): Parameters<typeof renderPitchBlock>[0] {
+  if (!content) return content;
+  const safe = (raw: string) => applyPitchMarkup(escapeHtml(raw));
+  return {
+    ...content,
+    heading: safe(content.heading),
+    body: content.body !== undefined ? safe(content.body) : undefined,
+    line: content.line !== undefined ? safe(content.line) : undefined,
+    buttonLabel: safe(content.buttonLabel),
+    // buttonUrl: escape only (no markup transform — URLs are attribute values
+    // and must not contain `<strong>` tags). We don't run applyPitchMarkup on
+    // the URL; escapeHtml is sufficient and correct for an href attribute.
+    buttonUrl: escapeHtml(content.buttonUrl),
+  };
+}
+
+/**
  * THE single seam every send path — the resolver's own
  * `renderPitchStackHtml` as well as the `blast-all-emails*` scripts that
  * render a pitch stack outside the normal per-member resolver flow — must
- * go through to render a pitch block's HTML. Wraps `renderPitchBlock` with
- * the `isPitchBlockReviewed` gate so no caller can bypass compliance review
- * by calling `renderPitchBlock` directly for a gated block.
+ * go through to render a pitch block's HTML. Wraps `renderPitchBlock` with:
+ *   1. The `isPitchBlockReviewed` compliance gate (Task #1824).
+ *   2. Escape-then-transform of ALL copy fields (Task #1899): HTML-escapes
+ *      every string field first, then applies the three-marker whitelist
+ *      (`**bold**` → `<strong>`, `*italic*` → `<em>`, `__underline__` → `<u>`).
+ *      A literal `<script>` (or any HTML) in any config field can never reach
+ *      the rendered email — it is neutralized by `escapeHtml` before the
+ *      marker transform runs.
+ *   3. Tertiary-emphasis compact truncation (Task #1899): when `emphasis` is
+ *      `tertiary` and the block has a `body`, the body is truncated to its
+ *      first sentence BEFORE escaping so the boundary search works on plain
+ *      text. Tertiary blocks are "one quiet fine-print line" by design —
+ *      never a full paragraph.
  */
 export function renderGatedPitchBlock(
   key: PitchBlockKey,
   content: (Parameters<typeof renderPitchBlock>[0] & PitchContentForGate) | null | undefined,
-  emphasis?: Parameters<typeof renderPitchBlock>[1],
+  emphasis: PitchEmphasis = "primary",
 ): string {
   if (!content || !isPitchBlockReviewed(key, content)) return "";
-  return renderPitchBlock(content, emphasis);
+
+  // Tertiary compact: truncate body to first sentence before escaping.
+  const effectiveContent = (emphasis === "tertiary" && content.body)
+    ? { ...content, body: firstSentence(content.body) }
+    : content;
+
+  // Escape all copy fields, then apply three-marker whitelist transform.
+  const safe = escapePitchContent(effectiveContent as Parameters<typeof renderPitchBlock>[0] & PitchContentForGate & { body?: string });
+  return renderPitchBlock(safe, emphasis);
 }
 
 /**
@@ -213,7 +280,7 @@ export async function renderPitchStackHtml(userId: number): Promise<string> {
   const rows = stack
     .map((key, index) => {
       const emphasis = index === 0 ? "primary" : index === 1 ? "secondary" : "tertiary";
-      const block = renderGatedPitchBlock(key, contentByKey[key], emphasis);
+      const block = renderGatedPitchBlock(key, contentByKey[key] as (PitchContent & PitchContentForGate), emphasis);
       if (!block) return "";
       const topPadding = index === 0 ? "20px" : "14px";
       return `<tr><td style="padding:${topPadding} 0 0;">${block}</td></tr>`;
