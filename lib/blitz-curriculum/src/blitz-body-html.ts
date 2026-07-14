@@ -350,8 +350,7 @@ export const BLITZ_BODY_HTML = `<div class="version-banner">
     <div class="path-block-label">✦ Media Mavens</div>
     <p>Many Media Mavens products come with <strong>pre-made advertorials</strong> — ready-to-use landing pages. When browsing products, look for the pre-made advertorial indicator in the product listing. Starting with one of these products means you can skip writing your page from scratch and jump straight to customizing headlines and images.</p>
     <div class="video-slot" data-vidalytics-id="6I7mIlw4eJSiKV0g" data-status="needs-rerecord"><div class="play-icon"></div><div><div class="vt">Logging Into Media Mavens For The First Time</div><div class="vd">How to navigate the platform after creating your account</div></div></div>
-    <div class="video-slot" data-vidalytics-id="Vo7HAtxS4VKOb71j" data-status="needs-rerecord"><div class="play-icon"></div><div><div class="vt">Choosing Your Media Mavens Product To Promote</div><div class="vd">How to evaluate products — look for ones with a pre-made advertorial available</div></div></div>
-    <div class="video-slot" data-vidalytics-id="VIDEO_ID_004" data-status="needs-rerecord"><div class="play-icon"></div><div><div class="vt">How To Get Your Media Mavens Affiliate Link</div><div class="vd">Where to find and copy your unique tracking link</div></div></div>
+    <div class="video-slot" data-vidalytics-id="nBxUbJXNCdGnrbUY" data-status="ready"><div class="play-icon"></div><div><div class="vt">Choosing Your Media Mavens Product To Promote</div><div class="vd">How to evaluate products — look for ones with a pre-made advertorial available</div></div></div>
   </div>
 
   <div class="path-block cb">
