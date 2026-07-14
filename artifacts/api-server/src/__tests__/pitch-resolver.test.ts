@@ -17,6 +17,7 @@ import {
 import { __invalidatePitchContentCacheForTests } from "../lib/pitch-content-settings";
 import { renderPitchBlock, escapeHtml, applyPitchMarkup } from "../lib/seed-templates";
 import { seedVipArbitrageProduct } from "../lib/seed-vip-arbitrage-product";
+import { seedMachineMembershipProduct } from "../lib/seed-machine-membership-product";
 
 // Task #1824/#1899: the tier-based upgrade pitch stack. `pitchStackForRank` is a
 // pure function tested directly against the exact matrix from the task; the
@@ -344,10 +345,69 @@ describe("pitchStackForRank (Task #1899 updated matrix)", () => {
   });
 });
 
-describe("isMachineMember stub", () => {
-  it("always returns false (TODO: real DB-backed implementation)", async () => {
-    expect(await isMachineMember(1)).toBe(false);
-    expect(await isMachineMember(999999)).toBe(false);
+// Task #1901: isMachineMember is now a real DB-backed check against active
+// `machine` product grants (the row a Machine-membership purchase lands as,
+// mirroring the vip_arbitrage pattern). The boot seeder is idempotent, so
+// calling it here keeps the suite green on a DB the api-server hasn't booted
+// against yet.
+describe("isMachineMember (DB-backed, Task #1901)", () => {
+  beforeAll(async () => {
+    await seedMachineMembershipProduct();
+  });
+
+  it("returns false for a member with no products at all", async () => {
+    const userId = await seedMember();
+    expect(await isMachineMember(userId)).toBe(false);
+  });
+
+  it("returns false for a member holding other products but not machine", async () => {
+    const userId = await seedMember();
+    await grantActiveProduct(userId, "lifetime");
+    expect(await isMachineMember(userId)).toBe(false);
+  });
+
+  it("returns false for a Machine BRAND front-end buyer (backroad ≠ owning The Machine)", async () => {
+    const userId = await seedMember();
+    await grantActiveProduct(userId, "backroad");
+    expect(await isMachineMember(userId)).toBe(false);
+  });
+
+  it("returns true for a member with an active, non-expiring machine grant", async () => {
+    const userId = await seedMember();
+    await grantActiveProduct(userId, "machine");
+    expect(await isMachineMember(userId)).toBe(true);
+  });
+
+  it("ignores an expired machine grant", async () => {
+    const userId = await seedMember();
+    const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    await grantActiveProduct(userId, "machine", yesterday);
+    expect(await isMachineMember(userId)).toBe(false);
+  });
+
+  it("ignores a non-active (e.g. refunded/cancelled) machine grant", async () => {
+    const userId = await seedMember();
+    const productId = await productIdFor("machine");
+    await db.insert(userProductsTable).values({
+      userId,
+      productId,
+      status: "cancelled",
+      purchasedAt: new Date(),
+    });
+    expect(await isMachineMember(userId)).toBe(false);
+  });
+
+  it("reflects a fresh purchase immediately (no caching)", async () => {
+    const userId = await seedMember();
+    expect(await isMachineMember(userId)).toBe(false);
+    await grantActiveProduct(userId, "machine");
+    expect(await isMachineMember(userId)).toBe(true);
+  });
+
+  it("does not contribute to member rank (machine is outside PRODUCT_RANK)", async () => {
+    const userId = await seedMember();
+    await grantActiveProduct(userId, "machine");
+    expect(await resolveMemberRank(userId)).toBe(0);
   });
 });
 
@@ -487,6 +547,35 @@ describe("resolvePitchStack (DB-backed)", () => {
     await grantActiveProduct(userId, "vip_arbitrage");
     // vip_arbitrage carries no rank, so the member is otherwise rank 0.
     expect(await resolvePitchStack(userId)).toEqual(["LAUNCHPAD_PITCH", "MACHINE_INTRO_PITCH"]);
+  });
+
+  it("suppresses MACHINE_INTRO_PITCH end-to-end for a rank-0 Machine member (Task #1901)", async () => {
+    const userId = await seedMember();
+    await grantActiveProduct(userId, "machine");
+    // machine carries no rank, so the member is otherwise rank 0.
+    expect(await resolvePitchStack(userId)).toEqual(["LAUNCHPAD_PITCH", "VIP_ARBITRAGE_PITCH"]);
+  });
+
+  it("suppresses MACHINE_PITCH end-to-end for a lifetime member who also owns The Machine (Task #1901)", async () => {
+    const userId = await seedMember();
+    await grantActiveProduct(userId, "lifetime");
+    await grantActiveProduct(userId, "machine");
+    expect(await resolvePitchStack(userId)).toEqual(["VIP_ARBITRAGE_PITCH"]);
+  });
+
+  it("resolves an empty stack for a lifetime member holding both machine and vip_arbitrage", async () => {
+    const userId = await seedMember();
+    await grantActiveProduct(userId, "lifetime");
+    await grantActiveProduct(userId, "machine");
+    await grantActiveProduct(userId, "vip_arbitrage");
+    expect(await resolvePitchStack(userId)).toEqual([]);
+  });
+
+  it("keeps the Machine pitches for an expired/churned Machine grant (re-enters the audience)", async () => {
+    const userId = await seedMember();
+    const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    await grantActiveProduct(userId, "machine", yesterday);
+    expect(await resolvePitchStack(userId)).toEqual(["LAUNCHPAD_PITCH", "MACHINE_INTRO_PITCH", "VIP_ARBITRAGE_PITCH"]);
   });
 });
 

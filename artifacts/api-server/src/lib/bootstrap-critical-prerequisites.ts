@@ -5,6 +5,7 @@ import { seedYseProducts } from "./seed-yse-products";
 import { seedMachineBrandProducts } from "./seed-machine-brand-products";
 import { seedVipProduct } from "./seed-vip-product";
 import { seedVipArbitrageProduct } from "./seed-vip-arbitrage-product";
+import { seedMachineMembershipProduct } from "./seed-machine-membership-product";
 import { reconcileEntitlementKeys } from "./reconcile-entitlement-keys";
 import { seedMachineProductKeyMappings } from "./machine-product-key-mappings";
 import {
@@ -222,6 +223,17 @@ export async function bootstrapCriticalPrerequisites(): Promise<PrerequisiteResu
   } catch (err) {
     console.error("[Bootstrap] seedVipArbitrageProduct() threw:", err);
     missing.push("seedVipArbitrageProduct");
+  }
+
+  // 1a-4. Machine membership product (Task #1901) — records ownership of The
+  //       Machine itself so isMachineMember (pitch-resolver.ts) can suppress
+  //       the Machine email pitches for existing owners. No entitlement keys,
+  //       no rank, no expiry. Idempotent: insert-if-missing on slug.
+  try {
+    await seedMachineMembershipProduct();
+  } catch (err) {
+    console.error("[Bootstrap] seedMachineMembershipProduct() threw:", err);
+    missing.push("seedMachineMembershipProduct");
   }
 
   // 1b. Default machine_product_key_mappings rows so the receiver can

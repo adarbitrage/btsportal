@@ -16,21 +16,49 @@ import { getAllPitchContent, type PitchBlockKey, type PitchContent } from "./pit
 export type { PitchBlockKey };
 
 /**
- * Whether a member is a "Machine member" (already owns/uses Machine), which
- * should suppress the Machine pitch from their stack.
- *
- * STUBBED per Task #1715: the `machine_member` column doesn't exist yet —
- * it lands with a separate, not-yet-landed Machine-sync task. This always
- * returns `false` until that column exists.
- *
- * TODO(machine-member-flag): once `machine_member` (or equivalent) exists on
- * the schema, replace this body with a real read. The signature (async,
- * keyed by userId) is intentionally already shaped for a DB-backed
- * implementation so the swap is a drop-in change with no other caller
- * needing to change.
+ * Product slug that records Machine membership (owning The Machine — the
+ * AI-powered campaign engine — itself, NOT one of the $47–$97 Machine-brand
+ * front-end products, whose buyers stay in the pitch audience by design).
+ * Seeded at boot by `seed-machine-membership-product.ts`; grants land via
+ * the Machine purchase pipeline (`machine` / `the_machine` keys in
+ * machine-product-key-mappings.ts) or a manual admin grant. Deliberately
+ * absent from PRODUCT_RANK (rank 0) and carries no entitlement keys —
+ * holding it only suppresses the Machine pitches.
  */
-export async function isMachineMember(_userId: number): Promise<boolean> {
-  return false;
+export const MACHINE_MEMBER_PRODUCT_SLUG = "machine";
+
+/**
+ * Whether a member is a "Machine member" (already owns The Machine), which
+ * should suppress BOTH Machine pitch variants (MACHINE_PITCH and
+ * MACHINE_INTRO_PITCH) from their stack — an owner must never be pitched
+ * the product they already hold.
+ *
+ * Real implementation (Task #1901, replacing the Task #1715 stub): reads
+ * the member's product grants — a Machine purchase lands as a `machine`
+ * grant in `user_products` (via the Machine purchase pipeline or an admin
+ * grant), exactly mirroring `isVipArbitrageMember` below. Uses the same
+ * active + non-expired predicate as `resolveMemberRank`, and like it is
+ * queried DB-fresh on every call so a new purchase suppresses the pitch on
+ * the member's very next send. Non-active (cancelled/refunded) or expired
+ * grants do NOT count — a churned Machine member legitimately re-enters
+ * the pitch audience.
+ */
+export async function isMachineMember(userId: number): Promise<boolean> {
+  const now = new Date();
+  const [row] = await db
+    .select({ id: userProductsTable.id })
+    .from(userProductsTable)
+    .innerJoin(productsTable, eq(userProductsTable.productId, productsTable.id))
+    .where(
+      and(
+        eq(userProductsTable.userId, userId),
+        eq(productsTable.slug, MACHINE_MEMBER_PRODUCT_SLUG),
+        eq(userProductsTable.status, "active"),
+        or(isNull(userProductsTable.expiresAt), gte(userProductsTable.expiresAt, now)),
+      ),
+    )
+    .limit(1);
+  return row !== undefined;
 }
 
 /**

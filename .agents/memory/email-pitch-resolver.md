@@ -25,12 +25,14 @@ only the *content* of each pitch block is cached, via
 `pitch-content-settings.ts`, admin-editable through `system_settings` rows so
 copy changes need no deploy).
 
-**Machine-member suppression is a stub** (`isMachineMember` always returns
-false, marked TODO) — do not assume it's wired to real Machine-product data
-yet; a future task must implement it before the "hide the Machine pitch for
-existing Machine members" requirement is actually met.
-(`isVipArbitrageMember` is NO LONGER a stub — it's a real DB check on active
-`vip_arbitrage` product grants; see vip-arbitrage-compliance-gate.md.)
+**Both membership flags are real DB checks** on active, non-expired product
+grants: `isVipArbitrageMember` reads `vip_arbitrage` grants (see
+vip-arbitrage-compliance-gate.md) and `isMachineMember` reads `machine`
+grants (a rank-0, zero-entitlement membership product boot-seeded by
+seed-machine-membership-product.ts, granted via the `machine`/`the_machine`
+Machine-pipeline keys or an admin grant). Owning a Machine BRAND front-end
+(backroad, offmarket, etc.) is deliberately NOT Machine membership — those
+buyers stay in the Machine pitch audience.
 
 **Testing gotcha:** integration tests that seed a user + send an email via
 `CommunicationService` must delete `communication_log` rows for that user

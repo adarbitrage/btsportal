@@ -88,6 +88,18 @@ const SINGLE_KEY_MACHINE_PRODUCT_KEY_MAPPINGS: ReadonlyArray<MachineProductKeyMa
     notes:
       "VIP Arbitrage (Machine-side Reg D 506(c) investment program). Grant records membership only — no portal entitlements; suppresses the VIP Arbitrage email pitch (Task #1854).",
   },
+  {
+    machineKey: "machine",
+    portalSlug: "machine",
+    notes:
+      "The Machine membership itself (not a brand front-end). Grant records ownership only — no portal entitlements; suppresses the Machine email pitches (Task #1901).",
+  },
+  {
+    machineKey: "the_machine",
+    portalSlug: "machine",
+    notes:
+      "Alias for the `machine` membership key, in case The Machine sends the longer form. Same grant: records ownership only; suppresses the Machine email pitches (Task #1901).",
+  },
 ];
 
 /**
