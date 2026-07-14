@@ -38,6 +38,10 @@ import {
   recordProposedToolTag,
 } from "./kb-tool-tags.js";
 import { callLLMWithRetry } from "./kb-synthesis.js";
+import {
+  BLITZ_REFERENCE_IMPORT_SOURCE,
+  computePortalNavCheckFlag,
+} from "./blitz-reference-import.js";
 
 // ── Run-state flag (unified for manual and pipeline-triggered runs) ──────────
 
@@ -499,6 +503,16 @@ export async function runAutoTriageOnDoc(
   // Non-critical retrieval-gap flag when the doc fails its own questions.
   const selfTestFlag = computeRetrievalSelfTestFlag(selfTest);
   if (selfTestFlag) flags.push(selfTestFlag);
+
+  // Blitz reference-doc review-effort classification (Task #1914): riskFlags
+  // are overwritten wholesale above, so the portal_nav_check flag must be
+  // recomputed here for imported Blitz docs or re-analysis would silently drop
+  // it. Recomputing (vs preserving) also tracks content edits + live nav-map
+  // changes.
+  if (doc.source === BLITZ_REFERENCE_IMPORT_SOURCE) {
+    const navFlag = computePortalNavCheckFlag(effectiveContent);
+    if (navFlag && !flags.some((f) => f.type === "portal_nav_check")) flags.push(navFlag);
+  }
 
   const conflictFlag = flags.find((f) => f.type === "conflict");
   const needsExpert = maxSeverity(flags) === "critical";

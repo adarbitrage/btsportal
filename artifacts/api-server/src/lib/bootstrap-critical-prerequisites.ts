@@ -36,6 +36,7 @@ import {
   NO_ANSWER_FALLBACK_SENTINEL,
   NO_KB_SCAFFOLDING_SENTINEL,
   PORTAL_LINK_SENTINEL,
+  BLITZ_STEPS_SENTINEL,
   LEGACY_GENERIC_KB_TITLES,
 } from "./chat-system-prompt";
 import { ensureFoundingSuperAdmins } from "./ensure-founding-superadmins";
@@ -610,14 +611,15 @@ export async function ensureKBGrounding(): Promise<void> {
       !activePrompt.content.includes(NAVIGATION_SOURCE_SENTINEL) ||
       !activePrompt.content.includes(NO_ANSWER_FALLBACK_SENTINEL) ||
       !activePrompt.content.includes(NO_KB_SCAFFOLDING_SENTINEL) ||
-      !activePrompt.content.includes(PORTAL_LINK_SENTINEL))
+      !activePrompt.content.includes(PORTAL_LINK_SENTINEL) ||
+      !activePrompt.content.includes(BLITZ_STEPS_SENTINEL))
   ) {
     await db
       .update(chatSystemPromptsTable)
       .set({ content: ANTI_HALLUCINATION_SYSTEM_PROMPT })
       .where(eq(chatSystemPromptsTable.id, activePrompt.id));
     console.log(
-      "[Bootstrap] Updated active system prompt with grounding + direct-answer + Blitz-naming + deep-assistant-persona + names-from-docs + clarify-first + depth-ceiling + navigation/legacy + no-answer-fallback + portal-link rules.",
+      "[Bootstrap] Updated active system prompt with grounding + direct-answer + Blitz-naming + deep-assistant-persona + names-from-docs + clarify-first + depth-ceiling + navigation/legacy + no-answer-fallback + portal-link + blitz-steps rules.",
     );
   }
 

@@ -76,6 +76,12 @@ When you point a member to a portal page, write it as a Markdown link whose text
 - Never link to admin, coach, or partner areas — the map is member navigation only.
 - Only linkify genuine portal-page destinations. Do not turn ordinary prose, tool names, or external references into portal links.
 
+**Rule 15 — Blitz procedure answers: numbered plain-text steps.**
+When a knowledge base article gives a step-by-step Blitz procedure (submitting media, requesting an offer, setting up a tool, etc.), present it as a numbered list of plain-text steps in order — do not compress the steps into a paragraph, reorder them, or skip any:
+- Refer to other parts of the Blitz curriculum ONLY textually, the way the article itself does — e.g. 'Section 6 ("Launch Your Ad Campaign") in the Build phase of the Blitz guide'. Never invent or repeat internal lesson numbering like "Lesson 4.5" or "3.18b" — members never see those numbers.
+- Do NOT render Blitz guide references as Markdown links. The Blitz guide is one continuous page per phase; there is no per-section path in the BTS Portal Navigation Map, so Rule 14 does not apply to Blitz sections — the only linkable destination is the Blitz guide page itself when the map lists it.
+- Keep every in-tool step (button names, field labels, menu paths inside third-party tools) exactly as the article states it — per Rule 11, in-tool navigation has not changed.
+
 ## Response Style
 - Always be professional, friendly, and supportive
 - Answer directly and immediately when you already have the information — no preamble, no filler opener like "Let me check" or "Let me look into that." The relevant knowledge base context is already provided to you in this prompt, so there is nothing to go and fetch.
@@ -126,6 +132,13 @@ export const NO_KB_SCAFFOLDING_SENTINEL = "Never reproduce internal KB scaffoldi
 // predate this rule get upgraded in place (dev + prod on next deploy) and the
 // portal-linking behavior can't silently drift away.
 export const PORTAL_LINK_SENTINEL = "Render portal page references as clickable Markdown links";
+
+// Sentinel for the Blitz procedure-answer rule (Rule 15). A phrase unique to
+// Rule 15's header so a custom/legacy prompt can't accidentally satisfy it.
+// Boot enforcement overwrites the active prompt when this is absent, so rows
+// that predate this rule get upgraded in place (dev + prod on next deploy) and
+// the numbered-steps / textual-Blitz-reference behavior can't silently drift.
+export const BLITZ_STEPS_SENTINEL = "Blitz procedure answers: numbered plain-text steps";
 
 export const LEGACY_GENERIC_KB_TITLES = [
   "Getting Started with BTS",

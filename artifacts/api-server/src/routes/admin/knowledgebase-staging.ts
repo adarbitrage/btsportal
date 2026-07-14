@@ -43,6 +43,10 @@ import { clusterDuplicates, findLiveSimilar } from "../../lib/kb-duplicates.js";
 import { embedLiveDocumentInBackground, CLEARED_EMBEDDING_FIELDS } from "../../lib/kb-embeddings.js";
 import { getEffectiveTagGroups } from "../../lib/kb-tool-tags.js";
 import {
+  importBlitzReferenceDocs,
+  BLITZ_REFERENCE_IMPORT_SOURCE,
+} from "../../lib/blitz-reference-import.js";
+import {
   phraseSweepPreview,
   phraseSweepConfirm,
   startConceptSweep,
@@ -103,6 +107,10 @@ router.get("/", async (req: Request, res: Response) => {
     // update_kind is treated as 'new' (the default create path).
     const updateKindFilter = (req.query.updateKind as string) || undefined;
     const riskFilter = (req.query.risk as string) || undefined; // flagged | blocking | needs_expert
+    // Source toggle (Task #1914): 'blitz' (imported Blitz reference docs) vs
+    // 'transcript' (everything else) vs 'all'. Scopes the list AND every
+    // aggregate count so the tabs/facets reflect the selected source.
+    const sourceKindFilter = (req.query.sourceKind as string) || undefined;
     const staleOnly = req.query.stale === "true" || req.query.stale === "1";
     const page = parseInt((req.query.page as string) || "1");
     const limit = Math.min(parseInt((req.query.limit as string) || "20"), 100);
@@ -162,6 +170,17 @@ router.get("/", async (req: Request, res: Response) => {
       where = sql`${where} AND ${STALE_SQL}`;
     }
 
+    // Source scope: applied to the list where-clause AND every aggregate
+    // below, so status tabs / facet counts reflect the selected source.
+    const BLITZ_SOURCE_SQL = sql`${kbStagingDocsTable.source} = ${BLITZ_REFERENCE_IMPORT_SOURCE}`;
+    let sourceScope = sql`1=1`;
+    if (sourceKindFilter === "blitz") {
+      sourceScope = BLITZ_SOURCE_SQL;
+    } else if (sourceKindFilter === "transcript") {
+      sourceScope = sql`(${kbStagingDocsTable.source} IS NULL OR ${kbStagingDocsTable.source} <> ${BLITZ_REFERENCE_IMPORT_SOURCE})`;
+    }
+    where = sql`${where} AND ${sourceScope}`;
+
     const [docs, total] = await Promise.all([
       db
         .select()
@@ -186,26 +205,32 @@ router.get("/", async (req: Request, res: Response) => {
       tagRows,
       nodeCountRows,
       updateKindAgg,
+      sourceKindAgg,
     ] = await Promise.all([
       db
         .select({ status: kbStagingDocsTable.status, cnt: count() })
         .from(kbStagingDocsTable)
+        .where(sourceScope)
         .groupBy(kbStagingDocsTable.status),
       db
         .select({ originType: kbStagingDocsTable.originType, cnt: count() })
         .from(kbStagingDocsTable)
+        .where(sourceScope)
         .groupBy(kbStagingDocsTable.originType),
       db
         .select({ docType: kbStagingDocsTable.docType, cnt: count() })
         .from(kbStagingDocsTable)
+        .where(sourceScope)
         .groupBy(kbStagingDocsTable.docType),
       db
         .select({ homeRoot: kbStagingDocsTable.homeRoot, cnt: count() })
         .from(kbStagingDocsTable)
+        .where(sourceScope)
         .groupBy(kbStagingDocsTable.homeRoot),
       db
         .select({ docClassTarget: kbStagingDocsTable.docClassTarget, cnt: count() })
         .from(kbStagingDocsTable)
+        .where(sourceScope)
         .groupBy(kbStagingDocsTable.docClassTarget),
       db.execute(sql`
         SELECT
@@ -214,26 +239,40 @@ router.get("/", async (req: Request, res: Response) => {
           count(*) FILTER (WHERE ${kbStagingDocsTable.needsExpert} = true)::int AS needs_expert,
           count(*) FILTER (WHERE ${STALE_SQL})::int AS stale
         FROM ${kbStagingDocsTable}
+        WHERE ${sourceScope}
       `),
       db.execute(sql`
         SELECT tag, count(*)::int AS cnt
         FROM ${kbStagingDocsTable}, jsonb_array_elements_text(${kbStagingDocsTable.taxonomyTags}) AS tag
+        WHERE ${sourceScope}
         GROUP BY tag
         ORDER BY cnt DESC, tag ASC
       `),
       db
         .select({ node: kbStagingDocsTable.node, cnt: count() })
         .from(kbStagingDocsTable)
+        .where(sourceScope)
         .groupBy(kbStagingDocsTable.node),
       db.execute(sql`
         SELECT
           count(*) FILTER (WHERE ${kbStagingDocsTable.updateKind} = 'update')::int AS update_count,
           count(*) FILTER (WHERE ${kbStagingDocsTable.updateKind} IS NULL OR ${kbStagingDocsTable.updateKind} = 'new')::int AS new_count
         FROM ${kbStagingDocsTable}
+        WHERE ${sourceScope}
+      `),
+      // Per-source counts are NEVER scoped — the toggle needs both sides.
+      db.execute(sql`
+        SELECT
+          count(*)::int AS all_count,
+          count(*) FILTER (WHERE ${BLITZ_SOURCE_SQL})::int AS blitz_count
+        FROM ${kbStagingDocsTable}
       `),
     ]);
 
     const updateKindRow = (updateKindAgg.rows?.[0] ?? {}) as Record<string, unknown>;
+    const sourceKindRow = (sourceKindAgg.rows?.[0] ?? {}) as Record<string, unknown>;
+    const sourceAllCount = Number(sourceKindRow.all_count ?? 0);
+    const sourceBlitzCount = Number(sourceKindRow.blitz_count ?? 0);
 
     const citableCount = docClassCounts
       .filter((d) => d.docClassTarget && CITABLE_DOC_CLASSES.includes(d.docClassTarget as never))
@@ -276,6 +315,11 @@ router.get("/", async (req: Request, res: Response) => {
         flagged: Number(riskRow.flagged ?? 0),
         needs_expert: Number(riskRow.needs_expert ?? 0),
         stale: Number(riskRow.stale ?? 0),
+      },
+      sourceKindCounts: {
+        all: sourceAllCount,
+        blitz: sourceBlitzCount,
+        transcript: sourceAllCount - sourceBlitzCount,
       },
       tagCounts: (tagRows.rows as Record<string, unknown>[]).map((r) => ({
         tag: String(r.tag),
@@ -3209,6 +3253,37 @@ router.post("/import-curated", async (_req: Request, res: Response) => {
     }
 
     res.json({ imported, skipped, totalCurated: curated.length });
+  } catch (err: unknown) {
+    res.status(500).json({ error: err instanceof Error ? err.message : "Unknown error" });
+  }
+});
+
+// ── Blitz reference-doc import (Task #1914) ──────────────────────────────────
+//
+// Idempotent bulk import of the 96 AI Source Knowledge reference docs
+// (`ai_source_documents.source_type = 'reference_docs'`) into the review
+// queue, with automated cleanup (metadata header stripped, internal numbering
+// removed, cross-references rewritten to member-facing Blitz guide sections,
+// privacy/brand/confidential scrub, locked curated/process placement).
+// Re-runs skip ANY-status existing row — rejected/deleted docs are never
+// resurrected. New rows are handed straight to AI triage in the background.
+router.post("/import-blitz-references", async (_req: Request, res: Response) => {
+  try {
+    const summary = await importBlitzReferenceDocs();
+
+    let triageKicked = false;
+    if (summary.importedIds.length > 0 && !isTriageRunning()) {
+      const newDocs = await db
+        .select()
+        .from(kbStagingDocsTable)
+        .where(inArray(kbStagingDocsTable.id, summary.importedIds));
+      runTriageBackground(newDocs).catch((err) =>
+        console.error("[Blitz Import] Triage error:", err),
+      );
+      triageKicked = true;
+    }
+
+    res.json({ ...summary, triageKicked, triageAlreadyRunning: isTriageRunning() && !triageKicked });
   } catch (err: unknown) {
     res.status(500).json({ error: err instanceof Error ? err.message : "Unknown error" });
   }

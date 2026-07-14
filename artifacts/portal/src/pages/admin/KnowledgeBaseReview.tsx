@@ -507,6 +507,27 @@ function maxSeverity(flags: RiskFlag[] | null): FlagSeverity | null {
 
 // ── Risk-flag chips ─────────────────────────────────────────────────────────────
 
+// ── Blitz review-effort chip (Task #1914) ──────────────────────────────────────
+// Derived, never stored: an imported Blitz reference doc either carries a
+// portal_nav_check risk flag (reviewer must click through the portal path) or
+// it's a third-party-tool procedure the portal can't drift — a skim.
+
+const BLITZ_IMPORT_SOURCE = "blitz_reference_import";
+
+function BlitzEffortChip({ doc }: { doc: { source: string | null; riskFlags: RiskFlag[] | null } }) {
+  if (doc.source !== BLITZ_IMPORT_SOURCE) return null;
+  const navCheck = (doc.riskFlags ?? []).some((f) => f.type === "portal_nav_check");
+  return navCheck ? (
+    <Badge variant="outline" className="text-[10px] bg-amber-50 text-amber-700 border-amber-300" title="This doc walks the member through the portal — click through the path and verify every label/step against the live portal before approving.">
+      <Eye className="w-2.5 h-2.5 mr-1" />Nav check
+    </Badge>
+  ) : (
+    <Badge variant="outline" className="text-[10px] bg-emerald-50 text-emerald-700 border-emerald-200" title="Third-party tool / in-tool procedure — no portal click-path, so a sanity read is enough.">
+      <BookOpen className="w-2.5 h-2.5 mr-1" />Skim
+    </Badge>
+  );
+}
+
 function RiskChips({ flags, needsExpert }: { flags: RiskFlag[] | null; needsExpert: boolean }) {
   const list = flags ?? [];
   if (list.length === 0 && !needsExpert) return null;
@@ -729,6 +750,10 @@ export default function KnowledgeBaseReview() {
   const [updateKindFilter, setUpdateKindFilter] = useState("all");
   const [tagFilter, setTagFilter] = useState("all");
   const [riskFilter, setRiskFilter] = useState("all"); // all | flagged | blocking | needs_expert
+  // Source toggle (Task #1914): 'all' | 'transcript' | 'blitz' — scopes the
+  // list AND every count/facet to the selected document source.
+  const [sourceKindFilter, setSourceKindFilter] = useState("all");
+  const [sourceKindCounts, setSourceKindCounts] = useState<{ all: number; blitz: number; transcript: number }>({ all: 0, blitz: 0, transcript: 0 });
   const [staleOnly, setStaleOnly] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [page, setPage] = useState(1);
@@ -820,6 +845,7 @@ export default function KnowledgeBaseReview() {
       if (updateKindFilter && updateKindFilter !== "all") params.set("updateKind", updateKindFilter);
       if (tagFilter && tagFilter !== "all") params.set("tag", tagFilter);
       if (riskFilter && riskFilter !== "all") params.set("risk", riskFilter);
+      if (sourceKindFilter && sourceKindFilter !== "all") params.set("sourceKind", sourceKindFilter);
       if (staleOnly) params.set("stale", "true");
       params.set("page", page.toString());
       params.set("limit", "20");
@@ -837,6 +863,7 @@ export default function KnowledgeBaseReview() {
       setTagCounts(data.tagCounts || []);
       setShelfCounts(data.shelfCounts || []);
       setNodeCounts(data.nodeCounts || []);
+      setSourceKindCounts(data.sourceKindCounts || { all: 0, blitz: 0, transcript: 0 });
       setTotalPages(data.pagination?.totalPages || 1);
       setTotal(data.pagination?.total || 0);
     } catch {
@@ -844,7 +871,7 @@ export default function KnowledgeBaseReview() {
     } finally {
       setLoading(false);
     }
-  }, [statusFilter, docTypeFilter, shelfFilter, nodeFilter, docClassFilter, updateKindFilter, tagFilter, riskFilter, staleOnly, searchQuery, page, toast]);
+  }, [statusFilter, docTypeFilter, shelfFilter, nodeFilter, docClassFilter, updateKindFilter, tagFilter, riskFilter, sourceKindFilter, staleOnly, searchQuery, page, toast]);
 
   const fetchTriageStatus = useCallback(async () => {
     try {
@@ -1204,6 +1231,39 @@ export default function KnowledgeBaseReview() {
       toast({ title: "Failed to update title suggestion", variant: "destructive" });
     } finally {
       setTitleDeciding(false);
+    }
+  };
+
+  // Blitz reference-doc import (Task #1914): idempotent server-side bulk
+  // import + automated cleanup of the AI Source Knowledge reference docs; new
+  // rows go straight to AI triage in the background.
+  const importBlitzReferences = async () => {
+    setImporting(true);
+    try {
+      const res = await authFetch("/admin/knowledgebase/staging/import-blitz-references", { method: "POST" });
+      const data = await res.json().catch(() => null);
+      if (!res.ok) throw new Error(typeof data?.error === "string" ? data.error : "Failed");
+      const parts: string[] = [];
+      if (data.skippedExisting) parts.push(`${data.skippedExisting} already imported (skipped)`);
+      if (data.unmappedTitles?.length) parts.push(`${data.unmappedTitles.length} unmapped title(s) — check server logs`);
+      if (data.imported > 0) parts.push(`${data.navCheckCount} need a portal nav check, ${data.skimCount} are skim-only`);
+      if (data.triageKicked) parts.push("AI analysis started");
+      toast({
+        title: `Imported ${data.imported} of ${data.totalSources} Blitz reference docs`,
+        description: parts.length ? parts.join(" · ") : undefined,
+      });
+      if (data.triageKicked) setTriaging(true);
+      setSourceKindFilter("blitz");
+      setPage(1);
+      fetchDocs();
+    } catch (err) {
+      toast({
+        title: "Failed to import Blitz reference docs",
+        description: err instanceof Error && err.message !== "Failed" ? err.message : undefined,
+        variant: "destructive",
+      });
+    } finally {
+      setImporting(false);
     }
   };
 
@@ -2033,6 +2093,18 @@ export default function KnowledgeBaseReview() {
                   </Badge>
                 </div>
               </DialogHeader>
+
+              {/* Blitz review-effort guidance (Task #1914) */}
+              {!editMode && selectedDoc.source === BLITZ_IMPORT_SOURCE && (
+                <div className="mt-2 flex items-center gap-2 text-xs text-gray-600" data-testid="blitz-effort-guidance">
+                  <BlitzEffortChip doc={selectedDoc} />
+                  <span>
+                    {(selectedDoc.riskFlags ?? []).some((f) => f.type === "portal_nav_check")
+                      ? "Imported Blitz reference — click through the portal path it describes and verify labels/steps before approving."
+                      : "Imported Blitz reference — third-party tool procedure; a quick sanity read is enough."}
+                  </span>
+                </div>
+              )}
 
               {/* Needs-expert / conflict banner */}
               {!editMode && (selectedDoc.needsExpert || selectedDoc.conflictData) && (
@@ -3003,6 +3075,15 @@ export default function KnowledgeBaseReview() {
                 {importing ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <FileText className="w-4 h-4 mr-2" />}
                 Import Curated
               </DropdownMenuItem>
+              <DropdownMenuItem
+                onSelect={importBlitzReferences}
+                disabled={importing}
+                title="Import the Blitz reference docs from AI Source Knowledge into review, with automated cleanup (internal headers/numbering removed, cross-references rewritten, privacy scrub). Safe to re-run — already-imported, rejected and deleted docs are never re-created."
+                data-testid="button-import-blitz-references"
+              >
+                {importing ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <BookOpen className="w-4 h-4 mr-2" />}
+                Import Blitz References
+              </DropdownMenuItem>
               {(docTypeCounts.existing_doc || 0) > 0 && (
                 <DropdownMenuItem onSelect={loadGuidedQueue} disabled title="Temporarily disabled while the document-review intake is being mapped out">
                   <Layers className="w-4 h-4 mr-2" />
@@ -3320,6 +3401,26 @@ export default function KnowledgeBaseReview() {
           );
         })()}
 
+        {/* Source toggle (Task #1914): Transcripts vs Blitz reference docs. */}
+        {sourceKindCounts.blitz > 0 && (
+          <div className="flex items-center gap-1 bg-gray-100 rounded-lg p-1 w-fit" data-testid="toggle-source-kind">
+            {([
+              ["all", `All sources (${sourceKindCounts.all})`],
+              ["transcript", `Transcripts (${sourceKindCounts.transcript})`],
+              ["blitz", `Blitz references (${sourceKindCounts.blitz})`],
+            ] as const).map(([key, label]) => (
+              <button
+                key={key}
+                onClick={() => { setSourceKindFilter(key); setPage(1); }}
+                className={`px-3 py-1 rounded-md text-xs font-medium transition-colors ${sourceKindFilter === key ? "bg-white text-gray-900 shadow-sm" : "text-gray-600 hover:text-gray-900"}`}
+                data-testid={`button-source-${key}`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        )}
+
         {/* Status filter tabs */}
         <div className="flex flex-wrap gap-2">
           <button
@@ -3590,6 +3691,7 @@ export default function KnowledgeBaseReview() {
                                 {ORIGIN_LABEL[doc.originType] ?? doc.originType}
                               </Badge>
                             )}
+                            <BlitzEffortChip doc={doc} />
                             {liveSimilarMap[doc.id] && (
                               <Badge
                                 variant="outline"

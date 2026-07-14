@@ -50,7 +50,13 @@ export type RiskFlagType =
   // Citeable-only review pipeline (Task #1873): a review doc is filed under a
   // non-citeable class (e.g. legacy `transcript`). Review docs exist to be
   // published + cited, so this must be re-filed as a citeable class.
-  | "non_citable_review_doc";
+  | "non_citable_review_doc"
+  // Blitz reference-doc import (Task #1914): the doc contains a member-facing
+  // portal click-path ("Log in to your portal … Navigate to **X** > **Y**").
+  // The reviewer must verify the path against the CURRENT portal navigation.
+  // medium = a referenced label doesn't match the live nav map; low = all
+  // referenced labels matched (still worth a click-through).
+  | "portal_nav_check";
 
 /**
  * Runtime roster of every {@link RiskFlagType}. The reviewer SOP (kb-sop.ts)
@@ -75,6 +81,7 @@ export const RISK_FLAG_TYPES = [
   "privacy_residue",
   "retrieval_gap",
   "non_citable_review_doc",
+  "portal_nav_check",
 ] as const;
 
 // Mutual exhaustiveness: every listed value is a RiskFlagType, and every

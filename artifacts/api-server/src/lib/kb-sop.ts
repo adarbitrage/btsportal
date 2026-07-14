@@ -113,6 +113,8 @@ const FLAG_MEANINGS = {
     "The draft failed some of its own AI-generated member questions through the real retrieval path — likely too thin or missing the vocabulary members would use. Add that vocabulary.",
   non_citable_review_doc:
     "This review doc is filed under a non-citeable class (e.g. legacy transcript) and would never be surfaced to members. Re-file it as a citeable class (curated / overview / navigation) so it can be published and cited.",
+  portal_nav_check:
+    "Contains a member-facing portal click-path (e.g. \"Log in to your portal → Navigate to …\"). Click through the path in the live portal and confirm every label/step still matches. Medium severity means a referenced label was NOT found in the current navigation map — fix the path before approving.",
 } satisfies Record<RiskFlagType, string>;
 
 // ── Public shapes ────────────────────────────────────────────────────────────

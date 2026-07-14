@@ -13,6 +13,7 @@ import {
   NO_ANSWER_FALLBACK_SENTINEL,
   NO_KB_SCAFFOLDING_SENTINEL,
   PORTAL_LINK_SENTINEL,
+  BLITZ_STEPS_SENTINEL,
 } from "../lib/chat-system-prompt";
 
 // ensureKBGrounding() touches the DB and a handful of seed/scrub modules. Mock
@@ -164,6 +165,18 @@ describe("Rules 8-12 — behaviour rules (Task #1407 prompt surgery)", () => {
     expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain("BTS Portal Navigation Map");
   });
 
+  it("carries the Rule 15 Blitz procedure-answer rule (numbered steps, textual Blitz refs, no links)", () => {
+    expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain("Rule 15");
+    expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain(BLITZ_STEPS_SENTINEL);
+    // The canonical textual-anchor example and the internal-numbering ban.
+    expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain("in the Build phase of the Blitz guide");
+    expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain('"Lesson 4.5"');
+    // Blitz sections must never be rendered as Markdown links.
+    expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain(
+      "Do NOT render Blitz guide references as Markdown links",
+    );
+  });
+
   it("every behaviour-rule sentinel is a substring of the prompt so none can drift away", () => {
     for (const sentinel of [
       DEEP_ASSISTANT_SENTINEL,
@@ -174,6 +187,7 @@ describe("Rules 8-12 — behaviour rules (Task #1407 prompt surgery)", () => {
       NO_ANSWER_FALLBACK_SENTINEL,
       NO_KB_SCAFFOLDING_SENTINEL,
       PORTAL_LINK_SENTINEL,
+      BLITZ_STEPS_SENTINEL,
     ]) {
       expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain(sentinel);
     }
