@@ -728,6 +728,44 @@ function ImpersonationBanner() {
   );
 }
 
+// ── TicketDesk section routing ────────────────────────────────────────────────
+// Maps the current wouter location (already base-path-stripped inside the
+// router) to the TicketDesk inbox section key, or null for the default inbox.
+// Owner-approved mapping — do NOT extend without explicit sign-off.
+export function ticketDeskSectionForRoute(
+  location: string,
+): "compliance" | "concierge" | null {
+  if (location === "/compliance" || location.startsWith("/compliance/"))
+    return "compliance";
+  if (location === "/concierge" || location.startsWith("/concierge/"))
+    return "concierge";
+  return null;
+}
+
+// Mounted inside WouterRouter so it has access to the wouter location. On
+// every route change it:
+//   (a) writes the key onto window.TicketDeskChat.section so a widget that
+//       loads AFTER React has already run picks the right section at init, and
+//   (b) calls setSection() via optional chaining for a widget already loaded.
+// Both steps together handle every load-order permutation.
+export function TicketDeskSectionSync() {
+  const [location] = useLocation();
+  useEffect(() => {
+    const key = ticketDeskSectionForRoute(location);
+    const w = window as unknown as {
+      TicketDeskChat?: {
+        section?: string | null;
+        setSection?: (s: string | null) => void;
+      };
+    };
+    if (w.TicketDeskChat) {
+      w.TicketDeskChat.section = key;
+    }
+    w.TicketDeskChat?.setSection?.(key);
+  }, [location]);
+  return null;
+}
+
 export function isChatWidgetHiddenRoute(location: string) {
   return (
     CHAT_WIDGET_HIDDEN_EXACT.has(location) ||
@@ -754,6 +792,7 @@ function App() {
           <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
             <ImpersonationBanner />
             <ScrollToTop />
+            <TicketDeskSectionSync />
             <Router />
             <AuthenticatedChatWidget />
           </WouterRouter>
