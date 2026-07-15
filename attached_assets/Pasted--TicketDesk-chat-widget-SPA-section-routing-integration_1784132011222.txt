@@ -1,0 +1,68 @@
+# TicketDesk chat widget — SPA section routing integration (portal.buildtestscale.com)
+
+## Context
+Your portal embeds the TicketDesk chat widget (`https://tickets.buildtestscale.com/widget.js`)
+via ONE global `<script>` tag in `index.html`. Because the portal is a single-page app,
+per-page `data-section` attributes can't work — so chats started from the Compliance and
+Concierge areas currently misroute into the default Support inbox.
+
+The deployed widget.js already ships a `window.TicketDeskChat.setSection(...)` API built for
+exactly this. **Everything on the TicketDesk side is live.** The only remaining work is one
+router hook in your SPA.
+
+## What to add (one snippet)
+Call the widget's section API from your router on EVERY route change
+(e.g. router afterEach / history listener):
+
+```js
+window.TicketDeskChat?.setSection?.(sectionKeyForRoute(route));
+
+function sectionKeyForRoute(route) {
+  if (route.path.startsWith("/compliance")) return "compliance";
+  if (route.path.startsWith("/concierge")) return "concierge";
+  if (route.path.startsWith("/support")) return "support";
+  if (route.path.startsWith("/messages")) return "messages";
+  if (route.path.startsWith("/become-a-coach")) return "become_a_coach";
+  return null; // default inbox
+}
+```
+
+Adjust the path prefixes to match your actual routes — the SECTION KEYS on the right are the
+fixed contract. Valid keys: `compliance`, `concierge`, `support`, `messages`, `become_a_coach`.
+
+## Important: also set the initial section at boot
+`setSection` is installed by widget.js AFTER it loads. Calls made before that are silently
+skipped (that's why the snippet uses optional chaining) — they are dropped, NOT queued.
+So if a visitor lands directly on e.g. a Compliance URL, the route-change hook alone may fire
+too early. Cover the entry route by setting the section in your existing boot config, before
+the widget script tag:
+
+```js
+window.TicketDeskChat = {
+  /* ...keep your existing workspaceId + apiBase exactly as they are... */
+  section: sectionKeyForRoute(initialRoute), // or omit/null for default
+};
+```
+
+(Equivalently, a `data-section="<key>"` attribute on the script tag works; `data-inbox` is
+accepted as an alias.)
+
+## API contract (verified against widget source)
+- Keys are case- and whitespace-insensitive (`" Compliance "` works).
+- Passing `null`, `undefined`, or `""` clears the section → chats route to the default inbox.
+- Calling it with the CURRENT section is a no-op — safe to call on every route change; an
+  open chat is never disturbed.
+- Switching to a DIFFERENT section tears down the open chat pane (if any) and swaps to that
+  section's own conversation. Session tokens are stored per section, so returning to a
+  section resumes its existing chat; a token minted for one section is never reused for
+  another (that's what guarantees correct inbox routing).
+- A chat panel opened after the switch mints its session with the new section — that's the
+  moment the TicketDesk server resolves section → inbox.
+
+## How we'll verify after you deploy
+Tell us when it's live. On our side we'll start a test chat from the Compliance page with a
+fresh throwaway email (threads are never re-filed, so each test needs a never-used email) and
+confirm our production logs show `reason="section_match" section="compliance"` resolving to
+the Compliance Inbox (`a3fd80da-eb43-4698-a31f-d0855a367418`), then repeat for Concierge
+(`b920785b-3bd3-4b1b-a9b2-5591eed65b65`). Any page still logging
+`reason="default_no_section"` identifies a route your hook isn't covering.
