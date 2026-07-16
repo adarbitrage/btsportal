@@ -9,15 +9,11 @@ import { fetchRateLimits, updateRateLimits } from "@/lib/admin-api";
 import { useToast } from "@/hooks/use-toast";
 
 const TIER_LABELS: Record<string, string> = {
-  "chat:basic": "Basic Tier",
-  "chat:full": "Full Tier",
-  "chat:custom": "Custom Tier",
+  chat: "All members",
 };
 
 const TIER_DESCRIPTIONS: Record<string, string> = {
-  "chat:basic": "Front-end product owners (Reserve Income, Backroad, Off-Market)",
-  "chat:full": "LaunchPad and Mentorship members",
-  "chat:custom": "Lifetime Mentorship members with custom prompt access",
+  chat: "One global limit — applies to every member with AI Assistant access",
 };
 
 interface RateLimitForm {
@@ -85,7 +81,7 @@ export default function RateLimits() {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-bold text-foreground">Rate Limit Configuration</h1>
-            <p className="text-muted-foreground mt-1">Configure daily message limits and max output tokens per tier.</p>
+            <p className="text-muted-foreground mt-1">Configure the global daily message limit and max output tokens for the AI Assistant.</p>
           </div>
           {hasChanges && (
             <Button onClick={handleSave} disabled={updateMutation.isPending}>

@@ -14,6 +14,8 @@ import {
   NO_KB_SCAFFOLDING_SENTINEL,
   PORTAL_LINK_SENTINEL,
   BLITZ_STEPS_SENTINEL,
+  DEPTH_MATCH_SENTINEL,
+  SYNTHESIS_CONSISTENCY_SENTINEL,
 } from "../lib/chat-system-prompt";
 
 // ensureKBGrounding() touches the DB and a handful of seed/scrub modules. Mock
@@ -177,6 +179,24 @@ describe("Rules 8-12 — behaviour rules (Task #1407 prompt surgery)", () => {
     );
   });
 
+  it("carries the Rule 16 depth-matching rule (short answers to short questions, full depth on request)", () => {
+    expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain("Rule 16");
+    expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain(DEPTH_MATCH_SENTINEL);
+    expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain("Never pad a simple answer");
+  });
+
+  it("carries the Rule 17 synthesis-consistency rule (overlapping docs answered as one body of truth)", () => {
+    expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain("Rule 17");
+    expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain(SYNTHESIS_CONSISTENCY_SENTINEL);
+    expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain("genuinely conflict");
+    expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain("Never invent a reconciliation");
+  });
+
+  it("no longer carries member-visible tier placeholders (Task #1922 tier removal)", () => {
+    expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).not.toContain("{{chat_tier}}");
+    expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).not.toContain("Chat tier:");
+  });
+
   it("every behaviour-rule sentinel is a substring of the prompt so none can drift away", () => {
     for (const sentinel of [
       DEEP_ASSISTANT_SENTINEL,
@@ -188,6 +208,8 @@ describe("Rules 8-12 — behaviour rules (Task #1407 prompt surgery)", () => {
       NO_KB_SCAFFOLDING_SENTINEL,
       PORTAL_LINK_SENTINEL,
       BLITZ_STEPS_SENTINEL,
+      DEPTH_MATCH_SENTINEL,
+      SYNTHESIS_CONSISTENCY_SENTINEL,
     ]) {
       expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain(sentinel);
     }
@@ -248,6 +270,9 @@ describe("ensureKBGrounding() active-prompt sentinel upgrade", () => {
     ["NO_ANSWER_FALLBACK_SENTINEL", NO_ANSWER_FALLBACK_SENTINEL],
     ["NO_KB_SCAFFOLDING_SENTINEL", NO_KB_SCAFFOLDING_SENTINEL],
     ["PORTAL_LINK_SENTINEL", PORTAL_LINK_SENTINEL],
+    ["BLITZ_STEPS_SENTINEL", BLITZ_STEPS_SENTINEL],
+    ["DEPTH_MATCH_SENTINEL", DEPTH_MATCH_SENTINEL],
+    ["SYNTHESIS_CONSISTENCY_SENTINEL", SYNTHESIS_CONSISTENCY_SENTINEL],
   ])("overwrites an active prompt missing %s", async (_name, sentinel) => {
     const stale = ANTI_HALLUCINATION_SYSTEM_PROMPT.replace(sentinel, "redacted");
     expect(stale).not.toContain(sentinel);

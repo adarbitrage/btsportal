@@ -16,7 +16,7 @@ import { eq, inArray } from "drizzle-orm";
 import { buildTestAppWithRouters } from "./test-app";
 import adminChatRouter from "../routes/admin-chat";
 import knowledgebaseStagingRouter from "../routes/admin/knowledgebase-staging";
-import { searchTranscripts } from "../routes/openai/knowledge-base";
+import { retrieveSurfaceAware } from "../lib/kb-retrieval";
 
 /**
  * Pin the privacy scrub on the DATABASE knowledge-base paths.
@@ -30,14 +30,14 @@ import { searchTranscripts } from "../routes/openai/knowledge-base";
  *   1. Admin manual create  — POST /admin/chat/knowledgebase   (legacy table)
  *   2. Admin manual edit     — PUT  /admin/chat/knowledgebase/:id (legacy table)
  *   3. Staging "push to live"— POST /push-approved              (ai_live_documents)
- * searchTranscripts() folds matching ai_live_documents rows into the chat
+ * retrieveSurfaceAware() folds matching ai_live_documents rows into the chat
  * reply. NOTE (Task #1826): the legacy table and ai_live_documents are fully
  * decoupled — an admin legacy-KB write no longer reaches the assistant, so the
  * retrieval probe goes through the push-approved pipeline.
  *
  * These tests plant a forbidden coach FULL name through each write path and
  * assert the stored title/content keeps only the first name, then prove the
- * surname can't re-surface through the searchTranscripts() retrieval path. If a
+ * surname can't re-surface through the retrieveSurfaceAware() retrieval path. If a
  * future refactor drops the scrub from any of these ingestion points, a test
  * here fails.
  */
@@ -201,7 +201,7 @@ describe("knowledgebase_docs DB ingestion — coach surname privacy scrub", () =
     expect(live.content).not.toContain(FORBIDDEN_SURNAME);
   });
 
-  it("never surfaces a planted surname through searchTranscripts() retrieval", async () => {
+  it("never surfaces a planted surname through retrieveSurfaceAware() retrieval", async () => {
     // A unique, searchable keyword so full-text search reliably returns our row.
     // Retrieval reads ai_live_documents, which only the review pipeline and the
     // Live AI Documents admin write (the legacy admin KB CRUD is decoupled), so
@@ -227,7 +227,27 @@ describe("knowledgebase_docs DB ingestion — coach surname privacy scrub", () =
       .set("Cookie", adminCookie);
     expect(pushRes.status).toBe(200);
 
-    const retrieved = await searchTranscripts(keyword, 3);
+    // Retrieval only surfaces citable docs (curated/overview class + human
+    // verified). Mimic the human verification step on the pushed row so the
+    // probe exercises the real member-facing retrieval path.
+    const [pushedLive] = await db
+      .select({ id: aiLiveDocumentsTable.id, category: aiLiveDocumentsTable.category })
+      .from(aiLiveDocumentsTable)
+      .where(eq(aiLiveDocumentsTable.title, title));
+    expect(pushedLive).toBeDefined();
+    await db
+      .update(aiLiveDocumentsTable)
+      .set({ docClass: "curated", lastVerified: new Date() })
+      .where(eq(aiLiveDocumentsTable.id, pushedLive.id));
+
+    // Retrieval scopes on the doc's published category (the home-root slug the
+    // push pipeline assigned), so scope the probe the same way.
+    const result = await retrieveSurfaceAware(keyword, {
+      surface: "chat",
+      categories: [pushedLive.category],
+      limit: 3,
+    });
+    const retrieved = result.docs.map((d) => `${d.title}\n${d.content}`).join("\n\n");
     expect(retrieved).toContain(keyword);
     expect(retrieved).toContain(ALLOWED_FIRST_NAME);
     expect(retrieved).not.toContain(FORBIDDEN_FULL_NAME);

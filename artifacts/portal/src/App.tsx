@@ -98,7 +98,6 @@ import OnboardingBookKickoff from "@/pages/onboarding/BookKickoff";
 import OnboardingBookPartnerCall from "@/pages/onboarding/BookPartnerCall";
 import OnboardingSendOffPage from "@/pages/onboarding/SendOff";
 import TermsOfService from "@/pages/TermsOfService";
-import { ChatWidget } from "@/components/chat/ChatWidget";
 import CommunityCategories from "@/pages/admin/CommunityCategories";
 import CommunityModeration from "@/pages/admin/CommunityModeration";
 import CommunityAnalytics from "@/pages/admin/CommunityAnalytics";
@@ -671,20 +670,6 @@ function ScrollToTop() {
   return null;
 }
 
-// Routes where the live-chat launchers should be suppressed — auth and
-// onboarding screens where the launcher feels out of place or overlaps form
-// elements.
-const CHAT_WIDGET_HIDDEN_EXACT = new Set([
-  "/login",
-  "/register",
-  "/change-password",
-  "/forgot-password",
-  "/reset-password",
-  "/verify-email",
-  "/verify-email-change",
-]);
-const CHAT_WIDGET_HIDDEN_PREFIXES = ["/onboarding"];
-
 function ImpersonationBanner() {
   const { user, refreshAuth } = useAuth();
   const [stopping, setStopping] = useState(false);
@@ -766,24 +751,6 @@ export function TicketDeskSectionSync() {
   return null;
 }
 
-export function isChatWidgetHiddenRoute(location: string) {
-  return (
-    CHAT_WIDGET_HIDDEN_EXACT.has(location) ||
-    CHAT_WIDGET_HIDDEN_PREFIXES.some(
-      (prefix) => location === prefix || location.startsWith(prefix + "/"),
-    )
-  );
-}
-
-export function AuthenticatedChatWidget() {
-  const { user, loading } = useAuth();
-  const [location] = useLocation();
-  if (loading || !user || !user.onboardingComplete) return null;
-  if (location === "/chat" || location === "/ai-assistant") return null;
-  if (isChatWidgetHiddenRoute(location)) return null;
-  return <ChatWidget />;
-}
-
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
@@ -794,7 +761,6 @@ function App() {
             <ScrollToTop />
             <TicketDeskSectionSync />
             <Router />
-            <AuthenticatedChatWidget />
           </WouterRouter>
           <Toaster />
         </AuthProvider>

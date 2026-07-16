@@ -573,10 +573,10 @@ async function seed() {
     { sessionId: chatSession3.id, role: "assistant", content: "Great that you're considering upgrading! Here's what I can tell you:\n\n## What You Keep\n- **All your progress**: Course completion, streaks, everything carries over\n- **Chat history**: All your conversations stay intact\n- **Coaching call recordings**: Access to any past recordings\n\n## What You Gain with 1-Year Mentorship\n- Monthly 1-on-1 coaching sessions\n- Premium affiliate commissions tier\n- Extended access duration\n\n## For the Upgrade Process\nBilling and account changes are handled by our support team to ensure everything transitions smoothly. [SUGGEST_TICKET]\n\nI'd recommend creating a support ticket and our team can:\n1. Explain the prorated pricing\n2. Process the upgrade\n3. Ensure no disruption to your access\n\nWould you like help with anything else about the membership tiers?" },
   ]);
 
+  // Single global limit row (Task #1922) — chat access is binary; the "chat"
+  // key holds the one abuse-protection daily limit for every member.
   await db.insert(chatRateLimitsTable).values([
-    { tier: "chat:basic", dailyLimit: 20, maxOutputTokens: 1000 },
-    { tier: "chat:full", dailyLimit: 50, maxOutputTokens: 2000 },
-    { tier: "chat:custom", dailyLimit: 100, maxOutputTokens: 4000 },
+    { tier: "chat", dailyLimit: 100, maxOutputTokens: 4000 },
   ]);
 
   await seedCommunicationTemplates();

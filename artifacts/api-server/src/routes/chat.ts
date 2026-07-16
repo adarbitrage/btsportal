@@ -21,7 +21,7 @@ import { CITABLE_KB_CATEGORIES } from "../lib/kb-taxonomy";
 
 const router: IRouter = Router();
 
-interface ChatTierConfig {
+interface ChatConfig {
   dailyLimit: number;
   maxOutputTokens: number;
   historyDepth: number;
@@ -29,57 +29,41 @@ interface ChatTierConfig {
   knowledgebaseCategories: string[];
 }
 
-function getChatTier(entitlements: Set<string>, bypass = false): string {
-  if (entitlements.has("chat:custom")) return "chat:custom";
-  if (entitlements.has("chat:full")) return "chat:full";
-  if (entitlements.has("chat:basic")) return "chat:basic";
-  if (bypass) return "chat:full";
-  return "none";
+// Chat access is binary (architecture doc §3.8): any chat entitlement — or the
+// member-access bypass for admins/coaches — grants the full, identical
+// experience. There are no member-visible tiers.
+export function hasChatAccess(entitlements: Set<string>, bypass = false): boolean {
+  return (
+    entitlements.has("chat:custom") ||
+    entitlements.has("chat:full") ||
+    entitlements.has("chat:basic") ||
+    bypass
+  );
 }
 
-const TIER_DEFAULTS: Record<string, ChatTierConfig> = {
-  "chat:custom": {
-    dailyLimit: 100,
-    maxOutputTokens: 4000,
-    historyDepth: 30,
-    sessionRetentionDays: null,
-    knowledgebaseCategories: [...CITABLE_KB_CATEGORIES],
-  },
-  "chat:full": {
-    dailyLimit: 50,
-    maxOutputTokens: 2000,
-    historyDepth: 20,
-    sessionRetentionDays: 30,
-    knowledgebaseCategories: [...CITABLE_KB_CATEGORIES],
-  },
-  "chat:basic": {
-    dailyLimit: 20,
-    maxOutputTokens: 1000,
-    historyDepth: 10,
-    sessionRetentionDays: 7,
-    knowledgebaseCategories: [...CITABLE_KB_CATEGORIES],
-  },
+// The single row in chat_rate_limits that holds the global (abuse-protection)
+// daily limit + output-token cap. Not a member-visible tier.
+export const GLOBAL_CHAT_LIMIT_KEY = "chat";
+
+const CHAT_DEFAULTS: ChatConfig = {
+  dailyLimit: 100,
+  maxOutputTokens: 4000,
+  historyDepth: 30,
+  sessionRetentionDays: null,
+  knowledgebaseCategories: [...CITABLE_KB_CATEGORIES],
 };
 
-async function getTierConfig(tier: string): Promise<ChatTierConfig> {
-  const defaults = TIER_DEFAULTS[tier] ?? {
-    dailyLimit: 0,
-    maxOutputTokens: 0,
-    historyDepth: 0,
-    sessionRetentionDays: 0,
-    knowledgebaseCategories: [],
-  };
-
+async function getChatConfig(): Promise<ChatConfig> {
   try {
     const [dbConfig] = await db
       .select()
       .from(chatRateLimitsTable)
-      .where(eq(chatRateLimitsTable.tier, tier))
+      .where(eq(chatRateLimitsTable.tier, GLOBAL_CHAT_LIMIT_KEY))
       .limit(1);
 
     if (dbConfig) {
       return {
-        ...defaults,
+        ...CHAT_DEFAULTS,
         dailyLimit: dbConfig.dailyLimit,
         maxOutputTokens: dbConfig.maxOutputTokens,
       };
@@ -87,7 +71,7 @@ async function getTierConfig(tier: string): Promise<ChatTierConfig> {
   } catch {
   }
 
-  return defaults;
+  return CHAT_DEFAULTS;
 }
 
 function getTodayDate(): string {
@@ -103,11 +87,11 @@ async function getDailyUsage(userId: number): Promise<number> {
   return usage?.messageCount ?? 0;
 }
 
-async function tryIncrementDailyUsage(userId: number, chatTier: string, dailyLimit: number): Promise<{ allowed: boolean; count: number }> {
+async function tryIncrementDailyUsage(userId: number, dailyLimit: number): Promise<{ allowed: boolean; count: number }> {
   const today = getTodayDate();
   const result = await db.execute(
     sql`INSERT INTO chat_daily_usage (user_id, usage_date, message_count, chat_tier)
-        VALUES (${userId}, ${today}, 1, ${chatTier})
+        VALUES (${userId}, ${today}, 1, ${GLOBAL_CHAT_LIMIT_KEY})
         ON CONFLICT (user_id, usage_date)
         DO UPDATE SET message_count = chat_daily_usage.message_count + 1
           WHERE chat_daily_usage.message_count < ${dailyLimit}
@@ -171,16 +155,15 @@ router.post("/chat", async (req, res): Promise<void> => {
   }
 
   const entitlements = await getUserEntitlements(userId);
-  const chatTier = getChatTier(entitlements, await hasMemberAccessBypass(userId));
 
-  if (chatTier === "none") {
+  if (!hasChatAccess(entitlements, await hasMemberAccessBypass(userId))) {
     res.status(403).json({ error: "You do not have access to the AI chat assistant. Please upgrade your plan." });
     return;
   }
 
-  const config = await getTierConfig(chatTier);
+  const config = await getChatConfig();
 
-  const usageResult = await tryIncrementDailyUsage(userId, chatTier, config.dailyLimit);
+  const usageResult = await tryIncrementDailyUsage(userId, config.dailyLimit);
   if (!usageResult.allowed) {
     res.status(429).json({
       error: "Daily message limit reached",
@@ -251,7 +234,9 @@ router.post("/chat", async (req, res): Promise<void> => {
 
   systemPrompt = systemPrompt
     .replace(/\{\{member_name\}\}/g, user?.name ?? "Member")
-    .replace(/\{\{chat_tier\}\}/g, chatTier)
+    // Legacy placeholder kept for backward compat with custom DB prompts —
+    // tiers no longer exist, everyone gets the same experience.
+    .replace(/\{\{chat_tier\}\}/g, "standard")
     .replace(/\{\{daily_limit\}\}/g, String(config.dailyLimit));
 
   if (retrieval.confident && ragResults.length > 0) {
@@ -329,9 +314,7 @@ router.get("/chat/sessions", async (req, res): Promise<void> => {
   const limit = Math.min(parseInt(req.query.limit as string) || 20, 50);
   const offset = (page - 1) * limit;
 
-  const entitlements = await getUserEntitlements(userId);
-  const chatTier = getChatTier(entitlements, await hasMemberAccessBypass(userId));
-  const config = await getTierConfig(chatTier);
+  const config = await getChatConfig();
   const retentionCutoff = getRetentionFilter(config.sessionRetentionDays);
 
   const conditions = [eq(chatSessionsTable.userId, userId), eq(chatSessionsTable.isDeleted, false)];
@@ -387,9 +370,7 @@ router.get("/chat/sessions/:sessionId", async (req, res): Promise<void> => {
     return;
   }
 
-  const entitlements = await getUserEntitlements(userId);
-  const chatTier = getChatTier(entitlements, await hasMemberAccessBypass(userId));
-  const config = await getTierConfig(chatTier);
+  const config = await getChatConfig();
   const retentionCutoff = getRetentionFilter(config.sessionRetentionDays);
 
   if (retentionCutoff && session.createdAt < retentionCutoff) {
@@ -442,15 +423,15 @@ router.delete("/chat/sessions/:sessionId", async (req, res): Promise<void> => {
 router.get("/chat/status", async (req, res): Promise<void> => {
   const userId = req.userId!;
   const entitlements = await getUserEntitlements(userId);
-  const chatTier = getChatTier(entitlements, await hasMemberAccessBypass(userId));
-  const config = await getTierConfig(chatTier);
+  const hasAccess = hasChatAccess(entitlements, await hasMemberAccessBypass(userId));
+  const config = await getChatConfig();
   const usedToday = await getDailyUsage(userId);
 
   const tomorrow = new Date();
   tomorrow.setUTCHours(24, 0, 0, 0);
 
   res.json({
-    tier: chatTier,
+    hasAccess,
     dailyLimit: config.dailyLimit,
     messagesUsedToday: usedToday,
     messagesRemaining: Math.max(0, config.dailyLimit - usedToday),
@@ -465,8 +446,8 @@ router.get("/chat/prompts", async (req, res): Promise<void> => {
   const userId = req.userId!;
   const entitlements = await getUserEntitlements(userId);
 
-  if (!entitlements.has("chat:custom")) {
-    res.status(403).json({ error: "Saved prompts are only available for chat:custom tier" });
+  if (!hasChatAccess(entitlements, await hasMemberAccessBypass(userId))) {
+    res.status(403).json({ error: "You do not have access to the AI chat assistant." });
     return;
   }
 
@@ -483,8 +464,8 @@ router.post("/chat/prompts", async (req, res): Promise<void> => {
   const userId = req.userId!;
   const entitlements = await getUserEntitlements(userId);
 
-  if (!entitlements.has("chat:custom")) {
-    res.status(403).json({ error: "Saved prompts are only available for chat:custom tier" });
+  if (!hasChatAccess(entitlements, await hasMemberAccessBypass(userId))) {
+    res.status(403).json({ error: "You do not have access to the AI chat assistant." });
     return;
   }
 
@@ -518,8 +499,8 @@ router.patch("/chat/prompts/:promptId", async (req, res): Promise<void> => {
   const promptId = parseInt(req.params.promptId);
   const entitlements = await getUserEntitlements(userId);
 
-  if (!entitlements.has("chat:custom")) {
-    res.status(403).json({ error: "Saved prompts are only available for chat:custom tier" });
+  if (!hasChatAccess(entitlements, await hasMemberAccessBypass(userId))) {
+    res.status(403).json({ error: "You do not have access to the AI chat assistant." });
     return;
   }
 
@@ -562,8 +543,8 @@ router.delete("/chat/prompts/:promptId", async (req, res): Promise<void> => {
   const promptId = parseInt(req.params.promptId);
   const entitlements = await getUserEntitlements(userId);
 
-  if (!entitlements.has("chat:custom")) {
-    res.status(403).json({ error: "Saved prompts are only available for chat:custom tier" });
+  if (!hasChatAccess(entitlements, await hasMemberAccessBypass(userId))) {
+    res.status(403).json({ error: "You do not have access to the AI chat assistant." });
     return;
   }
 
@@ -596,10 +577,9 @@ function generateTicketNumber(): string {
 router.post("/chat/create-ticket", async (req, res): Promise<void> => {
   const userId = req.userId!;
   const entitlements = await getUserEntitlements(userId);
-  const chatTier = getChatTier(entitlements, await hasMemberAccessBypass(userId));
 
-  if (chatTier !== "chat:full" && chatTier !== "chat:custom") {
-    res.status(403).json({ error: "Creating tickets from chat is only available for chat:full and chat:custom tiers" });
+  if (!hasChatAccess(entitlements, await hasMemberAccessBypass(userId))) {
+    res.status(403).json({ error: "You do not have access to the AI chat assistant." });
     return;
   }
 

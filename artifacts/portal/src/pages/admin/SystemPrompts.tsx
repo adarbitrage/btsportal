@@ -117,7 +117,7 @@ export default function SystemPrompts() {
                   className="font-mono text-sm"
                 />
                 <p className="text-xs text-muted-foreground mt-1">
-                  Variables: {"{{member_name}}"}, {"{{chat_tier}}"}, {"{{daily_limit}}"}
+                  Variables: {"{{member_name}}"}, {"{{daily_limit}}"}
                 </p>
               </div>
 

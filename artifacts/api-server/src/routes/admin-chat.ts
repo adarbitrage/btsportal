@@ -14,7 +14,7 @@ import {
 import { eq, and, desc, sql, asc, like, gte, lte, ilike } from "drizzle-orm";
 import { requirePermission } from "../middleware/rbac";
 import { scrubPrivateContent } from "../lib/content-privacy-filter";
-import { reloadKnowledgeBase } from "./openai/knowledge-base.js";
+import { GLOBAL_CHAT_LIMIT_KEY } from "./chat";
 
 // DECOUPLED (Task #1826): this admin CRUD edits the legacy `knowledgebase_docs`
 // table, which is authoritative ONLY for the member-facing Knowledge Base
@@ -53,14 +53,6 @@ router.get("/admin/chat/analytics", requirePermission("chat:view"), async (req, 
   const [totalCount] = await db.select({ count: sql<number>`count(*)::int` })
     .from(chatMessagesTable);
 
-  const tierBreakdown = await db.select({
-    tier: chatDailyUsageTable.chatTier,
-    totalMessages: sql<number>`sum(${chatDailyUsageTable.messageCount})::int`,
-    uniqueUsers: sql<number>`count(distinct ${chatDailyUsageTable.userId})::int`,
-  })
-    .from(chatDailyUsageTable)
-    .groupBy(chatDailyUsageTable.chatTier);
-
   const avgPerUser = await db.execute(sql`
     SELECT COALESCE(ROUND(AVG(daily_total), 1), 0) as avg_messages_per_user_per_day
     FROM (
@@ -94,11 +86,6 @@ router.get("/admin/chat/analytics", requirePermission("chat:view"), async (req, 
       month: monthCount?.count ?? 0,
       total: totalCount?.count ?? 0,
     },
-    tierBreakdown: tierBreakdown.map(t => ({
-      tier: t.tier,
-      totalMessages: t.totalMessages ?? 0,
-      uniqueUsers: t.uniqueUsers ?? 0,
-    })),
     avgMessagesPerUserPerDay: Number((avgPerUser.rows[0] as any)?.avg_messages_per_user_per_day ?? 0),
     peakHours: (peakHours.rows as any[]).map(r => ({
       hour: Number(r.hour),
@@ -393,8 +380,8 @@ router.post("/admin/chat/system-prompts/preview", requirePermission("chat:manage
       max_tokens: 1000,
       system: content
         .replace(/\{\{member_name\}\}/g, "Test User")
-        .replace(/\{\{chat_tier\}\}/g, "chat:full")
-        .replace(/\{\{daily_limit\}\}/g, "50"),
+        .replace(/\{\{chat_tier\}\}/g, "standard")
+        .replace(/\{\{daily_limit\}\}/g, "100"),
       messages: [{ role: "user", content: testMessage }],
     });
 
@@ -559,11 +546,6 @@ router.delete("/admin/chat/knowledgebase/:id", requirePermission("chat:manage"),
   res.json({ success: true });
 });
 
-router.post("/admin/chat/knowledgebase/reload", requirePermission("chat:manage"), (_req, res): void => {
-  reloadKnowledgeBase();
-  res.json({ success: true, message: "Knowledge base cache cleared. Content will refresh on the next assistant query." });
-});
-
 router.get("/admin/chat/rate-limits", requirePermission("chat:view"), async (_req, res): Promise<void> => {
   const limits = await db
     .select()
@@ -581,7 +563,8 @@ router.put("/admin/chat/rate-limits", requirePermission("chat:manage"), async (r
     return;
   }
 
-  const validTiers = ["chat:basic", "chat:full", "chat:custom"];
+  // Tiers were retired (Task #1922): the single global row is the only valid key.
+  const validTiers = [GLOBAL_CHAT_LIMIT_KEY];
   for (const l of limits) {
     if (!validTiers.includes(l.tier)) {
       res.status(400).json({ error: `Invalid tier: ${l.tier}` });

@@ -55,14 +55,24 @@ describe("voice system prompt — Task #1407 behaviour rules", () => {
     expect(prompt).toContain("ninety-day refund guarantee");
   });
 
-  it("frames voice as basic support and hands deep questions to the chat assistant (Task #1408)", () => {
+  it("frames voice as basic support and hands deep questions to the AI Assistant (Task #1408/#1922)", () => {
     // Persona positions voice as the quick/basic support line, not the deep teacher.
     expect(prompt).toContain("BASIC support line");
     // Dedicated scope/handoff rule exists and points deep questions to chat.
     expect(prompt).toContain("VOICE SCOPE AND CHAT HANDOFF — MANDATORY");
-    expect(prompt).toContain("chat assistant");
+    // The handoff names the surviving surface by its member-facing name.
+    expect(prompt).toContain("the AI Assistant in your member portal");
+    // The legacy "chat assistant" phrasing is fully retired.
+    expect(prompt).not.toContain("chat assistant");
     expect(prompt).toContain("The Blitz curriculum");
     // "Prioritize, don't hard-wall": short answer or hand-off, never a flat refusal.
     expect(prompt).toContain("never a flat");
+  });
+
+  it("carries no hardcoded fact lines (tools / coach roster / support email) — facts come from KB lookups only (Task #1922)", () => {
+    expect(prompt).not.toContain("BTS KEY TOOLS");
+    expect(prompt).not.toContain("COACHING TEAM");
+    expect(prompt).not.toContain("SUPPORT EMAIL");
+    expect(prompt).not.toContain("support@buildtestscale.com");
   });
 });

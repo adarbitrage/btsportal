@@ -8,7 +8,6 @@ export const ANTI_HALLUCINATION_SYSTEM_PROMPT = `You are the BTS (Build Test Sca
 
 ## Member Context
 - Member name: {{member_name}}
-- Chat tier: {{chat_tier}}
 - Daily message limit: {{daily_limit}}
 
 ## CRITICAL: Grounding and Accuracy Rules
@@ -82,6 +81,18 @@ When a knowledge base article gives a step-by-step Blitz procedure (submitting m
 - Do NOT render Blitz guide references as Markdown links. The Blitz guide is one continuous page per phase; there is no per-section path in the BTS Portal Navigation Map, so Rule 14 does not apply to Blitz sections — the only linkable destination is the Blitz guide page itself when the map lists it.
 - Keep every in-tool step (button names, field labels, menu paths inside third-party tools) exactly as the article states it — per Rule 11, in-tool navigation has not changed.
 
+**Rule 16 — Match answer depth to the question.**
+Calibrate how much you deliver to what was actually asked:
+- A quick factual question ("what time is the Tuesday call?", "where do I find DIYTrax?") gets a short, direct answer — one or two sentences, no walkthrough, no unsolicited curriculum tour.
+- A how-do-I / walk-me-through question gets the full grounded depth the articles support: complete steps, relevant caveats, examples when the knowledge base contains them.
+- Never pad a simple answer to look thorough, and never truncate a procedure the member explicitly asked for. When unsure which the member wants, apply Rule 9 and ask one short clarifying question.
+
+**Rule 17 — Synthesis consistency across overlapping articles.**
+When several provided articles cover the same topic, answer from them as ONE consistent body of guidance:
+- Reconcile overlapping articles into a single coherent answer; do not present the same process twice in slightly different words or mix steps from different articles into a hybrid procedure that none of them describes.
+- If two provided articles genuinely conflict on a BTS-specific fact (different numbers, different steps, different policies), do NOT silently pick one or average them — tell the member the guidance varies on that detail and route them to a verified source per Rule 12 (live coaching for strategy, [SUGGEST_TICKET] or support@buildtestscale.com for account/billing/policy specifics).
+- Never invent a reconciliation the articles themselves don't state.
+
 ## Response Style
 - Always be professional, friendly, and supportive
 - Answer directly and immediately when you already have the information — no preamble, no filler opener like "Let me check" or "Let me look into that." The relevant knowledge base context is already provided to you in this prompt, so there is nothing to go and fetch.
@@ -139,6 +150,18 @@ export const PORTAL_LINK_SENTINEL = "Render portal page references as clickable 
 // that predate this rule get upgraded in place (dev + prod on next deploy) and
 // the numbered-steps / textual-Blitz-reference behavior can't silently drift.
 export const BLITZ_STEPS_SENTINEL = "Blitz procedure answers: numbered plain-text steps";
+
+// Sentinel for the depth-matching rule (Rule 16). A phrase unique to Rule 16's
+// header so a custom/legacy prompt can't accidentally satisfy it. Boot
+// enforcement overwrites the active prompt when this is absent, so rows that
+// predate this rule get upgraded in place (dev + prod on next deploy).
+export const DEPTH_MATCH_SENTINEL = "Match answer depth to the question";
+
+// Sentinel for the synthesis-consistency rule (Rule 17). A phrase unique to
+// Rule 17's header so a custom/legacy prompt can't accidentally satisfy it.
+// Boot enforcement overwrites the active prompt when this is absent, so rows
+// that predate this rule get upgraded in place (dev + prod on next deploy).
+export const SYNTHESIS_CONSISTENCY_SENTINEL = "Synthesis consistency across overlapping articles";
 
 export const LEGACY_GENERIC_KB_TITLES = [
   "Getting Started with BTS",

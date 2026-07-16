@@ -28,12 +28,6 @@ export default function ChatAnalytics() {
     refetchInterval: 60000,
   });
 
-  const tierLabels: Record<string, string> = {
-    "chat:basic": "Basic",
-    "chat:full": "Full",
-    "chat:custom": "Custom",
-  };
-
   const maxHourCount = data?.peakHours?.reduce((max: number, h: any) => Math.max(max, h.count), 0) || 1;
 
   return (
@@ -59,37 +53,6 @@ export default function ChatAnalytics() {
               <StatCard title="Avg Messages / User / Day" value={data?.avgMessagesPerUserPerDay ?? 0} icon={Users} />
               <StatCard title="Flagged Messages" value={data?.flaggedMessages ?? 0} icon={Flag} />
             </div>
-
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Users className="w-5 h-5" />
-                  Messages by Tier
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                {!data?.tierBreakdown?.length ? (
-                  <p className="text-muted-foreground text-sm">No tier data yet.</p>
-                ) : (
-                  <div className="space-y-4">
-                    {data.tierBreakdown.map((t: any) => (
-                      <div key={t.tier} className="flex items-center gap-4">
-                        <div className="w-24 text-sm font-medium">{tierLabels[t.tier] || t.tier}</div>
-                        <div className="flex-1 bg-secondary rounded-full h-6 relative overflow-hidden">
-                          <div
-                            className="bg-primary h-full rounded-full transition-all"
-                            style={{ width: `${Math.max(5, (t.totalMessages / Math.max(1, data.messages.total)) * 100)}%` }}
-                          />
-                          <span className="absolute inset-0 flex items-center justify-center text-xs font-medium">
-                            {t.totalMessages} msgs / {t.uniqueUsers} users
-                          </span>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
 
             <Card>
               <CardHeader>

@@ -60,8 +60,6 @@ export * from "./vault-resource-relations";
 export * from "./audit-log";
 export * from "./system-settings";
 export * from "./admin-notes";
-export * from "./conversations";
-export * from "./messages";
 export * from "./kb-staging";
 export * from "./blitz-lessons";
 export * from "./ai-live-documents";

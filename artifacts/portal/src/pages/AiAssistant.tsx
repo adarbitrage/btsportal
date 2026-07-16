@@ -1,43 +1,37 @@
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Button } from "@/components/ui/button";
 import {
-  Send, Bot, User, Trash2, Plus, MessageCircle,
-  Loader2, AlertCircle, Menu, X, Mic
+  Send, Bot, Trash2, Plus, MessageCircle,
+  Loader2, AlertCircle, Menu, X, Mic, LifeBuoy,
 } from "lucide-react";
 import { Link } from "wouter";
 import { AssistantEmptyState } from "@/components/assistant/AssistantEmptyState";
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect } from "react";
 import ReactMarkdown from "react-markdown";
+import {
+  useChatSessions,
+  useChatMessages,
+  useDeleteSession,
+  useChatStream,
+  useCreateTicketFromChat,
+  type ChatSession,
+  type ChatMessage,
+} from "@/lib/chat-api";
 
-const API_BASE = `${import.meta.env.BASE_URL}api/ai-chat`;
-
-interface Conversation {
-  id: number;
-  title: string;
-  createdAt: string;
-  updatedAt: string;
-}
-
-interface Message {
-  id?: number;
-  role: "user" | "assistant";
-  content: string;
-}
-
-function groupByDate(conversations: Conversation[]) {
+function groupByDate(sessions: ChatSession[]) {
   const now = new Date();
   const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   const yesterday = new Date(today.getTime() - 86400000);
   const last7 = new Date(today.getTime() - 7 * 86400000);
 
-  const groups: { label: string; items: Conversation[] }[] = [
+  const groups: { label: string; items: ChatSession[] }[] = [
     { label: "Today", items: [] },
     { label: "Yesterday", items: [] },
     { label: "Last 7 Days", items: [] },
     { label: "Older", items: [] },
   ];
 
-  for (const c of conversations) {
+  for (const c of sessions) {
     const d = new Date(c.updatedAt || c.createdAt);
     if (d >= today) groups[0].items.push(c);
     else if (d >= yesterday) groups[1].items.push(c);
@@ -49,186 +43,124 @@ function groupByDate(conversations: Conversation[]) {
 }
 
 export default function AiAssistant() {
-  const [conversations, setConversations] = useState<Conversation[]>([]);
-  const [activeConv, setActiveConv] = useState<number | null>(null);
-  const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
-  const [isStreaming, setIsStreaming] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [mobileSidebar, setMobileSidebar] = useState(false);
+  const [ticketCreated, setTicketCreated] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
-  const abortRef = useRef<AbortController | null>(null);
 
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  };
+  const { data: sessions = [] } = useChatSessions();
+  const {
+    messages,
+    isStreaming,
+    sessionId,
+    error,
+    suggestTicket,
+    sendMessage,
+    setMessages,
+    setSessionId,
+    clearError,
+    dismissTicketSuggestion,
+  } = useChatStream();
+  const { data: loadedMessages } = useChatMessages(sessionId);
+  const deleteSession = useDeleteSession();
+  const createTicket = useCreateTicketFromChat();
+
+  // Track which session's history we've hydrated so streaming updates aren't clobbered.
+  const hydratedSessionRef = useRef<number | null>(null);
 
   useEffect(() => {
-    scrollToBottom();
+    if (
+      sessionId &&
+      loadedMessages &&
+      hydratedSessionRef.current !== sessionId &&
+      !isStreaming
+    ) {
+      hydratedSessionRef.current = sessionId;
+      setMessages(loadedMessages.filter((m) => m.role !== "system"));
+    }
+  }, [sessionId, loadedMessages, isStreaming, setMessages]);
+
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  const fetchConversations = useCallback(async () => {
-    try {
-      const res = await fetch(API_BASE + "/conversations", { credentials: "include" });
-      if (res.ok) {
-        const data = await res.json();
-        setConversations(data);
-      }
-    } catch {}
-  }, []);
-
-  useEffect(() => {
-    fetchConversations();
-  }, [fetchConversations]);
-
-  const loadMessages = useCallback(async (convId: number) => {
-    try {
-      const res = await fetch(API_BASE + `/conversations/${convId}/messages`, {
-        credentials: "include",
-      });
-      if (res.ok) {
-        const data = await res.json();
-        setMessages(data);
-      }
-    } catch {}
-  }, []);
-
-  const handleSelectConv = (conv: Conversation) => {
-    setActiveConv(conv.id);
-    loadMessages(conv.id);
+  const handleSelectSession = (session: ChatSession) => {
+    if (session.id === sessionId) {
+      setMobileSidebar(false);
+      return;
+    }
+    hydratedSessionRef.current = null;
+    setSessionId(session.id);
+    setMessages([]);
     setMobileSidebar(false);
-    setError(null);
+    setTicketCreated(null);
+    clearError();
   };
 
   const handleNewChat = () => {
-    setActiveConv(null);
+    hydratedSessionRef.current = null;
+    setSessionId(null);
     setMessages([]);
     setInput("");
-    setError(null);
+    setTicketCreated(null);
+    clearError();
     setMobileSidebar(false);
     inputRef.current?.focus();
   };
 
-  const handleDeleteConv = async (convId: number, e: React.MouseEvent) => {
+  const handleDeleteSession = (id: number, e: React.MouseEvent) => {
     e.stopPropagation();
-    try {
-      await fetch(API_BASE + `/conversations/${convId}`, {
-        method: "DELETE",
-        credentials: "include",
-      });
-      setConversations((prev) => prev.filter((c) => c.id !== convId));
-      if (activeConv === convId) {
-        setActiveConv(null);
-        setMessages([]);
-      }
-    } catch {}
-  };
-
-  const sendMessage = async (overrideText?: string) => {
-    const content = (overrideText ?? input).trim();
-    if (!content || isStreaming) return;
-
-    setInput("");
-    setError(null);
-
-    const userMsg: Message = { role: "user", content };
-    setMessages((prev) => [...prev, userMsg]);
-
-    let convId = activeConv;
-
-    try {
-      if (!convId) {
-        const title = content.slice(0, 50) + (content.length > 50 ? "..." : "");
-        const res = await fetch(API_BASE + "/conversations", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          credentials: "include",
-          body: JSON.stringify({ title }),
-        });
-        if (!res.ok) throw new Error("Failed to create conversation");
-        const conv = await res.json();
-        convId = conv.id;
-        setActiveConv(conv.id);
-        setConversations((prev) => [conv, ...prev]);
-      }
-
-      setIsStreaming(true);
-      const assistantMsg: Message = { role: "assistant", content: "" };
-      setMessages((prev) => [...prev, assistantMsg]);
-
-      const abort = new AbortController();
-      abortRef.current = abort;
-
-      const res = await fetch(API_BASE + `/conversations/${convId}/messages`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({ content }),
-        signal: abort.signal,
-      });
-
-      if (!res.ok) throw new Error("Failed to send message");
-
-      const reader = res.body?.getReader();
-      const decoder = new TextDecoder();
-
-      if (reader) {
-        let buffer = "";
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-
-          buffer += decoder.decode(value, { stream: true });
-          const lines = buffer.split("\n");
-          buffer = lines.pop() || "";
-
-          for (const line of lines) {
-            if (line.startsWith("data: ")) {
-              try {
-                const data = JSON.parse(line.slice(6));
-                if (data.content) {
-                  setMessages((prev) => {
-                    const updated = [...prev];
-                    const last = updated[updated.length - 1];
-                    if (last && last.role === "assistant") {
-                      updated[updated.length - 1] = {
-                        ...last,
-                        content: last.content + data.content,
-                      };
-                    }
-                    return updated;
-                  });
-                }
-                if (data.error) {
-                  setError(data.error);
-                }
-              } catch {}
-            }
-          }
-        }
-      }
-
-      fetchConversations();
-    } catch (err: any) {
-      if (err.name !== "AbortError") {
-        setError(err.message || "Something went wrong");
-      }
-    } finally {
-      setIsStreaming(false);
-      abortRef.current = null;
+    deleteSession.mutate(id);
+    if (sessionId === id) {
+      handleNewChat();
     }
   };
+
+  const handleSend = (overrideText?: string) => {
+    const content = (overrideText ?? input).trim();
+    if (!content || isStreaming) return;
+    setInput("");
+    setTicketCreated(null);
+    // When a brand-new chat starts, mark the (upcoming) session as hydrated so
+    // the history query doesn't overwrite the streamed messages.
+    if (!sessionId) hydratedSessionRef.current = -1;
+    sendMessage(content, sessionId);
+  };
+
+  const handleCreateTicket = () => {
+    if (!sessionId) return;
+    const firstUserMessage = messages.find((m) => m.role === "user");
+    const subject =
+      (firstUserMessage?.content || "AI Assistant conversation").slice(0, 80);
+    createTicket.mutate(
+      { sessionId, subject },
+      {
+        onSuccess: (data: { ticketNumber?: string }) => {
+          setTicketCreated(data?.ticketNumber || "created");
+          dismissTicketSuggestion();
+        },
+      },
+    );
+  };
+
+  // Once a session id exists, keep the hydrated marker pinned to it.
+  useEffect(() => {
+    if (sessionId && hydratedSessionRef.current === -1) {
+      hydratedSessionRef.current = sessionId;
+    }
+  }, [sessionId]);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
-      sendMessage();
+      handleSend();
     }
   };
 
-  const grouped = groupByDate(conversations);
-  const activeTitle = conversations.find((c) => c.id === activeConv)?.title || "BTS AI Assistant";
+  const grouped = groupByDate(sessions);
+  const activeTitle = sessions.find((c) => c.id === sessionId)?.title || "BTS AI Assistant";
+  const visibleMessages = messages.filter((m: ChatMessage) => m.role !== "system");
 
   const sidebarContent = (
     <div className="flex flex-col h-full">
@@ -249,23 +181,23 @@ export default function AiAssistant() {
             <p className="px-3 py-1 text-[10px] font-semibold text-stone-500 dark:text-stone-400 uppercase tracking-wider">
               {group.label}
             </p>
-            {group.items.map((conv) => (
+            {group.items.map((session) => (
               <div
-                key={conv.id}
-                onClick={() => handleSelectConv(conv)}
+                key={session.id}
+                onClick={() => handleSelectSession(session)}
                 className={`group flex items-center gap-2 px-3 py-2 cursor-pointer transition-colors ${
-                  activeConv === conv.id
+                  sessionId === session.id
                     ? "bg-stone-200/70 dark:bg-stone-800"
                     : "hover:bg-stone-200/50 dark:hover:bg-stone-800/60"
                 }`}
-                data-testid={`item-conversation-${conv.id}`}
+                data-testid={`item-conversation-${session.id}`}
               >
                 <MessageCircle className="w-3.5 h-3.5 text-stone-500 dark:text-stone-400 shrink-0" />
-                <span className="flex-1 text-sm text-stone-800 dark:text-stone-200 truncate">{conv.title}</span>
+                <span className="flex-1 text-sm text-stone-800 dark:text-stone-200 truncate">{session.title}</span>
                 <button
-                  onClick={(e) => handleDeleteConv(conv.id, e)}
+                  onClick={(e) => handleDeleteSession(session.id, e)}
                   className="opacity-0 group-hover:opacity-100 p-1 rounded text-stone-500 hover:text-rose-600 dark:hover:text-rose-400 transition-all shrink-0"
-                  data-testid={`button-delete-conversation-${conv.id}`}
+                  data-testid={`button-delete-conversation-${session.id}`}
                 >
                   <Trash2 className="w-3.5 h-3.5" />
                 </button>
@@ -273,7 +205,7 @@ export default function AiAssistant() {
             ))}
           </div>
         ))}
-        {conversations.length === 0 && (
+        {sessions.length === 0 && (
           <div className="text-center py-8 text-sm text-stone-500 dark:text-stone-400 px-4">
             No conversations yet.
             <br />
@@ -349,12 +281,12 @@ export default function AiAssistant() {
             </div>
 
             <div className="flex-1 min-h-0 overflow-y-auto">
-              {messages.length === 0 ? (
-                <AssistantEmptyState onSendMessage={sendMessage} />
+              {visibleMessages.length === 0 ? (
+                <AssistantEmptyState onSendMessage={handleSend} />
               ) : (
                 <div className="max-w-3xl mx-auto px-4 py-6 space-y-4">
-                  {messages.map((msg, i) => (
-                    <div key={i} className={`flex gap-3 ${msg.role === "user" ? "justify-end" : ""}`}>
+                  {visibleMessages.map((msg, i) => (
+                    <div key={msg.id ?? `local-${i}`} className={`flex gap-3 ${msg.role === "user" ? "justify-end" : ""}`}>
                       {msg.role === "assistant" && (
                         <div className="w-8 h-8 rounded-full bg-stone-100 dark:bg-stone-800 ring-1 ring-stone-200 dark:ring-stone-700 flex items-center justify-center shrink-0 mt-0.5">
                           <Bot className="w-4 h-4 text-stone-700 dark:text-stone-200" />
@@ -363,7 +295,7 @@ export default function AiAssistant() {
                       {msg.role === "assistant" ? (
                         <div className="flex-1 min-w-0 pt-1 text-stone-900 dark:text-stone-100">
                           <div className="prose prose-sm max-w-none text-[15px] leading-7 [&_p]:mb-2 [&_p:last-child]:mb-0 [&_ul]:mb-2 [&_ol]:mb-2 [&_li]:mb-0.5 [&_a]:text-teal-700 dark:[&_a]:text-teal-400 [&_a]:underline [&_strong]:text-stone-900 dark:[&_strong]:text-stone-100 [&_code]:bg-stone-100 dark:[&_code]:bg-stone-800 [&_code]:text-stone-800 dark:[&_code]:text-stone-200 [&_code]:px-1.5 [&_code]:py-0.5 [&_code]:rounded [&_code]:text-[0.85em]">
-                            <ReactMarkdown>{msg.content || (isStreaming && i === messages.length - 1 ? "..." : "")}</ReactMarkdown>
+                            <ReactMarkdown>{msg.content || (isStreaming && i === visibleMessages.length - 1 ? "..." : "")}</ReactMarkdown>
                           </div>
                         </div>
                       ) : (
@@ -373,7 +305,7 @@ export default function AiAssistant() {
                       )}
                     </div>
                   ))}
-                  {isStreaming && messages[messages.length - 1]?.content === "" && (
+                  {isStreaming && visibleMessages[visibleMessages.length - 1]?.role === "user" && (
                     <div className="flex gap-3">
                       <div className="w-8 h-8 rounded-full bg-stone-100 dark:bg-stone-800 ring-1 ring-stone-200 dark:ring-stone-700 flex items-center justify-center shrink-0">
                         <Bot className="w-4 h-4 text-stone-700 dark:text-stone-200" />
@@ -388,11 +320,52 @@ export default function AiAssistant() {
               )}
             </div>
 
+            {suggestTicket && !ticketCreated && (
+              <div className="px-4 py-2.5 bg-teal-50 dark:bg-teal-950/40 border-t border-teal-200 dark:border-teal-900 text-sm flex items-center gap-2.5" data-testid="banner-suggest-ticket">
+                <LifeBuoy className="w-4 h-4 shrink-0 text-teal-700 dark:text-teal-400" />
+                <span className="flex-1 text-teal-900 dark:text-teal-100">
+                  Sounds like this needs a human. Want me to open a support ticket with this conversation attached?
+                </span>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="shrink-0 border-teal-300 dark:border-teal-800 text-teal-800 dark:text-teal-200"
+                  onClick={handleCreateTicket}
+                  disabled={createTicket.isPending}
+                  data-testid="button-create-ticket"
+                >
+                  {createTicket.isPending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : "Create ticket"}
+                </Button>
+                <button
+                  onClick={dismissTicketSuggestion}
+                  className="p-1 rounded text-teal-700 dark:text-teal-400 hover:bg-teal-100 dark:hover:bg-teal-900/40"
+                  data-testid="button-dismiss-ticket-suggestion"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            )}
+
+            {ticketCreated && (
+              <div className="px-4 py-2.5 bg-emerald-50 dark:bg-emerald-950/40 border-t border-emerald-200 dark:border-emerald-900 text-sm flex items-center gap-2.5" data-testid="banner-ticket-created">
+                <LifeBuoy className="w-4 h-4 shrink-0 text-emerald-700 dark:text-emerald-400" />
+                <span className="flex-1 text-emerald-900 dark:text-emerald-100">
+                  Support ticket {ticketCreated !== "created" ? ticketCreated + " " : ""}created — our team will follow up shortly.
+                </span>
+                <button
+                  onClick={() => setTicketCreated(null)}
+                  className="p-1 rounded text-emerald-700 dark:text-emerald-400 hover:bg-emerald-100 dark:hover:bg-emerald-900/40"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            )}
+
             {error && (
               <div className="px-4 py-2 bg-destructive/10 text-destructive text-xs flex items-center gap-2">
                 <AlertCircle className="w-3.5 h-3.5 shrink-0" />
                 <span className="flex-1">{error}</span>
-                <button onClick={() => setError(null)} className="underline text-xs">
+                <button onClick={clearError} className="underline text-xs">
                   Dismiss
                 </button>
               </div>
@@ -417,7 +390,7 @@ export default function AiAssistant() {
                   data-testid="input-message"
                 />
                 <Button
-                  onClick={() => sendMessage()}
+                  onClick={() => handleSend()}
                   disabled={!input.trim() || isStreaming}
                   className="shrink-0 h-[44px] w-[44px] p-0 rounded-2xl bg-stone-900 hover:bg-stone-800 text-stone-50 dark:bg-stone-100 dark:hover:bg-white dark:text-stone-900 disabled:bg-stone-300 disabled:text-stone-500"
                   data-testid="button-send"

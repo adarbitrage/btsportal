@@ -14,33 +14,34 @@ async function chatFetch(path: string, options?: RequestInit) {
   });
   if (!res.ok) {
     const data = await res.json().catch(() => ({ error: "Request failed" }));
-    throw new Error(data.error || `Request failed with status ${res.status}`);
+    const message = typeof data.error === "string" ? data.error : data.error?.message;
+    throw new Error(message || `Request failed with status ${res.status}`);
   }
   return res;
 }
 
 export interface ChatMessage {
   id?: number;
-  sessionId: string;
+  sessionId?: number;
   role: "user" | "assistant" | "system";
   content: string;
   createdAt?: string;
-  tokenCount?: number;
 }
 
 export interface ChatSession {
-  id: string;
+  id: number;
   title: string;
   createdAt: string;
   updatedAt: string;
-  messageCount: number;
 }
 
 export interface ChatStatus {
-  dailyMessageCount: number;
-  dailyMessageLimit: number;
-  tier: string;
-  chatEnabled: boolean;
+  hasAccess: boolean;
+  dailyLimit: number;
+  messagesUsedToday: number;
+  messagesRemaining: number;
+  resetTime: string;
+  maxOutputTokens: number;
 }
 
 export interface SavedPrompt {
@@ -65,20 +66,21 @@ export function useChatSessions() {
   return useQuery<ChatSession[]>({
     queryKey: ["chat", "sessions"],
     queryFn: async () => {
-      const res = await chatFetch("/chat/sessions");
+      const res = await chatFetch("/chat/sessions?limit=50");
       const data = await res.json();
       return Array.isArray(data) ? data : (data.sessions ?? []);
     },
   });
 }
 
-export function useChatMessages(sessionId: string | null) {
+export function useChatMessages(sessionId: number | null) {
   return useQuery<ChatMessage[]>({
     queryKey: ["chat", "messages", sessionId],
     queryFn: async () => {
       if (!sessionId) return [];
-      const res = await chatFetch(`/chat/sessions/${sessionId}/messages`);
-      return res.json();
+      const res = await chatFetch(`/chat/sessions/${sessionId}`);
+      const data = await res.json();
+      return data.messages ?? [];
     },
     enabled: !!sessionId,
   });
@@ -87,7 +89,7 @@ export function useChatMessages(sessionId: string | null) {
 export function useDeleteSession() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (sessionId: string) => {
+    mutationFn: async (sessionId: number) => {
       await chatFetch(`/chat/sessions/${sessionId}`, { method: "DELETE" });
     },
     onSuccess: () => {
@@ -127,7 +129,7 @@ export function useUpdatePrompt() {
   return useMutation({
     mutationFn: async ({ id, ...data }: { id: number; title: string; content: string }) => {
       const res = await chatFetch(`/chat/prompts/${id}`, {
-        method: "PUT",
+        method: "PATCH",
         body: JSON.stringify(data),
       });
       return res.json();
@@ -152,7 +154,7 @@ export function useDeletePrompt() {
 
 export function useCreateTicketFromChat() {
   return useMutation({
-    mutationFn: async (data: { sessionId: string; subject: string; description: string }) => {
+    mutationFn: async (data: { sessionId: number; subject: string }) => {
       const res = await chatFetch("/chat/create-ticket", {
         method: "POST",
         body: JSON.stringify(data),
@@ -165,8 +167,9 @@ export function useCreateTicketFromChat() {
 export interface StreamingState {
   messages: ChatMessage[];
   isStreaming: boolean;
-  sessionId: string | null;
+  sessionId: number | null;
   error: string | null;
+  suggestTicket: boolean;
 }
 
 export function useChatStream() {
@@ -175,27 +178,32 @@ export function useChatStream() {
     isStreaming: false,
     sessionId: null,
     error: null,
+    suggestTicket: false,
   });
   const abortRef = useRef<AbortController | null>(null);
   const queryClient = useQueryClient();
 
-  const setMessages = useCallback((msgsOrUpdater: ChatMessage[] | ((prev: ChatMessage[]) => ChatMessage[])) => {
-    setState((s) => ({
-      ...s,
-      messages: typeof msgsOrUpdater === "function" ? msgsOrUpdater(s.messages) : msgsOrUpdater,
-    }));
-  }, []);
+  const setMessages = useCallback(
+    (msgsOrUpdater: ChatMessage[] | ((prev: ChatMessage[]) => ChatMessage[])) => {
+      setState((s) => ({
+        ...s,
+        messages: typeof msgsOrUpdater === "function" ? msgsOrUpdater(s.messages) : msgsOrUpdater,
+      }));
+    },
+    [],
+  );
 
-  const setSessionId = useCallback((id: string | null) => {
-    setState((s) => ({ ...s, sessionId: id }));
+  const setSessionId = useCallback((id: number | null) => {
+    setState((s) => ({ ...s, sessionId: id, suggestTicket: false }));
   }, []);
 
   const sendMessage = useCallback(
-    async (content: string, existingSessionId?: string | null) => {
+    async (content: string, existingSessionId?: number | null) => {
+      const startingSessionId = existingSessionId ?? state.sessionId;
       const userMessage: ChatMessage = {
         role: "user",
         content,
-        sessionId: existingSessionId || state.sessionId || "",
+        sessionId: startingSessionId ?? undefined,
         createdAt: new Date().toISOString(),
       };
 
@@ -204,6 +212,7 @@ export function useChatStream() {
         messages: [...s.messages, userMessage],
         isStreaming: true,
         error: null,
+        suggestTicket: false,
       }));
 
       const controller = new AbortController();
@@ -216,7 +225,7 @@ export function useChatStream() {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             message: content,
-            sessionId: existingSessionId || state.sessionId,
+            sessionId: startingSessionId ?? undefined,
           }),
           signal: controller.signal,
         });
@@ -231,7 +240,7 @@ export function useChatStream() {
 
         const decoder = new TextDecoder();
         let assistantContent = "";
-        let newSessionId = existingSessionId || state.sessionId;
+        let newSessionId = startingSessionId ?? null;
         let buffer = "";
 
         const processLine = (line: string) => {
@@ -242,10 +251,11 @@ export function useChatStream() {
           try {
             const event = JSON.parse(data);
 
-            if (event.type === "session") {
+            if (typeof event.sessionId === "number") {
               newSessionId = event.sessionId;
               setState((s) => ({ ...s, sessionId: event.sessionId }));
-            } else if (event.type === "chunk") {
+            }
+            if (typeof event.content === "string" && event.content.length > 0) {
               assistantContent += event.content;
               setState((s) => {
                 const msgs = [...s.messages];
@@ -256,17 +266,22 @@ export function useChatStream() {
                   msgs.push({
                     role: "assistant",
                     content: assistantContent,
-                    sessionId: newSessionId || "",
+                    sessionId: newSessionId ?? undefined,
                     createdAt: new Date().toISOString(),
                   });
                 }
                 return { ...s, messages: msgs };
               });
-            } else if (event.type === "done") {
+            }
+            if (event.done) {
+              if (event.suggestTicket) {
+                setState((s) => ({ ...s, suggestTicket: true }));
+              }
               queryClient.invalidateQueries({ queryKey: ["chat", "status"] });
               queryClient.invalidateQueries({ queryKey: ["chat", "sessions"] });
-            } else if (event.type === "error") {
-              throw new Error(event.message || "Stream error");
+            }
+            if (event.error) {
+              throw new Error(typeof event.error === "string" ? event.error : "Stream error");
             }
           } catch (e) {
             if (e instanceof SyntaxError) return;
@@ -301,7 +316,7 @@ export function useChatStream() {
         }));
       }
     },
-    [state.sessionId, queryClient]
+    [state.sessionId, queryClient],
   );
 
   const stopStreaming = useCallback(() => {
@@ -313,6 +328,10 @@ export function useChatStream() {
     setState((s) => ({ ...s, error: null }));
   }, []);
 
+  const dismissTicketSuggestion = useCallback(() => {
+    setState((s) => ({ ...s, suggestTicket: false }));
+  }, []);
+
   return {
     ...state,
     sendMessage,
@@ -320,5 +339,6 @@ export function useChatStream() {
     setMessages,
     setSessionId,
     clearError,
+    dismissTicketSuggestion,
   };
 }

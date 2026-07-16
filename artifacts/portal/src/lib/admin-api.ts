@@ -783,10 +783,6 @@ export function deleteKnowledgebaseDoc(id: number) {
   return adminFetch(`/admin/chat/knowledgebase/${id}`, { method: "DELETE" });
 }
 
-export function reloadKnowledgeBaseCache() {
-  return adminFetch<{ success: boolean; message: string }>("/admin/chat/knowledgebase/reload", { method: "POST" });
-}
-
 // ── Live AI Documents (AI Knowledgebase — the assistant's citable corpus) ────
 export interface AiLiveDocument {
   id: number;
