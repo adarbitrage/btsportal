@@ -639,3 +639,10 @@ if [ -n "$DATABASE_URL" ]; then
     -f lib/db/drizzle/0117_kb_flag_lifecycle.sql \
     >/dev/null
 fi
+
+# --- GitHub mirror -----------------------------------------------------------
+# Mirror the just-merged master branch to GitHub main (adarbitrage/btsportal).
+# Best-effort: a GitHub outage or missing GITHUB_TOKEN must never fail the
+# post-merge setup, so failures are logged and swallowed. Details in
+# scripts/github-sync.sh.
+bash scripts/github-sync.sh || echo "[post-merge] GitHub sync failed (non-fatal, will retry on next merge)"

@@ -142,3 +142,4 @@
 - [Single member chat surface](chat-single-surface.md) — /ai-assistant on /api/chat is the ONE chat surface; legacy stack + tables deleted, tier gating removed.
 - [Replayed-migration FK repoint guard](replayed-migration-fk-repoint-guard.md) — if a later migration repoints an FK, guard the earlier migration's legacy FK add on the new constraint's existence, or replay breaks post-merge.
 - [Pitch stack hierarchy + email img-src guard](email-polish-pitch-hierarchy-and-guard.md) — position-aware pitch stack (primary/secondary/tertiary, one shared divider); structural test must exercise the real send path, not hand-built variables; DEV_EMAIL_ALLOWLIST forces real delivery for one-off sends without flipping NODE_ENV.
+- [GitHub mirror sync](github-mirror-sync.md) — post-merge force-pushes master→GitHub main via GIT_ASKPASS token seam; GitHub is a read-only mirror, never add a persistent remote.

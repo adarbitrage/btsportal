@@ -72,6 +72,11 @@ The project is structured as a pnpm workspace monorepo using Node.js 24 and Type
 -   This sync runs automatically before the api-server vitest suite via `artifacts/api-server/vitest.globalSetup.ts`, so a fresh/recovered dev DB picks up new companion migrations without a manual step. Set `SKIP_DEV_DB_SYNC=1` to opt out for fast local iteration; it is skipped when `DATABASE_URL` is unset. The merge path (`scripts/post-merge.sh`) applies the equivalent migrations inline.
 -   The `db-drift` workflow (`pnpm --filter @workspace/db test`) runs a **migrations-only** variant first via `lib/db/vitest.globalSetup.ts` (which calls `sync-dev` with `SYNC_MIGRATIONS_ONLY=1`): it applies the idempotent companion `.sql` files but **not** `drizzle-kit push --force`. This clears the schema-rename foot-gun (e.g. `community_reactions.target_type`, `users.posting_banned_at`) so the live-schema-drift test stops failing falsely, while a genuinely un-migrated schema column still surfaces as real drift (push-force would mask it). It is best-effort and obeys the same `SKIP_DEV_DB_SYNC=1` / `DATABASE_URL` skip conditions.
 
+**GitHub Mirror (automatic):**
+-   The repo is mirrored to GitHub at `adarbitrage/btsportal`: after every task merge, `scripts/post-merge.sh` runs `scripts/github-sync.sh`, which force-pushes the Replit `master` branch to GitHub `main`.
+-   Auth uses the `GITHUB_TOKEN` secret via a throwaway `GIT_ASKPASS` helper — the token never appears on a command line, in a saved remote, or in git config, so it cannot leak into process lists or logs. The script skips quietly if the token is unset, and a failed push never fails post-merge setup (it just retries on the next merge).
+-   `master` on Replit is the single source of truth: commits made directly on GitHub `main` will be overwritten by the next mirror push.
+
 **Monorepo Structure:**
 -   `artifacts/`: Deployable applications (API server, portal).
 -   `lib/`: Shared libraries (OpenAPI spec, generated clients/schemas, Drizzle DB schema, AI integrations).
