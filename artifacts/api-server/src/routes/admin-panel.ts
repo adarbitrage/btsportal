@@ -140,6 +140,7 @@ import {
   getLiveChatEmbedProbeUrl,
 } from "../lib/live-chat-embed-probe";
 import { getTicketDeskDeliveryProbeState } from "../lib/ticketdesk-delivery-probe";
+import { getGithubMirrorProbeState } from "../lib/github-mirror-probe";
 import {
   DEFAULT_TICKETDESK_URL,
   DEFAULT_TICKETDESK_WIDGET_SCRIPT_URL,
@@ -4196,6 +4197,15 @@ router.get("/admin/system/health", requirePermission("system:view"), async (_req
     // the moment delivery is blocked — distinct from the widget-embed probe.
     const ticketDeskDeliveryGate = getTicketDeskDeliveryProbeState();
 
+    // Task #1939: proactive GitHub mirror token health. The mirror push only
+    // runs post-merge, so an expired GITHUB_TOKEN used to be invisible until
+    // the next merge failed. The probe periodically verifies the token can
+    // still authenticate with push access (read-only GitHub API calls) and
+    // compares GitHub main's SHA to the local commit (advisory). Only a
+    // definitive auth failure degrades health; `unconfigured` (no token,
+    // normal in sandboxes) and `unreachable` (transient) never do.
+    const githubMirror = getGithubMirrorProbeState();
+
     // Interpret the cached Retell voice-agent setup result. A silent regression
     // (RETELL_AGENT_ID repointed to an agent that is NOT on the KB-connected
     // retell-llm engine) lands the cached setup in a skipped/error state; the
@@ -4221,7 +4231,7 @@ router.get("/admin/system/health", requirePermission("system:view"), async (_req
       ranAt: retellSetup?.ranAt ?? null,
     };
 
-    const overallStatus = !dbOk || queueFallbacks.alerting || !redisConnected || rateLimitAuditFailures.totalCount > 0 || portalUrl.productionFallbackMissing || moderationFailures.window.totalCount > 0 || commsDedupFailures.window.totalCount > 0 || liveChatEmbed.status === "blocked" || liveChatEmbed.alerting || ticketDeskDelivery.alerter.alerting || ticketDeskDeliveryGate.status === "blocked" || ticketDeskDeliveryGate.alerting || voiceAgent.needsAttention
+    const overallStatus = !dbOk || queueFallbacks.alerting || !redisConnected || rateLimitAuditFailures.totalCount > 0 || portalUrl.productionFallbackMissing || moderationFailures.window.totalCount > 0 || commsDedupFailures.window.totalCount > 0 || liveChatEmbed.status === "blocked" || liveChatEmbed.alerting || ticketDeskDelivery.alerter.alerting || ticketDeskDeliveryGate.status === "blocked" || ticketDeskDeliveryGate.alerting || githubMirror.status === "auth_failed" || githubMirror.alerting || voiceAgent.needsAttention
       ? "degraded"
       : "healthy";
 
@@ -4293,6 +4303,7 @@ router.get("/admin/system/health", requirePermission("system:view"), async (_req
         ticketDeskDelivery,
         liveChatEmbed,
         ticketDeskDeliveryGate,
+        githubMirror,
         voiceAgent,
         vipArbitragePitch,
         missingCriticalSecrets,

@@ -70,6 +70,10 @@ import {
   startPartnerEscalationAlerter,
   stopPartnerEscalationAlerter,
 } from "./lib/partner-escalation-alerter";
+import {
+  startGithubMirrorProbe,
+  stopGithubMirrorProbe,
+} from "./lib/github-mirror-probe";
 import { seedBlitzDocs } from "./lib/blitz-seed";
 import { repairConfidentialTermMentions } from "./lib/confidential-term-repair";
 import { seedCoreTrainingSources } from "./lib/seed-core-training-sources";
@@ -145,6 +149,7 @@ startTicketDeskDeliveryAlerter();
 startRetellAgentAlerter();
 startLiveChatEmbedProbe();
 startTicketDeskDeliveryProbe();
+startGithubMirrorProbe();
 startPartnerEscalationAlerter();
 
 // Run critical prerequisites (YSE product seed + ON CONFLICT constraint check)
@@ -218,6 +223,7 @@ async function gracefulShutdown(signal: string) {
   stopRetellAgentAlerter();
   stopLiveChatEmbedProbe();
   stopTicketDeskDeliveryProbe();
+  stopGithubMirrorProbe();
   stopPartnerEscalationAlerter();
   process.exit(0);
 }

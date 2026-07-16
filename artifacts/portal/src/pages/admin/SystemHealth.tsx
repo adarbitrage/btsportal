@@ -3,7 +3,7 @@ import { Link, useSearch, useLocation } from "wouter";
 import { AdminLayout } from "@/components/layout/AdminLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Activity, AlertTriangle, Database, Globe, Server, Webhook, RefreshCw, Zap, ExternalLink, ListChecks, ShieldCheck, Pause, Play, Brush, Bell, BellOff, Archive, KeyRound, Volume2, VolumeX, X, Siren, Hourglass, History, Send, CheckCircle2, XCircle, AlertCircle, ChevronDown, ChevronRight, ShieldAlert } from "lucide-react";
+import { Activity, AlertTriangle, Database, Globe, Server, Webhook, RefreshCw, Zap, ExternalLink, ListChecks, ShieldCheck, Pause, Play, Brush, Bell, BellOff, Archive, KeyRound, Volume2, VolumeX, X, Siren, Hourglass, History, Send, CheckCircle2, XCircle, AlertCircle, ChevronDown, ChevronRight, ShieldAlert, GitBranch } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { adminPanelApi } from "@/lib/admin-panel-api";
 import { useToast } from "@/hooks/use-toast";
@@ -3411,6 +3411,197 @@ export default function SystemHealth() {
                               <span className="font-medium">
                                 {new Date(dg.lastBlockedAt).toLocaleString()}
                               </span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                );
+              })()}
+
+              {health.services?.githubMirror && (() => {
+                const gm = health.services.githubMirror as {
+                  repo: string;
+                  status: "ok" | "auth_failed" | "unreachable" | "unconfigured" | "unknown";
+                  alerting: boolean;
+                  threshold: number;
+                  consecutiveAuthFailed: number;
+                  consecutiveUnreachable: number;
+                  reasons: string[];
+                  lastCheckedAt: string | null;
+                  lastOkAt: string | null;
+                  lastAuthFailedAt: string | null;
+                  lastUnreachableAt: string | null;
+                  lastError: string | null;
+                  remoteSha: string | null;
+                  localSha: string | null;
+                  inSync: boolean | null;
+                  mergeFailcount: number | null;
+                  enabled: boolean;
+                };
+                const badge =
+                  gm.status === "auth_failed"
+                    ? { variant: "destructive" as const, label: "token broken" }
+                    : gm.status === "unreachable"
+                      ? { variant: "warning" as const, label: "unreachable" }
+                      : gm.status === "ok"
+                        ? { variant: "default" as const, label: "ok" }
+                        : gm.status === "unconfigured"
+                          ? { variant: "outline" as const, label: "not configured" }
+                          : { variant: "outline" as const, label: "unknown" };
+                return (
+                  <Card data-testid="card-github-mirror">
+                    <CardHeader>
+                      <CardTitle className="text-base flex items-center gap-2">
+                        <GitBranch className="w-4 h-4" />
+                        GitHub mirror
+                        <Badge
+                          variant={badge.variant}
+                          className="ml-2 font-normal"
+                          data-testid="github-mirror-status"
+                          title={
+                            gm.status === "auth_failed"
+                              ? "The GITHUB_TOKEN used to mirror Replit master to GitHub main failed authentication — the mirror will fall behind on the next merge. Rotate the token."
+                              : gm.status === "unreachable"
+                                ? "The last probe could not conclusively reach GitHub (transient). The failure streak is unchanged."
+                                : gm.status === "ok"
+                                  ? "The mirror token authenticates with push access — post-merge mirror pushes will work."
+                                  : gm.status === "unconfigured"
+                                    ? "GITHUB_TOKEN is not set in this environment, so the mirror sync is skipped here."
+                                    : "No probe has run yet."
+                          }
+                        >
+                          {badge.label}
+                        </Badge>
+                        {gm.alerting && (
+                          <Badge
+                            variant="destructive"
+                            className="font-normal"
+                            data-testid="github-mirror-alerting"
+                            title="On-call has been paged: the mirror token has failed authentication for the configured number of consecutive probes."
+                          >
+                            alerting
+                          </Badge>
+                        )}
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-3">
+                        <div className="flex justify-between">
+                          <span className="text-sm text-muted-foreground">Repository</span>
+                          <span
+                            className="text-sm font-medium truncate max-w-[60%] text-right"
+                            title={gm.repo}
+                          >
+                            {gm.repo}
+                          </span>
+                        </div>
+                        {gm.inSync !== null && (
+                          <div className="flex justify-between">
+                            <span className="text-sm text-muted-foreground">
+                              GitHub main vs local
+                            </span>
+                            <span
+                              className={`text-sm font-medium ${gm.inSync ? "text-green-600" : "text-amber-600"}`}
+                              data-testid="github-mirror-insync"
+                              title={
+                                gm.inSync
+                                  ? `Both at ${gm.remoteSha?.slice(0, 10) ?? ""}`
+                                  : `GitHub main is at ${gm.remoteSha?.slice(0, 10) ?? "?"}, local is at ${gm.localSha?.slice(0, 10) ?? "?"}. In production this can simply mean the deployed snapshot is older than the latest merge.`
+                              }
+                            >
+                              {gm.inSync ? "in sync" : "differs"}
+                            </span>
+                          </div>
+                        )}
+                        <div className="flex justify-between">
+                          <span className="text-sm text-muted-foreground">
+                            Consecutive auth failures
+                          </span>
+                          <span
+                            className={`text-sm font-medium ${gm.consecutiveAuthFailed > 0 ? "text-red-600" : ""}`}
+                            data-testid="github-mirror-consecutive-auth-failed"
+                          >
+                            {gm.consecutiveAuthFailed} / {gm.threshold}
+                          </span>
+                        </div>
+                        {gm.mergeFailcount !== null && gm.mergeFailcount > 0 && (
+                          <div className="flex justify-between">
+                            <span className="text-sm text-muted-foreground">
+                              Failed merge-time pushes
+                            </span>
+                            <span
+                              className="text-sm font-medium text-red-600"
+                              data-testid="github-mirror-merge-failcount"
+                              title="Consecutive post-merge mirror pushes that failed (from scripts/github-sync.sh)."
+                            >
+                              {gm.mergeFailcount}
+                            </span>
+                          </div>
+                        )}
+                        {gm.consecutiveUnreachable > 0 && (
+                          <div className="flex justify-between">
+                            <span className="text-sm text-muted-foreground">
+                              Consecutive unreachable
+                            </span>
+                            <span className="text-sm font-medium text-amber-600">
+                              {gm.consecutiveUnreachable}
+                            </span>
+                          </div>
+                        )}
+                        {gm.reasons.length > 0 && (
+                          <div
+                            className="text-xs text-muted-foreground pt-2 border-t"
+                            data-testid="github-mirror-reasons"
+                          >
+                            <span className="block uppercase text-[10px] tracking-wide mb-1">
+                              Detail
+                            </span>
+                            {gm.reasons.map((r, i) => (
+                              <code key={i} className="block break-all">
+                                {r}
+                              </code>
+                            ))}
+                          </div>
+                        )}
+                        {gm.lastError && gm.status === "unreachable" && (
+                          <div className="text-xs text-muted-foreground pt-2 border-t">
+                            <span className="block uppercase text-[10px] tracking-wide mb-1">
+                              Last probe error
+                            </span>
+                            <code className="break-all">{gm.lastError}</code>
+                          </div>
+                        )}
+                        <div className="space-y-1 pt-2 border-t text-xs">
+                          {gm.lastCheckedAt && (
+                            <div className="flex justify-between">
+                              <span className="text-muted-foreground">Last checked</span>
+                              <span className="font-medium">
+                                {new Date(gm.lastCheckedAt).toLocaleString()}
+                              </span>
+                            </div>
+                          )}
+                          {gm.lastOkAt && (
+                            <div className="flex justify-between">
+                              <span className="text-muted-foreground">Last OK</span>
+                              <span className="font-medium">
+                                {new Date(gm.lastOkAt).toLocaleString()}
+                              </span>
+                            </div>
+                          )}
+                          {gm.lastAuthFailedAt && (
+                            <div className="flex justify-between">
+                              <span className="text-muted-foreground">Last auth failure</span>
+                              <span className="font-medium">
+                                {new Date(gm.lastAuthFailedAt).toLocaleString()}
+                              </span>
+                            </div>
+                          )}
+                          {!gm.enabled && (
+                            <div className="flex justify-between">
+                              <span className="text-muted-foreground">Probe</span>
+                              <span className="font-medium">not running here</span>
                             </div>
                           )}
                         </div>
