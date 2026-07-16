@@ -13,11 +13,20 @@ CREATE TABLE IF NOT EXISTS "kb_doc_provenance" (
   "created_at" timestamp with time zone DEFAULT now() NOT NULL
 );
 
+-- 0087 repoints this FK onto ai_live_documents (dropping the legacy
+-- knowledgebase_docs constraint). On replay, skip re-adding the legacy FK once
+-- the repointed constraint exists — provenance rows then reference
+-- ai_live_documents ids, and re-adding the old FK would (correctly) fail.
 DO $$ BEGIN
-  ALTER TABLE "kb_doc_provenance"
-    ADD CONSTRAINT "kb_doc_provenance_doc_id_knowledgebase_docs_id_fk"
-    FOREIGN KEY ("doc_id") REFERENCES "knowledgebase_docs"("id")
-    ON DELETE cascade ON UPDATE no action;
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint
+    WHERE conname = 'kb_doc_provenance_doc_id_ai_live_documents_id_fk'
+  ) THEN
+    ALTER TABLE "kb_doc_provenance"
+      ADD CONSTRAINT "kb_doc_provenance_doc_id_knowledgebase_docs_id_fk"
+      FOREIGN KEY ("doc_id") REFERENCES "knowledgebase_docs"("id")
+      ON DELETE cascade ON UPDATE no action;
+  END IF;
 EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
 DO $$ BEGIN
