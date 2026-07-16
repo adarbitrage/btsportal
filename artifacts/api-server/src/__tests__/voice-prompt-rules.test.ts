@@ -23,9 +23,18 @@ describe("voice system prompt — Task #1407 behaviour rules", () => {
     expect(prompt).toContain("coach and team-member names");
   });
 
-  it("carries the clarify-first rule", () => {
-    expect(prompt).toContain("CLARIFY FIRST — MANDATORY");
+  it("carries the single-clarifier / answer-the-likely-reading rule (Task #1927)", () => {
+    expect(prompt).toContain("ONE CLARIFIER, OR ANSWER THE LIKELY READING — MANDATORY");
     expect(prompt).toContain("ONE short clarifying question");
+    expect(prompt).toContain("answer the most likely interpretation");
+    expect(prompt).toContain("never chain clarifiers");
+  });
+
+  it("carries the conversational-cadence rule adapted for speech (Task #1927)", () => {
+    expect(prompt).toContain("CONVERSATIONAL CADENCE — MANDATORY");
+    expect(prompt).toContain("concise spoken answer");
+    expect(prompt).toContain("offer to go deeper");
+    expect(prompt).toContain("Never recite everything the knowledge-base lookup returned");
   });
 
   it("carries the depth-ceiling handoffs (concept→coaching, troubleshooting→support)", () => {
