@@ -784,6 +784,9 @@ export default function KnowledgeBaseReview() {
   // AI taxonomy suggestion (Task #1851): dismiss is per-doc + advisory-only
   // (the suggestion itself is never persisted; applying it just fills the editor).
   const [suggestDismissed, setSuggestDismissed] = useState(false);
+  // Task #1934: title-suggestion + retrieval self-test are collapsed behind a
+  // "View more" disclosure so the doc body / refine chat get the space.
+  const [showMoreInsights, setShowMoreInsights] = useState(false);
   const [instruction, setInstruction] = useState("");
   const [redrafting, setRedrafting] = useState(false);
   const [reviewInsights, setReviewInsights] = useState<ReviewInsights | null>(null);
@@ -1297,6 +1300,8 @@ export default function KnowledgeBaseReview() {
       });
       // Approval gate (Task #1906): the server refuses the transition to
       // approved while unresolved flags / flagged passages remain.
+      // NOTE (Task #1934): the server gate is TEMPORARILY disabled, so this
+      // branch is currently dormant — kept for when the gate returns.
       if (res.status === 409) {
         const data = await res.json().catch(() => null);
         const flags = Array.isArray(data?.outstanding?.flags) ? data.outstanding.flags.length : 0;
@@ -1491,6 +1496,9 @@ export default function KnowledgeBaseReview() {
 
   // Resolve / reopen a doc-level risk flag (audit-trailed). Resolving every
   // critical flag clears the "needs expert" hold.
+  // NOTE (Task #1934): the dialog's flag section is hidden, so these handlers
+  // are currently unreachable from this page — retained deliberately for when
+  // flag review is re-enabled.
   const resolveFlag = async (flag: RiskFlag) => {
     if (!selectedDoc) return;
     const reason = window.prompt(
@@ -1564,6 +1572,7 @@ export default function KnowledgeBaseReview() {
   const openDoc = (doc: StagingDoc) => {
     setSelectedDoc(doc);
     setEditMode(false);
+    setShowMoreInsights(false);
     setInstruction("");
     setRefineThread([]);
     setReviewInsights(null);
@@ -2075,8 +2084,8 @@ export default function KnowledgeBaseReview() {
   // ── Detail / edit dialog (shared) ─────────────────────────────────────────────
   function renderDetailDialog() {
     return (
-      <Dialog open={!!selectedDoc} onOpenChange={(open) => { if (!open) { setSelectedDoc(null); setEditMode(false); setChatOpen(false); setChatWide(false); if (showDuplicates) setDupRefreshKey((k) => k + 1); } }}>
-        <DialogContent className="max-w-[1150px] w-[92vw] sm:max-w-[1150px] h-[88vh] flex flex-col overflow-hidden">
+      <Dialog open={!!selectedDoc} onOpenChange={(open) => { if (!open) { setSelectedDoc(null); setEditMode(false); setChatOpen(false); setChatWide(false); setShowMoreInsights(false); if (showDuplicates) setDupRefreshKey((k) => k + 1); } }}>
+        <DialogContent className="max-w-[95vw] w-[95vw] sm:max-w-[95vw] h-[95vh] flex flex-col overflow-hidden">
           {selectedDoc && (
             <>
               <DialogHeader>
@@ -2130,72 +2139,40 @@ export default function KnowledgeBaseReview() {
                 </div>
               )}
 
-              {/* Risk flags — with per-flag Resolve/Reopen lifecycle (Task #1906).
-                  A flag must be fixed (edit removes its trigger) or resolved
-                  before the draft can move to approved. */}
-              {!editMode && (selectedDoc.riskFlags?.length || selectedDoc.needsExpert) && (
-                <div className="mt-3 space-y-2">
-                  <RiskChips flags={selectedDoc.riskFlags} needsExpert={selectedDoc.needsExpert} />
-                  {(reviewInsights?.flagStates?.length ?? 0) > 0 && (
-                    <ul className="space-y-1.5">
-                      {reviewInsights!.flagStates!.map((fs) => (
-                        <li
-                          key={fs.flag.type}
-                          className={`rounded-md border p-2 text-xs flex items-start gap-2 ${fs.resolved ? "bg-emerald-50/60 border-emerald-200" : "bg-white"}`}
-                        >
-                          <div className="min-w-0 flex-1">
-                            <div className="flex items-center gap-2 flex-wrap">
-                              <Badge variant="outline" className={`text-[10px] ${SEVERITY_STYLES[fs.flag.severity]?.chip ?? ""}`}>
-                                {fs.flag.type}
-                              </Badge>
-                              {fs.resolved && (
-                                <span className="text-[10px] font-medium text-emerald-700">resolved</span>
-                              )}
-                              <span className={`truncate ${fs.resolved ? "text-gray-400 line-through" : "text-gray-700"}`} title={fs.flag.message}>
-                                {fs.flag.message}
-                              </span>
-                            </div>
-                            {fs.resolved && fs.resolution?.reason && (
-                              <p className="mt-0.5 text-[11px] text-emerald-800/80 truncate" title={fs.resolution.reason}>
-                                Reason: {fs.resolution.reason}
-                              </p>
-                            )}
-                          </div>
-                          {fs.resolved ? (
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              className="h-6 px-2 text-[11px] shrink-0"
-                              onClick={() => unresolveFlag(fs.flag.type)}
-                              title="Reopen this flag — it counts against approval again"
-                            >
-                              Reopen
-                            </Button>
-                          ) : (
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              className="h-6 px-2 text-[11px] shrink-0 text-emerald-700 border-emerald-200 hover:bg-emerald-50"
-                              onClick={() => resolveFlag(fs.flag)}
-                              title="Mark this flag resolved (audit-trailed). If re-analysis reproduces the same flag it stays resolved."
-                            >
-                              <CheckCircle className="w-3 h-3 mr-1" />Resolve
-                            </Button>
-                          )}
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                </div>
-              )}
+              {/* Risk flags section intentionally hidden (Task #1934) — flags
+                  are still computed/stored server-side and can be re-enabled
+                  later, but they no longer render here or gate approval. */}
 
+              {/* Task #1934: title suggestion + retrieval self-test collapsed
+                  behind "View more" so the doc body / refine chat get space. */}
+              {!editMode && (() => {
+                const showTitleSuggestion = !!(
+                  selectedDoc.aiCleanedTitle &&
+                  !selectedDoc.aiTitleDecision &&
+                  selectedDoc.aiCleanedTitle.trim() !== selectedDoc.title.trim()
+                );
+                const showSelfTest = !!(selectedDoc.retrievalSelfTest && (selectedDoc.retrievalSelfTest.results?.length ?? 0) > 0);
+                if (!showTitleSuggestion && !showSelfTest) return null;
+                return (
+                  <div className="mt-2 shrink-0" data-testid="review-view-more">
+                    <button
+                      type="button"
+                      onClick={() => setShowMoreInsights((v) => !v)}
+                      aria-expanded={showMoreInsights}
+                      className="flex items-center gap-1 text-xs font-medium text-gray-600 hover:text-gray-900"
+                    >
+                      {showMoreInsights ? "View less" : "View more"}
+                      <span className="text-gray-400 font-normal">
+                        ({[showTitleSuggestion && "title suggestion", showSelfTest && "retrieval self-test"].filter(Boolean).join(", ")})
+                      </span>
+                      {showMoreInsights ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+                    </button>
+                    {showMoreInsights && (
+                      <>
               {/* AI title suggestion (Task #1839): the stored title is always
                   what displays/publishes; the suggestion is applied only via
                   an explicit Accept. Accept/Dismiss/human-edit locks it. */}
-              {!editMode &&
-                selectedDoc.aiCleanedTitle &&
-                !selectedDoc.aiTitleDecision &&
-                selectedDoc.aiCleanedTitle.trim() !== selectedDoc.title.trim() && (
+              {showTitleSuggestion && (
                 <div className="mt-3 rounded-lg border border-violet-200 bg-violet-50 p-3 text-sm">
                   <div className="flex items-center gap-2 text-violet-800 font-medium mb-1">
                     <Sparkles className="w-4 h-4" />AI suggests a clearer title
@@ -2261,9 +2238,14 @@ export default function KnowledgeBaseReview() {
               )}
 
               {/* Retrieval self-test (Task #1804) */}
-              {!editMode && selectedDoc.retrievalSelfTest && selectedDoc.retrievalSelfTest.results?.length > 0 && (
-                <SelfTestPanel selfTest={selectedDoc.retrievalSelfTest} />
+              {showSelfTest && (
+                <SelfTestPanel selfTest={selectedDoc.retrievalSelfTest!} />
               )}
+                      </>
+                    )}
+                  </div>
+                );
+              })()}
 
               {editMode ? (
                 <div className="flex-1 min-h-0 overflow-y-auto space-y-4 mt-4 pr-1">
@@ -2968,6 +2950,8 @@ export default function KnowledgeBaseReview() {
                           onClick={async () => {
                             // Approval gate (Task #1906): keep the dialog open on a
                             // blocked approve so the reviewer sees what's outstanding.
+                            // (Task #1934: gate temporarily disabled server-side, so
+                            // approve currently always goes through.)
                             const ok = await updateDoc(selectedDoc.id, { status: "approved" });
                             if (ok) setSelectedDoc(null);
                           }}

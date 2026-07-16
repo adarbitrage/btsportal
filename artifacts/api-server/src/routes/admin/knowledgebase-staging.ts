@@ -58,6 +58,13 @@ import { kbCorpusSweepRunsTable } from "@workspace/db/schema";
 
 export { runTriageBackground } from "../../lib/kb-triage.js";
 
+// TEMPORARY (Task #1934): the review dialog currently hides the risk-flags
+// section, so the approval gates on unresolved flags / highlights (and the
+// bulk-confirm blocking-flag gate) are disabled — hidden flags must not
+// silently block approval. Flags are still computed and stored. To re-enable
+// the gates when flag review returns to the UI, flip this back to true.
+const FLAG_APPROVAL_GATE_ENABLED = false;
+
 const router = Router();
 router.use(requirePermission("chat:manage"));
 
@@ -1777,7 +1784,7 @@ router.patch("/:id", async (req: Request, res: Response) => {
         res.status(404).json({ error: "Document not found" });
         return;
       }
-      if (existingDoc.status !== "approved") {
+      if (FLAG_APPROVAL_GATE_ENABLED && existingDoc.status !== "approved") {
         const outstanding = await getDocOutstanding(
           existingDoc,
           editedContent !== undefined ? (editedContent ?? existingDoc.content) : undefined,
@@ -1861,14 +1868,18 @@ router.post("/bulk-approve", async (req: Request, res: Response) => {
         .from(kbStagingDocsTable)
         .where(eq(kbStagingDocsTable.id, id));
       if (!doc) continue;
-      if (doc.needsExpert || blocksBulkConfirm((doc.riskFlags ?? []) as RiskFlag[])) {
-        blocked.push(id);
-        continue;
-      }
-      const outstanding = await getDocOutstanding(doc);
-      if (outstanding.activeFlags.length > 0 || outstanding.activeHighlights.length > 0) {
-        blocked.push(id);
-        continue;
+      // TEMPORARY (Task #1934): bulk-confirm gates disabled while flags are
+      // hidden in the review dialog — see FLAG_APPROVAL_GATE_ENABLED.
+      if (FLAG_APPROVAL_GATE_ENABLED) {
+        if (doc.needsExpert || blocksBulkConfirm((doc.riskFlags ?? []) as RiskFlag[])) {
+          blocked.push(id);
+          continue;
+        }
+        const outstanding = await getDocOutstanding(doc);
+        if (outstanding.activeFlags.length > 0 || outstanding.activeHighlights.length > 0) {
+          blocked.push(id);
+          continue;
+        }
       }
 
       const [updated] = await db

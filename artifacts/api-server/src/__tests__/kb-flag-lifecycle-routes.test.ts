@@ -106,30 +106,25 @@ afterAll(async () => {
 });
 
 describe("approval gate + flag resolution lifecycle", () => {
-  it("blocks transition-to-approved while an active flag remains, then allows it after resolve", async () => {
+  // TEMPORARY (Task #1934): flags are hidden in the review dialog, so the
+  // approval gate is disabled — unresolved flags must NOT block approval.
+  // When FLAG_APPROVAL_GATE_ENABLED is flipped back on, restore the original
+  // 409-blocking assertions here (see git history).
+  it("approves despite an active flag (gate temporarily disabled), while resolve stays functional", async () => {
     const docId = await seedDoc({
       content: `${TEST_TAG} clean body with no risky passages at all.`,
       riskFlags: [CRITICAL_FLAG],
       needsExpert: true,
     });
 
-    // Gate fires only on the transition to approved.
-    const blocked = await request(app)
-      .patch(`/api/${docId}`)
-      .set("Cookie", adminCookie)
-      .send({ status: "approved" });
-    expect(blocked.status).toBe(409);
-    expect(blocked.body.outstanding.flags).toHaveLength(1);
-    expect(blocked.body.outstanding.flags[0].type).toBe("conflict");
-
-    // Non-approval PATCHes pass through the gate untouched.
+    // Non-approval PATCHes pass through untouched.
     const notesOnly = await request(app)
       .patch(`/api/${docId}`)
       .set("Cookie", adminCookie)
       .send({ adminNotes: "still reviewing" });
     expect(notesOnly.status).toBe(200);
 
-    // Resolve the flag (audit-trailed) — clears needsExpert (it was the only critical).
+    // Resolve lifecycle still works (audit-trailed) — clears needsExpert.
     const resolved = await request(app)
       .post(`/api/${docId}/flags/resolve`)
       .set("Cookie", adminCookie)
@@ -144,7 +139,6 @@ describe("approval gate + flag resolution lifecycle", () => {
       .where(eq(kbTriageAuditLogTable.stagingDocId, docId));
     expect(audits.some((a) => a.eventType === "flag_resolved")).toBe(true);
 
-    // Approval now goes through.
     const approved = await request(app)
       .patch(`/api/${docId}`)
       .set("Cookie", adminCookie)
@@ -153,7 +147,7 @@ describe("approval gate + flag resolution lifecycle", () => {
     expect(approved.body.status).toBe("approved");
   });
 
-  it("unresolve reopens the flag and re-blocks approval", async () => {
+  it("approves even with an unresolved active flag (gate temporarily disabled)", async () => {
     const docId = await seedDoc({
       content: `${TEST_TAG} another clean body.`,
       riskFlags: [CRITICAL_FLAG],
@@ -172,11 +166,13 @@ describe("approval gate + flag resolution lifecycle", () => {
     expect(reopened.status).toBe(200);
     expect(reopened.body.needsExpert).toBe(true);
 
-    const blocked = await request(app)
+    // Gate off: the reopened flag no longer blocks approval.
+    const approved = await request(app)
       .patch(`/api/${docId}`)
       .set("Cookie", adminCookie)
       .send({ status: "approved" });
-    expect(blocked.status).toBe(409);
+    expect(approved.status).toBe(200);
+    expect(approved.body.status).toBe("approved");
   });
 
   it("resolving an unknown or absent flag type is rejected", async () => {
@@ -197,17 +193,17 @@ describe("approval gate + flag resolution lifecycle", () => {
 });
 
 describe("highlight dismissal lifecycle", () => {
-  it("dismisses an active highlight, gates approval until then, and undo re-flags it", async () => {
+  it("dismisses an active highlight (approval no longer gated — Task #1934) and undo re-flags it", async () => {
     const docId = await seedDoc({ content: `Intro line.\n\n${TAGGED_LINE}\n\nOutro.` });
 
-    // The leftover synthesis tag is an active highlight → approval is blocked.
-    const blocked = await request(app)
-      .patch(`/api/${docId}`)
-      .set("Cookie", adminCookie)
-      .send({ status: "approved" });
-    expect(blocked.status).toBe(409);
-    expect(blocked.body.outstanding.highlights.length).toBeGreaterThan(0);
-    const highlight = blocked.body.outstanding.highlights[0];
+    // TEMPORARY (Task #1934): the approval gate is disabled, so an active
+    // highlight no longer 409s the transition. Fetch it from review-insights.
+    const before = await request(app)
+      .get(`/api/${docId}/review-insights`)
+      .set("Cookie", adminCookie);
+    expect(before.status).toBe(200);
+    expect(before.body.highlights.length).toBeGreaterThan(0);
+    const highlight = before.body.highlights[0];
 
     // Persistently ignore it (kind + normalized excerpt).
     const dismissed = await request(app)
