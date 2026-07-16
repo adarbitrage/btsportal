@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Blitz Reference Docs — Lesson Provenance &amp; Publish Readiness</title>
+<style>
+  @page { margin: 22mm 18mm; }
+  body { font-family: Georgia, "Times New Roman", serif; color: #1a1a1a; line-height: 1.55; font-size: 11.5pt; max-width: 820px; margin: 0 auto; }
+  h1 { font-size: 19pt; margin-bottom: 2px; }
+  .subtitle { color: #555; font-size: 10.5pt; margin-bottom: 22px; }
+  h2 { font-size: 13.5pt; margin-top: 26px; border-bottom: 1px solid #ccc; padding-bottom: 4px; }
+  table { border-collapse: collapse; width: 100%; font-size: 10pt; margin: 10px 0; }
+  th, td { border: 1px solid #bbb; padding: 6px 8px; text-align: left; vertical-align: top; }
+  th { background: #f0f0f0; }
+  code { font-family: "Courier New", monospace; font-size: 9.5pt; background: #f5f5f5; padding: 1px 3px; }
+  .verdict { background: #eef6ee; border: 1px solid #b7d8b7; padding: 10px 14px; margin: 14px 0; }
+  .example { background: #f7f7f7; border-left: 3px solid #999; padding: 8px 12px; font-size: 10.5pt; margin: 10px 0; }
+  ul { margin: 6px 0 6px 18px; padding: 0; }
+  li { margin-bottom: 4px; }
+</style>
+</head>
+<body>
+<h1>Blitz Reference Docs — Lesson Provenance &amp; Publish Readiness</h1>
+<div class="subtitle">BTS Member Portal &middot; AI Document Review &middot; July 16, 2026</div>
+
+<div class="verdict">
+<strong>Verdict:</strong> No data was lost during the import of the 96 Blitz reference docs, no new import rules are needed, and the publish path to the live AI knowledge base already carries everything the AI assistant needs to direct members to the correct Blitz sections.
+</div>
+
+<h2>1. What the question was</h2>
+<p>When the 96 reference docs from AI Source Knowledge were imported into the AI Document Review section, their display names lost the internal numerical system (e.g. &ldquo;4.4&rdquo;, &ldquo;3.18b&rdquo;) that identified which Blitz lesson and part each doc came from. Was that provenance lost, and can the AI assistant still send members to the right place in the Blitz?</p>
+
+<h2>2. Where the lesson provenance is stored</h2>
+<p>Every one of the 96 imported docs retains its origin in three places:</p>
+<table>
+<tr><th>Field</th><th>What it holds</th><th>Example (&ldquo;Submit Ad Split Test Media to Compliance&rdquo;)</th></tr>
+<tr><td><code>source_video_title</code></td><td>The exact original AI Source Knowledge title, numbering included. Also the import&rsquo;s idempotency key &mdash; all 96 match their source rows exactly.</td><td>The Blitz&trade; Lesson &mdash; 4.4: Submit Ad Split Test Media to Compliance</td></tr>
+<tr><td><code>lesson_id</code></td><td>The parsed internal lesson number, queryable on its own.</td><td>4.4</td></tr>
+<tr><td><code>blitz_section</code></td><td>The member-facing Blitz guide section the lesson belongs to, resolved from a drift-guarded crosswalk against the real curriculum.</td><td>10</td></tr>
+</table>
+<p>81 of the 96 docs carry a <code>lesson_id</code>; the other 15 never had a number in their original titles (guides and overviews such as &ldquo;Your Blitz Roadmap&rdquo;, &ldquo;Round 1 Campaign Management Guide&rdquo;, and the two Core Training docs). That is not data loss &mdash; there was no number to carry over.</p>
+
+<h2>3. Why numbering was removed from titles and bodies &mdash; by design</h2>
+<p>The internal numbering is mining scaffolding that members never see anywhere in the portal. The live Blitz guide is organized by phase and section, not by those numbers, so a member told to &ldquo;go to Lesson 3.18b&rdquo; would have nothing to find. The importer therefore <em>translates</em> rather than deletes: every cross-reference such as &ldquo;Proceed to Lesson 4.5&rdquo; was rewritten to the canonical member-facing anchor:</p>
+<div class="example">Section 10 (&ldquo;Submit Your Assets for Compliance Review&rdquo;) in the Build phase of the Blitz guide, where you will learn how to integrate your ad image into your campaign setup&hellip;</div>
+<p>The assistant&rsquo;s system prompt enforces the same convention: refer to the Blitz textually in exactly this form, and never repeat internal lesson numbers.</p>
+
+<h2>4. Accuracy audit of the rewritten references</h2>
+<p>All 38 rewritten anchor phrases across the 96 docs were audited against the real curriculum structure (sections 1&ndash;2 Introduction, 3&ndash;14 Build, 15&ndash;20 Test, 21&ndash;23 Scale). Result: <strong>zero mismatches</strong>. The phrases cannot easily drift, because the section number and phase name are generated from the same curriculum skeleton that drives the live Blitz guide.</p>
+
+<h2>5. Publish path to the live AI knowledge base</h2>
+<p>The approve-and-push flow was verified end to end in code. Everything that matters survives publishing:</p>
+<ul>
+<li><strong>Rewritten cross-references</strong> live inside the document body, which is copied verbatim at push time. The only transform applied is the privacy scrub (emails, phone numbers, coach surnames), which cannot affect the anchor phrases.</li>
+<li><strong><code>blitz_section</code></strong> is explicitly carried onto the live AI document in all three write paths (in-place update, new insert, and title-conflict upsert), with an existing test guarding section&rarr;taxonomy consistency.</li>
+<li><strong>Provenance rows</strong> are written to a dedicated table on every push, tracing each live doc back to its screened source &mdash; the trail to the original numbered lesson is preserved even in the live knowledge base.</li>
+</ul>
+
+<h2>6. What remains (process, not code)</h2>
+<ul>
+<li>The 96 docs go through the normal review &rarr; approve &rarr; push flow in AI Document Review (the human gate).</li>
+<li>The review pipeline runs in dev only; approved outputs are promoted to production in a one-time step that carries the same rows (content, <code>blitz_section</code>, provenance) unchanged.</li>
+</ul>
+<p>Once reviewed and approved, the AI assistant will direct members to the correct Blitz section, with correct phase wording, in the same language the Blitz guide itself uses.</p>
+</body>
+</html>
