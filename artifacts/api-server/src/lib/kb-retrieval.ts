@@ -207,14 +207,72 @@ export function isFollowUp(query: string): boolean {
   return false;
 }
 
+// A bare affirmation ("yes", "sure, go ahead") carries NO topical content of
+// its own — its referent is whatever the assistant just offered, not the
+// member's own previous question. Matched against the normalized whole reply.
+const BARE_AFFIRMATION =
+  /^(?:yes|yeah|yep|yup|sure|ok|okay|please|yes please|please do|go ahead|go for it|do it|sounds good|sounds great|absolutely|definitely|of course|let's do it|lets do it|why not|walk me through it|show me)(?:[\s,!.]*(?:please|thanks|thank you))?[\s!.]*$/;
+
+/** True when the member's reply is a contentless yes/confirmation. */
+export function isBareAffirmation(query: string): boolean {
+  return BARE_AFFIRMATION.test(query.trim().toLowerCase());
+}
+
 /**
- * When the current query is a follow-up, prepend the immediately preceding
- * member question so the short follow-up resolves against its referent (e.g.
- * "is it free?" after "tell me about Flexy" searches for Flexy). Otherwise the
- * query is returned unchanged.
+ * Pull the assistant's trailing offer/question out of its last message so a
+ * "yes" can resolve against it (e.g. "Want me to walk you through domain and
+ * subdomain setup?"). Takes the LAST question-terminated sentence of the
+ * message; returns null when the assistant didn't end on a question.
+ */
+export function extractAssistantOffer(content: string): string | null {
+  const plain = content
+    .replace(/```[\s\S]*?```/g, " ") // code blocks
+    .replace(/\[([^\]]*)\]\([^)]*\)/g, "$1") // markdown links → label
+    .replace(/[*_`#>|-]/g, " ") // markdown decoration
+    .replace(/\s+/g, " ")
+    .trim();
+  const questions = plain.match(/[^.!?]{3,300}\?/g);
+  if (!questions || questions.length === 0) return null;
+  const offer = questions[questions.length - 1].trim();
+  // Only trust it as the referent when it actually ends the message (allowing
+  // trailing whitespace/punctuation) — a mid-message question isn't an offer.
+  if (!plain.endsWith(offer)) return null;
+
+  // Distill to the topical core: the lexical layer (websearch_to_tsquery) ANDs
+  // every term, so conversational boilerplate ("Want me to walk you through …
+  // next?") would demand docs contain "want"/"walk"/"next" and match nothing.
+  const core = offer
+    .replace(/\?+\s*$/, "")
+    .replace(
+      /^(?:do you want(?: me)?|would you like(?: me)?|want me|want|should i|shall i|can i|need me)\s*(?:to\s+)?/i,
+      "",
+    )
+    .replace(/^(?:walk you through|go over|show you|cover|explain|help(?: you)?(?: with)?|get into|dive into)\s+/i, "")
+    .replace(/\s+(?:next|now|first|as well|too|instead)\s*$/i, "")
+    .trim();
+  return core.length >= 3 ? core : offer;
+}
+
+/**
+ * When the current query is a follow-up, prepend its referent so the short
+ * follow-up resolves against it:
+ * - a bare affirmation ("yes") resolves against the assistant's own trailing
+ *   offer question ("Want me to walk you through domain/subdomain setup?"),
+ *   falling back to the prior member question if the assistant didn't offer;
+ * - any other short follow-up ("is it free?") resolves against the prior
+ *   member question, as before.
+ * Otherwise the query is returned unchanged.
  */
 export function buildHistoryAwareQuery(query: string, history: readonly RetrievalTurn[]): string {
   if (!history.length || !isFollowUp(query)) return query;
+
+  if (isBareAffirmation(query)) {
+    const lastAssistant = [...history].reverse().find((h) => h.role === "assistant");
+    const offer = lastAssistant ? extractAssistantOffer(lastAssistant.content) : null;
+    // The affirmation itself carries no topical content — search the offer alone.
+    if (offer) return offer;
+  }
+
   const priorUser = history
     .filter((h) => h.role === "user")
     .map((h) => h.content.trim())

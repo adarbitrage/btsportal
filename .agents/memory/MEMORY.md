@@ -141,5 +141,6 @@
 - [Blitz reference-doc import seam](blitz-reference-import-seam.md) — idempotency = exact source title; single_source flag expected on every curriculum doc; name highlights need the global not-a-name endpoint; push-approved is corpus-wide.
 - [Single member chat surface](chat-single-surface.md) — /ai-assistant on /api/chat is the ONE chat surface; legacy stack + tables deleted, tier gating removed.
 - [Replayed-migration FK repoint guard](replayed-migration-fk-repoint-guard.md) — if a later migration repoints an FK, guard the earlier migration's legacy FK add on the new constraint's existence, or replay breaks post-merge.
+- [Chat bare-affirmation follow-up](chat-bare-affirmation-followup.md) — "yes" resolves against the assistant's trailing offer (distilled); never feed conversational boilerplate into websearch_to_tsquery (ANDs every term).
 - [Pitch stack hierarchy + email img-src guard](email-polish-pitch-hierarchy-and-guard.md) — position-aware pitch stack (primary/secondary/tertiary, one shared divider); structural test must exercise the real send path, not hand-built variables; DEV_EMAIL_ALLOWLIST forces real delivery for one-off sends without flipping NODE_ENV.
 - [GitHub mirror sync](github-mirror-sync.md) — post-merge force-pushes master→GitHub main via GIT_ASKPASS token seam; GitHub is a read-only mirror, never add a persistent remote.

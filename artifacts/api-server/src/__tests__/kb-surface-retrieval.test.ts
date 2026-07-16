@@ -2,6 +2,8 @@ import { describe, it, expect } from "vitest";
 import {
   isNavigationQuery,
   isFollowUp,
+  isBareAffirmation,
+  extractAssistantOffer,
   buildHistoryAwareQuery,
   type RetrievalTurn,
 } from "../lib/kb-retrieval";
@@ -151,5 +153,66 @@ describe("buildHistoryAwareQuery", () => {
   it("ignores assistant-only history (no prior user turn)", () => {
     const onlyAssistant: RetrievalTurn[] = [{ role: "assistant", content: "Hi there" }];
     expect(buildHistoryAwareQuery("why?", onlyAssistant)).toBe("why?");
+  });
+
+  it("resolves a bare affirmation against the assistant's trailing offer (Flexy regression)", () => {
+    const flexyHistory: RetrievalTurn[] = [
+      { role: "user", content: "what is flexy?" },
+      { role: "assistant", content: "Flexy is the landing page builder." },
+      { role: "user", content: "cloning a template" },
+      {
+        role: "assistant",
+        content:
+          "Here's how to clone a template in Flexy:\n\n1. Go to **Sites**.\n2. Pick your folder.\n\nWant me to walk you through the domain and subdomain setup next?",
+      },
+    ];
+    expect(buildHistoryAwareQuery("yes", flexyHistory)).toBe("the domain and subdomain setup");
+  });
+
+  it("falls back to the prior user question when the assistant did not end on an offer", () => {
+    const noOffer: RetrievalTurn[] = [
+      { role: "user", content: "cloning a template" },
+      { role: "assistant", content: "Here are the steps. That completes the clone." },
+    ];
+    expect(buildHistoryAwareQuery("yes", noOffer)).toBe("cloning a template yes");
+  });
+
+  it("non-affirmation follow-ups still resolve against the prior user question", () => {
+    const h: RetrievalTurn[] = [
+      { role: "user", content: "tell me about Flexy" },
+      { role: "assistant", content: "It builds pages. Want a walkthrough of domain setup?" },
+    ];
+    expect(buildHistoryAwareQuery("is it free?", h)).toBe("tell me about Flexy is it free?");
+  });
+});
+
+describe("isBareAffirmation", () => {
+  it("matches contentless confirmations", () => {
+    for (const s of ["yes", "Yes!", "yeah", "sure", "ok", "okay", "yes please", "go ahead", "sounds good", "please do", "do it", "sure, thanks"]) {
+      expect(isBareAffirmation(s), s).toBe(true);
+    }
+  });
+
+  it("rejects replies that carry their own content", () => {
+    for (const s of ["yes but what about pricing", "no", "yes to the domain part only", "how much is it"]) {
+      expect(isBareAffirmation(s), s).toBe(false);
+    }
+  });
+});
+
+describe("extractAssistantOffer", () => {
+  it("returns the trailing question of a markdown message", () => {
+    expect(
+      extractAssistantOffer("Steps:\n1. **Clone** it.\n2. Done.\n\nWant me to walk you through [domain setup](/kb/domains)?"),
+    ).toBe("domain setup");
+  });
+
+  it("tolerates trailing whitespace after the closing question mark", () => {
+    expect(extractAssistantOffer("All set. Want me to cover DNS records?  ")).toBe("DNS records");
+  });
+
+  it("returns null when the message does not end on a question", () => {
+    expect(extractAssistantOffer("Is that clear? Here are the steps. All done.")).toBeNull();
+    expect(extractAssistantOffer("Just a statement.")).toBeNull();
   });
 });
