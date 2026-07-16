@@ -13,13 +13,56 @@ import {
   usersTable,
 } from "@workspace/db";
 import { eq, and, desc, sql, asc } from "drizzle-orm";
+import type { ChatRetrievalTrace } from "@workspace/db";
+import { hasPermission, isAdminRole } from "@workspace/auth";
 import { getAnthropicClient } from "@workspace/integrations-anthropic-ai";
 import { getUserEntitlements, hasMemberAccessBypass } from "../lib/entitlements";
-import { retrieveSurfaceAware, type RetrievalTurn } from "../lib/kb-retrieval";
+import {
+  retrieveSurfaceAware,
+  CONFIDENCE_FLOOR,
+  SEMANTIC_CONFIDENCE_FLOOR,
+  type RetrievalTurn,
+  type SurfaceRetrievalResult,
+} from "../lib/kb-retrieval";
 import { logUnansweredQuestion } from "../lib/content-gap-radar";
 import { CITABLE_KB_CATEGORIES } from "../lib/kb-taxonomy";
 
 const router: IRouter = Router();
+
+/**
+ * Build the persisted retrieval trace (Task #1925) from the SAME retrieval
+ * result the answer was generated with. Content is deliberately excluded —
+ * the trace stores identity + scores only, and the admin UI links to the
+ * live doc when full text is needed.
+ */
+export function buildRetrievalTrace(retrieval: SurfaceRetrievalResult): ChatRetrievalTrace {
+  return {
+    version: 1,
+    confident: retrieval.confident,
+    usedInContext: retrieval.confident && retrieval.docs.length > 0,
+    topScore: retrieval.topScore,
+    topSemanticScore: retrieval.topSemanticScore,
+    lexicalFloor: CONFIDENCE_FLOOR,
+    semanticFloor: SEMANTIC_CONFIDENCE_FLOOR,
+    docs: retrieval.docs.map((d) => ({
+      id: d.id,
+      title: d.title,
+      homeRoot: d.homeRoot,
+      node: d.node,
+      docClass: d.docClass,
+      rank: d.rank,
+      semanticScore: d.semanticScore,
+      grounded: d.grounded,
+      clearedFloor: d.grounded || d.rank >= CONFIDENCE_FLOOR || d.semanticScore >= SEMANTIC_CONFIDENCE_FLOOR,
+    })),
+  };
+}
+
+/** True when the requester holds the admin `chat:view` permission. */
+async function requesterCanViewTraces(userId: number): Promise<boolean> {
+  const [user] = await db.select({ role: usersTable.role }).from(usersTable).where(eq(usersTable.id, userId)).limit(1);
+  return !!user && isAdminRole(user.role) && hasPermission(user.role, "chat:view");
+}
 
 interface ChatConfig {
   dailyLimit: number;
@@ -288,6 +331,7 @@ router.post("/chat", async (req, res): Promise<void> => {
       sessionId: session.id,
       role: "assistant",
       content: fullResponse,
+      retrievalTrace: buildRetrievalTrace(retrieval),
     });
 
     const suggestTicket = fullResponse.includes("[SUGGEST_TICKET]");
@@ -378,11 +422,21 @@ router.get("/chat/sessions/:sessionId", async (req, res): Promise<void> => {
     return;
   }
 
-  const messages = await db
+  // Retrieval traces are ADMIN-ONLY diagnostics — never expose them to
+  // members, even on their own sessions. Only include the column when the
+  // requester holds the admin `chat:view` permission (i.e. an admin viewing
+  // their OWN /ai-assistant session).
+  const includeTraces = await requesterCanViewTraces(userId);
+
+  const rows = await db
     .select()
     .from(chatMessagesTable)
     .where(eq(chatMessagesTable.sessionId, sessionId))
     .orderBy(asc(chatMessagesTable.createdAt));
+
+  const messages = rows.map(({ retrievalTrace, ...rest }) =>
+    includeTraces ? { ...rest, retrievalTrace } : rest,
+  );
 
   res.json({
     id: session.id,

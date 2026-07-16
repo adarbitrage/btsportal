@@ -9,6 +9,13 @@ vi.mock("@/components/assistant/AssistantEmptyState", () => ({
   AssistantEmptyState: () => <div data-testid="empty-state" />,
 }));
 
+vi.mock("@/lib/auth", () => ({
+  useAuth: () => ({
+    user: { id: 1, name: "Test Member", role: "member" },
+    hasPermission: () => false,
+  }),
+}));
+
 const assistantTableMessage = {
   id: 1,
   role: "assistant" as const,

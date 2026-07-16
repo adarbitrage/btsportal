@@ -20,12 +20,16 @@ async function chatFetch(path: string, options?: RequestInit) {
   return res;
 }
 
+import type { RetrievalTrace } from "@/components/assistant/RetrievalSourcesPanel";
+
 export interface ChatMessage {
   id?: number;
   sessionId?: number;
   role: "user" | "assistant" | "system";
   content: string;
   createdAt?: string;
+  /** ADMIN-ONLY: present only when the API caller holds admin chat:view. */
+  retrievalTrace?: RetrievalTrace | null;
 }
 
 export interface ChatSession {

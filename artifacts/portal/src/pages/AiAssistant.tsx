@@ -6,6 +6,9 @@ import {
 } from "lucide-react";
 import { Link } from "wouter";
 import { AssistantEmptyState } from "@/components/assistant/AssistantEmptyState";
+import { RetrievalSourcesPanel } from "@/components/assistant/RetrievalSourcesPanel";
+import { useAuth } from "@/lib/auth";
+import { hasPermission, isAdminRole } from "@/lib/permissions";
 import { useState, useRef, useEffect } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -49,6 +52,11 @@ export default function AiAssistant() {
   const [ticketCreated, setTicketCreated] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+
+  const { user } = useAuth();
+  // Admin-only source tracing (Task #1925): the API only returns traces to
+  // admin chat:view holders; this mirrors that gate client-side.
+  const canViewTraces = !!user && isAdminRole(user.role) && hasPermission(user.role as any, "chat:view");
 
   const { data: sessions = [] } = useChatSessions();
   const {
@@ -309,6 +317,9 @@ export default function AiAssistant() {
                               {msg.content || (isStreaming && i === visibleMessages.length - 1 ? "..." : "")}
                             </ReactMarkdown>
                           </div>
+                          {canViewTraces && msg.retrievalTrace && (
+                            <RetrievalSourcesPanel trace={msg.retrievalTrace} />
+                          )}
                         </div>
                       ) : (
                         <div className="max-w-[80%] rounded-2xl px-4 py-2.5 bg-stone-100 dark:bg-stone-800 text-stone-900 dark:text-stone-100">

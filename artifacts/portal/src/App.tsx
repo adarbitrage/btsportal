@@ -74,6 +74,7 @@ import AdminApiKeys from "@/pages/AdminApiKeys";
 import ChatAnalytics from "@/pages/admin/ChatAnalytics";
 import ChatTranscripts from "@/pages/admin/ChatTranscripts";
 import SystemPrompts from "@/pages/admin/SystemPrompts";
+import FindInKnowledgeBase from "@/pages/admin/FindInKnowledgeBase";
 import Knowledgebase from "@/pages/admin/Knowledgebase";
 import ContentGaps from "@/pages/admin/ContentGaps";
 import KnowledgeBaseReview from "@/pages/admin/KnowledgeBaseReview";
@@ -591,6 +592,7 @@ function Router() {
       <Route path="/admin/chat/analytics">{() => <AdminRoute component={ChatAnalytics} permission="chat:view" />}</Route>
       <Route path="/admin/chat/transcripts">{() => <AdminRoute component={ChatTranscripts} permission="chat:view" />}</Route>
       <Route path="/admin/chat/prompts">{() => <AdminRoute component={SystemPrompts} permission="chat:manage" />}</Route>
+      <Route path="/admin/chat/find-in-kb">{() => <AdminRoute component={FindInKnowledgeBase} permission="chat:view" />}</Route>
       <Route path="/admin/chat/knowledgebase/archivebackup">{() => <AdminRoute component={KnowledgeBaseArchive} permission="chat:manage" />}</Route>
       <Route path="/admin/chat/knowledgebase/review">{() => <AdminRoute component={KnowledgeBaseReview} permission="chat:manage" />}</Route>
       <Route path="/admin/chat/knowledgebase">{() => <AdminRoute component={Knowledgebase} permission="chat:manage" />}</Route>

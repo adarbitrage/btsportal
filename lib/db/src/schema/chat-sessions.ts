@@ -1,4 +1,4 @@
-import { pgTable, text, serial, integer, boolean, timestamp } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, integer, boolean, timestamp, jsonb } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 import { usersTable } from "./users";
@@ -16,6 +16,35 @@ export const insertChatSessionSchema = createInsertSchema(chatSessionsTable).omi
 export type InsertChatSession = z.infer<typeof insertChatSessionSchema>;
 export type ChatSession = typeof chatSessionsTable.$inferSelect;
 
+/**
+ * Per-message retrieval trace (Task #1925). Stored ONLY on assistant messages,
+ * written at answer time from the SAME retrieval result the answer used.
+ * ADMIN-ONLY data: member-facing session reads must never select this column.
+ */
+export interface ChatRetrievalTrace {
+  version: 1;
+  /** Retrieval cleared the confidence bar → docs were injected into context. */
+  confident: boolean;
+  /** True when docs were actually placed into the system prompt. */
+  usedInContext: boolean;
+  topScore: number;
+  topSemanticScore: number;
+  lexicalFloor: number;
+  semanticFloor: number;
+  docs: {
+    id: number;
+    title: string;
+    homeRoot: string | null;
+    node: string | null;
+    docClass: string | null;
+    rank: number;
+    semanticScore: number;
+    grounded: boolean;
+    /** This doc individually cleared a confidence floor (else: near-miss). */
+    clearedFloor: boolean;
+  }[];
+}
+
 export const chatMessagesTable = pgTable("chat_messages", {
   id: serial("id").primaryKey(),
   sessionId: integer("session_id").notNull().references(() => chatSessionsTable.id),
@@ -23,6 +52,7 @@ export const chatMessagesTable = pgTable("chat_messages", {
   content: text("content").notNull(),
   flagged: boolean("flagged").notNull().default(false),
   adminNotes: text("admin_notes"),
+  retrievalTrace: jsonb("retrieval_trace").$type<ChatRetrievalTrace>(),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 

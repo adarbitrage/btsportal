@@ -26,6 +26,16 @@ vi.mock("@/lib/coaches-admin-api", () => ({
   resolveCoachPhotoUrl: () => null,
 }));
 
+// Date-flake fix: fixed day-of-month values (15..19) fall in the past once the
+// real date passes them, disabling the calendar day. Use today+offset clamped
+// to the current month (the booking calendar renders only the current month).
+function futureDateStrInMonth(offset: number) {
+  const today = new Date();
+  const lastDay = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate();
+  const day = Math.min(today.getDate() + offset, lastDay);
+  return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+}
+
 function buildSlots(count: number, dateStr: string) {
   return Array.from({ length: count }, (_, i) => ({
     startTime: new Date(`${dateStr}T${String(9 + i).padStart(2, "0")}:00:00.000Z`).toISOString(),
@@ -57,8 +67,7 @@ function selectFirstAvailableDay() {
 
 describe("kickoff slot cap + expander", () => {
   it("shows only the first 8 slots by default with a Show more times expander for a day with 12 slots", () => {
-    const today = new Date();
-    const dateStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-15`;
+    const dateStr = futureDateStrInMonth(0);
     useKickoffAvailability.mockReturnValue({
       data: { slots: buildSlots(12, dateStr), coaches: [{ id: 1, displayName: "Coach A", photoUrl: null, bio: null }] },
       isLoading: false,
@@ -78,8 +87,7 @@ describe("kickoff slot cap + expander", () => {
   });
 
   it("does not show the expander when a day has 8 or fewer slots", () => {
-    const today = new Date();
-    const dateStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-16`;
+    const dateStr = futureDateStrInMonth(1);
     useKickoffAvailability.mockReturnValue({
       data: { slots: buildSlots(5, dateStr), coaches: [{ id: 1, displayName: "Coach A", photoUrl: null, bio: null }] },
       isLoading: false,
@@ -94,8 +102,7 @@ describe("kickoff slot cap + expander", () => {
   });
 
   it("shows the friendly timezone label instead of the raw IANA id", () => {
-    const today = new Date();
-    const dateStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-17`;
+    const dateStr = futureDateStrInMonth(2);
     useKickoffAvailability.mockReturnValue({
       data: { slots: buildSlots(1, dateStr), coaches: [{ id: 1, displayName: "Coach A", photoUrl: null, bio: null }] },
       isLoading: false,
@@ -115,8 +122,7 @@ describe("kickoff slot cap + expander", () => {
 // the bio is non-null — no empty block or gap for null-bio coaches).
 describe("kickoff coach card bio", () => {
   it("shows the selected coach's bio once a slot is selected", () => {
-    const today = new Date();
-    const dateStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-18`;
+    const dateStr = futureDateStrInMonth(3);
     useKickoffAvailability.mockReturnValue({
       data: {
         slots: buildSlots(1, dateStr),
@@ -134,8 +140,7 @@ describe("kickoff coach card bio", () => {
   });
 
   it("renders no empty bio block when the selected coach's bio is null", () => {
-    const today = new Date();
-    const dateStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-19`;
+    const dateStr = futureDateStrInMonth(4);
     useKickoffAvailability.mockReturnValue({
       data: {
         slots: buildSlots(1, dateStr),

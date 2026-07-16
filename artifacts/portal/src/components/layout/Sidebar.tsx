@@ -68,6 +68,7 @@ import {
   Tags,
   SpellCheck,
   Map,
+  Search,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useGetCurrentMember, type MemberProfile } from "@workspace/api-client-react";
@@ -301,6 +302,10 @@ export const ADMIN_CHILDREN: NavNode[] = [
     icon: Database,
     defaultOpen: false,
     children: [
+      { kind: "leaf", href: "/admin/chat/transcripts", label: "Chat History", icon: MessageSquare, requiredPermission: "chat:view" },
+      { kind: "leaf", href: "/admin/chat/analytics", label: "Chat Analytics", icon: BarChart3, requiredPermission: "chat:view" },
+      { kind: "leaf", href: "/admin/chat/prompts", label: "System Prompts", icon: FileText, requiredPermission: "chat:manage" },
+      { kind: "leaf", href: "/admin/chat/find-in-kb", label: "Find in Knowledge Base", icon: Search, requiredPermission: "chat:view" },
       { kind: "leaf", href: "/admin/ai-knowledgebase/live-documents", label: "Live AI Documents", icon: Sparkles, requiredPermission: "chat:manage" },
       { kind: "leaf", href: "/admin/ai-knowledgebase/source-knowledge", label: "AI Source Knowledge", icon: Library, requiredPermission: "chat:manage" },
       { kind: "leaf", href: "/admin/ai-knowledgebase/transcript-cleaner", label: "Transcript Cleaner", icon: Wand2, requiredPermission: "chat:manage" },

@@ -9,6 +9,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { MessageSquare, Search, Flag, StickyNote, ArrowLeft, ChevronLeft, ChevronRight, Filter } from "lucide-react";
 import { fetchChatSessions, fetchChatSessionDetail, flagChatMessage, updateMessageNotes } from "@/lib/admin-api";
+import { RetrievalSourcesPanel } from "@/components/assistant/RetrievalSourcesPanel";
 import { format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
 
@@ -97,6 +98,9 @@ export default function ChatTranscripts() {
                           )}
                         </div>
                         <div className="text-sm whitespace-pre-wrap">{msg.content}</div>
+                        {msg.role === "assistant" && msg.retrievalTrace && (
+                          <RetrievalSourcesPanel trace={msg.retrievalTrace} />
+                        )}
                         {msg.adminNotes && !editingNote && (
                           <div className="mt-3 p-2 bg-yellow-50 border border-yellow-200 rounded text-xs">
                             <span className="font-medium">Admin Note:</span> {msg.adminNotes}

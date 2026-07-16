@@ -840,6 +840,53 @@ export function sendAiLiveDocumentToReview(id: number, note?: string) {
   });
 }
 
+// ── Find in Knowledge Base (Task #1925) — admin fact-search over live docs ──
+
+export interface KbFindResult {
+  docId: number;
+  title: string;
+  category: string;
+  docClass: string | null;
+  homeRoot: string | null;
+  node: string | null;
+  matchType: "exact" | "fuzzy";
+  score: number;
+  excerpt: string;
+  matchedPassage: string;
+}
+
+export interface KbFindClaim {
+  claim: string;
+  supported: boolean;
+  results: KbFindResult[];
+}
+
+export function kbFindSnippet(query: string) {
+  return adminFetch<{ query: string; results: KbFindResult[] }>(`/admin/kb-find/search`, {
+    method: "POST",
+    body: JSON.stringify({ query }),
+  });
+}
+
+// Step 1: split an answer into claims for the selectable checklist (no search).
+export function kbFindExtractClaims(answer: string) {
+  return adminFetch<{ claims: string[] }>(`/admin/kb-find/extract-claims`, {
+    method: "POST",
+    body: JSON.stringify({ answer }),
+  });
+}
+
+// Step 2: check only the claims the admin selected.
+export function kbFindCheckAnswer(claims: string[]) {
+  return adminFetch<{ claimCount: number; supportedCount: number; claims: KbFindClaim[] }>(
+    `/admin/kb-find/check-answer`,
+    {
+      method: "POST",
+      body: JSON.stringify({ claims }),
+    },
+  );
+}
+
 export interface AiLiveSourceScanResult {
   scanned: number;
   changed: number;
