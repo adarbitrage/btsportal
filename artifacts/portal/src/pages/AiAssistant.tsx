@@ -8,6 +8,7 @@ import { Link } from "wouter";
 import { AssistantEmptyState } from "@/components/assistant/AssistantEmptyState";
 import { useState, useRef, useEffect } from "react";
 import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import {
   useChatSessions,
   useChatMessages,
@@ -294,8 +295,19 @@ export default function AiAssistant() {
                       )}
                       {msg.role === "assistant" ? (
                         <div className="flex-1 min-w-0 pt-1 text-stone-900 dark:text-stone-100">
-                          <div className="prose prose-sm max-w-none text-[15px] leading-7 [&_p]:mb-2 [&_p:last-child]:mb-0 [&_ul]:mb-2 [&_ol]:mb-2 [&_li]:mb-0.5 [&_a]:text-teal-700 dark:[&_a]:text-teal-400 [&_a]:underline [&_strong]:text-stone-900 dark:[&_strong]:text-stone-100 [&_code]:bg-stone-100 dark:[&_code]:bg-stone-800 [&_code]:text-stone-800 dark:[&_code]:text-stone-200 [&_code]:px-1.5 [&_code]:py-0.5 [&_code]:rounded [&_code]:text-[0.85em]">
-                            <ReactMarkdown>{msg.content || (isStreaming && i === visibleMessages.length - 1 ? "..." : "")}</ReactMarkdown>
+                          <div className="prose prose-sm max-w-none text-[15px] leading-7 [&_p]:mb-2 [&_p:last-child]:mb-0 [&_ul]:mb-2 [&_ol]:mb-2 [&_li]:mb-0.5 [&_a]:text-teal-700 dark:[&_a]:text-teal-400 [&_a]:underline [&_strong]:text-stone-900 dark:[&_strong]:text-stone-100 [&_code]:bg-stone-100 dark:[&_code]:bg-stone-800 [&_code]:text-stone-800 dark:[&_code]:text-stone-200 [&_code]:px-1.5 [&_code]:py-0.5 [&_code]:rounded [&_code]:text-[0.85em] [&_table]:my-2 [&_table]:w-full [&_table]:text-sm [&_table]:border-collapse [&_th]:border [&_th]:border-stone-200 dark:[&_th]:border-stone-700 [&_th]:bg-stone-100 dark:[&_th]:bg-stone-800 [&_th]:px-3 [&_th]:py-1.5 [&_th]:text-left [&_th]:font-semibold [&_th]:text-stone-900 dark:[&_th]:text-stone-100 [&_td]:border [&_td]:border-stone-200 dark:[&_td]:border-stone-700 [&_td]:px-3 [&_td]:py-1.5 [&_td]:align-top">
+                            <ReactMarkdown
+                              remarkPlugins={[remarkGfm]}
+                              components={{
+                                table: ({ node: _node, ...props }) => (
+                                  <div className="overflow-x-auto max-w-full" data-testid="chat-markdown-table-wrapper">
+                                    <table {...props} />
+                                  </div>
+                                ),
+                              }}
+                            >
+                              {msg.content || (isStreaming && i === visibleMessages.length - 1 ? "..." : "")}
+                            </ReactMarkdown>
                           </div>
                         </div>
                       ) : (

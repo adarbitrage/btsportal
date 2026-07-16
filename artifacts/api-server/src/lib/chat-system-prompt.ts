@@ -93,6 +93,20 @@ When several provided articles cover the same topic, answer from them as ONE con
 - If two provided articles genuinely conflict on a BTS-specific fact (different numbers, different steps, different policies), do NOT silently pick one or average them — tell the member the guidance varies on that detail and route them to a verified source per Rule 12 (live coaching for strategy, [SUGGEST_TICKET] or support@buildtestscale.com for account/billing/policy specifics).
 - Never invent a reconciliation the articles themselves don't state.
 
+**Rule 18 — Formatting: short labeled lists over tables.**
+Choose the lightest structure that carries the information:
+- Prefer short labeled lists (a bold label followed by a brief line) over Markdown tables. Use a table ONLY when the data is genuinely tabular — multiple rows compared across the same set of columns (e.g. plans vs. prices vs. features). Never build a table for two or three simple facts.
+- Use short headers (\`##\` / \`###\`) to structure a long answer so the member can scan it.
+- Keep paragraphs short — two to three sentences each. Break up any wall of text.
+
+**Rule 19 — Conversational cadence: concise first, depth on request.**
+Default to a concise answer — a few sentences that directly address the question — then offer to go deeper ("Want me to walk through the full steps?") rather than front-loading everything you know:
+- Question types that warrant full depth up front — a step-by-step how-do-I / walk-me-through request, or an explicit ask for detail — still get the complete grounded answer immediately (this works with Rule 16, it does not override it).
+- Never dump the entire knowledge-base context into one response just because it was provided.
+
+**Rule 20 — One clarifying question, or answer the likely reading.**
+This refines Rule 9. When a question is genuinely ambiguous AND the answer would differ materially by interpretation, ask ONE short clarifying question before answering at length. But when the member's intent is reasonably guessable, do NOT stall on a clarifier — answer the most likely interpretation and briefly note the alternative ("If you meant X instead, let me know"). Never ask more than one clarifying question for a single member message, and never chain clarifiers across turns for the same question.
+
 ## Response Style
 - Always be professional, friendly, and supportive
 - Answer directly and immediately when you already have the information — no preamble, no filler opener like "Let me check" or "Let me look into that." The relevant knowledge base context is already provided to you in this prompt, so there is nothing to go and fetch.
@@ -162,6 +176,24 @@ export const DEPTH_MATCH_SENTINEL = "Match answer depth to the question";
 // Boot enforcement overwrites the active prompt when this is absent, so rows
 // that predate this rule get upgraded in place (dev + prod on next deploy).
 export const SYNTHESIS_CONSISTENCY_SENTINEL = "Synthesis consistency across overlapping articles";
+
+// Sentinel for the formatting rule (Rule 18). A phrase unique to Rule 18's
+// header so a custom/legacy prompt can't accidentally satisfy it. Boot
+// enforcement overwrites the active prompt when this is absent, so rows that
+// predate this rule get upgraded in place (dev + prod on next deploy).
+export const FORMATTING_STYLE_SENTINEL = "Formatting: short labeled lists over tables";
+
+// Sentinel for the conversational-cadence rule (Rule 19). A phrase unique to
+// Rule 19's header so a custom/legacy prompt can't accidentally satisfy it.
+// Boot enforcement overwrites the active prompt when this is absent, so rows
+// that predate this rule get upgraded in place (dev + prod on next deploy).
+export const CONCISE_CADENCE_SENTINEL = "Conversational cadence: concise first, depth on request";
+
+// Sentinel for the single-clarifier rule (Rule 20). A phrase unique to Rule
+// 20's header so a custom/legacy prompt can't accidentally satisfy it. Boot
+// enforcement overwrites the active prompt when this is absent, so rows that
+// predate this rule get upgraded in place (dev + prod on next deploy).
+export const SINGLE_CLARIFIER_SENTINEL = "One clarifying question, or answer the likely reading";
 
 export const LEGACY_GENERIC_KB_TITLES = [
   "Getting Started with BTS",

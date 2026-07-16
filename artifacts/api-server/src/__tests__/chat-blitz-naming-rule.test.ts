@@ -16,6 +16,9 @@ import {
   BLITZ_STEPS_SENTINEL,
   DEPTH_MATCH_SENTINEL,
   SYNTHESIS_CONSISTENCY_SENTINEL,
+  FORMATTING_STYLE_SENTINEL,
+  CONCISE_CADENCE_SENTINEL,
+  SINGLE_CLARIFIER_SENTINEL,
 } from "../lib/chat-system-prompt";
 
 // ensureKBGrounding() touches the DB and a handful of seed/scrub modules. Mock
@@ -192,6 +195,27 @@ describe("Rules 8-12 — behaviour rules (Task #1407 prompt surgery)", () => {
     expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain("Never invent a reconciliation");
   });
 
+  it("carries the Rule 18 formatting rule (lists over tables, headers, short paragraphs)", () => {
+    expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain("Rule 18");
+    expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain(FORMATTING_STYLE_SENTINEL);
+    expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain("genuinely tabular");
+    expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain("Keep paragraphs short");
+  });
+
+  it("carries the Rule 19 cadence rule (concise first, offer depth; how-tos get full depth)", () => {
+    expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain("Rule 19");
+    expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain(CONCISE_CADENCE_SENTINEL);
+    expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain("offer to go deeper");
+    expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain("full depth up front");
+  });
+
+  it("carries the Rule 20 single-clarifier rule (one question max, or answer likely reading)", () => {
+    expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain("Rule 20");
+    expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain(SINGLE_CLARIFIER_SENTINEL);
+    expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain("most likely interpretation");
+    expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain("Never ask more than one clarifying question");
+  });
+
   it("no longer carries member-visible tier placeholders (Task #1922 tier removal)", () => {
     expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).not.toContain("{{chat_tier}}");
     expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).not.toContain("Chat tier:");
@@ -210,6 +234,9 @@ describe("Rules 8-12 — behaviour rules (Task #1407 prompt surgery)", () => {
       BLITZ_STEPS_SENTINEL,
       DEPTH_MATCH_SENTINEL,
       SYNTHESIS_CONSISTENCY_SENTINEL,
+      FORMATTING_STYLE_SENTINEL,
+      CONCISE_CADENCE_SENTINEL,
+      SINGLE_CLARIFIER_SENTINEL,
     ]) {
       expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain(sentinel);
     }
@@ -273,6 +300,9 @@ describe("ensureKBGrounding() active-prompt sentinel upgrade", () => {
     ["BLITZ_STEPS_SENTINEL", BLITZ_STEPS_SENTINEL],
     ["DEPTH_MATCH_SENTINEL", DEPTH_MATCH_SENTINEL],
     ["SYNTHESIS_CONSISTENCY_SENTINEL", SYNTHESIS_CONSISTENCY_SENTINEL],
+    ["FORMATTING_STYLE_SENTINEL", FORMATTING_STYLE_SENTINEL],
+    ["CONCISE_CADENCE_SENTINEL", CONCISE_CADENCE_SENTINEL],
+    ["SINGLE_CLARIFIER_SENTINEL", SINGLE_CLARIFIER_SENTINEL],
   ])("overwrites an active prompt missing %s", async (_name, sentinel) => {
     const stale = ANTI_HALLUCINATION_SYSTEM_PROMPT.replace(sentinel, "redacted");
     expect(stale).not.toContain(sentinel);

@@ -40,6 +40,9 @@ import {
   BLITZ_STEPS_SENTINEL,
   DEPTH_MATCH_SENTINEL,
   SYNTHESIS_CONSISTENCY_SENTINEL,
+  FORMATTING_STYLE_SENTINEL,
+  CONCISE_CADENCE_SENTINEL,
+  SINGLE_CLARIFIER_SENTINEL,
   LEGACY_GENERIC_KB_TITLES,
 } from "./chat-system-prompt";
 import { ensureFoundingSuperAdmins } from "./ensure-founding-superadmins";
@@ -628,14 +631,17 @@ export async function ensureKBGrounding(): Promise<void> {
       !activePrompt.content.includes(PORTAL_LINK_SENTINEL) ||
       !activePrompt.content.includes(BLITZ_STEPS_SENTINEL) ||
       !activePrompt.content.includes(DEPTH_MATCH_SENTINEL) ||
-      !activePrompt.content.includes(SYNTHESIS_CONSISTENCY_SENTINEL))
+      !activePrompt.content.includes(SYNTHESIS_CONSISTENCY_SENTINEL) ||
+      !activePrompt.content.includes(FORMATTING_STYLE_SENTINEL) ||
+      !activePrompt.content.includes(CONCISE_CADENCE_SENTINEL) ||
+      !activePrompt.content.includes(SINGLE_CLARIFIER_SENTINEL))
   ) {
     await db
       .update(chatSystemPromptsTable)
       .set({ content: ANTI_HALLUCINATION_SYSTEM_PROMPT })
       .where(eq(chatSystemPromptsTable.id, activePrompt.id));
     console.log(
-      "[Bootstrap] Updated active system prompt with grounding + direct-answer + Blitz-naming + deep-assistant-persona + names-from-docs + clarify-first + depth-ceiling + navigation/legacy + no-answer-fallback + portal-link + blitz-steps + depth-match + synthesis-consistency rules.",
+      "[Bootstrap] Updated active system prompt with grounding + direct-answer + Blitz-naming + deep-assistant-persona + names-from-docs + clarify-first + depth-ceiling + navigation/legacy + no-answer-fallback + portal-link + blitz-steps + depth-match + synthesis-consistency + formatting + cadence + single-clarifier rules.",
     );
   }
 
