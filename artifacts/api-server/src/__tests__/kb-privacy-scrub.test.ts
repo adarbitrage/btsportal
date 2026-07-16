@@ -137,10 +137,10 @@ describe("scrubPrivateContent — coach last names", () => {
     expect(result).not.toContain("Rupp");
   });
 
-  it("strips Adam Cherrington and replaces with 'the instructor'", () => {
+  it("strips the founder's surname, keeping just the first name", () => {
     const result = scrubPrivateContent("Adam Cherrington created BTS.");
     expect(result).not.toContain("Cherrington");
-    expect(result).toContain("the instructor");
+    expect(result).toContain("Adam");
   });
 });
 
