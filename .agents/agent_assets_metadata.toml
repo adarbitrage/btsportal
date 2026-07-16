@@ -216,3 +216,15 @@ id = "G1AN_2vs7GGNS0TJA3bfY"
 uri = "file://exports/BTS_12Month_Mentorship_Agreement_Preview.pdf"
 type = "pdf"
 title = "BTS 12-Month Mentorship Mentee Agreement"
+
+[[outputs]]
+id = "bOCMqt9otcKgmGc4oeOIs"
+uri = "file://BTS_LaunchPad_Agreement_DRAFT.md"
+type = "text"
+title = "BTS LaunchPad Agreement (Markdown draft)"
+
+[[outputs]]
+id = "gY0bI2QejHYqUI_9S51iE"
+uri = "file://exports/BTS_LaunchPad_Agreement_Preview.pdf"
+type = "pdf"
+title = "BTS LaunchPad Agreement (PDF)"

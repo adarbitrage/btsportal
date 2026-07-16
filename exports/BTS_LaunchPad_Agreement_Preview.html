@@ -1,0 +1,461 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>BTS LaunchPad Up-Front Agreement</title>
+<style>
+  :root{
+    --primary:#1a56db;
+    --primary-dark:#1e40af;
+    --ink:#0f172a;
+    --body:#1f2937;
+    --muted:#64748b;
+    --line:rgba(15,23,42,0.10);
+    --bg:#f8fafc;
+    --card:#ffffff;
+    --accent-bg:#eff6ff;
+    --accent-border:#bfdbfe;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0;background:var(--bg);color:var(--body);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+    font-size:16px;line-height:1.65;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:820px;margin:0 auto;padding:32px 20px 64px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:14px;
+    box-shadow:0 1px 2px rgba(15,23,42,0.04),0 8px 24px rgba(15,23,42,0.06);overflow:hidden}
+  header.brand{background:linear-gradient(135deg,var(--primary) 0%,var(--primary-dark) 100%);
+    color:#fff;padding:28px 36px;display:flex;align-items:center;gap:16px}
+  header.brand img{height:44px;width:auto;background:#fff;border-radius:8px;padding:6px}
+  header.brand .b-title{font-size:20px;font-weight:700;letter-spacing:.2px;line-height:1.2}
+  header.brand .b-sub{font-size:13px;opacity:.85;margin-top:2px}
+  .doc{padding:36px 44px}
+  h1.doc-title{font-size:30px;line-height:1.2;color:var(--ink);margin:0 0 6px;font-weight:800;letter-spacing:-.01em}
+  .meta{color:var(--muted);font-size:14px;margin-bottom:8px}
+  .meta .fill{display:inline-block;border-bottom:1px solid var(--ink);min-width:220px;height:14px;vertical-align:-3px;margin-left:4px}
+  .lead{color:var(--body);font-size:15.5px;margin:18px 0 0}
+  hr.sep{border:0;border-top:1px solid var(--line);margin:28px 0}
+  h2{font-size:20px;color:var(--ink);margin:32px 0 10px;font-weight:700;letter-spacing:-.005em;
+    padding-bottom:6px;border-bottom:2px solid var(--accent-border)}
+  h2 .num{color:var(--primary);font-weight:800;margin-right:8px}
+  h3.crit{font-size:16.5px;color:var(--ink);margin:26px 0 8px;font-weight:700}
+  h4.sub{font-size:14px;color:var(--primary);margin:16px 0 6px;font-weight:700;
+    text-transform:uppercase;letter-spacing:.05em}
+  p{margin:10px 0}
+  strong{color:var(--ink)}
+  ol,ul{padding-left:22px;margin:10px 0}
+  ol li,ul li{margin:8px 0}
+  ol > li{padding-left:4px}
+  ol > li::marker{color:var(--primary);font-weight:700}
+  code{background:#f1f5f9;border:1px solid var(--line);padding:1px 6px;border-radius:4px;
+    font-size:13.5px;color:var(--ink);font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+  .callout{background:var(--accent-bg);border:1px solid var(--accent-border);border-left:4px solid var(--primary);
+    border-radius:8px;padding:14px 18px;margin:16px 0}
+  .tier-list{background:#f8fafc;border:1px solid var(--line);border-radius:8px;padding:8px 18px;margin:12px 0}
+  .letter{background:#f8fafc;border:1px solid var(--line);border-radius:10px;padding:20px 24px;margin:18px 0}
+  .letter .sig-name{font-weight:800;color:var(--ink);letter-spacing:.04em;margin-top:14px}
+  .letter .sig-role{color:var(--muted);font-style:italic;font-size:14px}
+  .footer-ack{margin-top:32px;padding:18px 20px;background:#f8fafc;border:1px solid var(--line);
+    border-radius:10px;color:var(--ink);font-weight:600}
+  /* Initial / checkbox affordances on refund-guarantee items */
+  .chk-list{list-style:none;padding-left:0}
+  .chk-list > li, .chk-ol > li{position:relative;padding-left:30px;margin:10px 0}
+  .chk-ol{list-style:none;counter-reset:chk;padding-left:0}
+  .chk-ol > li{counter-increment:chk}
+  .chk-ol > li::before{content:counter(chk) ".";position:absolute;left:0;top:0;
+    color:var(--primary);font-weight:800;width:22px;text-align:right}
+  .chk{display:inline-block;width:14px;height:14px;border:1.5px solid var(--primary);
+    border-radius:3px;vertical-align:-2px;margin-right:8px;background:#fff}
+  .chk-ol > li > .chk{position:absolute;left:24px;top:6px;margin-right:0}
+  .chk-ol > li{padding-left:48px}
+  .initial{display:inline-block;color:var(--muted);font-size:13px;font-style:italic;
+    margin-left:6px;white-space:nowrap}
+  .initial .line{display:inline-block;border-bottom:1px solid var(--ink);
+    width:90px;height:14px;vertical-align:-3px;margin-left:4px}
+  /* Part divider between marketing preamble and legal terms */
+  .part-title{margin:40px 0 6px;font-size:24px;color:var(--ink);font-weight:800;letter-spacing:-.01em;
+    padding-bottom:8px;border-bottom:3px solid var(--primary)}
+  /* Signature block */
+  .sig-section{margin-top:36px;padding-top:24px;border-top:2px solid var(--accent-border)}
+  .sig-section h2{border-bottom:0;padding-bottom:0;margin-top:0}
+  .sig-grid{display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-top:16px}
+  .sig-card{background:#f8fafc;border:1px solid var(--line);border-radius:10px;padding:20px}
+  .sig-card h3{margin:0 0 14px;color:var(--ink);font-size:15px;text-transform:uppercase;
+    letter-spacing:.06em;font-weight:700;border-bottom:1px solid var(--line);padding-bottom:8px}
+  .sig-row{margin:14px 0}
+  .sig-row .label{display:block;color:var(--muted);font-size:12px;text-transform:uppercase;
+    letter-spacing:.05em;margin-bottom:4px;font-weight:600}
+  .sig-row .field{border-bottom:1.5px solid var(--ink);min-height:30px;width:100%}
+  .sig-row.sig .field{min-height:42px}
+  @media (max-width:640px){.sig-grid{grid-template-columns:1fr}}
+  footer.foot{padding:22px 36px;color:var(--muted);font-size:13px;text-align:center;border-top:1px solid var(--line);background:#fafbfc}
+  footer.foot a{color:var(--primary);text-decoration:none}
+  @media (max-width:640px){
+    .doc{padding:24px 22px}
+    header.brand{padding:22px 22px}
+    h1.doc-title{font-size:24px}
+    h2{font-size:18px}
+  }
+  @media print{
+    body{background:#fff}
+    .wrap{padding:0;max-width:none}
+    .card{box-shadow:none;border:0;border-radius:0}
+    header.brand{background:#1a56db !important;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="card">
+    <header class="brand">
+      <img src="bts-logo.png" alt="BTS" />
+      <div>
+        <div class="b-title">Build. Test. Scale.</div>
+        <div class="b-sub">BTS LaunchPad&trade;</div>
+      </div>
+    </header>
+
+    <div class="doc">
+      <h1 class="doc-title">BTS LaunchPad Up-Front Agreement</h1>
+      <div class="meta"><strong>Program Name:</strong> BTS (Build. Test. Scale.) &mdash; BTS LaunchPad&trade;</div>
+      <div class="meta"><strong>Effective Date:</strong> Upon execution by Customer</div>
+
+      <p class="lead">This Up-Front Agreement for BTS (Build. Test. Scale.) ("Agreement") is entered into between BTS (Build. Test. Scale.) ("Company," "we," "us," or "our") and the individual identified during enrollment ("Customer," "you," or "your") for participation in the BTS LaunchPad&trade; program. By signing up for this program, you acknowledge that you have read, understood, and agreed to the terms and conditions set forth in this Agreement.</p>
+
+      <hr class="sep" />
+
+      <h2>A Welcome from Adam</h2>
+      <div class="letter">
+        <p>Greetings Aspiring Super Affiliate,</p>
+        <p>You are about to embark on a journey with BTS (Build. Test. Scale.), a mentorship program that stands at the forefront of affiliate marketing innovation. Spearheaded by Adam, AKA "The Master," in the affiliate marketing realm, and powered by BTS, this experience is not just a learning curve; it's a transformative expedition.</p>
+        <p>Within BTS, you access a proven system that has consistently delivered results. This method, a culmination of Adam's 20+ years of experience and unique insights in the industry, has helped hundreds of individuals achieve remarkable success in affiliate marketing.</p>
+        <p>As you sign the Up-Front Agreement today, remember this is more than a commitment to a program. It's a commitment to your success, to the untapped potential within you, and to a journey that will redefine your understanding of affiliate marketing.</p>
+        <p>Welcome aboard!</p>
+        <div class="sig-name">ADAM</div>
+        <div class="sig-role">Husband, Father, Super Affiliate</div>
+      </div>
+
+      <h2>30-Day "Take Action" Guarantee for the BTS LaunchPad&trade;</h2>
+      <p>Join BTS today, go through the training, launch your first campaign using our system and tools, and if you don't see results within your first 30 days, we'll give you every penny back. All we ask is that you actually do the work.</p>
+      <p>This isn't one of those "money-back-no-questions-asked" guarantees where you can buy, do nothing, and still get refunded. That wouldn't be fair to those who are serious about building real wealth with affiliate marketing.</p>
+      <p>Simply show us that you've:</p>
+      <ul>
+        <li>Completed the core training</li>
+        <li>Joined several live coaching calls</li>
+        <li>Used Media Mavens or other recommended affiliate networks to select a product</li>
+        <li>Launched at least one campaign using our tools &amp; traffic sources</li>
+        <li>Given it a fair shot for 30 days</li>
+      </ul>
+      <p>If you do that and still aren't seeing results, just send us proof you took those steps, and we'll promptly refund your entire investment. No hassles, no hard feelings. <em>(see below for full terms &amp; conditions)</em></p>
+
+      <h2>Commitment to Excellence</h2>
+      <p>Our program is designed to guide you comprehensively through the intricacies of affiliate marketing. By following our structured approach and actively engaging in all aspects of the mentorship, we're confident that you'll experience significant growth in your marketing skills and strategies. Our guarantee is not just a promise; it's a testament to the success our students have consistently achieved.</p>
+
+      <h2>Action-Based Refund Guarantee: A Partnership in Success</h2>
+      <p>We understand that commitment and effort are two-way streets. As such, our action-based refund guarantee is a pledge from both sides &mdash; ours to provide top-notch guidance and resources, and yours to dedicate yourself fully to the learning process. We emphasize the importance of 'pivoting' and adapting strategies based on data insights, a critical skill for thriving in the dynamic world of affiliate marketing.</p>
+
+      <h2>Why This Strategy Works</h2>
+      <p>The success of our mentorship lies in its holistic and integrated approach. Attempting to blend our strategies with disparate methods can undermine the effectiveness of the program. We encourage you to immerse yourself in the learning process, actively participate in group discussions, revisit our training materials, and trust the process that has led countless students to achieve financial independence and success. At BTS, we are committed to your success and firmly believe in the transformative power of this mentorship. To ensure a meaningful and result-oriented journey, we proudly offer a 30-Day Take Action Guarantee. This guarantee reflects our confidence in the mentorship's efficacy and your potential for success.</p>
+
+      <h2>Your Opportunity for Success</h2>
+      <p>This mentorship is more than just a learning program; it's a gateway to creating a successful business. We are here to support you every step of the way, but your commitment and dedication are paramount. If you're ready to fully embrace this opportunity, we're confident that you won't find a better path to success in affiliate marketing.</p>
+
+      <h2>Qualifying for the Guarantee</h2>
+      <p><em>To qualify for the 30-Day Take Action Guarantee, certain criteria must be met. These criteria are designed to ensure your active participation and commitment to the program.</em></p>
+      <p>To qualify for the Guarantee, you must have met each of the following 5 criteria within 30 days of signing up:</p>
+      <div class="tier-list">
+        <ul class="chk-list">
+          <li><span class="chk"></span><strong>Criteria #1:</strong> Completing All Core Trainings Start To Finish <span class="initial">Initial: <span class="line"></span></span></li>
+          <li><span class="chk"></span><strong>Criteria #2:</strong> Active &amp; Engaged Participation in At Least 3 Live Zoom Calls <span class="initial">Initial: <span class="line"></span></span></li>
+          <li><span class="chk"></span><strong>Criteria #3:</strong> Effective Utilization of Our Professional BTS Concierge&trade; <span class="initial">Initial: <span class="line"></span></span></li>
+          <li><span class="chk"></span><strong>Criteria #4:</strong> Diligent Sharing and Updating of Profit &amp; Loss (P&amp;L) Spreadsheet <span class="initial">Initial: <span class="line"></span></span></li>
+          <li><span class="chk"></span><strong>Criteria #5:</strong> Achieving a Minimum of $2,000 in Ad Spend on Specified Traffic Sources <span class="initial">Initial: <span class="line"></span></span></li>
+        </ul>
+      </div>
+      <p>At BTS (Build. Test. Scale.), we are committed to getting you up to speed&mdash;fast. The BTS LaunchPad&trade; is designed to give you the skills, tools, and confidence to move towards larger buys and greater scale in media buying.</p>
+      <p>But success in this program isn't about sitting back and watching&mdash;it's about taking action.</p>
+      <p>That's why we offer our 30-Day "Take Action" Guarantee. Follow the steps, put in the effort, and if you don't see results, we'll refund your investment. No hassles, no hard feelings.</p>
+      <p>To qualify for this guarantee, participants must complete the following within 30 days of signing up:</p>
+
+      <h2>30-Day Action-Based Guarantee &mdash; Qualification Criteria</h2>
+
+      <h3 class="crit">Criteria #1: Completing All Core Trainings Start to Finish</h3>
+      <p>The Core Trainings inside BTS LaunchPad&trade; are the foundation of everything we do. These modules are designed to teach you what works, why it works, and how to execute at a high level.</p>
+      <h4 class="sub">Completion Requirements</h4>
+      <p>To fulfill this criterion, students must:</p>
+      <ul>
+        <li>Complete all training modules in sequential order.</li>
+        <li>Watch 100% of the video content within each module.</li>
+        <li>Pass any required knowledge checks or quizzes that confirm comprehension.</li>
+        <li>Submit proof of implementation of key training concepts (where applicable).</li>
+      </ul>
+      <h4 class="sub">What This Means in Practice</h4>
+      <p>By the time you complete the Core Trainings, you will:</p>
+      <ul>
+        <li>Understand what makes a high-converting Direct Response banner.</li>
+        <li>Know how to analyze campaign data and make optimizations.</li>
+        <li>Be ready to launch and scale your first campaign.</li>
+      </ul>
+      <p>Skipping content or skimming through without implementing does not qualify as completion. This is a results-driven process.</p>
+
+      <h3 class="crit">Criteria #2: Active &amp; Engaged Participation in At Least 3 Live Zoom Calls</h3>
+      <p>Live coaching calls are where theory meets action. These sessions are designed to give you real-time feedback, troubleshooting, and insights from seasoned media buyers.</p>
+      <h4 class="sub">Participation Requirements</h4>
+      <p>To fulfill this criterion, students must:</p>
+      <ul>
+        <li>Attend at least 3 live Zoom coaching calls within the 30-day period.</li>
+        <li>Be visibly present on camera for at least 50% of each call.</li>
+        <li>Engage in at least one of the following ways:
+          <ul>
+            <li>Ask at least one relevant question per call.</li>
+            <li>Share progress updates or challenges for feedback.</li>
+            <li>Actively participate in group discussions. Demonstrate implementation of feedback from previous calls.</li>
+          </ul>
+        </li>
+      </ul>
+      <h4 class="sub">Why This Matters</h4>
+      <p>These interactive calls allow you to:</p>
+      <ul>
+        <li>Get direct guidance on your campaigns.</li>
+        <li>Troubleshoot problems in real time.</li>
+        <li>Accelerate your learning curve with expert coaching.</li>
+      </ul>
+      <p>Passive attendance does not qualify. You need to engage and put the strategies to work.</p>
+
+      <h3 class="crit">Criteria #3: Effective Utilization of the BTS Concierge&trade;</h3>
+      <p>The BTS Concierge&trade; is your execution partner&mdash;a team of highly trained professionals who help bring your campaigns to life. Leveraging this resource ensures faster implementation and fewer roadblocks.</p>
+      <h4 class="sub">Utilization Requirements</h4>
+      <p>To fulfill this criterion, students must:</p>
+      <ul>
+        <li>Submit at least 3 documented requests to the BTS Concierge&trade; for assistance.</li>
+        <li>Provide proof of collaboration and implementation, such as:
+          <ul>
+            <li>Email threads or screenshots of requests and responses.</li>
+            <li>Completed tasks that resulted from BTS Concierge&trade; assistance.</li>
+          </ul>
+        </li>
+      </ul>
+      <h4 class="sub">What Counts as BTS Concierge&trade; Assistance?</h4>
+      <ul>
+        <li>Banner creation and optimization.</li>
+        <li>Campaign structuring and setup assistance.</li>
+        <li>Technical troubleshooting inside Blaze&trade;.</li>
+        <li>Ad copy development and review.</li>
+      </ul>
+      <h4 class="sub">Why This Matters</h4>
+      <ul>
+        <li>This team helps streamline execution so you can focus on strategy and scale.</li>
+        <li>If you're not utilizing the BTS Concierge&trade;, you're leaving money on the table.</li>
+      </ul>
+
+      <h3 class="crit">Criteria #4: Diligent Sharing and Updating of Profit &amp; Loss (P&amp;L) Spreadsheet</h3>
+      <p>Affiliate marketing is a numbers game. Tracking financial performance is critical for optimizing campaigns and scaling successfully.</p>
+      <h4 class="sub">Reporting Requirements</h4>
+      <p>To fulfill this criterion, students must:</p>
+      <ul>
+        <li>Update their P&amp;L spreadsheet daily with accurate data on:
+          <ul>
+            <li>Revenue generated.</li>
+            <li>Ad spend.</li>
+            <li>Net profit/loss.</li>
+          </ul>
+        </li>
+        <li>Notify the support team via email at <code>support@buildtestscale.com</code> at the following ad spend milestones:
+          <ul>
+            <li>$500 spent</li>
+            <li>$1,000 spent</li>
+            <li>$1,500 spent</li>
+            <li>$2,000 spent</li>
+          </ul>
+        </li>
+        <li>Implement any strategic adjustments or feedback provided by the coaching team based on P&amp;L analysis.</li>
+      </ul>
+      <h4 class="sub">Why This Matters</h4>
+      <ul>
+        <li>Tracking numbers is what separates amateurs from professionals.</li>
+        <li>Without financial data, you can't optimize or scale effectively.</li>
+        <li>This ensures that every decision is backed by real campaign insights.</li>
+      </ul>
+
+      <h3 class="crit">Criteria #5: Achieving a Minimum of $2,000 in Ad Spend on Specified Traffic Sources</h3>
+      <p>Marketing success comes from testing, analyzing, and optimizing. Spending at least $2,000 ensures enough data is collected to identify promising banners and winning strategies.</p>
+      <h4 class="sub">Ad Spend Requirements</h4>
+      <p>To fulfill this criterion, students must:</p>
+      <ul>
+        <li>Spend a minimum of <strong>$2,000</strong> on advertising within the 30-day period.</li>
+        <li>Use only the traffic sources recommended within BTS.</li>
+        <li>Notify the support team at each ad spend milestone (as listed in the P&amp;L requirements).</li>
+        <li>Seek guidance and approval from the coaching team before moving past each major milestone.</li>
+      </ul>
+      <h4 class="sub">Verification &amp; Implementation</h4>
+      <ul>
+        <li>If the coaching team provides optimizations or required changes, these must be implemented before continuing to scale.</li>
+        <li>If any campaign is underperforming, students must pause, adjust, and pivot based on expert feedback.</li>
+      </ul>
+      <h4 class="sub">Why This Matters</h4>
+      <ul>
+        <li>Spending too little leads to insufficient data and unreliable results.</li>
+        <li>Following BTS's proven traffic sources ensures the best chance of success.</li>
+        <li>This step guarantees that you're actually running live campaigns and testing properly.</li>
+      </ul>
+
+      <p>We don't offer "no-questions-asked" refunds where someone can sign up, do nothing, and expect their money back. That wouldn't be fair to those who actually put in the effort to build real wealth with affiliate marketing.</p>
+      <p>If you follow the system and complete these steps, you will:</p>
+      <ul>
+        <li>Understand what makes a winning Direct Response banner.</li>
+        <li>Use Blaze&trade; to optimize your banners and generate at least one sale.</li>
+        <li>Identify at least one high-potential banner that could be expanded into a Dedicated Email campaign.</li>
+      </ul>
+      <p>These key milestones are what separate true action-takers from those who just browse.</p>
+      <p>If you complete all of these steps and still don't see results, just send us proof, and we'll refund your entire investment. No hassles, no hard feelings.</p>
+      <div class="callout">
+        <p style="margin-top:0"><strong>This Guarantee Exists for Action-Takers</strong></p>
+        <ul>
+          <li>If you're serious about launching your first successful campaign, we've got your back.</li>
+          <li>If you're looking for a risk-free peek inside, this isn't for you.</li>
+        </ul>
+        <p style="margin-bottom:0"><strong>Bottom line:</strong> If you do the work and don't see results, we'll make it right. But you have to take action.</p>
+      </div>
+
+      <hr class="sep" />
+
+      <div class="part-title">The Necessary Legal Stuff</div>
+      <p>Final Notes on the Guarantee: This Customer Agreement ("Agreement") is entered into between BTS (Build. Test. Scale.) ("Company") and you ("Customer") for participation in the BTS LaunchPad&trade; program. By signing up for this program, you acknowledge that you have read, understood, and agreed to the terms and conditions set forth in this Agreement.</p>
+
+      <h2><span class="num">1.</span>Services</h2>
+      <p>The Company shall provide the Customer with access to the BTS LaunchPad&trade; program, which includes:</p>
+      <ul>
+        <li>Core Training Modules covering direct response media buying fundamentals.</li>
+        <li>Live Coaching Calls for interactive learning and campaign troubleshooting.</li>
+        <li>Access to the BTS Concierge&trade; for assistance with campaign execution.</li>
+        <li>Use of Proprietary Tools, including Blaze&trade;, for campaign optimization.</li>
+        <li>Guidance on Ad Spend Strategy and recommended traffic sources.</li>
+      </ul>
+      <p>The goal of this program is to train participants on BTS's media buying system so they can confidently move toward larger traffic buys and greater scale.</p>
+
+      <h2><span class="num">2.</span>Program Terms &amp; Expectations</h2>
+      <p>The Customer understands that success in this program requires active participation and execution. While the Company provides training, tools, and expert guidance, the Customer is responsible for:</p>
+      <ul>
+        <li>Completing all Core Trainings from start to finish.</li>
+        <li>Attending at least 10 live coaching calls.</li>
+        <li>Using Media Mavens or other recommended networks to select a product.</li>
+        <li>Launching at least one campaign using BTS's system and traffic sources.</li>
+        <li>Tracking performance metrics and adjusting based on coaching feedback.</li>
+      </ul>
+      <p>Failure to meet these requirements disqualifies the Customer from any guarantees or refund requests.</p>
+
+      <h2><span class="num">3.</span>30-Day "Take Action" Guarantee</h2>
+      <p>The BTS LaunchPad&trade; program includes a 30-Day "Take Action" Guarantee. This is not a "no-questions-asked" refund policy, but a results-based commitment to action-takers.</p>
+      <p>To qualify for a refund, the Customer must:</p>
+      <div class="tier-list">
+        <ul class="chk-list">
+          <li><span class="chk"></span>Complete the full Core Training. <span class="initial">Initial: <span class="line"></span></span></li>
+          <li><span class="chk"></span>Attend multiple live coaching calls. <span class="initial">Initial: <span class="line"></span></span></li>
+          <li><span class="chk"></span>Use Media Mavens or other recommended affiliate networks. <span class="initial">Initial: <span class="line"></span></span></li>
+          <li><span class="chk"></span>Launch at least one campaign using BTS's system, tools, and traffic sources. <span class="initial">Initial: <span class="line"></span></span></li>
+          <li><span class="chk"></span>Demonstrate campaign optimizations and active testing using Blaze&trade;. <span class="initial">Initial: <span class="line"></span></span></li>
+        </ul>
+      </div>
+      <p>The Company defines "results" as the Customer having:</p>
+      <ul>
+        <li>Learned what makes a strong Direct Response banner and identified potential winning creatives.</li>
+        <li>Used Blaze&trade; to optimize banners and generated at least one sale.</li>
+        <li>Identified at least one high-potential banner for future Dedicated Email scaling.</li>
+      </ul>
+      <p>If the Customer completes these steps and does not see results, they may request a refund by submitting proof of all completed actions within 30 days of purchase.</p>
+      <div class="callout">Refund requests without sufficient proof will not be honored. <span class="initial">Initial: <span class="line"></span></span></div>
+
+      <h2><span class="num">4.</span>No Earnings Guarantee</h2>
+      <p>The Company does not guarantee any specific earnings or profit levels. The success of the Customer's campaigns depends on multiple factors, including ad creative, traffic source selection, optimization efforts, and market conditions. This program is designed to teach BTS's proven process, but results will vary based on individual effort and execution.</p>
+
+      <h2><span class="num">5.</span>No Transferability</h2>
+      <p>The Customer acknowledges that their enrollment in the BTS LaunchPad&trade; program is personal and non-transferable. The Customer may not assign or transfer any of their rights or obligations under this Agreement to any third party without the prior written consent of the Company.</p>
+
+      <h2><span class="num">6.</span>Intellectual Property</h2>
+      <p>All training materials, tools, and resources provided by the Company remain the exclusive property of BTS (Build. Test. Scale.). The Customer may not reproduce, distribute, or create derivative works based on the program content without written consent.</p>
+
+      <h2><span class="num">7.</span>Limitation of Liability</h2>
+      <p>The Company shall not be liable for:</p>
+      <ul>
+        <li>Any indirect, incidental, or consequential damages resulting from participation in the program.</li>
+        <li>The Customer's ad spend, financial losses, or business decisions.</li>
+        <li>The performance of third-party platforms, networks, or traffic sources.</li>
+      </ul>
+      <p>The Company's maximum liability under this Agreement shall be limited to the amount paid by the Customer for the BTS LaunchPad&trade; program.</p>
+
+      <h2><span class="num">8.</span>Amendments &amp; Modifications</h2>
+      <p>The Company reserves the right to:</p>
+      <ul>
+        <li>Update or modify training materials to reflect changes in the media buying landscape.</li>
+        <li>Adjust traffic source recommendations based on platform compliance and performance trends.</li>
+        <li>Change coaching schedules due to availability or program improvements.</li>
+      </ul>
+      <p>Any modifications will be communicated to active participants through official BTS channels.</p>
+
+      <h2><span class="num">9.</span>Governing Law &amp; Dispute Resolution</h2>
+      <p>This Agreement shall be governed by and construed in accordance with the laws of the State of Texas. Any legal disputes shall be resolved exclusively in the state or federal courts located in Dallas County, Texas.</p>
+
+      <h2><span class="num">10.</span>Agreement to Terms</h2>
+      <p>By enrolling in the BTS LaunchPad&trade; program, the Customer acknowledges and agrees to all terms outlined in this Agreement.</p>
+
+      <h2><span class="num">11.</span>Summary of Key Terms</h2>
+      <ul>
+        <li>You must take action&mdash;this is not a passive learning program.</li>
+        <li>We guarantee results, not earnings&mdash;you will learn how to run a campaign properly.</li>
+        <li>Refunds are action-based&mdash;if you do the work and don't see results, we'll make it right.</li>
+        <li>The Company is not responsible for your ad spend or campaign performance.</li>
+        <li>You may not share or transfer access to this program.</li>
+      </ul>
+      <p>If you're ready to commit, take action, and apply what you learn, we're here to support you every step of the way.</p>
+
+      <h2><span class="num">12.</span>Breach of Agreement</h2>
+      <p>In the event that any legal action or proceeding is brought by Company against Customer arising out of or relating to this Agreement, Company shall be entitled to recover its reasonable attorneys' fees and costs incurred in connection with such action or proceeding, in addition to any other relief to which it may be entitled.</p>
+
+      <h2><span class="num">13.</span>Survival</h2>
+      <p>The provisions of this Agreement that by their nature are intended to survive termination, including but not limited to the provisions on intellectual property, confidentiality, limitation of liability, and governing law, shall survive termination of this Agreement.</p>
+
+      <h2><span class="num">14.</span>Entire Agreement</h2>
+      <p>This Agreement constitutes the entire agreement between the Company and the Customer with respect to the subject matter hereof and supersedes all prior or contemporaneous communications and proposals, whether oral or written, between the parties.</p>
+
+      <h2><span class="num">15.</span>Disclaimers</h2>
+      <p>The content and resources provided through BTS (Build. Test. Scale.) are shared with an intent for transparency and educational purposes. It is presumed that the reader is a discerning adult, understanding the nature of online business and the absence of guarantees in financial outcomes, particularly in the context of starting a new website.</p>
+      <p><strong>PLEASE BE ADVISED:</strong></p>
+      <ol>
+        <li><strong>No Guarantees or Warranties:</strong> Employing the techniques, ideas, strategies, products, or services described by BTS does not guarantee similar results. Each individual's success and results may vary significantly based on personal skills, financial resources, marketing knowledge, and time investment. Historical performances or experiences shared on the website are not indicative of future results and should be understood as individual examples, not universal expectations.</li>
+        <li><strong>No "Get Rich Quick" Promises:</strong> The materials and content presented by BTS should not be interpreted as offering a "get rich quick" solution. The potential to earn and succeed in online marketing is heavily dependent on individual efforts and the prevailing state of online marketing. We make no promises or guarantees regarding the level of success or earnings one may achieve by applying the techniques and ideas shared on our site.</li>
+      </ol>
+      <p>This disclaimer is necessitated by the requirements of legal advisement, underscoring the absence of guaranteed financial outcomes in the dynamic and varied field of web marketing.</p>
+      <p><em>Marketing Material Disclaimer:</em> As you stand on the threshold of this exciting journey with BTS (Build. Test. Scale.), we want to extend our sincerest gratitude and congratulations. By choosing to embark on this path, you are not just investing in a mentorship program; you are investing in your future, your dreams, and the limitless potential that lies within you.</p>
+      <p>This agreement is not just a formality, but a testament to our shared commitment &mdash; ours to provide you with unparalleled guidance and resources, and yours to embrace the learning, growth, and transformation that awaits. Remember, every great journey begins with a single step, and this is yours. We promise to support you at every step, celebrating your successes and guiding you through challenges. Your success is our success, and we look forward to witnessing the incredible achievements you will undoubtedly attain.</p>
+      <p>Welcome to BTS (Build. Test. Scale.). Let's make this journey remarkable!</p>
+
+      <div class="footer-ack">By proceeding, you acknowledge that you have read, understand, and agree to the terms of this BTS LaunchPad Up-Front Agreement.</div>
+
+      <section class="sig-section">
+        <h2><span class="num">16.</span>Signatures</h2>
+        <p>The parties have executed this Agreement as of the dates set forth below.</p>
+        <div class="sig-grid">
+          <div class="sig-card">
+            <h3>Customer</h3>
+            <div class="sig-row"><span class="label">Printed Name</span><div class="field"></div></div>
+            <div class="sig-row sig"><span class="label">Signature</span><div class="field"></div></div>
+            <div class="sig-row"><span class="label">Date</span><div class="field"></div></div>
+          </div>
+          <div class="sig-card">
+            <h3>Company &mdash; BTS (Build. Test. Scale.)</h3>
+            <div class="sig-row"><span class="label">Printed Name</span><div class="field"></div></div>
+            <div class="sig-row"><span class="label">Title</span><div class="field"></div></div>
+            <div class="sig-row sig"><span class="label">Signature</span><div class="field"></div></div>
+            <div class="sig-row"><span class="label">Date</span><div class="field"></div></div>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <footer class="foot">
+      Build. Test. Scale. &middot; <a href="mailto:support@buildtestscale.com">support@buildtestscale.com</a>
+    </footer>
+  </div>
+</div>
+</body>
+</html>
