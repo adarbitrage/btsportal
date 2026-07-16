@@ -2103,18 +2103,6 @@ export default function KnowledgeBaseReview() {
                 </div>
               </DialogHeader>
 
-              {/* Blitz review-effort guidance (Task #1914) */}
-              {!editMode && selectedDoc.source === BLITZ_IMPORT_SOURCE && (
-                <div className="mt-2 flex items-center gap-2 text-xs text-gray-600" data-testid="blitz-effort-guidance">
-                  <BlitzEffortChip doc={selectedDoc} />
-                  <span>
-                    {(selectedDoc.riskFlags ?? []).some((f) => f.type === "portal_nav_check")
-                      ? "Imported Blitz reference — click through the portal path it describes and verify labels/steps before approving."
-                      : "Imported Blitz reference — third-party tool procedure; a quick sanity read is enough."}
-                  </span>
-                </div>
-              )}
-
               {/* Needs-expert / conflict banner */}
               {!editMode && (selectedDoc.needsExpert || selectedDoc.conflictData) && (
                 <div className={`p-3 rounded-lg border mt-2 ${SEVERITY_STYLES[maxSeverity(selectedDoc.riskFlags) ?? "high"].banner}`}>
@@ -2143,110 +2131,10 @@ export default function KnowledgeBaseReview() {
                   are still computed/stored server-side and can be re-enabled
                   later, but they no longer render here or gate approval. */}
 
-              {/* Task #1934: title suggestion + retrieval self-test collapsed
-                  behind "View more" so the doc body / refine chat get space. */}
-              {!editMode && (() => {
-                const showTitleSuggestion = !!(
-                  selectedDoc.aiCleanedTitle &&
-                  !selectedDoc.aiTitleDecision &&
-                  selectedDoc.aiCleanedTitle.trim() !== selectedDoc.title.trim()
-                );
-                const showSelfTest = !!(selectedDoc.retrievalSelfTest && (selectedDoc.retrievalSelfTest.results?.length ?? 0) > 0);
-                if (!showTitleSuggestion && !showSelfTest) return null;
-                return (
-                  <div className="mt-2 shrink-0" data-testid="review-view-more">
-                    <button
-                      type="button"
-                      onClick={() => setShowMoreInsights((v) => !v)}
-                      aria-expanded={showMoreInsights}
-                      className="flex items-center gap-1 text-xs font-medium text-gray-600 hover:text-gray-900"
-                    >
-                      {showMoreInsights ? "View less" : "View more"}
-                      <span className="text-gray-400 font-normal">
-                        ({[showTitleSuggestion && "title suggestion", showSelfTest && "retrieval self-test"].filter(Boolean).join(", ")})
-                      </span>
-                      {showMoreInsights ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
-                    </button>
-                    {showMoreInsights && (
-                      <>
-              {/* AI title suggestion (Task #1839): the stored title is always
-                  what displays/publishes; the suggestion is applied only via
-                  an explicit Accept. Accept/Dismiss/human-edit locks it. */}
-              {showTitleSuggestion && (
-                <div className="mt-3 rounded-lg border border-violet-200 bg-violet-50 p-3 text-sm">
-                  <div className="flex items-center gap-2 text-violet-800 font-medium mb-1">
-                    <Sparkles className="w-4 h-4" />AI suggests a clearer title
-                  </div>
-                  {(() => {
-                    const cmp = selectedDoc.retrievalSelfTest?.titleComparison;
-                    if (!cmp) return null;
-                    return (
-                      <div className="mb-2 rounded-md border border-violet-100 bg-white p-2 text-[13px] text-gray-700 space-y-1.5">
-                        <p className="text-[11px] font-medium text-gray-500">
-                          Why this suggestion — measured against {cmp.current.total} member question{cmp.current.total === 1 ? "" : "s"}:
-                        </p>
-                        <div className="flex items-start gap-2">
-                          <span className="text-gray-400 shrink-0">Current:</span>
-                          <span>
-                            “{cmp.current.title}” — finds this doc for{" "}
-                            <span className="font-semibold">{cmp.current.passedCount} of {cmp.current.total}</span>
-                          </span>
-                        </div>
-                        <div className="flex items-start gap-2">
-                          <span className="text-violet-500 shrink-0">Suggested:</span>
-                          <span>
-                            “{cmp.suggested.title}” — finds this doc for{" "}
-                            <span className="font-semibold text-violet-700">{cmp.suggested.passedCount} of {cmp.suggested.total}</span>
-                          </span>
-                        </div>
-                        {cmp.suggested.passedCount > cmp.current.passedCount && (
-                          <p className="text-emerald-700 text-[12px]">
-                            +{cmp.suggested.passedCount - cmp.current.passedCount} more member question{cmp.suggested.passedCount - cmp.current.passedCount === 1 ? "" : "s"} would surface this doc.
-                          </p>
-                        )}
-                        {cmp.brandFix && (
-                          <p className="text-amber-700 text-[12px]">
-                            The current title uses outdated/off-brand naming; the suggestion corrects it.
-                          </p>
-                        )}
-                      </div>
-                    );
-                  })()}
-                  {!selectedDoc.retrievalSelfTest?.titleComparison && (
-                    <p className="text-gray-800 mb-2">“{selectedDoc.aiCleanedTitle}”</p>
-                  )}
-                  <div className="flex items-center gap-2">
-                    <Button
-                      size="sm"
-                      className="h-7 px-3 bg-violet-600 hover:bg-violet-700 text-white"
-                      disabled={titleDeciding}
-                      onClick={() => decideTitleSuggestion("accept")}
-                    >
-                      Use suggested title
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="h-7 px-3"
-                      disabled={titleDeciding}
-                      onClick={() => decideTitleSuggestion("dismiss")}
-                    >
-                      Keep current title
-                    </Button>
-                  </div>
-                </div>
-              )}
-
-              {/* Retrieval self-test (Task #1804) */}
-              {showSelfTest && (
-                <SelfTestPanel selfTest={selectedDoc.retrievalSelfTest!} />
-              )}
-                      </>
-                    )}
-                  </div>
-                );
-              })()}
-
+              {/* Task #1934/#1940: secondary review metadata (SKIM guidance,
+                  taxonomy chips, new-doc banner, provenance, title suggestion,
+                  retrieval self-test) all live behind "View more" inside the
+                  scroll pane below, so the doc body gets the space. */}
               {editMode ? (
                 <div className="flex-1 min-h-0 overflow-y-auto space-y-4 mt-4 pr-1">
                   <div>
@@ -2418,29 +2306,295 @@ export default function KnowledgeBaseReview() {
                 <div className="flex-1 min-h-0 flex flex-col gap-3 mt-4">
                 {/* Top pane: the document + panels (independently scrollable) */}
                 <div className="flex-1 min-h-0 overflow-y-auto space-y-4 pr-1">
-                  {/* Taxonomy summary (Task #1865) — Shelf / Node / Ceiling /
-                      Doc class + controlled taxonomy tags. The legacy Category
-                      badge and free-text tags are retired. */}
-                  <div className="flex gap-2 flex-wrap">
-                    {selectedDoc.homeRoot && (
-                      <Badge variant="outline" className="text-xs bg-sky-50 text-sky-700 border-sky-200">
-                        <FolderTree className="w-3 h-3 mr-1" />{shelfLabel(selectedDoc.homeRoot)}{selectedDoc.node ? ` / ${selectedDoc.node}` : ""}
-                      </Badge>
-                    )}
-                    {selectedDoc.docClassTarget && (
-                      <Badge variant="outline" className="text-xs bg-emerald-50 text-emerald-700 border-emerald-200">
-                        {selectedDoc.docClassTarget}
-                      </Badge>
-                    )}
-                    {selectedDoc.ceiling && (
-                      <Badge variant="outline" className="text-xs bg-violet-50 text-violet-700 border-violet-200">
-                        Ceiling: {ceilingLabel(selectedDoc.ceiling)}
-                      </Badge>
-                    )}
-                    {selectedDoc.taxonomyTags?.map((tag) => (
-                      <Badge key={tag} variant="outline" className="text-xs">{tag}</Badge>
-                    ))}
-                  </div>
+                  {/* Task #1934/#1940: secondary review metadata collapsed
+                      behind a single "View more" toggle so the document body
+                      gets the space by default. Holds the SKIM/Blitz effort
+                      guidance, taxonomy chips, new-document banner, the
+                      Provenance & Authority card, the AI title suggestion,
+                      and the retrieval self-test. */}
+                  {(() => {
+                    const showBlitzGuidance = selectedDoc.source === BLITZ_IMPORT_SOURCE;
+                    const showTaxonomyChips = !!(
+                      selectedDoc.homeRoot ||
+                      selectedDoc.docClassTarget ||
+                      selectedDoc.ceiling ||
+                      (selectedDoc.taxonomyTags?.length ?? 0) > 0
+                    );
+                    const showNewDocBanner = selectedDoc.updateKind !== "update";
+                    const showTitleSuggestion = !!(
+                      selectedDoc.aiCleanedTitle &&
+                      !selectedDoc.aiTitleDecision &&
+                      selectedDoc.aiCleanedTitle.trim() !== selectedDoc.title.trim()
+                    );
+                    const showSelfTest = !!(selectedDoc.retrievalSelfTest && (selectedDoc.retrievalSelfTest.results?.length ?? 0) > 0);
+                    const hintParts = [
+                      showBlitzGuidance && "review effort",
+                      showTaxonomyChips && "taxonomy",
+                      showNewDocBanner && "new-doc status",
+                      "provenance",
+                      showTitleSuggestion && "title suggestion",
+                      showSelfTest && "retrieval self-test",
+                    ].filter(Boolean);
+                    return (
+                      <div data-testid="review-view-more">
+                        <button
+                          type="button"
+                          onClick={() => setShowMoreInsights((v) => !v)}
+                          aria-expanded={showMoreInsights}
+                          className="flex items-center gap-1 text-xs font-medium text-gray-600 hover:text-gray-900"
+                        >
+                          {showMoreInsights ? "View less" : "View more"}
+                          <span className="text-gray-400 font-normal">
+                            ({hintParts.join(", ")})
+                          </span>
+                          {showMoreInsights ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+                        </button>
+                        {showMoreInsights && (
+                          <div className="mt-2 space-y-3">
+                            {/* Blitz review-effort guidance (Task #1914) */}
+                            {showBlitzGuidance && (
+                              <div className="flex items-center gap-2 text-xs text-gray-600" data-testid="blitz-effort-guidance">
+                                <BlitzEffortChip doc={selectedDoc} />
+                                <span>
+                                  {(selectedDoc.riskFlags ?? []).some((f) => f.type === "portal_nav_check")
+                                    ? "Imported Blitz reference — click through the portal path it describes and verify labels/steps before approving."
+                                    : "Imported Blitz reference — third-party tool procedure; a quick sanity read is enough."}
+                                </span>
+                              </div>
+                            )}
+
+                            {/* Taxonomy summary (Task #1865) — Shelf / Node / Ceiling /
+                                Doc class + controlled taxonomy tags. The legacy Category
+                                badge and free-text tags are retired. */}
+                            {showTaxonomyChips && (
+                              <div className="flex gap-2 flex-wrap">
+                                {selectedDoc.homeRoot && (
+                                  <Badge variant="outline" className="text-xs bg-sky-50 text-sky-700 border-sky-200">
+                                    <FolderTree className="w-3 h-3 mr-1" />{shelfLabel(selectedDoc.homeRoot)}{selectedDoc.node ? ` / ${selectedDoc.node}` : ""}
+                                  </Badge>
+                                )}
+                                {selectedDoc.docClassTarget && (
+                                  <Badge variant="outline" className="text-xs bg-emerald-50 text-emerald-700 border-emerald-200">
+                                    {selectedDoc.docClassTarget}
+                                  </Badge>
+                                )}
+                                {selectedDoc.ceiling && (
+                                  <Badge variant="outline" className="text-xs bg-violet-50 text-violet-700 border-violet-200">
+                                    Ceiling: {ceilingLabel(selectedDoc.ceiling)}
+                                  </Badge>
+                                )}
+                                {selectedDoc.taxonomyTags?.map((tag) => (
+                                  <Badge key={tag} variant="outline" className="text-xs">{tag}</Badge>
+                                ))}
+                              </div>
+                            )}
+
+                            {/* New-document banner — counterpart of the update panel
+                                (which stays visible above, since it changes what
+                                approval does). */}
+                            {showNewDocBanner && (
+                              <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-2.5 text-xs text-emerald-800 flex items-center gap-2">
+                                <FileText className="w-4 h-4" />
+                                New document — no existing published doc for this topic.
+                              </div>
+                            )}
+
+                            {/* Provenance panel — collapsed to a one-line summary by
+                                default (Task #1865); Show More reveals the full detail. */}
+                            <div className="rounded-lg border bg-gray-50 p-3 text-sm space-y-2">
+                              <div className="flex items-center gap-2">
+                                <Link2 className="w-4 h-4 text-gray-700 shrink-0" />
+                                <div className="min-w-0 flex-1 text-gray-600 truncate">
+                                  <span className="font-medium text-gray-700">Provenance &amp; Authority</span>
+                                  <span className="text-gray-300 mx-1.5">·</span>
+                                  <span className="text-gray-400">Origin:</span>{" "}
+                                  {selectedDoc.originType ? ORIGIN_LABEL[selectedDoc.originType] ?? selectedDoc.originType : selectedDoc.source || "—"}
+                                  <span className="text-gray-300 mx-1.5">·</span>
+                                  <span className="text-gray-400">Authority:</span>{" "}
+                                  {selectedDoc.authorityRole ? AUTHORITY_LABEL[selectedDoc.authorityRole] ?? selectedDoc.authorityRole : "—"}
+                                  <span className="text-gray-300 mx-1.5">·</span>
+                                  <span className="text-gray-400">Corroboration:</span>{" "}
+                                  {selectedDoc.corroborationCount > 0
+                                    ? `${selectedDoc.corroborationCount} other source(s)`
+                                    : "single source"}
+                                </div>
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  className="h-6 px-2 text-[11px] shrink-0"
+                                  onClick={() => setProvenanceExpanded((v) => !v)}
+                                >
+                                  {provenanceExpanded ? (
+                                    <><ChevronUp className="w-3 h-3 mr-1" />Show less</>
+                                  ) : (
+                                    <><ChevronDown className="w-3 h-3 mr-1" />Show more</>
+                                  )}
+                                </Button>
+                              </div>
+                              {provenanceExpanded && (
+                              <>
+                              <div className="grid grid-cols-2 gap-x-4 gap-y-1">
+                                <p className="text-gray-600">
+                                  <span className="text-gray-400">Origin:</span>{" "}
+                                  {selectedDoc.originType ? ORIGIN_LABEL[selectedDoc.originType] ?? selectedDoc.originType : selectedDoc.source || "—"}
+                                </p>
+                                <p className="text-gray-600">
+                                  <span className="text-gray-400">Authority:</span>{" "}
+                                  {selectedDoc.authorityRole ? AUTHORITY_LABEL[selectedDoc.authorityRole] ?? selectedDoc.authorityRole : "—"}
+                                </p>
+                                <p className="text-gray-600">
+                                  <span className="text-gray-400">Shelf:</span> {shelfLabel(selectedDoc.homeRoot) || "—"}
+                                </p>
+                                <p className="text-gray-600">
+                                  <span className="text-gray-400">Class:</span> {selectedDoc.docClassTarget || "—"}
+                                </p>
+                              </div>
+                              {/* Multi-source provenance — the sources this truth-doc consolidates */}
+                              {selectedDoc.synthesisSources && selectedDoc.synthesisSources.length > 0 ? (
+                                <div className="rounded-md border bg-white p-2">
+                                  <p className="text-gray-500 text-xs font-medium mb-1">
+                                    Consolidated from {selectedDoc.synthesisSources.length} source(s):
+                                  </p>
+                                  <ul className="space-y-0.5 max-h-40 overflow-auto">
+                                    {(reviewInsights?.sources?.length
+                                      ? reviewInsights.sources.map((s, i) => (
+                                          <li key={`ri-${i}`} className="flex items-center gap-2 text-xs text-gray-600">
+                                            <span className="text-gray-400 w-4 text-right">{i + 1}.</span>
+                                            <span className="truncate">{s.sourceName ?? "Unknown source"}</span>
+                                            {s.coachName && (
+                                              <Badge variant="outline" className="text-[10px] bg-emerald-50 text-emerald-700 border-emerald-200">{s.coachName}</Badge>
+                                            )}
+                                            {s.authorityRole && (
+                                              <Badge variant="outline" className="text-[10px] bg-blue-50 text-blue-700 border-blue-200">{s.authorityRole}</Badge>
+                                            )}
+                                            {s.date && (
+                                              <span className="text-gray-400 whitespace-nowrap">{new Date(s.date).toLocaleDateString()}</span>
+                                            )}
+                                            {typeof s.relevance === "number" && (
+                                              <span className="ml-auto text-gray-400">{Math.round(s.relevance * 100)}%</span>
+                                            )}
+                                          </li>
+                                        ))
+                                      : selectedDoc.synthesisSources
+                                          .slice()
+                                          .sort((a, b) => (b.relevance ?? 0) - (a.relevance ?? 0))
+                                          .map((s, i) => (
+                                            <li key={`${s.sourceDocId ?? "s"}-${i}`} className="flex items-center gap-2 text-xs text-gray-600">
+                                              <span className="text-gray-400 w-4 text-right">{i + 1}.</span>
+                                              <span className="truncate">{s.sourceName ?? `Source #${s.sourceDocId ?? "?"}`}</span>
+                                              {s.authorityRole && (
+                                                <Badge variant="outline" className="text-[10px] bg-blue-50 text-blue-700 border-blue-200">{s.authorityRole}</Badge>
+                                              )}
+                                              {typeof s.relevance === "number" && (
+                                                <span className="ml-auto text-gray-400">{Math.round(s.relevance * 100)}%</span>
+                                              )}
+                                            </li>
+                                          )))}
+                                  </ul>
+                                </div>
+                              ) : selectedDoc.sourceVideoTitle ? (
+                                <p className="text-gray-600"><span className="text-gray-400">Source:</span> {selectedDoc.sourceVideoTitle}</p>
+                              ) : null}
+                              {/* Corroboration — emphasized */}
+                              <div className={`flex items-center gap-2 rounded-md px-2.5 py-1.5 text-xs font-medium ${
+                                selectedDoc.conflictData ? "bg-red-50 text-red-700"
+                                  : selectedDoc.corroborationCount > 0 ? "bg-green-50 text-green-700"
+                                  : "bg-amber-50 text-amber-700"
+                              }`}>
+                                {selectedDoc.conflictData ? (
+                                  <><AlertTriangle className="w-3.5 h-3.5" />Conflicts with another source — adjudicate before publishing</>
+                                ) : selectedDoc.corroborationCount > 0 ? (
+                                  <><CheckCircle className="w-3.5 h-3.5" />Corroborated by {selectedDoc.corroborationCount} other source(s)</>
+                                ) : (
+                                  <><AlertTriangle className="w-3.5 h-3.5" />Single source — no corroboration</>
+                                )}
+                              </div>
+                              {selectedDoc.staleReferences && selectedDoc.staleReferences.length > 0 && (
+                                <p className="text-amber-700">
+                                  <span className="text-amber-500">Legacy refs:</span> {selectedDoc.staleReferences.join(", ")}
+                                </p>
+                              )}
+                              </>
+                              )}
+                            </div>
+
+                            {/* AI title suggestion (Task #1839): the stored title is always
+                                what displays/publishes; the suggestion is applied only via
+                                an explicit Accept. Accept/Dismiss/human-edit locks it. */}
+                            {showTitleSuggestion && (
+                              <div className="rounded-lg border border-violet-200 bg-violet-50 p-3 text-sm">
+                                <div className="flex items-center gap-2 text-violet-800 font-medium mb-1">
+                                  <Sparkles className="w-4 h-4" />AI suggests a clearer title
+                                </div>
+                                {(() => {
+                                  const cmp = selectedDoc.retrievalSelfTest?.titleComparison;
+                                  if (!cmp) return null;
+                                  return (
+                                    <div className="mb-2 rounded-md border border-violet-100 bg-white p-2 text-[13px] text-gray-700 space-y-1.5">
+                                      <p className="text-[11px] font-medium text-gray-500">
+                                        Why this suggestion — measured against {cmp.current.total} member question{cmp.current.total === 1 ? "" : "s"}:
+                                      </p>
+                                      <div className="flex items-start gap-2">
+                                        <span className="text-gray-400 shrink-0">Current:</span>
+                                        <span>
+                                          “{cmp.current.title}” — finds this doc for{" "}
+                                          <span className="font-semibold">{cmp.current.passedCount} of {cmp.current.total}</span>
+                                        </span>
+                                      </div>
+                                      <div className="flex items-start gap-2">
+                                        <span className="text-violet-500 shrink-0">Suggested:</span>
+                                        <span>
+                                          “{cmp.suggested.title}” — finds this doc for{" "}
+                                          <span className="font-semibold text-violet-700">{cmp.suggested.passedCount} of {cmp.suggested.total}</span>
+                                        </span>
+                                      </div>
+                                      {cmp.suggested.passedCount > cmp.current.passedCount && (
+                                        <p className="text-emerald-700 text-[12px]">
+                                          +{cmp.suggested.passedCount - cmp.current.passedCount} more member question{cmp.suggested.passedCount - cmp.current.passedCount === 1 ? "" : "s"} would surface this doc.
+                                        </p>
+                                      )}
+                                      {cmp.brandFix && (
+                                        <p className="text-amber-700 text-[12px]">
+                                          The current title uses outdated/off-brand naming; the suggestion corrects it.
+                                        </p>
+                                      )}
+                                    </div>
+                                  );
+                                })()}
+                                {!selectedDoc.retrievalSelfTest?.titleComparison && (
+                                  <p className="text-gray-800 mb-2">“{selectedDoc.aiCleanedTitle}”</p>
+                                )}
+                                <div className="flex items-center gap-2">
+                                  <Button
+                                    size="sm"
+                                    className="h-7 px-3 bg-violet-600 hover:bg-violet-700 text-white"
+                                    disabled={titleDeciding}
+                                    onClick={() => decideTitleSuggestion("accept")}
+                                  >
+                                    Use suggested title
+                                  </Button>
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    className="h-7 px-3"
+                                    disabled={titleDeciding}
+                                    onClick={() => decideTitleSuggestion("dismiss")}
+                                  >
+                                    Keep current title
+                                  </Button>
+                                </div>
+                              </div>
+                            )}
+
+                            {/* Retrieval self-test (Task #1804) */}
+                            {showSelfTest && (
+                              <SelfTestPanel selfTest={selectedDoc.retrievalSelfTest!} />
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })()}
 
                   {/* Ceiling advisory (Task #1868). Re-evaluated on EVERY analysis
                       run — surfaces even for filed docs (unlike the taxonomy
@@ -2479,7 +2633,7 @@ export default function KnowledgeBaseReview() {
                       revision supersedes an existing published Live AI Document —
                       the reviewer sees the diff + which live doc it replaces before
                       approving (the same human gate; no silent second copy). */}
-                  {selectedDoc.updateKind === "update" ? (
+                  {selectedDoc.updateKind === "update" && (
                     <div className="rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm space-y-2">
                       <div className="flex items-center gap-2 font-medium text-amber-800">
                         <GitCompare className="w-4 h-4" />
@@ -2500,11 +2654,6 @@ export default function KnowledgeBaseReview() {
                         On approval this revision replaces the published version in place; the prior version is
                         archived to history and last-verified is re-stamped.
                       </p>
-                    </div>
-                  ) : (
-                    <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-2.5 text-xs text-emerald-800 flex items-center gap-2">
-                      <FileText className="w-4 h-4" />
-                      New document — no existing published doc for this topic.
                     </div>
                   )}
 
@@ -2529,125 +2678,6 @@ export default function KnowledgeBaseReview() {
                       </Button>
                     </div>
                   )}
-
-                  {/* Provenance panel — collapsed to a one-line summary by
-                      default (Task #1865); Show More reveals the full detail. */}
-                  <div className="rounded-lg border bg-gray-50 p-3 text-sm space-y-2">
-                    <div className="flex items-center gap-2">
-                      <Link2 className="w-4 h-4 text-gray-700 shrink-0" />
-                      <div className="min-w-0 flex-1 text-gray-600 truncate">
-                        <span className="font-medium text-gray-700">Provenance &amp; Authority</span>
-                        <span className="text-gray-300 mx-1.5">·</span>
-                        <span className="text-gray-400">Origin:</span>{" "}
-                        {selectedDoc.originType ? ORIGIN_LABEL[selectedDoc.originType] ?? selectedDoc.originType : selectedDoc.source || "—"}
-                        <span className="text-gray-300 mx-1.5">·</span>
-                        <span className="text-gray-400">Authority:</span>{" "}
-                        {selectedDoc.authorityRole ? AUTHORITY_LABEL[selectedDoc.authorityRole] ?? selectedDoc.authorityRole : "—"}
-                        <span className="text-gray-300 mx-1.5">·</span>
-                        <span className="text-gray-400">Corroboration:</span>{" "}
-                        {selectedDoc.corroborationCount > 0
-                          ? `${selectedDoc.corroborationCount} other source(s)`
-                          : "single source"}
-                      </div>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        className="h-6 px-2 text-[11px] shrink-0"
-                        onClick={() => setProvenanceExpanded((v) => !v)}
-                      >
-                        {provenanceExpanded ? (
-                          <><ChevronUp className="w-3 h-3 mr-1" />Show less</>
-                        ) : (
-                          <><ChevronDown className="w-3 h-3 mr-1" />Show more</>
-                        )}
-                      </Button>
-                    </div>
-                    {provenanceExpanded && (
-                    <>
-                    <div className="grid grid-cols-2 gap-x-4 gap-y-1">
-                      <p className="text-gray-600">
-                        <span className="text-gray-400">Origin:</span>{" "}
-                        {selectedDoc.originType ? ORIGIN_LABEL[selectedDoc.originType] ?? selectedDoc.originType : selectedDoc.source || "—"}
-                      </p>
-                      <p className="text-gray-600">
-                        <span className="text-gray-400">Authority:</span>{" "}
-                        {selectedDoc.authorityRole ? AUTHORITY_LABEL[selectedDoc.authorityRole] ?? selectedDoc.authorityRole : "—"}
-                      </p>
-                      <p className="text-gray-600">
-                        <span className="text-gray-400">Shelf:</span> {shelfLabel(selectedDoc.homeRoot) || "—"}
-                      </p>
-                      <p className="text-gray-600">
-                        <span className="text-gray-400">Class:</span> {selectedDoc.docClassTarget || "—"}
-                      </p>
-                    </div>
-                    {/* Multi-source provenance — the sources this truth-doc consolidates */}
-                    {selectedDoc.synthesisSources && selectedDoc.synthesisSources.length > 0 ? (
-                      <div className="rounded-md border bg-white p-2">
-                        <p className="text-gray-500 text-xs font-medium mb-1">
-                          Consolidated from {selectedDoc.synthesisSources.length} source(s):
-                        </p>
-                        <ul className="space-y-0.5 max-h-40 overflow-auto">
-                          {(reviewInsights?.sources?.length
-                            ? reviewInsights.sources.map((s, i) => (
-                                <li key={`ri-${i}`} className="flex items-center gap-2 text-xs text-gray-600">
-                                  <span className="text-gray-400 w-4 text-right">{i + 1}.</span>
-                                  <span className="truncate">{s.sourceName ?? "Unknown source"}</span>
-                                  {s.coachName && (
-                                    <Badge variant="outline" className="text-[10px] bg-emerald-50 text-emerald-700 border-emerald-200">{s.coachName}</Badge>
-                                  )}
-                                  {s.authorityRole && (
-                                    <Badge variant="outline" className="text-[10px] bg-blue-50 text-blue-700 border-blue-200">{s.authorityRole}</Badge>
-                                  )}
-                                  {s.date && (
-                                    <span className="text-gray-400 whitespace-nowrap">{new Date(s.date).toLocaleDateString()}</span>
-                                  )}
-                                  {typeof s.relevance === "number" && (
-                                    <span className="ml-auto text-gray-400">{Math.round(s.relevance * 100)}%</span>
-                                  )}
-                                </li>
-                              ))
-                            : selectedDoc.synthesisSources
-                                .slice()
-                                .sort((a, b) => (b.relevance ?? 0) - (a.relevance ?? 0))
-                                .map((s, i) => (
-                                  <li key={`${s.sourceDocId ?? "s"}-${i}`} className="flex items-center gap-2 text-xs text-gray-600">
-                                    <span className="text-gray-400 w-4 text-right">{i + 1}.</span>
-                                    <span className="truncate">{s.sourceName ?? `Source #${s.sourceDocId ?? "?"}`}</span>
-                                    {s.authorityRole && (
-                                      <Badge variant="outline" className="text-[10px] bg-blue-50 text-blue-700 border-blue-200">{s.authorityRole}</Badge>
-                                    )}
-                                    {typeof s.relevance === "number" && (
-                                      <span className="ml-auto text-gray-400">{Math.round(s.relevance * 100)}%</span>
-                                    )}
-                                  </li>
-                                )))}
-                        </ul>
-                      </div>
-                    ) : selectedDoc.sourceVideoTitle ? (
-                      <p className="text-gray-600"><span className="text-gray-400">Source:</span> {selectedDoc.sourceVideoTitle}</p>
-                    ) : null}
-                    {/* Corroboration — emphasized */}
-                    <div className={`flex items-center gap-2 rounded-md px-2.5 py-1.5 text-xs font-medium ${
-                      selectedDoc.conflictData ? "bg-red-50 text-red-700"
-                        : selectedDoc.corroborationCount > 0 ? "bg-green-50 text-green-700"
-                        : "bg-amber-50 text-amber-700"
-                    }`}>
-                      {selectedDoc.conflictData ? (
-                        <><AlertTriangle className="w-3.5 h-3.5" />Conflicts with another source — adjudicate before publishing</>
-                      ) : selectedDoc.corroborationCount > 0 ? (
-                        <><CheckCircle className="w-3.5 h-3.5" />Corroborated by {selectedDoc.corroborationCount} other source(s)</>
-                      ) : (
-                        <><AlertTriangle className="w-3.5 h-3.5" />Single source — no corroboration</>
-                      )}
-                    </div>
-                    {selectedDoc.staleReferences && selectedDoc.staleReferences.length > 0 && (
-                      <p className="text-amber-700">
-                        <span className="text-amber-500">Legacy refs:</span> {selectedDoc.staleReferences.join(", ")}
-                      </p>
-                    )}
-                    </>
-                    )}
-                  </div>
 
                   {/* Always-visible access to the "Not a name" undo list, even when a doc has zero highlights */}
                   <div className="flex justify-end">
