@@ -5,8 +5,8 @@ description: Contracts for highlight dismissals, risk-flag resolutions, and the 
 
 # KB review flag lifecycle contracts
 
-- Passage-highlight dismissals are GLOBAL (kind + normalized excerpt), not per-doc, so they survive re-synthesis regenerating the draft. `possible_member_name` is explicitly excluded — name highlights go through the "Not a name" vocab dismissals instead.
-- **Why:** re-synthesis rewrites docs and would orphan per-doc dismissals; name-flag suppression must stay in the analyzer vocabulary (see kb-member-name-flag-vocab).
+- Passage-highlight dismissals are GLOBAL (kind + normalized excerpt), not per-doc, so they survive re-synthesis regenerating the draft.
+- **Why:** re-synthesis rewrites docs and would orphan per-doc dismissals. (The former `possible_member_name` advisory flag and its "Not a name" vocab dismissals were removed entirely in July 2026 — transcript cleaning owns member-name privacy.)
 - Doc-level risk-flag resolutions are keyed by a flag fingerprint (type + normalized message), so a re-triage that reproduces the same flag stays resolved, but a materially different flag re-blocks.
 - The approval gate fires ONLY on the transition to approved (single PATCH and bulk-approve both call `getDocOutstanding`); non-approval PATCHes must never be blocked. 409 body carries `outstanding: { flags, highlights }`.
 - `needsExpert` is recomputed (never hand-set) whenever a resolution changes: it clears only when zero critical flags remain active.

@@ -1,7 +1,7 @@
 import { getParam } from "../../lib/params";
 import { Router, Request, Response } from "express";
 import { db } from "@workspace/db";
-import { kbStagingDocsTable, knowledgebaseDocsTable, aiLiveDocumentsTable, aiLiveDocumentVersionsTable, kbDocProvenanceTable, kbTriageAuditLogTable, aiSourceDocumentsTable, kbTranscriptSourcesTable, kbNameFlagDismissalsTable, kbHighlightDismissalsTable, kbFlagResolutionsTable } from "@workspace/db/schema";
+import { kbStagingDocsTable, knowledgebaseDocsTable, aiLiveDocumentsTable, aiLiveDocumentVersionsTable, kbDocProvenanceTable, kbTriageAuditLogTable, aiSourceDocumentsTable, kbTranscriptSourcesTable, kbHighlightDismissalsTable, kbFlagResolutionsTable } from "@workspace/db/schema";
 import { eq, desc, sql, count, and, ne, isNotNull, inArray } from "drizzle-orm";
 import { requirePermission } from "../../middleware/rbac.js";
 import { resolveNavGapsForPublishedDoc } from "../../lib/kb-nav-gaps.js";
@@ -30,7 +30,7 @@ import {
 import { retrieveSurfaceAware } from "../../lib/kb-retrieval.js";
 import { applyRefineEdits } from "../../lib/transcript-cleaner.js";
 import { resolveSourceContentForSynthesis } from "../../lib/kb-value-screener.js";
-import { analyzeDraftForReview, isPrivacyProtectedPair, HIGHLIGHT_META, type ReviewHighlightKind } from "../../lib/kb-review-risk.js";
+import { analyzeDraftForReview, HIGHLIGHT_META, type ReviewHighlightKind } from "../../lib/kb-review-risk.js";
 import {
   normalizeExcerpt,
   flagFingerprint,
@@ -38,7 +38,6 @@ import {
   recomputeNeedsExpert,
   retriageDocFlags,
 } from "../../lib/kb-flag-lifecycle.js";
-import { getNameFlagVocab, invalidateNameFlagVocab } from "../../lib/kb-name-flag-vocab.js";
 import { clusterDuplicates, findLiveSimilar } from "../../lib/kb-duplicates.js";
 import { embedLiveDocumentInBackground, CLEARED_EMBEDDING_FIELDS } from "../../lib/kb-embeddings.js";
 import { getEffectiveTagGroups } from "../../lib/kb-tool-tags.js";
@@ -1372,63 +1371,6 @@ router.get("/live-doc/:id", async (req: Request, res: Response) => {
 
 // ── Per-document routes ───────────────────────────────────────────────────────
 
-// ── "Not a name" dismissals (Task #1815) ─────────────────────────────────────
-// Persistent reviewer loop for the possible_member_name advisory flag: a
-// dismissed pair joins the derived name-flag vocabulary and never flags again
-// on any doc. Registered BEFORE the /:id routes so the literal path wins.
-router.get("/name-flag-dismissals", async (_req: Request, res: Response) => {
-  try {
-    const rows = await db
-      .select()
-      .from(kbNameFlagDismissalsTable)
-      .orderBy(desc(kbNameFlagDismissalsTable.createdAt));
-    res.json({ dismissals: rows });
-  } catch (err: unknown) {
-    res.status(500).json({ error: err instanceof Error ? err.message : "Unknown error" });
-  }
-});
-
-router.post("/name-flag-dismissals", async (req: Request, res: Response) => {
-  try {
-    const raw = typeof req.body?.pair === "string" ? req.body.pair.trim() : "";
-    // Must be exactly the analyzer's capitalized First Last shape.
-    if (!/^[A-Z][a-z]{2,}\s+[A-Z][a-z]{2,}$/.test(raw)) {
-      res.status(400).json({ error: "Dismissal must be an exact 'First Last' pair as flagged." });
-      return;
-    }
-    // SAFETY RAIL: privacy-rule matches (coach/staff surnames, founder, old
-    // brand) can never be dismissed — the deterministic scrub always wins.
-    if (isPrivacyProtectedPair(raw)) {
-      res.status(400).json({ error: "This pair matches the privacy scrub rules and cannot be dismissed." });
-      return;
-    }
-    const pair = raw.toLowerCase().replace(/\s+/g, " ");
-    await db
-      .insert(kbNameFlagDismissalsTable)
-      .values({ pair, displayPair: raw.replace(/\s+/g, " "), dismissedBy: req.userId ?? null })
-      .onConflictDoNothing({ target: kbNameFlagDismissalsTable.pair });
-    invalidateNameFlagVocab();
-    res.json({ ok: true, pair });
-  } catch (err: unknown) {
-    res.status(500).json({ error: err instanceof Error ? err.message : "Unknown error" });
-  }
-});
-
-router.delete("/name-flag-dismissals/:dismissalId", async (req: Request, res: Response) => {
-  try {
-    const id = parseInt(getParam(req.params.dismissalId));
-    if (!Number.isFinite(id)) {
-      res.status(400).json({ error: "Invalid id" });
-      return;
-    }
-    await db.delete(kbNameFlagDismissalsTable).where(eq(kbNameFlagDismissalsTable.id, id));
-    invalidateNameFlagVocab();
-    res.json({ ok: true });
-  } catch (err: unknown) {
-    res.status(500).json({ error: err instanceof Error ? err.message : "Unknown error" });
-  }
-});
-
 // Reviewer SOP (Task #1851) — the in-app "how to review a draft" reference,
 // derived from the live taxonomy + flag registries so it can't drift. Static
 // (no DB); registered before "/:id" so the literal path wins.
@@ -1487,12 +1429,6 @@ router.post("/highlight-dismissals", async (req: Request, res: Response) => {
       res.status(400).json({ error: "An excerpt is required" });
       return;
     }
-    // SAFETY RAIL: name highlights have their own "Not a name" vocabulary path
-    // with privacy-protected-pair checks — never dismissible through here.
-    if (kindStr === "possible_member_name") {
-      res.status(400).json({ error: "Use the 'Not a name' dismissal for name highlights." });
-      return;
-    }
     const docIdNum = typeof docId === "number" ? docId : Number(docId);
 
     // The dismissal must correspond to a highlight that ACTUALLY exists on the
@@ -1508,10 +1444,7 @@ router.post("/highlight-dismissals", async (req: Request, res: Response) => {
         return;
       }
       docTitle = doc.title;
-      const highlights = analyzeDraftForReview(
-        doc.editedContent ?? doc.content,
-        await getNameFlagVocab(),
-      );
+      const highlights = analyzeDraftForReview(doc.editedContent ?? doc.content);
       const norm = normalizeExcerpt(excerptStr);
       const match = highlights.some(
         (h) => h.kind === kindStr && normalizeExcerpt(h.excerpt) === norm,
@@ -2648,10 +2581,6 @@ BRAND RULES: say "Build Test Scale" / "BTS" (never "TCE" or "Cherrington"); no c
         }
 
         if (d.target === "highlight" && typeof d.kind === "string" && typeof d.excerpt === "string") {
-          if (d.kind === "possible_member_name") {
-            skipped.push(`highlight "${d.excerpt}" (name highlights use the 'Not a name' control)`);
-            continue;
-          }
           const norm = normalizeExcerpt(d.excerpt);
           const h = lifecycle.activeHighlights.find(
             (x) => x.kind === d.kind && normalizeExcerpt(x.excerpt) === norm,
@@ -3085,8 +3014,6 @@ router.get("/:id/review-insights", async (req: Request, res: Response) => {
       return;
     }
 
-    // Derived name-flag vocabulary (cached; TTL-refreshed) so terminology —
-    // including NEW terminology from future synthesis runs — never flags.
     // Task #1906: dismissed highlights are split out (kind + normalized-excerpt
     // suppression, survives re-synthesis), and the stored risk flags come back
     // annotated with their resolution state so the UI can gate approval.

@@ -36,6 +36,4 @@ it marks nodes needing re-synthesis.
 
 **Approval-gate quirks (still apply to the new docs):**
 - `single_source` fires on every curriculum doc — expected, dismiss via flags/resolve.
-- Product names can trip `possible_member_name`; clear ONLY via the global
-  `name-flag-dismissals` {pair} endpoint.
 - `push-approved` pushes ALL approved docs corpus-wide.

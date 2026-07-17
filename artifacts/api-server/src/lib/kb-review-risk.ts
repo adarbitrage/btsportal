@@ -10,8 +10,7 @@
  *     on lines NOT already tagged situational,
  *   - time-sensitive phrasing ("right now", "currently", month-year dates …),
  *   - residual private-content matches (the deterministic PRIVACY_RULES set —
- *     coach surnames, emails, phones, old brand) plus an ADVISORY capitalized
- *     First-Last heuristic for possible member names.
+ *     coach surnames, emails, phones, old brand).
  *
  * This runs at REVIEW time against editedContent ?? content (so it stays
  * accurate through edits/refines) via GET /staging/:id/review-insights, and its
@@ -19,7 +18,6 @@
  * existing chip/severity pattern surfaces the same signals at triage.
  */
 
-import { PORTAL_NAVIGATION_MAP } from "@workspace/portal-nav-map";
 import { PRIVACY_RULES } from "./content-privacy-filter";
 import type { FlagSeverity } from "./kb-flags";
 
@@ -49,8 +47,7 @@ export type ReviewHighlightKind =
   | "synthesis_anomaly"
   | "situational_number"
   | "time_sensitive"
-  | "privacy_residue"
-  | "possible_member_name";
+  | "privacy_residue";
 
 export interface ReviewHighlight {
   kind: ReviewHighlightKind;
@@ -119,11 +116,6 @@ export const HIGHLIGHT_META: Record<
     label: "Private-content match",
     note: "Matches the privacy scrub rules (name/email/phone/old brand). It WILL be auto-scrubbed at publish, but verify the sentence still reads correctly and no member context leaks around it.",
   },
-  possible_member_name: {
-    severity: "low",
-    label: "Possible member name",
-    note: "Advisory: looks like a First Last person name. Members must never be named — verify and generalize to \"a member\" if it is one.",
-  },
 };
 
 // ── Pattern vocabularies ─────────────────────────────────────────────────────
@@ -152,129 +144,6 @@ const TIME_SENSITIVE_PATTERNS: ReadonlyArray<RegExp> = [
   /\b(?:in|since|back in|as of)\s+20\d{2}\b/gi,
 ];
 
-// Portal navigation vocabulary: any title-case pair that exactly matches a
-// member-facing nav label or section name ("Live Coaching", "Getting Help") is
-// a UI reference, never a person. Words from those labels also join the
-// stoplist so partial references ("Coaching Access") don't false-positive.
-const NAV_LABEL_PHRASES = new Set<string>();
-const NAV_LABEL_WORDS = new Set<string>();
-for (const section of PORTAL_NAVIGATION_MAP) {
-  for (const phrase of [section.section, ...section.items.map((it) => it.label)]) {
-    NAV_LABEL_PHRASES.add(phrase.toLowerCase());
-    for (const w of phrase.split(/[^A-Za-z]+/)) {
-      if (w.length >= 3) NAV_LABEL_WORDS.add(w);
-    }
-  }
-}
-
-// Capitalized-pair heuristic stoplist: either word in this set kills the match.
-// Brand/product/heading vocabulary + common sentence-starters seen in KB docs.
-const NAME_STOPWORDS = new Set(
-  [
-    "The", "This", "That", "These", "Those", "There", "Then", "They", "When", "What",
-    "Why", "How", "Where", "Which", "While", "With", "Without", "Your", "You",
-    "After", "Before", "During", "Once", "First", "Second", "Third", "Next", "Last",
-    "Key", "Takeaways", "Step", "Steps", "Note", "Notes", "Important", "Warning",
-    "Build", "Test", "Scale", "BTS", "Blitz", "Launch", "LaunchPad", "Pad",
-    "Google", "Facebook", "Meta", "YouTube", "Instagram", "TikTok", "Bing",
-    "Media", "Mavens", "ClickBank", "Ads", "Ad", "Manager", "Account", "Accounts",
-    "Landing", "Page", "Pages", "Offer", "Offers", "Campaign", "Campaigns",
-    "Tracking", "Pixel", "Conversion", "Conversions", "Affiliate", "Network",
-    "Support", "Team", "Coach", "Coaches", "Member", "Members", "Portal",
-    "Knowledge", "Base", "Source", "Sources", "Section", "Overview", "Summary",
-    "Do", "Don", "Always", "Never", "Avoid", "Use", "Make", "Set", "Get", "Keep",
-    "New", "Old", "Good", "Bad", "High", "Low", "Big", "Small",
-    // Common gerunds in KB prose — matched in EITHER position (the pair regex
-    // is non-overlapping, so "Start Scaling Winners" pairs as "Start Scaling").
-    // A blanket -ing suffix rule would suppress real surnames (King, Sterling,
-    // Harding), so only these known-vocabulary gerunds are listed.
-    "Getting", "Scaling", "Coaching", "Tracking", "Testing", "Building",
-    "Launching", "Booking", "Making", "Setting", "Running", "Spending",
-    "Winning", "Onboarding", "Troubleshooting", "Reporting", "Publishing",
-    "Reviewing", "Writing", "Splitting", "Loading", "Pricing", "Targeting",
-    "Bidding", "Retargeting", "Optimizing", "Messaging", "Branding",
-    "Marketing", "Scheduling", "Recording", "Streaming", "Billing", "Starting",
-    "Choosing", "Picking", "Finding", "Using", "Creating", "Managing",
-  ].map((w) => w),
-);
-
-// Exact capitalized-pair phrases confirmed as BTS/portal/ads terminology, UI
-// labels, or ad-copy fragments — NEVER people. Compiled from a full audit of
-// every possible_member_name hit across the needs_review queue (July 2026);
-// every pair below was human-verified as not-a-name. Matched case-insensitively
-// as EXACT pairs only, so this cannot suppress a real First Last member name
-// unless it literally equals one of these phrases.
-//
-// Task #1815: this static list is now SEED DATA folded into the derived
-// vocabulary (kb-name-flag-vocab) — the primary control is the derived set.
-export const SEED_TERMINOLOGY_PHRASES = new Set(
-  [
-    "Site Setup", "Creative Strategy", "Unit Economics", "Creative Assets",
-    "Creative Drive", "Copy Blocks", "Custom Value", "Custom Values",
-    "Central Time", "Round One", "Basic Info", "Learn More", "Equal Share",
-    "Call Archive", "Learn About", "Going Live", "Optimization Event",
-    "Macro Template", "Brand Name", "Flexy Custom", "Responsive Rolodex",
-    "Prepare Round", "Breaking News", "Total Budget", "Daily Budget",
-    "From Round", "Cutting Edge", "Consumer Watchdog", "View Sales",
-    "Run Round", "Banners Round", "Append Token", "Start Time", "End Date",
-    "Bid Type", "Grab Angles", "Angle Architect", "Complete Purchase",
-    "Tag Titles", "Tailor Proof", "Title Case", "Dog Won", "Simple Motion",
-    "Sensor Toy", "Backyard Discovery", "Ends Mosquito", "Sticky Traps",
-    "Costly Fogging", "Moms Switched", "Free Backyard", "Read More",
-    "Deep Dive", "Email Sponsorships", "Dedicated Emails", "Baseline Round",
-    "See Angles", "Cost Per", "Finalized Flexy", "Cloned Flexy",
-    "Utilize Our", "Lifecycle Roadmap", "Quality Bar", "Policy Guardrails",
-    "Manage Subscription", "Advertorial Builder",
-  ].map((p) => p.toLowerCase()),
-);
-
-// Coach/staff/founder FIRST names are fine on their own; a First Last pair
-// starting with one still deserves a look ONLY if the privacy rules didn't
-// already catch the surname — the deterministic rules run first, so we skip
-// pairs the privacy pass already flagged (handled by dedup below).
-
-// ── Self-maintaining name-flag vocabulary (Task #1815) ──────────────────────
-//
-// The terminology suppression set is no longer only the static list above —
-// it is DERIVED at call time (cached) from authoritative sources by
-// kb-name-flag-vocab (BTS house terms, tool-tag vocabulary, glossary/curated
-// doc titles, corpus-frequency pairs, reviewer dismissals). This module stays
-// PURE: it only defines the vocab shape + the static baseline, and the
-// analyzer takes the vocabulary as a parameter (defaulting to the baseline)
-// so tests and non-DB callers never touch the database.
-
-export interface NameFlagVocab {
-  /** Exact lowercased "first last" pairs that are terminology, never people. */
-  phrases: ReadonlySet<string>;
-  /**
-   * Lowercased single words from AUTHORITATIVE sources only (house terms,
-   * tool-tag labels/triggers) — either word matching kills the pair. Never
-   * derived from doc content (doc-content-derived suppression must stay
-   * exact-pair so it cannot swallow real names).
-   */
-  words: ReadonlySet<string>;
-}
-
-/** Static baseline vocabulary: the hand-verified seed pairs only. */
-export const BASELINE_NAME_FLAG_VOCAB: NameFlagVocab = {
-  phrases: SEED_TERMINOLOGY_PHRASES,
-  words: new Set<string>(),
-};
-
-/**
- * SAFETY RAIL: a capitalized pair that matches any privacy scrub rule (coach /
- * staff surnames, founder, old brand) can NEVER be suppressed by the derived
- * vocabulary or a reviewer dismissal — the deterministic privacy pass must
- * always win. Checked at analyzer time AND at vocabulary build/insert time.
- */
-export function isPrivacyProtectedPair(pair: string): boolean {
-  return PRIVACY_RULES.some((rule) => {
-    const rx = new RegExp(rule.pattern.source, rule.pattern.flags.replace("g", ""));
-    const m = pair.match(rx);
-    return m !== null && m[0].trim().length > 0;
-  });
-}
-
 function findMatches(line: string, re: RegExp): string[] {
   const out: string[] = [];
   const rx = new RegExp(re.source, re.flags.includes("g") ? re.flags : re.flags + "g");
@@ -284,15 +153,8 @@ function findMatches(line: string, re: RegExp): string[] {
   return out;
 }
 
-/**
- * Analyze a draft's current text. Pure — unit-tested. Callers that have DB
- * access (the review-insights route) pass the DERIVED vocabulary from
- * kb-name-flag-vocab; the default keeps this module DB-free for tests.
- */
-export function analyzeDraftForReview(
-  content: string,
-  vocab: NameFlagVocab = BASELINE_NAME_FLAG_VOCAB,
-): ReviewHighlight[] {
+/** Analyze a draft's current text. Pure — unit-tested. */
+export function analyzeDraftForReview(content: string): ReviewHighlight[] {
   const lines = content.split("\n");
   const highlights: ReviewHighlight[] = [];
   const seen = new Set<string>();
@@ -366,37 +228,11 @@ export function analyzeDraftForReview(
     }
 
     // 5. Residual private-content matches (deterministic scrub rules).
-    const privacyExcerpts = new Set<string>();
     for (const rule of PRIVACY_RULES) {
       for (const m of findMatches(line, rule.pattern)) {
         // Skip pure-whitespace cleanup rules and empty matches.
         if (!m.trim()) continue;
-        privacyExcerpts.add(m);
         push("privacy_residue", m, i);
-      }
-    }
-
-    // 6. Advisory member-name heuristic (skip headings — mostly title case).
-    if (!trimmed.startsWith("#")) {
-      for (const m of line.matchAll(/\b([A-Z][a-z]{2,})\s+([A-Z][a-z]{2,})\b/g)) {
-        const [pair, first, second] = m;
-        if (NAME_STOPWORDS.has(first) || NAME_STOPWORDS.has(second)) continue;
-        // Portal UI vocabulary, not people: exact nav-label phrases
-        // ("Live Coaching", "Getting Help") or pairs containing a nav-label
-        // word ("Coaching Access"). Gerunds are handled via NAME_STOPWORDS,
-        // not a suffix rule, so -ing surnames (King, Sterling) still flag.
-        if (NAV_LABEL_PHRASES.has(pair.toLowerCase())) continue;
-        if (NAV_LABEL_WORDS.has(first) || NAV_LABEL_WORDS.has(second)) continue;
-        // Derived terminology vocabulary (seed pairs + house terms + tool tags
-        // + glossary/curated titles + corpus-frequency pairs + reviewer
-        // dismissals) — but NEVER suppress a privacy-protected pair.
-        if (!isPrivacyProtectedPair(pair)) {
-          if (vocab.phrases.has(pair.toLowerCase())) continue;
-          if (vocab.words.has(first.toLowerCase()) || vocab.words.has(second.toLowerCase())) continue;
-        }
-        // Already caught deterministically? Don't double-flag.
-        if ([...privacyExcerpts].some((p) => p.includes(second) || p === pair)) continue;
-        push("possible_member_name", pair, i);
       }
     }
   });

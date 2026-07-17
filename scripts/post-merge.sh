@@ -593,14 +593,14 @@ if [ -n "$DATABASE_URL" ]; then
     >/dev/null
 fi
 
-# Name-flag reviewer dismissals ("Not a name" vocabulary for the KB review
-# panel's possible_member_name advisory flag). One new additive table.
-# Applying here keeps the live-schema-drift gate green so the conditional push
-# stays skipped. Idempotent (CREATE TABLE IF NOT EXISTS + guarded FK).
+# Retire the possible_member_name review flag: DROP the "Not a name"
+# dismissal table (0111 created it). Table REMOVALS never trigger the drift
+# gate's conditional push, so the drop must run explicitly here. Idempotent
+# (DROP TABLE IF EXISTS ... CASCADE).
 if [ -n "$DATABASE_URL" ]; then
   psql "$DATABASE_URL" \
     -v ON_ERROR_STOP=1 \
-    -f lib/db/drizzle/0111_kb_name_flag_dismissals.sql \
+    -f lib/db/drizzle/0120_drop_kb_name_flag_dismissals.sql \
     >/dev/null
 fi
 

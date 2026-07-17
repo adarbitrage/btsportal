@@ -9,14 +9,11 @@ import {
   hasSynthesisRiskTags,
   hasTimeSensitivePhrasing,
   hasPrivacyResidue,
-  isPrivacyProtectedPair,
-  SEED_TERMINOLOGY_PHRASES,
   SOURCE_CONFLICT_PREFIX,
   BASELINE_CONFLICT_PREFIX,
   COACHING_DRIFT_PREFIX,
   hasBaselineConflictMarker,
   hasCoachingDriftMarker,
-  type NameFlagVocab,
 } from "../lib/kb-review-risk";
 import {
   SOURCE_CONFLICT_MARKER,
@@ -127,137 +124,11 @@ describe("analyzeDraftForReview", () => {
     expect(priv.some((h) => /555/.test(h.excerpt))).toBe(true);
   });
 
-  it("advisory member-name heuristic fires on unknown First Last, not stopword pairs", () => {
-    const hs = analyzeDraftForReview(
-      "One member, Marcus Delgado, scaled fast. Use Google Ads and Landing Pages wisely.",
-    );
-    const names = hs.filter((h) => h.kind === "possible_member_name");
-    expect(names.some((h) => h.excerpt === "Marcus Delgado")).toBe(true);
-    expect(names.some((h) => h.excerpt.includes("Google"))).toBe(false);
-    expect(names.some((h) => h.excerpt.includes("Landing"))).toBe(false);
-  });
-
-  it("does not flag portal nav labels or UI vocabulary as member names", () => {
-    const hs = analyzeDraftForReview(
-      [
-        "Go to Live Coaching to see the schedule.",
-        "Your Coaching Access level controls what you see.",
-        "Check Getting Help if you are stuck.",
-        "Open the Voice Assistant from Tools & Apps.",
-      ].join("\n"),
-    );
-    expect(hs.filter((h) => h.kind === "possible_member_name")).toHaveLength(0);
-  });
-
-  it("still flags a real First Last name amid nav vocabulary", () => {
-    const hs = analyzeDraftForReview(
-      "Marcus Delgado asked about Live Coaching and Getting Help.",
-    );
-    const names = hs.filter((h) => h.kind === "possible_member_name");
-    expect(names.map((h) => h.excerpt)).toEqual(["Marcus Delgado"]);
-  });
-
-  it("does not flag gerund-first pairs as member names", () => {
-    const hs = analyzeDraftForReview("Start Scaling Winners once tracking is stable.");
-    expect(hs.some((h) => h.kind === "possible_member_name")).toBe(false);
-  });
-
-  it("still flags names with -ing surnames (King, Sterling)", () => {
-    const hs = analyzeDraftForReview("Marcus King and Ava Sterling both scaled fast.");
-    const names = hs.filter((h) => h.kind === "possible_member_name").map((h) => h.excerpt);
-    expect(names).toContain("Marcus King");
-    expect(names).toContain("Ava Sterling");
-  });
-
-  it("does not flag audited terminology pairs as member names", () => {
-    const hs = analyzeDraftForReview(
-      [
-        "Review your Unit Economics before scaling.",
-        "Upload to Creative Drive and reuse your Copy Blocks.",
-        "Set the Custom Values in your Cloned Flexy site.",
-        "Refine your Creative Strategy after Site Setup.",
-        "Backyard Discovery and Consumer Watchdog are ad-copy fragments.",
-      ].join("\n"),
-    );
-    expect(hs.filter((h) => h.kind === "possible_member_name")).toHaveLength(0);
-  });
-
-  it("still flags a real name amid terminology vocabulary", () => {
-    const hs = analyzeDraftForReview(
-      "Marcus Delgado reviewed his Unit Economics and Creative Strategy.",
-    );
-    const names = hs.filter((h) => h.kind === "possible_member_name").map((h) => h.excerpt);
-    expect(names).toEqual(["Marcus Delgado"]);
-  });
-
-  it("skips headings for the member-name heuristic", () => {
-    const hs = analyzeDraftForReview("# Marcus Delgado Story\nBody text.");
-    expect(hs.some((h) => h.kind === "possible_member_name")).toBe(false);
-  });
-
   it("returns empty for clean timeless content", () => {
     const hs = analyzeDraftForReview(
       "Pick an offer that matches the traffic source. Test creatives in small batches.",
     );
     expect(hs).toHaveLength(0);
-  });
-
-  // ── Derived name-flag vocabulary (Task #1815) ─────────────────────────────
-  describe("derived NameFlagVocab parameter", () => {
-    const vocab = (phrases: string[] = [], words: string[] = []): NameFlagVocab => ({
-      phrases: new Set([...SEED_TERMINOLOGY_PHRASES, ...phrases.map((p) => p.toLowerCase())]),
-      words: new Set(words.map((w) => w.toLowerCase())),
-    });
-
-    it("suppresses a derived exact pair (e.g. corpus-frequent or dismissed)", () => {
-      const text = "the Torval Nexis tool helps before scaling.";
-      expect(
-        analyzeDraftForReview(text).some((h) => h.kind === "possible_member_name"),
-      ).toBe(true);
-      expect(
-        analyzeDraftForReview(text, vocab(["Torval Nexis"])).some(
-          (h) => h.kind === "possible_member_name",
-        ),
-      ).toBe(false);
-    });
-
-    it("suppresses pairs containing an authoritative word (house term / tool tag)", () => {
-      const text = "Open your Flexy Builder to edit the page.";
-      expect(
-        analyzeDraftForReview(text, vocab([], ["Flexy"])).some(
-          (h) => h.kind === "possible_member_name",
-        ),
-      ).toBe(false);
-    });
-
-    it("still flags real names (King, Sterling) with a rich vocabulary present", () => {
-      const hs = analyzeDraftForReview(
-        "Marcus King and Ava Sterling reviewed their Pixel Boost setup.",
-        vocab(["Pixel Boost"], ["Flexy", "Gifster"]),
-      );
-      const names = hs.filter((h) => h.kind === "possible_member_name").map((h) => h.excerpt);
-      expect(names).toContain("Marcus King");
-      expect(names).toContain("Ava Sterling");
-    });
-
-    it("NEVER suppresses a privacy-protected pair, even if dismissed/derived", () => {
-      // "Bruce Clark" matches the coach privacy rules — a (bad) vocab entry or
-      // reviewer dismissal must not silence it; it still surfaces as
-      // privacy_residue via the deterministic pass.
-      const hs = analyzeDraftForReview(
-        "Ask Bruce Clark about scaling.",
-        vocab(["Bruce Clark"], ["Bruce", "Clark"]),
-      );
-      expect(hs.some((h) => h.kind === "privacy_residue")).toBe(true);
-    });
-
-    it("documents the corpus-frequency edge: a non-privacy pair in the vocab is suppressed", () => {
-      // If a real member name somehow appeared in >= threshold docs it would be
-      // suppressed here — accepted because the publish-time privacy scrub is
-      // the hard net; this heuristic is advisory only.
-      const hs = analyzeDraftForReview("Jane Marple posted results.", vocab(["Jane Marple"]));
-      expect(hs.some((h) => h.kind === "possible_member_name")).toBe(false);
-    });
   });
 
   it("carries exact line index and lineText for soften/cut actions", () => {
@@ -266,14 +137,6 @@ describe("analyzeDraftForReview", () => {
     expect(h).toBeDefined();
     expect(h!.line).toBe(1);
     expect(h!.lineText).toBe("Spend $99/day here.");
-  });
-});
-
-describe("isPrivacyProtectedPair", () => {
-  it("matches coach/staff privacy-rule surnames and founder", () => {
-    expect(isPrivacyProtectedPair("Bruce Clark")).toBe(true);
-    expect(isPrivacyProtectedPair("Marcus Delgado")).toBe(false);
-    expect(isPrivacyProtectedPair("Pixel Boost")).toBe(false);
   });
 });
 

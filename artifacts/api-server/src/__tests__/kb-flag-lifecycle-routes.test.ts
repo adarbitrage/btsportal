@@ -240,12 +240,13 @@ describe("highlight dismissal lifecycle", () => {
     expect(after.body.highlights.length).toBeGreaterThan(0);
   });
 
-  it("refuses to dismiss possible_member_name highlights (name vocab owns those)", async () => {
+  it("rejects the retired possible_member_name kind as unknown", async () => {
     const res = await request(app)
       .post("/api/highlight-dismissals")
       .set("Cookie", adminCookie)
       .send({ kind: "possible_member_name", excerpt: "Jane Doe" });
     expect(res.status).toBe(400);
+    expect(res.body.error).toMatch(/Unknown highlight kind/);
   });
 
   it("refuses to dismiss a highlight not present on the doc's current text", async () => {
