@@ -138,7 +138,7 @@
 - [KB corpus sweep notes-only](kb-corpus-sweep-notes-only.md) — sweep (phrase+concept) appends notes (staging→admin_notes, live→reviewer_notes), never edits bodies; aggregate-first ad judgment is BTS canon.
 - [KB review flag lifecycle](kb-flag-lifecycle.md) — highlight dismissals are global kind+normalized-excerpt (survive re-synthesis); approval gate fires only on transition-to-approved; needsExpert always recomputed, never hand-set.
 - [Confidential publisher-name purge](confidential-term-purge.md) — the name behind "Caterpillar" must never appear in code or DB; boot repair scrubs 7 KB tables; match patterns assembled from parts to stay grep-clean.
-- [Blitz lesson 3.7 mistitle](blitz-lesson-3-7-mistitle.md) — sole title/content mispairing in the 96 reference docs; audit via heygen manifest videoId→title; fix in staging rows only (import idempotency trap).
+- [Blitz lesson 3.7 mistitle](blitz-lesson-3-7-mistitle.md) — sole mispairing in 96 reference docs, RESOLVED via staging merge+soft-delete; crosswalk drift-audit method via live-guide video map; import idempotency trap.
 - [Blitz reference-doc import seam](blitz-reference-import-seam.md) — idempotency = exact source title; single_source flag expected on every curriculum doc; name highlights need the global not-a-name endpoint; push-approved is corpus-wide.
 - [Single member chat surface](chat-single-surface.md) — /ai-assistant on /api/chat is the ONE chat surface; legacy stack + tables deleted, tier gating removed.
 - [Replayed-migration FK repoint guard](replayed-migration-fk-repoint-guard.md) — if a later migration repoints an FK, guard the earlier migration's legacy FK add on the new constraint's existence, or replay breaks post-merge.

@@ -43,6 +43,19 @@ import { BLITZ_SECTION_TO_NODE } from "./kb-taxonomy.js";
  * `docs/blitz-identity-reconciliation-report.md` for coverage + caveats and
  * `docs/blitz-ai-knowledge-roadmap.md` for the larger initiative.
  *
+ * POST-AUDIT SECTION REALIGNMENT (2026-07-17)
+ * ────────────────────────────────────────────
+ * A corpus-wide audit cross-referenced lesson titles against the LIVE guide's
+ * video placements (`getBlitzVideoMap()` from `@workspace/blitz-curriculum`)
+ * and corrected 13 misfiled entries: 3.6/3.7 → 8 (copy blocks — the guide
+ * teaches them in sections 8 AND 9; 8 is the primary home), 6.1 → 9,
+ * 6.22/7.1/7.6/7.7/7B.5 → 12 (DIYTrax setup), 10.1/10.2/10.4/10.5/10.6 → 19
+ * (Round 3 placement assets). 3.10/3.11 (stay 8) and 10.7 (stays 18,
+ * round2-launch caveat) were audit near-misses judged correct as-is — do not
+ * "fix" them back. Note 3.7's title is a known mispairing: its source video is
+ * a second copy-blocks call, not hero-shot training (title kept verbatim to
+ * honor the `blitz_lessons.title` drift contract).
+ *
  * This is a code-owned, drift-guarded map (same pattern as
  * {@link BLITZ_SECTION_TO_NODE}). `blitz-identity-map-drift.test.ts` asserts it
  * covers EXACTLY the expected reference-doc source set (the 94 `blitz_lessons`
@@ -123,8 +136,8 @@ const BLITZ_LESSON_IDENTITIES: readonly RawLessonIdentity[] = [
   { lessonId: "3.3"    , section: 11, title: "3.3: Add Domain To Flexy" },
   { lessonId: "3.4"    , section: 11, title: "3.4: Connect Domain To Website" },
   { lessonId: "3.5"    , section: 11, title: "3.5: Clone Page Into Any Website" },
-  { lessonId: "3.6"    , section:  6, title: "3.6: Copy Blocks Headline Training" },
-  { lessonId: "3.7"    , section:  6, title: "3.7: Hero Shot Selection and Creation Training" },
+  { lessonId: "3.6"    , section:   8, title: "3.6: Copy Blocks Headline Training" },
+  { lessonId: "3.7"    , section:   8, title: "3.7: Hero Shot Selection and Creation Training" },
   { lessonId: "3.8"    , section:  8, title: "3.8: Cloning Your Advertorial Page" },
   { lessonId: "3.9"    , section:  8, title: "3.9: Creating Split Test Variants for Your Advertorial" },
   { lessonId: "3.10"   , section:  8, title: "3.10: Generate Advertorial Headlines with AffiliateCMO" },
@@ -149,7 +162,7 @@ const BLITZ_LESSON_IDENTITIES: readonly RawLessonIdentity[] = [
   { lessonId: "5.2"    , section: 12, title: "5.2: DIYTrax ClickBank IPN Integration" },
   { lessonId: "5.3"    , section: 12, title: "5.3: Add DIYTrax LP Offer Link in Flexy Custom Value" },
   { lessonId: "5.4"    , section: 12, title: "5.4: Add DIYTrax LP Offer Link Directly in Flexy" },
-  { lessonId: "6.1"    , section: 13, title: "6.1: Optimize Landing Page Base Copy" },
+  { lessonId: "6.1"    , section:  9, title: "6.1: Optimize Landing Page Base Copy" },
   { lessonId: "6.2"    , section: 13, title: "6.2: How to Know Whether to Use MetricMover or Individual Landing Pages" },
   { lessonId: "6.3"    , section: 13, title: "6.3: What You Need For A MetricMover Test" },
   { lessonId: "6.4"    , section: 13, title: "6.4: Creating A New MetricMover Campaign" },
@@ -170,29 +183,29 @@ const BLITZ_LESSON_IDENTITIES: readonly RawLessonIdentity[] = [
   { lessonId: "6.19"   , section: 13, title: "6.19: Further Page Edits" },
   { lessonId: "6.20"   , section: 13, title: "6.20: Cloning and Editing More Landing Page Variants" },
   { lessonId: "6.21"   , section: 13, title: "6.21: Gathering Your Landing Page Variant URLs for DIYTrax" },
-  { lessonId: "6.22"   , section: 13, title: "6.22: Adding Your Landing Page Variant URLs to DIYTrax" },
-  { lessonId: "7.1"    , section: 14, title: "7.1: DIYTrax Campaign Basic Info" },
+  { lessonId: "6.22"   , section: 12, title: "6.22: Adding Your Landing Page Variant URLs to DIYTrax" },
+  { lessonId: "7.1"    , section: 12, title: "7.1: DIYTrax Campaign Basic Info" },
   { lessonId: "7.2"    , section: 14, title: "7.2: Configure Traffic Source Settings" },
   { lessonId: "7.3"    , section: 14, title: "7.3: Create Your First Native Ad" },
   { lessonId: "7.4"    , section: 14, title: "7.4: Create More Ads" },
-  { lessonId: "7.6"    , section: 14, title: "7.6: Add Your Landing Pages in DIYTrax" },
-  { lessonId: "7.7"    , section: 14, title: "7.7: Place Affiliate Link in DIYTrax Campaign Offer Pages" },
+  { lessonId: "7.6"    , section: 12, title: "7.6: Add Your Landing Pages in DIYTrax" },
+  { lessonId: "7.7"    , section: 12, title: "7.7: Place Affiliate Link in DIYTrax Campaign Offer Pages" },
   { lessonId: "7.8"    , section: 14, title: "7.8: Final QA Campaign Check and Set to Live" },
   { lessonId: "7B.2"   , section: 14, title: "7B.2: Configure Traffic Source Settings", note: "grasshopper-crane" },
   { lessonId: "7B.3"   , section: 14, title: "7B.3: Upload Ad Banners", note: "grasshopper-crane" },
   { lessonId: "7B.4"   , section: 14, title: "7B.4: Fund Your Traffic Source", note: "grasshopper-crane" },
-  { lessonId: "7B.5"   , section: 14, title: "7B.5: Place Affiliate Link in Campaign Offer Pages", note: "grasshopper-crane" },
+  { lessonId: "7B.5"   , section: 12, title: "7B.5: Place Affiliate Link in Campaign Offer Pages", note: "grasshopper-crane" },
   { lessonId: "7B.6"   , section: 14, title: "7B.6: Final QA Campaign Check", note: "grasshopper-crane" },
   { lessonId: "7B.7"   , section: 14, title: "7B.7: Submit Banners and Turn Campaign Active", note: "grasshopper-crane" },
   { lessonId: "7B.8"   , section: 14, title: "7B.8: How Traffic Source Works and What to Expect", note: "grasshopper-crane" },
   { lessonId: "8.2"    , section: 16, title: "8.2: Round 1 — When to Make a Banner Inactive" },
   { lessonId: "8.3"    , section: 16, title: "8.3: Round 1 — What To Do If Campaign Turns Off Before $1500" },
-  { lessonId: "10.1"   , section: 17, title: "10.1: How to Use Cropbot to Create 9x16 Image" },
-  { lessonId: "10.2"   , section: 17, title: "10.2: How to Create Videos From Round 1 Image" },
+  { lessonId: "10.1"   , section: 19, title: "10.1: How to Use Cropbot to Create 9x16 Image" },
+  { lessonId: "10.2"   , section: 19, title: "10.2: How to Create Videos From Round 1 Image" },
   { lessonId: "10.3"   , section: 17, title: "10.3: How to Trim Video Length" },
-  { lessonId: "10.4"   , section: 17, title: "10.4: How to Convert Videos to GIFs Using Adobe Express" },
-  { lessonId: "10.5"   , section: 17, title: "10.5: How to Reduce GIF File Size Using GIFSTER" },
-  { lessonId: "10.6"   , section: 17, title: "10.6: How to Convert Videos to GIFs Using GIFSTER" },
+  { lessonId: "10.4"   , section: 19, title: "10.4: How to Convert Videos to GIFs Using Adobe Express" },
+  { lessonId: "10.5"   , section: 19, title: "10.5: How to Reduce GIF File Size Using GIFSTER" },
+  { lessonId: "10.6"   , section: 19, title: "10.6: How to Convert Videos to GIFs Using GIFSTER" },
   { lessonId: "10.7"   , section: 18, title: "10.7: How to Create Ads and Launch Round 2", note: "round2-launch" },
   { lessonId: null     , section: 15, title: "Understanding the Testing Reality — Caterpillar" },
   { lessonId: null     , section: 15, title: "Understanding the Testing Reality — Grasshopper & Crane", note: "grasshopper-crane" },
