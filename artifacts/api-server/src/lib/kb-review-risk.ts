@@ -153,8 +153,21 @@ function findMatches(line: string, re: RegExp): string[] {
   return out;
 }
 
+export interface AnalyzeDraftOptions {
+  /**
+   * Optional context-aware figure verifier (Blitz written-guide corroboration).
+   * When it returns true for (figure, lineText), the situational_number
+   * highlight for that figure is suppressed — the figure is curated written
+   * content, not an unverified number. All other detectors are unaffected.
+   */
+  figureVerifier?: (figure: string, lineText: string) => boolean;
+}
+
 /** Analyze a draft's current text. Pure — unit-tested. */
-export function analyzeDraftForReview(content: string): ReviewHighlight[] {
+export function analyzeDraftForReview(
+  content: string,
+  options?: AnalyzeDraftOptions,
+): ReviewHighlight[] {
   const lines = content.split("\n");
   const highlights: ReviewHighlight[] = [];
   const seen = new Set<string>();
@@ -218,7 +231,10 @@ export function analyzeDraftForReview(content: string): ReviewHighlight[] {
     //    (a tagged line already carries the stronger signal).
     if (!synthTagged) {
       for (const re of NUMBER_PATTERNS) {
-        for (const m of findMatches(line, re)) push("situational_number", m, i);
+        for (const m of findMatches(line, re)) {
+          if (options?.figureVerifier?.(m, line)) continue;
+          push("situational_number", m, i);
+        }
       }
     }
 

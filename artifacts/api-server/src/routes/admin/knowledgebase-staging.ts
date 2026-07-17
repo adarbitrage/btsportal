@@ -31,6 +31,7 @@ import { retrieveSurfaceAware } from "../../lib/kb-retrieval.js";
 import { applyRefineEdits } from "../../lib/transcript-cleaner.js";
 import { resolveSourceContentForSynthesis } from "../../lib/kb-value-screener.js";
 import { analyzeDraftForReview, HIGHLIGHT_META, type ReviewHighlightKind } from "../../lib/kb-review-risk.js";
+import { figureVerifierForDoc } from "../../lib/blitz-figure-context.js";
 import {
   normalizeExcerpt,
   flagFingerprint,
@@ -1444,7 +1445,9 @@ router.post("/highlight-dismissals", async (req: Request, res: Response) => {
         return;
       }
       docTitle = doc.title;
-      const highlights = analyzeDraftForReview(doc.editedContent ?? doc.content);
+      const highlights = analyzeDraftForReview(doc.editedContent ?? doc.content, {
+        figureVerifier: figureVerifierForDoc(doc.source),
+      });
       const norm = normalizeExcerpt(excerptStr);
       const match = highlights.some(
         (h) => h.kind === kindStr && normalizeExcerpt(h.excerpt) === norm,

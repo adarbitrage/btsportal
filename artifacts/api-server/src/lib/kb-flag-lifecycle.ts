@@ -37,6 +37,7 @@ import {
   type RiskFlag,
 } from "./kb-flags.js";
 import { analyzeDraftForReview, type ReviewHighlight } from "./kb-review-risk.js";
+import { figureVerifierForDoc } from "./blitz-figure-context.js";
 import { isCitableDocClass } from "./kb-taxonomy.js";
 
 // ── Pure helpers ─────────────────────────────────────────────────────────────
@@ -136,7 +137,7 @@ export interface DocOutstanding {
  * that is ABOUT to be saved.
  */
 export async function getDocOutstanding(
-  doc: Pick<StagingDocRow, "id" | "riskFlags" | "editedContent" | "content">,
+  doc: Pick<StagingDocRow, "id" | "riskFlags" | "editedContent" | "content" | "source">,
   contentOverride?: string,
 ): Promise<DocOutstanding> {
   const [resolutions, dismissals] = await Promise.all([
@@ -147,6 +148,7 @@ export async function getDocOutstanding(
   const { states, active } = partitionFlags(flags, resolutions);
   const highlights = analyzeDraftForReview(
     contentOverride ?? doc.editedContent ?? doc.content,
+    { figureVerifier: figureVerifierForDoc(doc.source) },
   );
   const parts = partitionHighlights(highlights, dismissals);
   return {
