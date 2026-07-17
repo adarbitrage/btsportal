@@ -99,6 +99,10 @@ const FLAG_MEANINGS = {
     "An existing doc may already cover this material. Check for overlap and merge/supersede rather than creating a second copy.",
   source_conflict:
     "The draft still contains a \"SOURCE CONFLICT (for reviewer)\" blockquote from synthesis. Adjudicate and remove it — blocks bulk-confirm.",
+  baseline_conflict:
+    "A curriculum source contradicts the published, human-edited baseline doc — the draft kept the baseline and added a \"BASELINE CONFLICT (for reviewer)\" blockquote. Decide which position is current truth, rewrite and remove it — blocks bulk-confirm.",
+  coaching_drift:
+    "Multiple coaching sources consistently teach this differently than the published baseline. Advisory: the baseline text was kept — decide whether the field process evolved, then update or dismiss and remove the blockquote.",
   navigation_conflict:
     "The draft references a legacy portal location. Rewrite to the current page name/path and remove the blockquote before publishing.",
   navigation_drift:

@@ -9,6 +9,9 @@ import {
   SITUATIONAL_NUMBER_RULES,
   NO_MEMBER_NAMES_RULE,
   SOURCE_CONFLICT_MARKER,
+  BASELINE_CONFLICT_MARKER,
+  COACHING_DRIFT_MARKER,
+  APPROVED_BASELINE_RULES,
   FLAG_PRESERVATION_GUARD,
   mergeScreeningFlags,
   screeningFlagsLabel,
@@ -116,10 +119,55 @@ describe("consolidation prompt contract (authority, conflicts, flags, names)", (
     expect(prompt).toContain(HEARSAY_GUARD);
   });
 
+  it("omits the approved-baseline rules when the node has no published doc", () => {
+    expect(prompt).not.toContain(APPROVED_BASELINE_RULES);
+  });
+
   it("pairs coaching insight around the curriculum foundation it supplements", () => {
     expect(prompt).toMatch(/CURRICULUM PAIRING/);
     expect(prompt).toMatch(/curriculum position first/);
     expect(prompt).toMatch(/never as a competing alternative/);
+  });
+});
+
+describe("approved-baseline prompt contract (baseline injection)", () => {
+  const node = ALL_NODES.find((n) => n.root === "concepts") ?? ALL_NODES[0];
+  const prompt = buildConsolidateSystemPrompt(node!, "depth guidance here", true);
+
+  it("embeds the baseline rules only when a baseline is present", () => {
+    expect(prompt).toContain(APPROVED_BASELINE_RULES);
+  });
+
+  it("starts from the baseline and never reverts it to older source phrasing", () => {
+    expect(APPROVED_BASELINE_RULES).toMatch(/START FROM THE BASELINE/);
+    expect(APPROVED_BASELINE_RULES).toMatch(/Never revert a baseline statement/);
+    expect(APPROVED_BASELINE_RULES).toMatch(/ABOVE the authority ladder/);
+  });
+
+  it("lets the baseline win silently over coaching, with a corroborated-drift flag only", () => {
+    expect(APPROVED_BASELINE_RULES).toMatch(/COACHING NEVER OVERRIDES THE BASELINE/);
+    expect(APPROVED_BASELINE_RULES).toMatch(/baseline wins SILENTLY/);
+    expect(APPROVED_BASELINE_RULES).toMatch(/Do not flag one-off disagreements/);
+    expect(APPROVED_BASELINE_RULES).toMatch(/MULTIPLE coaching sources consistently/);
+    expect(APPROVED_BASELINE_RULES).toContain(COACHING_DRIFT_MARKER);
+    expect(APPROVED_BASELINE_RULES).toMatch(/keep the baseline text unchanged/);
+  });
+
+  it("lets curriculum challenge the baseline visibly, never silently rewriting it", () => {
+    expect(APPROVED_BASELINE_RULES).toMatch(/CURRICULUM MAY CHALLENGE/);
+    expect(APPROVED_BASELINE_RULES).toContain(BASELINE_CONFLICT_MARKER);
+    expect(APPROVED_BASELINE_RULES).toMatch(/Never silently rewrite the baseline/);
+  });
+
+  it("preserves baseline content that no source mentions", () => {
+    expect(APPROVED_BASELINE_RULES).toMatch(/NO source mentions is preserved/);
+  });
+
+  it("markers are visible reviewer-addressed blockquote lines", () => {
+    for (const marker of [BASELINE_CONFLICT_MARKER, COACHING_DRIFT_MARKER]) {
+      expect(marker).toMatch(/^> /);
+      expect(marker).toMatch(/reviewer/i);
+    }
   });
 });
 

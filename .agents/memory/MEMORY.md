@@ -114,6 +114,7 @@
 - [Publish + canary required close-out (split)](publish-and-canary-required-closeout.md) — member-visible tasks NOT done until published AND canary-verified; task agents hand off a canary spec only; main flow publishes + runs canaries batched.
 - [KB cleaner format contract + glued-turn repair](kb-cleaner-format-contract.md) — own-line `Coach:` canonical, only MID-LINE glued labels are drift; sweep finding 0 can be correct.
 - [KB review-gate analyzer lockstep](kb-review-gate-analyzer.md) — analyzer mirrors synthesis SOURCE CONFLICT prefix + [SITUATIONAL]-family tags locally; any marker/tag change updates kb-review-risk + tests together.
+- [KB approved-baseline injection](kb-approved-baseline-injection.md) — published Live AI Doc rides every synthesis fold as protected baseline; markers need 4-place lockstep + BLOCKING_SQL for blocking types.
 - [Group-call RSVP gating + reminders](group-call-rsvp-join-gating.md) — meet-link withholding duplicated in list + dashboard (lockstep); join = conditional UPDATE, first joined_at wins; RSVP-driven 7AM-member-local reminders + coaching-only unsubscribe (group-call-rsvp-morning-reminders.md).
 - [gpt-5 reasoning tokens eat max_completion_tokens](gpt5-reasoning-token-budget.md) — tight budgets return 200 + empty content (finish=length), JSON.parse retry-loops; give thousands of tokens headroom.
 - [Coach archive vs delete](coach-archive-vs-delete.md) — history-holding coaches archived, never deleted; reassign moves only upcoming calls + templates; scheduling writes gate on coaches.isActive.

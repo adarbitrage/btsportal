@@ -18,6 +18,8 @@ import { scrubPrivateContent } from "./content-privacy-filter";
 import {
   hasSourceConflictMarker,
   hasNavigationConflictMarker,
+  hasBaselineConflictMarker,
+  hasCoachingDriftMarker,
   hasSynthesisRiskTags,
   hasTimeSensitivePhrasing,
   hasPrivacyResidue,
@@ -37,6 +39,10 @@ export type RiskFlagType =
   // in the draft text itself. Computed via the pure detectors in kb-review-risk.
   | "source_conflict"
   | "navigation_conflict"
+  // Approved-baseline injection: markers the consolidation prompt emits when
+  // sources challenge the published, human-edited baseline doc.
+  | "baseline_conflict"
+  | "coaching_drift"
   // Boot-time nav drift scan (Task #1778) — appended by kb-nav-drift-scan when
   // the portal nav map changes after a draft was written.
   | "navigation_drift"
@@ -75,6 +81,8 @@ export const RISK_FLAG_TYPES = [
   "possible_duplicate",
   "source_conflict",
   "navigation_conflict",
+  "baseline_conflict",
+  "coaching_drift",
   "navigation_drift",
   "situational_content",
   "time_sensitive",
@@ -114,7 +122,11 @@ export function maxSeverity(flags: readonly RiskFlag[]): FlagSeverity | null {
 /** Flags that must block bulk-confirm (require explicit per-doc adjudication). */
 export function blocksBulkConfirm(flags: readonly RiskFlag[]): boolean {
   return flags.some(
-    (f) => f.type === "conflict" || f.type === "high_stakes" || f.type === "source_conflict",
+    (f) =>
+      f.type === "conflict" ||
+      f.type === "high_stakes" ||
+      f.type === "source_conflict" ||
+      f.type === "baseline_conflict",
   );
 }
 
@@ -289,6 +301,30 @@ export function computeRiskFlags(input: ComputeFlagsInput): RiskFlag[] {
       message: "Unresolved source conflict in draft",
       detail:
         "The draft body contains a \"SOURCE CONFLICT (for reviewer)\" blockquote from synthesis — adjudicate and rewrite/remove it before publishing.",
+    });
+  }
+
+  // Unresolved BASELINE CONFLICT blockquote — curriculum challenged the
+  // published, human-edited baseline. Blocks bulk-confirm like source_conflict.
+  if (hasBaselineConflictMarker(input.content)) {
+    flags.push({
+      type: "baseline_conflict",
+      severity: "critical",
+      message: "Curriculum contradicts the published baseline",
+      detail:
+        "The draft body contains a \"BASELINE CONFLICT (for reviewer)\" blockquote — a curriculum source contradicts the published, human-edited doc. Adjudicate which position is current truth and remove the blockquote before publishing.",
+    });
+  }
+
+  // COACHING DRIFT blockquote — corroborated coaching disagreement with the
+  // baseline. Advisory: the baseline text was kept; a human decides.
+  if (hasCoachingDriftMarker(input.content)) {
+    flags.push({
+      type: "coaching_drift",
+      severity: "medium",
+      message: "Coaching has drifted from the published baseline",
+      detail:
+        "The draft body contains a \"COACHING DRIFT (for reviewer)\" blockquote — multiple coaching sources consistently teach this differently than the published doc. Decide whether the field process evolved, then update or dismiss and remove the blockquote.",
     });
   }
 

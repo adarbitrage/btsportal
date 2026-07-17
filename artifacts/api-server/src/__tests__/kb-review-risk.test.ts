@@ -12,14 +12,58 @@ import {
   isPrivacyProtectedPair,
   SEED_TERMINOLOGY_PHRASES,
   SOURCE_CONFLICT_PREFIX,
+  BASELINE_CONFLICT_PREFIX,
+  COACHING_DRIFT_PREFIX,
+  hasBaselineConflictMarker,
+  hasCoachingDriftMarker,
   type NameFlagVocab,
 } from "../lib/kb-review-risk";
-import { SOURCE_CONFLICT_MARKER } from "../lib/kb-synthesis";
+import {
+  SOURCE_CONFLICT_MARKER,
+  BASELINE_CONFLICT_MARKER,
+  COACHING_DRIFT_MARKER,
+} from "../lib/kb-synthesis";
 import { computeRiskFlags, blocksBulkConfirm } from "../lib/kb-flags";
 
 describe("SOURCE_CONFLICT_PREFIX drift guard", () => {
   it("the real synthesis marker contains the local prefix mirror", () => {
     expect(SOURCE_CONFLICT_MARKER).toContain(SOURCE_CONFLICT_PREFIX);
+  });
+});
+
+describe("baseline marker drift guards", () => {
+  it("the real synthesis markers contain the local prefix mirrors", () => {
+    expect(BASELINE_CONFLICT_MARKER).toContain(BASELINE_CONFLICT_PREFIX);
+    expect(COACHING_DRIFT_MARKER).toContain(COACHING_DRIFT_PREFIX);
+  });
+
+  it("analyzeDraftForReview flags baseline conflicts as critical and coaching drift as medium", () => {
+    const content = [
+      "Intro",
+      `${BASELINE_CONFLICT_MARKER} curriculum now says X, published doc says Y`,
+      `${COACHING_DRIFT_MARKER} several recent calls teach Z instead`,
+    ].join("\n");
+    const hs = analyzeDraftForReview(content);
+    const bc = hs.find((h) => h.kind === "baseline_conflict");
+    const cd = hs.find((h) => h.kind === "coaching_drift");
+    expect(bc?.severity).toBe("critical");
+    expect(cd?.severity).toBe("medium");
+  });
+
+  it("summary detectors match, and baseline_conflict blocks bulk-confirm while coaching_drift does not", () => {
+    const bcContent = `${BASELINE_CONFLICT_MARKER} disagreement`;
+    const cdContent = `${COACHING_DRIFT_MARKER} drift`;
+    expect(hasBaselineConflictMarker(bcContent)).toBe(true);
+    expect(hasCoachingDriftMarker(cdContent)).toBe(true);
+
+    const base = { title: "T", authorityRole: "curriculum", sourceType: null, corroborationCount: 3 };
+    const bcFlags = computeRiskFlags({ ...base, content: bcContent });
+    expect(bcFlags.some((f) => f.type === "baseline_conflict" && f.severity === "critical")).toBe(true);
+    expect(blocksBulkConfirm(bcFlags)).toBe(true);
+
+    const cdFlags = computeRiskFlags({ ...base, content: cdContent });
+    expect(cdFlags.some((f) => f.type === "coaching_drift" && f.severity === "medium")).toBe(true);
+    expect(blocksBulkConfirm(cdFlags)).toBe(false);
   });
 });
 

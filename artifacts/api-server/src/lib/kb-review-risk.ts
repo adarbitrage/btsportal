@@ -33,9 +33,17 @@ export const SOURCE_CONFLICT_PREFIX = "SOURCE CONFLICT (for reviewer):";
 // prefix so the two never drift.
 export const NAV_CONFLICT_PREFIX = "NAVIGATION CONFLICT (for reviewer):";
 
+// Local mirrors of kb-synthesis's approved-baseline markers (Task: baseline
+// injection) — same bare-substring pattern; unit tests assert the real markers
+// contain these prefixes so the two never drift.
+export const BASELINE_CONFLICT_PREFIX = "BASELINE CONFLICT (for reviewer):";
+export const COACHING_DRIFT_PREFIX = "COACHING DRIFT (for reviewer):";
+
 export type ReviewHighlightKind =
   | "source_conflict"
   | "navigation_conflict"
+  | "baseline_conflict"
+  | "coaching_drift"
   | "synthesis_situational"
   | "synthesis_context_bound"
   | "synthesis_anomaly"
@@ -70,6 +78,16 @@ export const HIGHLIGHT_META: Record<
     severity: "high",
     label: "Navigation conflict",
     note: "The draft references a legacy portal location (or one the nav map can't confirm) — rewrite it to the current page name/path (or adjudicate the mapping) and remove this blockquote before publishing.",
+  },
+  baseline_conflict: {
+    severity: "critical",
+    label: "Baseline conflict",
+    note: "A curriculum source contradicts the published, human-edited baseline doc — decide which position is current truth, rewrite accordingly and remove this blockquote before publishing.",
+  },
+  coaching_drift: {
+    severity: "medium",
+    label: "Coaching drift",
+    note: "Multiple coaching sources consistently teach this differently than the published baseline. The baseline text was kept — decide whether the field process has evolved, then update or dismiss and remove this blockquote.",
   },
   synthesis_situational: {
     severity: "high",
@@ -309,6 +327,14 @@ export function analyzeDraftForReview(
       push("navigation_conflict", trimmed, i);
     }
 
+    // 1c. Approved-baseline blockquotes (baseline-injection contract).
+    if (trimmed.includes(BASELINE_CONFLICT_PREFIX)) {
+      push("baseline_conflict", trimmed, i);
+    }
+    if (trimmed.includes(COACHING_DRIFT_PREFIX)) {
+      push("coaching_drift", trimmed, i);
+    }
+
     // 2. Inline synthesis tags.
     let synthTagged = false;
     for (const { tag, kind } of SYNTH_TAGS) {
@@ -386,6 +412,14 @@ export function hasSourceConflictMarker(content: string): boolean {
 
 export function hasNavigationConflictMarker(content: string): boolean {
   return content.includes(NAV_CONFLICT_PREFIX);
+}
+
+export function hasBaselineConflictMarker(content: string): boolean {
+  return content.includes(BASELINE_CONFLICT_PREFIX);
+}
+
+export function hasCoachingDriftMarker(content: string): boolean {
+  return content.includes(COACHING_DRIFT_PREFIX);
 }
 
 export function hasSynthesisRiskTags(content: string): boolean {

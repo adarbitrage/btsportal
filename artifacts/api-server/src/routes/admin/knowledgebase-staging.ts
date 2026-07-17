@@ -72,6 +72,7 @@ const BLOCKING_SQL = sql`(
   OR ${kbStagingDocsTable.riskFlags} @> '[{"type":"conflict"}]'::jsonb
   OR ${kbStagingDocsTable.riskFlags} @> '[{"type":"high_stakes"}]'::jsonb
   OR ${kbStagingDocsTable.riskFlags} @> '[{"type":"source_conflict"}]'::jsonb
+  OR ${kbStagingDocsTable.riskFlags} @> '[{"type":"baseline_conflict"}]'::jsonb
 )`;
 
 const FLAGGED_SQL = sql`(
