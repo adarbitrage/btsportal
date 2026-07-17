@@ -1,5 +1,3 @@
-import { db, kbStagingDocsTable, aiSourceDocumentsTable } from "@workspace/db";
-import { eq } from "drizzle-orm";
 import { flattenNavigationMap } from "@workspace/portal-nav-map";
 import type { BlitzPhaseKey } from "@workspace/blitz-curriculum";
 import {
@@ -397,101 +395,7 @@ export function transformBlitzReferenceDoc(
 
 // ── Idempotent import ────────────────────────────────────────────────────────
 
-export interface BlitzImportSummary {
-  totalSources: number;
-  imported: number;
-  skippedExisting: number;
-  /** Source titles that failed to resolve via the crosswalk (loud, expect none). */
-  unmappedTitles: string[];
-  /** Newly inserted staging-doc ids (the triage kick targets exactly these). */
-  importedIds: number[];
-  /** Per-doc unresolved internal lesson-id cross-references. */
-  unresolvedRefs: Record<string, string[]>;
-  navCheckCount: number;
-  skimCount: number;
-}
-
-/**
- * Idempotent bulk import of every `reference_docs` source into
- * `kb_staging_docs`. A source is skipped when ANY-status staging row already
- * carries the import marker for its title — rejected/deleted rows are never
- * resurrected, re-runs are safe no-ops.
- */
-export async function importBlitzReferenceDocs(): Promise<BlitzImportSummary> {
-  const sources = await db
-    .select({
-      id: aiSourceDocumentsTable.id,
-      title: aiSourceDocumentsTable.title,
-      content: aiSourceDocumentsTable.content,
-    })
-    .from(aiSourceDocumentsTable)
-    .where(eq(aiSourceDocumentsTable.sourceType, BLITZ_REFERENCE_SOURCE_TYPE));
-
-  const existingRows = await db
-    .select({ sourceVideoTitle: kbStagingDocsTable.sourceVideoTitle })
-    .from(kbStagingDocsTable)
-    .where(eq(kbStagingDocsTable.source, BLITZ_REFERENCE_IMPORT_SOURCE));
-  const existing = new Set(
-    existingRows.map((r) => (r.sourceVideoTitle ?? "").trim()).filter(Boolean),
-  );
-
-  const summary: BlitzImportSummary = {
-    totalSources: sources.length,
-    imported: 0,
-    skippedExisting: 0,
-    unmappedTitles: [],
-    importedIds: [],
-    unresolvedRefs: {},
-    navCheckCount: 0,
-    skimCount: 0,
-  };
-
-  for (const src of sources) {
-    const marker = src.title.trim();
-    if (existing.has(marker)) {
-      summary.skippedExisting++;
-      continue;
-    }
-    const t = transformBlitzReferenceDoc(src.title, src.content);
-    if (!t) {
-      summary.unmappedTitles.push(src.title);
-      continue;
-    }
-    const [inserted] = await db
-      .insert(kbStagingDocsTable)
-      .values({
-        title: t.title,
-        category: "curriculum",
-        content: t.content,
-        tags: t.tags,
-        status: "needs_review",
-        source: BLITZ_REFERENCE_IMPORT_SOURCE,
-        sourceVideoTitle: marker,
-        sourceVideoId: `ai-src-${src.id}`,
-        audience: "member",
-        docType: "existing_doc",
-        originType: "curated_upload",
-        authorityRole: "curriculum",
-        docClassTarget: "curated",
-        homeRoot: "process",
-        node: t.entry.processNode,
-        taxonomyTags: t.taxonomyTags,
-        blitzSection: t.entry.section,
-        ceiling: t.ceiling,
-        lessonId: t.entry.lessonId,
-        phase: t.entry.phase,
-        module: t.header.module,
-        riskFlags: t.riskFlags,
-        adminNotes: t.adminNotes,
-      })
-      .returning({ id: kbStagingDocsTable.id });
-
-    summary.imported++;
-    summary.importedIds.push(inserted.id);
-    if (t.unresolvedRefs.length > 0) summary.unresolvedRefs[t.title] = t.unresolvedRefs;
-    if (t.effort === "nav_check") summary.navCheckCount++;
-    else summary.skimCount++;
-  }
-
-  return summary;
-}
+// NOTE: the old blanket importer (`importBlitzReferenceDocs`) was retired with
+// the section-anchored reference-doc rebuild. The transform helpers above stay
+// exported for tests + kb-triage (BLITZ_REFERENCE_IMPORT_SOURCE handling of
+// pre-existing staging rows).

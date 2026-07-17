@@ -165,7 +165,9 @@ export {
   getKnownVidalyticsIds,
   getBlitzLessonsForVideo,
   getBlitzVideoInfo,
+  getBlitzSectionHtmlSpans,
   type BlitzVideoMap,
   type BlitzVideoInfo,
   type BlitzVideoPlacement,
+  type BlitzSectionHtmlSpan,
 } from "./blitz-video-map";

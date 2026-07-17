@@ -158,3 +158,45 @@ export function getBlitzLessonsForVideo(vidalyticsId: string): number[] {
 export function getBlitzVideoInfo(vidalyticsId: string): BlitzVideoInfo | null {
   return getBlitzVideoMap().byVideoId.get(vidalyticsId) ?? null;
 }
+
+// ── Section HTML spans ───────────────────────────────────────────────────────
+
+export interface BlitzSectionHtmlSpan {
+  /** Canonical section id (1–23, matches BLITZ_SECTION_BY_ID). */
+  id: number;
+  /** Start offset of the section's `mod-badge` token in BLITZ_BODY_HTML. */
+  start: number;
+  /** End offset (exclusive) — the next section's badge, or end of document. */
+  end: number;
+}
+
+/**
+ * The HTML span of each of the 23 sections inside BLITZ_BODY_HTML, derived
+ * from the SAME `mod-badge` tokenizer the video map uses (single parser — no
+ * drift). Section N's span runs from its badge to the next section's badge.
+ *
+ * Throws loudly when the guide's badge sequence is not exactly 1..23 in
+ * ascending document order — every downstream consumer (section extraction,
+ * reference-doc generation) depends on that invariant.
+ */
+export function getBlitzSectionHtmlSpans(): BlitzSectionHtmlSpan[] {
+  const html = BLITZ_BODY_HTML;
+  const badges: Array<{ id: number; index: number }> = [];
+  BADGE_RE.lastIndex = 0;
+  for (let m = BADGE_RE.exec(html); m; m = BADGE_RE.exec(html)) {
+    badges.push({ id: Number(m[1]), index: m.index });
+  }
+  const expected = Array.from({ length: 23 }, (_, i) => i + 1);
+  const actual = badges.map((b) => b.id);
+  if (actual.length !== expected.length || actual.some((v, i) => v !== expected[i])) {
+    throw new Error(
+      `Blitz guide badge sequence is not 1..23 in order — got [${actual.join(",")}]. ` +
+        `Section extraction cannot proceed safely.`,
+    );
+  }
+  return badges.map((b, i) => ({
+    id: b.id,
+    start: b.index,
+    end: i + 1 < badges.length ? badges[i + 1].index : html.length,
+  }));
+}

@@ -1237,39 +1237,6 @@ export default function KnowledgeBaseReview() {
     }
   };
 
-  // Blitz reference-doc import (Task #1914): idempotent server-side bulk
-  // import + automated cleanup of the AI Source Knowledge reference docs; new
-  // rows go straight to AI triage in the background.
-  const importBlitzReferences = async () => {
-    setImporting(true);
-    try {
-      const res = await authFetch("/admin/knowledgebase/staging/import-blitz-references", { method: "POST" });
-      const data = await res.json().catch(() => null);
-      if (!res.ok) throw new Error(typeof data?.error === "string" ? data.error : "Failed");
-      const parts: string[] = [];
-      if (data.skippedExisting) parts.push(`${data.skippedExisting} already imported (skipped)`);
-      if (data.unmappedTitles?.length) parts.push(`${data.unmappedTitles.length} unmapped title(s) — check server logs`);
-      if (data.imported > 0) parts.push(`${data.navCheckCount} need a portal nav check, ${data.skimCount} are skim-only`);
-      if (data.triageKicked) parts.push("AI analysis started");
-      toast({
-        title: `Imported ${data.imported} of ${data.totalSources} Blitz reference docs`,
-        description: parts.length ? parts.join(" · ") : undefined,
-      });
-      if (data.triageKicked) setTriaging(true);
-      setSourceKindFilter("blitz");
-      setPage(1);
-      fetchDocs();
-    } catch (err) {
-      toast({
-        title: "Failed to import Blitz reference docs",
-        description: err instanceof Error && err.message !== "Failed" ? err.message : undefined,
-        variant: "destructive",
-      });
-    } finally {
-      setImporting(false);
-    }
-  };
-
   const importCurated = async () => {
     setImporting(true);
     try {
@@ -3088,15 +3055,6 @@ export default function KnowledgeBaseReview() {
               <DropdownMenuItem onSelect={importCurated} disabled title="Temporarily disabled while the document-review intake is being mapped out">
                 {importing ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <FileText className="w-4 h-4 mr-2" />}
                 Import Curated
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                onSelect={importBlitzReferences}
-                disabled={importing}
-                title="Import the Blitz reference docs from AI Source Knowledge into review, with automated cleanup (internal headers/numbering removed, cross-references rewritten, privacy scrub). Safe to re-run — already-imported, rejected and deleted docs are never re-created."
-                data-testid="button-import-blitz-references"
-              >
-                {importing ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <BookOpen className="w-4 h-4 mr-2" />}
-                Import Blitz References
               </DropdownMenuItem>
               {(docTypeCounts.existing_doc || 0) > 0 && (
                 <DropdownMenuItem onSelect={loadGuidedQueue} disabled title="Temporarily disabled while the document-review intake is being mapped out">

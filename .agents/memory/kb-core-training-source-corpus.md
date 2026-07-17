@@ -18,13 +18,11 @@ imported into the api-server. Brand tokens (`{brand.full}`) resolve to
 **Why:** mining input, not citable, so verbatim fidelity is not required; the
 engine consolidates it.
 
-**Blitz body granularity:** file ONE `ai_source_documents` row PER
-`blitz_lessons` row (not one giant concatenated body). The topic indexer
-truncates each source to ~9k chars for LLM classification, so a single
-concatenated Blitz body would drop most of the curriculum. Note: the task spec
-says "23 Blitz lesson bodies" but `blitz_lessons` actually holds ~94 rows (the
-lesson-hub library incl. per-network/per-publisher variants); the seed files all
-non-rejected rows for full mining coverage.
+**Blitz body granularity (UPDATED July 2026):** the `blitz_lessons` mirror was
+REMOVED from this seed — the seed now files ONLY the 2 prose docs. The Blitz
+corpus is 29 section-anchored generated docs (see
+blitz-reference-import-seam.md), each under the ~9k topic-indexer truncation
+cap by construction (8500-char generation cap).
 
 Idempotency is keyed on `title` (no unique DB constraint) — skip any title
 already present. All three bodies file into folder `reference_docs` with

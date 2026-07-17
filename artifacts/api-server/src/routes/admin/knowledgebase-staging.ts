@@ -42,10 +42,7 @@ import { getNameFlagVocab, invalidateNameFlagVocab } from "../../lib/kb-name-fla
 import { clusterDuplicates, findLiveSimilar } from "../../lib/kb-duplicates.js";
 import { embedLiveDocumentInBackground, CLEARED_EMBEDDING_FIELDS } from "../../lib/kb-embeddings.js";
 import { getEffectiveTagGroups } from "../../lib/kb-tool-tags.js";
-import {
-  importBlitzReferenceDocs,
-  BLITZ_REFERENCE_IMPORT_SOURCE,
-} from "../../lib/blitz-reference-import.js";
+import { BLITZ_REFERENCE_IMPORT_SOURCE } from "../../lib/blitz-reference-import.js";
 import {
   phraseSweepPreview,
   phraseSweepConfirm,
@@ -3269,36 +3266,12 @@ router.post("/import-curated", async (_req: Request, res: Response) => {
   }
 });
 
-// ── Blitz reference-doc import (Task #1914) ──────────────────────────────────
+// ── Blitz reference-doc import — RETIRED ─────────────────────────────────────
 //
-// Idempotent bulk import of the 96 AI Source Knowledge reference docs
-// (`ai_source_documents.source_type = 'reference_docs'`) into the review
-// queue, with automated cleanup (metadata header stripped, internal numbering
-// removed, cross-references rewritten to member-facing Blitz guide sections,
-// privacy/brand/confidential scrub, locked curated/process placement).
-// Re-runs skip ANY-status existing row — rejected/deleted docs are never
-// resurrected. New rows are handed straight to AI triage in the background.
-router.post("/import-blitz-references", async (_req: Request, res: Response) => {
-  try {
-    const summary = await importBlitzReferenceDocs();
-
-    let triageKicked = false;
-    if (summary.importedIds.length > 0 && !isTriageRunning()) {
-      const newDocs = await db
-        .select()
-        .from(kbStagingDocsTable)
-        .where(inArray(kbStagingDocsTable.id, summary.importedIds));
-      runTriageBackground(newDocs).catch((err) =>
-        console.error("[Blitz Import] Triage error:", err),
-      );
-      triageKicked = true;
-    }
-
-    res.json({ ...summary, triageKicked, triageAlreadyRunning: isTriageRunning() && !triageKicked });
-  } catch (err: unknown) {
-    res.status(500).json({ error: err instanceof Error ? err.message : "Unknown error" });
-  }
-});
+// The old blanket importer (`/import-blitz-references`, Task #1914) was
+// retired with the section-anchored reference-doc rebuild: the lesson-shaped
+// corpus it imported was hard-deleted, and the new section docs are generated
+// + staged by the blitz-section-docgen pipeline instead.
 
 // ── Corpus sweep (Task #1903) ─────────────────────────────────────────────────
 //
