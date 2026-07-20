@@ -1,10 +1,33 @@
 import { useCallback, useRef, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { refreshAccessToken } from "@workspace/api-client-react";
 
 const API_BASE = `${import.meta.env.BASE_URL}api`;
 
+// The API emits TWO error body shapes: route handlers use `{error: "string"}`
+// while shared middleware (auth 401s, RBAC, rate limiter) uses
+// `{error: {code, message, ...}}`. Always extract via this helper — passing the
+// object form into `new Error()` renders "[object Object]" in the UI.
+function extractErrorMessage(data: any, fallback: string): string {
+  if (typeof data?.error === "string") return data.error;
+  if (typeof data?.error?.message === "string") return data.error.message;
+  return fallback;
+}
+
+// Access tokens expire after 15 minutes; long chat sessions routinely outlive
+// one. Mirror authFetch's transparent recovery: on a 401, refresh (single-
+// flighted in @workspace/api-client-react) and retry the request once.
+async function fetchWithAuthRetry(input: string, init: RequestInit): Promise<Response> {
+  let res = await fetch(input, init);
+  if (res.status === 401) {
+    const refreshed = await refreshAccessToken(`${API_BASE}/auth/refresh`);
+    if (refreshed) res = await fetch(input, init);
+  }
+  return res;
+}
+
 async function chatFetch(path: string, options?: RequestInit) {
-  const res = await fetch(`${API_BASE}${path}`, {
+  const res = await fetchWithAuthRetry(`${API_BASE}${path}`, {
     ...options,
     credentials: "include",
     headers: {
@@ -14,8 +37,7 @@ async function chatFetch(path: string, options?: RequestInit) {
   });
   if (!res.ok) {
     const data = await res.json().catch(() => ({ error: "Request failed" }));
-    const message = typeof data.error === "string" ? data.error : data.error?.message;
-    throw new Error(message || `Request failed with status ${res.status}`);
+    throw new Error(extractErrorMessage(data, `Request failed with status ${res.status}`));
   }
   return res;
 }
@@ -223,7 +245,7 @@ export function useChatStream() {
       abortRef.current = controller;
 
       try {
-        const res = await fetch(`${API_BASE}/chat`, {
+        const res = await fetchWithAuthRetry(`${API_BASE}/chat`, {
           method: "POST",
           credentials: "include",
           headers: { "Content-Type": "application/json" },
@@ -236,7 +258,7 @@ export function useChatStream() {
 
         if (!res.ok) {
           const errData = await res.json().catch(() => ({ error: "Failed to send message" }));
-          throw new Error(errData.error || "Failed to send message");
+          throw new Error(extractErrorMessage(errData, "Failed to send message"));
         }
 
         const reader = res.body?.getReader();
