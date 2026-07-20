@@ -6,6 +6,11 @@
  *   3. File into ai_source_documents (reference_docs / curriculum) with hash.
  *   4. Insert a kb_staging_docs review row (source = blitz_section_import),
  *      skipped if ANY-status staging row already carries the title marker.
+ *      Staged UNTAGGED — tags come from step 5, never from trigger scanning.
+ *   5. Run the standard AI analysis (runAutoTriageOnDoc) so an advisory 0-4
+ *      "aboutness" tag suggestion is stored for reviewer Apply (filed
+ *      placement preserved). Non-fatal on failure; also backfilled on rerun
+ *      for existing untagged rows missing a suggestion.
  * Ends with `COMPLETE n/n` only when every entry is present.
  */
 import { db, aiSourceDocumentsTable, kbStagingDocsTable } from "@workspace/db";
@@ -16,8 +21,34 @@ import {
   BLITZ_SECTION_IMPORT_SOURCE,
 } from "../lib/blitz-section-docgen";
 import { fingerprintContent } from "../lib/kb-source-windows";
-import { detectTagsFromTriggers } from "../lib/kb-taxonomy";
-import { getEffectiveTags, getEffectiveTagTriggers } from "../lib/kb-tool-tags";
+import { runAutoTriageOnDoc } from "../lib/kb-triage";
+
+/**
+ * Proper tag suggestion: run the same AI analysis the review dialog uses.
+ * The doc is filed (homeRoot/node set), so when it has NO tags analysis writes
+ * an advisory tag-only suggestion (placement preserved). No-ops when the doc
+ * already has tags or a stored tag suggestion. A failure is loud but
+ * non-fatal — the reviewer can hit Re-analyze in the UI.
+ */
+async function analyzeIfMissingSuggestion(stagingId: number): Promise<void> {
+  try {
+    const [doc] = await db
+      .select()
+      .from(kbStagingDocsTable)
+      .where(eq(kbStagingDocsTable.id, stagingId));
+    if (!doc) {
+      console.error(`  ANALYSIS SKIPPED — staging #${stagingId} not found on re-fetch`);
+      return;
+    }
+    const tags = Array.isArray(doc.taxonomyTags) ? (doc.taxonomyTags as string[]) : [];
+    const suggestion = doc.aiSuggestedTaxonomy as { tags?: string[] } | null;
+    if (tags.length > 0 || (Array.isArray(suggestion?.tags) && suggestion.tags.length > 0)) return;
+    await runAutoTriageOnDoc(doc);
+    console.log(`  analyzed #${stagingId} — advisory tag suggestion stored`);
+  } catch (err) {
+    console.error(`  ANALYSIS FAILED for staging #${stagingId} (tags missing — use Re-analyze in the review dialog):`, err);
+  }
+}
 
 async function main() {
   const transcripts = await db
@@ -26,9 +57,6 @@ async function main() {
     .where(eq(aiSourceDocumentsTable.sourceType, "blitz_video"));
   const manifest = buildManifestFromCorpus(transcripts);
   console.log(`Manifest: ${manifest.length} docs`);
-
-  const tags = await getEffectiveTags();
-  const triggers = await getEffectiveTagTriggers();
 
   let done = 0;
   for (const entry of manifest) {
@@ -78,8 +106,15 @@ async function main() {
       ));
     if (stagingExisting.length > 0) {
       console.log(`  staging exists (#${stagingExisting[0].id})`);
+      // Resumability gap-closer: a prior run interrupted between staging and
+      // analysis leaves an untagged row with no tag suggestion — analyze it now.
+      await analyzeIfMissingSuggestion(stagingExisting[0].id);
     } else {
-      const taxonomyTags = detectTagsFromTriggers(`${entry.title}\n${content}`, tags, triggers);
+      // Tags are NOT trigger-scanned from the body (that tagged every tool
+      // mentioned in passing — up to 23 tags/doc). Stage untagged and let the
+      // AI analysis below propose 0-4 aboutness tags (advisory, reviewer
+      // applies them on the Document Review page), matching the synthesis
+      // pipeline's tagging path.
       const [stg] = await db
         .insert(kbStagingDocsTable)
         .values({
@@ -97,14 +132,15 @@ async function main() {
           docClassTarget: "curated",
           homeRoot: "process",
           node: entry.processNode,
-          taxonomyTags,
+          taxonomyTags: [],
           blitzSection: entry.section.id,
           ceiling: "operational",
           phase: entry.section.phase,
           adminNotes: `Section-anchored Blitz reference doc (rebuild): guide section ${entry.section.id} "${entry.section.title}", part ${entry.partIndex}/${entry.partCount}, ${entry.transcripts.length} transcript(s) enriched.`,
         })
         .returning({ id: kbStagingDocsTable.id });
-      console.log(`  staged #${stg.id} [${entry.processNode}] tags=${taxonomyTags.join(",") || "-"}`);
+      console.log(`  staged #${stg.id} [${entry.processNode}] (untagged — AI tag suggestion next)`);
+      await analyzeIfMissingSuggestion(stg.id);
     }
     done++;
   }
