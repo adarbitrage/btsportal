@@ -41,6 +41,7 @@ import { useToast } from "@/hooks/use-toast";
 import { authFetch } from "@/lib/auth";
 import { Link } from "wouter";
 import KnowledgeBaseDuplicates, { LiveDocDialog, type LiveSimilarMatch } from "./KnowledgeBaseDuplicates";
+import { BLITZ_SECTION_BY_ID, BLITZ_SECTION_COUNT, BLITZ_PHASE_MAP } from "@workspace/blitz-curriculum";
 import CorpusSweepDialog from "./CorpusSweepDialog";
 import {
   CheckCircle,
@@ -754,6 +755,9 @@ export default function KnowledgeBaseReview() {
   // list AND every count/facet to the selected document source.
   const [sourceKindFilter, setSourceKindFilter] = useState("all");
   const [sourceKindCounts, setSourceKindCounts] = useState<{ all: number; blitz: number; transcript: number }>({ all: 0, blitz: 0, transcript: 0 });
+  // Sort mode: 'default' (severity-first) | 'blitz' (guide-order 1→23 by
+  // blitz section; docs without a section sort last).
+  const [sortMode, setSortMode] = useState<"default" | "blitz">("default");
   const [staleOnly, setStaleOnly] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [page, setPage] = useState(1);
@@ -847,6 +851,9 @@ export default function KnowledgeBaseReview() {
       if (riskFilter && riskFilter !== "all") params.set("risk", riskFilter);
       if (sourceKindFilter && sourceKindFilter !== "all") params.set("sourceKind", sourceKindFilter);
       if (staleOnly) params.set("stale", "true");
+      // Guide order only makes sense when blitz docs are in scope; never send
+      // it for the transcript-only scope (rows there have no blitz section).
+      if (sortMode === "blitz" && sourceKindFilter !== "transcript") params.set("sort", "blitz");
       params.set("page", page.toString());
       params.set("limit", "20");
 
@@ -871,7 +878,7 @@ export default function KnowledgeBaseReview() {
     } finally {
       setLoading(false);
     }
-  }, [statusFilter, docTypeFilter, shelfFilter, nodeFilter, docClassFilter, updateKindFilter, tagFilter, riskFilter, sourceKindFilter, staleOnly, searchQuery, page, toast]);
+  }, [statusFilter, docTypeFilter, shelfFilter, nodeFilter, docClassFilter, updateKindFilter, tagFilter, riskFilter, sourceKindFilter, sortMode, staleOnly, searchQuery, page, toast]);
 
   const fetchTriageStatus = useCallback(async () => {
     try {
@@ -3311,9 +3318,30 @@ export default function KnowledgeBaseReview() {
             ] as const).map(([key, label]) => (
               <button
                 key={key}
-                onClick={() => { setSourceKindFilter(key); setPage(1); }}
+                onClick={() => {
+                  setSourceKindFilter(key);
+                  // Guide order is meaningless in the transcript-only scope —
+                  // reset so the hidden toggle can't leave it stuck on.
+                  if (key === "transcript") setSortMode("default");
+                  setPage(1);
+                }}
                 className={`px-3 py-1 rounded-md text-xs font-medium transition-colors ${sourceKindFilter === key ? "bg-white text-gray-900 shadow-sm" : "text-gray-600 hover:text-gray-900"}`}
                 data-testid={`button-source-${key}`}
+              >
+                {label}
+              </button>
+            ))}
+            <div className="w-px self-stretch bg-gray-300 mx-1" />
+            {([
+              ["default", "Severity order"],
+              ["blitz", "Guide order"],
+            ] as const).map(([key, label]) => (
+              <button
+                key={`sort-${key}`}
+                onClick={() => { setSortMode(key); setPage(1); }}
+                className={`px-3 py-1 rounded-md text-xs font-medium transition-colors ${sortMode === key ? "bg-white text-gray-900 shadow-sm" : "text-gray-600 hover:text-gray-900"}`}
+                data-testid={`button-sort-${key}`}
+                title={key === "blitz" ? "Order by Blitz guide section (1→23); docs without a section sort last" : "Order by flag severity, newest first"}
               >
                 {label}
               </button>
@@ -3564,6 +3592,18 @@ export default function KnowledgeBaseReview() {
                             <Badge variant="outline" className={STATUS_COLORS[doc.status] || ""}>
                               {STATUS_LABEL[doc.status] || doc.status.replace(/_/g, " ")}
                             </Badge>
+                            {doc.blitzSection != null && (
+                              <Badge
+                                variant="outline"
+                                className="text-[10px] bg-indigo-50 text-indigo-700 border-indigo-200"
+                                data-testid={`badge-blitz-section-${doc.id}`}
+                              >
+                                Blitz §{doc.blitzSection}/{BLITZ_SECTION_COUNT}
+                                {BLITZ_SECTION_BY_ID[doc.blitzSection]
+                                  ? ` — ${BLITZ_PHASE_MAP[BLITZ_SECTION_BY_ID[doc.blitzSection].phase].label}`
+                                  : ""}
+                              </Badge>
+                            )}
                             <Badge variant="outline" className="text-[10px] bg-gray-50 text-gray-600 border-gray-200">
                               {DOC_TYPE_LABEL[doc.docType] ?? doc.docType}
                             </Badge>

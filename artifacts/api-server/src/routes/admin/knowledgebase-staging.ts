@@ -116,6 +116,10 @@ router.get("/", async (req: Request, res: Response) => {
     // 'transcript' (everything else) vs 'all'. Scopes the list AND every
     // aggregate count so the tabs/facets reflect the selected source.
     const sourceKindFilter = (req.query.sourceKind as string) || undefined;
+    // Sort mode (Task: Blitz guide-order review): 'blitz' orders by
+    // blitz_section ASC (nulls last, id tiebreak for multi-part sections) so
+    // reviewers can walk the guide 1→23 in order. Default stays severity-first.
+    const sortMode = (req.query.sort as string) || undefined;
     const staleOnly = req.query.stale === "true" || req.query.stale === "1";
     const page = parseInt((req.query.page as string) || "1");
     const limit = Math.min(parseInt((req.query.limit as string) || "20"), 100);
@@ -191,7 +195,14 @@ router.get("/", async (req: Request, res: Response) => {
         .select()
         .from(kbStagingDocsTable)
         .where(where)
-        .orderBy(desc(SEVERITY_RANK_SQL), desc(kbStagingDocsTable.createdAt))
+        .orderBy(
+          ...(sortMode === "blitz"
+            ? [
+                sql`${kbStagingDocsTable.blitzSection} ASC NULLS LAST`,
+                sql`${kbStagingDocsTable.id} ASC`,
+              ]
+            : [desc(SEVERITY_RANK_SQL), desc(kbStagingDocsTable.createdAt)]),
+        )
         .limit(limit)
         .offset(offset),
       db
