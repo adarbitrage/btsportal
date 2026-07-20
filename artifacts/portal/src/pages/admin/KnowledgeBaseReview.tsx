@@ -378,6 +378,53 @@ interface TopicIndexStatus {
   qualityCheckRunning: boolean;
 }
 
+// Synthesis run status: live in-memory progress (resets on server restart) +
+// durable last-run report from kb_synthesis_runs (survives restarts). A last
+// run with no finishedAt while nothing is running = interrupted mid-flight.
+interface SynthesisNodeOutcome {
+  node: string;
+  outcome: "created" | "skipped" | "failed";
+  draftId?: number | null;
+  error?: string;
+  durationMs?: number;
+  sourceCount?: number;
+  atomicDraftIds?: number[];
+}
+
+interface SynthesisRunReport {
+  id: number;
+  startedAt: string;
+  finishedAt: string | null;
+  scope: string;
+  totalNodes: number;
+  processedNodes: number;
+  createdDrafts: number;
+  succeededCount: number;
+  skippedCount: number;
+  failedCount: number;
+  error: string | null;
+  failures: Array<{ node: string; error: string }>;
+  nodeOutcomes: SynthesisNodeOutcome[];
+  updatedAt: string;
+}
+
+interface SynthesisStatus {
+  running: boolean;
+  totalNodes: number;
+  processedNodes: number;
+  createdDrafts: number;
+  succeededCount: number;
+  skippedCount: number;
+  failedCount: number;
+  failures: Array<{ node: string; error: string }>;
+  currentNode: string | null;
+  startedAt: string | null;
+  finishedAt: string | null;
+  error: string | null;
+  lastRun: SynthesisRunReport | null;
+  failedNodesPendingRetry: string[];
+}
+
 interface TranscriptSource {
   id: number;
   sourceName: string;
@@ -741,6 +788,9 @@ export default function KnowledgeBaseReview() {
   const [chatOpen, setChatOpen] = useState(false);
   const [topicIndex, setTopicIndex] = useState<TopicIndexStatus | null>(null);
   const topicIndexPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const [synthStatus, setSynthStatus] = useState<SynthesisStatus | null>(null);
+  const [synthesisOpen, setSynthesisOpen] = useState(false);
+  const synthesisPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const [importing, setImporting] = useState(false);
   const [statusFilter, setStatusFilter] = useState("needs_review");
   const [originFilter, setOriginFilter] = useState("all");
@@ -1086,6 +1136,7 @@ export default function KnowledgeBaseReview() {
       const res = await authFetch("/admin/knowledgebase/pipeline/synthesis-status");
       if (!res.ok) return;
       const data = await res.json();
+      setSynthStatus(data);
       if (Array.isArray(data.failedNodesPendingRetry)) {
         setFailedNodesPendingRetry(data.failedNodesPendingRetry);
       }
@@ -1097,6 +1148,24 @@ export default function KnowledgeBaseReview() {
   useEffect(() => {
     fetchSynthesisStatus();
   }, [fetchSynthesisStatus]);
+
+  // Poll the synthesis status while a run is active so the progress card stays
+  // live (nodes can take many minutes each — this keeps N-of-M and the current
+  // node honest without a manual refresh).
+  useEffect(() => {
+    // Poll while a run is live in THIS process, or while the durable run row is
+    // unfinished (a run alive in the standalone workflow process heartbeats the
+    // row; polling keeps its progress — and the eventual interrupted/finished
+    // flip — live without a manual refresh).
+    const active = synthStatus?.running || (!!synthStatus?.lastRun && !synthStatus.lastRun.finishedAt);
+    if (active) {
+      synthesisPollRef.current = setInterval(fetchSynthesisStatus, 5000);
+    } else if (synthesisPollRef.current) {
+      clearInterval(synthesisPollRef.current);
+      synthesisPollRef.current = null;
+    }
+    return () => { if (synthesisPollRef.current) { clearInterval(synthesisPollRef.current); synthesisPollRef.current = null; } };
+  }, [synthStatus?.running, synthStatus?.lastRun, fetchSynthesisStatus]);
 
   const startSynthesis = () => {
     if (synthScope === "all") {
@@ -3157,6 +3226,153 @@ export default function KnowledgeBaseReview() {
                   </ul>
                 </details>
               )}
+              </div>
+              )}
+            </CardContent>
+          </Card>
+          );
+        })()}
+
+        {/* Synthesis run status: live progress while running + durable last-run
+            report. An interrupted run (server restart / task merge mid-run) is
+            called out explicitly — finished nodes are already committed, so the
+            recovery is just re-running the remainder. */}
+        {synthStatus && (synthStatus.running || synthStatus.lastRun) && (() => {
+          const lastRun = synthStatus.lastRun;
+          // An unfinished run row while this API process reports "not running"
+          // is either (a) a run alive in ANOTHER process (the standalone
+          // synthesis-full-run workflow — its heartbeat keeps updated_at fresh,
+          // the report row is bumped after every node) or (b) a run that was
+          // killed mid-flight (server restart / task merge). Nodes can take up
+          // to ~1h each, so the staleness threshold is generous: only call it
+          // interrupted once the heartbeat is >90 min old.
+          const HEARTBEAT_STALE_MS = 90 * 60 * 1000;
+          const unfinished = !synthStatus.running && !!lastRun && !lastRun.finishedAt;
+          const heartbeatAge = lastRun ? Date.now() - new Date(lastRun.updatedAt).getTime() : 0;
+          const interrupted = unfinished && heartbeatAge > HEARTBEAT_STALE_MS;
+          const runningElsewhere = unfinished && !interrupted;
+          const flagged = interrupted || (!!lastRun && !!lastRun.finishedAt && (lastRun.failedCount > 0 || !!lastRun.error));
+          const outcomes: SynthesisNodeOutcome[] = Array.isArray(lastRun?.nodeOutcomes) ? lastRun.nodeOutcomes : [];
+          return (
+          <Card className={flagged ? "border-amber-300 bg-amber-50/50" : "border-slate-200"} data-testid="card-synthesis-status">
+            <CardContent className="py-0 px-0">
+              <button
+                type="button"
+                onClick={() => setSynthesisOpen((o) => !o)}
+                aria-expanded={synthesisOpen}
+                data-testid="button-synthesis-summary"
+                className="w-full flex items-center gap-2 py-2.5 px-4 text-left text-sm"
+              >
+                {flagged
+                  ? <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
+                  : <Layers className="w-4 h-4 text-gray-400 shrink-0" />}
+                <span className="font-semibold text-gray-900 shrink-0">Synthesis</span>
+                {synthStatus.running ? (
+                  <span className="flex items-center gap-2 text-xs text-blue-700 min-w-0 truncate" data-testid="text-synthesis-running">
+                    <Loader2 className="w-3.5 h-3.5 animate-spin shrink-0" />
+                    Node {Math.min(synthStatus.processedNodes + 1, synthStatus.totalNodes)}/{synthStatus.totalNodes}
+                    {synthStatus.currentNode ? <> — {synthStatus.currentNode}</> : null}
+                    {" · "}{synthStatus.createdDrafts} draft{synthStatus.createdDrafts === 1 ? "" : "s"} so far
+                  </span>
+                ) : runningElsewhere && lastRun ? (
+                  <span className="flex items-center gap-2 text-xs text-blue-700 min-w-0 truncate" data-testid="text-synthesis-running-elsewhere">
+                    <Loader2 className="w-3.5 h-3.5 animate-spin shrink-0" />
+                    Run in progress (background workflow) — {lastRun.processedNodes}/{lastRun.totalNodes} nodes
+                    {" · "}{lastRun.createdDrafts} draft{lastRun.createdDrafts === 1 ? "" : "s"} so far
+                    {" · "}last heartbeat {new Date(lastRun.updatedAt).toLocaleTimeString()}
+                  </span>
+                ) : lastRun ? (
+                  <span className="text-xs text-gray-500 min-w-0 truncate" data-testid="text-synthesis-lastrun">
+                    Last run {new Date(lastRun.startedAt).toLocaleString()}
+                    {lastRun.finishedAt ? <> — finished {new Date(lastRun.finishedAt).toLocaleString()}</> : null}
+                    {" · "}{lastRun.scope}
+                    {interrupted ? (
+                      <span className="text-amber-700 font-medium"> · interrupted at {lastRun.processedNodes}/{lastRun.totalNodes} nodes — re-run to finish the rest</span>
+                    ) : flagged ? (
+                      <span className="text-amber-700">
+                        {" · "}
+                        {[
+                          lastRun.failedCount > 0 ? `${lastRun.failedCount} node${lastRun.failedCount === 1 ? "" : "s"} failed` : null,
+                          lastRun.error ? "run error" : null,
+                        ].filter(Boolean).join(" · ")}
+                      </span>
+                    ) : (
+                      <span className="text-emerald-700"> · completed — {lastRun.createdDrafts} draft{lastRun.createdDrafts === 1 ? "" : "s"} from {lastRun.succeededCount} node{lastRun.succeededCount === 1 ? "" : "s"}</span>
+                    )}
+                  </span>
+                ) : null}
+                <span className="ml-auto flex items-center gap-1 text-[11px] text-gray-500 shrink-0">
+                  {synthesisOpen ? "Hide details" : "Details"}
+                  {synthesisOpen ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+                </span>
+              </button>
+              {synthesisOpen && (
+              <div className="px-4 pb-4 space-y-3">
+                {(() => {
+                  const src = synthStatus.running ? synthStatus : lastRun;
+                  if (!src) return null;
+                  return (
+                    <div className="flex items-center gap-2 flex-wrap text-xs">
+                      <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700">{src.succeededCount} node{src.succeededCount === 1 ? "" : "s"} synthesized</span>
+                      <span className="px-2 py-0.5 rounded-full bg-blue-100 text-blue-700">{src.createdDrafts} draft{src.createdDrafts === 1 ? "" : "s"} created</span>
+                      {src.skippedCount > 0 && (
+                        <span className="px-2 py-0.5 rounded-full bg-gray-100 text-gray-600">{src.skippedCount} skipped</span>
+                      )}
+                      {src.failedCount > 0 ? (
+                        <span className="px-2 py-0.5 rounded-full bg-amber-100 text-amber-700">{src.failedCount} failed — retried by the next incremental run</span>
+                      ) : (
+                        <span className="px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-600">0 failed</span>
+                      )}
+                      {src.error && (
+                        <span className="px-2 py-0.5 rounded-full bg-red-100 text-red-700">run error: {src.error}</span>
+                      )}
+                    </div>
+                  );
+                })()}
+                {interrupted && (
+                  <div className="text-xs text-amber-700" data-testid="text-synthesis-interrupted">
+                    This run stopped without finishing (server restart mid-run). Completed nodes kept their drafts —
+                    re-running with incremental scope picks up only the unfinished nodes.
+                  </div>
+                )}
+                {synthStatus.running && synthStatus.startedAt && (
+                  <div className="text-xs text-gray-500">
+                    Started {new Date(synthStatus.startedAt).toLocaleString()} — large nodes can take an hour each; drafts land in the review queue as each node finishes.
+                  </div>
+                )}
+                {outcomes.length > 0 && (
+                  <details className="text-xs text-gray-600">
+                    <summary className="cursor-pointer">Per-node outcomes ({outcomes.length})</summary>
+                    <ul className="mt-1 space-y-0.5 max-h-48 overflow-y-auto">
+                      {outcomes.map((o) => (
+                        <li key={o.node} className="flex items-center gap-2">
+                          <span className="font-medium">{o.node}</span>
+                          {o.outcome === "created" ? (
+                            <span className="text-emerald-700">
+                              draft #{o.draftId}
+                              {typeof o.sourceCount === "number" ? ` · ${o.sourceCount} sources` : ""}
+                              {typeof o.durationMs === "number" ? ` · ${Math.round(o.durationMs / 60000)}m` : ""}
+                            </span>
+                          ) : o.outcome === "skipped" ? (
+                            <span className="text-gray-500">skipped</span>
+                          ) : (
+                            <span className="text-red-700">failed{o.error ? `: ${o.error}` : ""}</span>
+                          )}
+                        </li>
+                      ))}
+                    </ul>
+                  </details>
+                )}
+                {lastRun && Array.isArray(lastRun.failures) && lastRun.failures.length > 0 && (
+                  <details className="text-xs text-gray-600">
+                    <summary className="cursor-pointer">{lastRun.failures.length} node failure{lastRun.failures.length === 1 ? "" : "s"} recorded</summary>
+                    <ul className="mt-1 space-y-0.5 max-h-40 overflow-y-auto">
+                      {lastRun.failures.map((f) => (
+                        <li key={f.node}>{f.node}: <span className="text-red-700">{f.error}</span></li>
+                      ))}
+                    </ul>
+                  </details>
+                )}
               </div>
               )}
             </CardContent>
