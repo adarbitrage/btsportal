@@ -50,6 +50,7 @@ function makeDoc(overrides: Partial<RetrievedDoc> = {}): RetrievedDoc {
     tags: [],
     sourcePath: "/blitz",
     sourceLabel: "The Blitz",
+    blitzSection: null,
     rank: 0.5,
     semanticScore: 0,
     grounded: false,

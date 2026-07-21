@@ -177,7 +177,7 @@ describe("runRetrievalSelfTest", () => {
         retrievalResult(
           { lexRank: 0.2 },
           {
-            docs: [{ id: 1, title: "Live Doc", content: "", category: "process", docClass: null, homeRoot: null, node: null, tags: [], sourcePath: null, sourceLabel: null, rank: 0.3, semanticScore: 0.6, grounded: false }],
+            docs: [{ id: 1, title: "Live Doc", content: "", category: "process", docClass: null, homeRoot: null, node: null, tags: [], sourcePath: null, sourceLabel: null, blitzSection: null, rank: 0.3, semanticScore: 0.6, grounded: false }],
             topScore: 0.3,
             topSemanticScore: 0.6,
           },

@@ -102,6 +102,8 @@ export interface RetrievedDoc {
   tags: string[];
   sourcePath: string | null;
   sourceLabel: string | null;
+  /** Blitz guide section anchor (1–23) when the doc was authored from the guide. */
+  blitzSection: number | null;
   /** Base lexical ts_rank of the precise/fallback match (0 for grounded docs). */
   rank: number;
   /** Cosine similarity of the doc embedding to the query (0 when unavailable). */
@@ -338,6 +340,7 @@ function mapRow(r: Record<string, unknown>, grounded: boolean): RetrievedDoc {
     tags: Array.isArray(r.tags) ? (r.tags as string[]) : [],
     sourcePath: (r.source_path as string | null) ?? null,
     sourceLabel: (r.source_label as string | null) ?? null,
+    blitzSection: r.blitz_section == null ? null : Number(r.blitz_section),
     rank: typeof r.rank === "number" ? r.rank : parseFloat(String(r.rank ?? 0)) || 0,
     semanticScore:
       typeof r.semantic_score === "number"
@@ -355,7 +358,7 @@ function scrubDoc(d: RetrievedDoc): RetrievedDoc {
   };
 }
 
-const ROW_COLUMNS = sql`id, title, content, category, doc_class, home_root, node, tags, source_path, source_label`;
+const ROW_COLUMNS = sql`id, title, content, category, doc_class, home_root, node, tags, source_path, source_label, blitz_section`;
 
 // ───────────────────────────────────────────────────────────────────────────
 // Shared hybrid tier/blend ordering (single source of truth).

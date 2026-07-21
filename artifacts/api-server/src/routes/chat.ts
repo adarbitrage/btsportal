@@ -25,6 +25,12 @@ import {
   type SurfaceRetrievalResult,
 } from "../lib/kb-retrieval";
 import { logUnansweredQuestion } from "../lib/content-gap-radar";
+import {
+  candidatesFromAnchors,
+  findLikelyBlitzSections,
+  buildAnchoredBlitzBlock,
+  buildFuzzyBlitzBlock,
+} from "../lib/blitz-pointer";
 import { generateAndApplySessionTitle } from "../lib/chat-session-title";
 import { CITABLE_KB_CATEGORIES } from "../lib/kb-taxonomy";
 
@@ -287,8 +293,19 @@ router.post("/chat", async (req, res): Promise<void> => {
 
   if (retrieval.confident && ragResults.length > 0) {
     systemPrompt += `\n\n## Relevant Knowledge Base Articles\n\n${buildRagContext(ragResults)}`;
+    // Layer 1: expose where the provided articles live in the Blitz guide so
+    // the model can point members to the named section (and its videos when
+    // they say they can't find it) per Rule 12.
+    systemPrompt += buildAnchoredBlitzBlock(
+      candidatesFromAnchors(retrieval.docs.map((d) => d.blitzSection)),
+    );
   } else {
-    systemPrompt += `\n\n## Knowledge Base Search Result\n\nNo confident match — the knowledge base has no verified answer for this query. You must not fabricate an answer based on general affiliate marketing knowledge, and you must not stitch one together from loosely-related snippets. Follow Rule 12: tell the member you don't have a verified answer to that yet, then route them — conceptual or strategy questions to a live coaching call, and account, billing, or technical questions to a support ticket ([SUGGEST_TICKET]) or support@buildtestscale.com.`;
+    // Layer 2: no confident KB answer — fuzzy-match the question against the
+    // Blitz lesson library so Rule 12's Blitz-first pointer has a candidate
+    // section to name. Advisory only; the block itself labels it unverified.
+    const fuzzyCandidates = await findLikelyBlitzSections(message);
+    systemPrompt += `\n\n## Knowledge Base Search Result\n\nNo confident match — the knowledge base has no verified answer for this query. You must not fabricate an answer based on general affiliate marketing knowledge, and you must not stitch one together from loosely-related snippets. Follow Rule 12's Blitz-first ladder: tell the member you don't have a verified answer to that yet, then point them to the most likely Blitz guide section (see "Possibly Relevant Blitz Guide Sections" below, if present) with hedged wording. Do not suggest support tickets or the support email.`;
+    systemPrompt += buildFuzzyBlitzBlock(fuzzyCandidates);
 
     // Content-Gap Radar: the assistant has no verified answer for this question.
     // Log it (privacy-scrubbed) so authoring can follow real demand. Best-effort,

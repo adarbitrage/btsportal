@@ -130,11 +130,22 @@ describe("Rules 8-12 — behaviour rules (Task #1407 prompt surgery)", () => {
     expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain("ONE short clarifying question");
   });
 
-  it("carries the Rule 10 depth-ceiling handoffs (concept→coaching, troubleshooting→support)", () => {
+  it("carries the Rule 10 depth-ceiling handoffs (concept→coaching, technical→1-on-1 session)", () => {
     expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain("Rule 10");
     expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain(DEPTH_CEILING_SENTINEL);
     expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain("live coaching call");
-    expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain("[SUGGEST_TICKET]");
+    expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain("booking a 1-on-1 session");
+  });
+
+  it("Rule 5 bans support-ticket routing (dormant [SUGGEST_TICKET], no support email anywhere)", () => {
+    expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain("Never route members to support tickets");
+    // The marker is mentioned ONLY as a prohibition — the mechanism stays dormant.
+    expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain("do not output the [SUGGEST_TICKET] marker");
+    // The support email must not appear anywhere in the prompt.
+    expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).not.toContain("support@buildtestscale.com");
+    // No rule may instruct the model to EMIT the marker ("with [SUGGEST_TICKET]",
+    // "via [SUGGEST_TICKET]", "saying [SUGGEST_TICKET]").
+    expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).not.toMatch(/(?:with|via|saying) \[SUGGEST_TICKET\]/);
   });
 
   it("carries the Rule 11 current-navigation + legacy-terminology crosswalk", () => {
@@ -147,11 +158,23 @@ describe("Rules 8-12 — behaviour rules (Task #1407 prompt surgery)", () => {
     expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain("Resource Library");
   });
 
-  it("carries the Rule 12 graceful no-answer fallback wired to the no-confident-match signal", () => {
+  it("carries the Rule 12 Blitz-first escalation ladder wired to the no-confident-match signal", () => {
     expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain("Rule 12");
     expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain(NO_ANSWER_FALLBACK_SENTINEL);
     // References the exact note the chat route injects on a non-confident result.
     expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain("no confident match");
+    // The three ladder steps, in order, one step per turn.
+    expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain("Step 1 — Point to the Blitz guide section");
+    expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain("Step 2 — Narrow it down");
+    expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain("Step 3 — Escalate to a human");
+    expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain("ONE STEP AT A TIME");
+    // Pointer sourcing: only from the injected blocks, plain text, hedged.
+    expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain("Possibly Relevant Blitz Guide Sections");
+    expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain("Blitz Guide Locations");
+    expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain("likely covered in");
+    // Explicit precedence: the ladder's step gating overrides Rule 14's
+    // link-formatting mandate until Step 3, so Steps 1-2 stay link-free.
+    expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain("ladder's step gating overrides Rule 14");
   });
 
   it("carries the Rule 13 internal-KB-scaffold suppression rule", () => {

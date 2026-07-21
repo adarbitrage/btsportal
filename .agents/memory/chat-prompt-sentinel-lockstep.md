@@ -24,3 +24,16 @@ be a phrase that a legacy/custom prompt can't accidentally already contain.
 **How to apply:** when asked to change assistant behavior via the system prompt,
 change all three or the drift guard is incomplete. Portal-page hyperlinking is
 Rule 14 / `PORTAL_LINK_SENTINEL`.
+
+**Body-edit trap:** boot enforcement only overwrites the DB row when a sentinel
+substring is MISSING. Editing a rule's body text without changing any sentinel
+value will NOT propagate to an already-upgraded DB row — either bump a sentinel
+value or manually re-sync the active row (`UPDATE ... SET content = canonical`)
+after the edit. Prod rows that still lack the new sentinel self-upgrade at next
+deploy boot.
+
+Rule map updates: Rule 12 = no-answer escalation ladder (Blitz section pointer
+→ narrow with video titles → 1-on-1 session/live coaching); ladder step gating
+explicitly overrides Rule 14 links until Step 3. Support-ticket/support-email
+routing is banned from the prompt (Rule 5); the [SUGGEST_TICKET] mechanism
+stays dormant in code/UI only.
