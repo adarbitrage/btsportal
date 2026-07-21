@@ -29,6 +29,7 @@ import AdCredit from "@/pages/AdCredit";
 import CoachingRecruitment from "@/pages/CoachingRecruitment";
 import SelfPromoting from "@/pages/SelfPromoting";
 import AiAssistant from "@/pages/AiAssistant";
+import AiThemePreview from "@/pages/AiThemePreview";
 import VoiceAssistant from "@/pages/VoiceAssistant";
 import Blitz from "@/pages/Blitz";
 import BlitzHub from "@/pages/BlitzHub";
@@ -560,6 +561,8 @@ function Router() {
       <Route path="/admin/ghl/contacts">{() => <AdminRoute component={GhlContacts} permission="ghl:view" />}</Route>
       <Route path="/admin/ghl/config">{() => <AdminRoute component={GhlConfig} permission="ghl:manage" />}</Route>
       <Route path="/chat">{() => <Redirect to="/ai-assistant" />}</Route>
+      {/* Temporary URL-only preview of AI assistant light themes (no nav entry). */}
+      <Route path="/preview/ai-themes" component={AiThemePreview} />
       <Route path="/resources/:collectionSlug/:resourceId">{() => <ProtectedRoute component={ResourceDetail} />}</Route>
       <Route path="/resources/:collectionSlug">{() => <ProtectedRoute component={CollectionDetail} />}</Route>
       <Route path="/resources">{() => <ProtectedRoute component={Resources} />}</Route>
