@@ -831,6 +831,50 @@ export default function KnowledgeBaseReview() {
     tool: [],
     troubleshooting: [],
   });
+  // Scroll carry-over from view mode into the edit textarea: when the reviewer
+  // clicks Edit, we capture how far they'd scrolled through the document body
+  // and open the editor scrolled to the same proportional position, so long
+  // docs don't reset to the top.
+  const viewPaneRef = useRef<HTMLDivElement | null>(null);
+  const viewContentRef = useRef<HTMLDivElement | null>(null);
+  const editTextareaRef = useRef<HTMLTextAreaElement | null>(null);
+  const pendingEditScrollFraction = useRef<number | null>(null);
+  const enterEditMode = useCallback(() => {
+    const pane = viewPaneRef.current;
+    const content = viewContentRef.current;
+    if (pane && content) {
+      const paneRect = pane.getBoundingClientRect();
+      const contentRect = content.getBoundingClientRect();
+      // How far past the top of the document body the pane is scrolled,
+      // normalized over the SCROLLABLE range (content height minus the pane
+      // viewport) so positions near the bottom map to fraction ≈ 1.
+      const scrolledIntoContent = paneRect.top - contentRect.top;
+      const scrollableRange = contentRect.height - paneRect.height;
+      const fraction =
+        scrollableRange > 0
+          ? Math.min(1, Math.max(0, scrolledIntoContent / scrollableRange))
+          : 0;
+      pendingEditScrollFraction.current = fraction;
+    } else {
+      pendingEditScrollFraction.current = null;
+    }
+    setEditMode(true);
+  }, []);
+  useEffect(() => {
+    if (!editMode) return;
+    const fraction = pendingEditScrollFraction.current;
+    pendingEditScrollFraction.current = null;
+    if (fraction === null || fraction <= 0) return;
+    // Wait a frame so the edit-mode textarea has rendered and measured.
+    const raf = requestAnimationFrame(() => {
+      const ta = editTextareaRef.current;
+      if (!ta) return;
+      ta.scrollIntoView({ block: "start" });
+      // Map onto the textarea's scrollable range (same normalization as capture).
+      ta.scrollTop = fraction * Math.max(0, ta.scrollHeight - ta.clientHeight);
+    });
+    return () => cancelAnimationFrame(raf);
+  }, [editMode]);
   // Provenance & Authority is collapsed to a one-line summary by default
   // (Task #1865); Show More expands the full detail.
   const [provenanceExpanded, setProvenanceExpanded] = useState(false);
@@ -1050,7 +1094,7 @@ export default function KnowledgeBaseReview() {
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
       if (e.key === "a") handleGuidedApprove();
       if (e.key === "r") handleGuidedReject();
-      if (e.key === "e") setEditMode(true);
+      if (e.key === "e") enterEditMode();
       if (e.key === "ArrowRight" || e.key === "n") nextGuided();
       if (e.key === "ArrowLeft" || e.key === "p") prevGuided();
     };
@@ -2291,7 +2335,7 @@ export default function KnowledgeBaseReview() {
                   </div>
                   <div>
                     <Label>Content (Markdown)</Label>
-                    <Textarea value={editContent} onChange={(e) => setEditContent(e.target.value)} rows={16} className="font-mono text-sm" />
+                    <Textarea ref={editTextareaRef} value={editContent} onChange={(e) => setEditContent(e.target.value)} rows={16} className="font-mono text-sm" />
                   </div>
                   <div>
                     <Label>Admin Notes</Label>
@@ -2301,7 +2345,7 @@ export default function KnowledgeBaseReview() {
               ) : (
                 <div className="flex-1 min-h-0 flex flex-col gap-3 mt-4">
                 {/* Top pane: the document + panels (independently scrollable) */}
-                <div className="flex-1 min-h-0 overflow-y-auto space-y-4 pr-1">
+                <div ref={viewPaneRef} className="flex-1 min-h-0 overflow-y-auto space-y-4 pr-1">
                   {/* Task #1934/#1940: secondary review metadata collapsed
                       behind a single "View more" toggle so the document body
                       gets the space by default. Holds the SKIM/Blitz effort
@@ -2773,7 +2817,7 @@ export default function KnowledgeBaseReview() {
                     </div>
                   )}
 
-                  <div className="bg-gray-50 p-4 rounded-lg border">
+                  <div ref={viewContentRef} className="bg-gray-50 p-4 rounded-lg border">
                     {reviewInsights && reviewInsights.highlights.length > 0 ? (
                       <HighlightedContent
                         content={selectedDoc.editedContent || selectedDoc.content}
@@ -2942,7 +2986,7 @@ export default function KnowledgeBaseReview() {
                       {analyzingDoc ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Sparkles className="w-4 h-4 mr-2" />}
                       {analyzingDoc ? "Analyzing…" : selectedDoc.aiRecommendedAction ? "Re-analyze" : "Analyze with AI"}
                     </Button>
-                    <Button variant="outline" onClick={() => setEditMode(true)}>
+                    <Button variant="outline" onClick={enterEditMode}>
                       <Edit3 className="w-4 h-4 mr-2" />Edit
                     </Button>
                     {selectedDoc.status === "needs_review" && (
