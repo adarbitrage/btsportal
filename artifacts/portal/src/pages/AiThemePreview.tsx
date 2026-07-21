@@ -4,6 +4,7 @@ import {
 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import botLogo from "@/assets/ai-assistant-logo.png";
 
 /**
  * Typography / spacing / divider / icon comparison lab for the AI Assistant.
@@ -252,6 +253,159 @@ const ICON_VARIANTS: IconVariant[] = [
     ),
   },
 ];
+
+// ---- Logo vertical-alignment lab -------------------------------------------
+// The uploaded 100x100 PNG has transparent vertical padding, so the head can
+// look low/small inside the avatar circle. These variants let the user pick a
+// vertical treatment per location by label.
+interface LogoAlignVariant {
+  id: string;
+  label: string;
+  note: string;
+  imgStyle: React.CSSProperties;
+}
+
+const LOGO_ALIGN_VARIANTS: LogoAlignVariant[] = [
+  {
+    id: "A",
+    label: "A · No adjustment",
+    note: "Raw PNG centered as-is — head appears smaller due to the transparent padding.",
+    imgStyle: {},
+  },
+  {
+    id: "B",
+    label: "B · Small upward nudge",
+    note: "Same size, shifted up 2px to sit against the first text line.",
+    imgStyle: { transform: "translateY(-2px)" },
+  },
+  {
+    id: "C",
+    label: "C · Larger nudge",
+    note: "Same size, shifted up 4px — for when the head should hug the title.",
+    imgStyle: { transform: "translateY(-4px)" },
+  },
+  {
+    id: "D",
+    label: "D · Scale-up (current live default)",
+    note: "Scaled ~1.3× to crop out the transparent padding so the head fills the circle.",
+    imgStyle: { transform: "scale(1.3)" },
+  },
+];
+
+function LogoBadge({ variant, px = 32 }: { variant: LogoAlignVariant; px?: number }) {
+  return (
+    <div
+      className="rounded-full flex items-center justify-center shrink-0 overflow-hidden"
+      style={{
+        width: px,
+        height: px,
+        background: W.avatarBg,
+        boxShadow: `inset 0 0 0 1px ${W.avatarRing}`,
+      }}
+    >
+      <img
+        src={botLogo}
+        alt=""
+        draggable={false}
+        style={{ width: "100%", height: "100%", objectFit: "contain", ...variant.imgStyle }}
+      />
+    </div>
+  );
+}
+
+function LogoAlignmentSection() {
+  return (
+    <div
+      className="rounded-2xl p-4 md:p-5 mb-5"
+      style={{ backgroundColor: "#FFFFFF", border: `1px solid ${W.cardBorder}` }}
+      data-testid="logo-alignment-section"
+    >
+      <p
+        className="text-[11px] font-semibold uppercase tracking-wider mb-1"
+        style={{ color: W.mutedText }}
+      >
+        Logo alignment
+      </p>
+      <p className="text-sm mb-4 max-w-3xl" style={{ color: W.secondaryText }}>
+        The bot-head PNG has transparent vertical padding, so pick how it should sit
+        against neighboring text — one choice for the page header, one for inline chat
+        messages. Tell me the letter for each location.
+      </p>
+
+      <p className="text-[12px] font-semibold mb-2" style={{ color: W.text }}>
+        1 · Header (next to title + subtitle)
+      </p>
+      <div className="grid gap-3 md:grid-cols-2 mb-5">
+        {LOGO_ALIGN_VARIANTS.map((v) => (
+          <div
+            key={`header-${v.id}`}
+            className="rounded-xl p-3"
+            style={{ border: `1px solid ${W.cardBorder}`, backgroundColor: W.cardBg }}
+            data-testid={`logo-align-header-${v.id}`}
+          >
+            <p className="text-[11px] font-semibold mb-2" style={{ color: W.accent }}>
+              {v.label}
+            </p>
+            <div className="flex items-center gap-2.5 min-w-0">
+              <LogoBadge variant={v} px={32} />
+              <div className="min-w-0 leading-tight">
+                <h2 className="font-semibold text-sm truncate" style={{ color: W.text }}>
+                  BTS AI Assistant
+                </h2>
+                <p className="text-[11px]" style={{ color: W.secondaryText }}>
+                  Powered by your BTS knowledge base
+                </p>
+              </div>
+            </div>
+            <p className="text-[11px] mt-2" style={{ color: W.secondaryText }}>
+              {v.note}
+            </p>
+          </div>
+        ))}
+      </div>
+
+      <p className="text-[12px] font-semibold mb-2" style={{ color: W.text }}>
+        2 · Inline chat message (next to the first line of an answer)
+      </p>
+      <div className="grid gap-3 md:grid-cols-2">
+        {LOGO_ALIGN_VARIANTS.map((v) => (
+          <div
+            key={`chat-${v.id}`}
+            className="rounded-xl p-3"
+            style={{ border: `1px solid ${W.cardBorder}`, backgroundColor: W.cardBg }}
+            data-testid={`logo-align-chat-${v.id}`}
+          >
+            <p className="text-[11px] font-semibold mb-2" style={{ color: W.accent }}>
+              {v.label}
+            </p>
+            <div className="flex gap-3">
+              <div className="mt-0.5">
+                <LogoBadge variant={v} px={32} />
+              </div>
+              <div className="flex-1 min-w-0 pt-1">
+                <p
+                  className="font-semibold text-[1.1em] leading-[1.3] mb-1.5"
+                  style={{ color: W.text }}
+                >
+                  Your first week of campaign testing
+                </p>
+                <p
+                  className="text-[15px]"
+                  style={{ color: W.text, lineHeight: 1.55 }}
+                >
+                  The first week is all about gathering clean data, not making money yet.
+                </p>
+              </div>
+            </div>
+            <p className="text-[11px] mt-2" style={{ color: W.secondaryText }}>
+              {v.note}
+            </p>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
 
 const SAMPLE_QUESTION =
   "How should I structure my first week of campaign testing?";
@@ -575,6 +729,9 @@ export default function AiThemePreview() {
             </p>
           </div>
         </div>
+
+        {/* Logo alignment lab */}
+        <LogoAlignmentSection />
 
         {/* Icon lineup strip */}
         <div

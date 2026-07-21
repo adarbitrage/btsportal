@@ -1,9 +1,10 @@
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Button } from "@/components/ui/button";
 import {
-  Send, Bot, Trash2, Plus, MessageCircle,
+  Send, Trash2, Plus, MessageCircle,
   Loader2, AlertCircle, Menu, X, Mic, LifeBuoy,
 } from "lucide-react";
+import botLogo from "@/assets/ai-assistant-logo.png";
 import { Link } from "wouter";
 import { AssistantEmptyState } from "@/components/assistant/AssistantEmptyState";
 import { RetrievalSourcesPanel } from "@/components/assistant/RetrievalSourcesPanel";
@@ -21,6 +22,28 @@ import {
   type ChatSession,
   type ChatMessage,
 } from "@/lib/chat-api";
+
+// Claude-style serif stack chosen from the /preview/ai-themes comparison.
+const ANSWER_SERIF_STACK = "'Source Serif 4', 'Lora', Georgia, serif";
+const SERIF_FONTS_HREF =
+  "https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=Lora:wght@400;600&display=swap";
+
+// The 100x100 source PNG has transparent vertical padding, so the bot head is
+// scaled up slightly inside its circle to sit visually centered.
+function BotAvatar({ className = "w-8 h-8" }: { className?: string }) {
+  return (
+    <div
+      className={`${className} rounded-full bg-[#E7EDF9] dark:bg-stone-800 ring-1 ring-[#D6DEEC] dark:ring-stone-700 overflow-hidden flex items-center justify-center shrink-0`}
+    >
+      <img
+        src={botLogo}
+        alt="AI Assistant"
+        className="w-full h-full object-contain scale-[1.3]"
+        draggable={false}
+      />
+    </div>
+  );
+}
 
 function groupByDate(sessions: ChatSession[]) {
   const now = new Date();
@@ -93,6 +116,19 @@ export default function AiAssistant() {
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
+
+  // Load the Claude-style answer serif only on this page.
+  useEffect(() => {
+    const existing = document.querySelector(`link[href="${SERIF_FONTS_HREF}"]`);
+    if (existing) return;
+    const link = document.createElement("link");
+    link.rel = "stylesheet";
+    link.href = SERIF_FONTS_HREF;
+    document.head.appendChild(link);
+    return () => {
+      document.head.removeChild(link);
+    };
+  }, []);
 
   const handleSelectSession = (session: ChatSession) => {
     if (session.id === sessionId) {
@@ -230,7 +266,12 @@ export default function AiAssistant() {
       <div className="space-y-6 max-w-6xl">
         <div>
           <div className="flex items-center gap-2 mb-2">
-            <Bot className="w-6 h-6 text-primary" />
+            <img
+              src={botLogo}
+              alt=""
+              className="w-8 h-8 object-contain scale-[1.15]"
+              draggable={false}
+            />
             <h1 className="text-3xl font-bold">AI Assistant</h1>
           </div>
           <div className="flex items-center gap-3">
@@ -279,9 +320,7 @@ export default function AiAssistant() {
                 <Menu className="w-5 h-5" />
               </button>
               <div className="flex items-center gap-2.5 min-w-0">
-                <div className="w-8 h-8 rounded-full bg-[#E7EDF9] dark:bg-stone-800 ring-1 ring-[#D6DEEC] dark:ring-stone-700 flex items-center justify-center shrink-0">
-                  <Bot className="w-4 h-4 text-[#3B5FA8] dark:text-stone-200" />
-                </div>
+                <BotAvatar />
                 <div className="min-w-0 leading-tight">
                   <h2 className="font-semibold text-[#1E293B] dark:text-stone-100 text-sm truncate">{activeTitle}</h2>
                   <p className="text-[11px] text-[#64748B] dark:text-stone-500">Powered by your BTS knowledge base</p>
@@ -297,13 +336,14 @@ export default function AiAssistant() {
                   {visibleMessages.map((msg, i) => (
                     <div key={msg.id ?? `local-${i}`} className={`flex gap-3 ${msg.role === "user" ? "justify-end" : ""}`}>
                       {msg.role === "assistant" && (
-                        <div className="w-8 h-8 rounded-full bg-[#E7EDF9] dark:bg-stone-800 ring-1 ring-[#D6DEEC] dark:ring-stone-700 flex items-center justify-center shrink-0 mt-0.5">
-                          <Bot className="w-4 h-4 text-[#3B5FA8] dark:text-stone-200" />
-                        </div>
+                        <BotAvatar className="w-8 h-8 mt-0.5" />
                       )}
                       {msg.role === "assistant" ? (
                         <div className="flex-1 min-w-0 pt-1 text-[#1E293B] dark:text-stone-100">
-                          <div className="prose prose-sm max-w-none text-[15px] leading-7 [&_p]:mb-2 [&_p:last-child]:mb-0 [&_ul]:mb-2 [&_ol]:mb-2 [&_li]:mb-0.5 [&_a]:text-[#2F55A4] dark:[&_a]:text-teal-400 [&_a]:underline [&_strong]:text-[#1E293B] dark:[&_strong]:text-stone-100 [&_code]:bg-[#EEF1F7] dark:[&_code]:bg-stone-800 [&_code]:text-[#334155] dark:[&_code]:text-stone-200 [&_code]:px-1.5 [&_code]:py-0.5 [&_code]:rounded [&_code]:text-[0.85em] [&_table]:my-2 [&_table]:w-full [&_table]:text-sm [&_table]:border-collapse [&_th]:border [&_th]:border-[#D6DEEC] dark:[&_th]:border-stone-700 [&_th]:bg-[#EEF1F7] dark:[&_th]:bg-stone-800 [&_th]:px-3 [&_th]:py-1.5 [&_th]:text-left [&_th]:font-semibold [&_th]:text-[#1E293B] dark:[&_th]:text-stone-100 [&_td]:border [&_td]:border-[#D6DEEC] dark:[&_td]:border-stone-700 [&_td]:px-3 [&_td]:py-1.5 [&_td]:align-top">
+                          <div
+                            style={{ fontFamily: ANSWER_SERIF_STACK }}
+                            className="max-w-none text-[16px] leading-[1.55] [&_p]:mb-[14px] [&_p]:leading-[1.55] [&_p:last-child]:mb-0 [&_ul]:mb-[14px] [&_ul]:pl-[22px] [&_ul]:list-disc [&_ol]:mb-[14px] [&_ol]:pl-[22px] [&_ol]:list-decimal [&_li]:mb-1.5 [&_li]:leading-[1.55] [&_a]:text-[#2F55A4] dark:[&_a]:text-teal-400 [&_a]:underline [&_strong]:text-[#1E293B] dark:[&_strong]:text-stone-100 [&_strong]:font-semibold [&_code]:bg-[#EEF1F7] dark:[&_code]:bg-stone-800 [&_code]:text-[#334155] dark:[&_code]:text-stone-200 [&_code]:px-1.5 [&_code]:py-0.5 [&_code]:rounded [&_code]:text-[0.85em] [&_code]:font-mono [&_table]:my-[14px] [&_table]:w-full [&_table]:text-[0.92em] [&_table]:border-collapse [&_th]:border [&_th]:border-[#D6DEEC] dark:[&_th]:border-stone-700 [&_th]:bg-[#EEF1F7] dark:[&_th]:bg-stone-800 [&_th]:px-3 [&_th]:py-1.5 [&_th]:text-left [&_th]:font-semibold [&_th]:text-[#1E293B] dark:[&_th]:text-stone-100 [&_td]:border [&_td]:border-[#D6DEEC] dark:[&_td]:border-stone-700 [&_td]:px-3 [&_td]:py-1.5 [&_td]:align-top"
+                          >
                             <ReactMarkdown
                               remarkPlugins={[remarkGfm]}
                               components={{
@@ -311,6 +351,27 @@ export default function AiAssistant() {
                                   <div className="overflow-x-auto max-w-full" data-testid="chat-markdown-table-wrapper">
                                     <table {...props} />
                                   </div>
+                                ),
+                                h2: ({ node: _node, ...props }) => (
+                                  <h2
+                                    {...props}
+                                    className="mt-7 mb-2.5 text-[1.25em] font-semibold leading-[1.3] text-[#1E293B] dark:text-stone-100"
+                                    style={{ fontFamily: "'Roboto', sans-serif" }}
+                                  />
+                                ),
+                                h3: ({ node: _node, ...props }) => (
+                                  <h3
+                                    {...props}
+                                    className="mt-7 mb-2.5 text-[1.1em] font-semibold leading-[1.3] text-[#1E293B] dark:text-stone-100"
+                                    style={{ fontFamily: "'Roboto', sans-serif" }}
+                                  />
+                                ),
+                                hr: ({ node: _node, ...props }) => (
+                                  <hr
+                                    {...props}
+                                    className="border-0 border-t border-[#DDE3EE] dark:border-stone-800 w-1/2 mx-auto my-7"
+                                    data-testid="chat-markdown-divider"
+                                  />
                                 ),
                               }}
                             >
@@ -330,9 +391,7 @@ export default function AiAssistant() {
                   ))}
                   {isStreaming && visibleMessages[visibleMessages.length - 1]?.role === "user" && (
                     <div className="flex gap-3">
-                      <div className="w-8 h-8 rounded-full bg-[#E7EDF9] dark:bg-stone-800 ring-1 ring-[#D6DEEC] dark:ring-stone-700 flex items-center justify-center shrink-0">
-                        <Bot className="w-4 h-4 text-[#3B5FA8] dark:text-stone-200" />
-                      </div>
+                      <BotAvatar />
                       <div className="pt-2">
                         <Loader2 className="w-4 h-4 animate-spin text-[#94A3B8] dark:text-stone-400" />
                       </div>
