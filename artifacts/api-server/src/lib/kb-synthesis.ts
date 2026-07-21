@@ -10,7 +10,7 @@ import {
   type SynthesisRunFailure,
   type SynthesisRunNodeOutcome,
 } from "@workspace/db/schema";
-import { sql, inArray, eq, and, desc } from "drizzle-orm";
+import { sql, inArray, eq, and, desc, isNull } from "drizzle-orm";
 import { recordNavGapsForNode, navDocCrossLinksMarkdown } from "./kb-nav-gaps.js";
 import {
   contentWindows,
@@ -1066,6 +1066,26 @@ export async function synthesizeNodesBackground(nodeSlugs: string[], scope = "no
   const nodeOutcomes: SynthesisRunNodeOutcome[] = [];
   let runId: number | null = null;
   try {
+    // Supersede stale unfinished run rows before starting a new one. A run
+    // killed before persisting (server restart, or a duplicate workflow launch
+    // dying right after its insert) leaves finished_at NULL forever; the status
+    // card then reports "interrupted at 0/N" even though a later run completed
+    // the work. Only rows whose heartbeat (updated_at) is older than the same
+    // 90-minute staleness threshold the card uses are closed, so a genuinely
+    // active concurrent run is never clobbered.
+    await db
+      .update(kbSynthesisRunsTable)
+      .set({
+        finishedAt: new Date(),
+        error: "interrupted — run stopped without finishing; superseded by a newer run",
+      })
+      .where(
+        and(
+          isNull(kbSynthesisRunsTable.finishedAt),
+          sql`${kbSynthesisRunsTable.updatedAt} < now() - interval '90 minutes'`,
+        ),
+      );
+
     const [run] = await db
       .insert(kbSynthesisRunsTable)
       .values({ scope, totalNodes: slugs.length })
