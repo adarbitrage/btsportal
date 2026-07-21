@@ -141,7 +141,7 @@ function QuestionList({ card, onBack, onSelectQuestion }: QuestionListProps) {
           <button
             key={q.id}
             onClick={() => onSelectQuestion(q.body)}
-            className="w-full text-left px-4 py-3 rounded-xl border border-stone-200 dark:border-stone-800 bg-white dark:bg-stone-900 hover:border-stone-300 dark:hover:border-stone-700 hover:bg-stone-50 dark:hover:bg-stone-800/60 hover:shadow-sm text-[14px] text-stone-700 dark:text-stone-200 transition-all"
+            className="w-full text-left px-4 py-3 rounded-xl border border-[#D6DEEC] dark:border-stone-800 bg-white dark:bg-stone-900 hover:border-[#B9C7E2] dark:hover:border-stone-700 hover:bg-[#F6F8FC] dark:hover:bg-stone-800/60 hover:shadow-sm text-[14px] text-stone-700 dark:text-stone-200 transition-all"
             data-testid={`button-question-${q.id}`}
           >
             {q.body}
@@ -169,8 +169,8 @@ function CardTile({ card, onClickEntitled, onClickLocked }: CardTileProps) {
       onClick={() => (isLocked ? onClickLocked(card) : onClickEntitled(card))}
       className={`relative text-left rounded-xl border p-4 transition-all group ${
         isLocked
-          ? "border-stone-200 dark:border-stone-800 bg-stone-50/60 dark:bg-stone-900/40 opacity-60 cursor-pointer hover:opacity-75"
-          : "border-stone-200 dark:border-stone-800 bg-white dark:bg-stone-900 hover:border-stone-300 dark:hover:border-stone-700 hover:bg-stone-50 dark:hover:bg-stone-800/60 hover:shadow-sm"
+          ? "border-[#D6DEEC] dark:border-stone-800 bg-[#F6F8FC]/60 dark:bg-stone-900/40 opacity-60 cursor-pointer hover:opacity-75"
+          : "border-[#D6DEEC] dark:border-stone-800 bg-white dark:bg-stone-900 hover:border-[#B9C7E2] dark:hover:border-stone-700 hover:bg-[#F6F8FC] dark:hover:bg-stone-800/60 hover:shadow-sm"
       }`}
       data-testid={`button-card-${card.id}`}
     >
@@ -237,8 +237,8 @@ export function AssistantEmptyState({ onSendMessage }: AssistantEmptyStateProps)
       )}
 
       <div className="flex flex-col items-center justify-center h-full px-6 text-center">
-        <div className="w-14 h-14 rounded-2xl bg-stone-100 dark:bg-stone-800 ring-1 ring-stone-200 dark:ring-stone-700 flex items-center justify-center mb-5">
-          <Bot className="w-7 h-7 text-stone-700 dark:text-stone-200" />
+        <div className="w-14 h-14 rounded-2xl bg-[#E7EDF9] dark:bg-stone-800 ring-1 ring-[#D6DEEC] dark:ring-stone-700 flex items-center justify-center mb-5">
+          <Bot className="w-7 h-7 text-[#3B5FA8] dark:text-stone-200" />
         </div>
         <h3 className="text-2xl font-semibold text-stone-900 dark:text-stone-100 mb-2 tracking-tight">
           How can I help you today?

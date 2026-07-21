@@ -1,521 +1,682 @@
 import { useEffect, useState } from "react";
 import {
-  Send, Bot, Plus, MessageCircle, Menu, ChevronLeft, ChevronRight,
+  Send, Bot, Sparkles, MessageCircle, WandSparkles, Zap,
 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 
-interface Theme {
-  name: string;
-  description: string;
-  pageBg: string;
-  cardBg: string;
-  cardBorder: string;
-  cardShadow: string;
-  sidebarBg: string;
-  sidebarBorder: string;
-  sidebarItemHover: string;
-  sidebarItemActive: string;
-  headerBorder: string;
-  userBubbleBg: string;
-  userBubbleText: string;
-  assistantText: string;
-  secondaryText: string;
-  mutedText: string;
-  accent: string;
-  accentText: string;
-  link: string;
-  inputBg: string;
-  inputBorder: string;
-  inputText: string;
-  avatarBg: string;
-  avatarRing: string;
-  avatarIcon: string;
-  codeBg: string;
-  codeText: string;
-  newChatBg: string;
-  newChatText: string;
-  swatches: { label: string; color: string }[];
+/**
+ * Typography / spacing / divider / icon comparison lab for the AI Assistant.
+ * Everything renders in the locked-in "Soft Blue Whisper" theme so the
+ * comparisons are apples-to-apples. Nothing here affects the live page.
+ */
+
+const W = {
+  pageBg: "#FAF9F7",
+  cardBg: "#FDFDFE",
+  cardBorder: "#D6DEEC",
+  cardShadow:
+    "0 20px 50px -20px rgba(51,65,85,0.18), 0 8px 20px -8px rgba(51,65,85,0.08)",
+  headerBorder: "#E4E9F2",
+  userBubbleBg: "#E7EDF9",
+  text: "#1E293B",
+  secondaryText: "#64748B",
+  mutedText: "#94A3B8",
+  accent: "#3B5FA8",
+  link: "#2F55A4",
+  inputBg: "#F6F8FC",
+  avatarBg: "#E7EDF9",
+  avatarRing: "#D6DEEC",
+  codeBg: "#EEF1F7",
+  codeText: "#334155",
+};
+
+const GOOGLE_FONTS_HREF =
+  "https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Manrope:wght@400;500;600;700&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=Lora:wght@400;600&display=swap";
+
+interface FontVariant {
+  id: string;
+  label: string;
+  note: string;
+  family: string;
+  size: string;
 }
 
-const THEMES: Theme[] = [
+const FONT_VARIANTS: FontVariant[] = [
   {
-    name: "Editorial Warm",
-    description:
-      "Crisp white chat card on the warm page, soft warm beige sidebar and user bubbles, muted BTS Blue accents.",
-    pageBg: "#FAF9F7",
-    cardBg: "#FFFFFF",
-    cardBorder: "#E5E1D8",
-    cardShadow:
-      "0 20px 50px -20px rgba(28,25,23,0.18), 0 8px 20px -8px rgba(28,25,23,0.08)",
-    sidebarBg: "#F2F0ED",
-    sidebarBorder: "#E5E1D8",
-    sidebarItemHover: "#ECE9E2",
-    sidebarItemActive: "#E6E2D9",
-    headerBorder: "#ECE9E2",
-    userBubbleBg: "#ECE9E2",
-    userBubbleText: "#292524",
-    assistantText: "#292524",
-    secondaryText: "#78716C",
-    mutedText: "#A8A29E",
-    accent: "#1A56DB",
-    accentText: "#FFFFFF",
-    link: "#1A56DB",
-    inputBg: "#FAF9F7",
-    inputBorder: "#E5E1D8",
-    inputText: "#292524",
-    avatarBg: "#F2F0ED",
-    avatarRing: "#E5E1D8",
-    avatarIcon: "#57534E",
-    codeBg: "#F2F0ED",
-    codeText: "#44403C",
-    newChatBg: "#1C1917",
-    newChatText: "#FAFAF9",
-    swatches: [
-      { label: "Card", color: "#FFFFFF" },
-      { label: "Sidebar", color: "#F2F0ED" },
-      { label: "User bubble", color: "#ECE9E2" },
-      { label: "Accent", color: "#1A56DB" },
-      { label: "Text", color: "#292524" },
-    ],
+    id: "roboto",
+    label: "Roboto (current)",
+    note: "The portal's existing baseline font.",
+    family: "'Roboto', sans-serif",
+    size: "15px",
   },
   {
-    name: "Soft Blue Whisper",
-    description:
-      "Near-white card with a hairline blue-tinted border, faint blue-gray sidebar, pale desaturated blue user bubbles.",
-    pageBg: "#FAF9F7",
-    cardBg: "#FDFDFE",
-    cardBorder: "#D6DEEC",
-    cardShadow:
-      "0 20px 50px -20px rgba(51,65,85,0.18), 0 8px 20px -8px rgba(51,65,85,0.08)",
-    sidebarBg: "#EEF1F7",
-    sidebarBorder: "#DDE3EE",
-    sidebarItemHover: "#E4E9F2",
-    sidebarItemActive: "#DCE3F0",
-    headerBorder: "#E4E9F2",
-    userBubbleBg: "#E7EDF9",
-    userBubbleText: "#1E293B",
-    assistantText: "#1E293B",
-    secondaryText: "#64748B",
-    mutedText: "#94A3B8",
-    accent: "#3B5FA8",
-    accentText: "#FFFFFF",
-    link: "#2F55A4",
-    inputBg: "#F6F8FC",
-    inputBorder: "#D6DEEC",
-    inputText: "#1E293B",
-    avatarBg: "#E7EDF9",
-    avatarRing: "#D6DEEC",
-    avatarIcon: "#3B5FA8",
-    codeBg: "#EEF1F7",
-    codeText: "#334155",
-    newChatBg: "#3B5FA8",
-    newChatText: "#FFFFFF",
-    swatches: [
-      { label: "Card", color: "#FDFDFE" },
-      { label: "Sidebar", color: "#EEF1F7" },
-      { label: "User bubble", color: "#E7EDF9" },
-      { label: "Accent", color: "#3B5FA8" },
-      { label: "Text", color: "#1E293B" },
-    ],
+    id: "inter",
+    label: "Inter",
+    note: "Neutral, highly legible UI sans — the modern default for product text.",
+    family: "'Inter', sans-serif",
+    size: "15px",
   },
   {
-    name: "Claude-style Cream",
-    description:
-      "Deeper warm cream card that reads distinctly against the page, sidebar one cream step deeper, warm gray-brown secondary text, one quiet accent.",
-    pageBg: "#FAF9F7",
-    cardBg: "#F1EEE6",
-    cardBorder: "#DFD9CB",
-    cardShadow:
-      "0 20px 50px -20px rgba(87,72,52,0.22), 0 8px 20px -8px rgba(87,72,52,0.10)",
-    sidebarBg: "#E9E4D8",
-    sidebarBorder: "#DCD5C5",
-    sidebarItemHover: "#E2DCCE",
-    sidebarItemActive: "#DBD4C3",
-    headerBorder: "#E0DACB",
-    userBubbleBg: "#E4DECF",
-    userBubbleText: "#3D362C",
-    assistantText: "#3D362C",
-    secondaryText: "#7D7263",
-    mutedText: "#A39A8B",
-    accent: "#0F766E",
-    accentText: "#FFFFFF",
-    link: "#0F766E",
-    inputBg: "#F7F5EF",
-    inputBorder: "#DFD9CB",
-    inputText: "#3D362C",
-    avatarBg: "#E9E4D8",
-    avatarRing: "#DCD5C5",
-    avatarIcon: "#6B5F4D",
-    codeBg: "#E9E4D8",
-    codeText: "#57503F",
-    newChatBg: "#3D362C",
-    newChatText: "#F7F5EF",
-    swatches: [
-      { label: "Card", color: "#F1EEE6" },
-      { label: "Sidebar", color: "#E9E4D8" },
-      { label: "User bubble", color: "#E4DECF" },
-      { label: "Accent", color: "#0F766E" },
-      { label: "Text", color: "#3D362C" },
-    ],
+    id: "manrope",
+    label: "Manrope",
+    note: "Slightly rounded, friendlier geometric sans with more personality.",
+    family: "'Manrope', sans-serif",
+    size: "15px",
   },
   {
-    name: "Quiet Sage / Teal",
-    description:
-      "Near-white card with a very muted sage-teal tint for the sidebar, user bubbles, and accents — harmonizing with existing teal links.",
-    pageBg: "#FAF9F7",
-    cardBg: "#FDFEFD",
-    cardBorder: "#D9E2DD",
-    cardShadow:
-      "0 20px 50px -20px rgba(45,74,66,0.18), 0 8px 20px -8px rgba(45,74,66,0.08)",
-    sidebarBg: "#EDF2EF",
-    sidebarBorder: "#DDE6E1",
-    sidebarItemHover: "#E3EBE6",
-    sidebarItemActive: "#DAE5DF",
-    headerBorder: "#E3EBE6",
-    userBubbleBg: "#E4EEE9",
-    userBubbleText: "#1F2E29",
-    assistantText: "#22302B",
-    secondaryText: "#5F6F68",
-    mutedText: "#8DA098",
-    accent: "#0F766E",
-    accentText: "#FFFFFF",
-    link: "#0F766E",
-    inputBg: "#F5F8F6",
-    inputBorder: "#D9E2DD",
-    inputText: "#22302B",
-    avatarBg: "#E4EEE9",
-    avatarRing: "#D9E2DD",
-    avatarIcon: "#0F766E",
-    codeBg: "#EDF2EF",
-    codeText: "#33463F",
-    newChatBg: "#0F766E",
-    newChatText: "#FFFFFF",
-    swatches: [
-      { label: "Card", color: "#FDFEFD" },
-      { label: "Sidebar", color: "#EDF2EF" },
-      { label: "User bubble", color: "#E4EEE9" },
-      { label: "Accent", color: "#0F766E" },
-      { label: "Text", color: "#22302B" },
-    ],
+    id: "serif",
+    label: "Serif answers (Claude-style)",
+    note: "Warm readable serif (Source Serif 4) for answer bodies only — UI chrome stays sans.",
+    family: "'Source Serif 4', 'Lora', Georgia, serif",
+    size: "16px",
   },
 ];
 
-const MOCK_CONVERSATION: { role: "user" | "assistant"; content: string }[] = [
+interface SpacingVariant {
+  id: string;
+  label: string;
+  note: string;
+  lineHeight: number;
+  paragraphGap: number;
+  headingTop: number;
+  listGap: number;
+  itemGap: number;
+}
+
+const SPACING_VARIANTS: SpacingVariant[] = [
   {
-    role: "user",
-    content: "Lorem ipsum dolor sit amet — how do I set up my first campaign tracker?",
+    id: "current",
+    label: "Current (crowded)",
+    note: "leading-7 with 8px paragraph gaps — everything runs together vertically.",
+    lineHeight: 1.867,
+    paragraphGap: 8,
+    headingTop: 8,
+    listGap: 8,
+    itemGap: 2,
   },
   {
-    role: "assistant",
-    content:
-      "Great question! Consectetur adipiscing elit, sed do eiusmod tempor. Here's the short version:\n\n1. **Open the tracker** from your dashboard and pick a template\n2. Add your campaign under `Campaigns → New`\n3. Paste your tracking link and set the daily budget\n\nYou can read the full walkthrough in the [Campaign Tracker guide](#). Ut enim ad minim veniam, quis nostrud exercitation.",
-  },
-  {
-    role: "user",
-    content: "Duis aute irure dolor — what budget should I start with?",
-  },
-  {
-    role: "assistant",
-    content:
-      "Excepteur sint occaecat cupidatat non proident. Most members start small and scale:\n\n- **Testing phase:** $10–20/day per campaign, sunt in culpa qui officia\n- **Validation:** once `ROAS > 1.2`, deserunt mollit anim id est laborum\n- **Scaling:** increase by ~20% every 3 days, lorem ipsum dolor sit amet\n\nSed ut perspiciatis unde omnis iste natus error sit voluptatem accusantium.",
-  },
-  {
-    role: "user",
-    content: "Perfect, thanks! One more thing — sed quia consequuntur magni?",
-  },
-  {
-    role: "assistant",
-    content:
-      "Of course! Neque porro quisquam est qui *dolorem ipsum* quia dolor sit amet, consectetur, adipisci velit. If you get stuck, check the [help center](#) or ask me anything else — nisi ut aliquid ex ea commodi consequatur.",
+    id: "corrected",
+    label: "Corrected hierarchy",
+    note: "~1.55 line-height, 14px between paragraphs, 28px above headings/sections.",
+    lineHeight: 1.55,
+    paragraphGap: 14,
+    headingTop: 28,
+    listGap: 14,
+    itemGap: 6,
   },
 ];
 
-const MOCK_SESSIONS = [
-  { group: "Today", items: ["Campaign tracker setup", "Budget question"] },
-  { group: "Yesterday", items: ["Lorem ipsum strategy", "Dolor sit tools"] },
-  { group: "Last 7 Days", items: ["Adipiscing elit review"] },
+interface DividerVariant {
+  id: string;
+  label: string;
+  note: string;
+  style: React.CSSProperties;
+}
+
+const DIVIDER_VARIANTS: DividerVariant[] = [
+  {
+    id: "current",
+    label: "Current default hr",
+    note: "Full-width browser-default rule — heavy and boxy.",
+    style: {
+      border: "none",
+      borderTop: "1px solid #CBD5E1",
+      width: "100%",
+      margin: "12px 0",
+    },
+  },
+  {
+    id: "hairline",
+    label: "Restyled hairline",
+    note: "Low-contrast blue-gray tint, 28px vertical breathing room, 50% width, centered.",
+    style: {
+      border: "none",
+      borderTop: "1px solid #DDE3EE",
+      width: "50%",
+      margin: "28px auto",
+    },
+  },
 ];
 
-function MockAssistant({ theme }: { theme: Theme }) {
+interface IconVariant {
+  id: string;
+  label: string;
+  note: string;
+  render: (size: "sm" | "lg") => React.ReactNode;
+}
+
+function IconBadge({
+  children,
+  size,
+  bg,
+  ring,
+}: {
+  children: React.ReactNode;
+  size: "sm" | "lg";
+  bg?: string;
+  ring?: string;
+}) {
+  const px = size === "sm" ? 32 : 56;
   return (
     <div
-      className="rounded-2xl overflow-hidden flex h-[calc(100vh-16rem)] min-h-[480px]"
+      className="rounded-full flex items-center justify-center shrink-0"
       style={{
-        backgroundColor: theme.cardBg,
-        border: `1px solid ${theme.cardBorder}`,
-        boxShadow: theme.cardShadow,
+        width: px,
+        height: px,
+        background: bg ?? W.avatarBg,
+        boxShadow: `inset 0 0 0 1px ${ring ?? W.avatarRing}`,
       }}
     >
-      {/* Sidebar */}
-      <div
-        className="hidden md:flex w-64 flex-col shrink-0"
-        style={{
-          backgroundColor: theme.sidebarBg,
-          borderRight: `1px solid ${theme.sidebarBorder}`,
+      {children}
+    </div>
+  );
+}
+
+const ICON_VARIANTS: IconVariant[] = [
+  {
+    id: "bot",
+    label: "Bot (current)",
+    note: "The existing robot icon — functional but reads dated.",
+    render: (s) => (
+      <IconBadge size={s}>
+        <Bot style={{ color: W.accent }} className={s === "sm" ? "w-4 h-4" : "w-7 h-7"} />
+      </IconBadge>
+    ),
+  },
+  {
+    id: "sparkles",
+    label: "Sparkles",
+    note: "The de-facto \"AI\" glyph — instantly recognizable, light and modern.",
+    render: (s) => (
+      <IconBadge size={s}>
+        <Sparkles style={{ color: W.accent }} className={s === "sm" ? "w-4 h-4" : "w-7 h-7"} />
+      </IconBadge>
+    ),
+  },
+  {
+    id: "orb",
+    label: "Gradient orb",
+    note: "Abstract whisper-blue orb badge — no glyph at all, calm and premium.",
+    render: (s) => (
+      <IconBadge
+        size={s}
+        bg="radial-gradient(circle at 32% 28%, #A8BEE8 0%, #5B7FC7 45%, #3B5FA8 100%)"
+        ring="rgba(59,95,168,0.35)"
+      >
+        <span
+          className="rounded-full"
+          style={{
+            width: s === "sm" ? 10 : 18,
+            height: s === "sm" ? 10 : 18,
+            background: "rgba(255,255,255,0.55)",
+            filter: "blur(3px)",
+          }}
+        />
+      </IconBadge>
+    ),
+  },
+  {
+    id: "message-spark",
+    label: "MessageCircle + spark",
+    note: "Chat bubble with a tiny spark — says \"conversation\" first, \"AI\" second.",
+    render: (s) => (
+      <IconBadge size={s}>
+        <span className="relative inline-flex">
+          <MessageCircle
+            style={{ color: W.accent }}
+            className={s === "sm" ? "w-4 h-4" : "w-7 h-7"}
+          />
+          <Zap
+            style={{ color: W.accent, fill: W.accent }}
+            className={
+              (s === "sm" ? "w-2 h-2" : "w-3.5 h-3.5") +
+              " absolute -top-0.5 -right-1"
+            }
+          />
+        </span>
+      </IconBadge>
+    ),
+  },
+  {
+    id: "wand",
+    label: "WandSparkles",
+    note: "Magic-wand + sparkles — playful \"assistant magic\" without the robot.",
+    render: (s) => (
+      <IconBadge size={s}>
+        <WandSparkles
+          style={{ color: W.accent }}
+          className={s === "sm" ? "w-4 h-4" : "w-7 h-7"}
+        />
+      </IconBadge>
+    ),
+  },
+];
+
+const SAMPLE_QUESTION =
+  "How should I structure my first week of campaign testing?";
+
+const SAMPLE_ANSWER = `## Your first week of campaign testing
+
+Great question! The first week is all about gathering clean data, not making money yet. Most members who rush to scale in week one end up burning budget on unvalidated angles.
+
+Here's the mindset shift: you're paying for **information**, not conversions. Every dollar spent should answer a specific question about your audience, angle, or offer.
+
+---
+
+### Day 1–2: Setup and baselines
+
+Start with the fundamentals before spending anything:
+
+- Set up your tracker under \`Campaigns → New\` and verify the postback fires
+- Pick **one offer** and **three angles** — no more, or your data gets too thin
+- Write down your kill criteria *before* launch (e.g. pause any ad set with no clicks after $10)
+
+### Day 3–5: Controlled testing
+
+Run each angle at a small, equal budget so the comparison is fair:
+
+| Phase | Daily budget | Goal | Kill signal |
+|-------|-------------|------|-------------|
+| Testing | $10–20 per angle | Find a working angle | CTR < 0.8% after $15 |
+| Validation | $30–40 | Confirm \`ROAS > 1.2\` | ROAS < 0.9 over 3 days |
+| Early scaling | +20% every 3 days | Stable profitability | ROAS drops 2 days straight |
+
+---
+
+### Day 6–7: Read the data
+
+By the weekend you should have enough signal to make one clear decision per angle: **kill, iterate, or validate**. Check the full walkthrough in the [Campaign Tracker guide](#) for how to read each column.
+
+A quick sanity checklist before week two:
+
+1. Tracker postbacks verified on every campaign
+2. At least one angle with CTR above your baseline
+3. Kill criteria applied without exceptions — no "just one more day"
+
+---
+
+If you get stuck on any step, ask me here or check the [help center](#). Week two is where we start scaling what survived.`;
+
+function SampleAnswer({
+  font,
+  spacing,
+  divider,
+}: {
+  font: FontVariant;
+  spacing: SpacingVariant;
+  divider: DividerVariant;
+}) {
+  const pStyle: React.CSSProperties = {
+    margin: `0 0 ${spacing.paragraphGap}px`,
+    lineHeight: spacing.lineHeight,
+  };
+  const hBase: React.CSSProperties = {
+    marginTop: spacing.headingTop,
+    marginBottom: Math.max(8, Math.round(spacing.paragraphGap * 0.75)),
+    fontWeight: 600,
+    lineHeight: 1.3,
+    color: W.text,
+    fontFamily: font.id === "serif" ? "'Roboto', sans-serif" : undefined,
+  };
+  return (
+    <div
+      style={{
+        fontFamily: font.family,
+        fontSize: font.size,
+        color: W.text,
+        lineHeight: spacing.lineHeight,
+      }}
+      data-testid="sample-answer"
+    >
+      <ReactMarkdown
+        remarkPlugins={[remarkGfm]}
+        components={{
+          p: ({ node: _n, ...props }) => <p {...props} style={pStyle} />,
+          h2: ({ node: _n, ...props }) => (
+            <h2 {...props} style={{ ...hBase, fontSize: "1.25em" }} />
+          ),
+          h3: ({ node: _n, ...props }) => (
+            <h3 {...props} style={{ ...hBase, fontSize: "1.1em" }} />
+          ),
+          hr: ({ node: _n, ...props }) => <hr {...props} style={divider.style} />,
+          ul: ({ node: _n, ...props }) => (
+            <ul
+              {...props}
+              style={{
+                margin: `0 0 ${spacing.listGap}px`,
+                paddingLeft: 22,
+                listStyleType: "disc",
+              }}
+            />
+          ),
+          ol: ({ node: _n, ...props }) => (
+            <ol
+              {...props}
+              style={{
+                margin: `0 0 ${spacing.listGap}px`,
+                paddingLeft: 22,
+                listStyleType: "decimal",
+              }}
+            />
+          ),
+          li: ({ node: _n, ...props }) => (
+            <li
+              {...props}
+              style={{
+                marginBottom: spacing.itemGap,
+                lineHeight: spacing.lineHeight,
+              }}
+            />
+          ),
+          a: ({ node: _n, ...props }) => (
+            <a
+              {...props}
+              onClick={(e) => e.preventDefault()}
+              style={{ color: W.link, textDecoration: "underline" }}
+            />
+          ),
+          strong: ({ node: _n, ...props }) => (
+            <strong {...props} style={{ color: W.text, fontWeight: 600 }} />
+          ),
+          code: ({ node: _n, ...props }) => (
+            <code
+              {...props}
+              className="px-1.5 py-0.5 rounded"
+              style={{
+                backgroundColor: W.codeBg,
+                color: W.codeText,
+                fontSize: "0.85em",
+                fontFamily:
+                  "ui-monospace, SFMono-Regular, Menlo, Consolas, monospace",
+              }}
+            />
+          ),
+          table: ({ node: _n, ...props }) => (
+            <div className="overflow-x-auto max-w-full" style={{ margin: `${spacing.listGap}px 0` }}>
+              <table
+                {...props}
+                style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.92em" }}
+              />
+            </div>
+          ),
+          th: ({ node: _n, ...props }) => (
+            <th
+              {...props}
+              style={{
+                border: `1px solid ${W.cardBorder}`,
+                backgroundColor: W.codeBg,
+                padding: "6px 12px",
+                textAlign: "left",
+                fontWeight: 600,
+                color: W.text,
+              }}
+            />
+          ),
+          td: ({ node: _n, ...props }) => (
+            <td
+              {...props}
+              style={{
+                border: `1px solid ${W.cardBorder}`,
+                padding: "6px 12px",
+                verticalAlign: "top",
+              }}
+            />
+          ),
         }}
       >
-        <div
-          className="h-14 px-3 flex items-center shrink-0"
-          style={{ borderBottom: `1px solid ${theme.sidebarBorder}` }}
-        >
-          <button
-            className="w-full h-8 rounded-md flex items-center justify-center gap-2 text-sm font-medium cursor-default"
-            style={{ backgroundColor: theme.newChatBg, color: theme.newChatText }}
-          >
-            <Plus className="w-4 h-4" />
-            New Chat
-          </button>
-        </div>
-        <div className="flex-1 overflow-y-auto py-2">
-          {MOCK_SESSIONS.map((grp) => (
-            <div key={grp.group} className="mb-2">
-              <p
-                className="px-3 py-1 text-[10px] font-semibold uppercase tracking-wider"
-                style={{ color: theme.mutedText }}
-              >
-                {grp.group}
-              </p>
-              {grp.items.map((title, i) => {
-                const active = grp.group === "Today" && i === 0;
-                return (
-                  <div
-                    key={title}
-                    className="flex items-center gap-2 px-3 py-2"
-                    style={{
-                      backgroundColor: active ? theme.sidebarItemActive : undefined,
-                    }}
-                  >
-                    <MessageCircle
-                      className="w-3.5 h-3.5 shrink-0"
-                      style={{ color: theme.mutedText }}
-                    />
-                    <span
-                      className="flex-1 text-sm truncate"
-                      style={{ color: theme.assistantText }}
-                    >
-                      {title}
-                    </span>
-                  </div>
-                );
-              })}
-            </div>
-          ))}
-        </div>
-      </div>
+        {SAMPLE_ANSWER}
+      </ReactMarkdown>
+    </div>
+  );
+}
 
-      {/* Chat column */}
-      <div className="flex-1 flex flex-col min-w-0 min-h-0">
-        <div
-          className="h-14 px-4 flex items-center gap-3 shrink-0"
-          style={{ borderBottom: `1px solid ${theme.headerBorder}` }}
-        >
-          <span className="md:hidden p-1.5" style={{ color: theme.mutedText }}>
-            <Menu className="w-5 h-5" />
-          </span>
-          <div className="flex items-center gap-2.5 min-w-0">
-            <div
-              className="w-8 h-8 rounded-full flex items-center justify-center shrink-0"
-              style={{
-                backgroundColor: theme.avatarBg,
-                boxShadow: `inset 0 0 0 1px ${theme.avatarRing}`,
-              }}
-            >
-              <Bot className="w-4 h-4" style={{ color: theme.avatarIcon }} />
-            </div>
-            <div className="min-w-0 leading-tight">
-              <h2
-                className="font-semibold text-sm truncate"
-                style={{ color: theme.assistantText }}
-              >
-                Campaign tracker setup
-              </h2>
-              <p className="text-[11px]" style={{ color: theme.secondaryText }}>
-                Powered by your BTS knowledge base
-              </p>
-            </div>
-          </div>
-        </div>
-
-        <div className="flex-1 min-h-0 overflow-y-auto">
-          <div className="max-w-3xl mx-auto px-4 py-6 space-y-4">
-            {MOCK_CONVERSATION.map((msg, i) => (
-              <div
-                key={i}
-                className={`flex gap-3 ${msg.role === "user" ? "justify-end" : ""}`}
-              >
-                {msg.role === "assistant" && (
-                  <div
-                    className="w-8 h-8 rounded-full flex items-center justify-center shrink-0 mt-0.5"
-                    style={{
-                      backgroundColor: theme.avatarBg,
-                      boxShadow: `inset 0 0 0 1px ${theme.avatarRing}`,
-                    }}
-                  >
-                    <Bot className="w-4 h-4" style={{ color: theme.avatarIcon }} />
-                  </div>
-                )}
-                {msg.role === "assistant" ? (
-                  <div
-                    className="flex-1 min-w-0 pt-1"
-                    style={{ color: theme.assistantText }}
-                  >
-                    <div className="text-[15px] leading-7 [&_p]:mb-2 [&_p:last-child]:mb-0 [&_ul]:mb-2 [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:mb-2 [&_ol]:list-decimal [&_ol]:pl-5 [&_li]:mb-0.5">
-                      <ReactMarkdown
-                        remarkPlugins={[remarkGfm]}
-                        components={{
-                          a: ({ node: _n, ...props }) => (
-                            <a
-                              {...props}
-                              onClick={(e) => e.preventDefault()}
-                              style={{
-                                color: theme.link,
-                                textDecoration: "underline",
-                              }}
-                            />
-                          ),
-                          strong: ({ node: _n, ...props }) => (
-                            <strong
-                              {...props}
-                              style={{ color: theme.assistantText, fontWeight: 600 }}
-                            />
-                          ),
-                          code: ({ node: _n, ...props }) => (
-                            <code
-                              {...props}
-                              className="px-1.5 py-0.5 rounded text-[0.85em]"
-                              style={{
-                                backgroundColor: theme.codeBg,
-                                color: theme.codeText,
-                              }}
-                            />
-                          ),
-                        }}
-                      >
-                        {msg.content}
-                      </ReactMarkdown>
-                    </div>
-                  </div>
-                ) : (
-                  <div
-                    className="max-w-[80%] rounded-2xl px-4 py-2.5"
-                    style={{
-                      backgroundColor: theme.userBubbleBg,
-                      color: theme.userBubbleText,
-                    }}
-                  >
-                    <p className="text-[15px] whitespace-pre-wrap leading-6">
-                      {msg.content}
-                    </p>
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
-        </div>
-
-        <div
-          className="p-4 shrink-0"
-          style={{ borderTop: `1px solid ${theme.headerBorder}` }}
-        >
-          <div className="max-w-3xl mx-auto flex gap-2 items-end">
-            <div
-              className="flex-1 px-4 py-3 rounded-2xl text-[15px] min-h-[44px] cursor-default"
-              style={{
-                backgroundColor: theme.inputBg,
-                border: `1px solid ${theme.inputBorder}`,
-                color: theme.mutedText,
-              }}
-            >
-              Ask the BTS Assistant anything...
-            </div>
+function VariantPicker<T extends { id: string; label: string }>({
+  title,
+  options,
+  value,
+  onChange,
+  testPrefix,
+}: {
+  title: string;
+  options: T[];
+  value: string;
+  onChange: (id: string) => void;
+  testPrefix: string;
+}) {
+  return (
+    <div>
+      <p
+        className="text-[11px] font-semibold uppercase tracking-wider mb-1.5"
+        style={{ color: W.mutedText }}
+      >
+        {title}
+      </p>
+      <div className="flex flex-wrap gap-1.5">
+        {options.map((o) => {
+          const active = o.id === value;
+          return (
             <button
-              className="shrink-0 h-[44px] w-[44px] rounded-2xl flex items-center justify-center cursor-default"
-              style={{ backgroundColor: theme.accent, color: theme.accentText }}
+              key={o.id}
+              onClick={() => onChange(o.id)}
+              className="px-3 py-1.5 rounded-full text-[13px] font-medium transition-colors border"
+              style={{
+                backgroundColor: active ? W.accent : "#FFFFFF",
+                color: active ? "#FFFFFF" : W.secondaryText,
+                borderColor: active ? W.accent : W.cardBorder,
+              }}
+              data-testid={`button-${testPrefix}-${o.id}`}
             >
-              <Send className="w-4 h-4" />
+              {o.label}
             </button>
-          </div>
-        </div>
+          );
+        })}
       </div>
     </div>
   );
 }
 
 export default function AiThemePreview() {
-  const [index, setIndex] = useState(() => {
-    const t = Number(new URLSearchParams(window.location.search).get("t"));
-    return Number.isInteger(t) && t >= 1 && t <= THEMES.length ? t - 1 : 0;
-  });
-  const theme = THEMES[index];
+  const [fontId, setFontId] = useState(FONT_VARIANTS[0].id);
+  const [spacingId, setSpacingId] = useState(SPACING_VARIANTS[0].id);
+  const [dividerId, setDividerId] = useState(DIVIDER_VARIANTS[0].id);
+  const [iconId, setIconId] = useState(ICON_VARIANTS[0].id);
 
-  const prev = () => setIndex((i) => (i - 1 + THEMES.length) % THEMES.length);
-  const next = () => setIndex((i) => (i + 1) % THEMES.length);
-
+  // Load the comparison fonts only on this page so the rest of the portal
+  // keeps its Roboto baseline untouched.
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "ArrowLeft") setIndex((i) => (i - 1 + THEMES.length) % THEMES.length);
-      else if (e.key === "ArrowRight") setIndex((i) => (i + 1) % THEMES.length);
+    const link = document.createElement("link");
+    link.rel = "stylesheet";
+    link.href = GOOGLE_FONTS_HREF;
+    document.head.appendChild(link);
+    return () => {
+      document.head.removeChild(link);
     };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
   }, []);
+
+  const font = FONT_VARIANTS.find((f) => f.id === fontId)!;
+  const spacing = SPACING_VARIANTS.find((s) => s.id === spacingId)!;
+  const divider = DIVIDER_VARIANTS.find((d) => d.id === dividerId)!;
+  const icon = ICON_VARIANTS.find((i) => i.id === iconId)!;
 
   return (
     <div
       className="min-h-screen px-4 md:px-8 py-6"
-      style={{ backgroundColor: "#FAF9F7", fontFamily: "'Roboto', sans-serif" }}
+      style={{ backgroundColor: W.pageBg, fontFamily: "'Roboto', sans-serif" }}
     >
       <div className="max-w-6xl mx-auto">
-        <div className="flex items-center justify-between gap-4 mb-5">
-          <div className="min-w-0">
-            <p className="text-[11px] font-semibold uppercase tracking-wider text-stone-400 mb-1">
-              AI Assistant · Light-theme preview ({index + 1} of {THEMES.length})
+        <div className="mb-5">
+          <p className="text-[11px] font-semibold uppercase tracking-wider text-stone-400 mb-1">
+            AI Assistant · Typography &amp; icon comparison lab
+          </p>
+          <h1
+            className="text-2xl font-bold leading-tight"
+            style={{ color: W.text }}
+            data-testid="text-preview-title"
+          >
+            Font, spacing, divider &amp; icon variants
+          </h1>
+          <p className="text-sm mt-1 max-w-3xl" style={{ color: W.secondaryText }}>
+            The Soft Blue Whisper color theme is now live on the assistant. Pick a
+            combination below — the same realistic sample answer re-renders instantly
+            under each variant so the differences are easy to judge.
+          </p>
+        </div>
+
+        {/* Controls */}
+        <div
+          className="rounded-2xl p-4 md:p-5 mb-5 grid gap-4 md:grid-cols-2"
+          style={{
+            backgroundColor: "#FFFFFF",
+            border: `1px solid ${W.cardBorder}`,
+          }}
+          data-testid="variant-controls"
+        >
+          <VariantPicker
+            title="Answer font"
+            options={FONT_VARIANTS}
+            value={fontId}
+            onChange={setFontId}
+            testPrefix="font"
+          />
+          <VariantPicker
+            title="Line spacing & rhythm"
+            options={SPACING_VARIANTS}
+            value={spacingId}
+            onChange={setSpacingId}
+            testPrefix="spacing"
+          />
+          <VariantPicker
+            title="Divider style"
+            options={DIVIDER_VARIANTS}
+            value={dividerId}
+            onChange={setDividerId}
+            testPrefix="divider"
+          />
+          <VariantPicker
+            title="Assistant icon"
+            options={ICON_VARIANTS}
+            value={iconId}
+            onChange={setIconId}
+            testPrefix="icon"
+          />
+          <div className="md:col-span-2 flex flex-col gap-1">
+            <p className="text-[12px]" style={{ color: W.secondaryText }}>
+              <span className="font-semibold">{font.label}:</span> {font.note}
             </p>
-            <h1 className="text-2xl font-bold text-stone-900 leading-tight" data-testid="text-theme-name">
-              {theme.name}
-            </h1>
-            <p className="text-sm text-stone-500 mt-1 max-w-2xl">{theme.description}</p>
-          </div>
-          <div className="flex items-center gap-2 shrink-0">
-            <button
-              onClick={prev}
-              className="w-10 h-10 rounded-full border border-stone-300 bg-white flex items-center justify-center text-stone-700 hover:bg-stone-100 transition-colors shadow-sm"
-              aria-label="Previous theme"
-              data-testid="button-prev-theme"
-            >
-              <ChevronLeft className="w-5 h-5" />
-            </button>
-            <button
-              onClick={next}
-              className="w-10 h-10 rounded-full border border-stone-300 bg-white flex items-center justify-center text-stone-700 hover:bg-stone-100 transition-colors shadow-sm"
-              aria-label="Next theme"
-              data-testid="button-next-theme"
-            >
-              <ChevronRight className="w-5 h-5" />
-            </button>
+            <p className="text-[12px]" style={{ color: W.secondaryText }}>
+              <span className="font-semibold">{spacing.label}:</span> {spacing.note}
+            </p>
+            <p className="text-[12px]" style={{ color: W.secondaryText }}>
+              <span className="font-semibold">{divider.label}:</span> {divider.note}
+            </p>
+            <p className="text-[12px]" style={{ color: W.secondaryText }}>
+              <span className="font-semibold">{icon.label}:</span> {icon.note}
+            </p>
           </div>
         </div>
 
-        <div className="flex flex-wrap items-center gap-3 mb-4" data-testid="swatch-strip">
-          {theme.swatches.map((s) => (
-            <div key={s.label} className="flex items-center gap-1.5">
+        {/* Icon lineup strip */}
+        <div
+          className="rounded-2xl p-4 mb-5 flex flex-wrap items-start gap-5"
+          style={{ backgroundColor: "#FFFFFF", border: `1px solid ${W.cardBorder}` }}
+          data-testid="icon-lineup"
+        >
+          {ICON_VARIANTS.map((iv) => (
+            <button
+              key={iv.id}
+              onClick={() => setIconId(iv.id)}
+              className="flex flex-col items-center gap-2 w-28 text-center group"
+              data-testid={`button-icon-tile-${iv.id}`}
+            >
               <span
-                className="w-5 h-5 rounded-md border border-stone-300/70 inline-block"
-                style={{ backgroundColor: s.color }}
-              />
-              <span className="text-[12px] text-stone-600">
-                {s.label}{" "}
-                <code className="text-[11px] text-stone-400">{s.color}</code>
+                className="rounded-xl p-2 transition-colors"
+                style={{
+                  backgroundColor: iv.id === iconId ? W.userBubbleBg : "transparent",
+                  boxShadow:
+                    iv.id === iconId ? `inset 0 0 0 1.5px ${W.accent}` : undefined,
+                }}
+              >
+                {iv.render("lg")}
               </span>
-            </div>
+              <span
+                className="text-[11px] font-medium leading-tight"
+                style={{ color: iv.id === iconId ? W.accent : W.secondaryText }}
+              >
+                {iv.label}
+              </span>
+            </button>
           ))}
         </div>
 
-        <MockAssistant theme={theme} />
+        {/* Chat mock in whisper-blue */}
+        <div
+          className="rounded-2xl overflow-hidden"
+          style={{
+            backgroundColor: W.cardBg,
+            border: `1px solid ${W.cardBorder}`,
+            boxShadow: W.cardShadow,
+          }}
+          data-testid="chat-mock"
+        >
+          <div
+            className="h-14 px-4 flex items-center gap-2.5"
+            style={{ borderBottom: `1px solid ${W.headerBorder}` }}
+          >
+            {icon.render("sm")}
+            <div className="min-w-0 leading-tight">
+              <h2 className="font-semibold text-sm truncate" style={{ color: W.text }}>
+                Campaign testing plan
+              </h2>
+              <p className="text-[11px]" style={{ color: W.secondaryText }}>
+                Powered by your BTS knowledge base
+              </p>
+            </div>
+          </div>
 
-        <p className="text-center text-[12px] text-stone-400 mt-4">
-          Use ← → arrow keys or the buttons above to switch themes. Static mockup — nothing here is functional.
+          <div className="max-w-3xl mx-auto px-4 py-6 space-y-4">
+            <div className="flex gap-3 justify-end">
+              <div
+                className="max-w-[80%] rounded-2xl px-4 py-2.5"
+                style={{ backgroundColor: W.userBubbleBg, color: W.text }}
+              >
+                <p className="text-[15px] leading-6">{SAMPLE_QUESTION}</p>
+              </div>
+            </div>
+
+            <div className="flex gap-3">
+              <div className="mt-0.5">{icon.render("sm")}</div>
+              <div className="flex-1 min-w-0 pt-1">
+                <SampleAnswer font={font} spacing={spacing} divider={divider} />
+              </div>
+            </div>
+          </div>
+
+          <div className="p-4" style={{ borderTop: `1px solid ${W.headerBorder}` }}>
+            <div className="max-w-3xl mx-auto flex gap-2 items-end">
+              <div
+                className="flex-1 px-4 py-3 rounded-2xl text-[15px] min-h-[44px] cursor-default"
+                style={{
+                  backgroundColor: W.inputBg,
+                  border: `1px solid ${W.cardBorder}`,
+                  color: W.mutedText,
+                }}
+              >
+                Ask the BTS Assistant anything...
+              </div>
+              <button
+                className="shrink-0 h-[44px] w-[44px] rounded-2xl flex items-center justify-center cursor-default"
+                style={{ backgroundColor: W.accent, color: "#FFFFFF" }}
+              >
+                <Send className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <p className="text-center text-[12px] mt-4" style={{ color: W.mutedText }}>
+          Static mockup — nothing here is functional. The live assistant only picks up
+          the choices you approve.
         </p>
       </div>
     </div>
