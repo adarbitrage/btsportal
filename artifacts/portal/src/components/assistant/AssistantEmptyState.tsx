@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { Bot, Lock, ArrowLeft, ExternalLink } from "lucide-react";
+import { Lock, ArrowLeft, ExternalLink } from "lucide-react";
+import botLogo from "@/assets/ai-assistant-logo.png";
 import { Button } from "@/components/ui/button";
 import { useAssistantCards } from "@/hooks/use-assistant-cards";
 import type { AssistantCard } from "@/lib/assistant-cards-api";
@@ -55,6 +56,7 @@ function UpgradeModal({ card, onClose }: UpgradeModalProps) {
       <div className="absolute inset-0 bg-stone-900/60 backdrop-blur-sm" />
       <div
         className="relative z-10 w-full max-w-sm rounded-2xl border border-stone-200 dark:border-stone-800 bg-white dark:bg-stone-950 p-6 shadow-2xl"
+        style={{ fontFamily: "'Roboto', sans-serif" }}
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center gap-3 mb-4">
@@ -115,7 +117,7 @@ function QuestionList({ card, onBack, onSelectQuestion }: QuestionListProps) {
   return (
     <div
       className="w-full max-w-2xl"
-      style={{ animation: "fadeSlideIn 180ms ease-out" }}
+      style={{ animation: "fadeSlideIn 180ms ease-out", fontFamily: "'Roboto', sans-serif" }}
     >
       <button
         onClick={onBack}
@@ -172,6 +174,7 @@ function CardTile({ card, onClickEntitled, onClickLocked }: CardTileProps) {
           ? "border-[#D6DEEC] dark:border-stone-800 bg-[#F6F8FC]/60 dark:bg-stone-900/40 opacity-60 cursor-pointer hover:opacity-75"
           : "border-[#D6DEEC] dark:border-stone-800 bg-white dark:bg-stone-900 hover:border-[#B9C7E2] dark:hover:border-stone-700 hover:bg-[#F6F8FC] dark:hover:bg-stone-800/60 hover:shadow-sm"
       }`}
+      style={{ fontFamily: "'Roboto', sans-serif" }}
       data-testid={`button-card-${card.id}`}
     >
       <div className="flex items-start gap-2 mb-2">
@@ -237,13 +240,24 @@ export function AssistantEmptyState({ onSendMessage }: AssistantEmptyStateProps)
       )}
 
       <div className="flex flex-col items-center justify-center h-full px-6 text-center">
-        <div className="w-14 h-14 rounded-2xl bg-[#E7EDF9] dark:bg-stone-800 ring-1 ring-[#D6DEEC] dark:ring-stone-700 flex items-center justify-center mb-5">
-          <Bot className="w-7 h-7 text-[#3B5FA8] dark:text-stone-200" />
+        <div className="w-16 h-16 flex items-center justify-center mb-5">
+          <img
+            src={botLogo}
+            alt=""
+            className="w-full h-full object-contain scale-[1.15]"
+            draggable={false}
+          />
         </div>
-        <h3 className="text-2xl font-semibold text-stone-900 dark:text-stone-100 mb-2 tracking-tight">
+        <h3
+          className="text-[26px] font-semibold text-stone-900 dark:text-stone-100 mb-3 tracking-tight"
+          style={{ fontFamily: "'Source Serif 4', 'Lora', Georgia, serif" }}
+        >
           How can I help you today?
         </h3>
-        <p className="text-[15px] text-stone-500 max-w-md mb-8 leading-relaxed">
+        <p
+          className="text-[15px] text-stone-500 max-w-md mb-10 leading-relaxed"
+          style={{ fontFamily: "'Roboto', sans-serif" }}
+        >
           Ask anything about your mentorship, tools, campaigns, or strategies. I'm trained on BTS coaching
           sessions, Q&amp;A articles, and your complete tool documentation.
         </p>
@@ -251,7 +265,10 @@ export function AssistantEmptyState({ onSendMessage }: AssistantEmptyStateProps)
         {isLoading && <GroupSkeletons />}
 
         {isError && (
-          <p className="text-[13px] text-stone-400 dark:text-stone-500 italic">
+          <p
+            className="text-[13px] text-stone-400 dark:text-stone-500 italic"
+            style={{ fontFamily: "'Roboto', sans-serif" }}
+          >
             Suggestions unavailable — type below to start a chat
           </p>
         )}
@@ -272,10 +289,13 @@ export function AssistantEmptyState({ onSendMessage }: AssistantEmptyStateProps)
                 onSelectQuestion={handleSelectQuestion}
               />
             ) : (
-              <div className="space-y-6">
+              <div className="space-y-8">
                 {groups.map((grp) => (
                   <div key={grp.id}>
-                    <p className="text-[11px] font-semibold text-stone-400 dark:text-stone-500 uppercase tracking-wider mb-3 text-left">
+                    <p
+                      className="text-[11px] font-semibold text-stone-400 dark:text-stone-500 uppercase tracking-wider mb-3 text-left"
+                      style={{ fontFamily: "'Roboto', sans-serif" }}
+                    >
                       {grp.name}
                     </p>
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5">

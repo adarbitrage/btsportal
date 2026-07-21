@@ -29,16 +29,14 @@ const SERIF_FONTS_HREF =
   "https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=Lora:wght@400;600&display=swap";
 
 // The 100x100 source PNG has transparent vertical padding, so the bot head is
-// scaled up slightly inside its circle to sit visually centered.
+// scaled up slightly to sit visually centered in its box (no crop container).
 function BotAvatar({ className = "w-8 h-8" }: { className?: string }) {
   return (
-    <div
-      className={`${className} rounded-full bg-[#E7EDF9] dark:bg-stone-800 ring-1 ring-[#D6DEEC] dark:ring-stone-700 overflow-hidden flex items-center justify-center shrink-0`}
-    >
+    <div className={`${className} flex items-center justify-center shrink-0`}>
       <img
         src={botLogo}
         alt="AI Assistant"
-        className="w-full h-full object-contain scale-[1.3]"
+        className="w-full h-full object-contain scale-[1.15]"
         draggable={false}
       />
     </div>
@@ -274,12 +272,7 @@ export default function AiAssistant() {
       <div className="space-y-6 max-w-6xl">
         <div>
           <div className="flex items-center gap-2 mb-2">
-            <img
-              src={botLogo}
-              alt=""
-              className="w-8 h-8 object-contain scale-[1.15]"
-              draggable={false}
-            />
+            <MessageCircle className="w-8 h-8" />
             <h1 className="text-3xl font-bold">AI Assistant</h1>
           </div>
           <div className="flex items-center gap-3">
