@@ -234,3 +234,9 @@ id = "IWx-bqspSt-uDkpWNI39S"
 uri = "file://exports/Blitz_Reference_Docs_Provenance_Report.pdf"
 type = "pdf"
 title = "Blitz Reference Docs — Provenance & Publish Readiness Report"
+
+[[outputs]]
+id = "5Ti8P8WQOfKij8HeWV21c"
+uri = "file://.local/kb-trim-worksheet.md"
+type = "text"
+title = "KB Trim & Consolidation Worksheet (v1)"
