@@ -1,6 +1,12 @@
 @import url('https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;600;700&display=swap');
 @import "tailwindcss";
 
+/* Dark mode is intentionally disabled portal-wide: bind the `dark:` variant to
+   a `.dark` class that is never applied anywhere, so existing dark: utilities
+   stay in the code (for a future dark revamp) but are inert regardless of the
+   OS prefers-color-scheme setting. */
+@custom-variant dark (&:where(.dark, .dark *));
+
 @theme inline {
   --font-sans: 'Roboto', sans-serif;
 

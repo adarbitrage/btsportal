@@ -223,7 +223,10 @@ export default function AiAssistant() {
       <div className="flex-1 overflow-y-auto py-2">
         {grouped.map((group) => (
           <div key={group.label} className="mb-2">
-            <p className="px-3 py-1 text-[10px] font-semibold text-[#64748B] dark:text-stone-400 uppercase tracking-wider">
+            <p
+              className="px-3 py-1 text-[10px] font-semibold text-[#64748B] dark:text-stone-400 uppercase tracking-wider"
+              style={{ fontFamily: "'Roboto', sans-serif" }}
+            >
               {group.label}
             </p>
             {group.items.map((session) => (
@@ -238,7 +241,12 @@ export default function AiAssistant() {
                 data-testid={`item-conversation-${session.id}`}
               >
                 <MessageCircle className="w-3.5 h-3.5 text-[#94A3B8] dark:text-stone-400 shrink-0" />
-                <span className="flex-1 text-sm text-[#1E293B] dark:text-stone-200 truncate">{session.title}</span>
+                <span
+                  className="flex-1 text-[13.5px] text-[#1E293B] dark:text-stone-200 truncate"
+                  style={{ fontFamily: ANSWER_SERIF_STACK }}
+                >
+                  {session.title}
+                </span>
                 <button
                   onClick={(e) => handleDeleteSession(session.id, e)}
                   className="opacity-0 group-hover:opacity-100 p-1 rounded text-[#64748B] hover:text-rose-600 dark:text-stone-500 dark:hover:text-rose-400 transition-all shrink-0"
@@ -300,7 +308,7 @@ export default function AiAssistant() {
               <div className="absolute inset-0 bg-slate-900/40" onClick={() => setMobileSidebar(false)} />
               <div className="absolute left-0 top-0 bottom-0 w-64 bg-[#EEF1F7] dark:bg-stone-950 shadow-xl flex flex-col">
                 <div className="h-14 px-4 flex items-center justify-between border-b border-[#DDE3EE] dark:border-stone-800">
-                  <h3 className="font-semibold text-sm text-[#1E293B] dark:text-stone-100">Chat History</h3>
+                  <h3 className="font-semibold text-sm text-[#1E293B] dark:text-stone-100" style={{ fontFamily: "'Roboto', sans-serif" }}>Chat History</h3>
                   <button onClick={() => setMobileSidebar(false)} className="p-1 rounded-md hover:bg-[#E4E9F2] dark:hover:bg-stone-800/60 text-[#64748B] dark:text-stone-500">
                     <X className="w-4 h-4" />
                   </button>
@@ -322,8 +330,18 @@ export default function AiAssistant() {
               <div className="flex items-center gap-2.5 min-w-0">
                 <BotAvatar />
                 <div className="min-w-0 leading-tight">
-                  <h2 className="font-semibold text-[#1E293B] dark:text-stone-100 text-sm truncate">{activeTitle}</h2>
-                  <p className="text-[11px] text-[#64748B] dark:text-stone-500">Powered by your BTS knowledge base</p>
+                  <h2
+                    className="font-semibold text-[#1E293B] dark:text-stone-100 text-[15.5px] truncate"
+                    style={{ fontFamily: ANSWER_SERIF_STACK }}
+                  >
+                    {activeTitle}
+                  </h2>
+                  <p
+                    className="text-[11px] text-[#64748B] dark:text-stone-500"
+                    style={{ fontFamily: "'Roboto', sans-serif" }}
+                  >
+                    Powered by your BTS knowledge base
+                  </p>
                 </div>
               </div>
             </div>
