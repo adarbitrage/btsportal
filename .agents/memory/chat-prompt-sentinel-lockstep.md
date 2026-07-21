@@ -37,3 +37,10 @@ Rule map updates: Rule 12 = no-answer escalation ladder (Blitz section pointer
 explicitly overrides Rule 14 links until Step 3. Support-ticket/support-email
 routing is banned from the prompt (Rule 5); the [SUGGEST_TICKET] mechanism
 stays dormant in code/UI only.
+
+**Ladder-collapse lesson:** soft instructions like "ONE STEP AT A TIME" don't
+stop the model from bolting Step 3 escalation onto a Step 1 answer. Multi-turn
+ladders need hard per-message output constraints stated BOTH in the rule and in
+the runtime-injected note (the note near the query carries the most weight):
+"this reply is Step 1 ONLY, end with a check-back question, zero escalation
+language."

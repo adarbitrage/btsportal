@@ -175,6 +175,11 @@ describe("Rules 8-12 — behaviour rules (Task #1407 prompt surgery)", () => {
     // Explicit precedence: the ladder's step gating overrides Rule 14's
     // link-formatting mandate until Step 3, so Steps 1-2 stay link-free.
     expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain("ladder's step gating overrides Rule 14");
+    // Step 1 is a hard output constraint: check-back question, zero escalation
+    // language — the model must not collapse Step 1 and Step 3 into one message.
+    expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain("HARD CONSTRAINT for the Step 1 message");
+    expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain("ZERO escalation language");
+    expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain("END with a check-back question");
   });
 
   it("carries the Rule 13 internal-KB-scaffold suppression rule", () => {
