@@ -305,6 +305,15 @@ export function useChatStream() {
               }
               queryClient.invalidateQueries({ queryKey: ["chat", "status"] });
               queryClient.invalidateQueries({ queryKey: ["chat", "sessions"] });
+              // New conversations get an AI-generated title shortly after the
+              // first reply (fire-and-forget on the server). Refresh the
+              // sidebar again after a short delay so the new title appears
+              // without a page reload.
+              if (!startingSessionId) {
+                setTimeout(() => {
+                  queryClient.invalidateQueries({ queryKey: ["chat", "sessions"] });
+                }, 3500);
+              }
             }
             if (event.error) {
               throw new Error(typeof event.error === "string" ? event.error : "Stream error");

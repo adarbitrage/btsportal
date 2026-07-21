@@ -25,6 +25,7 @@ import {
   type SurfaceRetrievalResult,
 } from "../lib/kb-retrieval";
 import { logUnansweredQuestion } from "../lib/content-gap-radar";
+import { generateAndApplySessionTitle } from "../lib/chat-session-title";
 import { CITABLE_KB_CATEGORIES } from "../lib/kb-taxonomy";
 
 const router: IRouter = Router();
@@ -218,6 +219,7 @@ router.post("/chat", async (req, res): Promise<void> => {
   }
 
   let session;
+  let isNewSession = false;
   if (sessionId) {
     const [existing] = await db
       .select()
@@ -235,6 +237,7 @@ router.post("/chat", async (req, res): Promise<void> => {
       .values({ userId, title })
       .returning();
     session = newSession;
+    isNewSession = true;
   }
 
   await db.insert(chatMessagesTable).values({
@@ -338,6 +341,13 @@ router.post("/chat", async (req, res): Promise<void> => {
 
     res.write(`data: ${JSON.stringify({ done: true, suggestTicket })}\n\n`);
     res.end();
+
+    // AI session title: only for a session created in THIS request, and fully
+    // fire-and-forget — the `done` event above never waits on it. On failure
+    // the truncated-first-message title simply remains.
+    if (isNewSession) {
+      void generateAndApplySessionTitle(session.id, message.trim(), fullResponse);
+    }
   } catch (err: any) {
     console.error("Chat stream error:", err);
     res.write(`data: ${JSON.stringify({ error: "An error occurred while generating a response. Please try again." })}\n\n`);
