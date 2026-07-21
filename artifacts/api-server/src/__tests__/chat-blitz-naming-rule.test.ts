@@ -130,11 +130,17 @@ describe("Rules 8-12 — behaviour rules (Task #1407 prompt surgery)", () => {
     expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain("ONE short clarifying question");
   });
 
-  it("carries the Rule 10 depth-ceiling handoffs (concept→coaching, technical→1-on-1 session)", () => {
+  it("carries the Rule 10 depth-ceiling handoffs (strategy→Coaching Calls, technical→1-on-1 VA Calls)", () => {
     expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain("Rule 10");
     expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain(DEPTH_CEILING_SENTINEL);
     expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain("live coaching call");
-    expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain("booking a 1-on-1 session");
+    expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain("[1-on-1 VA Calls](/va-calls)");
+    // Explicit triage: technical/tool problems must never route to Coaching Calls.
+    expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain("Never send a technical setup question to Coaching Calls");
+    // No leftover technical→Coaching Calls routing anywhere in the prompt.
+    expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).not.toMatch(
+      /(?:technical|setup problem)[^.\n;→]*\[Coaching Calls\]/i,
+    );
   });
 
   it("Rule 5 bans support-ticket routing (dormant [SUGGEST_TICKET], no support email anywhere)", () => {

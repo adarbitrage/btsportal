@@ -44,3 +44,9 @@ ladders need hard per-message output constraints stated BOTH in the rule and in
 the runtime-injected note (the note near the query carries the most weight):
 "this reply is Step 1 ONLY, end with a check-back question, zero escalation
 language."
+
+**Escalation destinations:** technical/setup/software → [1-on-1 VA Calls](/va-calls)
+(VA walks through the tool); strategy/conceptual → [Coaching Calls](/coaching)
+(live coaching). Rule 10 carries the explicit triage criteria ("make a TOOL
+work" vs "deciding WHAT to do"); Rules 5/12/17 reference it. Never route
+technical questions to Coaching Calls.
