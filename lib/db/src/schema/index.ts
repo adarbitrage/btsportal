@@ -85,6 +85,7 @@ export * from "./assistant-cards";
 export * from "./voice-calls";
 export * from "./voice-daily-usage";
 export * from "./content-access-map";
+export * from "./creative-drive";
 export * from "./content-gap-questions";
 export * from "./subscriptions";
 export * from "./bts-orders";

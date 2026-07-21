@@ -62,7 +62,8 @@ export const PORTAL_NAVIGATION_MAP: readonly NavSection[] = [
   {
     section: "Resources",
     items: [
-      { label: "Resource Library", path: "/resource-library", description: "Creative Drive — downloadable ad templates, guides, logos, copy blueprints, the P&L Tracker, and the dedicated email template." },
+      { label: "Resource Library", path: "/resource-library", description: "Downloadable resources hub — links to the Creative Drive, the P&L Tracker, and the dedicated email template." },
+      { label: "Creative Drive", path: "/creative-drive", description: "Built-in file drive — browse folders of high-converting ad templates, guides, brand logos, and creative assets; preview and download files right in the portal." },
       { label: "Knowledge Base", path: "/knowledge-base", description: "Browse and search the knowledge base." },
       { label: "Affiliate Networks", path: "/affiliate-networks", description: "Supported affiliate networks (Media Mavens, ClickBank)." },
       { label: "Prime Corporate", path: "/prime-corporate", description: "Prime Corporate Services resources." },

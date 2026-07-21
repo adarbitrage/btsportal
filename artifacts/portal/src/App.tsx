@@ -52,6 +52,8 @@ import Apps from "@/pages/Apps";
 import PartnerTools from "@/pages/PartnerTools";
 import Resources from "@/pages/Resources";
 import ResourceLibrary from "@/pages/ResourceLibrary";
+import CreativeDrive from "@/pages/CreativeDrive";
+import AdminCreativeDrive from "@/pages/admin/CreativeDrive";
 import KnowledgeBase from "@/pages/KnowledgeBase";
 import AffiliateNetworks from "@/pages/AffiliateNetworks";
 import AdminAffiliateNetworks from "@/pages/admin/AdminAffiliateNetworks";
@@ -534,6 +536,7 @@ function Router() {
       <Route path="/admin/content/tracks">{() => <AdminRoute component={ContentTracks} permission="content:manage" />}</Route>
       <Route path="/admin/content/lessons/:id/edit">{() => <AdminRoute component={LessonEditor} permission="content:manage" />}</Route>
       <Route path="/admin/affiliate-networks">{() => <AdminRoute component={AdminAffiliateNetworks} permission="content:manage" />}</Route>
+      <Route path="/admin/creative-drive">{() => <AdminRoute component={AdminCreativeDrive} permission="content:manage" />}</Route>
       <Route path="/admin/media-mavens">{() => <AdminRoute component={AdminMediaMavens} permission="content:manage" />}</Route>
       <Route path="/community">{() => <ProtectedRoute component={CommunityFeed} />}</Route>
       <Route path="/dm">{() => <AdminRoute component={DMInbox} />}</Route>
@@ -567,6 +570,7 @@ function Router() {
       <Route path="/resources/:collectionSlug">{() => <ProtectedRoute component={CollectionDetail} />}</Route>
       <Route path="/resources">{() => <ProtectedRoute component={Resources} />}</Route>
       <Route path="/resource-library">{() => <ContentAccessRoute component={ResourceLibrary} pageKey="resource-library" />}</Route>
+      <Route path="/creative-drive">{() => <ContentAccessRoute component={CreativeDrive} pageKey="creative-drive" />}</Route>
       <Route path="/knowledge-base">{() => <ContentAccessRoute component={KnowledgeBase} pageKey="knowledge-base" />}</Route>
       <Route path="/affiliate-networks">{() => <ContentAccessRoute component={AffiliateNetworks} pageKey="affiliate-networks" />}</Route>
       <Route path="/media-mavens">{() => <ProtectedRoute component={MediaMavens} />}</Route>

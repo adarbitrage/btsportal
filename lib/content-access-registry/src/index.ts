@@ -144,6 +144,11 @@ export const GATEABLE_PAGES: readonly GateablePage[] = [
     routePath: "/affiliate-networks",
     label: "Affiliate Networks",
   },
+  {
+    pageKey: "creative-drive",
+    routePath: "/creative-drive",
+    label: "Creative Drive",
+  },
 ] as const;
 
 /** All page keys as a plain array (for validation). */

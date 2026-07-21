@@ -8,6 +8,7 @@ import {
   TrendingUp,
   ShoppingCart,
   AlertTriangle,
+  HardDrive,
   Menu,
   X,
 } from "lucide-react";
@@ -28,6 +29,12 @@ const adminNavGroups: NavGroup[] = [
       { href: "/admin/resources", label: "Resource Vault", icon: Vault },
       { href: "/admin/collections", label: "Collections", icon: FolderOpen },
       { href: "/admin/vault/analytics", label: "Vault Analytics", icon: TrendingUp },
+    ],
+  },
+  {
+    label: "Content",
+    items: [
+      { href: "/admin/creative-drive", label: "Creative Drive", icon: HardDrive },
     ],
   },
   {

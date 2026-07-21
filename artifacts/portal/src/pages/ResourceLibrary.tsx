@@ -1,3 +1,4 @@
+import { Link } from "wouter";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -13,8 +14,8 @@ type ResourceItem = {
   logoBg: string;
   tagline: string;
   description: string;
-  primary: { label: string; href: string };
-  secondary?: { label: string; href: string };
+  primary: { label: string; href: string; internal?: boolean };
+  secondary?: { label: string; href: string; internal?: boolean };
 };
 
 const RESOURCES: ResourceItem[] = [
@@ -27,12 +28,9 @@ const RESOURCES: ResourceItem[] = [
     description:
       "Packed with high-converting ad templates, expert-crafted guides, brand logos, copywriting blueprints, and more — your shortcut to affiliate arbitrage mastery. Whether you're refining your ad creatives, dialing in your messaging, or scaling your campaigns, everything you need is just a click away. Don't reinvent the wheel — tap into a treasure trove of proven assets and accelerate your success!",
     primary: {
-      label: "Register",
-      href: "https://creative.buildtestscale.com/register",
-    },
-    secondary: {
-      label: "Log In",
-      href: "https://creative.buildtestscale.com/login",
+      label: "Open",
+      href: "/creative-drive",
+      internal: true,
     },
   },
   {
@@ -93,9 +91,13 @@ function ResourceCard({ item }: { item: ResourceItem }) {
 
             <div className="mt-auto flex flex-wrap gap-2 justify-end">
               <Button asChild size="sm" data-testid={`button-primary-${item.slug}`}>
-                <a href={item.primary.href} target="_blank" rel="noopener noreferrer">
-                  {item.primary.label}
-                </a>
+                {item.primary.internal ? (
+                  <Link href={item.primary.href}>{item.primary.label}</Link>
+                ) : (
+                  <a href={item.primary.href} target="_blank" rel="noopener noreferrer">
+                    {item.primary.label}
+                  </a>
+                )}
               </Button>
               {item.secondary && (
                 <Button
@@ -104,9 +106,13 @@ function ResourceCard({ item }: { item: ResourceItem }) {
                   variant="outline"
                   data-testid={`button-secondary-${item.slug}`}
                 >
-                  <a href={item.secondary.href} target="_blank" rel="noopener noreferrer">
-                    {item.secondary.label}
-                  </a>
+                  {item.secondary.internal ? (
+                    <Link href={item.secondary.href}>{item.secondary.label}</Link>
+                  ) : (
+                    <a href={item.secondary.href} target="_blank" rel="noopener noreferrer">
+                      {item.secondary.label}
+                    </a>
+                  )}
                 </Button>
               )}
             </div>
