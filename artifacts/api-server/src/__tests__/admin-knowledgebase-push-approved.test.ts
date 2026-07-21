@@ -52,6 +52,9 @@ async function seedStaging(opts: {
   content?: string;
   editedContent?: string;
   homeRoot?: string;
+  updateKind?: string;
+  targetLiveDocId?: number;
+  taxonomyTags?: string[];
 }): Promise<number> {
   const [row] = await db
     .insert(kbStagingDocsTable)
@@ -63,6 +66,9 @@ async function seedStaging(opts: {
       status: opts.status,
       source: opts.source ?? "blitz",
       homeRoot: opts.homeRoot,
+      updateKind: opts.updateKind,
+      targetLiveDocId: opts.targetLiveDocId,
+      taxonomyTags: opts.taxonomyTags,
     })
     .returning({ id: kbStagingDocsTable.id });
   seededStagingIds.push(row.id);
@@ -192,5 +198,62 @@ describe("POST /admin/knowledgebase/staging/push-approved", () => {
       .from(kbStagingDocsTable)
       .where(inArray(kbStagingDocsTable.id, [firstStagingId, secondStagingId]));
     expect(stagedRows.every((r) => r.status === "published")).toBe(true);
+  });
+
+  it("update path: an empty-tag draft preserves the live doc's existing tags (preserve-if-empty guard)", async () => {
+    const title = `${TEST_TAG}-tag-guard`;
+    // Seed a live doc that already carries tags.
+    const [live] = await db
+      .insert(aiLiveDocumentsTable)
+      .values({
+        title,
+        category: "process",
+        content: "v1 body",
+        docClass: "curated",
+        tags: ["metrics", "testing"],
+      })
+      .returning({ id: aiLiveDocumentsTable.id });
+
+    // Empty-tag update draft targeting it.
+    await seedStaging({
+      title,
+      category: "curriculum",
+      status: "approved",
+      content: "v2 body — updated",
+      homeRoot: "process",
+      updateKind: "update",
+      targetLiveDocId: live.id,
+      taxonomyTags: [],
+    });
+    let res = await request(app).post("/api/push-approved").set("Cookie", adminCookie);
+    expect(res.status).toBe(200);
+
+    let [after] = await db
+      .select()
+      .from(aiLiveDocumentsTable)
+      .where(eq(aiLiveDocumentsTable.id, live.id));
+    expect(after.content).toBe("v2 body — updated");
+    expect(after.tags).toEqual(["metrics", "testing"]); // preserved, not wiped
+
+    // A draft WITH tags still wins outright.
+    await seedStaging({
+      title,
+      category: "curriculum",
+      status: "approved",
+      content: "v3 body — retagged",
+      homeRoot: "process",
+      updateKind: "update",
+      targetLiveDocId: live.id,
+      taxonomyTags: ["scaling"],
+    });
+    res = await request(app).post("/api/push-approved").set("Cookie", adminCookie);
+    expect(res.status).toBe(200);
+
+    [after] = await db
+      .select()
+      .from(aiLiveDocumentsTable)
+      .where(eq(aiLiveDocumentsTable.id, live.id));
+    expect(after.content).toBe("v3 body — retagged");
+    expect(after.tags).toEqual(["scaling"]);
   });
 });

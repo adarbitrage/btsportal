@@ -2058,7 +2058,10 @@ router.post("/push-approved", async (_req: Request, res: Response) => {
                 docClass,
                 homeRoot: doc.homeRoot,
                 node: doc.node,
-                tags,
+                // Preserve-if-empty guard: an update draft with NO taxonomy tags
+                // must not wipe the live doc's existing tags (they drive the
+                // retrieval tag-boost tier). A draft with tags always wins.
+                tags: tags.length > 0 ? tags : (Array.isArray(target.tags) ? target.tags : []),
                 blitzSection: doc.blitzSection,
                 ceiling: doc.ceiling,
                 handoff: doc.handoff,
@@ -2110,7 +2113,9 @@ router.post("/push-approved", async (_req: Request, res: Response) => {
                 docClass: sql`EXCLUDED.doc_class`,
                 homeRoot: sql`EXCLUDED.home_root`,
                 node: sql`EXCLUDED.node`,
-                tags: sql`EXCLUDED.tags`,
+                // Preserve-if-empty guard (same semantics as the update path):
+                // an empty-tag draft must not wipe tags on the collided row.
+                tags: sql`CASE WHEN jsonb_array_length(EXCLUDED.tags) > 0 THEN EXCLUDED.tags ELSE ${aiLiveDocumentsTable}.tags END`,
                 blitzSection: sql`EXCLUDED.blitz_section`,
                 ceiling: sql`EXCLUDED.ceiling`,
                 handoff: sql`EXCLUDED.handoff`,
