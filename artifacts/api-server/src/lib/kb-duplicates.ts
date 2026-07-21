@@ -107,7 +107,7 @@ export function conceptKeys(rawTitle: string): Set<string> {
   return keys;
 }
 
-function keysIntersect(a: Set<string>, b: Set<string>): boolean {
+export function keysIntersect(a: Set<string>, b: Set<string>): boolean {
   const [small, large] = a.size <= b.size ? [a, b] : [b, a];
   for (const k of small) if (large.has(k)) return true;
   return false;

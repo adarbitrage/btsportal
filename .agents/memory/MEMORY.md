@@ -125,6 +125,7 @@
 - [Affiliate portal tracking seams](affiliate-portal-tracking-seams.md) — `tap_visit_id` (cookie-only) vs `tap_aff_id` (URL-only); /conversions takes EITHER; server-side tracking via nmiPost() hooks replaces client-side callbacks.
 - [KB topic-index hardening](kb-topic-index-hardening.md) — gpt-5 @6000 tokens, honest per-source outcomes self-heal on force=false; gpt-5 self-agrees only ~67%; 429s need their own long backoff.
 - [KB pipeline launch roadmap](kb-pipeline-launch-roadmap.md) — DECIDED: full pipeline runs in DEV only, one-time promotion of approved outputs to prod; prod never runs the pipeline.
+- [KB atomic-draft concept dedup](kb-atomic-draft-dedup.md) — synthesis "What is X?" drafts dedup by concept keys at insert (pending refresh-in-place, fuzzy live match); reviewer edits always win.
 - [Synthesis zombie run rows](synthesis-run-zombie-rows.md) — killed/duplicate launches orphan unfinished run rows; new runs supersede stale (90-min) ones; no cross-process run lock exists.
 - [KB Synthesis engine](kb-synthesis-engine.md) — per-node corpus consolidation; details in kb-synthesis-part2-state.md, kb-synthesis-full-source-read.md, kb-synthesis-hardening.md (loud LLM failures, no fallback, full corpus ≈13h).
 - [KB Related-topics adjacency lockstep](kb-related-topics-adjacency.md) — NODE_NEIGHBORS feeds BOTH synthesis section and mismatch flag; synthesis output must never self-flag; new taxonomy nodes need a neighbors entry.

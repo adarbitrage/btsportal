@@ -11,6 +11,7 @@ import {
   type SynthesisRunNodeOutcome,
 } from "@workspace/db/schema";
 import { sql, inArray, eq, and, desc, isNull } from "drizzle-orm";
+import { conceptKeys, keysIntersect } from "./kb-duplicates.js";
 import { recordNavGapsForNode, navDocCrossLinksMarkdown } from "./kb-nav-gaps.js";
 import {
   contentWindows,
@@ -728,7 +729,13 @@ async function findLiveDocForNode(nodeSlug: string): Promise<LiveDocMatch | null
   return rows[0] ?? null;
 }
 
-// Exact-title match for an atomic definition doc ("What is X?").
+// Concept-level match for an atomic definition doc ("What is X?"). Exact title
+// wins, but phrasing drift between runs ("LP event CPC" vs "Landing-Page Event
+// CPC (LP Event CPC)") must ALSO resolve to the same live doc — otherwise every
+// run spawns a "new" duplicate instead of proposing a revision. Reuses the same
+// concept-key normalization (case/dash/parenthetical/acronym-tolerant) the
+// Possible-Duplicates review surface is built on, so creation-time routing and
+// the review-time duplicate detector can never disagree about "same concept".
 async function findLiveDocByTitle(title: string): Promise<LiveDocMatch | null> {
   const rows = await db
     .select({
@@ -738,14 +745,44 @@ async function findLiveDocByTitle(title: string): Promise<LiveDocMatch | null> {
     })
     .from(aiLiveDocumentsTable)
     .where(sql`
-      ${aiLiveDocumentsTable.title} = ${title}
-      AND ${aiLiveDocumentsTable.docClass} IN ('curated','overview')
+      ${aiLiveDocumentsTable.docClass} IN ('curated','overview')
       AND ${aiLiveDocumentsTable.lastVerified} IS NOT NULL
       AND ${aiLiveDocumentsTable.audience} <> 'admin'
       AND ${aiLiveDocumentsTable.deletedAt} IS NULL
+      AND ${aiLiveDocumentsTable.title} ILIKE 'What is %'
     `)
-    .limit(1);
-  return rows[0] ?? null;
+    .orderBy(desc(aiLiveDocumentsTable.updatedAt));
+  const exact = rows.find((r) => r.title === title);
+  if (exact) return exact;
+  const keys = conceptKeys(title);
+  return rows.find((r) => keysIntersect(keys, conceptKeys(r.title))) ?? null;
+}
+
+interface PendingAtomicMatch {
+  id: number;
+  title: string;
+  editedContent: string | null;
+}
+
+// A still-pending synthesis-created atomic draft for the same concept. When one
+// exists, a later run must REFRESH it instead of inserting a sibling — this is
+// what stops "What is LP Event CPC?" piling up N variants across nodes/runs.
+async function findPendingAtomicDraft(title: string): Promise<PendingAtomicMatch | null> {
+  const rows = await db
+    .select({
+      id: kbStagingDocsTable.id,
+      title: kbStagingDocsTable.title,
+      editedContent: kbStagingDocsTable.editedContent,
+    })
+    .from(kbStagingDocsTable)
+    .where(sql`
+      ${kbStagingDocsTable.status} = 'needs_review'
+      AND ${kbStagingDocsTable.originType} = 'ai_synthesized'
+      AND ${kbStagingDocsTable.title} ILIKE 'What is %'
+    `)
+    .orderBy(desc(kbStagingDocsTable.id));
+  const keys = conceptKeys(title);
+  return rows.find((r) => keysIntersect(keys, conceptKeys(r.title))) ?? null;
 }
 
 // Best-effort human-readable diff of what a revision adds/changes vs the current
@@ -923,8 +960,34 @@ export async function synthesizeNode(nodeSlug: string): Promise<SynthesizeResult
     const defTitle = `What is ${def.term}?`;
     const defBody = applyNavigationScreen(def.definition);
     try {
-      // An atomic term doc may already be published — revise it (by exact title)
-      // rather than spawning a duplicate.
+      // ── Duplicate prevention (concept-level, Task: atomic-draft dedup) ──
+      // 1. A still-pending atomic draft for the same CONCEPT (any phrasing)
+      //    must be refreshed in place, never duplicated. Human edits win: if
+      //    the reviewer already touched the draft (editedContent), we leave it
+      //    alone entirely rather than clobber or duplicate it.
+      const pendingDef = await findPendingAtomicDraft(defTitle);
+      if (pendingDef) {
+        if (pendingDef.editedContent === null) {
+          try {
+            await db
+              .update(kbStagingDocsTable)
+              .set({
+                content: defBody,
+                corroborationCount: usable.length,
+                synthesisSources,
+                sourceVideoTitle: sourcesSummary || null,
+                navMapVersion,
+              })
+              .where(eq(kbStagingDocsTable.id, pendingDef.id));
+            atomicDraftIds.push(pendingDef.id);
+          } catch (err) {
+            console.error(`[Synthesis] failed to refresh pending atomic draft #${pendingDef.id} ("${def.term}") for node ${node.slug}:`, err instanceof Error ? err.message : err);
+          }
+        }
+        continue;
+      }
+      // 2. An atomic term doc may already be published — revise it (exact or
+      //    concept-key title match) rather than spawning a duplicate.
       const existingDef = await findLiveDocByTitle(defTitle);
       const [defDraft] = await db
         .insert(kbStagingDocsTable)
