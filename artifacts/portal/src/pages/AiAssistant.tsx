@@ -272,7 +272,7 @@ export default function AiAssistant() {
       <div className="space-y-6 max-w-6xl">
         <div>
           <div className="flex items-center gap-2 mb-2">
-            <MessageCircle className="w-8 h-8" />
+            <MessageCircle className="w-8 h-8 text-primary" />
             <h1 className="text-3xl font-bold">AI Assistant</h1>
           </div>
           <div className="flex items-center gap-3">
