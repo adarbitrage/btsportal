@@ -4,21 +4,17 @@ import {
   ANTI_HALLUCINATION_SYSTEM_PROMPT,
   ANTI_HALLUCINATION_SENTINEL,
   DIRECT_ANSWER_SENTINEL,
-  BLITZ_NAMING_SENTINEL,
   DEEP_ASSISTANT_SENTINEL,
+  NAMING_NAVIGATION_SENTINEL,
   NAMES_FROM_DOCS_SENTINEL,
-  CLARIFY_FIRST_SENTINEL,
-  DEPTH_CEILING_SENTINEL,
-  NAVIGATION_SOURCE_SENTINEL,
-  NO_ANSWER_FALLBACK_SENTINEL,
+  ESCALATION_LADDER_SENTINEL,
   NO_KB_SCAFFOLDING_SENTINEL,
   PORTAL_LINK_SENTINEL,
   BLITZ_STEPS_SENTINEL,
-  DEPTH_MATCH_SENTINEL,
+  CLARIFIER_SENTINEL,
+  ANSWER_DEPTH_SENTINEL,
   SYNTHESIS_CONSISTENCY_SENTINEL,
   FORMATTING_STYLE_SENTINEL,
-  CONCISE_CADENCE_SENTINEL,
-  SINGLE_CLARIFIER_SENTINEL,
 } from "../lib/chat-system-prompt";
 
 // ensureKBGrounding() touches the DB and a handful of seed/scrub modules. Mock
@@ -95,81 +91,66 @@ vi.mock("../lib/coaching-call-migrate-oneoffs", () => ({
 
 import { ensureKBGrounding } from "../lib/bootstrap-critical-prerequisites";
 
+const ALL_SENTINELS: Array<[string, string]> = [
+  ["ANTI_HALLUCINATION_SENTINEL", ANTI_HALLUCINATION_SENTINEL],
+  ["DIRECT_ANSWER_SENTINEL", DIRECT_ANSWER_SENTINEL],
+  ["DEEP_ASSISTANT_SENTINEL", DEEP_ASSISTANT_SENTINEL],
+  ["NAMING_NAVIGATION_SENTINEL", NAMING_NAVIGATION_SENTINEL],
+  ["NAMES_FROM_DOCS_SENTINEL", NAMES_FROM_DOCS_SENTINEL],
+  ["ESCALATION_LADDER_SENTINEL", ESCALATION_LADDER_SENTINEL],
+  ["NO_KB_SCAFFOLDING_SENTINEL", NO_KB_SCAFFOLDING_SENTINEL],
+  ["PORTAL_LINK_SENTINEL", PORTAL_LINK_SENTINEL],
+  ["BLITZ_STEPS_SENTINEL", BLITZ_STEPS_SENTINEL],
+  ["CLARIFIER_SENTINEL", CLARIFIER_SENTINEL],
+  ["ANSWER_DEPTH_SENTINEL", ANSWER_DEPTH_SENTINEL],
+  ["SYNTHESIS_CONSISTENCY_SENTINEL", SYNTHESIS_CONSISTENCY_SENTINEL],
+  ["FORMATTING_STYLE_SENTINEL", FORMATTING_STYLE_SENTINEL],
+];
+
 beforeEach(() => {
   dbState.activePrompt = null;
   dbState.updatedContent = null;
   dbState.updateCount = 0;
 });
 
-describe("Rule 7 — always 'The Blitz' naming rule", () => {
-  it("ANTI_HALLUCINATION_SYSTEM_PROMPT carries the Rule 7 naming language", () => {
-    expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain('Rule 7');
-    expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain('Program naming: always "The Blitz"');
-    // Every banned day-count variant must be named so the model knows to avoid it.
-    expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain('21-day Blitz');
-    expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain('14-day Blitz');
-    expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain('Fourteen-Day Blitz');
-    expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain('21 Days to Scale');
+describe("Rule 6 — naming, legacy terminology and current navigation (merged old Rules 7+11)", () => {
+  it("carries the always-'The Blitz' naming language with every banned day-count variant", () => {
+    expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain("Rule 6");
+    expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain(NAMING_NAVIGATION_SENTINEL);
+    expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain("21-day Blitz");
+    expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain("14-day Blitz");
+    expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain("Fourteen-Day Blitz");
+    expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain("21 Days to Scale");
   });
 
-  it("BLITZ_NAMING_SENTINEL is a substring of the prompt so it can't drift away", () => {
-    expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain(BLITZ_NAMING_SENTINEL);
-  });
-});
-
-describe("Rules 8-12 — behaviour rules (Task #1407 prompt surgery)", () => {
-  it("carries the Rule 8 names-only-from-structured-docs language", () => {
-    expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain("Rule 8");
-    expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain(NAMES_FROM_DOCS_SENTINEL);
-    expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain("coach / team-member names");
-  });
-
-  it("carries the Rule 9 clarify-first language", () => {
-    expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain("Rule 9");
-    expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain(CLARIFY_FIRST_SENTINEL);
-    expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain("ONE short clarifying question");
-  });
-
-  it("carries the Rule 10 depth-ceiling handoffs (strategy→Coaching Calls, technical→1-on-1 VA Calls)", () => {
-    expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain("Rule 10");
-    expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain(DEPTH_CEILING_SENTINEL);
-    expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain("live coaching call");
-    expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain("[1-on-1 VA Calls](/va-calls)");
-    // Explicit triage: technical/tool problems must never route to Coaching Calls.
-    expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain("Never send a technical setup question to Coaching Calls");
-    // No leftover technical→Coaching Calls routing anywhere in the prompt.
-    expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).not.toMatch(
-      /(?:technical|setup problem)[^.\n;→]*\[Coaching Calls\]/i,
-    );
-  });
-
-  it("Rule 5 bans support-ticket routing (dormant [SUGGEST_TICKET], no support email anywhere)", () => {
-    expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain("Never route members to support tickets");
-    // The marker is mentioned ONLY as a prohibition — the mechanism stays dormant.
-    expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain("do not output the [SUGGEST_TICKET] marker");
-    // The support email must not appear anywhere in the prompt.
-    expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).not.toContain("support@buildtestscale.com");
-    // No rule may instruct the model to EMIT the marker ("with [SUGGEST_TICKET]",
-    // "via [SUGGEST_TICKET]", "saying [SUGGEST_TICKET]").
-    expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).not.toMatch(/(?:with|via|saying) \[SUGGEST_TICKET\]/);
-  });
-
-  it("carries the Rule 11 current-navigation + legacy-terminology crosswalk", () => {
-    expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain("Rule 11");
-    expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain(NAVIGATION_SOURCE_SENTINEL);
+  it("carries the current-navigation sourcing + legacy crosswalk (brand, term, location remaps)", () => {
     expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain("BTS Portal Navigation Map");
-    // Legacy crosswalk coverage: brand, term and location remaps must be named.
     expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain("Cherrington");
     expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain("Media Mavens");
     expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain("Resource Library");
+    // In-tool navigation is explicitly excluded from the remap.
+    expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain("In-app navigation INSIDE a tool");
   });
+});
 
-  it("carries the Rule 12 Blitz-first escalation ladder wired to the no-confident-match signal", () => {
-    expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain("Rule 12");
-    expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain(NO_ANSWER_FALLBACK_SENTINEL);
+describe("Rule 7 — names/specifics only from structured docs", () => {
+  it("carries the names-only-from-structured-docs language", () => {
+    expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain("Rule 7");
+    expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain(NAMES_FROM_DOCS_SENTINEL);
+    expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain("coach / team-member names");
+  });
+});
+
+describe("Rule 8 — honest limits + escalation ladder (merged old Rules 3+10+12)", () => {
+  it("carries the merged no-answer honesty + depth-ceiling triggers", () => {
+    expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain("Rule 8");
+    expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain(ESCALATION_LADDER_SENTINEL);
     // References the exact note the chat route injects on a non-confident result.
     expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain("no confident match");
-    // The three ladder steps, in order, one step per turn.
+    expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain("Depth ceiling");
+  });
+
+  it("carries the three ladder steps, one step per turn", () => {
     expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain("Step 1 — Point to the Blitz guide section");
     expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain("Step 2 — Narrow it down");
     expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain("Step 3 — Escalate to a human");
@@ -178,9 +159,6 @@ describe("Rules 8-12 — behaviour rules (Task #1407 prompt surgery)", () => {
     expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain("Possibly Relevant Blitz Guide Sections");
     expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain("Blitz Guide Locations");
     expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain("likely covered in");
-    // Explicit precedence: the ladder's step gating overrides Rule 14's
-    // link-formatting mandate until Step 3, so Steps 1-2 stay link-free.
-    expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain("ladder's step gating overrides Rule 14");
     // Step 1 is a hard output constraint: check-back question, zero escalation
     // language — the model must not collapse Step 1 and Step 3 into one message.
     expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain("HARD CONSTRAINT for the Step 1 message");
@@ -188,90 +166,129 @@ describe("Rules 8-12 — behaviour rules (Task #1407 prompt surgery)", () => {
     expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain("END with a check-back question");
   });
 
-  it("carries the Rule 13 internal-KB-scaffold suppression rule", () => {
-    expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain("Rule 13");
+  it("carries the Step 3 triage (strategy→Coaching Calls, technical→1-on-1 VA Calls)", () => {
+    expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain("live coaching call");
+    expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain("[1-on-1 VA Calls](/va-calls)");
+    expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain("Never send a technical setup question to Coaching Calls");
+    // No leftover technical→Coaching Calls routing anywhere in the prompt.
+    expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).not.toMatch(
+      /(?:technical|setup problem)[^.\n;→]*\[Coaching Calls\]/i,
+    );
+  });
+
+  it("keeps explicit precedence: ladder step gating overrides the portal-link rule until Step 3", () => {
+    expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain("ladder's step gating overrides Rule 10");
+  });
+});
+
+describe("Rule 4 — support-ticket routing ban (marker fully removed)", () => {
+  it("bans ticket routing and no longer mentions the retired [SUGGEST_TICKET] marker at all", () => {
+    expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain("Never route members to support tickets");
+    expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).not.toContain("SUGGEST_TICKET");
+    // The support email must not appear anywhere in the prompt.
+    expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).not.toContain("support@buildtestscale.com");
+  });
+});
+
+describe("Rules 9-11 — scaffolding, portal links, Blitz steps", () => {
+  it("carries the Rule 9 internal-KB-scaffold suppression rule", () => {
+    expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain("Rule 9");
     expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain(NO_KB_SCAFFOLDING_SENTINEL);
-    // Names the scaffold labels it must suppress and preserves nav guidance.
     expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain("## Related topics");
     expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain("(see <Topic>)");
   });
 
-  it("carries the Rule 14 portal-hyperlink rule with a concrete Markdown-link example", () => {
-    expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain("Rule 14");
+  it("carries the Rule 10 portal-hyperlink rule with a concrete Markdown-link example", () => {
+    expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain("Rule 10");
     expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain(PORTAL_LINK_SENTINEL);
-    // A concrete label+path link example, and it ties back to the nav map as SoT.
     expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain("[Coaching Calls](/coaching)");
     expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain("BTS Portal Navigation Map");
   });
 
-  it("carries the Rule 15 Blitz procedure-answer rule (numbered steps, textual Blitz refs, no links)", () => {
-    expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain("Rule 15");
+  it("carries the Rule 11 Blitz procedure-answer rule (numbered steps, textual Blitz refs, no links)", () => {
+    expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain("Rule 11");
     expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain(BLITZ_STEPS_SENTINEL);
-    // The canonical textual-anchor example and the internal-numbering ban.
     expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain("in the Build phase of the Blitz guide");
     expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain('"Lesson 4.5"');
-    // Blitz sections must never be rendered as Markdown links.
     expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain(
       "Do NOT render Blitz guide references as Markdown links",
     );
   });
+});
 
-  it("carries the Rule 16 depth-matching rule (short answers to short questions, full depth on request)", () => {
-    expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain("Rule 16");
-    expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain(DEPTH_MATCH_SENTINEL);
+describe("Rule 12 — clarifier rule (merged old Rules 9+20, plus stage-dependence trigger)", () => {
+  it("carries both triggers: ambiguity and stage-dependence", () => {
+    expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain("Rule 12");
+    expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain(CLARIFIER_SENTINEL);
+    expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain("ONE short, targeted clarifying question");
+    expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain("Stage-dependence");
+    // Guessable intent must still be answered, not stalled on a clarifier.
+    expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain("most likely interpretation");
+    // Network fork is named explicitly.
+    expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain("Media Mavens vs ClickBank");
+  });
+
+  it("carries the chaining policy (one turn default, second only on a new fork, never a third)", () => {
+    expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain("one clarifying turn by default");
+    expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain("Never a third clarifying turn");
+    expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain("never re-ask something the member already answered");
+  });
+
+  it("carries the depth bypass for walk-me-through-everything requests", () => {
+    expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain("skip the clarifier and give the full grounded answer");
+  });
+});
+
+describe("Rule 13 — answer-depth ladder (merged old Rules 16+19)", () => {
+  it("carries the three depth tiers", () => {
+    expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain("Rule 13");
+    expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain(ANSWER_DEPTH_SENTINEL);
+    expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain("Tier 1 — quick fact");
+    expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain("Tier 2 — guidance / decision / why");
+    expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain("Tier 3 — explicit procedure");
     expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain("Never pad a simple answer");
   });
 
-  it("carries the Rule 17 synthesis-consistency rule (overlapping docs answered as one body of truth)", () => {
-    expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain("Rule 17");
+  it("carries depth scoping (full depth only for the current step) and the stage-checkpoint closer", () => {
+    expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain("Depth scoping");
+    expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain("one-line forward pointer");
+    expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain("Stage-checkpoint closer");
+  });
+});
+
+describe("Rules 14-15 — synthesis consistency and formatting", () => {
+  it("carries the Rule 14 synthesis-consistency rule (overlapping docs answered as one body of truth)", () => {
+    expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain("Rule 14");
     expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain(SYNTHESIS_CONSISTENCY_SENTINEL);
     expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain("genuinely conflict");
     expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain("Never invent a reconciliation");
   });
 
-  it("carries the Rule 18 formatting rule (lists over tables, headers, short paragraphs)", () => {
-    expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain("Rule 18");
+  it("carries the Rule 15 formatting rule (lists over tables, headers, short paragraphs)", () => {
+    expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain("Rule 15");
     expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain(FORMATTING_STYLE_SENTINEL);
     expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain("genuinely tabular");
     expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain("Keep paragraphs short");
   });
+});
 
-  it("carries the Rule 19 cadence rule (concise first, offer depth; how-tos get full depth)", () => {
-    expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain("Rule 19");
-    expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain(CONCISE_CADENCE_SENTINEL);
-    expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain("offer to go deeper");
-    expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain("full depth up front");
-  });
-
-  it("carries the Rule 20 single-clarifier rule (one question max, or answer likely reading)", () => {
-    expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain("Rule 20");
-    expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain(SINGLE_CLARIFIER_SENTINEL);
-    expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain("most likely interpretation");
-    expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain("Never ask more than one clarifying question");
-  });
-
+describe("prompt hygiene", () => {
   it("no longer carries member-visible tier placeholders (Task #1922 tier removal)", () => {
     expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).not.toContain("{{chat_tier}}");
     expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).not.toContain("Chat tier:");
   });
 
-  it("every behaviour-rule sentinel is a substring of the prompt so none can drift away", () => {
-    for (const sentinel of [
-      DEEP_ASSISTANT_SENTINEL,
-      NAMES_FROM_DOCS_SENTINEL,
-      CLARIFY_FIRST_SENTINEL,
-      DEPTH_CEILING_SENTINEL,
-      NAVIGATION_SOURCE_SENTINEL,
-      NO_ANSWER_FALLBACK_SENTINEL,
-      NO_KB_SCAFFOLDING_SENTINEL,
-      PORTAL_LINK_SENTINEL,
-      BLITZ_STEPS_SENTINEL,
-      DEPTH_MATCH_SENTINEL,
-      SYNTHESIS_CONSISTENCY_SENTINEL,
-      FORMATTING_STYLE_SENTINEL,
-      CONCISE_CADENCE_SENTINEL,
-      SINGLE_CLARIFIER_SENTINEL,
-    ]) {
+  it("has exactly 15 rules and no stale references past Rule 15", () => {
+    for (let n = 1; n <= 15; n++) {
+      expect(ANTI_HALLUCINATION_SYSTEM_PROMPT, `Rule ${n}`).toContain(`**Rule ${n} — `);
+    }
+    for (const n of [16, 17, 18, 19, 20]) {
+      expect(ANTI_HALLUCINATION_SYSTEM_PROMPT, `Rule ${n}`).not.toContain(`Rule ${n}`);
+    }
+  });
+
+  it("every sentinel is a substring of the prompt so none can drift away", () => {
+    for (const [, sentinel] of ALL_SENTINELS) {
       expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain(sentinel);
     }
   });
@@ -286,61 +303,30 @@ describe("Task #1408 — deep-assistant persona (voice vs chat surface split)", 
 });
 
 describe("ensureKBGrounding() active-prompt sentinel upgrade", () => {
-  it("overwrites an active prompt missing BLITZ_NAMING_SENTINEL", async () => {
-    // Has the older sentinels but predates Rule 7's naming sentinel.
-    const stale = ANTI_HALLUCINATION_SYSTEM_PROMPT.replace(BLITZ_NAMING_SENTINEL, "redacted");
-    expect(stale).toContain(ANTI_HALLUCINATION_SENTINEL);
-    expect(stale).toContain(DIRECT_ANSWER_SENTINEL);
-    expect(stale).not.toContain(BLITZ_NAMING_SENTINEL);
-    dbState.activePrompt = { id: 1, content: stale };
-
-    await ensureKBGrounding();
-
-    expect(dbState.updateCount).toBe(1);
-    expect(dbState.updatedContent).toBe(ANTI_HALLUCINATION_SYSTEM_PROMPT);
-  });
-
-  it("overwrites an active prompt missing ANTI_HALLUCINATION_SENTINEL", async () => {
-    const stale = ANTI_HALLUCINATION_SYSTEM_PROMPT.replace(ANTI_HALLUCINATION_SENTINEL, "redacted");
-    expect(stale).not.toContain(ANTI_HALLUCINATION_SENTINEL);
-    dbState.activePrompt = { id: 2, content: stale };
-
-    await ensureKBGrounding();
-
-    expect(dbState.updateCount).toBe(1);
-    expect(dbState.updatedContent).toBe(ANTI_HALLUCINATION_SYSTEM_PROMPT);
-  });
-
-  it("overwrites an active prompt missing DIRECT_ANSWER_SENTINEL", async () => {
-    const stale = ANTI_HALLUCINATION_SYSTEM_PROMPT.replace(DIRECT_ANSWER_SENTINEL, "redacted");
-    expect(stale).not.toContain(DIRECT_ANSWER_SENTINEL);
-    dbState.activePrompt = { id: 3, content: stale };
-
-    await ensureKBGrounding();
-
-    expect(dbState.updateCount).toBe(1);
-    expect(dbState.updatedContent).toBe(ANTI_HALLUCINATION_SYSTEM_PROMPT);
-  });
-
-  it.each([
-    ["DEEP_ASSISTANT_SENTINEL", DEEP_ASSISTANT_SENTINEL],
-    ["NAMES_FROM_DOCS_SENTINEL", NAMES_FROM_DOCS_SENTINEL],
-    ["CLARIFY_FIRST_SENTINEL", CLARIFY_FIRST_SENTINEL],
-    ["DEPTH_CEILING_SENTINEL", DEPTH_CEILING_SENTINEL],
-    ["NAVIGATION_SOURCE_SENTINEL", NAVIGATION_SOURCE_SENTINEL],
-    ["NO_ANSWER_FALLBACK_SENTINEL", NO_ANSWER_FALLBACK_SENTINEL],
-    ["NO_KB_SCAFFOLDING_SENTINEL", NO_KB_SCAFFOLDING_SENTINEL],
-    ["PORTAL_LINK_SENTINEL", PORTAL_LINK_SENTINEL],
-    ["BLITZ_STEPS_SENTINEL", BLITZ_STEPS_SENTINEL],
-    ["DEPTH_MATCH_SENTINEL", DEPTH_MATCH_SENTINEL],
-    ["SYNTHESIS_CONSISTENCY_SENTINEL", SYNTHESIS_CONSISTENCY_SENTINEL],
-    ["FORMATTING_STYLE_SENTINEL", FORMATTING_STYLE_SENTINEL],
-    ["CONCISE_CADENCE_SENTINEL", CONCISE_CADENCE_SENTINEL],
-    ["SINGLE_CLARIFIER_SENTINEL", SINGLE_CLARIFIER_SENTINEL],
-  ])("overwrites an active prompt missing %s", async (_name, sentinel) => {
+  it.each(ALL_SENTINELS)("overwrites an active prompt missing %s", async (_name, sentinel) => {
     const stale = ANTI_HALLUCINATION_SYSTEM_PROMPT.replace(sentinel, "redacted");
     expect(stale).not.toContain(sentinel);
     dbState.activePrompt = { id: 5, content: stale };
+
+    await ensureKBGrounding();
+
+    expect(dbState.updateCount).toBe(1);
+    expect(dbState.updatedContent).toBe(ANTI_HALLUCINATION_SYSTEM_PROMPT);
+  });
+
+  it("upgrades a pre-refactor prompt (has old sentinels, lacks the new merged-rule sentinels)", async () => {
+    // Simulate the pre-refactor prompt: strip every NEW merged-rule sentinel.
+    let stale = ANTI_HALLUCINATION_SYSTEM_PROMPT;
+    for (const s of [
+      NAMING_NAVIGATION_SENTINEL,
+      ESCALATION_LADDER_SENTINEL,
+      CLARIFIER_SENTINEL,
+      ANSWER_DEPTH_SENTINEL,
+    ]) {
+      stale = stale.replace(s, "redacted");
+    }
+    expect(stale).toContain(ANTI_HALLUCINATION_SENTINEL);
+    dbState.activePrompt = { id: 6, content: stale };
 
     await ensureKBGrounding();
 

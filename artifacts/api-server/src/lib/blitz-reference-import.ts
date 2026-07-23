@@ -67,7 +67,7 @@ const PHASE_WORD: Record<BlitzPhaseKey, string> = {
 };
 
 /**
- * The canonical textual pointer for a Blitz section — matches prompt Rule 15:
+ * The canonical textual pointer for a Blitz section — matches prompt Rule 11:
  * textual references only ("Section 6 (…) in the Build phase of the Blitz
  * guide"), never internal numbering, never links.
  */

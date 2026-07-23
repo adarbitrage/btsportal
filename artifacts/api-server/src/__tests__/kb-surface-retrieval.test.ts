@@ -155,7 +155,7 @@ describe("buildHistoryAwareQuery", () => {
     expect(buildHistoryAwareQuery("why?", onlyAssistant)).toBe("why?");
   });
 
-  it("resolves a bare affirmation against the assistant's trailing offer (Flexy regression)", () => {
+  it("composes lastUser + offer for a bare affirmation, excluding the contentless 'yes' (Flexy regression)", () => {
     const flexyHistory: RetrievalTurn[] = [
       { role: "user", content: "what is flexy?" },
       { role: "assistant", content: "Flexy is the landing page builder." },
@@ -166,7 +166,9 @@ describe("buildHistoryAwareQuery", () => {
           "Here's how to clone a template in Flexy:\n\n1. Go to **Sites**.\n2. Pick your folder.\n\nWant me to walk you through the domain and subdomain setup next?",
       },
     ];
-    expect(buildHistoryAwareQuery("yes", flexyHistory)).toBe("the domain and subdomain setup");
+    expect(buildHistoryAwareQuery("yes", flexyHistory)).toBe(
+      "cloning a template the domain and subdomain setup",
+    );
   });
 
   it("falls back to the prior user question when the assistant did not end on an offer", () => {
@@ -177,12 +179,43 @@ describe("buildHistoryAwareQuery", () => {
     expect(buildHistoryAwareQuery("yes", noOffer)).toBe("cloning a template yes");
   });
 
-  it("non-affirmation follow-ups still resolve against the prior user question", () => {
+  it("composes lastUser + clarifier topic + reply after the assistant ends on a question", () => {
     const h: RetrievalTurn[] = [
       { role: "user", content: "tell me about Flexy" },
       { role: "assistant", content: "It builds pages. Want a walkthrough of domain setup?" },
     ];
-    expect(buildHistoryAwareQuery("is it free?", h)).toBe("tell me about Flexy is it free?");
+    expect(buildHistoryAwareQuery("is it free?", h)).toBe(
+      "tell me about Flexy a walkthrough of domain setup is it free?",
+    );
+  });
+
+  it("clarifier path: a short stage answer keeps the original topic in the query", () => {
+    const clarifierHistory: RetrievalTurn[] = [
+      { role: "user", content: "how do I set up DIYTrax?" },
+      {
+        role: "assistant",
+        content:
+          "Happy to help. Are you creating your DIYTrax campaign for the first time, or completing setup after your split test?",
+      },
+    ];
+    const composed = buildHistoryAwareQuery("first time", clarifierHistory);
+    expect(composed).toContain("how do I set up DIYTrax?");
+    expect(composed).toContain("first time");
+    // The clarifier topic rides along too, so retrieval doesn't lose the fork.
+    expect(composed).toMatch(/DIYTrax campaign for the first time/);
+  });
+
+  it("clarifier path: a verbose reply is composed too (not just short follow-ups)", () => {
+    const clarifierHistory: RetrievalTurn[] = [
+      { role: "user", content: "how do I set up DIYTrax?" },
+      { role: "assistant", content: "Which network are you on, Media Mavens or ClickBank?" },
+    ];
+    const composed = buildHistoryAwareQuery(
+      "I'm on Media Mavens and I already finished my split test last week",
+      clarifierHistory,
+    );
+    expect(composed).toContain("how do I set up DIYTrax?");
+    expect(composed).toContain("I'm on Media Mavens and I already finished my split test last week");
   });
 });
 

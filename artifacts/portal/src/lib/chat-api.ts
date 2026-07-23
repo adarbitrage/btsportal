@@ -195,7 +195,6 @@ export interface StreamingState {
   isStreaming: boolean;
   sessionId: number | null;
   error: string | null;
-  suggestTicket: boolean;
 }
 
 export function useChatStream() {
@@ -204,7 +203,6 @@ export function useChatStream() {
     isStreaming: false,
     sessionId: null,
     error: null,
-    suggestTicket: false,
   });
   const abortRef = useRef<AbortController | null>(null);
   const queryClient = useQueryClient();
@@ -220,7 +218,7 @@ export function useChatStream() {
   );
 
   const setSessionId = useCallback((id: number | null) => {
-    setState((s) => ({ ...s, sessionId: id, suggestTicket: false }));
+    setState((s) => ({ ...s, sessionId: id }));
   }, []);
 
   const sendMessage = useCallback(
@@ -238,7 +236,6 @@ export function useChatStream() {
         messages: [...s.messages, userMessage],
         isStreaming: true,
         error: null,
-        suggestTicket: false,
       }));
 
       const controller = new AbortController();
@@ -300,9 +297,6 @@ export function useChatStream() {
               });
             }
             if (event.done) {
-              if (event.suggestTicket) {
-                setState((s) => ({ ...s, suggestTicket: true }));
-              }
               queryClient.invalidateQueries({ queryKey: ["chat", "status"] });
               queryClient.invalidateQueries({ queryKey: ["chat", "sessions"] });
               // New conversations get an AI-generated title shortly after the
@@ -363,10 +357,6 @@ export function useChatStream() {
     setState((s) => ({ ...s, error: null }));
   }, []);
 
-  const dismissTicketSuggestion = useCallback(() => {
-    setState((s) => ({ ...s, suggestTicket: false }));
-  }, []);
-
   return {
     ...state,
     sendMessage,
@@ -374,6 +364,5 @@ export function useChatStream() {
     setMessages,
     setSessionId,
     clearError,
-    dismissTicketSuggestion,
   };
 }

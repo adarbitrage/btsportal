@@ -174,14 +174,14 @@ export function buildAnchoredBlitzBlock(candidates: BlitzPointerCandidate[]): st
     `\n\n## Blitz Guide Locations for the Articles Above\n\n` +
     `The knowledge base articles provided above were authored from these parts of the Blitz guide. ` +
     `When helpful — and always when the member says they can't find something — point them there ` +
-    `textually per Rule 12 (never as a link, never with internal lesson numbers):\n\n` +
+    `textually per Rule 8 (never as a link, never with internal lesson numbers):\n\n` +
     candidates.map(renderCandidate).join("\n")
   );
 }
 
 /**
  * Prompt block for the NON-confident branch: unverified best-guess sections
- * for the Blitz-first fallback ladder (Rule 12, step 1).
+ * for the Blitz-first fallback ladder (Rule 8, step 1).
  */
 export function buildFuzzyBlitzBlock(candidates: BlitzPointerCandidate[]): string {
   if (candidates.length === 0) return "";
@@ -189,7 +189,7 @@ export function buildFuzzyBlitzBlock(candidates: BlitzPointerCandidate[]): strin
     `\n\n## Possibly Relevant Blitz Guide Sections (unverified)\n\n` +
     `These sections of the Blitz guide MAY cover the member's question — they matched the question's ` +
     `wording against the Blitz training content, but the match is NOT verified. Use them ONLY for the ` +
-    `Rule 12 Blitz-first pointer, with hedged wording ("this is likely covered in…"). Do not present ` +
+    `Rule 8 Blitz-first pointer, with hedged wording ("this is likely covered in…"). Do not present ` +
     `their existence as a verified answer to the question itself:\n\n` +
     candidates.map(renderCandidate).join("\n")
   );

@@ -256,30 +256,45 @@ export function extractAssistantOffer(content: string): string | null {
 }
 
 /**
- * When the current query is a follow-up, prepend its referent so the short
- * follow-up resolves against it:
- * - a bare affirmation ("yes") resolves against the assistant's own trailing
- *   offer question ("Want me to walk you through domain/subdomain setup?"),
- *   falling back to the prior member question if the assistant didn't offer;
- * - any other short follow-up ("is it free?") resolves against the prior
- *   member question, as before.
- * Otherwise the query is returned unchanged.
+ * Compose a history-aware retrieval query.
+ *
+ * Clarifier-aware path: when the assistant's previous turn ended in a
+ * question (a clarifier or an offer — same trailing-question detection the
+ * bare-affirmation path uses), the member's current message is an ANSWER to
+ * that question, whatever its length or shape. Searching the answer alone
+ * loses the topic ("first time setup" finds nothing about DIYTrax), and
+ * searching only the clarifier topic loses the member's original question.
+ * So the query is always composed as: prior member question + distilled
+ * clarifier topic + the member's reply. A bare affirmation ("yes") is
+ * excluded from the composition because it carries no topical content and
+ * the lexical layer (websearch_to_tsquery) ANDs every term — including
+ * "yes" would demand docs literally contain it.
+ *
+ * Fallback path (assistant did not end on a question): unchanged follow-up
+ * behavior — a short follow-up ("is it free?") resolves against the prior
+ * member question; a standalone question is returned untouched.
  */
 export function buildHistoryAwareQuery(query: string, history: readonly RetrievalTurn[]): string {
-  if (!history.length || !isFollowUp(query)) return query;
+  if (!history.length) return query;
 
-  if (isBareAffirmation(query)) {
-    const lastAssistant = [...history].reverse().find((h) => h.role === "assistant");
-    const offer = lastAssistant ? extractAssistantOffer(lastAssistant.content) : null;
-    // The affirmation itself carries no topical content — search the offer alone.
-    if (offer) return offer;
-  }
+  const lastAssistant = [...history].reverse().find((h) => h.role === "assistant");
+  const clarifier = lastAssistant ? extractAssistantOffer(lastAssistant.content) : null;
 
   const priorUser = history
     .filter((h) => h.role === "user")
     .map((h) => h.content.trim())
     .filter(Boolean);
   const lastUser = priorUser[priorUser.length - 1];
+
+  if (clarifier) {
+    const parts: string[] = [];
+    if (lastUser) parts.push(lastUser);
+    parts.push(clarifier);
+    if (!isBareAffirmation(query)) parts.push(query.trim());
+    return parts.join(" ").trim();
+  }
+
+  if (!isFollowUp(query)) return query;
   if (!lastUser) return query;
   return `${lastUser} ${query}`.trim();
 }

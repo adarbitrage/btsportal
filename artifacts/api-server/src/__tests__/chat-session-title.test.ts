@@ -119,7 +119,7 @@ describe("chat route wiring (source guard)", () => {
   });
 
   it("fires the title call after the done event / res.end (never blocks the stream)", () => {
-    const doneIdx = source.indexOf("done: true, suggestTicket");
+    const doneIdx = source.indexOf("done: true");
     const titleIdx = source.indexOf("void generateAndApplySessionTitle(");
     expect(doneIdx).toBeGreaterThan(-1);
     expect(titleIdx).toBeGreaterThan(doneIdx);

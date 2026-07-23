@@ -270,7 +270,7 @@ router.post("/chat", async (req, res): Promise<void> => {
   // Retrieve directly (rather than via the searchKnowledgebase wrapper) so we get
   // the surface-aware "confident" signal: docs can come back from the loose
   // word-OR fallback without clearing the confidence bar. We treat only a
-  // confident match as a verified answer (Rule 12); a non-confident result feeds
+  // confident match as a verified answer (Rule 8); a non-confident result feeds
   // the graceful no-answer + handoff path instead of being presented as fact.
   const retrieval = await retrieveSurfaceAware(message, {
     surface: "chat",
@@ -286,25 +286,22 @@ router.post("/chat", async (req, res): Promise<void> => {
 
   systemPrompt = systemPrompt
     .replace(/\{\{member_name\}\}/g, user?.name ?? "Member")
-    // Legacy placeholder kept for backward compat with custom DB prompts —
-    // tiers no longer exist, everyone gets the same experience.
-    .replace(/\{\{chat_tier\}\}/g, "standard")
     .replace(/\{\{daily_limit\}\}/g, String(config.dailyLimit));
 
   if (retrieval.confident && ragResults.length > 0) {
     systemPrompt += `\n\n## Relevant Knowledge Base Articles\n\n${buildRagContext(ragResults)}`;
     // Layer 1: expose where the provided articles live in the Blitz guide so
     // the model can point members to the named section (and its videos when
-    // they say they can't find it) per Rule 12.
+    // they say they can't find it) per Rule 8.
     systemPrompt += buildAnchoredBlitzBlock(
       candidatesFromAnchors(retrieval.docs.map((d) => d.blitzSection)),
     );
   } else {
     // Layer 2: no confident KB answer — fuzzy-match the question against the
-    // Blitz lesson library so Rule 12's Blitz-first pointer has a candidate
+    // Blitz lesson library so Rule 8's Blitz-first pointer has a candidate
     // section to name. Advisory only; the block itself labels it unverified.
     const fuzzyCandidates = await findLikelyBlitzSections(message);
-    systemPrompt += `\n\n## Knowledge Base Search Result\n\nNo confident match — the knowledge base has no verified answer for this query. You must not fabricate an answer based on general affiliate marketing knowledge, and you must not stitch one together from loosely-related snippets. Follow Rule 12's Blitz-first ladder: tell the member you don't have a verified answer to that yet, then point them to the most likely Blitz guide section (see "Possibly Relevant Blitz Guide Sections" below, if present) with hedged wording. This reply is Step 1 ONLY: end it by asking the member to let you know if they find what they need there, and do NOT mention coaching, coaching calls, 1-on-1 sessions, or booking anything in this message — escalation comes only in a LATER turn if they come back still stuck. Do not suggest support tickets or the support email.`;
+    systemPrompt += `\n\n## Knowledge Base Search Result\n\nNo confident match — the knowledge base has no verified answer for this query. You must not fabricate an answer based on general affiliate marketing knowledge, and you must not stitch one together from loosely-related snippets. Follow Rule 8's Blitz-first ladder: tell the member you don't have a verified answer to that yet, then point them to the most likely Blitz guide section (see "Possibly Relevant Blitz Guide Sections" below, if present) with hedged wording. This reply is Step 1 ONLY: end it by asking the member to let you know if they find what they need there, and do NOT mention coaching, coaching calls, 1-on-1 sessions, or booking anything in this message — escalation comes only in a LATER turn if they come back still stuck. Do not suggest support tickets or the support email.`;
     systemPrompt += buildFuzzyBlitzBlock(fuzzyCandidates);
 
     // Content-Gap Radar: the assistant has no verified answer for this question.
@@ -354,9 +351,7 @@ router.post("/chat", async (req, res): Promise<void> => {
       retrievalTrace: buildRetrievalTrace(retrieval),
     });
 
-    const suggestTicket = fullResponse.includes("[SUGGEST_TICKET]");
-
-    res.write(`data: ${JSON.stringify({ done: true, suggestTicket })}\n\n`);
+    res.write(`data: ${JSON.stringify({ done: true })}\n\n`);
     res.end();
 
     // AI session title: only for a session created in THIS request, and fully

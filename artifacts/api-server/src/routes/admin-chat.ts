@@ -380,7 +380,6 @@ router.post("/admin/chat/system-prompts/preview", requirePermission("chat:manage
       max_tokens: 1000,
       system: content
         .replace(/\{\{member_name\}\}/g, "Test User")
-        .replace(/\{\{chat_tier\}\}/g, "standard")
         .replace(/\{\{daily_limit\}\}/g, "100"),
       messages: [{ role: "user", content: testMessage }],
     });

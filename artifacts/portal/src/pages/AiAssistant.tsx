@@ -2,7 +2,7 @@ import { AppLayout } from "@/components/layout/AppLayout";
 import { Button } from "@/components/ui/button";
 import {
   Send, Trash2, Plus, MessageCircle,
-  Loader2, AlertCircle, Menu, X, Mic, LifeBuoy,
+  Loader2, AlertCircle, Menu, X, Mic,
 } from "lucide-react";
 import botLogo from "@/assets/ai-assistant-logo.png";
 import { Link } from "wouter";
@@ -18,7 +18,6 @@ import {
   useChatMessages,
   useDeleteSession,
   useChatStream,
-  useCreateTicketFromChat,
   type ChatSession,
   type ChatMessage,
 } from "@/lib/chat-api";
@@ -70,7 +69,6 @@ function groupByDate(sessions: ChatSession[]) {
 export default function AiAssistant() {
   const [input, setInput] = useState("");
   const [mobileSidebar, setMobileSidebar] = useState(false);
-  const [ticketCreated, setTicketCreated] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
@@ -85,16 +83,13 @@ export default function AiAssistant() {
     isStreaming,
     sessionId,
     error,
-    suggestTicket,
     sendMessage,
     setMessages,
     setSessionId,
     clearError,
-    dismissTicketSuggestion,
   } = useChatStream();
   const { data: loadedMessages } = useChatMessages(sessionId);
   const deleteSession = useDeleteSession();
-  const createTicket = useCreateTicketFromChat();
 
   // Track which session's history we've hydrated so streaming updates aren't clobbered.
   const hydratedSessionRef = useRef<number | null>(null);
@@ -137,7 +132,6 @@ export default function AiAssistant() {
     setSessionId(session.id);
     setMessages([]);
     setMobileSidebar(false);
-    setTicketCreated(null);
     clearError();
   };
 
@@ -146,7 +140,6 @@ export default function AiAssistant() {
     setSessionId(null);
     setMessages([]);
     setInput("");
-    setTicketCreated(null);
     clearError();
     setMobileSidebar(false);
     inputRef.current?.focus();
@@ -164,27 +157,10 @@ export default function AiAssistant() {
     const content = (overrideText ?? input).trim();
     if (!content || isStreaming) return;
     setInput("");
-    setTicketCreated(null);
     // When a brand-new chat starts, mark the (upcoming) session as hydrated so
     // the history query doesn't overwrite the streamed messages.
     if (!sessionId) hydratedSessionRef.current = -1;
     sendMessage(content, sessionId);
-  };
-
-  const handleCreateTicket = () => {
-    if (!sessionId) return;
-    const firstUserMessage = messages.find((m) => m.role === "user");
-    const subject =
-      (firstUserMessage?.content || "AI Assistant conversation").slice(0, 80);
-    createTicket.mutate(
-      { sessionId, subject },
-      {
-        onSuccess: (data: { ticketNumber?: string }) => {
-          setTicketCreated(data?.ticketNumber || "created");
-          dismissTicketSuggestion();
-        },
-      },
-    );
   };
 
   // Once a session id exists, keep the hydrated marker pinned to it.
@@ -412,47 +388,6 @@ export default function AiAssistant() {
                 </div>
               )}
             </div>
-
-            {suggestTicket && !ticketCreated && (
-              <div className="px-4 py-2.5 bg-teal-50 dark:bg-teal-950/40 border-t border-teal-200 dark:border-teal-900 text-sm flex items-center gap-2.5" data-testid="banner-suggest-ticket">
-                <LifeBuoy className="w-4 h-4 shrink-0 text-teal-700 dark:text-teal-400" />
-                <span className="flex-1 text-teal-900 dark:text-teal-100">
-                  Sounds like this needs a human. Want me to open a support ticket with this conversation attached?
-                </span>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="shrink-0 border-teal-300 dark:border-teal-800 text-teal-800 dark:text-teal-200"
-                  onClick={handleCreateTicket}
-                  disabled={createTicket.isPending}
-                  data-testid="button-create-ticket"
-                >
-                  {createTicket.isPending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : "Create ticket"}
-                </Button>
-                <button
-                  onClick={dismissTicketSuggestion}
-                  className="p-1 rounded text-teal-700 dark:text-teal-400 hover:bg-teal-100 dark:hover:bg-teal-900/40"
-                  data-testid="button-dismiss-ticket-suggestion"
-                >
-                  <X className="w-3.5 h-3.5" />
-                </button>
-              </div>
-            )}
-
-            {ticketCreated && (
-              <div className="px-4 py-2.5 bg-emerald-50 dark:bg-emerald-950/40 border-t border-emerald-200 dark:border-emerald-900 text-sm flex items-center gap-2.5" data-testid="banner-ticket-created">
-                <LifeBuoy className="w-4 h-4 shrink-0 text-emerald-700 dark:text-emerald-400" />
-                <span className="flex-1 text-emerald-900 dark:text-emerald-100">
-                  Support ticket {ticketCreated !== "created" ? ticketCreated + " " : ""}created — our team will follow up shortly.
-                </span>
-                <button
-                  onClick={() => setTicketCreated(null)}
-                  className="p-1 rounded text-emerald-700 dark:text-emerald-400 hover:bg-emerald-100 dark:hover:bg-emerald-900/40"
-                >
-                  <X className="w-3.5 h-3.5" />
-                </button>
-              </div>
-            )}
 
             {error && (
               <div className="px-4 py-2 bg-destructive/10 text-destructive text-xs flex items-center gap-2">

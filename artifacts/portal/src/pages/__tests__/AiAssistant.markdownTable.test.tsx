@@ -33,7 +33,6 @@ vi.mock("@/lib/chat-api", () => ({
   useChatSessions: () => ({ data: [] }),
   useChatMessages: () => ({ data: undefined }),
   useDeleteSession: () => ({ mutate: vi.fn() }),
-  useCreateTicketFromChat: () => ({ mutate: vi.fn(), isPending: false }),
   useChatStream: () => ({
     messages: [
       { id: 0, role: "user" as const, content: "What plans are there?" },
@@ -42,12 +41,10 @@ vi.mock("@/lib/chat-api", () => ({
     isStreaming: false,
     sessionId: 7,
     error: null,
-    suggestTicket: false,
     sendMessage: vi.fn(),
     setMessages: vi.fn(),
     setSessionId: vi.fn(),
     clearError: vi.fn(),
-    dismissTicketSuggestion: vi.fn(),
   }),
 }));
 

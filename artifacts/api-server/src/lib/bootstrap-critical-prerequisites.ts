@@ -28,21 +28,17 @@ import {
   ANTI_HALLUCINATION_SYSTEM_PROMPT,
   ANTI_HALLUCINATION_SENTINEL,
   DIRECT_ANSWER_SENTINEL,
-  BLITZ_NAMING_SENTINEL,
   DEEP_ASSISTANT_SENTINEL,
+  NAMING_NAVIGATION_SENTINEL,
   NAMES_FROM_DOCS_SENTINEL,
-  CLARIFY_FIRST_SENTINEL,
-  DEPTH_CEILING_SENTINEL,
-  NAVIGATION_SOURCE_SENTINEL,
-  NO_ANSWER_FALLBACK_SENTINEL,
+  ESCALATION_LADDER_SENTINEL,
   NO_KB_SCAFFOLDING_SENTINEL,
   PORTAL_LINK_SENTINEL,
   BLITZ_STEPS_SENTINEL,
-  DEPTH_MATCH_SENTINEL,
+  CLARIFIER_SENTINEL,
+  ANSWER_DEPTH_SENTINEL,
   SYNTHESIS_CONSISTENCY_SENTINEL,
   FORMATTING_STYLE_SENTINEL,
-  CONCISE_CADENCE_SENTINEL,
-  SINGLE_CLARIFIER_SENTINEL,
   LEGACY_GENERIC_KB_TITLES,
 } from "./chat-system-prompt";
 import { ensureFoundingSuperAdmins } from "./ensure-founding-superadmins";
@@ -620,28 +616,24 @@ export async function ensureKBGrounding(): Promise<void> {
     activePrompt &&
     (!activePrompt.content.includes(ANTI_HALLUCINATION_SENTINEL) ||
       !activePrompt.content.includes(DIRECT_ANSWER_SENTINEL) ||
-      !activePrompt.content.includes(BLITZ_NAMING_SENTINEL) ||
       !activePrompt.content.includes(DEEP_ASSISTANT_SENTINEL) ||
+      !activePrompt.content.includes(NAMING_NAVIGATION_SENTINEL) ||
       !activePrompt.content.includes(NAMES_FROM_DOCS_SENTINEL) ||
-      !activePrompt.content.includes(CLARIFY_FIRST_SENTINEL) ||
-      !activePrompt.content.includes(DEPTH_CEILING_SENTINEL) ||
-      !activePrompt.content.includes(NAVIGATION_SOURCE_SENTINEL) ||
-      !activePrompt.content.includes(NO_ANSWER_FALLBACK_SENTINEL) ||
+      !activePrompt.content.includes(ESCALATION_LADDER_SENTINEL) ||
       !activePrompt.content.includes(NO_KB_SCAFFOLDING_SENTINEL) ||
       !activePrompt.content.includes(PORTAL_LINK_SENTINEL) ||
       !activePrompt.content.includes(BLITZ_STEPS_SENTINEL) ||
-      !activePrompt.content.includes(DEPTH_MATCH_SENTINEL) ||
+      !activePrompt.content.includes(CLARIFIER_SENTINEL) ||
+      !activePrompt.content.includes(ANSWER_DEPTH_SENTINEL) ||
       !activePrompt.content.includes(SYNTHESIS_CONSISTENCY_SENTINEL) ||
-      !activePrompt.content.includes(FORMATTING_STYLE_SENTINEL) ||
-      !activePrompt.content.includes(CONCISE_CADENCE_SENTINEL) ||
-      !activePrompt.content.includes(SINGLE_CLARIFIER_SENTINEL))
+      !activePrompt.content.includes(FORMATTING_STYLE_SENTINEL))
   ) {
     await db
       .update(chatSystemPromptsTable)
       .set({ content: ANTI_HALLUCINATION_SYSTEM_PROMPT })
       .where(eq(chatSystemPromptsTable.id, activePrompt.id));
     console.log(
-      "[Bootstrap] Updated active system prompt with grounding + direct-answer + Blitz-naming + deep-assistant-persona + names-from-docs + clarify-first + depth-ceiling + navigation/legacy + no-answer-fallback + portal-link + blitz-steps + depth-match + synthesis-consistency + formatting + cadence + single-clarifier rules.",
+      "[Bootstrap] Updated active system prompt with grounding + direct-answer + deep-assistant-persona + naming/navigation + names-from-docs + escalation-ladder + no-scaffolding + portal-link + blitz-steps + clarifier + answer-depth + synthesis-consistency + formatting rules.",
     );
   }
 
