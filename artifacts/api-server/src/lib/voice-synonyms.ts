@@ -95,6 +95,14 @@ export const CONCEPT_SYNONYM_GROUPS: VoiceSynonymGroup[] = [
       "ad picture",
       "what image should i use",
       "which image should i use",
+      // "Creative assets" phrasings — members echo the assistant's "creative
+      // assets" wording; the asset-prep docs carry "creative"/"native ad
+      // assets" (live doc content includes the phrase since 2026-07).
+      "creative asset",
+      "creative assets",
+      "my creatives",
+      "ad creatives",
+      "ad creative",
     ],
   },
   {

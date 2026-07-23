@@ -62,6 +62,18 @@ describe("concepts synonym expansion (positive phrasings)", () => {
       ],
     },
     {
+      term: "creative",
+      phrasings: [
+        "getting my creative assets",
+        "how do I get my creative assets",
+        "where do I find my creative assets",
+        "help me with my creative asset",
+        "I need my ad creatives ready",
+        "is this ad creative good",
+        "where are my creatives",
+      ],
+    },
+    {
       term: "offer",
       phrasings: [
         "which product should I promote",

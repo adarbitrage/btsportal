@@ -1,0 +1,57 @@
+Operational roadmap: foundations to first launch (checklist with decision points)
+1) Learn the system (foundations)
+- Review the 7 Pillars (/core-training/7-pillars) to anchor the model, markets, demographic, traffic channel, and two-phase scaling plan.
+- Skim The Blitz (/blitz) end-to-end for a mental map; then follow it step-by-step as you execute.
+
+2) Choose your execution path (decision: affiliate network)
+- Networks (Resources → Affiliate Networks at /affiliate-networks):
+  - Media Mavens: internal BTS network; flat CPA payouts; no refunds/chargebacks deducted from you; includes ready-made advertorial templates in Flexy.
+  - ClickBank: revenue-share payouts; refunds/chargebacks apply; often requires a bridge/advertorial to preframe a VSL-style sales page.
+
+3) Select a specific offer
+- Obtain and save your affiliate link.
+- Study the merchant’s sales page so your ads and landing page align with the promise and set correct expectations.
+
+4) Set up your landing page workspace in Flexy
+- Clone the current “Cutting Edge … staging” site in Flexy so you have your own copy; rename it for clarity.
+- Connect a subdomain to Flexy (one-time). Use a generic label not tied to a single offer.
+- Open the advertorial that matches your chosen offer and ensure headline and hero media render well on mobile.
+
+5) Define your angle and plan test variables
+- Choose a customer avatar + pain/goal; carry the same angle from ad → landing page → offer (congruency).
+- Prepare assets by funnel stage:
+  - Landing pages: 5 headlines + 5 hero shots to cross-test (25 variants).
+  - Ads: 10 headlines with 1 constant image to isolate the best click-driver in Round 1.
+
+6) Create and collect assets (copy and creative)
+- Headlines: draft multiple angles; you can use AI tools to brainstorm options from the offer’s advertorial/VSL.
+- Images: prefer AI/stock you have rights to; avoid on-image text; visualize pain/relief; maintain curiosity and relevance.
+
+7) Compliance Review (must-do before use)
+- Submit all creatives (landing-page headlines/hero shots and ad headlines/image, plus any ad copy) via Compliance Review (/compliance). Include offer name, traffic source, and links/files. Proceed only after approval.
+
+8) Generate landing-page variants in MetricMover
+- Start from your approved base page in Flexy.
+- Add your 5 headlines and 5 hero shots to create 25 variants; use unique tags/group names for each new test set.
+- Push/import variants into DIYTrax; confirm each variant is visible and linked to your campaign.
+
+9) Create your tracking/campaign in DIYTrax
+- Build the campaign, attach all variants, and append your affiliate link.
+- For ClickBank, enable IPN so DIYTrax records sales.
+- Always use the DIYTrax campaign URL as your ad destination so variants load and track correctly.
+
+10) Prepare and load your traffic-source ads
+- Create your initial 10 ads in your traffic source:
+  - Same image across all ads; vary headlines to isolate the winning attention hook. Add a brief description if required by the source.
+  - Keep strict congruency from ad to landing page (topic and visual).
+
+11) Launch Round 1 and measure by funnel
+- Turn on ads and monitor performance per path (ad → specific landing variant → offer). Avoid blended views that hide winners.
+- Balance impressions/spend across ads before judging. Don’t change landing pages immediately; let them accrue meaningful traffic.
+- Sales are decisive; landing-page click-through to the offer is a key supporting signal.
+
+12) Iterate through clean test rounds
+- Round 1 goal: find the best headline(s) on ads (image constant).
+- Round 2 goal: test and select the best visual/hero creative; keep your best headline stable.
+- Round 3 goal: expand to the best-performing placement/format and additional creative types/aspect ratios.
+- Change only one major variable per round; keep winners as controls; remove obvious losers.
