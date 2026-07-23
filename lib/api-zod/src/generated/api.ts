@@ -946,6 +946,11 @@ export const ListTicketsResponseItem = zod.object({
   ]),
   subject: zod.string(),
   assignedTo: zod.number().nullish(),
+  awaitingMemberReply: zod
+    .boolean()
+    .describe(
+      'True when the last message in the conversation is agent-authored\nand the ticket is not resolved — the team has replied and a\nresponse from the member may be needed. Cleared immediately when\nthe member replies. Rendered as a soft \"New reply\" indicator on\nthe member submission views, never a hard workflow state.\n',
+    ),
   createdAt: zod.date(),
   updatedAt: zod.date(),
   resolvedAt: zod.date().nullish(),
@@ -1003,6 +1008,11 @@ export const GetTicketResponse = zod.object({
     .enum(["pending", "delivered", "skipped", "failed"])
     .describe(
       'TicketDesk delivery pipeline status, surfaced to the member so\nthey can see whether their request reached the support team.\n\"delivered\" means the support team has it in their queue;\n\"failed\" means automatic delivery exhausted its retries (the\nteam was still notified by email as a fallback). \"pending\" and\n\"skipped\" are treated as in-progress on the member-facing UI.\n',
+    ),
+  awaitingMemberReply: zod
+    .boolean()
+    .describe(
+      "True when the last message in the conversation is agent-authored\nand the ticket is not resolved — cleared immediately when the\nmember replies.\n",
     ),
   createdAt: zod.date(),
   updatedAt: zod.date(),

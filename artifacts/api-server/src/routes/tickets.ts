@@ -28,6 +28,7 @@ import { autoRouteTicket } from "../lib/ticket-routing";
 import { getUserEntitlements, getSupportTicketLimit, hasMemberAccessBypass } from "../lib/entitlements";
 import { sendError } from "../lib/api-errors";
 import { CommunicationService } from "../lib/communication-service";
+import { sendTicketReplyNotification } from "../lib/ticket-reply-notification";
 import { TICKET_CATEGORY } from "@workspace/support-config";
 import {
   COMPLIANCE_MAX_FILES,
@@ -534,15 +535,21 @@ router.post("/webhooks/ticketdesk", async (req, res): Promise<void> => {
     // been resolved by the closure-event branch above (Step 1).
     await recordFirstResponse(ticket.id);
 
+    // An agent just replied, so (on a still-active ticket) the last message in
+    // the conversation is now agent-authored — set the "awaiting member reply"
+    // nudge immediately rather than waiting for the next poll cycle to infer it.
+    const stillActive =
+      ticket.status !== "resolved" && ticket.status !== "closed";
+
     if (ticket.status === "open") {
       await db
         .update(ticketsTable)
-        .set({ status: "in_progress" })
+        .set({ status: "in_progress", awaitingMemberReply: true })
         .where(eq(ticketsTable.id, ticket.id));
     } else if (ticket.status === "awaiting_response") {
       await db
         .update(ticketsTable)
-        .set({ status: "in_progress" })
+        .set({ status: "in_progress", awaitingMemberReply: true })
         .where(eq(ticketsTable.id, ticket.id));
       try {
         await resumeSla(ticket.id);
@@ -552,6 +559,11 @@ router.post("/webhooks/ticketdesk", async (req, res): Promise<void> => {
           err,
         );
       }
+    } else if (stillActive && !ticket.awaitingMemberReply) {
+      await db
+        .update(ticketsTable)
+        .set({ awaitingMemberReply: true })
+        .where(eq(ticketsTable.id, ticket.id));
     }
 
     await finalizeTicketDeskWebhook(
@@ -641,76 +653,9 @@ async function finalizeTicketDeskWebhook(
   }
 }
 
-// Queue the "support replied" notification email for the member who owns the
-// ticket. Looks up the member's current email + name so the deep link and
-// greeting are correct, then hands off to CommunicationService.queueEmail
-// (which has its own Redis-down direct-send fallback and template/portal-url
-// skip handling). Fully best-effort: every failure path is logged and
-// swallowed so the inbound webhook handler never throws on a mailer problem.
-async function sendTicketReplyNotification(
-  ticket: typeof ticketsTable.$inferSelect,
-): Promise<void> {
-  try {
-    if (ticket.userId == null) return;
-
-    const [member] = await db
-      .select({
-        email: usersTable.email,
-        name: usersTable.name,
-        phone: usersTable.phone,
-        smsOptIn: usersTable.smsOptIn,
-        ticketReplySmsOptIn: usersTable.ticketReplySmsOptIn,
-      })
-      .from(usersTable)
-      .where(eq(usersTable.id, ticket.userId))
-      .limit(1);
-
-    if (!member) return;
-
-    await CommunicationService.queueEmail({
-      templateSlug: "ticket_reply",
-      to: member.email,
-      userId: ticket.userId,
-      variables: {
-        member_name: member.name,
-        ticket_number: ticket.ticketNumber,
-        ticket_id: String(ticket.id),
-      },
-    });
-
-    // Members who opted into SMS get a short text nudge in addition to the
-    // email so they hear about the reply faster. queueSms (via sendSmsDirect)
-    // re-checks the master smsOptIn server-side from userId, so that gate is
-    // the source of truth even though we pre-check here to avoid queueing a
-    // job for a member with no phone on file. The webhook dedup claim
-    // guarantees this whole block runs at most once per reply, so a
-    // redelivered webhook never sends a duplicate text.
-    //
-    // ticketReplySmsOptIn is the finer-grained, per-category preference: a
-    // member can keep the master SMS opt-in on (so they still get
-    // account-security/billing texts) while silencing the text they get on
-    // every support reply. Email always sends regardless — this only gates
-    // the SMS nudge. There is no server-side re-check of this category flag
-    // in queueSms (which is channel-generic), so this caller is the sole
-    // enforcement point for the ticket-reply category.
-    if (member.smsOptIn && member.ticketReplySmsOptIn && member.phone) {
-      await CommunicationService.queueSms({
-        templateSlug: "ticket_reply",
-        to: member.phone,
-        userId: ticket.userId,
-        variables: {
-          ticket_number: ticket.ticketNumber,
-          ticket_id: String(ticket.id),
-        },
-      });
-    }
-  } catch (err) {
-    console.error(
-      `[TicketDesk Webhook] Failed to queue reply notification for ticket ${ticket.ticketNumber}:`,
-      err,
-    );
-  }
-}
+// The "support replied" member notification (email + optional SMS) now lives
+// in src/lib/ticket-reply-notification.ts so the TicketDesk reply poller can
+// send the exact same notification for replies it discovers by polling.
 
 // Member-initiated ticket resolution.
 // POST /tickets/:id/resolve sets the portal ticket to "resolved" and signals
@@ -743,10 +688,11 @@ router.post("/tickets/:id/resolve", async (req, res): Promise<void> => {
     return;
   }
 
-  // Update the portal ticket
+  // Update the portal ticket. Resolution always clears the "awaiting member
+  // reply" nudge — a resolved ticket needs nothing from the member.
   const [updated] = await db
     .update(ticketsTable)
-    .set({ status: "resolved", resolvedAt: new Date() })
+    .set({ status: "resolved", resolvedAt: new Date(), awaitingMemberReply: false })
     .where(eq(ticketsTable.id, ticketId))
     .returning();
 
@@ -1004,15 +950,24 @@ router.post("/tickets/:id/messages", async (req, res): Promise<void> => {
     return created;
   });
 
+  // The member just replied, so the ball is back in the support team's court:
+  // clear the "awaiting member reply" nudge immediately (don't wait for the
+  // next poll cycle). Legacy tickets still carrying the manual
+  // awaiting_response status also flip back to open and resume their SLA
+  // clock, mirroring the pre-flag behavior.
   if (ticket.status === "awaiting_response") {
     await db.update(ticketsTable)
-      .set({ status: "open" })
+      .set({ status: "open", awaitingMemberReply: false })
       .where(eq(ticketsTable.id, ticket.id));
     try {
       await resumeSla(ticket.id);
     } catch (err) {
       console.error("[SLA] Failed to resume SLA on member reply:", err);
     }
+  } else if (ticket.awaitingMemberReply) {
+    await db.update(ticketsTable)
+      .set({ awaitingMemberReply: false })
+      .where(eq(ticketsTable.id, ticket.id));
   }
 
   // Mirror the member's reply into the TicketDesk thread (best-effort) so the

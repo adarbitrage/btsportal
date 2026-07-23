@@ -245,39 +245,63 @@ export function isActiveTicketStatus(status: string | null | undefined): boolean
 }
 
 /**
- * The status the member's submission is waiting on the member — the team has
- * replied and needs the member's input before it can proceed. The submission
- * views surface this as a prominent "action needed" escalation.
+ * The legacy manual status meaning "the team is waiting on the member". The
+ * admin write path that set it has been retired — the member-facing
+ * "reply needed" signal is now the inferred `awaitingMemberReply` flag on the
+ * ticket (last message agent-authored AND not resolved), consumed via
+ * {@link needsMemberReply}. The enum value is kept only so historical rows
+ * still parse and group as active.
  */
 export const AWAITING_MEMBER_STATUS = "awaiting_response";
 
-/** True when the team is waiting on the member to reply. */
-export function isAwaitingMember(status: string | null | undefined): boolean {
-  return status === AWAITING_MEMBER_STATUS;
+/**
+ * True when the member should be nudged to reply: the ticket is still active
+ * and either the inferred `awaitingMemberReply` flag is set (the normal path —
+ * last conversation message is agent-authored and the ticket isn't resolved)
+ * or the ticket carries the legacy manual `awaiting_response` status from
+ * before the flag existed. Rendered as a soft "New reply — response may be
+ * needed" indicator, never an alarming "action required" gate.
+ */
+export function needsMemberReply(ticket: {
+  status?: string | null;
+  awaitingMemberReply?: boolean | null;
+}): boolean {
+  if (!isActiveTicketStatus(ticket.status)) return false;
+  return !!ticket.awaitingMemberReply || ticket.status === AWAITING_MEMBER_STATUS;
 }
 
 /**
+ * The soft member-facing indicator shown when {@link needsMemberReply} is
+ * true. Shared by the Compliance and Concierge submission views so the copy
+ * can never drift between them.
+ */
+export const MEMBER_REPLY_NEEDED_LABEL = "New reply — response may be needed";
+
+/**
  * Member-facing status label for a submission badge. Members don't need the
- * admin's precise lifecycle vocabulary — they see whether the team is still
- * working ("In progress") or finished ("Complete"). The "action needed"
- * escalation (status `awaiting_response`) is conveyed by a separate banner, so
- * the badge stays "In progress" while work is active.
+ * admin's precise lifecycle vocabulary — they see whether their submission is
+ * still queued ("Submitted — in queue"), actively being worked ("In progress —
+ * the team is on it"), or finished ("Complete"). The reply-needed nudge is
+ * conveyed by a separate soft indicator (see MEMBER_REPLY_NEEDED_LABEL), so
+ * the badge itself never escalates.
  */
 export const MEMBER_SUBMISSION_STATUS_LABELS: Record<TicketStatusSlug, string> = {
-  open: "In progress",
-  in_progress: "In progress",
-  awaiting_response: "In progress",
+  open: "Submitted — in queue",
+  in_progress: "In progress — the team is on it",
+  awaiting_response: "In progress — the team is on it",
   resolved: "Complete",
   closed: "Complete",
 };
 
 /**
  * Render a ticket status as a member-facing submission label. Unknown/future
- * statuses fall back to "In progress" so a member never sees a raw enum slug.
+ * statuses fall back to the in-progress label so a member never sees a raw
+ * enum slug.
  */
 export function formatMemberSubmissionStatus(status: string | null | undefined): string {
-  if (!status) return "In progress";
+  if (!status) return MEMBER_SUBMISSION_STATUS_LABELS.in_progress;
   return (
-    (MEMBER_SUBMISSION_STATUS_LABELS as Record<string, string>)[status] ?? "In progress"
+    (MEMBER_SUBMISSION_STATUS_LABELS as Record<string, string>)[status] ??
+    MEMBER_SUBMISSION_STATUS_LABELS.in_progress
   );
 }

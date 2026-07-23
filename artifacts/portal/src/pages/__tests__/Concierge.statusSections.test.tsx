@@ -7,11 +7,13 @@ import type { ReactNode } from "react";
 // tickets of category `concierge_task`) as two status sections above the intake
 // form: "Current Submissions" (active tickets) and "Past Submissions"
 // (resolved/closed). This mirrors the Compliance Review landing page. This test
-// pins that split, the per-item status badges ("In Progress" / "Action Needed" /
-// "Completed"), the action-needed escalation on `awaiting_response` (solid "View
-// & Respond" opening the conversation modal in respond mode), and the read-only
-// "View Conversation" modal that shows the full thread (member + team, internal
-// notes excluded).
+// pins that split, the per-item status badges ("Submitted — in queue" / "In
+// progress — the team is on it" / "Completed"), the soft "New reply — response
+// may be needed" indicator (driven by the inferred `awaitingMemberReply` flag,
+// with the legacy `awaiting_response` status still honored) whose rows get a
+// solid "View & Respond" button opening the conversation modal in respond mode,
+// and the read-only "View Conversation" modal that shows the full thread
+// (member + team, internal notes excluded).
 //
 // Mocking follows the portal page-test pattern: stub AppLayout, wrap in a
 // QueryClient, and drive the ticket list + ticket detail through a stubbed
@@ -42,6 +44,7 @@ type FakeTicket = {
   status: string;
   subject: string;
   createdAt: string;
+  awaitingMemberReply: boolean;
 };
 
 type FakeMessage = {
@@ -113,6 +116,7 @@ function conciergeTicket(overrides: Partial<FakeTicket>): FakeTicket {
     status: "open",
     subject: "Concierge Task — Offer",
     createdAt: "2026-06-01T00:00:00.000Z",
+    awaitingMemberReply: false,
     ...overrides,
   };
 }
@@ -153,14 +157,14 @@ describe("Concierge — submission status sections", () => {
 
     const active = await screen.findByTestId("concierge-active-1");
     expect(within(active).getByText("Alpha Offer")).toBeInTheDocument();
-    // A plain active submission shows the calm "In Progress" badge...
-    expect(within(active).getByText("In Progress")).toBeInTheDocument();
+    // A plain in-progress submission shows the calm status badge...
+    expect(within(active).getByText("In progress — the team is on it")).toBeInTheDocument();
     // ...and the quiet "View Conversation" button (opens the modal, not a link).
     const viewConversation = within(active).getByTestId("concierge-view-conversation-1");
     expect(viewConversation).toHaveTextContent("View Conversation");
     expect(viewConversation.closest("a")).toBeNull();
-    // No action-needed escalation for a plain in_progress ticket.
-    expect(screen.queryByTestId("concierge-action-needed-1")).not.toBeInTheDocument();
+    // No reply-needed nudge for a plain in_progress ticket.
+    expect(screen.queryByTestId("concierge-reply-needed-1")).not.toBeInTheDocument();
     expect(screen.queryByTestId("concierge-respond-1")).not.toBeInTheDocument();
 
     const past = screen.getByTestId("concierge-past-2");
@@ -169,27 +173,39 @@ describe("Concierge — submission status sections", () => {
     expect(within(past).getByTestId("concierge-view-conversation-2")).toHaveTextContent("View Conversation");
   });
 
-  it("escalates an awaiting_response submission with an Action Needed badge and a View & Respond button that opens a text reply box", async () => {
+  it("shows the soft New reply indicator and a View & Respond button when awaitingMemberReply is set", async () => {
     tickets = [
-      conciergeTicket({ id: 3, ticketNumber: "CNC-003", status: "awaiting_response", subject: "Concierge Task — Gamma Offer" }),
+      conciergeTicket({ id: 3, ticketNumber: "CNC-003", status: "in_progress", awaitingMemberReply: true, subject: "Concierge Task — Gamma Offer" }),
     ];
 
     renderPage();
 
     const active = await screen.findByTestId("concierge-active-3");
-    expect(within(active).getByTestId("concierge-action-needed-3")).toHaveTextContent(/action needed/i);
-    // Action needed → solid "View & Respond" button that opens the in-place
+    expect(within(active).getByTestId("concierge-reply-needed-3")).toHaveTextContent(/new reply/i);
+    // Reply needed → solid "View & Respond" button that opens the in-place
     // respond modal (a text-only reply popup), NOT a deep link to the full page.
     const cta = within(active).getByTestId("concierge-respond-3");
     expect(cta).toHaveTextContent("View & Respond");
     expect(cta.closest("a")).toBeNull();
-    // The calm conversation modal button is not offered for action-needed rows.
+    // The calm conversation modal button is not offered for reply-needed rows.
     expect(within(active).queryByTestId("concierge-view-conversation-3")).not.toBeInTheDocument();
 
     // Clicking opens the conversation modal with a text-only reply box.
     fireEvent.click(cta);
     expect(await screen.findByTestId("conversation-reply-input")).toBeInTheDocument();
     expect(screen.getByTestId("conversation-reply-send")).toBeInTheDocument();
+  });
+
+  it("still honors the legacy awaiting_response status as reply-needed", async () => {
+    tickets = [
+      conciergeTicket({ id: 10, ticketNumber: "CNC-010", status: "awaiting_response", subject: "Concierge Task — Iota Offer" }),
+    ];
+
+    renderPage();
+
+    const active = await screen.findByTestId("concierge-active-10");
+    expect(within(active).getByTestId("concierge-reply-needed-10")).toHaveTextContent(/new reply/i);
+    expect(within(active).getByTestId("concierge-respond-10")).toHaveTextContent("View & Respond");
   });
 
   it("shows each live row's at-a-glance summary: task(s) and file count", async () => {

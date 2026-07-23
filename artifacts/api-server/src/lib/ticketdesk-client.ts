@@ -633,6 +633,37 @@ export function isAgentMessage(msg: TicketDeskThreadMessage): boolean {
 }
 
 /**
+ * The type values that indicate a message came from the contact (member)
+ * side of the conversation.
+ */
+const MEMBER_MESSAGE_TYPES = new Set(["chat_inbound", "inbound"]);
+
+/** Returns true when a thread message came from the contact/member side. */
+export function isMemberMessage(msg: TicketDeskThreadMessage): boolean {
+  return MEMBER_MESSAGE_TYPES.has(msg.type?.toLowerCase?.() ?? "");
+}
+
+/**
+ * "Awaiting your reply" inference: true when the LAST directional message in
+ * the thread is agent-authored and the thread is not resolved. Messages of
+ * unknown type are ignored (they carry no direction), so the inference
+ * degrades gracefully if TicketDesk ever adds new message types. Works today,
+ * independently of TicketDesk's status-exposure change.
+ */
+export function inferAwaitingMemberReply(
+  messages: TicketDeskThreadMessage[],
+  resolved: boolean,
+): boolean {
+  if (resolved) return false;
+  for (let i = messages.length - 1; i >= 0; i--) {
+    const msg = messages[i];
+    if (isAgentMessage(msg)) return true;
+    if (isMemberMessage(msg)) return false;
+  }
+  return false;
+}
+
+/**
  * Re-creates (or re-uses) a TicketDesk chat session for the given member +
  * BTS ticket number and returns the session token.
  *
@@ -743,84 +774,99 @@ export async function fetchThreadMessages(
 }
 
 /* ------------------------------------------------------------------------- *
- * Thread-status detection
+ * Thread-status parsing (the agreed TicketDesk chat-API contract)
  *
- * TicketDesk does not expose a dedicated "conversation status" endpoint in the
- * public chat session API, but the GET /api/chat/messages response sometimes
- * includes a top-level `status` field (e.g. "open", "resolved", "closed") and
- * the thread may contain system messages that indicate the conversation was
- * closed by an agent.  We inspect both signals:
+ * TicketDesk's real status model (per their discovery report): a thread's
+ * `status` is `open | in_progress | resolved`; resolving stamps `resolvedAt`;
+ * a new contact message auto-reopens the thread (`resolved` → `open`,
+ * `resolved_at` nulled). The TicketDesk team has agreed to expose `status` +
+ * `resolvedAt` on the chat API session/messages responses.
  *
- *   1. A `status` / `conversationStatus` / `threadStatus` field on the raw
- *      messages-response body.
- *   2. System-type messages whose body contains closure keywords — the same
- *      mechanism that shows "Conversation closed" in chat widget UIs.
+ * `parseThreadStatus` consumes that contract tolerantly:
+ *   - It looks for the status on the raw response body (top-level or under a
+ *     `conversation` object), accepting the common key aliases.
+ *   - Unknown values and ABSENT fields both yield `status: null` — "unknown",
+ *     NEVER "closed". Until TicketDesk ships their change every response
+ *     parses as unknown and callers behave exactly as before.
+ *   - `closed` is accepted as a synonym for `resolved` for tolerance.
  *
- * Neither signal is guaranteed, so `detectThreadClosed` is best-effort and
- * returns false when there is no clear evidence of closure.
+ * The old guess-based system-message scanning ("conversation was closed"
+ * bodies) is gone: TicketDesk has no system/activity message type, so it
+ * matched nothing real.
  * ------------------------------------------------------------------------- */
 
-const CLOSED_STATUS_VALUES = new Set([
-  "closed",
-  "resolved",
-  "done",
-  "completed",
-  "archived",
-]);
+/** Normalised TicketDesk thread status per the agreed chat-API contract. */
+export type TicketDeskThreadStatus = "open" | "in_progress" | "resolved";
 
-const SYSTEM_MESSAGE_TYPES = new Set([
-  "activity",
-  "system",
-  "event",
-  "bot",
-  "conversation_status_changed",
-  "status_changed",
-  "chat_status",
-]);
+export interface ParsedThreadStatus {
+  /** The thread's status, or null when absent/unrecognised ("unknown"). */
+  status: TicketDeskThreadStatus | null;
+  /** Parsed `resolvedAt` timestamp when present and valid, else null. */
+  resolvedAt: Date | null;
+}
 
-const CLOSURE_BODY_PATTERNS = [
-  /conversation\s+(was\s+)?(closed|resolved)/i,
-  /ticket\s+(was\s+)?(closed|resolved)/i,
-  /chat\s+(was\s+)?(closed|resolved)/i,
-  /^closed$/i,
-  /^resolved$/i,
-  /marked\s+as\s+(closed|resolved)/i,
-];
+const STATUS_ALIASES: Record<string, TicketDeskThreadStatus> = {
+  open: "open",
+  in_progress: "in_progress",
+  "in-progress": "in_progress",
+  resolved: "resolved",
+  // Tolerated synonym: some platforms say "closed" where the contract says
+  // "resolved". Treated identically.
+  closed: "resolved",
+};
 
-/** Returns true when the message looks like a system "conversation closed" event. */
-function isClosureSystemMessage(msg: TicketDeskThreadMessage): boolean {
-  if (!SYSTEM_MESSAGE_TYPES.has(msg.type?.toLowerCase?.() ?? "")) return false;
-  return CLOSURE_BODY_PATTERNS.some((re) => re.test(msg.body));
+function normalizeStatusValue(value: unknown): TicketDeskThreadStatus | null {
+  if (typeof value !== "string") return null;
+  return STATUS_ALIASES[value.trim().toLowerCase()] ?? null;
+}
+
+function parseResolvedAtValue(value: unknown): Date | null {
+  if (typeof value !== "string" && typeof value !== "number") return null;
+  const d = new Date(value);
+  return isNaN(d.getTime()) ? null : d;
 }
 
 /**
- * Returns true when the raw messages-response body contains a top-level status
- * field that indicates the conversation is closed/resolved.
+ * Parses the thread `status` + `resolvedAt` from a raw TicketDesk chat-API
+ * response body (session or messages). Absent or unrecognised fields yield
+ * `status: null` — unknown, never closed.
+ */
+export function parseThreadStatus(
+  rawResponseData?: Record<string, unknown> | null,
+): ParsedThreadStatus {
+  if (!rawResponseData) return { status: null, resolvedAt: null };
+
+  const conversation =
+    (rawResponseData.conversation as Record<string, unknown> | undefined) ??
+    undefined;
+
+  const status =
+    normalizeStatusValue(rawResponseData.status) ??
+    normalizeStatusValue(rawResponseData.conversationStatus) ??
+    normalizeStatusValue(rawResponseData.threadStatus) ??
+    normalizeStatusValue(rawResponseData.state) ??
+    normalizeStatusValue(conversation?.status) ??
+    normalizeStatusValue(conversation?.state);
+
+  const resolvedAt =
+    parseResolvedAtValue(rawResponseData.resolvedAt) ??
+    parseResolvedAtValue(rawResponseData.resolved_at) ??
+    parseResolvedAtValue(conversation?.resolvedAt) ??
+    parseResolvedAtValue(conversation?.resolved_at);
+
+  return { status, resolvedAt };
+}
+
+/**
+ * Returns true when the raw response body carries an explicit resolved status
+ * per the agreed contract. Kept as a thin wrapper over `parseThreadStatus`
+ * for callers that only need the boolean; absent/unknown status is false.
  */
 export function detectThreadClosed(
-  messages: TicketDeskThreadMessage[],
+  _messages: TicketDeskThreadMessage[],
   rawResponseData?: Record<string, unknown>,
 ): boolean {
-  if (rawResponseData) {
-    const statusField = String(
-      rawResponseData.status ??
-        rawResponseData.conversationStatus ??
-        rawResponseData.threadStatus ??
-        rawResponseData.state ??
-        "",
-    ).toLowerCase();
-    if (statusField && CLOSED_STATUS_VALUES.has(statusField)) return true;
-
-    const conversation = rawResponseData.conversation as Record<string, unknown> | undefined;
-    if (conversation) {
-      const convStatus = String(
-        conversation.status ?? conversation.state ?? "",
-      ).toLowerCase();
-      if (convStatus && CLOSED_STATUS_VALUES.has(convStatus)) return true;
-    }
-  }
-
-  return messages.some((m) => isClosureSystemMessage(m));
+  return parseThreadStatus(rawResponseData).status === "resolved";
 }
 
 /* ------------------------------------------------------------------------- *
@@ -1149,7 +1195,7 @@ export function parseInboundClosure(
     // Dedicated closure events (e.g. "conversation.resolved", "ticket.closed")
     // imply closure unconditionally without needing a status field.
     if (eventTypeRaw.includes("status_changed")) {
-      hasClosedStatus = newStatus !== "" && CLOSED_STATUS_VALUES.has(newStatus);
+      hasClosedStatus = normalizeStatusValue(newStatus) === "resolved";
     } else {
       hasClosedStatus = true;
     }

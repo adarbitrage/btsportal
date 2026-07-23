@@ -19,6 +19,13 @@ export interface Ticket {
   subject: string;
   /** @nullable */
   assignedTo?: number | null;
+  /** True when the last message in the conversation is agent-authored
+and the ticket is not resolved — the team has replied and a
+response from the member may be needed. Cleared immediately when
+the member replies. Rendered as a soft "New reply" indicator on
+the member submission views, never a hard workflow state.
+ */
+  awaitingMemberReply: boolean;
   createdAt: Date;
   updatedAt: Date;
   /** @nullable */

@@ -13,7 +13,7 @@ import {
 } from "@workspace/db";
 import { eq, and, desc, asc, sql, ilike, inArray } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
-import { recordFirstResponse, pauseSla, resumeSla, calculateBusinessMinutesFast } from "../lib/sla";
+import { recordFirstResponse, resumeSla, calculateBusinessMinutesFast } from "../lib/sla";
 import { emitWebhookEvent } from "../lib/webhook-events";
 import { retryTicketDeskDelivery } from "../lib/ticketdesk-queue";
 import { requirePermission } from "../middleware/rbac";
@@ -909,9 +909,21 @@ router.post("/admin/tickets/:id/reply", requirePermission("tickets:manage"), asy
 
     await recordFirstResponse(ticketId);
 
+    // The team just replied, so the last message in the conversation is now
+    // agent-authored — set the member-facing "awaiting your reply" nudge on
+    // any still-active ticket (a resolved/closed ticket needs nothing from
+    // the member, so the flag stays down there).
     if (ticket.status === "open") {
       await db.update(ticketsTable)
-        .set({ status: "in_progress" })
+        .set({ status: "in_progress", awaitingMemberReply: true })
+        .where(eq(ticketsTable.id, ticketId));
+    } else if (
+      ticket.status !== "resolved" &&
+      ticket.status !== "closed" &&
+      !ticket.awaitingMemberReply
+    ) {
+      await db.update(ticketsTable)
+        .set({ awaitingMemberReply: true })
         .where(eq(ticketsTable.id, ticketId));
     }
 
@@ -930,7 +942,13 @@ router.put("/admin/tickets/:id/status", requirePermission("tickets:manage"), asy
     }
 
     const { status } = req.body;
-    const validStatuses = ["open", "in_progress", "awaiting_response", "resolved", "closed"];
+    // "awaiting_response" is intentionally NOT settable any more: the manual
+    // "waiting on the member" workflow state has been retired in favor of the
+    // inferred awaitingMemberReply flag (last conversation message is
+    // agent-authored and the ticket isn't resolved). The enum value survives
+    // in the DB/type layer so historical rows still parse; it just can't be
+    // written by admins going forward.
+    const validStatuses = ["open", "in_progress", "resolved", "closed"];
     if (!validStatuses.includes(status)) {
       res.status(400).json({ error: `Invalid status. Must be one of: ${validStatuses.join(", ")}` });
       return;
@@ -938,15 +956,18 @@ router.put("/admin/tickets/:id/status", requirePermission("tickets:manage"), asy
 
     const updates: Record<string, any> = { status };
 
+    if (status === "resolved" || status === "closed") {
+      // A resolved/closed ticket needs nothing from the member.
+      updates.awaitingMemberReply = false;
+    }
+
     if (status === "resolved") {
       updates.resolvedAt = new Date();
     }
 
-    if (status === "awaiting_response") {
-      await pauseSla(ticketId);
-    } else {
-      await resumeSla(ticketId);
-    }
+    // Every remaining status runs the SLA clock; resume clears any pause left
+    // over from a legacy awaiting_response state.
+    await resumeSla(ticketId);
 
     const [updated] = await db.update(ticketsTable)
       .set(updates)

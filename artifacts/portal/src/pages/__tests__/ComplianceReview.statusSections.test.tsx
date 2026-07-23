@@ -6,11 +6,14 @@ import type { ReactNode } from "react";
 // The Compliance Review page surfaces the member's prior submissions (which are
 // support tickets of category `compliance_review`) as two status sections above
 // the intake form: "Current Submissions" (active tickets) and "Past
-// Submissions" (resolved/closed). This test pins that split, the per-item status
-// badges ("Under Review" / "Action Needed" / "Completed"), the action-needed
-// escalation on `awaiting_response` (solid "View & Respond" opening the
-// conversation modal in respond mode), and the read-only "View Conversation"
-// modal that shows the full thread (member + team, internal notes excluded).
+// Submissions" (resolved/closed). This test pins that split, the per-item
+// status badges ("Submitted — in queue" / "In progress — the team is on it" /
+// "Completed"), the soft "New reply — response may be needed" indicator (driven
+// by the inferred `awaitingMemberReply` flag, with the legacy
+// `awaiting_response` status still honored) whose rows get a solid "View &
+// Respond" button opening the conversation modal in respond mode, and the
+// read-only "View Conversation" modal that shows the full thread (member +
+// team, internal notes excluded).
 //
 // Mocking follows the portal page-test pattern: stub AppLayout, wrap in a
 // QueryClient, and drive the ticket list + ticket detail through a stubbed
@@ -41,6 +44,7 @@ type FakeTicket = {
   status: string;
   subject: string;
   createdAt: string;
+  awaitingMemberReply: boolean;
 };
 
 type FakeMessage = {
@@ -108,6 +112,7 @@ function complianceTicket(overrides: Partial<FakeTicket>): FakeTicket {
     status: "open",
     subject: "Compliance Review — Offer",
     createdAt: "2026-06-01T00:00:00.000Z",
+    awaitingMemberReply: false,
     ...overrides,
   };
 }
@@ -136,21 +141,26 @@ describe("ComplianceReview — submission status sections", () => {
     tickets = [
       complianceTicket({ id: 1, ticketNumber: "CMP-001", status: "in_progress", subject: "Compliance Review — Alpha Offer" }),
       complianceTicket({ id: 2, ticketNumber: "CMP-002", status: "resolved", subject: "Compliance Review — Beta Offer" }),
+      complianceTicket({ id: 6, ticketNumber: "CMP-006", status: "open", subject: "Compliance Review — Zeta Offer" }),
     ];
 
     renderPage();
 
     const active = await screen.findByTestId("compliance-active-1");
     expect(within(active).getByText("Alpha Offer")).toBeInTheDocument();
-    // A plain active submission shows the calm "Under Review" badge...
-    expect(within(active).getByText("Under Review")).toBeInTheDocument();
+    // A plain in-progress submission shows the calm status badge...
+    expect(within(active).getByText("In progress — the team is on it")).toBeInTheDocument();
     // ...and the quiet "View Conversation" button (opens the modal, not a link).
     const viewConversation = within(active).getByTestId("compliance-view-conversation-1");
     expect(viewConversation).toHaveTextContent("View Conversation");
     expect(viewConversation.closest("a")).toBeNull();
-    // No action-needed escalation for a plain in_progress ticket.
-    expect(screen.queryByTestId("compliance-action-needed-1")).not.toBeInTheDocument();
+    // No reply-needed nudge for a plain in_progress ticket.
+    expect(screen.queryByTestId("compliance-reply-needed-1")).not.toBeInTheDocument();
     expect(screen.queryByTestId("compliance-respond-1")).not.toBeInTheDocument();
+
+    // A still-queued submission is distinguished from one being worked.
+    const queued = screen.getByTestId("compliance-active-6");
+    expect(within(queued).getByText("Submitted — in queue")).toBeInTheDocument();
 
     const past = screen.getByTestId("compliance-past-2");
     expect(within(past).getByText("Beta Offer")).toBeInTheDocument();
@@ -158,27 +168,39 @@ describe("ComplianceReview — submission status sections", () => {
     expect(within(past).getByTestId("compliance-view-conversation-2")).toHaveTextContent("View Conversation");
   });
 
-  it("escalates an awaiting_response submission with an Action Needed badge and a View & Respond button that opens a text reply box", async () => {
+  it("shows the soft New reply indicator and a View & Respond button when awaitingMemberReply is set", async () => {
     tickets = [
-      complianceTicket({ id: 3, ticketNumber: "CMP-003", status: "awaiting_response", subject: "Compliance Review — Gamma Offer" }),
+      complianceTicket({ id: 3, ticketNumber: "CMP-003", status: "in_progress", awaitingMemberReply: true, subject: "Compliance Review — Gamma Offer" }),
     ];
 
     renderPage();
 
     const active = await screen.findByTestId("compliance-active-3");
-    expect(within(active).getByTestId("compliance-action-needed-3")).toHaveTextContent(/action needed/i);
-    // Action needed → solid "View & Respond" button that opens the in-place
+    expect(within(active).getByTestId("compliance-reply-needed-3")).toHaveTextContent(/new reply/i);
+    // Reply needed → solid "View & Respond" button that opens the in-place
     // respond modal (a text-only reply popup), NOT a deep link to the full page.
     const cta = within(active).getByTestId("compliance-respond-3");
     expect(cta).toHaveTextContent("View & Respond");
     expect(cta.closest("a")).toBeNull();
-    // The calm conversation modal button is not offered for action-needed rows.
+    // The calm conversation modal button is not offered for reply-needed rows.
     expect(within(active).queryByTestId("compliance-view-conversation-3")).not.toBeInTheDocument();
 
     // Clicking opens the conversation modal with a text-only reply box.
     fireEvent.click(cta);
     expect(await screen.findByTestId("conversation-reply-input")).toBeInTheDocument();
     expect(screen.getByTestId("conversation-reply-send")).toBeInTheDocument();
+  });
+
+  it("still honors the legacy awaiting_response status as reply-needed", async () => {
+    tickets = [
+      complianceTicket({ id: 7, ticketNumber: "CMP-007", status: "awaiting_response", subject: "Compliance Review — Eta Offer" }),
+    ];
+
+    renderPage();
+
+    const active = await screen.findByTestId("compliance-active-7");
+    expect(within(active).getByTestId("compliance-reply-needed-7")).toHaveTextContent(/new reply/i);
+    expect(within(active).getByTestId("compliance-respond-7")).toHaveTextContent("View & Respond");
   });
 
   it("shows the full conversation (member + team, internal excluded) in the read-only View Conversation modal", async () => {

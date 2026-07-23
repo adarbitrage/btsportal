@@ -62,6 +62,7 @@
       "subscriptions.status | text | NOT NULL",
       "subscriptions.updated_at | timestamptz | NOT NULL",
       "subscriptions.user_id | int4 | NOT NULL",
+      "tickets.awaiting_member_reply | bool | NOT NULL",
       "tickets.delivery_last_attempt_at | timestamptz | NULL",
       "tickets.delivery_last_error | text | NULL",
       "tickets.delivery_status | text | NOT NULL",

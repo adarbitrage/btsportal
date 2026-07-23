@@ -80,6 +80,7 @@
 - [user_products active-grant unique index](user-products-active-unique-index.md) — partial unique index = 1 active grant per (user,product); dedupe non-destructively before publish, never delete-to-satisfy; grant paths catch 23505.
 - [KB member terminology + synonyms](kb-member-terminology-retrieval.md) — lexical search needs member aliases in content ("Mentee Master Agreement"); in-code synonym map unit-tested, DB ts_rank test flaky (voice-kb-synonym-layer.md).
 - [coach_call_calendars call-type scope](coach-call-types-scope.md) — KNOWN_CALL_TYPES intentionally just private_coaching + one_on_one_va; onboarding is a planned FUTURE type. Don't add unless asked.
+- [TicketDesk status contract](ticketdesk-status-contract.md) — all thread-status reads via parseThreadStatus; absent/unrecognised status = unknown = NO transition, never closed; auto-reopen clears resolvedAt + resumes SLA.
 - [TicketDesk two-way sync](ticketdesk-two-way-sync.md) — inbound via poller filtered to agent msg types; outbound pushed EXPLICITLY per action, gated on deliveryStatus='delivered'; member posts return chat_inbound so no echo.
 - [Concierge live-row summary](concierge-submission-summary.md) — list payload lacks messages/attachments; fetch ticket detail per-row, parse intake body `Selected Task(s):`; shared status labels in support-config.
 - [KB taxonomy cols missing in fresh env](kb-taxonomy-cols-fresh-env.md) — doc_class/slug/home_root/etc are schema-only; fresh dev DB lacks them; land via ADD COLUMN IF NOT EXISTS, never push --force.

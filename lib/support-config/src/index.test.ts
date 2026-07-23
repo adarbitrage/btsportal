@@ -12,7 +12,8 @@ import {
   ACTIVE_TICKET_STATUSES,
   TERMINAL_TICKET_STATUSES,
   isActiveTicketStatus,
-  isAwaitingMember,
+  needsMemberReply,
+  MEMBER_REPLY_NEEDED_LABEL,
   MEMBER_SUBMISSION_STATUS_LABELS,
   formatMemberSubmissionStatus,
 } from "./index";
@@ -137,23 +138,40 @@ describe("ticket status constants", () => {
     expect(isActiveTicketStatus(undefined)).toBe(false);
   });
 
-  it("isAwaitingMember is true only for awaiting_response", () => {
-    expect(isAwaitingMember("awaiting_response")).toBe(true);
-    expect(isAwaitingMember("open")).toBe(false);
-    expect(isAwaitingMember(null)).toBe(false);
+  it("needsMemberReply is true when the flag is set on an active ticket", () => {
+    expect(needsMemberReply({ status: "in_progress", awaitingMemberReply: true })).toBe(true);
+    expect(needsMemberReply({ status: "open", awaitingMemberReply: true })).toBe(true);
+    expect(needsMemberReply({ status: "in_progress", awaitingMemberReply: false })).toBe(false);
+    expect(needsMemberReply({ status: "open" })).toBe(false);
   });
 
-  it("labels active statuses 'In progress' and terminal 'Complete'", () => {
-    expect(formatMemberSubmissionStatus("open")).toBe("In progress");
-    expect(formatMemberSubmissionStatus("in_progress")).toBe("In progress");
-    expect(formatMemberSubmissionStatus("awaiting_response")).toBe("In progress");
+  it("needsMemberReply still honors the legacy awaiting_response status", () => {
+    expect(needsMemberReply({ status: "awaiting_response" })).toBe(true);
+    expect(needsMemberReply({ status: "awaiting_response", awaitingMemberReply: false })).toBe(true);
+  });
+
+  it("needsMemberReply is never true for terminal or missing statuses", () => {
+    expect(needsMemberReply({ status: "resolved", awaitingMemberReply: true })).toBe(false);
+    expect(needsMemberReply({ status: "closed", awaitingMemberReply: true })).toBe(false);
+    expect(needsMemberReply({ status: null, awaitingMemberReply: true })).toBe(false);
+    expect(needsMemberReply({})).toBe(false);
+  });
+
+  it("exposes a soft (non-alarming) member reply label", () => {
+    expect(MEMBER_REPLY_NEEDED_LABEL).toBe("New reply — response may be needed");
+  });
+
+  it("labels queued/worked/terminal statuses distinctly for members", () => {
+    expect(formatMemberSubmissionStatus("open")).toBe("Submitted — in queue");
+    expect(formatMemberSubmissionStatus("in_progress")).toBe("In progress — the team is on it");
+    expect(formatMemberSubmissionStatus("awaiting_response")).toBe("In progress — the team is on it");
     expect(formatMemberSubmissionStatus("resolved")).toBe("Complete");
     expect(formatMemberSubmissionStatus("closed")).toBe("Complete");
   });
 
-  it("falls back to 'In progress' for unknown/empty status", () => {
-    expect(formatMemberSubmissionStatus("some_future_status")).toBe("In progress");
-    expect(formatMemberSubmissionStatus(null)).toBe("In progress");
-    expect(formatMemberSubmissionStatus(undefined)).toBe("In progress");
+  it("falls back to the in-progress label for unknown/empty status", () => {
+    expect(formatMemberSubmissionStatus("some_future_status")).toBe("In progress — the team is on it");
+    expect(formatMemberSubmissionStatus(null)).toBe("In progress — the team is on it");
+    expect(formatMemberSubmissionStatus(undefined)).toBe("In progress — the team is on it");
   });
 });

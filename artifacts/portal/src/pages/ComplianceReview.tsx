@@ -2,14 +2,19 @@ import { AppLayout } from "@/components/layout/AppLayout";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { ShieldCheck, CheckCircle2, Send, AlertCircle } from "lucide-react";
+import { ShieldCheck, CheckCircle2, Send, MessageCircle } from "lucide-react";
 import { useState } from "react";
 import { Link } from "wouter";
 import { format } from "date-fns";
 import { useListTickets } from "@workspace/api-client-react";
 import type { Ticket } from "@workspace/api-client-react";
 import { ConversationModal } from "@/components/support/ConversationModal";
-import { isActiveTicketStatus, isAwaitingMember } from "@workspace/support-config";
+import {
+  isActiveTicketStatus,
+  needsMemberReply,
+  formatMemberSubmissionStatus,
+  MEMBER_REPLY_NEEDED_LABEL,
+} from "@workspace/support-config";
 
 // A compliance submission is just a support ticket of category
 // `compliance_review`; reuse the generated schema type so the section
@@ -27,13 +32,16 @@ function complianceOfferLabel(subject: string): string {
 const byNewestFirst = (a: ComplianceTicket, b: ComplianceTicket) =>
   new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
 
-// One row in the "Current Submissions" list. Badge + button escalate with
-// urgency: when the compliance team is waiting on the member
-// (`awaiting_response`) the row shows a loud amber "Action Needed" badge and a
-// solid "View & Respond" button that opens the conversation modal in respond
-// mode (read + text-only reply) in place. Otherwise it shows a calm "Under
-// Review" badge and an outlined "View Conversation" button that opens the same
-// modal read-only.
+// One row in the "Current Submissions" list. The status badge tells the member
+// where their submission is in the pipeline ("Submitted — in queue" vs "In
+// progress — the team is on it"). When the team's reply is the newest message
+// in the conversation (`awaitingMemberReply`, or a legacy `awaiting_response`
+// status) a soft "New reply" indicator appears next to it and the button
+// becomes a solid "View & Respond" that opens the conversation modal in
+// respond mode (read + text-only reply). Otherwise the outlined "View
+// Conversation" button opens the same modal read-only. The soft indicator
+// deliberately replaces the old loud amber "Action Needed" escalation — a
+// support reply is a nudge, not an alarm.
 function CurrentSubmissionRow({
   ticket,
   onViewConversation,
@@ -42,20 +50,23 @@ function CurrentSubmissionRow({
   onViewConversation: () => void;
 }) {
   const offer = complianceOfferLabel(ticket.subject);
-  const actionNeeded = isAwaitingMember(ticket.status);
+  const replyNeeded = needsMemberReply(ticket);
   return (
     <Card className="border-border/60" data-testid={`compliance-active-${ticket.id}`} data-status={ticket.status}>
       <CardContent className="p-4 sm:p-5">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div className="min-w-0">
-            <div className="flex items-center gap-2 mb-1">
-              {actionNeeded ? (
-                <Badge variant="warning" className="gap-1" data-testid={`compliance-action-needed-${ticket.id}`}>
-                  <AlertCircle className="w-3 h-3" />
-                  Action Needed
+            <div className="flex flex-wrap items-center gap-2 mb-1">
+              <Badge variant="secondary">{formatMemberSubmissionStatus(ticket.status)}</Badge>
+              {replyNeeded && (
+                <Badge
+                  variant="outline"
+                  className="gap-1 border-primary/40 text-primary"
+                  data-testid={`compliance-reply-needed-${ticket.id}`}
+                >
+                  <MessageCircle className="w-3 h-3" />
+                  {MEMBER_REPLY_NEEDED_LABEL}
                 </Badge>
-              ) : (
-                <Badge variant="secondary">Under Review</Badge>
               )}
               <span className="text-xs font-mono text-muted-foreground">{ticket.ticketNumber}</span>
             </div>
@@ -64,7 +75,7 @@ function CurrentSubmissionRow({
               Submitted {format(new Date(ticket.createdAt), "MMM d, yyyy")}
             </p>
           </div>
-          {actionNeeded ? (
+          {replyNeeded ? (
             <Button
               variant="default"
               size="sm"
@@ -236,7 +247,7 @@ function ComplianceSubmissions() {
         }
         teamLabel="Compliance Team"
         teamIcon={<ShieldCheck className="w-3.5 h-3.5 text-primary" />}
-        allowReply={conversationTicket ? isAwaitingMember(conversationTicket.status) : false}
+        allowReply={conversationTicket ? needsMemberReply(conversationTicket) : false}
         onClose={() => setConversationTicket(null)}
       />
     </div>

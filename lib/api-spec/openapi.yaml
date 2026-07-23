@@ -8161,6 +8161,14 @@ components:
           type: string
         assignedTo:
           type: ["integer", "null"]
+        awaitingMemberReply:
+          type: boolean
+          description: |
+            True when the last message in the conversation is agent-authored
+            and the ticket is not resolved — the team has replied and a
+            response from the member may be needed. Cleared immediately when
+            the member replies. Rendered as a soft "New reply" indicator on
+            the member submission views, never a hard workflow state.
         createdAt:
           type: string
           format: date-time
@@ -8170,7 +8178,7 @@ components:
         resolvedAt:
           type: ["string", "null"]
           format: date-time
-      required: [id, ticketNumber, userId, category, priority, status, subject, createdAt, updatedAt]
+      required: [id, ticketNumber, userId, category, priority, status, subject, awaitingMemberReply, createdAt, updatedAt]
 
     CreateTicket:
       type: object
@@ -8234,6 +8242,12 @@ components:
             "failed" means automatic delivery exhausted its retries (the
             team was still notified by email as a fallback). "pending" and
             "skipped" are treated as in-progress on the member-facing UI.
+        awaitingMemberReply:
+          type: boolean
+          description: |
+            True when the last message in the conversation is agent-authored
+            and the ticket is not resolved — cleared immediately when the
+            member replies.
         createdAt:
           type: string
           format: date-time
@@ -8251,7 +8265,7 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/TicketAttachment"
-      required: [id, ticketNumber, userId, category, priority, status, subject, deliveryStatus, createdAt, updatedAt, messages, attachments]
+      required: [id, ticketNumber, userId, category, priority, status, subject, deliveryStatus, awaitingMemberReply, createdAt, updatedAt, messages, attachments]
 
     TicketAttachment:
       type: object

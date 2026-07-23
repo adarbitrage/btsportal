@@ -32,6 +32,11 @@ team was still notified by email as a fallback). "pending" and
 "skipped" are treated as in-progress on the member-facing UI.
  */
   deliveryStatus: TicketWithMessagesDeliveryStatus;
+  /** True when the last message in the conversation is agent-authored
+and the ticket is not resolved — cleared immediately when the
+member replies.
+ */
+  awaitingMemberReply: boolean;
   createdAt: Date;
   updatedAt: Date;
   /** @nullable */

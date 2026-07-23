@@ -3,7 +3,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
-  Sparkles, CheckCircle2, Send, Upload, AlertCircle,
+  Sparkles, CheckCircle2, Send, Upload, MessageCircle,
 } from "lucide-react";
 import { useState } from "react";
 import { Link } from "wouter";
@@ -13,7 +13,9 @@ import type { Ticket } from "@workspace/api-client-react";
 import { ConversationModal } from "@/components/support/ConversationModal";
 import {
   isActiveTicketStatus,
-  isAwaitingMember,
+  needsMemberReply,
+  formatMemberSubmissionStatus,
+  MEMBER_REPLY_NEEDED_LABEL,
 } from "@workspace/support-config";
 
 // ── Submissions view (mirrors the Compliance Review landing page) ──
@@ -113,12 +115,16 @@ function SubmissionSummary({ ticketId }: { ticketId: number }) {
 const conciergeByNewestFirst = (a: ConciergeTicket, b: ConciergeTicket) =>
   new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
 
-// One row in the "Current Submissions" list. Badge + button escalate with
-// urgency: when the Concierge team is waiting on the member (`awaiting_response`)
-// the row shows a loud amber "Action Needed" badge and a solid "View & Respond"
-// button that opens the conversation modal in respond mode (read + text-only
-// reply) in place. Otherwise it shows a calm "In Progress" badge and an outlined
-// "View Conversation" button that opens the same modal read-only.
+// One row in the "Current Submissions" list. The status badge tells the member
+// where their task is in the pipeline ("Submitted — in queue" vs "In progress —
+// the team is on it"). When the team's reply is the newest message in the
+// conversation (`awaitingMemberReply`, or a legacy `awaiting_response` status)
+// a soft "New reply" indicator appears next to it and the button becomes a
+// solid "View & Respond" that opens the conversation modal in respond mode
+// (read + text-only reply). Otherwise the outlined "View Conversation" button
+// opens the same modal read-only. The soft indicator deliberately replaces the
+// old loud amber "Action Needed" escalation — a support reply is a nudge, not
+// an alarm.
 function CurrentSubmissionRow({
   ticket,
   onViewConversation,
@@ -127,20 +133,23 @@ function CurrentSubmissionRow({
   onViewConversation: () => void;
 }) {
   const offer = conciergeOfferLabel(ticket.subject);
-  const actionNeeded = isAwaitingMember(ticket.status);
+  const replyNeeded = needsMemberReply(ticket);
   return (
     <Card className="border-border/60" data-testid={`concierge-active-${ticket.id}`} data-status={ticket.status}>
       <CardContent className="p-4 sm:p-5">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div className="min-w-0">
-            <div className="flex items-center gap-2 mb-1">
-              {actionNeeded ? (
-                <Badge variant="warning" className="gap-1" data-testid={`concierge-action-needed-${ticket.id}`}>
-                  <AlertCircle className="w-3 h-3" />
-                  Action Needed
+            <div className="flex flex-wrap items-center gap-2 mb-1">
+              <Badge variant="secondary">{formatMemberSubmissionStatus(ticket.status)}</Badge>
+              {replyNeeded && (
+                <Badge
+                  variant="outline"
+                  className="gap-1 border-primary/40 text-primary"
+                  data-testid={`concierge-reply-needed-${ticket.id}`}
+                >
+                  <MessageCircle className="w-3 h-3" />
+                  {MEMBER_REPLY_NEEDED_LABEL}
                 </Badge>
-              ) : (
-                <Badge variant="secondary">In Progress</Badge>
               )}
               <span className="text-xs font-mono text-muted-foreground">{ticket.ticketNumber}</span>
             </div>
@@ -150,7 +159,7 @@ function CurrentSubmissionRow({
             </p>
             <SubmissionSummary ticketId={ticket.id} />
           </div>
-          {actionNeeded ? (
+          {replyNeeded ? (
             <Button
               variant="default"
               size="sm"
@@ -325,7 +334,7 @@ function ConciergeSubmissions() {
         }
         teamLabel="BTS Concierge™ Team"
         teamIcon={<Sparkles className="w-3.5 h-3.5 text-primary" />}
-        allowReply={conversationTicket ? isAwaitingMember(conversationTicket.status) : false}
+        allowReply={conversationTicket ? needsMemberReply(conversationTicket) : false}
         onClose={() => setConversationTicket(null)}
       />
     </div>

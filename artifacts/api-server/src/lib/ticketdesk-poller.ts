@@ -71,11 +71,13 @@ import {
 import {
   createSessionForPolling,
   fetchThreadMessagesWithMeta,
-  detectThreadClosed,
+  parseThreadStatus,
+  inferAwaitingMemberReply,
   isAgentMessage,
   type TicketDeskThreadMessage,
 } from "./ticketdesk-client";
 import { recordFirstResponse, resumeSla } from "./sla";
+import { sendTicketReplyNotification } from "./ticket-reply-notification";
 
 const POLL_INTERVAL_MS = 5 * 60 * 1000;
 const POLL_CUTOFF_DAYS = parseInt(
@@ -86,6 +88,15 @@ const MAX_CONCURRENT = 5;
 const INTER_TICKET_DELAY_MS = 300;
 
 const ACTIVE_STATUSES = ["open", "in_progress", "awaiting_response"];
+
+/**
+ * Statuses the poll cycle watches. "resolved" is included so the poller can
+ * see TicketDesk's auto-reopen (a member replying in the TicketDesk widget
+ * flips a resolved thread back to open) and reopen the portal ticket to
+ * match. "closed" stays excluded: it is a portal-only terminal state that
+ * TicketDesk never reopens.
+ */
+const POLL_STATUSES = [...ACTIVE_STATUSES, "resolved"];
 
 /**
  * Age (minutes) past which a still-'pending' ticket is treated as stuck and
@@ -139,26 +150,117 @@ async function pollSingleTicket(
     return { appended: 0, skipped: 0 };
   }
 
-  // Check whether TicketDesk has closed/resolved this conversation.
-  // When closure is detected:
-  //   1. Set the portal ticket to "resolved" (best-effort, idempotent on ticket.id).
-  //   2. Do NOT return early — any newly-seen agent messages in this same poll
-  //      must still be appended so members see the final support response.
-  //   3. The threadClosed flag is used below to skip the "in_progress" status
-  //      promotion (which would overwrite "resolved" using the stale ticket.status).
-  const threadClosed = detectThreadClosed(messages, rawData);
-  if (threadClosed && ACTIVE_STATUSES.includes(ticket.status)) {
+  // --- Status sync (the agreed TicketDesk chat-API contract) ---------------
+  //
+  // parseThreadStatus reads the explicit `status` + `resolvedAt` TicketDesk
+  // exposes on the messages response. An ABSENT or unrecognised status parses
+  // as null — "unknown", never "closed" — in which case no status transition
+  // happens at all (today's behavior until TicketDesk ships their change).
+  //
+  //   - remote resolved  + portal active   → resolve the portal ticket
+  //     (stamp resolvedAt from TicketDesk when provided, clear the
+  //     awaiting-reply nudge). Do NOT return early — any newly-seen agent
+  //     messages in this same poll must still be appended so members see the
+  //     final support response.
+  //   - remote open/in_progress + portal resolved → TicketDesk auto-reopened
+  //     the thread (the member replied in the widget): reopen the portal
+  //     ticket as in_progress, clear resolvedAt, resume the SLA clock.
+  //   - remote in_progress + portal open → promote, even when this cycle
+  //     appended no new messages (an agent can claim a thread before typing).
+  //
+  // `effectiveStatus` tracks the portal status through these writes so the
+  // append-driven promotion below never overwrites a fresh "resolved" with a
+  // stale ticket.status.
+  const remote = parseThreadStatus(rawData);
+  let effectiveStatus = ticket.status;
+  const threadResolved = remote.status === "resolved";
+
+  if (threadResolved && ACTIVE_STATUSES.includes(ticket.status)) {
     try {
       await db
         .update(ticketsTable)
-        .set({ status: "resolved", resolvedAt: new Date() })
+        .set({
+          status: "resolved",
+          resolvedAt: remote.resolvedAt ?? new Date(),
+          awaitingMemberReply: false,
+        })
         .where(eq(ticketsTable.id, ticket.id));
+      effectiveStatus = "resolved";
       console.log(
-        `[TicketDesk Poller] Marked ticket ${ticket.ticketNumber} as resolved (TicketDesk closed the conversation)`,
+        `[TicketDesk Poller] Marked ticket ${ticket.ticketNumber} as resolved (TicketDesk reports status=resolved)`,
       );
     } catch (err) {
       console.error(
-        `[TicketDesk Poller] Failed to resolve ticket ${ticket.ticketNumber} from TicketDesk closure:`,
+        `[TicketDesk Poller] Failed to resolve ticket ${ticket.ticketNumber} from TicketDesk status:`,
+        err,
+      );
+    }
+  } else if (
+    (remote.status === "open" || remote.status === "in_progress") &&
+    ticket.status === "resolved"
+  ) {
+    // Auto-reopen: TicketDesk cleared resolved_at because the member replied
+    // in the widget. Mirror it — back to in_progress, resolvedAt cleared.
+    try {
+      await db
+        .update(ticketsTable)
+        .set({ status: "in_progress", resolvedAt: null })
+        .where(eq(ticketsTable.id, ticket.id));
+      effectiveStatus = "in_progress";
+      console.log(
+        `[TicketDesk Poller] Reopened ticket ${ticket.ticketNumber} (TicketDesk reports status=${remote.status} after resolution)`,
+      );
+      try {
+        await resumeSla(ticket.id);
+      } catch (err) {
+        console.error(
+          `[TicketDesk Poller] Failed to resume SLA on reopen for ticket ${ticket.ticketNumber}:`,
+          err,
+        );
+      }
+    } catch (err) {
+      console.error(
+        `[TicketDesk Poller] Failed to reopen ticket ${ticket.ticketNumber}:`,
+        err,
+      );
+    }
+  } else if (remote.status === "in_progress" && ticket.status === "open") {
+    // An agent claimed the thread (even if they haven't replied yet).
+    try {
+      await db
+        .update(ticketsTable)
+        .set({ status: "in_progress" })
+        .where(eq(ticketsTable.id, ticket.id));
+      effectiveStatus = "in_progress";
+    } catch (err) {
+      console.error(
+        `[TicketDesk Poller] Failed to promote ticket ${ticket.ticketNumber} to in_progress:`,
+        err,
+      );
+    }
+  }
+
+  // --- "Awaiting member reply" inference ------------------------------------
+  // True when the last directional message in the thread is agent-authored and
+  // the ticket isn't resolved. Recomputed every cycle from the full thread, so
+  // it self-corrects; only written when it differs from the stored value.
+  const isResolvedNow =
+    effectiveStatus === "resolved" || effectiveStatus === "closed";
+  const awaiting = inferAwaitingMemberReply(messages, isResolvedNow);
+  // A resolve/reopen write above may already have set the flag's column; the
+  // resolve path forces it false, matching inferAwaitingMemberReply(resolved).
+  const storedAwaiting = threadResolved && effectiveStatus === "resolved"
+    ? false
+    : ticket.awaitingMemberReply;
+  if (awaiting !== storedAwaiting) {
+    try {
+      await db
+        .update(ticketsTable)
+        .set({ awaitingMemberReply: awaiting })
+        .where(eq(ticketsTable.id, ticket.id));
+    } catch (err) {
+      console.error(
+        `[TicketDesk Poller] Failed to update awaiting-member-reply flag for ticket ${ticket.ticketNumber}:`,
         err,
       );
     }
@@ -231,7 +333,7 @@ async function pollSingleTicket(
     );
 
     // Mirror the same status and SLA side-effects the inbound webhook handler
-    // applies when it appends an agent reply.  All three are best-effort so a
+    // applies when it appends an agent reply.  All are best-effort so a
     // failure here never prevents the reply from being visible to the member.
     try {
       await recordFirstResponse(ticket.id);
@@ -242,18 +344,19 @@ async function pollSingleTicket(
       );
     }
 
-    // Only promote to "in_progress" when the thread was NOT already closed.
-    // If threadClosed is true the ticket has already been set to "resolved"
-    // above; promoting it again using the stale ticket.status would revert it.
+    // Only promote to "in_progress" when the explicit status sync above left
+    // the ticket active. If the remote status resolved the ticket this cycle,
+    // promoting it again from the stale pre-sync status would revert it.
     if (
-      !threadClosed &&
-      (ticket.status === "open" || ticket.status === "awaiting_response")
+      effectiveStatus === "open" ||
+      effectiveStatus === "awaiting_response"
     ) {
       try {
         await db
           .update(ticketsTable)
           .set({ status: "in_progress" })
           .where(eq(ticketsTable.id, ticket.id));
+        effectiveStatus = "in_progress";
       } catch (err) {
         console.error(
           `[TicketDesk Poller] Failed to advance status for ticket ${ticket.ticketNumber}:`,
@@ -262,7 +365,7 @@ async function pollSingleTicket(
       }
     }
 
-    if (!threadClosed && ticket.status === "awaiting_response") {
+    if (ticket.status === "awaiting_response") {
       try {
         await resumeSla(ticket.id);
       } catch (err) {
@@ -272,6 +375,14 @@ async function pollSingleTicket(
         );
       }
     }
+
+    // Notify the member (email + optional SMS nudge) that support replied —
+    // the poller path previously synced the reply silently, so a member who
+    // wasn't watching the portal never knew. The webhook_logs dedup claim per
+    // message id guarantees each reply is processed by exactly one path, so
+    // this can never double-notify with the webhook handler. One notification
+    // per poll cycle regardless of how many replies were appended.
+    await sendTicketReplyNotification(ticket);
   }
 
   return { appended, skipped };
@@ -416,7 +527,7 @@ async function runPollCycle(): Promise<void> {
       .where(
         and(
           eq(ticketsTable.deliveryStatus, "delivered"),
-          inArray(ticketsTable.status, ACTIVE_STATUSES),
+          inArray(ticketsTable.status, POLL_STATUSES),
           gte(ticketsTable.createdAt, cutoff),
           isNotNull(ticketsTable.userId),
         ),

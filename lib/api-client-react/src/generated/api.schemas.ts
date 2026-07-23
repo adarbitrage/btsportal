@@ -1004,6 +1004,13 @@ export interface Ticket {
   subject: string;
   /** @nullable */
   assignedTo?: number | null;
+  /** True when the last message in the conversation is agent-authored
+and the ticket is not resolved — the team has replied and a
+response from the member may be needed. Cleared immediately when
+the member replies. Rendered as a soft "New reply" indicator on
+the member submission views, never a hard workflow state.
+ */
+  awaitingMemberReply: boolean;
   createdAt: string;
   updatedAt: string;
   /** @nullable */
@@ -1130,6 +1137,11 @@ team was still notified by email as a fallback). "pending" and
 "skipped" are treated as in-progress on the member-facing UI.
  */
   deliveryStatus: TicketWithMessagesDeliveryStatus;
+  /** True when the last message in the conversation is agent-authored
+and the ticket is not resolved — cleared immediately when the
+member replies.
+ */
+  awaitingMemberReply: boolean;
   createdAt: string;
   updatedAt: string;
   /** @nullable */

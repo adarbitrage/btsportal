@@ -35,6 +35,15 @@ export const ticketsTable = pgTable("tickets", {
   deliveryStatus: text("delivery_status").notNull().default("pending"),
   deliveryLastAttemptAt: timestamp("delivery_last_attempt_at", { withTimezone: true }),
   deliveryLastError: text("delivery_last_error"),
+  // True when the last message in the conversation is agent-authored and the
+  // ticket is not resolved — i.e. the ball is (softly) in the member's court.
+  // Set by the TicketDesk poller / inbound-reply paths when an agent reply is
+  // appended, and cleared IMMEDIATELY when the member replies (both directly
+  // in the reply endpoints, without waiting for the next poll cycle). This is
+  // an inference, not a hard workflow state: the member-facing UI renders it
+  // as a soft "New reply — response may be needed" indicator, never a loud
+  // "action required" gate.
+  awaitingMemberReply: boolean("awaiting_member_reply").notNull().default(false),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
   resolvedAt: timestamp("resolved_at", { withTimezone: true }),
