@@ -240,3 +240,15 @@ id = "5Ti8P8WQOfKij8HeWV21c"
 uri = "file://.local/kb-trim-worksheet.md"
 type = "text"
 title = "KB Trim & Consolidation Worksheet (v1)"
+
+[[outputs]]
+id = "UqqP9TKPV1A3MQ_T876iL"
+uri = "file://.local/tasks/review/doc-cleanup-prompt.md"
+type = "text"
+title = "Doc cleanup prompt (final, audited)"
+
+[[outputs]]
+id = "jFKVYFUlzGpiSme2FuV2g"
+uri = "file://exports/doc-cleanup-prompt.md"
+type = "text"
+title = "Doc cleanup prompt (final, audited)"
