@@ -10,6 +10,22 @@ import { sql } from "drizzle-orm";
 // ai_live_documents directly. It intentionally lives in __tests__ so it can
 // never be imported by server code.
 export async function seedLiveDocsFromCitableLegacyForTest(): Promise<void> {
+  // Shared dev DBs can hold leftover rows from the retired boot mirror whose
+  // slug matches a citable legacy doc but whose title has since diverged.
+  // Those rows trip the slug unique index (the INSERT below only handles the
+  // title conflict), so clear them first — but only when no row with the
+  // current legacy title already exists (in that case the INSERT is a no-op
+  // and nothing needs deleting).
+  await db.execute(sql`
+    DELETE FROM ai_live_documents l
+    USING knowledgebase_docs k
+    WHERE l.slug = k.slug
+      AND l.title <> k.title
+      AND k.doc_class IN ('curated', 'overview')
+      AND k.last_verified IS NOT NULL
+      AND NOT EXISTS (
+        SELECT 1 FROM ai_live_documents x WHERE x.title = k.title
+      )`);
   await db.execute(sql`
     INSERT INTO ai_live_documents
       (title, slug, category, content, audience, source_path, source_label,

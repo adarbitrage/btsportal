@@ -50,7 +50,12 @@ function basisArray(axis: number): number[] {
 // Deliberately gibberish so NO real query ever lexically matches these rows.
 const SEM_TITLE = "zzqx hybrid-test semantic-only doc (Task #1803 test fixture)";
 const LEX_TITLE = "zzqx hybrid-test lexical doc wumbelfrag (Task #1803 test fixture)";
-const CATEGORY = "operations";
+// Unique fixture-only category: shared dev DBs contain real docs with fresh
+// embeddings (e.g. in "operations") whose vectors have small nonzero
+// components along our basis axes, polluting topSemanticScore (~0.028 instead
+// of 0). Scoping retrieval to a category only our fixtures use isolates the
+// test from whatever else lives in ai_live_documents.
+const CATEGORY = "zzqx-hybrid-test-category";
 
 let semDocId = 0;
 let lexDocId = 0;

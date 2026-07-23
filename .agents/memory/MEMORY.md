@@ -153,3 +153,4 @@
 - [GitHub mirror sync](github-mirror-sync.md) — post-merge force-pushes master→GitHub main via GIT_ASKPASS token seam; GitHub is a read-only mirror, never add a persistent remote.
 - [KB tag preserve + tagging policy](kb-tag-preserve-and-policy.md) — publish paths guard against empty-tag wipes; tag only what a doc satisfyingly answers (tier-jump boost punishes over-tagging).
 - [Campaign roadmap spine](campaign-roadmap-spine.md) — 17-step chronology lives in @workspace/campaign-roadmap; spine appended in code every chat request (never DB-stored); step/substep ids are frozen checklist-persistence keys.
+- [KB tests vs shared dev DB](kb-test-shared-db-isolation.md) — retrieval tests need fixture-only categories + slug-aware idempotent seeds; the shared corpus grows and pollutes fixed top-N/semantic-0 assertions.
