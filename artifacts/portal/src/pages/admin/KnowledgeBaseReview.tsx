@@ -2859,7 +2859,7 @@ export default function KnowledgeBaseReview() {
                     <ChevronUp className="w-4 h-4" />
                   </button>
                 ) : (
-                <div className={`${chatWide ? "basis-2/3" : "basis-1/3"} grow-0 shrink-0 min-h-[220px] flex flex-col rounded-lg border border-violet-200 bg-violet-50/60 transition-all`}>
+                <div className={`${chatWide ? "basis-[82%]" : "basis-1/3"} grow-0 shrink-0 min-h-[220px] flex flex-col rounded-lg border border-violet-200 bg-violet-50/60 transition-all`}>
                   <div className="flex items-center justify-between px-3 py-2 border-b border-violet-100">
                     <div className="flex items-center gap-2 text-sm font-medium text-violet-800">
                       <Wand2 className="w-4 h-4" />Refine with AI
@@ -2870,7 +2870,7 @@ export default function KnowledgeBaseReview() {
                         size="sm"
                         className="h-7 px-2 text-violet-700"
                         onClick={() => setChatWide((w) => !w)}
-                        title={chatWide ? "Shrink chat to 1/3 height" : "Expand chat to 2/3 height"}
+                        title={chatWide ? "Shrink chat to 1/3 height" : "Expand chat"}
                       >
                         {chatWide ? <ChevronDown className="w-4 h-4" /> : <ChevronUp className="w-4 h-4" />}
                       </Button>

@@ -2369,6 +2369,15 @@ Return ONLY the full revised document body (markdown). No preamble, no explanati
 // tokens, so small patches keep the loop responsive). Result is parked in
 // editedContent; status stays needs_review (never auto-published). Each turn is
 // recorded in the audit log so the thread persists across sessions.
+// The review page rebuilds the refine thread by splitting each persisted
+// aiReasoning row on the FIRST " — " after "per instruction:" (see
+// loadRefineThread in KnowledgeBaseReview.tsx). If the reviewer's own
+// instruction contains " — ", that split lands inside the instruction and the
+// rebuilt turns come back garbled — so neutralize the delimiter (em dash →
+// en dash) before embedding the instruction. Assistant text after the real
+// separator is safe: the parser's second capture is greedy to end-of-row.
+const neutralizeThreadDelimiter = (s: string) => s.replace(/\s+—\s+/g, " – ");
+
 router.post("/:id/refine", async (req: Request, res: Response) => {
   // Long-run safety (Task #1903): the refine LLM work can outlive the HTTP
   // connection (budget-escalation retries run minutes; the browser/proxy may
@@ -2654,7 +2663,7 @@ BRAND RULES: say "Build Test Scale" / "BTS" (never "TCE" or "Cherrington"); no c
         eventType: "refined",
         confidenceScore: null,
         actorUserId: userId,
-        aiReasoning: `Dismissed flags (no edit) per instruction: ${instruction.trim().substring(0, 300)} — ${assistantMsg.substring(0, 1000)}`,
+        aiReasoning: `Dismissed flags (no edit) per instruction: ${neutralizeThreadDelimiter(instruction.trim()).substring(0, 2000)} — ${assistantMsg.substring(0, 12000)}`,
         docTitle: doc.title,
       });
 
@@ -2816,7 +2825,7 @@ Return ONLY JSON: {"verdict":"already_covered|belongs_elsewhere|genuine_gap|fits
         eventType: "refined",
         confidenceScore: null,
         actorUserId: userId,
-        aiReasoning: `Placement pushback (${verdict}) on instruction: ${instruction.trim().substring(0, 200)} — ${guidance.substring(0, 1000)}${target ? ` [target: ${target.kind} #${target.id}]` : ""}`,
+        aiReasoning: `Placement pushback (${verdict}) on instruction: ${neutralizeThreadDelimiter(instruction.trim()).substring(0, 2000)} — ${guidance.substring(0, 12000)}${target ? ` [target: ${target.kind} #${target.id}]` : ""}`,
         docTitle: doc.title,
       });
 
@@ -2841,7 +2850,7 @@ Return ONLY JSON: {"verdict":"already_covered|belongs_elsewhere|genuine_gap|fits
         eventType: "refined",
         confidenceScore: null,
         actorUserId: userId,
-        aiReasoning: `Discussed (no edit) per instruction: ${instruction.trim().substring(0, 300)} — ${reply.substring(0, 1200)}`,
+        aiReasoning: `Discussed (no edit) per instruction: ${neutralizeThreadDelimiter(instruction.trim()).substring(0, 2000)} — ${reply.substring(0, 12000)}`,
         docTitle: doc.title,
       });
       res.json({ document: doc, mode: "discussion", assistantMessage: reply, changes: [], instruction: instruction.trim() });
@@ -2900,8 +2909,8 @@ Return ONLY JSON: {"verdict":"already_covered|belongs_elsewhere|genuine_gap|fits
       confidenceScore: null,
       actorUserId: userId,
       aiReasoning:
-        `Refined (${mode}) per instruction: ${instruction.trim().substring(0, 300)} — ${assistantMessage.substring(0, 200)}` +
-        (changes.length ? `\nCHANGES:\n${changes.map((c) => `• ${c.substring(0, 300)}`).join("\n")}` : ""),
+        `Refined (${mode}) per instruction: ${neutralizeThreadDelimiter(instruction.trim()).substring(0, 2000)} — ${assistantMessage.substring(0, 12000)}` +
+        (changes.length ? `\nCHANGES:\n${changes.map((c) => `• ${c.substring(0, 500)}`).join("\n")}` : ""),
       docTitle: doc.title,
     });
 
@@ -2926,7 +2935,7 @@ Return ONLY JSON: {"verdict":"already_covered|belongs_elsewhere|genuine_gap|fits
           eventType: "refined",
           confidenceScore: null,
           actorUserId: failCtx.userId,
-          aiReasoning: `Refine FAILED per instruction: ${failCtx.instruction.substring(0, 300)} — ⚠️ Refine failed: ${msg.substring(0, 600)}`,
+          aiReasoning: `Refine FAILED per instruction: ${neutralizeThreadDelimiter(failCtx.instruction).substring(0, 2000)} — ⚠️ Refine failed: ${msg.substring(0, 1200)}`,
           docTitle: failCtx.docTitle,
         });
       } catch (persistErr) {

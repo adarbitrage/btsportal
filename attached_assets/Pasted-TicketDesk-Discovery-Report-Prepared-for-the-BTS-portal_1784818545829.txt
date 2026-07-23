@@ -1,0 +1,145 @@
+TicketDesk Discovery Report
+Prepared for the BTS portal team — July 23, 2026. Describes what actually exists in the TicketDesk codebase today, with file paths.
+
+Context: the BTS portal currently integrates only through the public chat-session API (POST /api/chat/session, POST/GET /api/chat/messages) — creating conversations programmatically and polling for replies.
+
+A. The agent experience
+1. Life of a conversation (agent's side)
+A new conversation appears in the Inbox (artifacts/ticketdesk/src/pages/Inbox.tsx). Threads arrive already filed into an inbound address ("inbox" — e.g. Compliance, Concierge, BuildTestScale Support), which is the primary queue unit. The Inboxes overview (artifacts/ticketdesk/src/pages/Inboxes.tsx) shows per-inbox counts for "Mine", "Unassigned", and "Awaiting Reply".
+
+Typical flow: agent opens the thread from a list (this auto-marks it read) → sees the message history, contact card, and a reply composer → optionally assigns/claims → replies (or leaves an internal note) → eventually clicks Resolve.
+
+2. Every agent action
+Action	Data effect	Automatic?
+Reply (email or chat)	New messages row (outbound / chat_outbound), bumps threads.last_activity_at. Chat replies also send a best-effort email to the contact.	Explicit
+Internal note	New messages row, type: note (never shown to contact)	Explicit
+Resolve	threads.status = 'resolved', stamps resolved_at	Explicit button
+Assign	threads.assigned_to = userId via thread update route	Explicit — replying does not auto-assign
+Mark read	Row in read_status table	Automatic on view
+Mark unread	Deletes read_status row	Explicit
+Edit subject	threads.subject	Explicit
+Bulk move between inboxes	threads.inbound_address_id	Explicit (admin)
+AI suggest reply	No data change	Explicit
+Key files: artifacts/ticketdesk/src/components/thread-actions.tsx, reply-composer.tsx, artifacts/api-server/src/routes/threads.ts, messages.ts, read-status.ts.
+
+3. "Done"
+Yes — Resolve. threads.status is a two-value enum: open | resolved. Resolving stamps resolved_at and moves the thread to the Resolved tab. It is not terminal: if the contact sends a new inbound email or chat message, the thread auto-reopens (status flips back to open, resolved_at nulled) in artifacts/api-server/src/lib/inbound-message-create.ts.
+
+4. "Waiting on customer"
+No formal status. Two informal signals:
+
+The "Awaiting Reply" filter (GET /threads?awaitingReply=true) is computed on the fly: last message inbound = awaiting agent; last message outbound = implicitly waiting on customer. It is not a stored field.
+A chat-ack badge shows if an automated offline-ack email went out recently (last_chat_ack_email_at within 4h).
+There are no tags, snooze, or pending states.
+
+5. Ownership
+Two layers: inbox (inbound_address_id — the queue; set at creation by email recipient or chat section routing) and assignment (assigned_to, a single user, nullable). There is no auto-assignment, round-robin, or claiming mechanic — agents filter by "Mine" / "Unassigned" and self-serve.
+
+B. The data model
+6. Schema (lib/db/src/schema/threads.ts, messages.ts)
+threads — lifecycle-related fields:
+
+Field	Values
+status	open, resolved (only two)
+assigned_to	user uuid or null
+last_activity_at	bumped on every message
+resolved_at	stamped on resolve, nulled on auto-reopen
+last_chat_ack_email_at	rate-limits offline-ack email (4h)
+chat_reply_token	sub-addressing token linking ack-email replies back to the chat thread
+inbound_address_id	inbox/queue; nullable for section-less chats
+messages: type ∈ inbound, outbound, note, chat_inbound, chat_outbound; sender_type ∈ contact, agent; delivery_status ∈ not_applicable, sent, failed (plus delivery_error).
+
+There is no closed_at, assigned_at, last_agent_reply_at, snooze, priority, or external-ID column on threads.
+
+7. Transitions
+Resolve/assign: explicit via artifacts/api-server/src/routes/threads.ts (single + bulk).
+Auto-reopen on new contact message: artifacts/api-server/src/lib/inbound-message-create.ts.
+No time-based status transitions — nothing auto-closes stale threads. (Background sweepers exist only for rate-limit counters, staged attachments, and expired chat sessions.)
+8. Message types / system messages
+Five types listed above. There is no system/activity message type. Assignment, resolution, etc. produce no message rows — some events go to dedicated event tables (e.g. chat_section_fallback_events), not the conversation. The only automated outbound content is the chat offline-ack email (templated in workspace_chat_config, 4h rate limit per thread).
+
+C. What the outside world can see and do
+9. Chat API response shapes (artifacts/api-server/src/routes/chat.ts)
+POST /api/chat/session
+
+{
+  "sessionToken": "string (base64url)",
+  "sessionId": "uuid",
+  "threadId": "uuid | null",
+  "contactId": "uuid",
+  "expiresAt": "iso-8601"
+}
+
+threadId is null until the first message — threads are created lazily.
+
+GET /api/chat/messages
+
+{
+  "messages": [
+    {
+      "id": "uuid",
+      "type": "chat_inbound | chat_outbound | inbound | outbound",
+      "bodyHtml": "string",
+      "bodyText": "string",
+      "createdAt": "iso-8601",
+      "attachments": [
+        { "id": "uuid", "filename": "string", "contentType": "string", "sizeBytes": 123, "url": "string | null" }
+      ],
+      "agentName": "string (optional, agent messages only — friendly name)",
+      "viaEmail": "boolean (optional — chat_inbound that arrived by replying to an ack email)"
+    }
+  ]
+}
+
+note messages are filtered out.
+
+POST /api/chat/messages → the created message object (same shape, type: "chat_inbound", full attachment rows).
+
+GET /api/chat/config
+
+{
+  "workspaceName": "string",
+  "greeting": "string",
+  "offlineMessage": "string",
+  "primaryColor": "string",
+  "position": "string",
+  "enabled": true,
+  "offlineAckEmailEnabled": true,
+  "agentsOnline": true,
+  "sectionRoutePrefixes": {}
+}
+
+Lifecycle fields exposed: only threadId (session), agentsOnline (workspace), agentName/viaEmail (message).
+
+Not exposed anywhere: status/resolved_at (the portal cannot tell a thread is resolved), assigned_to, last_chat_ack_email_at, chat_reply_token.
+
+10. Other external surfaces
+Past portal-side probing was accurate and nothing has changed:
+
+No webhook emission and no webhook registration — TicketDesk never makes outbound HTTP calls on conversation events and has no endpoint to register one.
+No contact-side close/resolve endpoint — resolution is agent-only.
+What does exist externally:
+
+/api/public/branding (+ asset redirects) — artifacts/api-server/src/routes/branding.ts
+Auth routes (/api/auth/*) and /api/healthz
+SendGrid inbound webhook — artifacts/api-server/src/routes/webhooks/sendgrid-inbound.ts
+Public WebSocket (/api/ws?session=<token>) — artifacts/api-server/src/lib/websocket.ts. A session-holding client can receive message:new, thread:updated, and chat:agents-online events for its own thread, and send contact_typing / heartbeat. This is the closest thing to push; the portal polls today instead.
+11. External IDs / channel distinction
+No external_id on threads. Contacts carry metadata.externalId (jsonb, lib/db/src/schema/contacts.ts), set at session mint when the host passes externalId + HMAC signature — this is how BTS members are identified today.
+Channel is inferred from message types (chat_* vs email inbound/outbound) and section-derived inbound_address_id.
+Portal-created chats vs widget chats are not distinguished at all — same API, same message types; the only trace is Origin in server logs and sectionSource in routing logs. Agents cannot see the difference either.
+D. Change surface — where the three portal signals would come from
+(a) "Agent has started working it" — Weakest fit today. There is no accepted/claimed state and replying does not auto-assign. Honest proxies:
+
+First agent reply — a chat_outbound message, already visible via GET /api/chat/messages and the WS message:new event. Zero new work if "started" ≈ "first reply".
+Assignment — assigned_to is set explicitly, but agents don't reliably assign, and it isn't exposed. Exposing it would be new API surface plus a workflow-discipline question.
+(b) "Agent needs something from the member" — Nothing exists to expose. "Awaiting reply" is computed from message direction, which the portal can already infer itself (last message is chat_outbound → ball is in the member's court). A deliberate "action required" signal would be genuinely new work: a new thread status/flag plus an agent UI affordance (the real fix), or a lighter convention like a structured marker in replies.
+
+(c) "Conversation finished" — The data already exists (status = resolved, resolved_at); it is just not exposed. Options, cheapest first:
+
+Include status in the GET /api/chat/messages or session response.
+Emit it over the existing WS thread:updated event (that event already fires — worth checking exactly what payload it carries).
+Build webhook emission — largest new work, but the only true push for a polling-averse integration.
+Note the auto-reopen behavior: "resolved" is not final, so the portal should treat it as a state, not an event terminus.
+
+Overall observation: the existing public WebSocket is an underused asset for this integration — the portal polls today, but a session-scoped socket already pushes message:new and thread:updated. Extending what those events carry (e.g. status) is likely much cheaper than building a webhook system.
