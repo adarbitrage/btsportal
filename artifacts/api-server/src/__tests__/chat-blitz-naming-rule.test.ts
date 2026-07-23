@@ -15,6 +15,7 @@ import {
   ANSWER_DEPTH_SENTINEL,
   SYNTHESIS_CONSISTENCY_SENTINEL,
   FORMATTING_STYLE_SENTINEL,
+  CAMPAIGN_SPINE_SENTINEL,
 } from "../lib/chat-system-prompt";
 
 // ensureKBGrounding() touches the DB and a handful of seed/scrub modules. Mock
@@ -105,12 +106,35 @@ const ALL_SENTINELS: Array<[string, string]> = [
   ["ANSWER_DEPTH_SENTINEL", ANSWER_DEPTH_SENTINEL],
   ["SYNTHESIS_CONSISTENCY_SENTINEL", SYNTHESIS_CONSISTENCY_SENTINEL],
   ["FORMATTING_STYLE_SENTINEL", FORMATTING_STYLE_SENTINEL],
+  ["CAMPAIGN_SPINE_SENTINEL", CAMPAIGN_SPINE_SENTINEL],
 ];
 
 beforeEach(() => {
   dbState.activePrompt = null;
   dbState.updatedContent = null;
   dbState.updateCount = 0;
+});
+
+describe("Rule 1 — campaign roadmap spine counts as provided context, with ordering precedence", () => {
+  it("carries the spine-context language (spine block header referenced, treated as verified)", () => {
+    expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain("Rule 1");
+    expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain(CAMPAIGN_SPINE_SENTINEL);
+    // References the exact header the chat route appends at assembly time.
+    expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain(
+      "BTS Campaign Roadmap (Authoritative Chronology)",
+    );
+    expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain("no hedging");
+  });
+
+  it("carries the precedence split: roadmap wins on ORDERING, articles win on depth/how-to", () => {
+    expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain("ORDERING and sequencing questions");
+    expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain(
+      "the roadmap block wins over any retrieved Knowledge Base article",
+    );
+    expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain(
+      "the roadmap tells you WHEN, the articles tell you HOW",
+    );
+  });
 });
 
 describe("Rule 6 — naming, legacy terminology and current navigation (merged old Rules 7+11)", () => {

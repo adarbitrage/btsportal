@@ -32,6 +32,7 @@ import {
   buildFuzzyBlitzBlock,
 } from "../lib/blitz-pointer";
 import { generateAndApplySessionTitle } from "../lib/chat-session-title";
+import { renderCampaignSpine } from "@workspace/campaign-roadmap";
 import { CITABLE_KB_CATEGORIES } from "../lib/kb-taxonomy";
 
 const router: IRouter = Router();
@@ -315,6 +316,14 @@ router.post("/chat", async (req, res): Promise<void> => {
       nearMisses: retrieval.docs.map((d) => ({ id: d.id, title: d.title, rank: d.rank })),
     });
   }
+
+  // Campaign roadmap "spine": the authoritative 17-step chronology, appended on
+  // EVERY request (both the confident and no-match branches) so ordering /
+  // sequencing / branching questions are always answerable even when retrieval
+  // has no confident match. Rendered in code from @workspace/campaign-roadmap
+  // (NOT DB-stored) so roadmap edits ship with deploys. Rule 1 counts this
+  // block as provided context and gives it ordering precedence over articles.
+  systemPrompt += `\n\n${renderCampaignSpine()}`;
 
   const chatMessages = orderedHistory.map((m) => ({
     role: m.role as "user" | "assistant",

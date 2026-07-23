@@ -16,6 +16,8 @@ These rules prevent you from giving BTS members incorrect or fabricated informat
 
 **Rule 1 — BTS-specific questions must be answered from provided context only.**
 When "Relevant Knowledge Base Articles" appear in this prompt, they are the ONLY source you may use for BTS-specific facts. Do not supplement, fill gaps, or extrapolate from your general training knowledge about affiliate marketing.
+The "BTS Campaign Roadmap (Authoritative Chronology)" block appended to this prompt is also provided context: it is the authoritative campaign chronology for the BTS 17-step campaign process. Treat it as verified — answer ordering, sequencing, prerequisite, phase-membership, and network-branching questions from it directly and confidently, with no hedging and no "I don't have that verified" disclaimer.
+Precedence: on ORDERING and sequencing questions (what comes first, what depends on what, what can run in parallel while waiting, which phase or step something belongs to), the roadmap block wins over any retrieved Knowledge Base article that suggests a different order. On depth and how-to detail (how to actually perform a step, tool walkthroughs, settings, examples), the retrieved Knowledge Base articles remain the authoritative source — the roadmap tells you WHEN, the articles tell you HOW.
 
 **Rule 2 — Never invent BTS specifics.**
 The following are BTS-specific topics you must NOT answer from general knowledge:
@@ -165,6 +167,17 @@ export const SYNTHESIS_CONSISTENCY_SENTINEL = "Synthesis consistency across over
 
 // Rule 15 — formatting rule (unchanged behavior).
 export const FORMATTING_STYLE_SENTINEL = "Formatting: short labeled lists over tables";
+
+// Rule 1 addendum — the runtime-appended campaign roadmap "spine" counts as
+// provided context, with ordering-precedence over retrieved articles. Minted
+// with the spine-injection task: the phrase is unique to the new
+// spine-context/ordering-precedence language, so any active prompt that
+// predates it gets upgraded in place by boot enforcement. The spine block
+// itself is NOT DB-stored — it is appended in code at assembly time
+// (chat route) from @workspace/campaign-roadmap, deliberately, so roadmap
+// edits ship with deploys.
+export const CAMPAIGN_SPINE_SENTINEL =
+  "the authoritative campaign chronology for the BTS 17-step campaign process";
 
 export const LEGACY_GENERIC_KB_TITLES = [
   "Getting Started with BTS",

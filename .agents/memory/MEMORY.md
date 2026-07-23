@@ -151,3 +151,4 @@
 - [Pitch stack hierarchy + email img-src guard](email-polish-pitch-hierarchy-and-guard.md) — position-aware pitch stack (primary/secondary/tertiary, one shared divider); structural test must exercise the real send path, not hand-built variables; DEV_EMAIL_ALLOWLIST forces real delivery for one-off sends without flipping NODE_ENV.
 - [GitHub mirror sync](github-mirror-sync.md) — post-merge force-pushes master→GitHub main via GIT_ASKPASS token seam; GitHub is a read-only mirror, never add a persistent remote.
 - [KB tag preserve + tagging policy](kb-tag-preserve-and-policy.md) — publish paths guard against empty-tag wipes; tag only what a doc satisfyingly answers (tier-jump boost punishes over-tagging).
+- [Campaign roadmap spine](campaign-roadmap-spine.md) — 17-step chronology lives in @workspace/campaign-roadmap; spine appended in code every chat request (never DB-stored); step/substep ids are frozen checklist-persistence keys.

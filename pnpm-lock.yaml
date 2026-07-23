@@ -236,6 +236,9 @@ importers:
       '@workspace/brand-config':
         specifier: workspace:*
         version: link:../../lib/brand-config
+      '@workspace/campaign-roadmap':
+        specifier: workspace:*
+        version: link:../../lib/campaign-roadmap
       '@workspace/content-access-registry':
         specifier: workspace:*
         version: link:../../lib/content-access-registry
@@ -700,6 +703,9 @@ importers:
       '@workspace/blitz-curriculum':
         specifier: workspace:*
         version: link:../../lib/blitz-curriculum
+      '@workspace/campaign-roadmap':
+        specifier: workspace:*
+        version: link:../../lib/campaign-roadmap
       '@workspace/content-access-registry':
         specifier: workspace:*
         version: link:../../lib/content-access-registry
@@ -901,6 +907,12 @@ importers:
         version: 3.2.6(@types/debug@4.1.12)(@types/node@25.3.5)(jiti@2.6.1)(jsdom@25.0.1)(lightningcss@1.31.1)(tsx@4.21.0)(yaml@2.9.0)
 
   lib/brand-config:
+    devDependencies:
+      vitest:
+        specifier: '>=3.2.6'
+        version: 3.2.6(@types/debug@4.1.12)(@types/node@25.3.5)(jiti@2.6.1)(jsdom@25.0.1)(lightningcss@1.31.1)(tsx@4.21.0)(yaml@2.9.0)
+
+  lib/campaign-roadmap:
     devDependencies:
       vitest:
         specifier: '>=3.2.6'

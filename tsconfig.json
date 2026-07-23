@@ -19,6 +19,9 @@
       "path": "./lib/blitz-curriculum"
     },
     {
+      "path": "./lib/campaign-roadmap"
+    },
+    {
       "path": "./lib/moderation-shared"
     },
     {
