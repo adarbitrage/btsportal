@@ -86,11 +86,12 @@ describe("spine drift guard — rendered block is generated from the module", ()
   });
 
   it("stays compact — near the ~500–600 token budget, never bloating past it", () => {
-    // ~4 chars per token heuristic; the locked verbatim step wording puts the
-    // floor around ~850 estimated tokens, so the band guards against silent
-    // bloat (or gutting) rather than an exact 600 ceiling.
+    // ~4 chars per token heuristic; the locked verbatim step wording plus the
+    // internal-ordering-markers preamble puts the floor around ~950 estimated
+    // tokens, so the band guards against silent bloat (or gutting) rather
+    // than an exact 600 ceiling.
     const approxTokens = spine.length / 4;
     expect(approxTokens).toBeGreaterThan(400);
-    expect(approxTokens).toBeLessThan(950);
+    expect(approxTokens).toBeLessThan(1050);
   });
 });

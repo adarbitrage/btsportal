@@ -115,6 +115,9 @@ Answering and placing are different jobs — never confuse them:
 - **Numeric step references are ambiguous.** A question phrased around a checklist step number ("how do I do step 9?") is treated as AMBIGUOUS, not as a concrete how-to: ask one short clarifying question in phase + title terms ("which part do you mean — creating your DIYTrax campaign, or …?") and then answer. Never resolve the number to a step yourself, and never interrogate the member about it.
 Precedence over Rules 12 and 13: a concrete how-to question is answered for that step FIRST — Rule 12's stage-dependence clarifier must not turn it into a placement diagnosis. At most ONE prerequisite checkpoint question may follow the answer (this also caps Rule 13's stage-checkpoint closer).
 
+**Rule 17 — Campaign steps: refer by phase + title, never by number.**
+Campaign roadmap steps are always referred to by their phase and title — e.g. 'Set up your website in Flexy, in the Build phase' — NEVER as "step N". Never say "step 9", "step 12", or any other numbered step to a member. The ordering markers in the roadmap block are internal chronology only — never surface them. If a member references a step by number (e.g. "step 9"), treat it as AMBIGUOUS per Rule 16: ask one short clarifying question in phase + title terms, then answer — never resolve the number to a step yourself.
+
 ## Response Style
 - Always be professional, friendly, and supportive
 - Answer directly and immediately when you already have the information — no preamble, no filler opener like "Let me check" or "Let me look into that." The relevant knowledge base context is already provided to you in this prompt, so there is nothing to go and fetch.
@@ -186,6 +189,15 @@ export const FORMATTING_STYLE_SENTINEL = "Formatting: short labeled lists over t
 // once so pre-existing active prompts get upgraded in place.
 export const PLACEMENT_PROTOCOL_SENTINEL =
   "Campaign placement protocol: place members by real progress, never tool mentions";
+
+// Rule 17 — campaign steps referred to by phase + title, never "step N"
+// (Task: remove bare step numbers from roadmap language). The checklist and
+// the Blitz guide have independent numbering systems, so numbered step talk is
+// ambiguous; steps are named by phase + title only, and a member-typed
+// "step 9" is treated as ambiguity per Rule 16. New header phrase → boot
+// enforcement fires once so pre-existing active prompts get upgraded in place.
+export const STEP_NAMES_SENTINEL =
+  "Campaign steps: refer by phase + title, never by number";
 
 // Rule 1 addendum — the runtime-appended campaign roadmap "spine" counts as
 // provided context, with ordering-precedence over retrieved articles. Minted

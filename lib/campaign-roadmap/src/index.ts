@@ -76,7 +76,8 @@ export const CAMPAIGN_ROADMAP: readonly CampaignStep[] = [
     number: 3,
     phase: "build",
     title: "Choose your network",
-    description: "Media Mavens or ClickBank. This choice branches steps 7, 10, 11, and 12.",
+    description:
+      "Media Mavens or ClickBank. This choice changes how you'll build your landing page assets, Flexy website, MetricMover split test, and DIYTrax setup.",
     substeps: [],
   },
   {
@@ -85,7 +86,7 @@ export const CAMPAIGN_ROADMAP: readonly CampaignStep[] = [
     phase: "build",
     title: "Select your offer & get your affiliate link",
     description:
-      "The affiliate link is required later for the DIYTrax Offer Pages tab (step 12).",
+      "The affiliate link is required later for the DIYTrax Offer Pages tab when you complete your DIYTrax setup.",
     substeps: [
       {
         substepId: "select-offer-review-presell",
@@ -100,7 +101,7 @@ export const CAMPAIGN_ROADMAP: readonly CampaignStep[] = [
     phase: "build",
     title: "Finalize your angles",
     description:
-      "5 angles, extracted from the advertorial/VSL and customer avatar research; done before creating ad or landing-page assets (steps 6–7 build on them).",
+      "5 angles, extracted from the advertorial/VSL and customer avatar research; done first — your native ad assets and landing page assets build on them.",
     substeps: [],
   },
   {
@@ -127,7 +128,7 @@ export const CAMPAIGN_ROADMAP: readonly CampaignStep[] = [
       {
         substepId: "create-lp-assets-mm-advertorial-copy",
         action:
-          "Landing-page copy comes from the pre-built advertorial (optimized in step 10).",
+          "Landing-page copy comes from the pre-built advertorial (optimized later when you set up your website in Flexy).",
         network: "media-mavens",
       },
     ],
@@ -138,7 +139,7 @@ export const CAMPAIGN_ROADMAP: readonly CampaignStep[] = [
     phase: "build",
     title: "Submit for compliance review",
     description:
-      "Submit all creatives. Compliance blocks publishing/go-live only; steps 9–10 continue while you wait.",
+      "Submit all creatives. Compliance blocks publishing/go-live only; you can keep building your DIYTrax campaign and Flexy website while you wait.",
     substeps: [],
   },
   {
@@ -195,7 +196,7 @@ export const CAMPAIGN_ROADMAP: readonly CampaignStep[] = [
     phase: "build",
     title: "Build your landing page split test in MetricMover",
     description:
-      "Requires the formatted Flexy page (step 10) and compliance-approved assets (step 8).",
+      "Requires your formatted Flexy page and your compliance-approved assets.",
     substeps: [
       {
         substepId: "metricmover-split-test-cb-fill-copy",
@@ -308,6 +309,7 @@ export function renderCampaignSpine(): string {
   const lines: string[] = [
     CAMPAIGN_SPINE_HEADER,
     "Authoritative 17-step BTS campaign chronology: ordering, prerequisites, phases, network branching. [MM]=Media Mavens, [CB]=ClickBank; untagged lines apply to both networks.",
+    "The list numbers below are INTERNAL ordering markers only — never surface them to members. Refer to steps by phase + title (per the campaign-step naming rule).",
   ];
 
   let currentPhase: CampaignPhase | null = null;

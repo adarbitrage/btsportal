@@ -16,6 +16,7 @@ import {
   SYNTHESIS_CONSISTENCY_SENTINEL,
   FORMATTING_STYLE_SENTINEL,
   PLACEMENT_PROTOCOL_SENTINEL,
+  STEP_NAMES_SENTINEL,
   CAMPAIGN_SPINE_SENTINEL,
 } from "../lib/chat-system-prompt";
 
@@ -108,6 +109,7 @@ const ALL_SENTINELS: Array<[string, string]> = [
   ["SYNTHESIS_CONSISTENCY_SENTINEL", SYNTHESIS_CONSISTENCY_SENTINEL],
   ["FORMATTING_STYLE_SENTINEL", FORMATTING_STYLE_SENTINEL],
   ["PLACEMENT_PROTOCOL_SENTINEL", PLACEMENT_PROTOCOL_SENTINEL],
+  ["STEP_NAMES_SENTINEL", STEP_NAMES_SENTINEL],
   ["CAMPAIGN_SPINE_SENTINEL", CAMPAIGN_SPINE_SENTINEL],
 ];
 
@@ -353,17 +355,39 @@ describe("Rule 16 — campaign placement protocol (place by real progress, not t
   });
 });
 
+describe("Rule 17 — campaign steps by phase + title, never by number", () => {
+  it("carries the rule header + sentinel and the phase+title naming contract", () => {
+    expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain("Rule 17");
+    expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain(STEP_NAMES_SENTINEL);
+    expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain('NEVER as "step N"');
+    expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain(
+      "Set up your website in Flexy, in the Build phase",
+    );
+  });
+
+  it("keeps ordering markers internal and treats member-typed numbers as ambiguity per Rule 16 — no translation clause", () => {
+    expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain(
+      "The ordering markers in the roadmap block are internal chronology only",
+    );
+    expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain("treat it as AMBIGUOUS per Rule 16");
+    // Deliberately NO legacy-number backstop: the rule never maps a number to
+    // a step for the member.
+    expect(ANTI_HALLUCINATION_SYSTEM_PROMPT.split("never resolve the number to a step yourself").length - 1)
+      .toBeGreaterThanOrEqual(1);
+  });
+});
+
 describe("prompt hygiene", () => {
   it("no longer carries member-visible tier placeholders (Task #1922 tier removal)", () => {
     expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).not.toContain("{{chat_tier}}");
     expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).not.toContain("Chat tier:");
   });
 
-  it("has exactly 16 rules and no stale references past Rule 16", () => {
-    for (let n = 1; n <= 16; n++) {
+  it("has exactly 17 rules and no stale references past Rule 17", () => {
+    for (let n = 1; n <= 17; n++) {
       expect(ANTI_HALLUCINATION_SYSTEM_PROMPT, `Rule ${n}`).toContain(`**Rule ${n} — `);
     }
-    for (const n of [17, 18, 19, 20]) {
+    for (const n of [18, 19, 20, 21]) {
       expect(ANTI_HALLUCINATION_SYSTEM_PROMPT, `Rule ${n}`).not.toContain(`Rule ${n}`);
     }
   });
