@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "wouter";
 import { AppLayout } from "@/components/layout/AppLayout";
-import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
@@ -14,10 +13,9 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { ArrowLeft, Check, ChevronDown, ClipboardList, ShieldCheck } from "lucide-react";
+import { ArrowLeft, ChevronDown, ClipboardList, ShieldCheck } from "lucide-react";
 import {
   CAMPAIGN_ROADMAP,
-  CAMPAIGN_STEP_COUNT,
   CAMPAIGN_PHASE_LABELS,
   type CampaignNetwork,
   type CampaignPhase,
@@ -31,28 +29,13 @@ const NETWORK_LABELS: Record<CampaignNetwork, string> = {
   clickbank: "ClickBank",
 };
 
-const NETWORK_TAG_CLASS: Record<CampaignNetwork, string> = {
-  "media-mavens": "bg-emerald-50 text-emerald-700 border-emerald-200",
-  clickbank: "bg-amber-50 text-amber-700 border-amber-200",
-};
-
-const PHASE_PILL: Record<CampaignPhase, string> = {
-  build: "bg-[#188f4a] border-[#136b38] text-white",
-  test: "bg-[#cf550a] border-[#a03f07] text-white",
-  scale: "bg-[#7f2ac9] border-[#641f9e] text-white",
-};
-
-const PHASE_ACCENT: Record<CampaignPhase, string> = {
-  build: "bg-[#188f4a]",
-  test: "bg-[#cf550a]",
-  scale: "bg-[#7f2ac9]",
-};
-
-const PHASE_NUM: Record<CampaignPhase, string> = {
-  build: "border-[#136b38] text-[#188f4a]",
-  test: "border-[#a03f07] text-[#cf550a]",
-  scale: "border-[#641f9e] text-[#7f2ac9]",
-};
+/**
+ * Display-only phase label: the shared CAMPAIGN_PHASE_LABELS embed numbers
+ * ("Phase 1 — Build") for the chat spine; the checklist shows just the name.
+ */
+export function phaseDisplayLabel(phase: CampaignPhase): string {
+  return CAMPAIGN_PHASE_LABELS[phase].replace(/^Phase\s*\d+\s*[\u2014\u2013-]\s*/u, "");
+}
 
 /** Substeps of a step visible for the chosen network (shared + own branch). */
 function visibleSubsteps(step: CampaignStep, network: CampaignNetwork | null) {
@@ -76,6 +59,54 @@ function isStepComplete(
   if (step.id === "choose-network") return network !== null;
   const keys = stepKeys(step, network);
   return keys.length > 0 && keys.every((k) => checked.has(k));
+}
+
+/** Where the "up next" cue should render. */
+interface UpNextTarget {
+  stepId: string;
+  /** Substep key when the cue sits on a specific substep row; null = step header. */
+  substepId: string | null;
+}
+
+/**
+ * The first actionable, VISIBLE unchecked item: respects network gating
+ * (hidden steps and other-branch substeps never count) and collapse state
+ * (a target inside a collapsed step marks the step header instead).
+ */
+function computeUpNext(
+  visibleSteps: readonly CampaignStep[],
+  network: CampaignNetwork | null,
+  checked: Set<string>,
+  collapsed: Set<string>,
+): UpNextTarget | null {
+  for (const step of visibleSteps) {
+    if (step.id === "choose-network") {
+      if (network === null) return { stepId: step.id, substepId: null };
+      continue;
+    }
+    const subs = visibleSubsteps(step, network);
+    if (subs.length === 0) {
+      if (!checked.has(step.id)) return { stepId: step.id, substepId: null };
+      continue;
+    }
+    const firstUnchecked = subs.find((s) => !checked.has(s.substepId));
+    if (firstUnchecked) {
+      if (collapsed.has(step.id)) return { stepId: step.id, substepId: null };
+      return { stepId: step.id, substepId: firstUnchecked.substepId };
+    }
+  }
+  return null;
+}
+
+function UpNextBadge() {
+  return (
+    <span
+      className="inline-flex items-center rounded border border-border px-1.5 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-foreground"
+      data-testid="up-next"
+    >
+      Up next
+    </span>
+  );
 }
 
 export default function CampaignChecklist() {
@@ -136,7 +167,7 @@ export default function CampaignChecklist() {
     [network, save],
   );
 
-  /** Check/uncheck every key of a single-checkbox step or a whole card. */
+  /** Check/uncheck every key of a single-checkbox step. */
   const setStepChecked = useCallback(
     (keys: string[], value: boolean) => {
       setChecked((prev) => {
@@ -207,25 +238,10 @@ export default function CampaignChecklist() {
     return map;
   }, [network, checked]);
 
-  const overallDone = useMemo(
-    () => CAMPAIGN_ROADMAP.filter((s) => completedByStep.get(s.id)).length,
-    [completedByStep],
+  const upNext = useMemo(
+    () => computeUpNext(visibleSteps, network, checked, collapsed),
+    [visibleSteps, network, checked, collapsed],
   );
-
-  const phaseProgress = useMemo(() => {
-    const out: Record<CampaignPhase, { done: number; total: number }> = {
-      build: { done: 0, total: 0 },
-      test: { done: 0, total: 0 },
-      scale: { done: 0, total: 0 },
-    };
-    for (const step of CAMPAIGN_ROADMAP) {
-      out[step.phase].total += 1;
-      if (completedByStep.get(step.id)) out[step.phase].done += 1;
-    }
-    return out;
-  }, [completedByStep]);
-
-  const overallPct = Math.round((overallDone / CAMPAIGN_STEP_COUNT) * 100);
 
   // Group the visible steps by phase, preserving chronological order.
   const phaseGroups = useMemo(() => {
@@ -240,41 +256,17 @@ export default function CampaignChecklist() {
 
   return (
     <AppLayout>
-      <div className="space-y-6 max-w-4xl" data-testid="campaign-checklist-page">
+      <div className="space-y-6 max-w-3xl" data-testid="campaign-checklist-page">
         <div className="space-y-4">
-          <div className="flex flex-col gap-5 sm:flex-row sm:items-stretch sm:justify-between sm:gap-6">
-            <div className="min-w-0">
-              <div className="flex items-center gap-2 mb-3">
-                <ClipboardList className="w-6 h-6 text-primary" />
-                <h1 className="text-3xl font-bold">Campaign Checklist</h1>
-              </div>
-              <p className="text-sm text-muted-foreground leading-relaxed max-w-xl">
-                The 17-step BTS campaign roadmap. Check items off as you go — your progress is
-                saved to your account and follows you across devices.
-              </p>
+          <div className="min-w-0">
+            <div className="flex items-center gap-2 mb-3">
+              <ClipboardList className="w-6 h-6 text-primary" />
+              <h1 className="text-3xl font-bold">Campaign Checklist</h1>
             </div>
-
-            <Card className="border-border/60 shadow-sm w-full shrink-0 sm:w-64">
-              <CardContent className="px-4 py-2 h-full flex flex-col justify-center">
-                <div className="flex items-baseline justify-between mb-1.5">
-                  <span className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">
-                    Your Progress
-                  </span>
-                  <span className="text-xs font-semibold text-foreground" data-testid="overall-progress">
-                    {overallDone} of {CAMPAIGN_STEP_COUNT} steps
-                  </span>
-                </div>
-                <div className="h-1.5 rounded-full bg-muted overflow-hidden">
-                  <div
-                    className="h-full rounded-full bg-primary transition-all duration-500"
-                    style={{ width: `${overallPct}%` }}
-                  />
-                </div>
-                <div className="mt-1 text-right text-[11px] text-muted-foreground">
-                  {overallPct}% complete
-                </div>
-              </CardContent>
-            </Card>
+            <p className="text-sm text-muted-foreground leading-relaxed max-w-xl">
+              Your BTS campaign roadmap. Check items off as you go — your progress is saved to
+              your account and follows you across devices.
+            </p>
           </div>
 
           <div className="flex items-center justify-between gap-3">
@@ -300,29 +292,26 @@ export default function CampaignChecklist() {
               <div key={`${group.phase}-${group.steps[0]?.id}`}>
                 {group.steps[0] &&
                   CAMPAIGN_ROADMAP.find((s) => s.phase === group.phase)?.id === group.steps[0].id && (
-                    <div className="mb-4 flex items-center gap-3">
-                      <div
-                        className={`inline-flex items-center rounded-full border px-3.5 py-1.5 ${PHASE_PILL[group.phase]}`}
+                    <div className="mb-2 flex items-center gap-3 pt-2">
+                      <h2
+                        className="text-xs font-semibold uppercase tracking-widest text-muted-foreground"
+                        data-testid={`phase-header-${group.phase}`}
                       >
-                        <span className="text-sm font-semibold tracking-wide uppercase">
-                          {CAMPAIGN_PHASE_LABELS[group.phase]}
-                        </span>
-                      </div>
+                        {phaseDisplayLabel(group.phase)}
+                      </h2>
                       <div className="flex-1 h-px bg-border" />
-                      <span className="text-xs font-medium text-muted-foreground" data-testid={`phase-progress-${group.phase}`}>
-                        {phaseProgress[group.phase].done} of {phaseProgress[group.phase].total} steps
-                      </span>
                     </div>
                   )}
-                <div className="space-y-3">
+                <div className="divide-y divide-border/40">
                   {group.steps.map((step) => (
                     <div key={step.id}>
-                      <StepCard
+                      <StepRow
                         step={step}
                         network={network}
                         checked={checked}
                         complete={completedByStep.get(step.id) ?? false}
                         open={!collapsed.has(step.id)}
+                        upNext={upNext?.stepId === step.id ? upNext : null}
                         onToggleOpen={() => toggleCollapsed(step.id)}
                         onToggleKey={toggleKey}
                         onSetStep={setStepChecked}
@@ -330,12 +319,14 @@ export default function CampaignChecklist() {
                       />
                       {step.number === 10 && network !== null && (
                         <div
-                          className="mt-3 flex items-center gap-3 rounded-lg border border-dashed border-amber-300 bg-amber-50 px-4 py-3"
+                          className="my-3 flex items-center gap-3 rounded-lg border border-dashed border-border bg-muted/40 px-4 py-3"
                           data-testid="compliance-boundary"
                         >
-                          <ShieldCheck className="w-5 h-5 shrink-0 text-amber-600" />
-                          <p className="text-sm text-amber-800">
-                            <strong className="font-semibold">Compliance boundary.</strong>{" "}
+                          <ShieldCheck className="w-5 h-5 shrink-0 text-muted-foreground" />
+                          <p className="text-sm text-muted-foreground">
+                            <strong className="font-semibold text-foreground">
+                              Compliance boundary.
+                            </strong>{" "}
                             Waiting on compliance review? You can work through here — everything
                             past this point needs your approved assets.
                           </p>
@@ -349,7 +340,7 @@ export default function CampaignChecklist() {
 
             {network === null && (
               <p className="text-sm italic text-muted-foreground" data-testid="unlock-teaser">
-                The rest of the checklist unlocks once you choose your affiliate network in step 3.
+                The rest of the checklist unlocks once you choose your affiliate network above.
               </p>
             )}
           </>
@@ -384,12 +375,13 @@ export default function CampaignChecklist() {
   );
 }
 
-function StepCard({
+function StepRow({
   step,
   network,
   checked,
   complete,
   open,
+  upNext,
   onToggleOpen,
   onToggleKey,
   onSetStep,
@@ -400,6 +392,7 @@ function StepCard({
   checked: Set<string>;
   complete: boolean;
   open: boolean;
+  upNext: UpNextTarget | null;
   onToggleOpen: () => void;
   onToggleKey: (key: string) => void;
   onSetStep: (keys: string[], value: boolean) => void;
@@ -409,122 +402,134 @@ function StepCard({
   const subs = visibleSubsteps(step, network);
   const singleCheckbox = !isNetworkStep && subs.length === 0;
   const expandable = isNetworkStep || subs.length > 0;
+  const headerIsUpNext = upNext !== null && upNext.substepId === null;
 
   return (
-    <Card
-      className={`overflow-hidden border shadow-sm transition-all duration-200 ${
-        complete ? "border-emerald-200 bg-emerald-50/40" : "border-border/60 hover:shadow-md"
-      }`}
-      data-testid={`step-card-${step.id}`}
-    >
-      <div className="flex">
-        <div className={`w-1 shrink-0 ${complete ? "bg-emerald-500" : PHASE_ACCENT[step.phase]}`} />
-        <CardContent className="p-4 sm:p-5 flex-1 min-w-0">
-          <div className="flex items-start gap-3">
-            <div
-              className={`flex items-center justify-center w-9 h-9 rounded-xl border shrink-0 text-sm font-bold ${
-                complete
-                  ? "bg-emerald-50 border-emerald-200 text-emerald-700"
-                  : `bg-white ${PHASE_NUM[step.phase]}`
-              }`}
-            >
-              {complete ? <Check className="w-4 h-4" /> : step.number}
-            </div>
+    <div className="py-3" data-testid={`step-row-${step.id}`}>
+      <div className="flex items-start gap-3">
+        {singleCheckbox && (
+          <Checkbox
+            checked={checked.has(step.id)}
+            onCheckedChange={(v) => onSetStep([step.id], v === true)}
+            className="mt-0.5"
+            aria-label={`Mark "${step.title}" complete`}
+            data-testid={`step-checkbox-${step.id}`}
+          />
+        )}
 
-            <div className="flex-1 min-w-0">
-              <div className="flex items-start justify-between gap-2">
-                <div className="min-w-0">
-                  <h3 className="font-bold leading-snug text-foreground">{step.title}</h3>
-                  {step.description && (
-                    <p className="mt-1 text-sm text-muted-foreground leading-relaxed">
-                      {step.description}
-                    </p>
-                  )}
-                </div>
-                <div className="flex items-center gap-2 shrink-0">
-                  {singleCheckbox && (
-                    <Checkbox
-                      checked={checked.has(step.id)}
-                      onCheckedChange={(v) => onSetStep([step.id], v === true)}
-                      aria-label={`Mark step ${step.number} complete`}
-                      data-testid={`step-checkbox-${step.id}`}
-                    />
-                  )}
-                  {expandable && (
-                    <button
-                      type="button"
-                      onClick={onToggleOpen}
-                      className="p-1 rounded hover:bg-muted text-muted-foreground"
-                      aria-label={open ? "Collapse step" : "Expand step"}
-                      data-testid={`step-toggle-${step.id}`}
-                    >
-                      <ChevronDown
-                        className={`w-4 h-4 transition-transform ${open ? "rotate-180" : ""}`}
-                      />
-                    </button>
-                  )}
-                </div>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-start justify-between gap-2">
+            <div className="min-w-0">
+              <div className="flex items-center gap-2 flex-wrap">
+                <h3
+                  className={`text-sm leading-snug ${
+                    complete
+                      ? "font-normal text-muted-foreground line-through"
+                      : headerIsUpNext
+                        ? "font-semibold text-foreground"
+                        : "font-medium text-foreground"
+                  }`}
+                >
+                  {step.title}
+                </h3>
+                {headerIsUpNext && <UpNextBadge />}
               </div>
+              {step.description && (
+                <p
+                  className={`mt-0.5 text-sm leading-relaxed ${
+                    complete ? "text-muted-foreground/60" : "text-muted-foreground"
+                  }`}
+                >
+                  {step.description}
+                </p>
+              )}
+            </div>
+            {expandable && (
+              <button
+                type="button"
+                onClick={onToggleOpen}
+                className="p-1 rounded hover:bg-muted text-muted-foreground shrink-0"
+                aria-label={open ? `Collapse "${step.title}"` : `Expand "${step.title}"`}
+                data-testid={`step-toggle-${step.id}`}
+              >
+                <ChevronDown
+                  className={`w-4 h-4 transition-transform ${open ? "rotate-180" : ""}`}
+                />
+              </button>
+            )}
+          </div>
 
-              {isNetworkStep && open && (
-                <div className="mt-3 space-y-2" role="radiogroup" aria-label="Affiliate network">
-                  {(["media-mavens", "clickbank"] as const).map((n) => (
+          {isNetworkStep && open && (
+            <div className="mt-3 space-y-2" role="radiogroup" aria-label="Affiliate network">
+              {(["media-mavens", "clickbank"] as const).map((n) => (
+                <label
+                  key={n}
+                  className={`flex items-center gap-3 rounded-lg border px-3 py-2.5 cursor-pointer transition-colors ${
+                    network === n
+                      ? "border-primary bg-primary/5"
+                      : "border-border/60 hover:bg-muted/50"
+                  }`}
+                >
+                  <input
+                    type="radio"
+                    name="affiliate-network"
+                    className="h-4 w-4 accent-[hsl(var(--primary))]"
+                    checked={network === n}
+                    onChange={() => onChooseNetwork(n)}
+                    data-testid={`network-radio-${n}`}
+                  />
+                  <span className="text-sm font-medium text-foreground">
+                    {NETWORK_LABELS[n]}
+                  </span>
+                </label>
+              ))}
+            </div>
+          )}
+
+          {!isNetworkStep && subs.length > 0 && open && (
+            <ul className="mt-2 space-y-2 pl-1">
+              {subs.map((sub) => {
+                const subChecked = checked.has(sub.substepId);
+                const subIsUpNext = upNext !== null && upNext.substepId === sub.substepId;
+                return (
+                  <li key={sub.substepId} className="flex items-start gap-3">
+                    <Checkbox
+                      id={`sub-${sub.substepId}`}
+                      checked={subChecked}
+                      onCheckedChange={() => onToggleKey(sub.substepId)}
+                      className="mt-0.5"
+                      aria-label={`Mark "${sub.action}" complete`}
+                      data-testid={`substep-checkbox-${sub.substepId}`}
+                    />
                     <label
-                      key={n}
-                      className={`flex items-center gap-3 rounded-lg border px-3 py-2.5 cursor-pointer transition-colors ${
-                        network === n
-                          ? "border-primary bg-primary/5"
-                          : "border-border/60 hover:bg-muted/50"
+                      htmlFor={`sub-${sub.substepId}`}
+                      className={`text-sm leading-relaxed cursor-pointer ${
+                        subChecked
+                          ? "text-muted-foreground line-through"
+                          : subIsUpNext
+                            ? "font-semibold text-foreground"
+                            : "text-foreground"
                       }`}
                     >
-                      <input
-                        type="radio"
-                        name="affiliate-network"
-                        className="h-4 w-4 accent-[hsl(var(--primary))]"
-                        checked={network === n}
-                        onChange={() => onChooseNetwork(n)}
-                        data-testid={`network-radio-${n}`}
-                      />
-                      <span className="text-sm font-medium text-foreground">
-                        {NETWORK_LABELS[n]}
-                      </span>
+                      {sub.action}
+                      {subIsUpNext && (
+                        <span className="ml-2 align-middle">
+                          <UpNextBadge />
+                        </span>
+                      )}
+                      {sub.network && (
+                        <span className="ml-2 inline-flex items-center rounded-md border border-border bg-muted px-1.5 py-0.5 text-[11px] font-medium text-muted-foreground align-middle">
+                          {NETWORK_LABELS[sub.network]}
+                        </span>
+                      )}
                     </label>
-                  ))}
-                </div>
-              )}
-
-              {!isNetworkStep && subs.length > 0 && open && (
-                <ul className="mt-3 space-y-2">
-                  {subs.map((sub) => (
-                    <li key={sub.substepId} className="flex items-start gap-3">
-                      <Checkbox
-                        id={`sub-${sub.substepId}`}
-                        checked={checked.has(sub.substepId)}
-                        onCheckedChange={() => onToggleKey(sub.substepId)}
-                        className="mt-0.5"
-                        data-testid={`substep-checkbox-${sub.substepId}`}
-                      />
-                      <label
-                        htmlFor={`sub-${sub.substepId}`}
-                        className="text-sm leading-relaxed text-foreground cursor-pointer"
-                      >
-                        {sub.action}
-                        {sub.network && (
-                          <span
-                            className={`ml-2 inline-flex items-center rounded-md border px-1.5 py-0.5 text-[11px] font-medium align-middle ${NETWORK_TAG_CLASS[sub.network]}`}
-                          >
-                            {NETWORK_LABELS[sub.network]}
-                          </span>
-                        )}
-                      </label>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
-          </div>
-        </CardContent>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </div>
       </div>
-    </Card>
+    </div>
   );
 }
