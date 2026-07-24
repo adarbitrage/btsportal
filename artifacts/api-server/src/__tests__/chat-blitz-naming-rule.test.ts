@@ -15,6 +15,7 @@ import {
   ANSWER_DEPTH_SENTINEL,
   SYNTHESIS_CONSISTENCY_SENTINEL,
   FORMATTING_STYLE_SENTINEL,
+  PLACEMENT_PROTOCOL_SENTINEL,
   CAMPAIGN_SPINE_SENTINEL,
 } from "../lib/chat-system-prompt";
 
@@ -106,6 +107,7 @@ const ALL_SENTINELS: Array<[string, string]> = [
   ["ANSWER_DEPTH_SENTINEL", ANSWER_DEPTH_SENTINEL],
   ["SYNTHESIS_CONSISTENCY_SENTINEL", SYNTHESIS_CONSISTENCY_SENTINEL],
   ["FORMATTING_STYLE_SENTINEL", FORMATTING_STYLE_SENTINEL],
+  ["PLACEMENT_PROTOCOL_SENTINEL", PLACEMENT_PROTOCOL_SENTINEL],
   ["CAMPAIGN_SPINE_SENTINEL", CAMPAIGN_SPINE_SENTINEL],
 ];
 
@@ -296,17 +298,72 @@ describe("Rules 14-15 — synthesis consistency and formatting", () => {
   });
 });
 
+describe("Rule 16 — campaign placement protocol (place by real progress, not tool mentions)", () => {
+  it("carries the rule header + sentinel and the answering-vs-placing split", () => {
+    expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain("Rule 16");
+    expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain(PLACEMENT_PROTOCOL_SENTINEL);
+    expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain("Answering ≠ placing");
+    expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain(
+      "never respond to a concrete question with a placement diagnosis",
+    );
+  });
+
+  it("gates diagnosis on EXPLICIT positional uncertainty with a one-question disambiguation for an ambiguous 'I don't know'", () => {
+    expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain("EXPLICIT positional uncertainty");
+    expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain(
+      "Not sure where you are in the process, or not sure how to do this part?",
+    );
+    expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain("never an interrogation; helpfulness first");
+  });
+
+  it("names tool exposure as an explicit non-signal and probes real prerequisite work", () => {
+    expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain("NON-SIGNAL");
+    expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain("Never infer a step from a tool mention");
+    expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain("roadmap's actual prerequisite structure");
+    expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain('"opened DIYTrax"');
+  });
+
+  it("places uncertain members at the earliest unconfirmed step, never keyword forward-jumps", () => {
+    expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain("EARLIEST unconfirmed step");
+    expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain(
+      "Never forward-jump to the step whose keyword matches",
+    );
+  });
+
+  it("keeps prerequisites as context, never gates", () => {
+    expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain("Prerequisites are context, not gates");
+    expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain("never as a precondition for answering");
+  });
+
+  it("treats numeric step references as ambiguous, clarified in phase + title terms", () => {
+    expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain("Numeric step references are ambiguous");
+    expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain('"how do I do step 9?"');
+    expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain("phase + title terms");
+    expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain("Never resolve the number to a step yourself");
+  });
+
+  it("declares explicit precedence over Rules 12/13 with the one-post-answer-checkpoint cap", () => {
+    expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain("Precedence over Rules 12 and 13");
+    expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain(
+      "must not turn it into a placement diagnosis",
+    );
+    expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain(
+      "At most ONE prerequisite checkpoint question may follow the answer",
+    );
+  });
+});
+
 describe("prompt hygiene", () => {
   it("no longer carries member-visible tier placeholders (Task #1922 tier removal)", () => {
     expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).not.toContain("{{chat_tier}}");
     expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).not.toContain("Chat tier:");
   });
 
-  it("has exactly 15 rules and no stale references past Rule 15", () => {
-    for (let n = 1; n <= 15; n++) {
+  it("has exactly 16 rules and no stale references past Rule 16", () => {
+    for (let n = 1; n <= 16; n++) {
       expect(ANTI_HALLUCINATION_SYSTEM_PROMPT, `Rule ${n}`).toContain(`**Rule ${n} — `);
     }
-    for (const n of [16, 17, 18, 19, 20]) {
+    for (const n of [17, 18, 19, 20]) {
       expect(ANTI_HALLUCINATION_SYSTEM_PROMPT, `Rule ${n}`).not.toContain(`Rule ${n}`);
     }
   });

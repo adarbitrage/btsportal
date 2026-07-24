@@ -23,7 +23,11 @@ be a phrase that a legacy/custom prompt can't accidentally already contain.
 
 **How to apply:** when asked to change assistant behavior via the system prompt,
 change all three or the drift guard is incomplete. Portal-page hyperlinking is
-Rule 14 / `PORTAL_LINK_SENTINEL`.
+Rule 10 / `PORTAL_LINK_SENTINEL`. The guard test also asserts the EXACT rule
+count (`**Rule N — ` for 1..count, none past it) — growing the count means
+updating that test's bounds in the same change. Current count: 16 (Rule 16 =
+campaign placement protocol / `PLACEMENT_PROTOCOL_SENTINEL`: answering ≠
+placing, tool mentions are a non-signal, precedence over Rules 12/13).
 
 **Body-edit trap:** boot enforcement only overwrites the DB row when a sentinel
 substring is MISSING. Editing a rule's body text without changing any sentinel

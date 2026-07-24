@@ -39,6 +39,7 @@ import {
   ANSWER_DEPTH_SENTINEL,
   SYNTHESIS_CONSISTENCY_SENTINEL,
   FORMATTING_STYLE_SENTINEL,
+  PLACEMENT_PROTOCOL_SENTINEL,
   CAMPAIGN_SPINE_SENTINEL,
   LEGACY_GENERIC_KB_TITLES,
 } from "./chat-system-prompt";
@@ -628,6 +629,7 @@ export async function ensureKBGrounding(): Promise<void> {
       !activePrompt.content.includes(ANSWER_DEPTH_SENTINEL) ||
       !activePrompt.content.includes(SYNTHESIS_CONSISTENCY_SENTINEL) ||
       !activePrompt.content.includes(FORMATTING_STYLE_SENTINEL) ||
+      !activePrompt.content.includes(PLACEMENT_PROTOCOL_SENTINEL) ||
       !activePrompt.content.includes(CAMPAIGN_SPINE_SENTINEL))
   ) {
     await db
@@ -635,7 +637,7 @@ export async function ensureKBGrounding(): Promise<void> {
       .set({ content: ANTI_HALLUCINATION_SYSTEM_PROMPT })
       .where(eq(chatSystemPromptsTable.id, activePrompt.id));
     console.log(
-      "[Bootstrap] Updated active system prompt with grounding + direct-answer + deep-assistant-persona + naming/navigation + names-from-docs + escalation-ladder + no-scaffolding + portal-link + blitz-steps + clarifier + answer-depth + synthesis-consistency + formatting + campaign-spine rules.",
+      "[Bootstrap] Updated active system prompt with grounding + direct-answer + deep-assistant-persona + naming/navigation + names-from-docs + escalation-ladder + no-scaffolding + portal-link + blitz-steps + clarifier + answer-depth + synthesis-consistency + formatting + placement-protocol + campaign-spine rules.",
     );
   }
 
