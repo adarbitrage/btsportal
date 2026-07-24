@@ -146,6 +146,7 @@
 - [Confidential publisher-name purge](confidential-term-purge.md) — the name behind "Caterpillar" must never appear in code or DB; boot repair scrubs 7 KB tables; match patterns assembled from parts to stay grep-clean.
 - [Blitz lesson 3.7 mistitle](blitz-lesson-3-7-mistitle.md) — sole mispairing in 96 reference docs, RESOLVED via staging merge+soft-delete; crosswalk drift-audit method via live-guide video map; import idempotency trap.
 - [Blitz section-doc rebuild](blitz-reference-import-seam.md) — old lesson-shaped corpus + blanket importer DELETED; 29 section-anchored gpt-5 docs (source blitz_section_import), exact-title idempotency, drift test builds synthetic corpus from SECTION_SPLITS.
+- [Assistant link normalizer backstop](assistant-link-normalizer-backstop.md) — portal-link formatting is guaranteed by a deterministic pre-render normalizer (nav-map labels), not by prompt rules; don't re-add prompt-only fixes.
 - [Single member chat surface](chat-single-surface.md) — /ai-assistant on /api/chat is the ONE chat surface; legacy stack + tables deleted, tier gating removed.
 - [Replayed-migration FK repoint guard](replayed-migration-fk-repoint-guard.md) — if a later migration repoints an FK, guard the earlier migration's legacy FK add on the new constraint's existence, or replay breaks post-merge.
 - [Chat bare-affirmation follow-up](chat-bare-affirmation-followup.md) — "yes" resolves against the assistant's trailing offer (distilled); never feed conversational boilerplate into websearch_to_tsquery (ANDs every term).

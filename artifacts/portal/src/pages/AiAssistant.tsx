@@ -13,6 +13,7 @@ import { hasPermission, isAdminRole } from "@/lib/permissions";
 import { useState, useRef, useEffect } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import { normalizeAssistantLinks } from "@/lib/assistant-markdown-links";
 import {
   useChatSessions,
   useChatMessages,
@@ -362,7 +363,7 @@ export default function AiAssistant() {
                                 ),
                               }}
                             >
-                              {msg.content || (isStreaming && i === visibleMessages.length - 1 ? "..." : "")}
+                              {msg.content ? normalizeAssistantLinks(msg.content) : (isStreaming && i === visibleMessages.length - 1 ? "..." : "")}
                             </ReactMarkdown>
                           </div>
                           {canViewTraces && msg.retrievalTrace && (
