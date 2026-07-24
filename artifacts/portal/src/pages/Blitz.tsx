@@ -2,7 +2,7 @@ import { useState, useCallback, useEffect, useLayoutEffect, useRef } from "react
 import { useRoute, Link } from "wouter";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Button } from "@/components/ui/button";
-import { Zap, Printer, ChevronLeft, ChevronRight } from "lucide-react";
+import { Zap, ClipboardList, ChevronLeft, ChevronRight } from "lucide-react";
 import {
   BLITZ_SECTIONS,
   BLITZ_SECTION_COUNT,
@@ -1143,12 +1143,12 @@ export default function Blitz() {
     <AppLayout>
       <style dangerouslySetInnerHTML={{ __html: blitzCSS + SECTION_BAR_CSS }} />
       <div className="mb-6">
-        <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-3 mb-2">
-          <div className="flex flex-wrap items-center gap-3">
-            <div className="flex items-center gap-2 shrink-0">
-              <Zap className="w-6 h-6 text-primary" />
-              <h1 className="text-3xl font-bold">The Blitz™</h1>
-            </div>
+        <div className="flex flex-col gap-y-3 sm:grid sm:grid-cols-[1fr_auto_1fr] sm:items-center sm:gap-x-4 mb-2">
+          <div className="flex items-center gap-2 shrink-0">
+            <Zap className="w-6 h-6 text-primary" />
+            <h1 className="text-3xl font-bold">The Blitz™</h1>
+          </div>
+          <div className="sm:justify-self-center">
             {isSectionView && lesson && (
               <div className="inline-flex items-center gap-0.5 rounded-full border border-border bg-muted/50 p-0.5">
                 {prevId ? (
@@ -1183,7 +1183,7 @@ export default function Blitz() {
               </div>
             )}
           </div>
-          <div className="flex items-center gap-2 shrink-0">
+          <div className="flex flex-wrap items-center gap-2 shrink-0 sm:justify-self-end">
             <Button variant="outline" size="sm" asChild>
               <Link href="/blitz">
                 <ArrowLeftIcon />
@@ -1197,13 +1197,12 @@ export default function Blitz() {
                 </Link>
               </Button>
             )}
-            <Button
-              size="sm"
-              onClick={() => window.print()}
-              className="gap-1.5 bg-green-600 text-white hover:bg-green-700"
-            >
-              <Printer className="w-4 h-4" />
-              Print / Save PDF
+            <Button size="sm" asChild className="gap-1.5 bg-green-600 text-white hover:bg-green-700">
+              <Link href="/blitz/campaign-checklist" data-testid="link-campaign-checklist">
+                <ClipboardList className="w-4 h-4" />
+                <span className="hidden md:inline">Campaign Checklist</span>
+                <span className="md:hidden">Checklist</span>
+              </Link>
             </Button>
           </div>
         </div>

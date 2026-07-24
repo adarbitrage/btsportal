@@ -3,7 +3,7 @@ import { Link } from "wouter";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Zap, ArrowUpRight, Check, Lock, ArrowLeft } from "lucide-react";
+import { Zap, ArrowUpRight, Check, Lock, ArrowLeft, ClipboardList } from "lucide-react";
 import {
   BLITZ_SECTIONS,
   BLITZ_SECTION_COUNT,
@@ -473,7 +473,7 @@ export default function BlitzHub() {
     <AppLayout>
       <div className="space-y-6 max-w-6xl">
         <div className="space-y-4">
-          <div className="flex flex-col gap-5 sm:flex-row sm:items-stretch sm:justify-between sm:gap-6">
+          <div className="flex flex-col gap-5 sm:grid sm:grid-cols-[1fr_auto_1fr] sm:items-center sm:gap-6">
             <div className="min-w-0">
               <div className="flex items-center gap-2 mb-3">
                 <Zap className="w-6 h-6 text-primary" />
@@ -488,8 +488,8 @@ export default function BlitzHub() {
               </p>
             </div>
 
-            <Card className="border-border/60 shadow-sm w-full shrink-0 sm:w-64">
-              <CardContent className="px-4 py-2 h-full flex flex-col justify-center">
+            <Card className="border-border/60 shadow-sm w-full shrink-0 sm:w-64 sm:justify-self-center">
+              <CardContent className="px-4 py-2.5 h-full flex flex-col justify-center">
                 <div className="flex items-baseline justify-between mb-1.5">
                   <span className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">
                     Your Progress
@@ -504,9 +504,18 @@ export default function BlitzHub() {
                     style={{ width: `${pct}%` }}
                   />
                 </div>
-                <div className="mt-1 text-right text-[11px] text-muted-foreground">{pct}% complete</div>
               </CardContent>
             </Card>
+
+            <div className="sm:justify-self-end">
+              <Button asChild size="sm" className="gap-1.5 bg-green-600 text-white hover:bg-green-700">
+                <Link href="/blitz/campaign-checklist" data-testid="link-campaign-checklist">
+                  <ClipboardList className="w-4 h-4" />
+                  <span className="hidden md:inline">Campaign Checklist</span>
+                  <span className="md:hidden">Checklist</span>
+                </Link>
+              </Button>
+            </div>
           </div>
 
           <p className="text-muted-foreground leading-relaxed">
@@ -514,20 +523,6 @@ export default function BlitzHub() {
             launching profitable affiliate marketing campaigns. Work through each module in order, make
             decisions based on data, and the results will follow.
           </p>
-
-          <div className="rounded-xl border border-border/60 bg-card p-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <p className="text-sm text-muted-foreground">
-              <strong className="text-foreground">Running your campaign?</strong> Track every step
-              of your build with the 17-step campaign checklist — your progress saves to your
-              account.
-            </p>
-            <Button asChild size="sm" className="gap-2 shrink-0">
-              <Link href="/blitz/campaign-checklist" data-testid="link-campaign-checklist">
-                Open the Campaign Checklist
-                <ArrowUpRight className="w-4 h-4" />
-              </Link>
-            </Button>
-          </div>
 
           <div className="rounded-xl border border-border/60 bg-card p-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <p className="text-sm text-muted-foreground">
