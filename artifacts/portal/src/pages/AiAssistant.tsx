@@ -92,19 +92,18 @@ export default function AiAssistant() {
   const { data: loadedMessages } = useChatMessages(sessionId);
   const deleteSession = useDeleteSession();
 
-  // Track which session's history we've hydrated so streaming updates aren't clobbered.
-  const hydratedSessionRef = useRef<number | null>(null);
-
+  // Hydrate the visible messages from the fetched history. This must allow
+  // RE-hydration: React Query paints a cached (possibly stale) copy first and
+  // a background refetch can return newer data — apply it instead of freezing
+  // on the first hydration. Two guards keep streaming safe:
+  //  - never apply history while a stream is in progress
+  //  - never shrink: if local state already has at least as many messages as
+  //    the fetched history (e.g. a just-streamed exchange the fetch predates),
+  //    keep the local copy.
   useEffect(() => {
-    if (
-      sessionId &&
-      loadedMessages &&
-      hydratedSessionRef.current !== sessionId &&
-      !isStreaming
-    ) {
-      hydratedSessionRef.current = sessionId;
-      setMessages(loadedMessages.filter((m) => m.role !== "system"));
-    }
+    if (!sessionId || !loadedMessages || isStreaming) return;
+    const fresh = loadedMessages.filter((m) => m.role !== "system");
+    setMessages((prev) => (prev.length >= fresh.length ? prev : fresh));
   }, [sessionId, loadedMessages, isStreaming, setMessages]);
 
   useEffect(() => {
@@ -129,7 +128,6 @@ export default function AiAssistant() {
       setMobileSidebar(false);
       return;
     }
-    hydratedSessionRef.current = null;
     setSessionId(session.id);
     setMessages([]);
     setMobileSidebar(false);
@@ -137,7 +135,6 @@ export default function AiAssistant() {
   };
 
   const handleNewChat = () => {
-    hydratedSessionRef.current = null;
     setSessionId(null);
     setMessages([]);
     setInput("");
@@ -158,18 +155,8 @@ export default function AiAssistant() {
     const content = (overrideText ?? input).trim();
     if (!content || isStreaming) return;
     setInput("");
-    // When a brand-new chat starts, mark the (upcoming) session as hydrated so
-    // the history query doesn't overwrite the streamed messages.
-    if (!sessionId) hydratedSessionRef.current = -1;
     sendMessage(content, sessionId);
   };
-
-  // Once a session id exists, keep the hydrated marker pinned to it.
-  useEffect(() => {
-    if (sessionId && hydratedSessionRef.current === -1) {
-      hydratedSessionRef.current = sessionId;
-    }
-  }, [sessionId]);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter" && !e.shiftKey) {

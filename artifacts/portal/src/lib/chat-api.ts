@@ -299,6 +299,15 @@ export function useChatStream() {
             if (event.done) {
               queryClient.invalidateQueries({ queryKey: ["chat", "status"] });
               queryClient.invalidateQueries({ queryKey: ["chat", "sessions"] });
+              // Keep the per-conversation history cache in sync: without this,
+              // reopening the conversation later paints a cached copy that is
+              // missing this exchange. Invalidate (rather than setQueryData)
+              // so ids/traces come back from the server.
+              if (newSessionId != null) {
+                queryClient.invalidateQueries({
+                  queryKey: ["chat", "messages", newSessionId],
+                });
+              }
               // New conversations get an AI-generated title shortly after the
               // first reply (fire-and-forget on the server). Refresh the
               // sidebar again after a short delay so the new title appears
