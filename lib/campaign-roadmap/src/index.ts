@@ -20,6 +20,42 @@ export type CampaignPhase = "build" | "test" | "scale";
 
 export type CampaignNetwork = "media-mavens" | "clickbank";
 
+/**
+ * OPTIONAL member-display copy for a substep. This layer is rendered ONLY by
+ * the member checklist page. It is NEVER read by `renderCampaignSpine()` —
+ * the AI assistant sees canonical wording exclusively.
+ */
+export interface SubstepMemberCopy {
+  /** Member-facing replacement for `action` (both networks). */
+  action?: string;
+  /** Per-network member-facing replacement for `action`; wins over `action`. */
+  actionByNetwork?: Partial<Record<CampaignNetwork, string>>;
+  /**
+   * Hide this substep from the member view entirely. If hiding leaves a step
+   * with NO visible member lines, the step renders as a single checkbox whose
+   * checked state is keyed by the hidden substeps' canonical ids (keys stay
+   * stable; only presentation changes).
+   */
+  hidden?: boolean;
+  /**
+   * Substeps sharing the same mergeGroup render as ONE member-facing line
+   * (the first group member's display action). Checking the line checks ALL
+   * canonical keys in the group; the line shows checked if ANY key is checked
+   * (legacy-progress friendly).
+   */
+  mergeGroup?: string;
+}
+
+/** OPTIONAL member-display copy for a step (checklist page only, never AI). */
+export interface StepMemberCopy {
+  /** Member-facing replacement for `title`. */
+  title?: string;
+  /** Member-facing replacement for `description` (both networks). */
+  description?: string;
+  /** Per-network member-facing description; wins over `description`. */
+  descriptionByNetwork?: Partial<Record<CampaignNetwork, string>>;
+}
+
 export interface CampaignSubstep {
   /** Stable key — persisted in member checklist progress. NEVER change. */
   substepId: string;
@@ -27,6 +63,8 @@ export interface CampaignSubstep {
   action: string;
   /** Branch tag: substep applies only to this affiliate network. */
   network?: CampaignNetwork;
+  /** Member-display overrides — NEVER read by the spine renderer. */
+  member?: SubstepMemberCopy;
 }
 
 export interface CampaignStep {
@@ -40,6 +78,8 @@ export interface CampaignStep {
   /** Optional constraint/description line (locked wording). */
   description?: string;
   substeps: CampaignSubstep[];
+  /** Member-display overrides — NEVER read by the spine renderer. */
+  member?: StepMemberCopy;
 }
 
 export const CAMPAIGN_PHASE_LABELS: Record<CampaignPhase, string> = {
@@ -79,6 +119,13 @@ export const CAMPAIGN_ROADMAP: readonly CampaignStep[] = [
     description:
       "Media Mavens or ClickBank. This choice changes how you'll build your landing page assets, Flexy website, MetricMover split test, and DIYTrax setup.",
     substeps: [],
+    member: {
+      descriptionByNetwork: {
+        "media-mavens":
+          "You've selected Media Mavens — the steps below are tailored to it.",
+        clickbank: "You've selected ClickBank — the steps below are tailored to it.",
+      },
+    },
   },
   {
     id: "select-offer",
@@ -92,6 +139,12 @@ export const CAMPAIGN_ROADMAP: readonly CampaignStep[] = [
         substepId: "select-offer-review-presell",
         action:
           "Review the presell page for the offer: the advertorial [MM] or the VSL [CB].",
+        member: {
+          actionByNetwork: {
+            "media-mavens": "Review the advertorial for the offer.",
+            clickbank: "Review the VSL for the offer.",
+          },
+        },
       },
     ],
   },
@@ -103,6 +156,14 @@ export const CAMPAIGN_ROADMAP: readonly CampaignStep[] = [
     description:
       "5 angles, extracted from the advertorial/VSL and customer avatar research; done first — your native ad assets and landing page assets build on them.",
     substeps: [],
+    member: {
+      descriptionByNetwork: {
+        "media-mavens":
+          "5 angles, extracted from the advertorial and customer avatar research; done first — your native ad assets and landing page assets build on them.",
+        clickbank:
+          "5 angles, extracted from the VSL and customer avatar research; done first — your native ad assets and landing page assets build on them.",
+      },
+    },
   },
   {
     id: "create-ad-assets",
@@ -118,6 +179,7 @@ export const CAMPAIGN_ROADMAP: readonly CampaignStep[] = [
     phase: "build",
     title: "Create landing page assets",
     description: "5 LP headlines + 5 hero shots (both networks).",
+    member: { description: "5 LP headlines + 5 hero shots." },
     substeps: [
       {
         substepId: "create-lp-assets-cb-bridge-copy",
@@ -130,6 +192,7 @@ export const CAMPAIGN_ROADMAP: readonly CampaignStep[] = [
         action:
           "Landing-page copy comes from the pre-built advertorial (optimized later when you set up your website in Flexy).",
         network: "media-mavens",
+        member: { hidden: true },
       },
     ],
   },
@@ -151,15 +214,24 @@ export const CAMPAIGN_ROADMAP: readonly CampaignStep[] = [
       {
         substepId: "create-diytrax-campaign-create",
         action: "Create the campaign in DIYTrax.",
+        member: {
+          mergeGroup: "diytrax-create-basic-info",
+          action: "Create the campaign in DIYTrax and fill in the Basic Info tab (and save).",
+        },
       },
       {
         substepId: "create-diytrax-campaign-basic-info",
         action: "Fill in the Basic Info tab (and save).",
+        member: { mergeGroup: "diytrax-create-basic-info" },
       },
       {
         substepId: "create-diytrax-campaign-flexy-custom-values",
         action:
           "One-time global setup: copy the T2 landing-page URL from the Links & Pixels tab and paste it into Flexy Custom Values.",
+        member: {
+          action:
+            "One-time global setup: copy the T2 landing-page URL from the Links & Pixels tab in your DIYTrax campaign and paste it into Flexy Custom Values.",
+        },
       },
     ],
   },
@@ -207,6 +279,9 @@ export const CAMPAIGN_ROADMAP: readonly CampaignStep[] = [
       {
         substepId: "metricmover-split-test-mm-page",
         action: 'Create a blank "MM" page with a custom code box in Flexy.',
+        member: {
+          action: "Create a blank MetricMover page with a custom code box in Flexy.",
+        },
       },
       {
         substepId: "metricmover-split-test-build-5x5",
@@ -290,6 +365,125 @@ export const CAMPAIGN_ROADMAP: readonly CampaignStep[] = [
     substeps: [],
   },
 ];
+
+/* ------------------------------------------------------------------------ *
+ * Member-display copy layer (checklist page ONLY — never the AI spine).
+ * ------------------------------------------------------------------------ */
+
+/** Effective member-facing step title (fallback to canonical). */
+export function memberStepTitle(step: CampaignStep): string {
+  return step.member?.title ?? step.title;
+}
+
+/** Effective member-facing step description (per-network > shared > canonical). */
+export function memberStepDescription(
+  step: CampaignStep,
+  network: CampaignNetwork | null,
+): string | undefined {
+  if (network !== null) {
+    const byNetwork = step.member?.descriptionByNetwork?.[network];
+    if (byNetwork !== undefined) return byNetwork;
+  }
+  return step.member?.description ?? step.description;
+}
+
+/** Effective member-facing substep action (per-network > shared > canonical). */
+export function memberSubstepAction(
+  sub: CampaignSubstep,
+  network: CampaignNetwork | null,
+): string {
+  if (network !== null) {
+    const byNetwork = sub.member?.actionByNetwork?.[network];
+    if (byNetwork !== undefined) return byNetwork;
+  }
+  return sub.member?.action ?? sub.action;
+}
+
+/**
+ * One member-facing checkable line. May represent SEVERAL canonical substeps
+ * (merge groups): checking the line checks every key; the line counts as
+ * checked when ANY key is checked.
+ */
+export interface MemberChecklistItem {
+  /** All canonical persisted keys this line represents (>= 1). */
+  keys: string[];
+  /** Stable primary key (first canonical key) — use for list identity/testids. */
+  primaryKey: string;
+  /** The member-facing display text. */
+  action: string;
+}
+
+/** Substeps eligible for this network (shared + own branch), member-hidden included. */
+function networkEligibleSubsteps(
+  step: CampaignStep,
+  network: CampaignNetwork | null,
+): CampaignSubstep[] {
+  return step.substeps.filter(
+    (s) => s.network === undefined || (network !== null && s.network === network),
+  );
+}
+
+/**
+ * The member-facing checkable lines of a step: network-filtered, member-hidden
+ * substeps removed, merge groups collapsed into a single line.
+ */
+export function memberChecklistItems(
+  step: CampaignStep,
+  network: CampaignNetwork | null,
+): MemberChecklistItem[] {
+  const visible = networkEligibleSubsteps(step, network).filter((s) => !s.member?.hidden);
+  const items: MemberChecklistItem[] = [];
+  const groupIndex = new Map<string, number>();
+  for (const sub of visible) {
+    const group = sub.member?.mergeGroup;
+    if (group !== undefined && groupIndex.has(group)) {
+      items[groupIndex.get(group)!].keys.push(sub.substepId);
+      continue;
+    }
+    if (group !== undefined) groupIndex.set(group, items.length);
+    items.push({
+      keys: [sub.substepId],
+      primaryKey: sub.substepId,
+      action: memberSubstepAction(sub, network),
+    });
+  }
+  return items;
+}
+
+/**
+ * The canonical persisted keys backing a step in the member view. For steps
+ * whose visible member lines all got hidden (e.g. the MM landing-page-assets
+ * note), the hidden substeps' keys back the step's single checkbox — keys
+ * never change with presentation.
+ */
+export function memberStepKeys(
+  step: CampaignStep,
+  network: CampaignNetwork | null,
+): string[] {
+  if (step.substeps.length === 0) return [step.id];
+  const eligible = networkEligibleSubsteps(step, network);
+  const visible = eligible.filter((s) => !s.member?.hidden);
+  return (visible.length > 0 ? visible : eligible).map((s) => s.substepId);
+}
+
+/**
+ * Canonical substep-id groups that render as ONE member-facing line. The
+ * checklist API uses this to normalize legacy per-substep checked state:
+ * if ANY id in a group is checked, ALL ids in the group are checked.
+ */
+export const MEMBER_MERGED_KEY_GROUPS: readonly (readonly string[])[] = (() => {
+  const byGroup = new Map<string, string[]>();
+  for (const step of CAMPAIGN_ROADMAP) {
+    for (const sub of step.substeps) {
+      const group = sub.member?.mergeGroup;
+      if (group === undefined) continue;
+      const list = byGroup.get(group) ?? [];
+      list.push(sub.substepId);
+      byGroup.set(group, list);
+    }
+  }
+  return Array.from(byGroup.values()).filter((g) => g.length > 1);
+})();
 
 /** Header line of the rendered spine block (also referenced by prompt rules). */
 export const CAMPAIGN_SPINE_HEADER = "## BTS Campaign Roadmap (Authoritative Chronology)";

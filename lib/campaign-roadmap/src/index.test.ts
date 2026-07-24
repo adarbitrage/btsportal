@@ -1,10 +1,16 @@
 import { describe, it, expect } from "vitest";
+import { createHash } from "crypto";
 
 import {
   CAMPAIGN_ROADMAP,
   CAMPAIGN_STEP_COUNT,
   CAMPAIGN_PHASE_LABELS,
   CAMPAIGN_SPINE_HEADER,
+  MEMBER_MERGED_KEY_GROUPS,
+  memberChecklistItems,
+  memberStepDescription,
+  memberStepKeys,
+  memberSubstepAction,
   renderCampaignSpine,
 } from "./index";
 
@@ -93,5 +99,119 @@ describe("spine drift guard — rendered block is generated from the module", ()
     const approxTokens = spine.length / 4;
     expect(approxTokens).toBeGreaterThan(400);
     expect(approxTokens).toBeLessThan(1050);
+  });
+});
+
+describe("AI spine guardrail — member-display copy NEVER affects the spine", () => {
+  const spine = renderCampaignSpine();
+
+  it("is byte-for-byte identical to the pre-member-copy-layer baseline", () => {
+    // Captured from renderCampaignSpine() BEFORE the member-display copy
+    // layer was introduced. If this fails, canonical wording (what the AI
+    // sees) changed — member copy must never do that.
+    expect(spine.length).toBe(3820);
+    expect(createHash("sha256").update(spine, "utf8").digest("hex")).toBe(
+      "9bdef1f119c933305e90c8bfd0696f08938e98740a8bb7c1e58031d4d32fb3cc",
+    );
+  });
+
+  it("contains NO member-display string that differs from canonical wording", () => {
+    for (const step of CAMPAIGN_ROADMAP) {
+      const memberDescs = [
+        step.member?.description,
+        ...Object.values(step.member?.descriptionByNetwork ?? {}),
+      ].filter((d): d is string => d !== undefined && d !== step.description);
+      for (const d of memberDescs) expect(spine).not.toContain(d);
+
+      for (const sub of step.substeps) {
+        const memberActions = [
+          sub.member?.action,
+          ...Object.values(sub.member?.actionByNetwork ?? {}),
+        ].filter((a): a is string => a !== undefined && a !== sub.action);
+        for (const a of memberActions) expect(spine).not.toContain(a);
+      }
+    }
+  });
+
+  it("keeps full canonical granularity: both DIYTrax sub-lines, the MM advertorial note, and the branch phrasing", () => {
+    expect(spine).toContain("Create the campaign in DIYTrax.");
+    expect(spine).toContain("Fill in the Basic Info tab (and save).");
+    expect(spine).toContain(
+      "Landing-page copy comes from the pre-built advertorial (optimized later when you set up your website in Flexy).",
+    );
+    expect(spine).toContain(
+      "Review the presell page for the offer: the advertorial [MM] or the VSL [CB].",
+    );
+    expect(spine).toContain("5 LP headlines + 5 hero shots (both networks).");
+    expect(spine).toContain('Create a blank "MM" page with a custom code box in Flexy.');
+  });
+});
+
+describe("member-display copy layer helpers", () => {
+  const byId = new Map(CAMPAIGN_ROADMAP.map((s) => [s.id, s]));
+
+  it("per-network substep action variants resolve, with canonical fallback", () => {
+    const presell = byId.get("select-offer")!.substeps[0];
+    expect(memberSubstepAction(presell, "media-mavens")).toBe(
+      "Review the advertorial for the offer.",
+    );
+    expect(memberSubstepAction(presell, "clickbank")).toBe("Review the VSL for the offer.");
+    expect(memberSubstepAction(presell, null)).toBe(presell.action);
+  });
+
+  it("finalize-angles description says advertorial for MM, VSL for CB", () => {
+    const step = byId.get("finalize-angles")!;
+    expect(memberStepDescription(step, "media-mavens")).toContain("the advertorial and");
+    expect(memberStepDescription(step, "media-mavens")).not.toContain("VSL");
+    expect(memberStepDescription(step, "clickbank")).toContain("the VSL and");
+    expect(memberStepDescription(step, "clickbank")).not.toContain("advertorial");
+    expect(memberStepDescription(step, null)).toBe(step.description);
+  });
+
+  it("choose-network confirms the selection after a choice is made", () => {
+    const step = byId.get("choose-network")!;
+    expect(memberStepDescription(step, null)).toBe(step.description);
+    expect(memberStepDescription(step, "media-mavens")).toBe(
+      "You've selected Media Mavens — the steps below are tailored to it.",
+    );
+    expect(memberStepDescription(step, "clickbank")).toBe(
+      "You've selected ClickBank — the steps below are tailored to it.",
+    );
+  });
+
+  it("LP-assets: '(both networks)' dropped; MM sees NO substeps but keeps the hidden key; CB keeps the bridge-copy substep", () => {
+    const step = byId.get("create-lp-assets")!;
+    expect(memberStepDescription(step, "media-mavens")).toBe("5 LP headlines + 5 hero shots.");
+    expect(memberChecklistItems(step, "media-mavens")).toEqual([]);
+    expect(memberStepKeys(step, "media-mavens")).toEqual([
+      "create-lp-assets-mm-advertorial-copy",
+    ]);
+    const cbItems = memberChecklistItems(step, "clickbank");
+    expect(cbItems.map((i) => i.primaryKey)).toEqual(["create-lp-assets-cb-bridge-copy"]);
+  });
+
+  it("DIYTrax create + basic-info merge into ONE member line with both canonical keys", () => {
+    const step = byId.get("create-diytrax-campaign")!;
+    const items = memberChecklistItems(step, "media-mavens");
+    expect(items).toHaveLength(2);
+    expect(items[0]).toEqual({
+      keys: ["create-diytrax-campaign-create", "create-diytrax-campaign-basic-info"],
+      primaryKey: "create-diytrax-campaign-create",
+      action: "Create the campaign in DIYTrax and fill in the Basic Info tab (and save).",
+    });
+    expect(items[1].action).toBe(
+      "One-time global setup: copy the T2 landing-page URL from the Links & Pixels tab in your DIYTrax campaign and paste it into Flexy Custom Values.",
+    );
+    expect(MEMBER_MERGED_KEY_GROUPS).toEqual([
+      ["create-diytrax-campaign-create", "create-diytrax-campaign-basic-info"],
+    ]);
+  });
+
+  it('MM-page substep displays "MetricMover" wording (never confused with Media Mavens)', () => {
+    const step = byId.get("metricmover-split-test")!;
+    const mmPage = step.substeps.find((s) => s.substepId === "metricmover-split-test-mm-page")!;
+    expect(memberSubstepAction(mmPage, "clickbank")).toBe(
+      "Create a blank MetricMover page with a custom code box in Flexy.",
+    );
   });
 });

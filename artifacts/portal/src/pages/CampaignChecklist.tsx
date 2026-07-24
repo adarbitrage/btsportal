@@ -17,9 +17,14 @@ import { ArrowLeft, ChevronDown, ClipboardList, ShieldCheck } from "lucide-react
 import {
   CAMPAIGN_ROADMAP,
   CAMPAIGN_PHASE_LABELS,
+  memberChecklistItems,
+  memberStepDescription,
+  memberStepKeys,
+  memberStepTitle,
   type CampaignNetwork,
   type CampaignPhase,
   type CampaignStep,
+  type MemberChecklistItem,
 } from "@workspace/campaign-roadmap";
 
 const API_BASE = `${import.meta.env.BASE_URL}api`;
@@ -37,18 +42,9 @@ export function phaseDisplayLabel(phase: CampaignPhase): string {
   return CAMPAIGN_PHASE_LABELS[phase].replace(/^Phase\s*\d+\s*[\u2014\u2013-]\s*/u, "");
 }
 
-/** Substeps of a step visible for the chosen network (shared + own branch). */
-function visibleSubsteps(step: CampaignStep, network: CampaignNetwork | null) {
-  return step.substeps.filter(
-    (s) => s.network === undefined || (network !== null && s.network === network),
-  );
-}
-
-/** Checkable keys for a step: its substepIds, or the step id when it has none. */
-function stepKeys(step: CampaignStep, network: CampaignNetwork | null): string[] {
-  if (step.id === "choose-network") return [];
-  const subs = visibleSubsteps(step, network);
-  return subs.length > 0 ? subs.map((s) => s.substepId) : [step.id];
+/** A merged member line counts as checked when ANY of its canonical keys is. */
+function itemChecked(item: MemberChecklistItem, checked: Set<string>): boolean {
+  return item.keys.some((k) => checked.has(k));
 }
 
 function isStepComplete(
@@ -57,7 +53,9 @@ function isStepComplete(
   checked: Set<string>,
 ): boolean {
   if (step.id === "choose-network") return network !== null;
-  const keys = stepKeys(step, network);
+  const items = memberChecklistItems(step, network);
+  if (items.length > 0) return items.every((it) => itemChecked(it, checked));
+  const keys = memberStepKeys(step, network);
   return keys.length > 0 && keys.every((k) => checked.has(k));
 }
 
@@ -84,15 +82,16 @@ function computeUpNext(
       if (network === null) return { stepId: step.id, substepId: null };
       continue;
     }
-    const subs = visibleSubsteps(step, network);
-    if (subs.length === 0) {
-      if (!checked.has(step.id)) return { stepId: step.id, substepId: null };
+    const items = memberChecklistItems(step, network);
+    if (items.length === 0) {
+      const keys = memberStepKeys(step, network);
+      if (!keys.every((k) => checked.has(k))) return { stepId: step.id, substepId: null };
       continue;
     }
-    const firstUnchecked = subs.find((s) => !checked.has(s.substepId));
+    const firstUnchecked = items.find((it) => !itemChecked(it, checked));
     if (firstUnchecked) {
       if (collapsed.has(step.id)) return { stepId: step.id, substepId: null };
-      return { stepId: step.id, substepId: firstUnchecked.substepId };
+      return { stepId: step.id, substepId: firstUnchecked.primaryKey };
     }
   }
   return null;
@@ -154,20 +153,7 @@ export default function CampaignChecklist() {
       });
   }, []);
 
-  const toggleKey = useCallback(
-    (key: string) => {
-      setChecked((prev) => {
-        const next = new Set(prev);
-        if (next.has(key)) next.delete(key);
-        else next.add(key);
-        save(network, next);
-        return next;
-      });
-    },
-    [network, save],
-  );
-
-  /** Check/uncheck every key of a single-checkbox step. */
+  /** Check/uncheck every canonical key backing a member-facing line or step. */
   const setStepChecked = useCallback(
     (keys: string[], value: boolean) => {
       setChecked((prev) => {
@@ -313,7 +299,6 @@ export default function CampaignChecklist() {
                         open={!collapsed.has(step.id)}
                         upNext={upNext?.stepId === step.id ? upNext : null}
                         onToggleOpen={() => toggleCollapsed(step.id)}
-                        onToggleKey={toggleKey}
                         onSetStep={setStepChecked}
                         onChooseNetwork={chooseNetwork}
                       />
@@ -383,7 +368,6 @@ function StepRow({
   open,
   upNext,
   onToggleOpen,
-  onToggleKey,
   onSetStep,
   onChooseNetwork,
 }: {
@@ -394,25 +378,27 @@ function StepRow({
   open: boolean;
   upNext: UpNextTarget | null;
   onToggleOpen: () => void;
-  onToggleKey: (key: string) => void;
   onSetStep: (keys: string[], value: boolean) => void;
   onChooseNetwork: (choice: CampaignNetwork) => void;
 }) {
   const isNetworkStep = step.id === "choose-network";
-  const subs = visibleSubsteps(step, network);
-  const singleCheckbox = !isNetworkStep && subs.length === 0;
-  const expandable = isNetworkStep || subs.length > 0;
+  const items = memberChecklistItems(step, network);
+  const stepCheckboxKeys = memberStepKeys(step, network);
+  const singleCheckbox = !isNetworkStep && items.length === 0;
+  const expandable = isNetworkStep || items.length > 0;
   const headerIsUpNext = upNext !== null && upNext.substepId === null;
+  const description = memberStepDescription(step, network);
+  const title = memberStepTitle(step);
 
   return (
     <div className="py-3" data-testid={`step-row-${step.id}`}>
       <div className="flex items-start gap-3">
         {singleCheckbox && (
           <Checkbox
-            checked={checked.has(step.id)}
-            onCheckedChange={(v) => onSetStep([step.id], v === true)}
+            checked={stepCheckboxKeys.every((k) => checked.has(k))}
+            onCheckedChange={(v) => onSetStep(stepCheckboxKeys, v === true)}
             className="mt-0.5"
-            aria-label={`Mark "${step.title}" complete`}
+            aria-label={`Mark "${title}" complete`}
             data-testid={`step-checkbox-${step.id}`}
           />
         )}
@@ -430,17 +416,17 @@ function StepRow({
                         : "font-medium text-foreground"
                   }`}
                 >
-                  {step.title}
+                  {title}
                 </h3>
                 {headerIsUpNext && <UpNextBadge />}
               </div>
-              {step.description && (
+              {description && (
                 <p
                   className={`mt-0.5 text-sm leading-relaxed ${
                     complete ? "text-muted-foreground/60" : "text-muted-foreground"
                   }`}
                 >
-                  {step.description}
+                  {description}
                 </p>
               )}
             </div>
@@ -449,7 +435,7 @@ function StepRow({
                 type="button"
                 onClick={onToggleOpen}
                 className="p-1 rounded hover:bg-muted text-muted-foreground shrink-0"
-                aria-label={open ? `Collapse "${step.title}"` : `Expand "${step.title}"`}
+                aria-label={open ? `Collapse "${title}"` : `Expand "${title}"`}
                 data-testid={`step-toggle-${step.id}`}
               >
                 <ChevronDown
@@ -486,23 +472,23 @@ function StepRow({
             </div>
           )}
 
-          {!isNetworkStep && subs.length > 0 && open && (
+          {!isNetworkStep && items.length > 0 && open && (
             <ul className="mt-2 space-y-2 pl-1">
-              {subs.map((sub) => {
-                const subChecked = checked.has(sub.substepId);
-                const subIsUpNext = upNext !== null && upNext.substepId === sub.substepId;
+              {items.map((item) => {
+                const subChecked = itemChecked(item, checked);
+                const subIsUpNext = upNext !== null && upNext.substepId === item.primaryKey;
                 return (
-                  <li key={sub.substepId} className="flex items-start gap-3">
+                  <li key={item.primaryKey} className="flex items-start gap-3">
                     <Checkbox
-                      id={`sub-${sub.substepId}`}
+                      id={`sub-${item.primaryKey}`}
                       checked={subChecked}
-                      onCheckedChange={() => onToggleKey(sub.substepId)}
+                      onCheckedChange={() => onSetStep(item.keys, !subChecked)}
                       className="mt-0.5"
-                      aria-label={`Mark "${sub.action}" complete`}
-                      data-testid={`substep-checkbox-${sub.substepId}`}
+                      aria-label={`Mark "${item.action}" complete`}
+                      data-testid={`substep-checkbox-${item.primaryKey}`}
                     />
                     <label
-                      htmlFor={`sub-${sub.substepId}`}
+                      htmlFor={`sub-${item.primaryKey}`}
                       className={`text-sm leading-relaxed cursor-pointer ${
                         subChecked
                           ? "text-muted-foreground line-through"
@@ -511,15 +497,10 @@ function StepRow({
                             : "text-foreground"
                       }`}
                     >
-                      {sub.action}
+                      {item.action}
                       {subIsUpNext && (
                         <span className="ml-2 align-middle">
                           <UpNextBadge />
-                        </span>
-                      )}
-                      {sub.network && (
-                        <span className="ml-2 inline-flex items-center rounded-md border border-border bg-muted px-1.5 py-0.5 text-[11px] font-medium text-muted-foreground align-middle">
-                          {NETWORK_LABELS[sub.network]}
                         </span>
                       )}
                     </label>

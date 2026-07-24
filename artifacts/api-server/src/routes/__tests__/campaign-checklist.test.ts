@@ -154,6 +154,54 @@ describe("campaign checklist progress API", () => {
     expect(res.body.checkedIds).toEqual([SHARED_SUBSTEP.substepId]);
   });
 
+  it("accepts legacy DIYTrax ids and normalizes either-checked to the full merged group", async () => {
+    const cookie = cookieFor(await seedUser());
+
+    // Legacy state: only ONE of the two old DIYTrax ids checked. The save
+    // must succeed (never "Unknown checklist ids") and both group ids come
+    // back checked, so the merged member-facing line renders checked.
+    const put = await request(app)
+      .put("/api/campaign-checklist")
+      .set("Cookie", cookie)
+      .send({ network: "media-mavens", checkedIds: ["create-diytrax-campaign-basic-info"] });
+    expect(put.status).toBe(200);
+    expect(put.body.checkedIds).toContain("create-diytrax-campaign-basic-info");
+    expect(put.body.checkedIds).toContain("create-diytrax-campaign-create");
+
+    const get = await request(app).get("/api/campaign-checklist").set("Cookie", cookie);
+    expect(get.body.checkedIds).toContain("create-diytrax-campaign-basic-info");
+    expect(get.body.checkedIds).toContain("create-diytrax-campaign-create");
+  });
+
+  it("still accepts the member-hidden MM substep id (backs the MM single-checkbox step)", async () => {
+    const cookie = cookieFor(await seedUser());
+    const res = await request(app)
+      .put("/api/campaign-checklist")
+      .set("Cookie", cookie)
+      .send({
+        network: "media-mavens",
+        checkedIds: ["create-lp-assets-mm-advertorial-copy"],
+      });
+    expect(res.status).toBe(200);
+    expect(res.body.checkedIds).toContain("create-lp-assets-mm-advertorial-copy");
+  });
+
+  it("GET normalizes legacy rows persisted before the merge (either old id => both)", async () => {
+    const userId = await seedUser();
+    // Simulate a pre-merge persisted row directly in the DB.
+    await db.insert(campaignChecklistProgressTable).values({
+      userId,
+      network: "clickbank",
+      checkedIds: ["create-diytrax-campaign-create"],
+    });
+    const res = await request(app)
+      .get("/api/campaign-checklist")
+      .set("Cookie", cookieFor(userId));
+    expect(res.status).toBe(200);
+    expect(res.body.checkedIds).toContain("create-diytrax-campaign-create");
+    expect(res.body.checkedIds).toContain("create-diytrax-campaign-basic-info");
+  });
+
   it("scopes state per member — another member sees their own empty state", async () => {
     await request(app)
       .put("/api/campaign-checklist")

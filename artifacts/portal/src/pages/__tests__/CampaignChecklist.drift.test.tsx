@@ -20,6 +20,9 @@ import path from "path";
 import {
   CAMPAIGN_ROADMAP,
   CAMPAIGN_PHASE_LABELS,
+  memberChecklistItems,
+  memberStepDescription,
+  memberStepTitle,
   type CampaignNetwork,
 } from "@workspace/campaign-roadmap";
 
@@ -66,7 +69,7 @@ beforeEach(() => {
 
 describe("campaign checklist drift guard — display strings come from the skeleton module", () => {
   for (const network of ["media-mavens", "clickbank"] as const) {
-    it(`renders every step title, description, and ${network} substep action verbatim from the module`, async () => {
+    it(`renders every step title, description, and ${network} member line verbatim from the module`, async () => {
       await renderWithNetwork(network);
       const pageText = normalize(
         screen.getByTestId("campaign-checklist-page").textContent ?? "",
@@ -76,21 +79,32 @@ describe("campaign checklist drift guard — display strings come from the skele
         const row = screen.getByTestId(`step-row-${step.id}`);
         const rowText = normalize(row.textContent ?? "");
 
-        expect(rowText, `step "${step.id}" title drifted`).toContain(normalize(step.title));
-        if (step.description) {
+        expect(rowText, `step "${step.id}" title drifted`).toContain(
+          normalize(memberStepTitle(step)),
+        );
+        const description = memberStepDescription(step, network);
+        if (description) {
           expect(rowText, `step "${step.id}" description drifted`).toContain(
-            normalize(step.description),
+            normalize(description),
           );
         }
+        const items = memberChecklistItems(step, network);
+        for (const item of items) {
+          expect(rowText, `member line ${item.primaryKey} drifted`).toContain(
+            normalize(item.action),
+          );
+        }
+        const renderedActions = new Set(items.map((i) => normalize(i.action)));
         for (const sub of step.substeps) {
-          const visible = sub.network === undefined || sub.network === network;
-          if (visible) {
-            expect(rowText, `substep ${sub.substepId} action drifted`).toContain(
-              normalize(sub.action),
+          const eligible = sub.network === undefined || sub.network === network;
+          const hidden = sub.member?.hidden === true;
+          const canonical = normalize(sub.action);
+          // Other-branch and member-hidden substeps must NOT render — unless
+          // an identical member line legitimately shows the same text.
+          if ((!eligible || hidden) && !renderedActions.has(canonical)) {
+            expect(pageText, `substep ${sub.substepId} should not render`).not.toContain(
+              canonical,
             );
-          } else {
-            // Other-branch substeps must NOT render.
-            expect(pageText).not.toContain(normalize(sub.action));
           }
         }
       }
@@ -145,8 +159,169 @@ describe("campaign checklist drift guard — display strings come from the skele
           normalizedSource,
           `substep ${sub.substepId} action hardcoded in page source`,
         ).not.toContain(normalize(sub.action));
+        for (const memberAction of [
+          sub.member?.action,
+          ...Object.values(sub.member?.actionByNetwork ?? {}),
+        ]) {
+          if (memberAction) {
+            expect(
+              normalizedSource,
+              `substep ${sub.substepId} member copy hardcoded in page source`,
+            ).not.toContain(normalize(memberAction));
+          }
+        }
+      }
+      for (const memberDesc of [
+        step.member?.description,
+        ...Object.values(step.member?.descriptionByNetwork ?? {}),
+      ]) {
+        if (memberDesc) {
+          expect(
+            normalizedSource,
+            `step "${step.id}" member copy hardcoded in page source`,
+          ).not.toContain(normalize(memberDesc));
+        }
       }
     }
+  });
+});
+
+describe("network-tailored member copy", () => {
+  it("MM: presell/angles say advertorial, LP step is a single checkbox with no MM note, no [network] badge chips", async () => {
+    await renderWithNetwork("media-mavens");
+    const page = screen.getByTestId("campaign-checklist-page");
+    const pageText = normalize(page.textContent ?? "");
+
+    expect(pageText).toContain(normalize("Review the advertorial for the offer."));
+    expect(pageText).not.toContain(normalize("Review the VSL for the offer."));
+    expect(pageText).not.toContain(
+      normalize("Review the presell page for the offer: the advertorial [MM] or the VSL [CB]."),
+    );
+
+    // Finalize-angles description: advertorial only, never "advertorial/VSL".
+    const anglesText = normalize(
+      screen.getByTestId("step-row-finalize-angles").textContent ?? "",
+    );
+    expect(anglesText).toContain("the advertorial and customer avatar research");
+    expect(anglesText).not.toContain("vsl");
+
+    // LP assets: "(both networks)" gone, MM informational substep hidden,
+    // step renders one single checkbox keyed by the step.
+    const lpRow = screen.getByTestId("step-row-create-lp-assets");
+    const lpText = normalize(lpRow.textContent ?? "");
+    expect(lpText).toContain(normalize("5 LP headlines + 5 hero shots."));
+    expect(lpText).not.toContain("both networks");
+    expect(lpText).not.toContain(normalize("Landing-page copy comes from the pre-built advertorial"));
+    expect(screen.getByTestId("step-checkbox-create-lp-assets")).toBeInTheDocument();
+    expect(
+      screen.queryByTestId("substep-checkbox-create-lp-assets-mm-advertorial-copy"),
+    ).not.toBeInTheDocument();
+
+    // Network badge chips are gone: "Media Mavens" appears only in the
+    // choose-network step (radio labels + confirmation), nowhere else.
+    for (const step of CAMPAIGN_ROADMAP) {
+      if (step.id === "choose-network") continue;
+      const rowText = normalize(screen.getByTestId(`step-row-${step.id}`).textContent ?? "");
+      expect(rowText, `badge chip leaked into step "${step.id}"`).not.toContain("media mavens");
+      expect(rowText, `badge chip leaked into step "${step.id}"`).not.toContain("clickbank");
+    }
+
+    // Choose-network confirms the selection.
+    const chooseText = normalize(
+      screen.getByTestId("step-row-choose-network").textContent ?? "",
+    );
+    expect(chooseText).toContain(
+      normalize("You've selected Media Mavens — the steps below are tailored to it."),
+    );
+  });
+
+  it("CB: presell/angles say VSL, Bridge Page Copy Bot substep still shows, MetricMover page line avoids the MM abbreviation", async () => {
+    await renderWithNetwork("clickbank");
+    const page = screen.getByTestId("campaign-checklist-page");
+    const pageText = normalize(page.textContent ?? "");
+
+    expect(pageText).toContain(normalize("Review the VSL for the offer."));
+    expect(pageText).not.toContain(normalize("Review the advertorial for the offer."));
+    const anglesText = normalize(
+      screen.getByTestId("step-row-finalize-angles").textContent ?? "",
+    );
+    expect(anglesText).toContain("the vsl and customer avatar research");
+    expect(anglesText).not.toContain("advertorial");
+
+    expect(
+      screen.getByTestId("substep-checkbox-create-lp-assets-cb-bridge-copy"),
+    ).toBeInTheDocument();
+
+    expect(pageText).toContain(
+      normalize("Create a blank MetricMover page with a custom code box in Flexy."),
+    );
+    expect(pageText).not.toContain(normalize('Create a blank "MM" page'));
+
+    const chooseText = normalize(
+      screen.getByTestId("step-row-choose-network").textContent ?? "",
+    );
+    expect(chooseText).toContain(
+      normalize("You've selected ClickBank — the steps below are tailored to it."),
+    );
+  });
+
+  it("DIYTrax create + basic-info render as ONE checkbox line; Flexy line carries the clarified wording", async () => {
+    await renderWithNetwork("media-mavens");
+    const row = screen.getByTestId("step-row-create-diytrax-campaign");
+    const rowText = normalize(row.textContent ?? "");
+
+    expect(rowText).toContain(
+      normalize("Create the campaign in DIYTrax and fill in the Basic Info tab (and save)."),
+    );
+    expect(rowText).toContain(
+      normalize(
+        "One-time global setup: copy the T2 landing-page URL from the Links & Pixels tab in your DIYTrax campaign and paste it into Flexy Custom Values.",
+      ),
+    );
+    // One merged checkbox (keyed by the first canonical id) + the Flexy one.
+    expect(
+      screen.getByTestId("substep-checkbox-create-diytrax-campaign-create"),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByTestId("substep-checkbox-create-diytrax-campaign-basic-info"),
+    ).not.toBeInTheDocument();
+    expect(row.querySelectorAll('[data-testid^="substep-checkbox-"]')).toHaveLength(2);
+  });
+
+  it("merged DIYTrax line shows checked when EITHER legacy id was checked, and toggling writes both keys", async () => {
+    mockFetch("media-mavens");
+    // Legacy member: only the old basic-info id was checked.
+    (fetch as unknown as ReturnType<typeof vi.fn>).mockImplementation(async (_url: string, init?: RequestInit) => ({
+      ok: true,
+      json: async () =>
+        init?.method === "PUT"
+          ? JSON.parse(String(init.body))
+          : { network: "media-mavens", checkedIds: ["create-diytrax-campaign-basic-info"] },
+    }));
+    render(<CampaignChecklist />);
+    await waitFor(() =>
+      expect(
+        screen.getByTestId("substep-checkbox-create-diytrax-campaign-create"),
+      ).toBeInTheDocument(),
+    );
+    const box = screen.getByTestId("substep-checkbox-create-diytrax-campaign-create");
+    expect(box).toHaveAttribute("data-state", "checked");
+
+    // Toggling off clears BOTH canonical keys in the save payload.
+    fireEvent.click(box);
+    const fetchMock = fetch as unknown as ReturnType<typeof vi.fn>;
+    const putCall = fetchMock.mock.calls.find((c) => (c[1] as RequestInit)?.method === "PUT");
+    expect(putCall).toBeDefined();
+    const body = JSON.parse(String((putCall![1] as RequestInit).body));
+    expect(body.checkedIds).not.toContain("create-diytrax-campaign-create");
+    expect(body.checkedIds).not.toContain("create-diytrax-campaign-basic-info");
+
+    // Toggling on writes BOTH keys.
+    fireEvent.click(box);
+    const putCalls = fetchMock.mock.calls.filter((c) => (c[1] as RequestInit)?.method === "PUT");
+    const lastBody = JSON.parse(String((putCalls[putCalls.length - 1][1] as RequestInit).body));
+    expect(lastBody.checkedIds).toContain("create-diytrax-campaign-create");
+    expect(lastBody.checkedIds).toContain("create-diytrax-campaign-basic-info");
   });
 });
 

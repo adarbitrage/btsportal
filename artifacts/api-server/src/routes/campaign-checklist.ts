@@ -3,6 +3,7 @@ import { db, campaignChecklistProgressTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import {
   CAMPAIGN_ROADMAP,
+  MEMBER_MERGED_KEY_GROUPS,
   type CampaignNetwork,
 } from "@workspace/campaign-roadmap";
 
@@ -41,6 +42,23 @@ function filterForNetwork(checkedIds: string[], network: CampaignNetwork | null)
   });
 }
 
+/**
+ * Legacy-progress normalization for merged member-facing lines: substep
+ * groups that now render as ONE checklist line are treated as one unit —
+ * if ANY canonical id in a group is checked, ALL ids in the group are
+ * checked. Keys stay canonical; members with pre-merge state never lose
+ * progress or hit save failures.
+ */
+function expandMergedGroups(checkedIds: string[]): string[] {
+  const set = new Set(checkedIds);
+  for (const group of MEMBER_MERGED_KEY_GROUPS) {
+    if (group.some((id) => set.has(id))) {
+      for (const id of group) set.add(id);
+    }
+  }
+  return Array.from(set);
+}
+
 router.get("/campaign-checklist", async (req, res): Promise<void> => {
   const userId = req.userId!;
   const [row] = await db
@@ -49,7 +67,7 @@ router.get("/campaign-checklist", async (req, res): Promise<void> => {
     .where(eq(campaignChecklistProgressTable.userId, userId));
   res.json({
     network: (row?.network as CampaignNetwork | null) ?? null,
-    checkedIds: row?.checkedIds ?? [],
+    checkedIds: expandMergedGroups(row?.checkedIds ?? []),
   });
 });
 
@@ -72,7 +90,10 @@ router.put("/campaign-checklist", async (req, res): Promise<void> => {
   }
 
   const normalizedNetwork: CampaignNetwork | null = network ?? null;
-  const filtered = filterForNetwork(Array.from(new Set<string>(checkedIds)), normalizedNetwork);
+  const filtered = filterForNetwork(
+    expandMergedGroups(Array.from(new Set<string>(checkedIds))),
+    normalizedNetwork,
+  );
 
   const [row] = await db
     .insert(campaignChecklistProgressTable)
