@@ -42,6 +42,7 @@ import {
   PLACEMENT_PROTOCOL_SENTINEL,
   STEP_NAMES_SENTINEL,
   CAMPAIGN_SPINE_SENTINEL,
+  CREATIVE_BOUNDARY_SENTINEL,
   LEGACY_GENERIC_KB_TITLES,
 } from "./chat-system-prompt";
 import { ensureFoundingSuperAdmins } from "./ensure-founding-superadmins";
@@ -632,7 +633,8 @@ export async function ensureKBGrounding(): Promise<void> {
       !activePrompt.content.includes(FORMATTING_STYLE_SENTINEL) ||
       !activePrompt.content.includes(PLACEMENT_PROTOCOL_SENTINEL) ||
       !activePrompt.content.includes(STEP_NAMES_SENTINEL) ||
-      !activePrompt.content.includes(CAMPAIGN_SPINE_SENTINEL))
+      !activePrompt.content.includes(CAMPAIGN_SPINE_SENTINEL) ||
+      !activePrompt.content.includes(CREATIVE_BOUNDARY_SENTINEL))
   ) {
     await db
       .update(chatSystemPromptsTable)

@@ -25,12 +25,16 @@ be a phrase that a legacy/custom prompt can't accidentally already contain.
 change all three or the drift guard is incomplete. Portal-page hyperlinking is
 Rule 10 / `PORTAL_LINK_SENTINEL`. The guard test also asserts the EXACT rule
 count (`**Rule N — ` for 1..count, none past it) — growing the count means
-updating that test's bounds in the same change. Current count: 17 (Rule 16 =
+updating that test's bounds in the same change. Current count: 18 (Rule 16 =
 campaign placement protocol / `PLACEMENT_PROTOCOL_SENTINEL`: answering ≠
 placing, tool mentions are a non-signal, precedence over Rules 12/13; Rule 17 =
 campaign steps by phase + title, never "step N" / `STEP_NAMES_SENTINEL` — no
 legacy-number translation, member-typed numbers = ambiguity per Rule 16, and
-the roadmap spine's list numbers are internal-only markers).
+the roadmap spine's list numbers are internal-only markers; Rule 18 = creative
+work boundary / `CREATIVE_BOUNDARY_SENTINEL`: teach concepts, never
+produce/transform/critique/rank member creative assets, no invented examples
+(curriculum-quoted only), deflection is Rule-8-ladder-exempt, precedence over
+Rules 3/8-Step-1/13 and the Response Style follow-up bullet).
 
 **Body-edit trap:** boot enforcement only overwrites the DB row when a sentinel
 substring is MISSING. Editing a rule's body text without changing any sentinel

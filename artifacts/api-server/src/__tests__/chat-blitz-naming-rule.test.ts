@@ -18,6 +18,7 @@ import {
   PLACEMENT_PROTOCOL_SENTINEL,
   STEP_NAMES_SENTINEL,
   CAMPAIGN_SPINE_SENTINEL,
+  CREATIVE_BOUNDARY_SENTINEL,
 } from "../lib/chat-system-prompt";
 
 // ensureKBGrounding() touches the DB and a handful of seed/scrub modules. Mock
@@ -111,6 +112,7 @@ const ALL_SENTINELS: Array<[string, string]> = [
   ["PLACEMENT_PROTOCOL_SENTINEL", PLACEMENT_PROTOCOL_SENTINEL],
   ["STEP_NAMES_SENTINEL", STEP_NAMES_SENTINEL],
   ["CAMPAIGN_SPINE_SENTINEL", CAMPAIGN_SPINE_SENTINEL],
+  ["CREATIVE_BOUNDARY_SENTINEL", CREATIVE_BOUNDARY_SENTINEL],
 ];
 
 beforeEach(() => {
@@ -377,17 +379,123 @@ describe("Rule 17 — campaign steps by phase + title, never by number", () => {
   });
 });
 
+describe("Rule 18 — creative work boundary (teach concepts, never do the member's creative work)", () => {
+  it("carries the rule header + sentinel and the not-qualified / no-blame principle", () => {
+    expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain("Rule 18");
+    expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain(CREATIVE_BOUNDARY_SENTINEL);
+    expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain(
+      "NOT qualified to produce, judge, or evaluate marketing assets",
+    );
+    expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain(
+      "attribute an ad test outcome to your creative input",
+    );
+    expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain("role limit, not a knowledge limit");
+  });
+
+  it("bans the full operation list including transformations of member/tool creative", () => {
+    expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain(
+      "invent, draft, write, complete, critique, score, rank, rewrite, or select",
+    );
+    expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain(
+      "ANY text transformation of member-written or tool-generated creative",
+    );
+    expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain("fixing grammar");
+    expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain(
+      "recommending which specific offer, product, or niche",
+    );
+  });
+
+  it("closes the framing loophole (hypothetical/template/education framings)", () => {
+    expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain("regardless of framing");
+    expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain(
+      "whenever the output would be usable as a marketing asset",
+    );
+  });
+
+  it("bans invented examples with a deterministic fallback, allowing only attributed curriculum-quoted examples", () => {
+    expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain("Never invent examples");
+    expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain("even for a generic or made-up niche");
+    expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain("relay an example verbatim ONLY");
+    expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain("I can't create examples");
+  });
+
+  it("keeps teaching full-depth and draws the relay-vs-apply judgment line", () => {
+    expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain("Teaching stays full-depth");
+    expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain(
+      "the training says strong headlines do X",
+    );
+    expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain("is the prohibited act");
+  });
+
+  it("permits generic metric education + KB-quoted benchmarks but bans evaluating member numbers", () => {
+    expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain("Metrics and results");
+    expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain(
+      "quote a benchmark ONLY when the provided articles state one",
+    );
+    expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain(
+      "Never evaluate the member's specific numbers",
+    );
+    expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain("scale, kill, or keep decisions");
+  });
+
+  it("splits compliance education from creative approval", () => {
+    expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain("Compliance education, not approval");
+    expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain(
+      "never approve or reject a specific creative",
+    );
+  });
+
+  it("carries the gentle deflection script with an immediate coaching handoff exempt from Rule 8's ladder", () => {
+    expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain(
+      "I'm not trained to provide marketing assets, but I can go over the general concepts with you",
+    );
+    expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain(
+      "exempt from Rule 8's escalation ladder",
+    );
+    expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain(
+      "may mention Coaching Calls immediately",
+    );
+  });
+
+  it("bans volunteering creative workshopping with in-rule allowed/prohibited closer examples", () => {
+    expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain("Never volunteer creative work");
+    expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain(
+      "want me to walk you through submitting for compliance review?",
+    );
+    expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain(
+      "want to work through how one of your angles translates into a headline?",
+    );
+    expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain("neutral comprehension check");
+  });
+
+  it("declares explicit precedence over Rules 3, 8 (Step 1), 13, and the Response Style follow-up bullet", () => {
+    expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain(
+      "this rule overrides Rule 3",
+    );
+    expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain(
+      "never asset production",
+    );
+    expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain(
+      "overrides Rule 8's Step 1 constraint for boundary deflections",
+    );
+    // Response Style bullet is itself constrained.
+    expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain(
+      "subject to Rule 18: never offer to produce or workshop member creative assets",
+    );
+  });
+});
+
 describe("prompt hygiene", () => {
   it("no longer carries member-visible tier placeholders (Task #1922 tier removal)", () => {
     expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).not.toContain("{{chat_tier}}");
     expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).not.toContain("Chat tier:");
   });
 
-  it("has exactly 17 rules and no stale references past Rule 17", () => {
-    for (let n = 1; n <= 17; n++) {
+  it("has exactly 18 rules and no stale references past Rule 18", () => {
+    for (let n = 1; n <= 18; n++) {
       expect(ANTI_HALLUCINATION_SYSTEM_PROMPT, `Rule ${n}`).toContain(`**Rule ${n} — `);
     }
-    for (const n of [18, 19, 20, 21]) {
+    for (const n of [19, 20, 21, 22]) {
       expect(ANTI_HALLUCINATION_SYSTEM_PROMPT, `Rule ${n}`).not.toContain(`Rule ${n}`);
     }
   });
