@@ -488,24 +488,20 @@ export default function BlitzHub() {
               </p>
             </div>
 
-            <Card className="border-border/60 shadow-sm w-full shrink-0 sm:w-64 sm:justify-self-center">
-              <CardContent className="px-4 py-2.5 h-full flex flex-col justify-center">
-                <div className="flex items-baseline justify-between mb-1.5">
-                  <span className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">
-                    Your Progress
-                  </span>
-                  <span className="text-xs font-semibold text-foreground">
-                    {doneCount} / {TOTAL}
-                  </span>
-                </div>
-                <div className="h-1.5 rounded-full bg-muted overflow-hidden">
-                  <div
-                    className="h-full rounded-full bg-primary transition-all duration-500"
-                    style={{ width: `${pct}%` }}
-                  />
-                </div>
-              </CardContent>
-            </Card>
+            <div className="flex w-full shrink-0 items-center gap-2.5 rounded-full border border-border/60 bg-card px-3.5 py-1.5 shadow-sm sm:w-auto sm:justify-self-center">
+              <span className="whitespace-nowrap text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">
+                Your Progress
+              </span>
+              <div className="h-1.5 w-full min-w-0 flex-1 overflow-hidden rounded-full bg-muted sm:w-20 sm:flex-none">
+                <div
+                  className="h-full rounded-full bg-primary transition-all duration-500"
+                  style={{ width: `${pct}%` }}
+                />
+              </div>
+              <span className="whitespace-nowrap text-xs font-semibold text-foreground">
+                {doneCount} / {TOTAL}
+              </span>
+            </div>
 
             <div className="sm:justify-self-end">
               <Button asChild size="sm" className="gap-1.5 bg-green-600 text-white hover:bg-green-700">
