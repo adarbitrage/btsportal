@@ -517,6 +517,20 @@ export default function BlitzHub() {
 
           <div className="rounded-xl border border-border/60 bg-card p-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <p className="text-sm text-muted-foreground">
+              <strong className="text-foreground">Running your campaign?</strong> Track every step
+              of your build with the 17-step campaign checklist — your progress saves to your
+              account.
+            </p>
+            <Button asChild size="sm" className="gap-2 shrink-0">
+              <Link href="/blitz/campaign-checklist" data-testid="link-campaign-checklist">
+                Open the Campaign Checklist
+                <ArrowUpRight className="w-4 h-4" />
+              </Link>
+            </Button>
+          </div>
+
+          <div className="rounded-xl border border-border/60 bg-card p-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-sm text-muted-foreground">
               <strong className="text-foreground">Just finished the 7 Pillars?</strong> You've learned the
               framework — now you build. New here?{" "}
               <Link

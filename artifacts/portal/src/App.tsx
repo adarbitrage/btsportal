@@ -33,6 +33,7 @@ import AiThemePreview from "@/pages/AiThemePreview";
 import VoiceAssistant from "@/pages/VoiceAssistant";
 import Blitz from "@/pages/Blitz";
 import BlitzHub from "@/pages/BlitzHub";
+import CampaignChecklist from "@/pages/CampaignChecklist";
 import BlitzArchive from "@/pages/BlitzArchive";
 import BlitzHubArchive from "@/pages/BlitzHubArchive";
 import VideoReview from "@/pages/VideoReview";
@@ -524,6 +525,7 @@ function Router() {
       <Route path="/ai-assistant">{() => <ProtectedRoute component={AiAssistant} />}</Route>
       <Route path="/assistant/voice">{() => <EntitlementRoute component={VoiceAssistant} entitlement="voice:access" />}</Route>
       <Route path="/blitz">{() => <ContentAccessRoute component={BlitzHub} pageKey="blitz" />}</Route>
+      <Route path="/blitz/campaign-checklist">{() => <ContentAccessRoute component={CampaignChecklist} pageKey="blitz" />}</Route>
       <Route path="/blitz/guide">{() => <ContentAccessRoute component={Blitz} pageKey="blitz" />}</Route>
       <Route path="/blitz/guide/:lessonId">{() => <ContentAccessRoute component={Blitz} pageKey="blitz" />}</Route>
       <Route path="/blitz-archive">{() => <AdminRoute component={BlitzHubArchive} permission="content:manage" />}</Route>

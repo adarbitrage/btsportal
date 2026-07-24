@@ -115,3 +115,4 @@ export * from "./kb-proposed-synonyms";
 export * from "./call-bookings";
 export * from "./partner-notes";
 export * from "./kb-flag-lifecycle";
+export * from "./campaign-checklist-progress";
