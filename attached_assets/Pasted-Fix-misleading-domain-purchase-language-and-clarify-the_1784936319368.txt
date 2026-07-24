@@ -1,0 +1,36 @@
+Fix misleading domain-purchase language and clarify the "Live" naming convention in the AI knowledge base doc "Setting Up Your Website in Flexy™". This edits TWO database rows in lockstep — the live doc and its staging counterpart — or a future re-publish will resurrect the old text. Do NOT edit any knowledge-base/*.txt seed files (they don't update seeded rows). Use base64 in/out of SQL when moving exact text to avoid quoting issues. IMPORTANT: both rows use typographic characters — curly quotes (“ ”), apostrophes (’), and an en-dash in "Live Website – Run Campaigns Here" — so match anchors exactly as they appear in the DB, never with straight ASCII quotes.
+
+Target rows:
+
+ai_live_documents id 10544 — edit content only.
+kb_staging_docs id 1462 — edit edited_content ONLY, in place (WHERE id = 1462 AND status = 'published'). This row already has non-null edited_content containing prior reviewer edits. Never write its content column, never overwrite edited_content with a copy of content, and preserve every other byte of the edited text.
+Pre-edit backup (mandatory): before any change, export base64 dumps of ai_live_documents.content (id 10544) and kb_staging_docs.edited_content (id 1462) and save them to files (e.g., /tmp/kb-backup-10544.b64, /tmp/kb-backup-1462.b64) so either row can be restored exactly.
+
+Preflight guards (must all pass, else abort with no changes): confirm each anchor below occurs EXACTLY ONCE in each target field (count matches in ai_live_documents.content for id 10544 and in kb_staging_docs.edited_content for id 1462). Any count other than 1 for any anchor in any field = stop and report.
+
+Atomicity: run all preflight checks, both edits to both rows, and the post-edit verification inside a SINGLE transaction — BEGIN → guards → updates → verify → COMMIT; ROLLBACK on any failure.
+
+Edit A (both rows) — remove the domain-purchase framing. Replace this exact line (in the "### 2) Add a Domain to Flexy™" section):
+
+Connect a web address to your site. If you don’t already have a domain, purchase one first.
+
+with:
+
+Connect a web address to your site. You do not need to buy a domain — BTS owns both consumerwatchdog.io and thecuttingedge.today, and you create your own free subdomain on the brand domain that matches your template.
+
+Edit B (both rows) — define the "Live" naming convention. In the "### 1) Clone the Flexy™ Website (Template to Your Account)" section, immediately after this exact anchor line:
+
+6. Name the new site so you can recognize it as your live campaign site (for example, “Live Website – Run Campaigns Here”).
+
+insert a new line:
+
+Throughout this guide, “your live website” means this renamed clone — the site you work on and run campaigns from — never the original template, which stays untouched for future cloning.
+
+Keep it as body text within step 6's flow, before the line beginning 7. Wait for cloning to complete, preserving the doc's existing line formatting.
+
+Post-edit verification (all must pass, inside the transaction):
+
+Exact expected-final-text validation: for each row, the after-text must equal the before-text with precisely the two string substitutions applied (compute the expected result programmatically from the backup and compare byte-for-byte — do NOT rely on length deltas).
+Each of the two new sentences appears exactly once per target field; purchase one first appears zero times in either field.
+Domain-purchase phrase sweep across all live docs: check ai_live_documents (deleted_at IS NULL) for each of these phrases — purchase one first, buy a domain, purchase a domain, purchase your domain, domain registrar, register a domain — and inspect any returned rows individually. Expected result: only doc id 14, whose line "you don't buy a domain — you add your own subdomain…" is CORRECT wording and must NOT be changed. Anything else unexpected = report before finishing.
+Confirm kb_staging_docs id 1462 content column is byte-identical to its pre-edit backup state (untouched).
