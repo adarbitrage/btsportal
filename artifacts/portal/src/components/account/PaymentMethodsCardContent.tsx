@@ -1,5 +1,4 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { Link } from "wouter";
 import {
   CreditCard,
   Plus,
@@ -9,12 +8,9 @@ import {
   AlertTriangle,
   CheckCircle2,
   ShieldCheck,
-  ArrowLeft,
   X,
 } from "lucide-react";
-import { AppLayout } from "@/components/layout/AppLayout";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { customFetch } from "@workspace/api-client-react";
 import { initCollectJs, type CollectJsHandle, type CollectJsTokenResult } from "@/lib/collect-js";
 import {
@@ -154,7 +150,14 @@ function CardRow({
   );
 }
 
-export default function PaymentMethods() {
+/**
+ * The full saved-cards wallet (list, add via NMI Collect.js hosted fields, set
+ * default, remove). Extracted from the former standalone /payment-methods page
+ * so it can live as a collapsible card on the Account page — all behavior
+ * (including the active-subscription delete guard surfaced via API errors) is
+ * unchanged.
+ */
+export function PaymentMethodsCardContent() {
   const { data: cards, isLoading, isError } = usePaymentMethods();
   const addMutation = useAddPaymentMethod();
   const setDefaultMutation = useSetDefaultPaymentMethod();
@@ -300,199 +303,179 @@ export default function PaymentMethods() {
   };
 
   return (
-    <AppLayout>
-      <div className="max-w-lg mx-auto space-y-6">
-        <div>
-          <Link href="/account">
-            <Button variant="ghost" size="sm" className="mb-4 -ml-2">
-              <ArrowLeft className="w-4 h-4 mr-1" />
-              Back to account
-            </Button>
-          </Link>
-          <h1 className="text-2xl font-bold text-foreground">Payment Methods</h1>
-          <p className="text-muted-foreground mt-1">
-            Manage your saved cards for faster checkout.
+    <div className="space-y-3" data-testid="payment-methods-card-content">
+      {addSuccess && (
+        <div
+          className="rounded-lg border border-primary/40 bg-primary/5 p-3 flex items-center gap-2 text-sm text-foreground"
+          role="status"
+        >
+          <CheckCircle2 className="w-4 h-4 text-primary shrink-0" />
+          Card saved successfully.
+        </div>
+      )}
+
+      <div className="flex items-center justify-between">
+        <span className="text-sm font-medium text-foreground">Saved cards</span>
+        {!showAddForm && (
+          <Button
+            size="sm"
+            variant="outline"
+            className="h-8 text-xs"
+            onClick={() => {
+              setAddError(null);
+              setShowAddForm(true);
+            }}
+            disabled={tokenKeyQuery.isError}
+          >
+            <Plus className="w-3.5 h-3.5 mr-1" />
+            Add card
+          </Button>
+        )}
+      </div>
+
+      {isLoading && (
+        <div className="flex items-center justify-center py-8 text-muted-foreground">
+          <Loader2 className="w-5 h-5 animate-spin mr-2" />
+          Loading saved cards…
+        </div>
+      )}
+
+      {isError && (
+        <div className="text-sm text-muted-foreground text-center py-6">
+          <AlertTriangle className="w-5 h-5 text-destructive mx-auto mb-2" />
+          Couldn't load your saved cards. Please refresh the page.
+        </div>
+      )}
+
+      {!isLoading && !isError && (!cards || cards.length === 0) && !showAddForm && (
+        <div className="text-center py-8 space-y-2">
+          <CreditCard className="w-8 h-8 text-muted-foreground/40 mx-auto" />
+          <p className="text-sm text-muted-foreground">No saved cards yet.</p>
+          <p className="text-xs text-muted-foreground">
+            Add a card to speed up checkout next time.
           </p>
         </div>
+      )}
 
-        {addSuccess && (
-          <div
-            className="rounded-lg border border-primary/40 bg-primary/5 p-3 flex items-center gap-2 text-sm text-foreground"
-            role="status"
-          >
-            <CheckCircle2 className="w-4 h-4 text-primary shrink-0" />
-            Card saved successfully.
+      {!isLoading &&
+        !isError &&
+        cards?.map((card) => (
+          <CardRow
+            key={card.id}
+            card={card}
+            onSetDefault={handleSetDefault}
+            onRemove={handleRemove}
+            settingDefaultId={settingDefaultId}
+            removingId={removingId}
+            removeError={removeError}
+          />
+        ))}
+
+      {showAddForm && (
+        <div className="border border-border/60 rounded-lg p-4 space-y-4">
+          <div className="flex items-center gap-2">
+            <ShieldCheck className="w-4 h-4 text-primary" />
+            <span className="text-sm font-medium text-foreground">Add a new card</span>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="ml-auto h-6 w-6 p-0"
+              onClick={() => {
+                setShowAddForm(false);
+                setAddError(null);
+                setCollectJsReady(false);
+                collectJsHandleRef.current = null;
+              }}
+            >
+              <X className="w-3.5 h-3.5" />
+            </Button>
           </div>
-        )}
+          <p className="text-xs text-muted-foreground -mt-2">
+            Card details are entered directly into NMI's secure hosted fields — they never
+            touch BTS's servers.
+          </p>
 
-        <Card>
-          <CardHeader className="pb-3 border-b border-border/50">
-            <div className="flex items-center justify-between">
-              <span className="font-semibold text-foreground">Saved cards</span>
-              {!showAddForm && (
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="h-8 text-xs"
-                  onClick={() => {
-                    setAddError(null);
-                    setShowAddForm(true);
-                  }}
-                  disabled={tokenKeyQuery.isError}
-                >
-                  <Plus className="w-3.5 h-3.5 mr-1" />
-                  Add card
-                </Button>
-              )}
+          {addError && (
+            <div
+              className="rounded-lg border border-destructive/40 bg-destructive/5 p-3 text-sm text-foreground flex items-start gap-2"
+              role="alert"
+            >
+              <AlertTriangle className="w-4 h-4 text-destructive shrink-0 mt-0.5" />
+              <span>{addError}</span>
             </div>
-          </CardHeader>
-          <CardContent className="pt-4 space-y-3">
-            {isLoading && (
-              <div className="flex items-center justify-center py-8 text-muted-foreground">
-                <Loader2 className="w-5 h-5 animate-spin mr-2" />
-                Loading saved cards…
-              </div>
-            )}
+          )}
 
-            {isError && (
-              <div className="text-sm text-muted-foreground text-center py-6">
-                <AlertTriangle className="w-5 h-5 text-destructive mx-auto mb-2" />
-                Couldn't load your saved cards. Please refresh the page.
-              </div>
-            )}
-
-            {!isLoading && !isError && (!cards || cards.length === 0) && !showAddForm && (
-              <div className="text-center py-8 space-y-2">
-                <CreditCard className="w-8 h-8 text-muted-foreground/40 mx-auto" />
-                <p className="text-sm text-muted-foreground">No saved cards yet.</p>
-                <p className="text-xs text-muted-foreground">
-                  Add a card to speed up checkout next time.
-                </p>
-              </div>
-            )}
-
-            {!isLoading &&
-              !isError &&
-              cards?.map((card) => (
-                <CardRow
-                  key={card.id}
-                  card={card}
-                  onSetDefault={handleSetDefault}
-                  onRemove={handleRemove}
-                  settingDefaultId={settingDefaultId}
-                  removingId={removingId}
-                  removeError={removeError}
+          <div className="space-y-3">
+            <div>
+              <label className="block text-sm font-medium text-foreground mb-1.5">
+                Card number
+              </label>
+              <div
+                id={FIELD_IDS.ccnumber}
+                className="h-10 rounded-md border border-input bg-background px-3 flex items-center text-sm"
+                style={{ minHeight: "40px" }}
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-sm font-medium text-foreground mb-1.5">
+                  Expiry
+                </label>
+                <div
+                  id={FIELD_IDS.ccexp}
+                  className="h-10 rounded-md border border-input bg-background px-3 flex items-center text-sm"
+                  style={{ minHeight: "40px" }}
                 />
-              ))}
-
-            {showAddForm && (
-              <div className="border border-border/60 rounded-lg p-4 space-y-4">
-                <div className="flex items-center gap-2">
-                  <ShieldCheck className="w-4 h-4 text-primary" />
-                  <span className="text-sm font-medium text-foreground">Add a new card</span>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="ml-auto h-6 w-6 p-0"
-                    onClick={() => {
-                      setShowAddForm(false);
-                      setAddError(null);
-                      setCollectJsReady(false);
-                      collectJsHandleRef.current = null;
-                    }}
-                  >
-                    <X className="w-3.5 h-3.5" />
-                  </Button>
-                </div>
-                <p className="text-xs text-muted-foreground -mt-2">
-                  Card details are entered directly into NMI's secure hosted fields — they never
-                  touch BTS's servers.
-                </p>
-
-                {addError && (
-                  <div
-                    className="rounded-lg border border-destructive/40 bg-destructive/5 p-3 text-sm text-foreground flex items-start gap-2"
-                    role="alert"
-                  >
-                    <AlertTriangle className="w-4 h-4 text-destructive shrink-0 mt-0.5" />
-                    <span>{addError}</span>
-                  </div>
-                )}
-
-                <div className="space-y-3">
-                  <div>
-                    <label className="block text-sm font-medium text-foreground mb-1.5">
-                      Card number
-                    </label>
-                    <div
-                      id={FIELD_IDS.ccnumber}
-                      className="h-10 rounded-md border border-input bg-background px-3 flex items-center text-sm"
-                      style={{ minHeight: "40px" }}
-                    />
-                  </div>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <label className="block text-sm font-medium text-foreground mb-1.5">
-                        Expiry
-                      </label>
-                      <div
-                        id={FIELD_IDS.ccexp}
-                        className="h-10 rounded-md border border-input bg-background px-3 flex items-center text-sm"
-                        style={{ minHeight: "40px" }}
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-foreground mb-1.5">
-                        CVV
-                      </label>
-                      <div
-                        id={FIELD_IDS.cvv}
-                        className="h-10 rounded-md border border-input bg-background px-3 flex items-center text-sm"
-                        style={{ minHeight: "40px" }}
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                {cards && cards.length > 0 && (
-                  <label className="flex items-center gap-2 text-sm cursor-pointer select-none">
-                    <input
-                      type="checkbox"
-                      checked={setAsDefault}
-                      onChange={(e) => setSetAsDefault(e.target.checked)}
-                      className="rounded"
-                    />
-                    Set as my default card
-                  </label>
-                )}
-
-                <Button
-                  className="w-full"
-                  disabled={!collectJsReady || addMutation.isPending}
-                  onClick={handleAddCard}
-                >
-                  {addMutation.isPending ? (
-                    <>
-                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                      Saving card…
-                    </>
-                  ) : !collectJsReady ? (
-                    <>
-                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                      Loading secure form…
-                    </>
-                  ) : (
-                    <>
-                      <CreditCard className="w-4 h-4 mr-2" />
-                      Save card
-                    </>
-                  )}
-                </Button>
               </div>
+              <div>
+                <label className="block text-sm font-medium text-foreground mb-1.5">
+                  CVV
+                </label>
+                <div
+                  id={FIELD_IDS.cvv}
+                  className="h-10 rounded-md border border-input bg-background px-3 flex items-center text-sm"
+                  style={{ minHeight: "40px" }}
+                />
+              </div>
+            </div>
+          </div>
+
+          {cards && cards.length > 0 && (
+            <label className="flex items-center gap-2 text-sm cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={setAsDefault}
+                onChange={(e) => setSetAsDefault(e.target.checked)}
+                className="rounded"
+              />
+              Set as my default card
+            </label>
+          )}
+
+          <Button
+            className="w-full"
+            disabled={!collectJsReady || addMutation.isPending}
+            onClick={handleAddCard}
+          >
+            {addMutation.isPending ? (
+              <>
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                Saving card…
+              </>
+            ) : !collectJsReady ? (
+              <>
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                Loading secure form…
+              </>
+            ) : (
+              <>
+                <CreditCard className="w-4 h-4 mr-2" />
+                Save card
+              </>
             )}
-          </CardContent>
-        </Card>
-      </div>
-    </AppLayout>
+          </Button>
+        </div>
+      )}
+    </div>
   );
 }

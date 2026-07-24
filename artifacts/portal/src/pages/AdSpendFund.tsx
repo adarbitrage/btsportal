@@ -14,7 +14,7 @@ import {
 } from "lucide-react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { customFetch } from "@workspace/api-client-react";
@@ -297,14 +297,17 @@ export default function AdSpendFund() {
     <AppLayout>
       <div className="max-w-lg mx-auto space-y-6">
         <div>
-          <Link href="/dashboard">
+          <Link href="/account?card=ad-balance">
             <Button variant="ghost" size="sm" className="mb-4 -ml-2">
               <ArrowLeft className="w-4 h-4 mr-1" />
-              Back to dashboard
+              Back to account
             </Button>
           </Link>
-          <h1 className="text-2xl font-bold text-foreground">Fund Ad Spend</h1>
-          <p className="text-muted-foreground mt-1">
+          <div className="flex items-center gap-3">
+            <Wallet className="w-8 h-8 text-primary" />
+            <h1 className="text-3xl font-bold text-foreground">Fund Ad Spend</h1>
+          </div>
+          <p className="text-muted-foreground mt-2">
             Deposit funds into your ad-spend balance using your credit card.
           </p>
         </div>
@@ -395,10 +398,10 @@ export default function AdSpendFund() {
         {isActivePhase && (
           <Card>
             <CardHeader className="pb-2">
-              <p className="font-semibold text-foreground">Deposit Amount</p>
-              <p className="text-sm text-muted-foreground">
+              <CardTitle>Deposit Amount</CardTitle>
+              <CardDescription>
                 Between ${MIN_AMOUNT.toLocaleString()} and ${MAX_AMOUNT.toLocaleString()} per deposit.
-              </p>
+              </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-1.5">
@@ -486,7 +489,14 @@ export default function AdSpendFund() {
               )}
 
               {/* Collect.js inline card fields */}
-              {paymentSource === "new" && (
+              {paymentSource === "new" && tokenKeyQuery.isError && (
+                <p className="text-sm text-destructive bg-destructive/10 rounded-lg px-3 py-2.5">
+                  New card entry is temporarily unavailable. Please use a saved card or try
+                  again later.
+                </p>
+              )}
+
+              {paymentSource === "new" && !tokenKeyQuery.isError && (
                 <div className="space-y-3">
                   <p className="text-sm font-medium text-foreground">Card details</p>
                   <div className="space-y-2">

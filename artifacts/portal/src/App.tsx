@@ -169,7 +169,6 @@ import Account from "@/pages/Account";
 import Plans from "@/pages/Plans";
 import Checkout from "@/pages/Checkout";
 import AdSpendFund from "@/pages/AdSpendFund";
-import PaymentMethods from "@/pages/PaymentMethods";
 import MyProducts from "@/pages/MyProducts";
 import CoachDashboard from "@/pages/coaching/CoachDashboard";
 import PackCoachDashboard from "@/pages/coaching/PackCoachDashboard";
@@ -558,7 +557,8 @@ function Router() {
       <Route path="/account">{() => <ProtectedRoute component={Account} />}</Route>
       <Route path="/legal/terms">{() => <ProtectedRoute component={TermsOfService} />}</Route>
       <Route path="/account/products">{() => <ProtectedRoute component={MyProducts} />}</Route>
-      <Route path="/payment-methods">{() => <ProtectedRoute component={PaymentMethods} />}</Route>
+      {/* Payment Methods now lives as a card on the Account page. */}
+      <Route path="/payment-methods">{() => <Redirect to="/account?card=payment-methods" />}</Route>
       <Route path="/plans">{() => <ProtectedRoute component={Plans} />}</Route>
       <Route path="/checkout/:productId">{() => <ProtectedRoute component={Checkout} />}</Route>
       <Route path="/ad-spend/fund">{() => <ProtectedRoute component={AdSpendFund} />}</Route>

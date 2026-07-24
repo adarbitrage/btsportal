@@ -47,7 +47,28 @@ vi.mock("@workspace/api-client-react", () => ({
   useRevokeMyOtherSessions: () => ({ mutateAsync: vi.fn() }),
 }));
 
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import Account from "@/pages/Account";
+
+// The email banners now live inside the collapsed Profile card (Task #1987),
+// so each test must expand it before the banner is in the DOM.
+async function renderAndExpandProfile() {
+  render(<Account />, { wrapper: qcWrapper });
+  const toggle = await waitFor(() =>
+    screen.getByTestId("button-toggle-profile"),
+  );
+  fireEvent.click(toggle);
+}
+
+// Account now uses react-query directly (ad-spend balance card), so tests
+// must render inside a QueryClientProvider. Retries are disabled so any
+// unmocked queries fail fast instead of hanging the test.
+function qcWrapper({ children }: { children: ReactNode }) {
+  const client = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  });
+  return <QueryClientProvider client={client}>{children}</QueryClientProvider>;
+}
 
 const baseMember = {
   id: 1,
@@ -88,7 +109,7 @@ describe("Account — admin-cancelled email-change banner timestamp", () => {
       refetch: vi.fn(),
     });
 
-    render(<Account />);
+    await renderAndExpandProfile();
 
     const banner = await screen.findByTestId("email-admin-cancelled-banner");
     expect(banner).toBeInTheDocument();
@@ -130,7 +151,7 @@ describe("Account — admin-cancelled email-change banner timestamp", () => {
       refetch,
     });
 
-    render(<Account />);
+    await renderAndExpandProfile();
 
     const dismissButton = await screen.findByTestId(
       "button-dismiss-admin-cancelled-banner",
@@ -160,7 +181,7 @@ describe("Account — admin-cancelled email-change banner timestamp", () => {
       refetch: vi.fn(),
     });
 
-    render(<Account />);
+    await renderAndExpandProfile();
 
     await waitFor(() => {
       expect(
@@ -182,7 +203,7 @@ describe("Account — admin-cancelled email-change banner timestamp", () => {
       refetch: vi.fn(),
     });
 
-    render(<Account />);
+    await renderAndExpandProfile();
 
     const link = await screen.findByTestId(
       "link-admin-cancelled-contact-support",
@@ -216,7 +237,7 @@ describe("Account — admin-cancelled email-change banner timestamp", () => {
       refetch,
     });
 
-    render(<Account />);
+    await renderAndExpandProfile();
 
     const link = await screen.findByTestId(
       "link-admin-cancelled-contact-support",
@@ -247,7 +268,7 @@ describe("Account — admin-cancelled email-change banner timestamp", () => {
       refetch: vi.fn(),
     });
 
-    render(<Account />);
+    await renderAndExpandProfile();
 
     await waitFor(() => {
       expect(screen.getByTestId("email-pending-banner")).toBeInTheDocument();

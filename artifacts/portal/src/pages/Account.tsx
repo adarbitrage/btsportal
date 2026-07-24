@@ -1,5 +1,6 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, type ReactNode, type ComponentType } from "react";
 import { Link, useLocation } from "wouter";
+import { useQuery } from "@tanstack/react-query";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -18,7 +19,10 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/lib/auth";
 import { supportLinkProps } from "@/config/support";
 import { formatDeviceLabel } from "@/lib/device-label";
-import { User, Lock, Bell, Mail, Clock, AlertTriangle, X, Monitor, Loader2 } from "lucide-react";
+import { User, Lock, Bell, Mail, Clock, AlertTriangle, X, Monitor, Loader2, Wallet, CreditCard, ChevronDown, ChevronUp } from "lucide-react";
+import { isCoachRole } from "@workspace/auth";
+import { customFetch } from "@workspace/api-client-react";
+import { PaymentMethodsCardContent } from "@/components/account/PaymentMethodsCardContent";
 import {
   useGetCurrentMember,
   usePatchMemberProfile,
@@ -33,9 +37,71 @@ import {
   type MyActiveSession,
 } from "@workspace/api-client-react";
 
+/**
+ * One collapsible Account card: collapsed shows only header + one-line
+ * subheader with a right-aligned Show More toggle; expanded reveals the
+ * card body (and the toggle flips to Show Less).
+ */
+function CollapsibleCard({
+  id,
+  icon: Icon,
+  title,
+  subheader,
+  expanded,
+  onToggle,
+  children,
+  testId,
+}: {
+  id: string;
+  icon: ComponentType<{ className?: string }>;
+  title: string;
+  subheader: string;
+  expanded: boolean;
+  onToggle: () => void;
+  children: ReactNode;
+  testId?: string;
+}) {
+  return (
+    <Card id={id} data-testid={testId ?? `card-${id}`}>
+      <CardHeader>
+        <div className="flex items-center justify-between gap-3 flex-wrap">
+          <div className="min-w-0">
+            <div className="flex items-center gap-2">
+              <Icon className="w-5 h-5 text-primary" />
+              <CardTitle>{title}</CardTitle>
+            </div>
+            <CardDescription className="mt-1.5">{subheader}</CardDescription>
+          </div>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={onToggle}
+            aria-expanded={expanded}
+            data-testid={`button-toggle-${id}`}
+          >
+            {expanded ? (
+              <>
+                Show Less
+                <ChevronUp className="w-3.5 h-3.5 ml-1" />
+              </>
+            ) : (
+              <>
+                Show More
+                <ChevronDown className="w-3.5 h-3.5 ml-1" />
+              </>
+            )}
+          </Button>
+        </div>
+      </CardHeader>
+      {expanded && children}
+    </Card>
+  );
+}
+
 export default function Account() {
   const { toast } = useToast();
-  const { logout } = useAuth();
+  const { logout, user } = useAuth();
   const [, navigate] = useLocation();
   const { data: member, isLoading, refetch } = useGetCurrentMember();
   const patchProfile = usePatchMemberProfile();
@@ -93,6 +159,52 @@ export default function Account() {
   const [revokingSessionId, setRevokingSessionId] = useState<number | null>(null);
   const [revokeOthersConfirmOpen, setRevokeOthersConfirmOpen] = useState(false);
   const [revokingOthers, setRevokingOthers] = useState(false);
+
+  // Coaches never saw the standalone Payment Methods page — the merged card
+  // keeps the same role visibility.
+  const isCoach = isCoachRole(user?.role ?? "");
+
+  // Collapsible cards: all collapsed by default. Deep links can pre-expand a
+  // card via ?card=<id> (used by the /payment-methods redirect) or the
+  // long-standing #sessions hash from security emails.
+  const [expandedCards, setExpandedCards] = useState<Set<string>>(() => {
+    const initial = new Set<string>();
+    if (typeof window !== "undefined") {
+      const cardParam = new URLSearchParams(window.location.search).get("card");
+      if (cardParam) initial.add(cardParam);
+      if (window.location.hash === "#sessions") initial.add("sessions");
+    }
+    return initial;
+  });
+  const toggleCard = (id: string) =>
+    setExpandedCards((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+
+  // Scroll a deep-linked card into view once the page has rendered.
+  const scrolledToCardRef = useRef(false);
+  useEffect(() => {
+    if (scrolledToCardRef.current || !member) return;
+    if (typeof window === "undefined") return;
+    const cardParam = new URLSearchParams(window.location.search).get("card");
+    const target = cardParam || (window.location.hash === "#sessions" ? "sessions" : null);
+    if (!target) return;
+    scrolledToCardRef.current = true;
+    setTimeout(() => {
+      document.getElementById(target)?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 50);
+  }, [member]);
+
+  // Ad-spend balance for the Ad Balance summary card.
+  const adBalanceQuery = useQuery<{ balanceCents: number; balanceDisplay: string }>({
+    queryKey: ["/api/ad-spend/balance"],
+    queryFn: () => customFetch<{ balanceCents: number; balanceDisplay: string }>("/api/ad-spend/balance"),
+    enabled: expandedCards.has("ad-balance"),
+    refetchOnWindowFocus: false,
+  });
 
   useEffect(() => {
     if (member) {
@@ -460,14 +572,14 @@ export default function Account() {
           </p>
         </div>
 
-        <Card>
-          <CardHeader>
-            <div className="flex items-center gap-2">
-              <User className="w-5 h-5 text-primary" />
-              <CardTitle>Profile</CardTitle>
-            </div>
-            <CardDescription>Your name, contact details, and timezone.</CardDescription>
-          </CardHeader>
+        <CollapsibleCard
+          id="profile"
+          icon={User}
+          title="Profile"
+          subheader="Your name, contact details, and timezone."
+          expanded={expandedCards.has("profile")}
+          onToggle={() => toggleCard("profile")}
+        >
           <CardContent className="space-y-5">
             <div className="grid gap-4 sm:grid-cols-2">
               <div>
@@ -625,18 +737,16 @@ export default function Account() {
               </Button>
             </div>
           </CardContent>
-        </Card>
+        </CollapsibleCard>
 
-        <Card>
-          <CardHeader>
-            <div className="flex items-center gap-2">
-              <Lock className="w-5 h-5 text-primary" />
-              <CardTitle>Change password</CardTitle>
-            </div>
-            <CardDescription>
-              Use a strong password with at least 8 characters, including a letter and a number.
-            </CardDescription>
-          </CardHeader>
+        <CollapsibleCard
+          id="password"
+          icon={Lock}
+          title="Change Password"
+          subheader="Use a strong password with at least 8 characters, including a letter and a number."
+          expanded={expandedCards.has("password")}
+          onToggle={() => toggleCard("password")}
+        >
           <CardContent className="space-y-5">
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="sm:col-span-2">
@@ -691,21 +801,69 @@ export default function Account() {
               </Button>
             </div>
           </CardContent>
-        </Card>
+        </CollapsibleCard>
 
-        <Card id="sessions" data-testid="card-active-sessions">
-          <CardHeader>
-            <div className="flex items-center justify-between gap-3 flex-wrap">
+        <CollapsibleCard
+          id="ad-balance"
+          icon={Wallet}
+          title="Ad Balance"
+          subheader="Your current ad-spend balance and funding."
+          expanded={expandedCards.has("ad-balance")}
+          onToggle={() => toggleCard("ad-balance")}
+        >
+          <CardContent className="space-y-4">
+            <div className="flex items-center gap-4">
+              <Wallet className="w-8 h-8 text-primary shrink-0" />
               <div>
-                <div className="flex items-center gap-2">
-                  <Monitor className="w-5 h-5 text-primary" />
-                  <CardTitle>Where you're signed in</CardTitle>
-                </div>
-                <CardDescription className="mt-1.5">
-                  Devices currently signed in to your account. Sign out a device
-                  you don't recognize.
-                </CardDescription>
+                <p className="text-sm text-muted-foreground">Current Balance</p>
+                {adBalanceQuery.isLoading ? (
+                  <Loader2 className="w-4 h-4 animate-spin text-muted-foreground mt-1" />
+                ) : adBalanceQuery.isError ? (
+                  <p className="text-sm text-muted-foreground mt-1">
+                    Couldn't load your balance. Please refresh the page.
+                  </p>
+                ) : (
+                  <p className="text-2xl font-bold text-foreground" data-testid="text-ad-balance">
+                    {adBalanceQuery.data?.balanceDisplay ?? "$0"}
+                  </p>
+                )}
               </div>
+            </div>
+            <Link href="/ad-spend/fund">
+              <Button data-testid="button-fund-ad-spend">
+                <Wallet className="w-4 h-4 mr-2" />
+                Fund Ad Spend
+              </Button>
+            </Link>
+          </CardContent>
+        </CollapsibleCard>
+
+        {!isCoach && (
+          <CollapsibleCard
+            id="payment-methods"
+            icon={CreditCard}
+            title="Payment Methods"
+            subheader="Manage your saved cards for faster checkout."
+            expanded={expandedCards.has("payment-methods")}
+            onToggle={() => toggleCard("payment-methods")}
+          >
+            <CardContent>
+              <PaymentMethodsCardContent />
+            </CardContent>
+          </CollapsibleCard>
+        )}
+
+        <CollapsibleCard
+          id="sessions"
+          icon={Monitor}
+          title="Where You're Signed In"
+          subheader="Devices currently signed in to your account. Sign out a device you don't recognize."
+          expanded={expandedCards.has("sessions")}
+          onToggle={() => toggleCard("sessions")}
+          testId="card-active-sessions"
+        >
+          <CardContent>
+            <div className="flex justify-end mb-3">
               {otherSessionsCount > 0 && (
                 <Dialog open={revokeOthersConfirmOpen} onOpenChange={setRevokeOthersConfirmOpen}>
                   <Button
@@ -753,8 +911,6 @@ export default function Account() {
                 </Dialog>
               )}
             </div>
-          </CardHeader>
-          <CardContent>
             {sessionsLoading ? (
               <p className="text-sm text-muted-foreground" data-testid="text-sessions-loading">
                 Loading devices…
@@ -833,18 +989,16 @@ export default function Account() {
               </div>
             )}
           </CardContent>
-        </Card>
+        </CollapsibleCard>
 
-        <Card>
-          <CardHeader>
-            <div className="flex items-center gap-2">
-              <Bell className="w-5 h-5 text-primary" />
-              <CardTitle>Notification preferences</CardTitle>
-            </div>
-            <CardDescription>
-              Choose which messages you receive from BTS.
-            </CardDescription>
-          </CardHeader>
+        <CollapsibleCard
+          id="notifications"
+          icon={Bell}
+          title="Notification Preferences"
+          subheader="Choose which messages you receive from BTS."
+          expanded={expandedCards.has("notifications")}
+          onToggle={() => toggleCard("notifications")}
+        >
           <CardContent className="space-y-5">
             <div className="flex items-start justify-between gap-4 py-2">
               <div className="flex-1">
@@ -1006,7 +1160,7 @@ export default function Account() {
               </Button>
             </div>
           </CardContent>
-        </Card>
+        </CollapsibleCard>
       </div>
 
       <Dialog open={emailDialogOpen} onOpenChange={setEmailDialogOpen}>

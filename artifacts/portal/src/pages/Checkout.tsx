@@ -613,7 +613,7 @@ export default function Checkout() {
                           )}
                         </label>
                       ))}
-                      <Link href="/payment-methods">
+                      <Link href="/account?card=payment-methods">
                         <span className="text-xs text-primary hover:underline cursor-pointer">
                           Manage saved cards
                         </span>

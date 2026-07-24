@@ -47,7 +47,18 @@ vi.mock("@workspace/api-client-react", () => ({
   useRevokeMyOtherSessions: () => ({ mutateAsync: vi.fn() }),
 }));
 
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import Account from "@/pages/Account";
+
+// Account now uses react-query directly (ad-spend balance card), so tests
+// must render inside a QueryClientProvider. Retries are disabled so any
+// unmocked queries fail fast instead of hanging the test.
+function qcWrapper({ children }: { children: ReactNode }) {
+  const client = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  });
+  return <QueryClientProvider client={client}>{children}</QueryClientProvider>;
+}
 
 const baseMember = {
   id: 1,
@@ -64,6 +75,16 @@ const baseMember = {
 
 function getSupportReplySwitch() {
   return screen.getByRole("switch", { name: /support reply texts/i });
+}
+
+// The notification preferences now live inside a collapsed card (Task #1987),
+// so each test must expand it before the switch is in the DOM.
+async function renderAndExpandNotifications() {
+  render(<Account />, { wrapper: qcWrapper });
+  const toggle = await waitFor(() =>
+    screen.getByTestId("button-toggle-notifications"),
+  );
+  fireEvent.click(toggle);
 }
 
 beforeEach(() => {
@@ -84,7 +105,7 @@ describe("Account — support-reply SMS toggle", () => {
       refetch: vi.fn(),
     });
 
-    render(<Account />);
+    await renderAndExpandNotifications();
 
     const toggle = await waitFor(() => getSupportReplySwitch());
     expect(toggle).toHaveAttribute("aria-checked", "true");
@@ -98,7 +119,7 @@ describe("Account — support-reply SMS toggle", () => {
       refetch: vi.fn(),
     });
 
-    render(<Account />);
+    await renderAndExpandNotifications();
 
     const toggle = await waitFor(() => getSupportReplySwitch());
     expect(toggle).toHaveAttribute("aria-checked", "false");
@@ -114,7 +135,7 @@ describe("Account — support-reply SMS toggle", () => {
       refetch: vi.fn(),
     });
 
-    render(<Account />);
+    await renderAndExpandNotifications();
 
     const toggle = await waitFor(() => getSupportReplySwitch());
     expect(toggle).toBeDisabled();
@@ -128,7 +149,7 @@ describe("Account — support-reply SMS toggle", () => {
       refetch: vi.fn(),
     });
 
-    render(<Account />);
+    await renderAndExpandNotifications();
 
     const toggle = await waitFor(() => getSupportReplySwitch());
     // Flip the support-reply preference off so the form becomes dirty and the

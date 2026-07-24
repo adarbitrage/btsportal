@@ -51,7 +51,18 @@ vi.mock("@workspace/api-client-react", () => ({
   useRevokeMyOtherSessions: () => ({ mutateAsync: vi.fn() }),
 }));
 
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import Account from "@/pages/Account";
+
+// Account now uses react-query directly (ad-spend balance card), so tests
+// must render inside a QueryClientProvider. Retries are disabled so any
+// unmocked queries fail fast instead of hanging the test.
+function qcWrapper({ children }: { children: ReactNode }) {
+  const client = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  });
+  return <QueryClientProvider client={client}>{children}</QueryClientProvider>;
+}
 
 const baseMember = {
   id: 1,
@@ -97,7 +108,7 @@ describe("Account — email-change pre-fill from cancellation deep link", () => 
 
     setLocationSearch("?email_change_prefill=signed-token-abc");
 
-    render(<Account />);
+    render(<Account />, { wrapper: qcWrapper });
 
     // The dialog should pop open and pre-fill the new-email input.
     await waitFor(() =>
@@ -139,7 +150,7 @@ describe("Account — email-change pre-fill from cancellation deep link", () => 
 
     setLocationSearch("?email_change_prefill=expired-token");
 
-    render(<Account />);
+    render(<Account />, { wrapper: qcWrapper });
 
     await waitFor(() => expect(toastMock).toHaveBeenCalled());
 
@@ -167,7 +178,7 @@ describe("Account — email-change pre-fill from cancellation deep link", () => 
       refetch: vi.fn(),
     });
 
-    render(<Account />);
+    render(<Account />, { wrapper: qcWrapper });
 
     // Give any (non-existent) effect a chance to run.
     await act(async () => {
@@ -193,7 +204,7 @@ describe("Account — email-change pre-fill from cancellation deep link", () => 
 
     setLocationSearch("?email_change_prefill=stale-but-valid");
 
-    render(<Account />);
+    render(<Account />, { wrapper: qcWrapper });
 
     await waitFor(() => expect(window.location.search).toBe(""));
     expect(screen.queryByTestId("dialog-update-email")).not.toBeInTheDocument();

@@ -64,8 +64,6 @@ import {
   LayoutGrid,
   Radar,
   Wand2,
-  CreditCard,
-  Wallet,
   Tags,
   SpellCheck,
   Map,
@@ -200,13 +198,11 @@ export const MEMBER_NAV: NavNode[] = [
     children: [
       { kind: "leaf", href: "/self-promoting", label: "Promote BTS", icon: Megaphone, requiredEntitlement: "commissions:*" },
       { kind: "leaf", href: "/ad-credit", label: "$1K Ad Credit", icon: Gift },
-      { kind: "leaf", href: "/ad-spend/fund", label: "Fund Ad Spend", icon: Wallet },
       { kind: "leaf", href: "/coaching/recruitment", label: "Become a Coach", icon: UserPlus, hiddenForRoles: ["coach"] },
     ],
   },
   { kind: "leaf", href: "/account", label: "Account", icon: UserCircle },
   { kind: "leaf", href: "/account/products", label: "My Products", icon: Package, hiddenForRoles: ["coach"] },
-  { kind: "leaf", href: "/payment-methods", label: "Payment Methods", icon: CreditCard, hiddenForRoles: ["coach"] },
 ];
 
 export const ADMIN_CHILDREN: NavNode[] = [

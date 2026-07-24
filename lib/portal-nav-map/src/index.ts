@@ -91,16 +91,15 @@ export const PORTAL_NAVIGATION_MAP: readonly NavSection[] = [
     items: [
       { label: "Promote BTS", path: "/self-promoting", description: "Promote BTS and earn commissions.", entitlement: "commissions" },
       { label: "$1K Ad Credit", path: "/ad-credit", description: "The $1,000 ad-credit offer." },
-      { label: "Fund Ad Spend", path: "/ad-spend/fund", description: "Add funds to your ad-spend balance." },
+      { label: "Fund Ad Spend", path: "/ad-spend/fund", description: "Add funds to your ad-spend balance. Reached from the Ad Balance card on the Account page." },
       { label: "Become a Coach", path: "/coaching/recruitment", description: "Apply to become a BTS coach." },
     ],
   },
   {
     section: "Account",
     items: [
-      { label: "Account", path: "/account", description: "Your account settings, profile, devices/sessions, and notification preferences." },
+      { label: "Account", path: "/account", description: "Your account settings: profile, password, ad balance, saved payment cards, devices/sessions, and notification preferences." },
       { label: "My Products", path: "/account/products", description: "The products / memberships you own." },
-      { label: "Payment Methods", path: "/payment-methods", description: "Manage the payment methods on your account." },
     ],
   },
 ];
@@ -119,6 +118,8 @@ export function flattenNavigationMap(): NavItem[] {
 export const NAV_MAP_ONLY_PATHS: readonly string[] = [
   // Support is linked from the help/header entry points rather than the sidebar.
   "/support",
+  // Fund Ad Spend is reached from the Ad Balance card on the Account page.
+  "/ad-spend/fund",
 ];
 
 /** Route prefixes that are STAFF-ONLY and must never appear in the nav map. */
