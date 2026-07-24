@@ -1,0 +1,26 @@
+This is a read-only discovery request — please investigate and report back, don't change any code.
+
+I'm planning improvements to how portal members track their Compliance and Concierge task submissions, which are handled by TicketDesk (the external ticketing system reachable at tickets.buildtestscale.com). TicketDesk threads now have three statuses — open, in_progress, resolved — and its public chat API returns top-level status and resolvedAt fields on POST /api/chat/session and GET /api/chat/messages. I need a full picture of how the portal currently handles these submissions and what member-facing status UI exists or could exist. Please answer:
+
+1. Submission flow
+
+How exactly do Compliance and Concierge task form submissions reach TicketDesk today? (Via the embedded TicketDesk chat widget? A direct API call? Email? Something else?)
+What data is sent with a submission (member email, externalId, section key, form fields), and where in the code does this happen?
+Is there one submission per chat session/thread, or can a member have multiple concurrent submissions per section?
+2. Current status visibility
+
+What does a member currently see after submitting — a confirmation message, a list of their past submissions, anything with a status?
+Does the portal read the status/resolvedAt fields the TicketDesk chat endpoints now return? If not, does the portal store its own record of submissions (in its own database), and what fields does it keep?
+Is there any existing "my submissions" or "my requests" page/component, even a stub?
+3. Session and identity plumbing
+
+How does the portal persist/resume TicketDesk chat sessions (sessionStorage tokens, per-section token keys)? Can it re-fetch the status of a past submission after the browser session ends, or is a submission unreachable once the session token is gone?
+What member identity does the portal pass to TicketDesk (email, externalId format), and is it consistent across sessions/devices?
+4. Notification capability
+
+Does the portal have any existing notification system (in-app notifications, email sending) that could tell a member "your task is now in progress / resolved"?
+Does the portal have a backend that could receive webhooks from an external system, or poll an external API on a schedule? If so, describe the pattern used.
+5. Constraints
+
+Are there any technical or design constraints I should know about for adding a "my submissions with status" view (routing, auth guard behavior on /compliance and /concierge, SPA structure, where the TicketDesk widget embed is configured)?
+Please give file paths and concrete details for each answer, plus a short summary of what you'd consider the path of least resistance for showing members a live status ("Submitted → In progress → Resolved") for their submissions.
