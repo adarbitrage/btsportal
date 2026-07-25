@@ -242,7 +242,7 @@ export default function CampaignChecklist() {
 
   return (
     <AppLayout>
-      <div className="space-y-6 max-w-3xl" data-testid="campaign-checklist-page">
+      <div className="space-y-6 max-w-6xl" data-testid="campaign-checklist-page">
         <div className="space-y-4">
           <div className="flex items-center justify-between gap-3">
             <div className="flex items-center gap-2 min-w-0">
