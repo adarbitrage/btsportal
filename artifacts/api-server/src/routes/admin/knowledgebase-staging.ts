@@ -128,6 +128,12 @@ router.get("/", async (req: Request, res: Response) => {
     let where = sql`1=1`;
     if (status && status !== "all") {
       where = sql`${where} AND ${kbStagingDocsTable.status} = ${status}`;
+    } else {
+      // Soft-deleted drafts (status='deleted' — the Possible-Duplicates /
+      // permanent-delete tombstones) must NOT leak into the "All" tab or any
+      // unfiltered view. They are only visible when explicitly requested via
+      // ?status=deleted.
+      where = sql`${where} AND ${kbStagingDocsTable.status} <> 'deleted'`;
     }
     if (docTypeFilter && docTypeFilter !== "all") {
       where = sql`${where} AND ${kbStagingDocsTable.docType} = ${docTypeFilter}`;
@@ -196,6 +202,10 @@ router.get("/", async (req: Request, res: Response) => {
     }
     where = sql`${where} AND ${sourceScope}`;
 
+    // Aggregates (status tabs, facet counts) must also ignore soft-deleted
+    // tombstones or the "All" totals drift from what the list can ever show.
+    const aggScope = sql`${sourceScope} AND ${kbStagingDocsTable.status} <> 'deleted'`;
+
     const [docs, total] = await Promise.all([
       db
         .select()
@@ -232,27 +242,27 @@ router.get("/", async (req: Request, res: Response) => {
       db
         .select({ status: kbStagingDocsTable.status, cnt: count() })
         .from(kbStagingDocsTable)
-        .where(sourceScope)
+        .where(aggScope)
         .groupBy(kbStagingDocsTable.status),
       db
         .select({ originType: kbStagingDocsTable.originType, cnt: count() })
         .from(kbStagingDocsTable)
-        .where(sourceScope)
+        .where(aggScope)
         .groupBy(kbStagingDocsTable.originType),
       db
         .select({ docType: kbStagingDocsTable.docType, cnt: count() })
         .from(kbStagingDocsTable)
-        .where(sourceScope)
+        .where(aggScope)
         .groupBy(kbStagingDocsTable.docType),
       db
         .select({ homeRoot: kbStagingDocsTable.homeRoot, cnt: count() })
         .from(kbStagingDocsTable)
-        .where(sourceScope)
+        .where(aggScope)
         .groupBy(kbStagingDocsTable.homeRoot),
       db
         .select({ docClassTarget: kbStagingDocsTable.docClassTarget, cnt: count() })
         .from(kbStagingDocsTable)
-        .where(sourceScope)
+        .where(aggScope)
         .groupBy(kbStagingDocsTable.docClassTarget),
       db.execute(sql`
         SELECT
@@ -261,26 +271,26 @@ router.get("/", async (req: Request, res: Response) => {
           count(*) FILTER (WHERE ${kbStagingDocsTable.needsExpert} = true)::int AS needs_expert,
           count(*) FILTER (WHERE ${STALE_SQL})::int AS stale
         FROM ${kbStagingDocsTable}
-        WHERE ${sourceScope}
+        WHERE ${aggScope}
       `),
       db.execute(sql`
         SELECT tag, count(*)::int AS cnt
         FROM ${kbStagingDocsTable}, jsonb_array_elements_text(${kbStagingDocsTable.taxonomyTags}) AS tag
-        WHERE ${sourceScope}
+        WHERE ${aggScope}
         GROUP BY tag
         ORDER BY cnt DESC, tag ASC
       `),
       db
         .select({ node: kbStagingDocsTable.node, cnt: count() })
         .from(kbStagingDocsTable)
-        .where(sourceScope)
+        .where(aggScope)
         .groupBy(kbStagingDocsTable.node),
       db.execute(sql`
         SELECT
           count(*) FILTER (WHERE ${kbStagingDocsTable.updateKind} = 'update')::int AS update_count,
           count(*) FILTER (WHERE ${kbStagingDocsTable.updateKind} IS NULL OR ${kbStagingDocsTable.updateKind} = 'new')::int AS new_count
         FROM ${kbStagingDocsTable}
-        WHERE ${sourceScope}
+        WHERE ${aggScope}
       `),
       // Per-source counts are NEVER scoped — the toggle needs both sides.
       db.execute(sql`
@@ -288,6 +298,7 @@ router.get("/", async (req: Request, res: Response) => {
           count(*)::int AS all_count,
           count(*) FILTER (WHERE ${BLITZ_SOURCE_SQL})::int AS blitz_count
         FROM ${kbStagingDocsTable}
+        WHERE ${kbStagingDocsTable.status} <> 'deleted'
       `),
     ]);
 
