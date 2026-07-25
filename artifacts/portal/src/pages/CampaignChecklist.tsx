@@ -115,6 +115,7 @@ export default function CampaignChecklist() {
   const [saveError, setSaveError] = useState(false);
   const [pendingSwitch, setPendingSwitch] = useState<CampaignNetwork | null>(null);
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
+  const [resetOpen, setResetOpen] = useState(false);
 
   // Monotonic id so only the latest save's response state matters.
   const saveReqId = useRef(0);
@@ -201,6 +202,13 @@ export default function CampaignChecklist() {
     },
     [network, applyNetwork],
   );
+
+  /** Uncheck everything; the network choice is kept (use the network switcher to change paths). */
+  const resetChecklist = useCallback(() => {
+    const next = new Set<string>();
+    setChecked(next);
+    save(network, next);
+  }, [network, save]);
 
   const toggleCollapsed = useCallback((id: string) => {
     setCollapsed((prev) => {
@@ -328,9 +336,44 @@ export default function CampaignChecklist() {
                 The rest of the checklist unlocks once you choose your affiliate network above.
               </p>
             )}
+
+            <div className="text-center pt-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setResetOpen(true)}
+                disabled={checked.size === 0}
+                data-testid="button-reset-checklist"
+              >
+                Reset Checklist
+              </Button>
+            </div>
           </>
         )}
       </div>
+
+      <AlertDialog open={resetOpen} onOpenChange={setResetOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Reset your checklist?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Every item will be unchecked. Your network choice
+              {network ? ` (${NETWORK_LABELS[network]})` : ""} is kept. This cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                resetChecklist();
+                setResetOpen(false);
+              }}
+            >
+              Reset Checklist
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <AlertDialog open={pendingSwitch !== null} onOpenChange={(o) => !o && setPendingSwitch(null)}>
         <AlertDialogContent>
