@@ -1,0 +1,65 @@
+Edit the Live AI documents (ai_live_documents table) to fix a knowledge gap that caused the AI assistant to tell members the advertorial is found on the Media Mavens offer card. The truth: pre-built advertorials live inside the Flexy™ website templates (Consumer Watchdog for health offers, The Cutting Edge for gadgets), accessed by cloning the template in Flexy (Sites → Websites). The Media Mavens offer card only holds the affiliate link and product sales-page URL. Make exactly the following 5 changes. All "current text" quotes below are verbatim from the DB (including curly apostrophes ’ and non-breaking hyphens) — use exact matches. Preserve each doc's existing style (™ marks where the doc already uses them; doc 10579 and doc 24 do not use ™). After editing, make sure the search vectors and embeddings for the edited/new rows are regenerated so retrieval picks up the new wording.
+
+EDIT 1 — Doc 10579 ("What is Advertorial (pre‑sell page)?") — replace the entire content. Current content is this single paragraph:
+
+A content-style landing page that looks and reads like an article, used to warm up and frame a visitor before sending them to the offer page. In Build Test Scale funnels for Media Mavens physical products, the advertorial is the main sales mechanism, and BTS provides ready-made templates in Flexy. Keep it tightly aligned with the offer page so the flow from ad → landing → offer feels natural and consistent.
+
+New content:
+
+A content-style landing page (also called a presell or pre-sell page) that looks and reads like an article, used to warm up and frame a visitor before sending them to the offer page. In Build Test Scale funnels for Media Mavens physical products, the advertorial is the main sales mechanism.
+
+Where to find it: the advertorial is NOT inside the Media Mavens platform — the Media Mavens offer card only contains your affiliate link and the product's sales page. The pre-built advertorial comes inside the Flexy website templates. To access it, log in to Flexy, go to Sites → Websites, open the template folder for your offer type — Consumer Watchdog (health: supplements, weight loss, beauty, pain, etc.) or The Cutting Edge (gadgets) — and clone the latest template. The advertorial body copy is built into the cloned pages. See "Setting Up Your Website in Flexy™" for the full clone steps.
+
+Keep the advertorial tightly aligned with the offer page so the flow from ad → landing → offer feels natural and consistent.
+
+EDIT 2 — Doc 10544 ("Setting Up Your Website in Flexy™") — two changes:
+
+(a) In the "How you’ll use Flexy™ next depends on your path:" list, replace this exact bullet:
+
+Media Mavens: Your pre‑built advertorial is imported into MetricMover™ (which produces 25 variations from your 5 headlines and 5 hero shots) and then into DIYTrax for split testing. You’ll create one landing page in Flexy™ to host the MetricMover™ embed code.
+with:
+
+Media Mavens: Your pre‑built advertorial (presell page) lives inside the Flexy™ website template — Consumer Watchdog for health offers, The Cutting Edge for gadgets — and comes with the pages when you clone the template below. It is not found inside the Media Mavens platform itself. The advertorial is imported into MetricMover™ (which produces 25 variations from your 5 headlines and 5 hero shots) and then into DIYTrax for split testing. You’ll create one landing page in Flexy™ to host the MetricMover™ embed code.
+(b) In section "### 1) Clone the Flexy™ Website (Template to Your Account)", replace this exact line:
+
+Wait for cloning to complete. You’ll see the page count increase until all pages from the template have copied.
+with:
+
+Wait for cloning to complete. You’ll see the page count increase until all pages from the template have copied. These cloned pages include the pre-built advertorial (presell page) for your offer type — this is where you find and read your advertorial.
+EDIT 3 — Doc 10560 ("Choose Your Affiliate Network") — one change. Replace this exact bullet under "## Recommendation":
+
+Pre-made advertorials for many products — start testing faster
+with:
+
+Pre-made advertorials for many products — start testing faster (the advertorials live in the Flexy™ website templates you'll clone in the Build phase, not inside the Media Mavens platform; the offer card there holds your affiliate link and sales page)
+Leave the other "pre-made advertorial" mentions in this doc unchanged.
+
+EDIT 4 — Doc 24 ("Creative Assets Overview — Ads, Advertorials, and Landing Pages") — one change. Replace this exact line:
+
+The landing page (an advertorial on Media Mavens, or a jump/bridge page on ClickBank) — the middle of the story that pre-sells before the offer.
+with:
+
+The landing page (an advertorial for Media Mavens offers — pre-built inside the Flexy website templates — or a jump/bridge page on ClickBank) — the middle of the story that pre-sells before the offer.
+EDIT 5 — New doc. Create a new Live AI document:
+
+Title: Where to Find Your Advertorial (Media Mavens)
+doc_class: curated, home_root: process, node: network-and-offer, tags: ["media-mavens","flexy","landing-page"]
+Content:
+Where to Find Your Advertorial (Media Mavens)
+Members often look for the advertorial (presell page) inside the Media Mavens platform. It is not there. The Media Mavens offer card contains your unique affiliate link and the product's sales page URL — not the advertorial.
+
+The pre-built advertorials live inside the Flexy website templates:
+
+Consumer Watchdog — used for health offers (supplements, weight loss, beauty, pain, etc.)
+The Cutting Edge — used for gadget offers
+To access your advertorial:
+
+Log in to Flexy (launch it from Tools & Apps > Apps (/apps) in the portal for auto-login).
+Go to Sites in the left navigation, then select Websites (not Funnels).
+Open the template folder that matches your offer type (Consumer Watchdog or The Cutting Edge).
+Clone the latest template — the advertorial body copy comes built into the cloned pages.
+Once cloned, open the advertorial page to read it — this is what you use to research your ad angles and headlines. Keep the body copy as provided; you'll test headlines and hero images on top of it.
+
+For the full clone and domain setup steps, see "Setting Up Your Website in Flexy™" (Blitz Guide — Build phase).
+
+Do not edit any other documents. After the edits, verify by querying the DB that the old phrases ("an advertorial on Media Mavens") no longer appear and the new doc exists.
