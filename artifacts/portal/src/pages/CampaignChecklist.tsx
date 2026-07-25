@@ -203,12 +203,13 @@ export default function CampaignChecklist() {
     [network, applyNetwork],
   );
 
-  /** Uncheck everything; the network choice is kept (use the network switcher to change paths). */
+  /** Full reset: uncheck everything AND clear the network choice (day-one state). */
   const resetChecklist = useCallback(() => {
     const next = new Set<string>();
     setChecked(next);
-    save(network, next);
-  }, [network, save]);
+    setNetwork(null);
+    save(null, next);
+  }, [save]);
 
   const toggleCollapsed = useCallback((id: string) => {
     setCollapsed((prev) => {
@@ -342,7 +343,7 @@ export default function CampaignChecklist() {
                 variant="outline"
                 size="sm"
                 onClick={() => setResetOpen(true)}
-                disabled={checked.size === 0}
+                disabled={checked.size === 0 && network === null}
                 data-testid="button-reset-checklist"
               >
                 Reset Checklist
@@ -357,8 +358,8 @@ export default function CampaignChecklist() {
           <AlertDialogHeader>
             <AlertDialogTitle>Reset your checklist?</AlertDialogTitle>
             <AlertDialogDescription>
-              Every item will be unchecked. Your network choice
-              {network ? ` (${NETWORK_LABELS[network]})` : ""} is kept. This cannot be undone.
+              Every item will be unchecked and your network choice will be cleared. This cannot be
+              undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
