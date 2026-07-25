@@ -1,6 +1,6 @@
 import { db } from "@workspace/db";
 import { kbStagingDocsTable, aiLiveDocumentsTable } from "@workspace/db/schema";
-import { and, eq } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import { scrubPrivateContent, rebrandOldBrandContent } from "./content-privacy-filter.js";
 import { scrubConfidentialTerm } from "./confidential-term-repair.js";
 
@@ -663,18 +663,40 @@ export async function seedHeadlineConceptsStaging(): Promise<{
   inserted: number;
   skipped: number;
 }> {
+  // Serialize concurrent boots: without this, two API processes booting at
+  // the same moment both pass the check-then-insert and seed duplicates
+  // (observed once: 16 rows instead of 8). Uses a TRANSACTION-scoped advisory
+  // lock on a pinned connection — `db` is backed by a pg.Pool, so a
+  // session-level lock acquired via a bare db.execute() could land on a
+  // different connection than the seed queries (no real mutual exclusion) and
+  // the unlock could land on yet another (leaked lock). The xact lock
+  // auto-releases on commit/rollback, and running the whole body through `tx`
+  // pins every query to the locked connection.
+  const SEED_LOCK_KEY = 0x68646c73; // "hdls"
+  return db.transaction(async (tx) => {
+    await tx.execute(sql`SELECT pg_advisory_xact_lock(${SEED_LOCK_KEY})`);
+    return seedHeadlineConceptsLocked(tx);
+  });
+}
+
+type SeedExecutor = Parameters<Parameters<typeof db.transaction>[0]>[0];
+
+async function seedHeadlineConceptsLocked(tx: SeedExecutor): Promise<{
+  inserted: number;
+  skipped: number;
+}> {
   let inserted = 0;
   let skipped = 0;
 
   // Resolve the item-8 revision target ONCE, by exact live-doc title.
-  const [liveTarget] = await db
+  const [liveTarget] = await tx
     .select({ id: aiLiveDocumentsTable.id })
     .from(aiLiveDocumentsTable)
     .where(eq(aiLiveDocumentsTable.title, HEADLINE_LIVE_DOC_TITLE))
     .limit(1);
 
   for (const doc of HEADLINE_SEED_DOCS) {
-    const [existing] = await db
+    const [existing] = await tx
       .select({ id: kbStagingDocsTable.id })
       .from(kbStagingDocsTable)
       .where(
@@ -697,7 +719,7 @@ export async function seedHeadlineConceptsStaging(): Promise<{
       continue;
     }
 
-    await db.insert(kbStagingDocsTable).values({
+    await tx.insert(kbStagingDocsTable).values({
       title: scrubAll(doc.title),
       category: "curriculum",
       content: scrubAll(doc.content),
