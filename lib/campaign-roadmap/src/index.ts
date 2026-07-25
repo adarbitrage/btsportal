@@ -74,6 +74,14 @@ export interface StepMemberCopy {
   description?: string;
   /** Per-network member-facing description; wins over `description`. */
   descriptionByNetwork?: Partial<Record<CampaignNetwork, string>>;
+  /**
+   * Display-only section header override for the member checklist page. When
+   * set, the checklist groups this step under this header instead of the
+   * canonical phase label (e.g. Steps 1–2 render under "Intro" while keeping
+   * phase "build"). NEVER read by `renderCampaignSpine()` — the AI assistant's
+   * spine always uses canonical phase headers.
+   */
+  sectionLabel?: string;
 }
 
 export interface CampaignSubstep {
@@ -126,6 +134,7 @@ export const CAMPAIGN_ROADMAP: readonly CampaignStep[] = [
     title: "Orient",
     description: "Start with the 7 Pillars and the three-phase path (Build → Test → Scale).",
     substeps: [],
+    member: { sectionLabel: "Intro" },
   },
   {
     id: "know-the-gates",
@@ -136,6 +145,7 @@ export const CAMPAIGN_ROADMAP: readonly CampaignStep[] = [
     description:
       "Each phase has an exit gate; know the testing budgets before you start; compliance approval is required before any ad creative or landing page creative runs.",
     substeps: [],
+    member: { sectionLabel: "Intro" },
   },
   {
     id: "choose-network",

@@ -179,6 +179,21 @@ describe("AI spine guardrail — member-display copy NEVER affects the spine", (
     );
   });
 
+  it("ignores the display-only sectionLabel override: no 'Intro' header, canonical phase headers only", () => {
+    // Steps 1–2 carry member.sectionLabel "Intro" for the checklist page —
+    // the spine must never surface it.
+    expect(spine).not.toContain("Intro");
+    expect(spine).not.toContain("### Intro");
+    const headerLines = spine.split("\n").filter((l) => l.startsWith("### "));
+    expect(headerLines).toEqual(
+      Object.values(CAMPAIGN_PHASE_LABELS).map((label) => `### ${label}`),
+    );
+    // Step 1 follows the Build header directly (no interposed section).
+    expect(spine).toContain(
+      `### ${CAMPAIGN_PHASE_LABELS.build}\n1. Orient`,
+    );
+  });
+
   it("contains NO member-display string that differs from canonical wording", () => {
     for (const step of CAMPAIGN_ROADMAP) {
       const memberDescs = [

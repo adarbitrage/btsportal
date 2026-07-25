@@ -123,6 +123,35 @@ describe("campaign checklist drift guard — display strings come from the skele
     });
   }
 
+  it("renders the Intro section above Steps 1–2 with Build starting at choose-network", async () => {
+    await renderWithNetwork("media-mavens");
+    const intro = screen.getByTestId("phase-header-intro");
+    expect(normalize(intro.textContent ?? "")).toBe("intro");
+    // Intro group holds exactly the first two steps; Build starts at choose-network.
+    const introGroup = intro.closest("div")?.parentElement as HTMLElement;
+    expect(introGroup.querySelectorAll('[data-testid^="step-row-"]')).toHaveLength(2);
+    expect(introGroup.querySelector('[data-testid="step-row-orient"]')).not.toBeNull();
+    expect(introGroup.querySelector('[data-testid="step-row-know-the-gates"]')).not.toBeNull();
+    const build = screen.getByTestId("phase-header-build");
+    const buildGroup = build.closest("div")?.parentElement as HTMLElement;
+    const firstBuildRow = buildGroup.querySelector('[data-testid^="step-row-"]');
+    expect(firstBuildRow?.getAttribute("data-testid")).toBe("step-row-choose-network");
+  });
+
+  it("pre-network view shows Intro (two steps) and Build (choose-network only)", async () => {
+    await renderWithNetwork(null);
+    const intro = screen.getByTestId("phase-header-intro");
+    const introGroup = intro.closest("div")?.parentElement as HTMLElement;
+    expect(introGroup.querySelectorAll('[data-testid^="step-row-"]')).toHaveLength(2);
+    const build = screen.getByTestId("phase-header-build");
+    const buildGroup = build.closest("div")?.parentElement as HTMLElement;
+    const buildRows = buildGroup.querySelectorAll('[data-testid^="step-row-"]');
+    expect(buildRows).toHaveLength(1);
+    expect(buildRows[0].getAttribute("data-testid")).toBe("step-row-choose-network");
+    expect(screen.queryByTestId("phase-header-test")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("phase-header-scale")).not.toBeInTheDocument();
+  });
+
   it("shows only the pre-network steps plus the unlock teaser before a network is chosen", async () => {
     await renderWithNetwork(null);
     for (const step of CAMPAIGN_ROADMAP) {

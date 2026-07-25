@@ -238,13 +238,17 @@ export default function CampaignChecklist() {
     [visibleSteps, network, checked, collapsed],
   );
 
-  // Group the visible steps by phase, preserving chronological order.
+  // Group the visible steps by display section, preserving chronological
+  // order. The section label is a display-only override (member.sectionLabel)
+  // falling back to the canonical phase label — e.g. Steps 1–2 show under
+  // "Intro" while remaining phase "build" canonically.
   const phaseGroups = useMemo(() => {
-    const groups: { phase: CampaignPhase; steps: CampaignStep[] }[] = [];
+    const groups: { label: string; steps: CampaignStep[] }[] = [];
     for (const step of visibleSteps) {
+      const label = step.member?.sectionLabel ?? phaseDisplayLabel(step.phase);
       const last = groups[groups.length - 1];
-      if (last && last.phase === step.phase) last.steps.push(step);
-      else groups.push({ phase: step.phase, steps: [step] });
+      if (last && last.label === label) last.steps.push(step);
+      else groups.push({ label, steps: [step] });
     }
     return groups;
   }, [visibleSteps]);
@@ -284,19 +288,16 @@ export default function CampaignChecklist() {
         ) : (
           <>
             {phaseGroups.map((group) => (
-              <div key={`${group.phase}-${group.steps[0]?.id}`}>
-                {group.steps[0] &&
-                  CAMPAIGN_ROADMAP.find((s) => s.phase === group.phase)?.id === group.steps[0].id && (
-                    <div className="mb-2 flex items-center gap-3 pt-2">
-                      <h2
-                        className="text-xs font-semibold uppercase tracking-widest text-muted-foreground"
-                        data-testid={`phase-header-${group.phase}`}
-                      >
-                        {phaseDisplayLabel(group.phase)}
-                      </h2>
-                      <div className="flex-1 h-px bg-border" />
-                    </div>
-                  )}
+              <div key={`${group.label}-${group.steps[0]?.id}`}>
+                <div className="mb-2 flex items-center gap-3 pt-2">
+                  <h2
+                    className="text-xs font-semibold uppercase tracking-widest text-muted-foreground"
+                    data-testid={`phase-header-${group.label.toLowerCase()}`}
+                  >
+                    {group.label}
+                  </h2>
+                  <div className="flex-1 h-px bg-border" />
+                </div>
                 <div className="divide-y divide-border/40">
                   {group.steps.map((step) => (
                     <div key={step.id}>
