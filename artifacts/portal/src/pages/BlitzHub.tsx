@@ -474,18 +474,9 @@ export default function BlitzHub() {
       <div className="space-y-6 max-w-6xl">
         <div className="space-y-4">
           <div className="flex flex-col gap-5 sm:grid sm:grid-cols-[1fr_auto_1fr] sm:items-center sm:gap-6">
-            <div className="min-w-0">
-              <div className="flex items-center gap-2 mb-3">
-                <Zap className="w-6 h-6 text-primary" />
-                <h1 className="text-3xl font-bold">The Blitz™</h1>
-              </div>
-              <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
-                Caterpillar Edition
-                <span className="mx-2.5 text-border font-normal" aria-hidden="true">|</span>
-                Build · Test · Scale
-                <span className="mx-2.5 text-border font-normal" aria-hidden="true">|</span>
-                V4.0 (Released April 21, 2026)
-              </p>
+            <div className="flex items-center gap-2 min-w-0">
+              <Zap className="w-6 h-6 text-primary shrink-0" />
+              <h1 className="text-3xl font-bold whitespace-nowrap">The Blitz™</h1>
             </div>
 
             <div className="flex w-full shrink-0 items-center gap-2.5 rounded-full border border-border/60 bg-card px-3.5 py-1.5 shadow-sm sm:w-auto sm:justify-self-center">
@@ -513,6 +504,14 @@ export default function BlitzHub() {
               </Button>
             </div>
           </div>
+
+          <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground sm:whitespace-nowrap sm:overflow-hidden sm:text-ellipsis">
+            Caterpillar Edition
+            <span className="mx-2.5 text-border font-normal" aria-hidden="true">|</span>
+            Build · Test · Scale
+            <span className="mx-2.5 text-border font-normal" aria-hidden="true">|</span>
+            V4.0 (Released April 21, 2026)
+          </p>
 
           <p className="text-muted-foreground leading-relaxed">
             A <strong className="text-foreground font-semibold">proven, step-by-step system</strong> for
