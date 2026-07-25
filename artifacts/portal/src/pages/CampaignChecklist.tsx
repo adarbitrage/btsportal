@@ -244,30 +244,30 @@ export default function CampaignChecklist() {
     <AppLayout>
       <div className="space-y-6 max-w-3xl" data-testid="campaign-checklist-page">
         <div className="space-y-4">
-          <div className="min-w-0">
-            <div className="flex items-center gap-2 mb-3">
-              <ClipboardList className="w-6 h-6 text-primary" />
-              <h1 className="text-3xl font-bold">Campaign Checklist</h1>
-            </div>
-            <p className="text-sm text-muted-foreground leading-relaxed max-w-xl">
-              Your BTS campaign roadmap. Check items off as you go — your progress is saved to
-              your account and follows you across devices.
-            </p>
-          </div>
-
           <div className="flex items-center justify-between gap-3">
-            <Button asChild variant="outline" size="sm" className="gap-2">
+            <div className="flex items-center gap-2 min-w-0">
+              <ClipboardList className="w-6 h-6 text-primary shrink-0" />
+              <h1 className="text-3xl font-bold whitespace-nowrap">Campaign Checklist</h1>
+            </div>
+            <Button asChild variant="outline" size="sm" className="gap-2 shrink-0">
               <Link href="/blitz">
                 <ArrowLeft className="w-4 h-4" />
-                Back to The Blitz™
+                <span className="hidden sm:inline">Back to The Blitz™</span>
+                <span className="sm:hidden">Back</span>
               </Link>
             </Button>
-            {saveError && (
-              <p className="text-xs text-red-600">
-                Couldn't save your latest change — check your connection and try again.
-              </p>
-            )}
           </div>
+
+          <p className="text-sm text-muted-foreground leading-relaxed">
+            Your BTS campaign roadmap. Check items off as you go — your progress is saved to
+            your account and follows you across devices.
+          </p>
+
+          {saveError && (
+            <p className="text-xs text-red-600">
+              Couldn't save your latest change — check your connection and try again.
+            </p>
+          )}
         </div>
 
         {!loaded ? (
