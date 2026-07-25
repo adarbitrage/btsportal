@@ -1143,12 +1143,12 @@ export default function Blitz() {
     <AppLayout>
       <style dangerouslySetInnerHTML={{ __html: blitzCSS + SECTION_BAR_CSS }} />
       <div className="mb-6">
-        <div className="flex flex-col gap-y-3 sm:grid sm:grid-cols-[1fr_auto_1fr] sm:items-center sm:gap-x-4 mb-2">
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-3 mb-2">
           <div className="flex items-center gap-2 shrink-0">
             <Zap className="w-6 h-6 text-primary" />
             <h1 className="text-3xl font-bold">The Blitz™</h1>
           </div>
-          <div className="sm:justify-self-center">
+          <div className="shrink-0">
             {isSectionView && lesson && (
               <div className="inline-flex items-center gap-0.5 rounded-full border border-border bg-muted/50 p-0.5">
                 {prevId ? (
@@ -1183,7 +1183,7 @@ export default function Blitz() {
               </div>
             )}
           </div>
-          <div className="flex flex-wrap items-center gap-2 shrink-0 sm:justify-self-end">
+          <div className="ml-auto flex items-center gap-2 shrink-0">
             <Button variant="outline" size="sm" asChild>
               <Link href="/blitz">
                 <ArrowLeftIcon />
