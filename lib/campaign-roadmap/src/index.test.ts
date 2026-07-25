@@ -12,6 +12,8 @@ import {
   memberStepKeys,
   memberSubstepAction,
   renderCampaignSpine,
+  STEP_LIFECYCLES,
+  CAMPAIGN_SPINE_LIFECYCLE_LEGEND,
 } from "./index";
 
 describe("campaign roadmap structure", () => {
@@ -55,6 +57,45 @@ describe("campaign roadmap structure", () => {
   });
 });
 
+describe("lifecycle classification (Task #1989)", () => {
+  it("every step and substep carries a valid lifecycle value", () => {
+    for (const step of CAMPAIGN_ROADMAP) {
+      expect(STEP_LIFECYCLES, `step ${step.id}`).toContain(step.lifecycle);
+      for (const sub of step.substeps) {
+        expect(STEP_LIFECYCLES, `substep ${sub.substepId}`).toContain(sub.lifecycle);
+      }
+    }
+  });
+
+  it("locks the agreed classification: only orient + know-the-gates steps are one-time initial", () => {
+    const oneTimeStepIds = CAMPAIGN_ROADMAP.filter((s) => s.lifecycle === "one-time-initial").map(
+      (s) => s.id,
+    );
+    expect(oneTimeStepIds).toEqual(["orient", "know-the-gates"]);
+    // Every other step — including choose-network, which repeats per campaign
+    // by design — is per-campaign.
+    for (const step of CAMPAIGN_ROADMAP) {
+      if (!oneTimeStepIds.includes(step.id)) {
+        expect(step.lifecycle, `step ${step.id}`).toBe("per-campaign");
+      }
+    }
+    expect(CAMPAIGN_ROADMAP.find((s) => s.id === "choose-network")!.lifecycle).toBe("per-campaign");
+  });
+
+  it("locks the agreed substep exceptions: Flexy custom values (one-time initial) and site clone (per brand domain)", () => {
+    const exceptions = new Map<string, string>();
+    for (const step of CAMPAIGN_ROADMAP) {
+      for (const sub of step.substeps) {
+        if (sub.lifecycle !== "per-campaign") exceptions.set(sub.substepId, sub.lifecycle);
+      }
+    }
+    expect(Object.fromEntries(exceptions)).toEqual({
+      "create-diytrax-campaign-flexy-custom-values": "one-time-initial",
+      "flexy-website-clone-site": "one-time-brand-domain",
+    });
+  });
+});
+
 describe("spine drift guard — rendered block is generated from the module", () => {
   const spine = renderCampaignSpine();
 
@@ -77,6 +118,25 @@ describe("spine drift guard — rendered block is generated from the module", ()
     }
   });
 
+  it("renders the lifecycle legend and tags one-time lines only — per-campaign lines stay untagged", () => {
+    expect(spine).toContain(CAMPAIGN_SPINE_LIFECYCLE_LEGEND);
+    const lines = spine.split("\n");
+    // Exactly the classified lines carry a tag (2 steps + 1 substep = [ONE-TIME] ×3,
+    // 1 substep = [PER-BRAND-DOMAIN] ×1); legend excluded from the count.
+    const body = lines.filter((l) => l !== CAMPAIGN_SPINE_LIFECYCLE_LEGEND);
+    expect(body.filter((l) => l.includes("[ONE-TIME]")).length).toBe(3);
+    expect(body.filter((l) => l.includes("[PER-BRAND-DOMAIN]")).length).toBe(1);
+    // Per-campaign steps/substeps are NEVER tagged — they must never be
+    // phrased as already-done existence checks.
+    for (const step of CAMPAIGN_ROADMAP) {
+      if (step.lifecycle === "per-campaign") {
+        const line = body.find((l) => l.startsWith(`${step.number}. ${step.title}`))!;
+        expect(line).not.toContain("[ONE-TIME]");
+        expect(line).not.toContain("[PER-BRAND-DOMAIN]");
+      }
+    }
+  });
+
   it("contains every step description and every substep action, with network tags preserved", () => {
     for (const step of CAMPAIGN_ROADMAP) {
       if (step.description) expect(spine).toContain(step.description);
@@ -96,22 +156,26 @@ describe("spine drift guard — rendered block is generated from the module", ()
     // internal-ordering-markers preamble puts the floor around ~950 estimated
     // tokens, so the band guards against silent bloat (or gutting) rather
     // than an exact 600 ceiling.
+    // Task #1989 raised the ceiling: the lifecycle legend + [ONE-TIME]/
+    // [PER-BRAND-DOMAIN] tags add ~180 estimated tokens to the locked wording.
     const approxTokens = spine.length / 4;
     expect(approxTokens).toBeGreaterThan(400);
-    expect(approxTokens).toBeLessThan(1050);
+    expect(approxTokens).toBeLessThan(1250);
   });
 });
 
 describe("AI spine guardrail — member-display copy NEVER affects the spine", () => {
   const spine = renderCampaignSpine();
 
-  it("is byte-for-byte identical to the pre-member-copy-layer baseline", () => {
-    // Captured from renderCampaignSpine() BEFORE the member-display copy
-    // layer was introduced. If this fails, canonical wording (what the AI
-    // sees) changed — member copy must never do that.
-    expect(spine.length).toBe(3820);
+  it("is byte-for-byte identical to the locked canonical baseline", () => {
+    // Baseline DELIBERATELY re-captured for Task #1989 (lifecycle tags +
+    // legend added to the spine — an intentional canonical-wording change).
+    // If this fails without an explicit task changing spine wording,
+    // canonical wording (what the AI sees) drifted — member copy and other
+    // layers must never do that.
+    expect(spine.length).toBe(4537);
     expect(createHash("sha256").update(spine, "utf8").digest("hex")).toBe(
-      "9bdef1f119c933305e90c8bfd0696f08938e98740a8bb7c1e58031d4d32fb3cc",
+      "a1256407afdb79bd45f2efb8ce56c7db61e78ff9ce33e16120bea7c10f8bf9f7",
     );
   });
 

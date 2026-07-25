@@ -23,6 +23,7 @@ import {
   hasSynthesisRiskTags,
   hasTimeSensitivePhrasing,
   hasPrivacyResidue,
+  hasRecurrenceDrift,
 } from "./kb-review-risk";
 
 export type FlagSeverity = "critical" | "high" | "medium" | "low";
@@ -62,7 +63,12 @@ export type RiskFlagType =
   // The reviewer must verify the path against the CURRENT portal navigation.
   // medium = a referenced label doesn't match the live nav map; low = all
   // referenced labels matched (still worth a click-through).
-  | "portal_nav_check";
+  | "portal_nav_check"
+  // Recurrence drift (Task #1989): a process doc's prose frames a ONE-TIME
+  // roadmap step (subdomain / site clone / Flexy custom values) as fresh
+  // per-campaign work, contradicting the campaign spine's lifecycle tags.
+  // Advisory only — never blocks publishing.
+  | "recurrence_drift";
 
 /**
  * Runtime roster of every {@link RiskFlagType}. The reviewer SOP (kb-sop.ts)
@@ -90,6 +96,7 @@ export const RISK_FLAG_TYPES = [
   "retrieval_gap",
   "non_citable_review_doc",
   "portal_nav_check",
+  "recurrence_drift",
 ] as const;
 
 // Mutual exhaustiveness: every listed value is a RiskFlagType, and every
@@ -357,6 +364,21 @@ export function computeRiskFlags(input: ComputeFlagsInput): RiskFlag[] {
       severity: "medium",
       message: "Time-sensitive phrasing",
       detail: "Phrases like \"right now\"/\"currently\"/dated references will age — rewrite timelessly or confirm.",
+    });
+  }
+
+  // Recurrence drift (Task #1989): process-class docs whose prose frames a
+  // one-time roadmap step as per-campaign work. Advisory only — never blocks.
+  if (
+    (input.docClassTarget ?? "").trim() === "process" &&
+    hasRecurrenceDrift(input.content)
+  ) {
+    flags.push({
+      type: "recurrence_drift",
+      severity: "medium",
+      message: "One-time step framed as per-campaign",
+      detail:
+        "The doc describes a one-time roadmap setup step (subdomain / site clone / Flexy custom values) with per-campaign recurrence language, contradicting the campaign spine's lifecycle tags. Rephrase or confirm the recurrence is intended.",
     });
   }
 

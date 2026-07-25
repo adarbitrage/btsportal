@@ -119,6 +119,8 @@ const FLAG_MEANINGS = {
     "This review doc is filed under a non-citeable class (e.g. legacy transcript) and would never be surfaced to members. Re-file it as a citeable class (curated / overview / navigation) so it can be published and cited.",
   portal_nav_check:
     "Contains a member-facing portal click-path (e.g. \"Log in to your portal → Navigate to …\"). Click through the path in the live portal and confirm every label/step still matches. Medium severity means a referenced label was NOT found in the current navigation map — fix the path before approving.",
+  recurrence_drift:
+    "This process doc frames a ONE-TIME roadmap setup step (subdomain / site clone / Flexy custom values) as per-campaign work, contradicting the campaign roadmap's lifecycle tags. Advisory only: rephrase to one-time wording, or confirm the recurrence is genuinely intended and dismiss.",
 } satisfies Record<RiskFlagType, string>;
 
 // ── Public shapes ────────────────────────────────────────────────────────────

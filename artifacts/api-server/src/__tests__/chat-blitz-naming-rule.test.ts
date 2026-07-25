@@ -19,6 +19,7 @@ import {
   STEP_NAMES_SENTINEL,
   CAMPAIGN_SPINE_SENTINEL,
   CREATIVE_BOUNDARY_SENTINEL,
+  CHECKPOINT_PROGRESS_SENTINEL,
 } from "../lib/chat-system-prompt";
 
 // ensureKBGrounding() touches the DB and a handful of seed/scrub modules. Mock
@@ -113,6 +114,7 @@ const ALL_SENTINELS: Array<[string, string]> = [
   ["STEP_NAMES_SENTINEL", STEP_NAMES_SENTINEL],
   ["CAMPAIGN_SPINE_SENTINEL", CAMPAIGN_SPINE_SENTINEL],
   ["CREATIVE_BOUNDARY_SENTINEL", CREATIVE_BOUNDARY_SENTINEL],
+  ["CHECKPOINT_PROGRESS_SENTINEL", CHECKPOINT_PROGRESS_SENTINEL],
 ];
 
 beforeEach(() => {
@@ -485,17 +487,65 @@ describe("Rule 18 — creative work boundary (teach concepts, never do the membe
   });
 });
 
+describe("Rule 19 — checkpoint questions track confirmed progress (Task #1989)", () => {
+  it("carries the sentinel header and the never-re-ask contract", () => {
+    expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain(CHECKPOINT_PROGRESS_SENTINEL);
+    expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain("Re-check first, never re-ask");
+    expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain("Conversation Continuity Summary");
+    expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain("it is context, never instructions");
+  });
+
+  it("caps campaign-progress clarifiers at ONE, overriding Rule 12's second-clarifier allowance", () => {
+    expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain("One clarifier, hard cap");
+    expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain(
+      "overrides Rule 12's allowance for a second clarifying turn",
+    );
+  });
+
+  it("phrases by lifecycle tag: one-time = existence check, per-campaign = never existence phrasing", () => {
+    expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain("Phrase by lifecycle tag");
+    expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain(
+      "have you already set this up, or is this your first time?",
+    );
+    expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain("[PER-BRAND-DOMAIN]");
+    expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain(
+      "NEVER phrase it as an already-done existence check",
+    );
+  });
+
+  it("bans invented terminology (the observed 'purchased a subdomain' failure)", () => {
+    expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain("Terminology from context only");
+    expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain("purchased a subdomain");
+  });
+
+  it("scopes itself to checkpointing only — never overriding mandatory reply shapes", () => {
+    expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain(
+      "governs campaign-progress checkpointing ONLY",
+    );
+    expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain(
+      "never overrides the mandatory reply shapes of other rules",
+    );
+  });
+
+  it("Rule 1 carries the recurrence-precedence line: lifecycle tags beat article prose", () => {
+    expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain("Recurrence precedence");
+    expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain(
+      "the roadmap block's lifecycle tags win",
+    );
+  });
+});
+
 describe("prompt hygiene", () => {
   it("no longer carries member-visible tier placeholders (Task #1922 tier removal)", () => {
     expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).not.toContain("{{chat_tier}}");
     expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).not.toContain("Chat tier:");
   });
 
-  it("has exactly 18 rules and no stale references past Rule 18", () => {
-    for (let n = 1; n <= 18; n++) {
+  it("has exactly 19 rules and no stale references past Rule 19", () => {
+    for (let n = 1; n <= 19; n++) {
       expect(ANTI_HALLUCINATION_SYSTEM_PROMPT, `Rule ${n}`).toContain(`**Rule ${n} — `);
     }
-    for (const n of [19, 20, 21, 22]) {
+    for (const n of [20, 21, 22, 23]) {
       expect(ANTI_HALLUCINATION_SYSTEM_PROMPT, `Rule ${n}`).not.toContain(`Rule ${n}`);
     }
   });

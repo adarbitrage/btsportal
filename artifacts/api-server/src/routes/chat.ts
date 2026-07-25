@@ -32,6 +32,13 @@ import {
   buildFuzzyBlitzBlock,
 } from "../lib/blitz-pointer";
 import { generateAndApplySessionTitle } from "../lib/chat-session-title";
+import {
+  getAgedOutWatermark,
+  getContinuitySummaryForContext,
+  buildContinuityBlock,
+  updateContinuitySummary,
+  CONTINUITY_HEADER,
+} from "../lib/chat-continuity";
 import { renderCampaignSpine } from "@workspace/campaign-roadmap";
 import { CITABLE_KB_CATEGORIES } from "../lib/kb-taxonomy";
 
@@ -262,11 +269,34 @@ router.post("/chat", async (req, res): Promise<void> => {
 
   const orderedHistory = history.reverse();
 
+  // Conversation Continuity Summary (Task #1989): when this conversation has
+  // outgrown the history window, older confirmations/facts live in a rolling
+  // per-session summary. Inject it ONLY when its watermark exactly matches the
+  // newest aged-out message — otherwise proceed with verbatim history only
+  // (fail-open). Conversations that fit the window skip all of this.
+  let continuitySummary: string | null = null;
+  try {
+    const agedOutWatermark = await getAgedOutWatermark(session.id, config.historyDepth);
+    if (agedOutWatermark !== null) {
+      continuitySummary = await getContinuitySummaryForContext(session.id, agedOutWatermark);
+    }
+  } catch (err) {
+    console.error("[chat] continuity summary lookup failed (fail-open):", err);
+  }
+
   // Prior turns only (drop the just-inserted current message) so a short
-  // follow-up ("is it free?") resolves against the previous question.
+  // follow-up ("is it free?") resolves against the previous question. When a
+  // continuity summary exists, prepend it as the earliest turn so follow-up
+  // resolution doesn't degrade when its referent was summarized away.
   const priorTurns: RetrievalTurn[] = orderedHistory
     .slice(0, -1)
     .map((m) => ({ role: m.role as "user" | "assistant", content: m.content }));
+  if (continuitySummary) {
+    priorTurns.unshift({
+      role: "assistant",
+      content: `${CONTINUITY_HEADER}\n${continuitySummary}`,
+    });
+  }
 
   // Retrieve directly (rather than via the searchKnowledgebase wrapper) so we get
   // the surface-aware "confident" signal: docs can come back from the loose
@@ -325,6 +355,12 @@ router.post("/chat", async (req, res): Promise<void> => {
   // block as provided context and gives it ordering precedence over articles.
   systemPrompt += `\n\n${renderCampaignSpine()}`;
 
+  // Continuity summary block: derived facts from aged-out turns, clearly
+  // labeled so Rule 19 treats it as context (never instructions).
+  if (continuitySummary) {
+    systemPrompt += buildContinuityBlock(continuitySummary);
+  }
+
   const chatMessages = orderedHistory.map((m) => ({
     role: m.role as "user" | "assistant",
     content: m.content,
@@ -369,6 +405,11 @@ router.post("/chat", async (req, res): Promise<void> => {
     if (isNewSession) {
       void generateAndApplySessionTitle(session.id, message.trim(), fullResponse);
     }
+
+    // Roll the continuity summary forward for messages that have now aged out
+    // of the history window. Fire-and-forget and internally fail-open — a
+    // summarizer error or missing table never touches the member's turn.
+    void updateContinuitySummary({ sessionId: session.id, historyDepth: config.historyDepth });
   } catch (err: any) {
     console.error("Chat stream error:", err);
     res.write(`data: ${JSON.stringify({ error: "An error occurred while generating a response. Please try again." })}\n\n`);

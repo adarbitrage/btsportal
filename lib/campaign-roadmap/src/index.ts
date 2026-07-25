@@ -21,6 +21,26 @@ export type CampaignPhase = "build" | "test" | "scale";
 export type CampaignNetwork = "media-mavens" | "clickbank";
 
 /**
+ * REQUIRED lifecycle classification for every step and substep (Task #1989).
+ * Tells the AI assistant whether a step recurs, so checkpoint questions get
+ * the right phrasing (existence check vs fresh task):
+ *   - "one-time-initial": done ONCE ever, during initial setup. A returning
+ *     member has most likely already done it.
+ *   - "one-time-brand-domain": done once PER BRAND DOMAIN (consumerwatchdog.io
+ *     for Consumer Watchdog templates, thecuttingedge.today for The Cutting
+ *     Edge — template chosen by offer type, NOT by affiliate network). Facts
+ *     about one brand domain never carry across to another.
+ *   - "per-campaign": repeated for every new campaign.
+ */
+export type StepLifecycle = "one-time-initial" | "one-time-brand-domain" | "per-campaign";
+
+export const STEP_LIFECYCLES: readonly StepLifecycle[] = [
+  "one-time-initial",
+  "one-time-brand-domain",
+  "per-campaign",
+];
+
+/**
  * OPTIONAL member-display copy for a substep. This layer is rendered ONLY by
  * the member checklist page. It is NEVER read by `renderCampaignSpine()` —
  * the AI assistant sees canonical wording exclusively.
@@ -63,6 +83,8 @@ export interface CampaignSubstep {
   action: string;
   /** Branch tag: substep applies only to this affiliate network. */
   network?: CampaignNetwork;
+  /** REQUIRED lifecycle classification — see StepLifecycle. */
+  lifecycle: StepLifecycle;
   /** Member-display overrides — NEVER read by the spine renderer. */
   member?: SubstepMemberCopy;
 }
@@ -77,6 +99,8 @@ export interface CampaignStep {
   title: string;
   /** Optional constraint/description line (locked wording). */
   description?: string;
+  /** REQUIRED lifecycle classification — see StepLifecycle. */
+  lifecycle: StepLifecycle;
   substeps: CampaignSubstep[];
   /** Member-display overrides — NEVER read by the spine renderer. */
   member?: StepMemberCopy;
@@ -98,6 +122,7 @@ export const CAMPAIGN_ROADMAP: readonly CampaignStep[] = [
     id: "orient",
     number: 1,
     phase: "build",
+    lifecycle: "one-time-initial",
     title: "Orient",
     description: "Start with the 7 Pillars and the three-phase path (Build → Test → Scale).",
     substeps: [],
@@ -106,6 +131,7 @@ export const CAMPAIGN_ROADMAP: readonly CampaignStep[] = [
     id: "know-the-gates",
     number: 2,
     phase: "build",
+    lifecycle: "one-time-initial",
     title: "Know the gates",
     description:
       "Each phase has an exit gate; know the testing budgets before you start; compliance approval is required before any ad creative or landing page creative runs.",
@@ -115,6 +141,7 @@ export const CAMPAIGN_ROADMAP: readonly CampaignStep[] = [
     id: "choose-network",
     number: 3,
     phase: "build",
+    lifecycle: "per-campaign",
     title: "Choose your network",
     description:
       "Media Mavens or ClickBank. This choice changes how you'll build your landing page assets, Flexy website, MetricMover split test, and DIYTrax setup.",
@@ -131,12 +158,14 @@ export const CAMPAIGN_ROADMAP: readonly CampaignStep[] = [
     id: "select-offer",
     number: 4,
     phase: "build",
+    lifecycle: "per-campaign",
     title: "Select your offer & get your affiliate link",
     description:
       "The affiliate link is required later for the DIYTrax Offer Pages tab when you complete your DIYTrax setup.",
     substeps: [
       {
         substepId: "select-offer-review-presell",
+        lifecycle: "per-campaign",
         action:
           "Review the presell page for the offer: the advertorial [MM] or the VSL [CB].",
         member: {
@@ -152,6 +181,7 @@ export const CAMPAIGN_ROADMAP: readonly CampaignStep[] = [
     id: "finalize-angles",
     number: 5,
     phase: "build",
+    lifecycle: "per-campaign",
     title: "Finalize your angles",
     description:
       "5 angles, extracted from the advertorial/VSL and customer avatar research; done first — your native ad assets and landing page assets build on them.",
@@ -169,6 +199,7 @@ export const CAMPAIGN_ROADMAP: readonly CampaignStep[] = [
     id: "create-ad-assets",
     number: 6,
     phase: "build",
+    lifecycle: "per-campaign",
     title: "Create native ad assets",
     description: "~10 ad headlines + 1 description + ad image.",
     substeps: [],
@@ -177,18 +208,21 @@ export const CAMPAIGN_ROADMAP: readonly CampaignStep[] = [
     id: "create-lp-assets",
     number: 7,
     phase: "build",
+    lifecycle: "per-campaign",
     title: "Create landing page assets",
     description: "5 LP headlines + 5 hero shots (both networks).",
     member: { description: "5 LP headlines + 5 hero shots." },
     substeps: [
       {
         substepId: "create-lp-assets-cb-bridge-copy",
+        lifecycle: "per-campaign",
         action:
           "Capture the VSL/transcript, then generate base-page copy plus a control headline/subheadline and hero shot via the Bridge Page Copy Bot.",
         network: "clickbank",
       },
       {
         substepId: "create-lp-assets-mm-advertorial-copy",
+        lifecycle: "per-campaign",
         action:
           "Landing-page copy comes from the pre-built advertorial (optimized later when you set up your website in Flexy).",
         network: "media-mavens",
@@ -200,6 +234,7 @@ export const CAMPAIGN_ROADMAP: readonly CampaignStep[] = [
     id: "submit-compliance",
     number: 8,
     phase: "build",
+    lifecycle: "per-campaign",
     title: "Submit for compliance review",
     description:
       "Submit all creatives. Compliance blocks publishing/go-live only; you can keep building your DIYTrax campaign and Flexy website while you wait.",
@@ -209,10 +244,12 @@ export const CAMPAIGN_ROADMAP: readonly CampaignStep[] = [
     id: "create-diytrax-campaign",
     number: 9,
     phase: "build",
+    lifecycle: "per-campaign",
     title: "Create your DIYTrax campaign",
     substeps: [
       {
         substepId: "create-diytrax-campaign-create",
+        lifecycle: "per-campaign",
         action: "Create the campaign in DIYTrax.",
         member: {
           mergeGroup: "diytrax-create-basic-info",
@@ -221,11 +258,13 @@ export const CAMPAIGN_ROADMAP: readonly CampaignStep[] = [
       },
       {
         substepId: "create-diytrax-campaign-basic-info",
+        lifecycle: "per-campaign",
         action: "Fill in the Basic Info tab (and save).",
         member: { mergeGroup: "diytrax-create-basic-info" },
       },
       {
         substepId: "create-diytrax-campaign-flexy-custom-values",
+        lifecycle: "one-time-initial",
         action:
           "One-time global setup: copy the T2 landing-page URL from the Links & Pixels tab and paste it into Flexy Custom Values.",
         member: {
@@ -239,24 +278,29 @@ export const CAMPAIGN_ROADMAP: readonly CampaignStep[] = [
     id: "flexy-website",
     number: 10,
     phase: "build",
+    lifecycle: "per-campaign",
     title: "Set up your website in Flexy",
     substeps: [
       {
         substepId: "flexy-website-clone-site",
+        lifecycle: "one-time-brand-domain",
         action: "Clone the site → create a subdomain → connect the subdomain to the cloned site.",
       },
       {
         substepId: "flexy-website-mm-clone-advertorial",
+        lifecycle: "per-campaign",
         action: "Clone the advertorial page for your offer.",
         network: "media-mavens",
       },
       {
         substepId: "flexy-website-cb-clone-template",
+        lifecycle: "per-campaign",
         action: "Clone a template and format it to be ready for your base-page copy.",
         network: "clickbank",
       },
       {
         substepId: "flexy-website-optimize-page",
+        lifecycle: "per-campaign",
         action:
           "Optimize the page for desktop and mobile: font size/style, headline/subheadline/hero-shot element spacing.",
       },
@@ -266,18 +310,21 @@ export const CAMPAIGN_ROADMAP: readonly CampaignStep[] = [
     id: "metricmover-split-test",
     number: 11,
     phase: "build",
+    lifecycle: "per-campaign",
     title: "Build your landing page split test in MetricMover",
     description:
       "Requires your formatted Flexy page and your compliance-approved assets.",
     substeps: [
       {
         substepId: "metricmover-split-test-cb-fill-copy",
+        lifecycle: "per-campaign",
         action:
           "Fill the page with your approved base-page copy, control headline/subheadline, and hero shot.",
         network: "clickbank",
       },
       {
         substepId: "metricmover-split-test-mm-page",
+        lifecycle: "per-campaign",
         action: 'Create a blank "MM" page with a custom code box in Flexy.',
         member: {
           action: "Create a blank MetricMover page with a custom code box in Flexy.",
@@ -285,10 +332,12 @@ export const CAMPAIGN_ROADMAP: readonly CampaignStep[] = [
       },
       {
         substepId: "metricmover-split-test-build-5x5",
+        lifecycle: "per-campaign",
         action: "Build the 5×5 (25 combinations) in MetricMover.",
       },
       {
         substepId: "metricmover-split-test-embed-publish",
+        lifecycle: "per-campaign",
         action: 'Paste the MetricMover embed code into the Flexy "MM" page and publish.',
       },
     ],
@@ -297,19 +346,23 @@ export const CAMPAIGN_ROADMAP: readonly CampaignStep[] = [
     id: "complete-diytrax-setup",
     number: 12,
     phase: "build",
+    lifecycle: "per-campaign",
     title: "Complete your DIYTrax setup",
     substeps: [
       {
         substepId: "complete-diytrax-setup-landing-pages-tab",
+        lifecycle: "per-campaign",
         action:
           "Landing Pages tab: import the MetricMover (trax-import) CSV; all active, equal share; auto-optimization off.",
       },
       {
         substepId: "complete-diytrax-setup-offer-pages-tab",
+        lifecycle: "per-campaign",
         action: "Offer Pages tab: add your offer link with your affiliate ID at 100%.",
       },
       {
         substepId: "complete-diytrax-setup-cb-enable-ipn",
+        lifecycle: "per-campaign",
         action: "Enable IPN so sales are recorded.",
         network: "clickbank",
       },
@@ -319,15 +372,18 @@ export const CAMPAIGN_ROADMAP: readonly CampaignStep[] = [
     id: "caterpillar-go-live",
     number: 13,
     phase: "build",
+    lifecycle: "per-campaign",
     title: "Configure Caterpillar & go live",
     substeps: [
       {
         substepId: "caterpillar-go-live-traffic-source-tab",
+        lifecycle: "per-campaign",
         action:
           "Configure the Traffic Source tab for Caterpillar: select product, create subcampaigns, create ads.",
       },
       {
         substepId: "caterpillar-go-live-qa",
+        lifecycle: "per-campaign",
         action:
           "QA before going live: all DIYTrax settings, full-funnel click-through using the campaign URL, all ads in approved status.",
       },
@@ -337,6 +393,7 @@ export const CAMPAIGN_ROADMAP: readonly CampaignStep[] = [
     id: "round-1-headline-test",
     number: 14,
     phase: "test",
+    lifecycle: "per-campaign",
     title: "Round 1 — headline test",
     description: "Prepare Round 2 image assets while Round 1 runs.",
     substeps: [],
@@ -345,6 +402,7 @@ export const CAMPAIGN_ROADMAP: readonly CampaignStep[] = [
     id: "round-2-image-test",
     number: 15,
     phase: "test",
+    lifecycle: "per-campaign",
     title: "Round 2 — image (visual creative) test",
     substeps: [],
   },
@@ -352,6 +410,7 @@ export const CAMPAIGN_ROADMAP: readonly CampaignStep[] = [
     id: "round-3-placement-test",
     number: 16,
     phase: "test",
+    lifecycle: "per-campaign",
     title: "Round 3 — placement test",
     substeps: [],
   },
@@ -359,6 +418,7 @@ export const CAMPAIGN_ROADMAP: readonly CampaignStep[] = [
     id: "scale",
     number: 17,
     phase: "scale",
+    lifecycle: "per-campaign",
     title: "Scale",
     description:
       "Only after Rounds 1–3 are complete and the campaign is profitable. Order: increase budget on the winning placement → expand to new placements/publishers (Grasshopper, Crane) → Master Publisher after 14+ consecutive profitable days.",
@@ -494,6 +554,24 @@ const NETWORK_TAG: Record<CampaignNetwork, string> = {
 };
 
 /**
+ * Spine lifecycle tags. Per-campaign lines are deliberately UNTAGGED (the
+ * default) to keep the spine compact; the legend states that untagged =
+ * per-campaign.
+ */
+export const LIFECYCLE_TAG: Record<Exclude<StepLifecycle, "per-campaign">, string> = {
+  "one-time-initial": "[ONE-TIME]",
+  "one-time-brand-domain": "[PER-BRAND-DOMAIN]",
+};
+
+function lifecycleTag(lifecycle: StepLifecycle): string {
+  return lifecycle === "per-campaign" ? "" : ` ${LIFECYCLE_TAG[lifecycle]}`;
+}
+
+/** Lifecycle legend rendered into the spine preamble (referenced by prompt rules). */
+export const CAMPAIGN_SPINE_LIFECYCLE_LEGEND =
+  "Lifecycle tags: [ONE-TIME] = one-time initial setup, done once ever — a returning member has most likely already done it, so ask about it as an existence check (\"have you already set this up, or is this your first time?\"), never assign it as a fresh task. [PER-BRAND-DOMAIN] = done once per brand domain (consumerwatchdog.io for Consumer Watchdog templates, thecuttingedge.today for The Cutting Edge — template chosen by offer type, NOT by affiliate network); a completed setup on one brand domain never carries over to a different brand domain. Untagged steps are PER-CAMPAIGN: repeated for every new campaign — never phrase them as already-done existence checks.";
+
+/**
  * Render the compact prompt "spine" block from the roadmap module. Appended to
  * the chat assistant's system prompt at runtime on EVERY request — kept in the
  * ~500–600 token range. Numbered steps under phase headers, substeps folded as
@@ -504,6 +582,7 @@ export function renderCampaignSpine(): string {
     CAMPAIGN_SPINE_HEADER,
     "Authoritative 17-step BTS campaign chronology: ordering, prerequisites, phases, network branching. [MM]=Media Mavens, [CB]=ClickBank; untagged lines apply to both networks.",
     "The list numbers below are INTERNAL ordering markers only — never surface them to members. Refer to steps by phase + title (per the campaign-step naming rule).",
+    CAMPAIGN_SPINE_LIFECYCLE_LEGEND,
   ];
 
   let currentPhase: CampaignPhase | null = null;
@@ -513,10 +592,10 @@ export function renderCampaignSpine(): string {
       lines.push(`### ${CAMPAIGN_PHASE_LABELS[currentPhase]}`);
     }
     const desc = step.description ? ` — ${step.description}` : "";
-    lines.push(`${step.number}. ${step.title}${desc}`);
+    lines.push(`${step.number}. ${step.title}${lifecycleTag(step.lifecycle)}${desc}`);
     for (const sub of step.substeps) {
       const tag = sub.network ? `${NETWORK_TAG[sub.network]} ` : "";
-      lines.push(`  - ${tag}${sub.action}`);
+      lines.push(`  - ${tag}${sub.action}${lifecycleTag(sub.lifecycle)}`);
     }
   }
 

@@ -47,7 +47,8 @@ export type ReviewHighlightKind =
   | "synthesis_anomaly"
   | "situational_number"
   | "time_sensitive"
-  | "privacy_residue";
+  | "privacy_residue"
+  | "recurrence_drift";
 
 export interface ReviewHighlight {
   kind: ReviewHighlightKind;
@@ -116,6 +117,11 @@ export const HIGHLIGHT_META: Record<
     label: "Private-content match",
     note: "Matches the privacy scrub rules (name/email/phone/old brand). It WILL be auto-scrubbed at publish, but verify the sentence still reads correctly and no member context leaks around it.",
   },
+  recurrence_drift: {
+    severity: "medium",
+    label: "Recurrence drift",
+    note: "This passage frames a ONE-TIME roadmap setup step (subdomain / site clone / Flexy custom values) as if it recurs for every campaign — the campaign roadmap tags it one-time. Rephrase to existence/one-time wording or confirm the recurrence is genuinely intended. Advisory only.",
+  },
 };
 
 // ── Pattern vocabularies ─────────────────────────────────────────────────────
@@ -143,6 +149,38 @@ const TIME_SENSITIVE_PATTERNS: ReadonlyArray<RegExp> = [
   /\b(?:January|February|March|April|May|June|July|August|September|October|November|December)\s+20\d{2}\b/g,
   /\b(?:in|since|back in|as of)\s+20\d{2}\b/gi,
 ];
+
+// ── Recurrence drift (Task #1989) ────────────────────────────────────────────
+// The campaign roadmap (@workspace/campaign-roadmap) tags a handful of steps as
+// one-time (initial setup) or one-time per brand domain: cloning the Flexy
+// template site, creating/connecting the subdomain, and the Flexy custom-values
+// global setup. A staged process doc whose prose frames one of those topics as
+// fresh per-campaign work contradicts the spine's lifecycle tags and would
+// re-teach members to redo one-time setup. Detection is deliberately narrow:
+// a per-campaign recurrence phrase AND a one-time-step topic keyword on the
+// SAME line. Advisory only — never blocks publishing; the human gate decides.
+const RECURRENCE_PHRASES: ReadonlyArray<RegExp> = [
+  /\b(?:for|with)\s+(?:each|every)\s+(?:new\s+)?campaign\b/gi,
+  /\b(?:each|every)\s+(?:new\s+)?campaign\s+(?:you|will|needs?|requires?|must|should)\b/gi,
+  /\bper\s+campaign\b/gi,
+  /\bevery\s+time\s+you\s+(?:launch|start|create|set\s+up|begin)\s+(?:a|another|a\s+new)\s+campaign\b/gi,
+  /\b(?:again|redo(?:ne)?|repeat(?:ed)?)\s+(?:this\s+)?(?:for|with)\s+(?:each|every)\s+(?:new\s+)?campaign\b/gi,
+];
+
+const ONE_TIME_TOPIC_PATTERNS: ReadonlyArray<RegExp> = [
+  /\bsub-?domain\b/i,
+  /\bclon(?:e|ing|ed)\b.*\bsite\b|\bsite\b.*\bclon(?:e|ing|ed)\b/i,
+  /\bcustom\s+values?\b/i,
+];
+
+function lineHasRecurrenceDrift(line: string): string | null {
+  if (!ONE_TIME_TOPIC_PATTERNS.some((re) => re.test(line))) return null;
+  for (const re of RECURRENCE_PHRASES) {
+    const matches = findMatches(line, re);
+    if (matches.length > 0) return matches[0];
+  }
+  return null;
+}
 
 function findMatches(line: string, re: RegExp): string[] {
   const out: string[] = [];
@@ -243,6 +281,12 @@ export function analyzeDraftForReview(
       for (const m of findMatches(line, re)) push("time_sensitive", m, i);
     }
 
+    // 4b. Recurrence drift: one-time roadmap step framed as per-campaign work.
+    {
+      const m = lineHasRecurrenceDrift(line);
+      if (m) push("recurrence_drift", m, i);
+    }
+
     // 5. Residual private-content matches (deterministic scrub rules).
     for (const rule of PRIVACY_RULES) {
       for (const m of findMatches(line, rule.pattern)) {
@@ -282,6 +326,10 @@ export function hasTimeSensitivePhrasing(content: string): boolean {
   return TIME_SENSITIVE_PATTERNS.some((re) =>
     new RegExp(re.source, re.flags.replace("g", "")).test(content),
   );
+}
+
+export function hasRecurrenceDrift(content: string): boolean {
+  return content.split("\n").some((line) => lineHasRecurrenceDrift(line) !== null);
 }
 
 export function hasPrivacyResidue(content: string): boolean {

@@ -154,4 +154,5 @@
 - [GitHub mirror sync](github-mirror-sync.md) — post-merge force-pushes master→GitHub main via GIT_ASKPASS token seam; GitHub is a read-only mirror, never add a persistent remote.
 - [KB tag preserve + tagging policy](kb-tag-preserve-and-policy.md) — publish paths guard against empty-tag wipes; tag only what a doc satisfyingly answers (tier-jump boost punishes over-tagging).
 - [Campaign roadmap spine](campaign-roadmap-spine.md) — 17-step chronology lives in @workspace/campaign-roadmap; spine appended in code every chat request (never DB-stored); step/substep ids are frozen checklist-persistence keys.
+- [Chat continuity summary](chat-continuity-summary.md) — rolling per-session summary for aged-out chat turns; exact-watermark injection gate, incremental fold, fail-open; Rule 19 checkpoint rule + advisory recurrence_drift KB flag ride it.
 - [KB tests vs shared dev DB](kb-test-shared-db-isolation.md) — retrieval tests need fixture-only categories + slug-aware idempotent seeds; the shared corpus grows and pollutes fixed top-N/semantic-0 assertions.

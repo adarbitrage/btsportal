@@ -396,6 +396,19 @@ if [ -n "$DATABASE_URL" ]; then
     -f lib/db/drizzle/0097_call_bookings.sql >/dev/null
 fi
 
+# Per-session chat Conversation Continuity Summary (Task #1989). One additive
+# table (chat_session_summaries) holding the rolling summary + covered-through
+# watermark for conversations that outgrow the chat history window. Applied
+# BEFORE the drift gate so the new table never triggers an unnecessary
+# push-force. Idempotent (CREATE TABLE / INDEX IF NOT EXISTS + guarded FK).
+# The chat path fails open when the table is absent, so ordering is safety,
+# not correctness.
+if [ -n "$DATABASE_URL" ]; then
+  psql "$DATABASE_URL" \
+    -v ON_ERROR_STOP=1 \
+    -f lib/db/drizzle/0123_chat_session_summaries.sql >/dev/null
+fi
+
 # Schema sync — CONDITIONAL push.
 #
 # `drizzle-kit push --force` does a full "Pulling schema from database"

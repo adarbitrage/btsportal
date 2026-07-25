@@ -1,4 +1,4 @@
-import { pgTable, text, serial, integer, boolean, timestamp, jsonb } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, integer, boolean, timestamp, jsonb, uniqueIndex } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 import { usersTable } from "./users";
@@ -59,3 +59,31 @@ export const chatMessagesTable = pgTable("chat_messages", {
 export const insertChatMessageSchema = createInsertSchema(chatMessagesTable).omit({ id: true, createdAt: true });
 export type InsertChatMessage = z.infer<typeof insertChatMessageSchema>;
 export type ChatMessage = typeof chatMessagesTable.$inferSelect;
+
+/**
+ * Rolling per-session "Conversation Continuity Summary" (Task #1989). One row
+ * per session, created only once a conversation outgrows the chat history
+ * window. `coveredThroughMessageId` is the watermark: the highest chat_messages
+ * id whose content is folded into `summary`. The chat route only injects a
+ * summary whose watermark exactly matches the newest message that aged out of
+ * the window — a stale watermark means the summary is silently skipped
+ * (fail-open), never reused.
+ *
+ * Within-conversation only by design: no cross-session or cross-member memory.
+ * Companion migration: lib/db/drizzle/0123_chat_session_summaries.sql (wired
+ * into scripts/post-merge.sh); the chat path fails open if the table is absent.
+ */
+export const chatSessionSummariesTable = pgTable(
+  "chat_session_summaries",
+  {
+    id: serial("id").primaryKey(),
+    sessionId: integer("session_id").notNull().references(() => chatSessionsTable.id),
+    summary: text("summary").notNull(),
+    coveredThroughMessageId: integer("covered_through_message_id").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
+  },
+  (table) => [uniqueIndex("chat_session_summaries_session_id_unique").on(table.sessionId)],
+);
+
+export type ChatSessionSummary = typeof chatSessionSummariesTable.$inferSelect;
