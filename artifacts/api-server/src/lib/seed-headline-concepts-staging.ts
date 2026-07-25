@@ -5,13 +5,16 @@ import { scrubPrivateContent, rebrandOldBrandContent } from "./content-privacy-f
 import { scrubConfidentialTerm } from "./confidential-term-repair.js";
 
 /**
- * Headline-concept KB doc set (Task #1994) — seeds 8 DRAFTS into the
- * `kb_staging_docs` AI Document Review queue on boot:
+ * Headline-concept KB doc set (Task #1994, extended by Task #1997) — seeds
+ * 9 DRAFTS into the `kb_staging_docs` AI Document Review queue on boot:
  *
  *   - 7 new concept documents (6 headline-concept docs + 1 upgraded Copy
  *     Blocks foundation doc) distilled from the Creative Drive headline PDFs,
  *     the Copy Blocks Essential Understanding house teaching, and the
  *     completed external research on advertorial-vs-jump-page headlines.
+ *   - 1 companion word-choice doc (Task #1997) distilling the Context Word
+ *     Dictionary and Power Word Dictionary (Creative Drive) into conceptual
+ *     teaching, ending with a handoff to those dictionaries.
  *   - 1 reconciliation REVISION draft of the existing live doc
  *     "Headlines & Copy — Writing What Gets the Click" (staged with
  *     updateKind='update' + targetLiveDocId so reviewer tooling applies it as
@@ -564,6 +567,76 @@ Common pitfalls
 - Reusing the same headline across ad and LP by default; each surface has a different job — adapt the copy while keeping the same angle.
 - Copying competitor headlines verbatim from spy tools rather than translating the angle to your audience and traffic source.`;
 
+const DOC_9_CONTENT = `Word Choice for Headlines — Concrete Words, Emotional Charge, and Word Economy
+
+Purpose: this doc teaches how individual word choices make or break a headline — why concrete words out-pull abstract ones, how emotionally charged words work (and when they backfire), and how to make every word earn its place. It explains the concepts; the practical tools for applying them are the Context Word Dictionary and the Power Word Dictionary in the Creative Drive (see the handoff at the end).
+
+Concreteness beats abstraction
+
+Concrete words engage the reader's mind like a near-experience: a word that names a specific time, a motion, a place, or a sensation makes the reader briefly live the line instead of merely parsing it. Abstract words slide off — the reader agrees vaguely and keeps scrolling. This is the word-level version of a principle the headline set already teaches: specificity is proof (see Credibility & Promise Calibration — Believability, Proof, and Compliance). A headline built from concrete context words feels observed and real; a headline built from abstractions feels like marketing.
+
+Concrete context words come in a few useful families:
+
+- Time words anchor the line in a lived moment: tonight, overnight, mornings, every winter, before, finally. Fictional before/after (a houseplant-care offer): "Improve Your Plant Care Routine" is timeless and weightless; "The Overnight Watering Reset That Revives a Wilting Fern by Morning" happens somewhere in time — the reader can picture the evening and the morning.
+- Insight words mirror the reader's mental journey — discovering, realizing, noticing, wondering, understanding, secret (in its honest sense: something not yet known to the reader): "Better Sleep Advice" is inert; "What Light Sleepers Finally Understand About Their 3 A.M. Wake-Ups" dramatizes the moment of realization the reader wants to have.
+- Motion, space, and relativity words give the line physical direction — from, toward, behind, under, climbing, dropping, front, edge: "Manage Desk Discomfort Effectively" floats in abstraction; "The Small Change Behind the Chair That Takes Desk Ache from Constant to Gone" has geography and movement.
+
+The test in every case: can the reader picture it or feel it happening? "Effectively," "efficiently," "solution," "optimize," "improve" fail that test; "overnight," "behind," "wilting," "3 a.m." pass it.
+
+Emotional charge is a dial, not a switch
+
+Power words are words that carry a specific emotion — and the emotion is the point. A charged word works when it attaches the right feeling to the right part of the persuasion, which in Copy Blocks terms (see Copy Blocks — The Five Building Blocks of Persuasive Copy) means matching the word's emotion to the block it lives in:
+
+- Fear and pain words belong in Pain and negative framing — warning, mistake, ruined, draining, trap, silently. Fictional line: "The Repotting Mistake That's Quietly Killing Healthy Houseplants" — one fear-family word ("mistake," amplified by "quietly killing") powers the Pain Block.
+- Desire and aspiration words belong in the Promise — thriving, effortless, finally, transform, lush. "From Struggling Stems to a Lush Windowsill — Without New Equipment" puts the charge where the promise lives.
+- Temptation and curiosity words belong in the Curiosity Block — little-known, unexpected, behind-the-scenes, overlooked, unconventional. "The Overlooked Step Professional Growers Never Skip" charges the gap, not the claim.
+- Security and trust words belong in Proof and constraint-softening — proven, tested, reliable, backed, gentle. "The Nursery-Tested Method Even First-Time Plant Owners Get Right" spends its charge on believability.
+
+The dial discipline: one deliberately charged word per line. A single charged word in an otherwise plain, concrete sentence stands out and does real emotional work. Stack several — "Shocking Secret Miracle Method Destroys Plant Problems Forever" — and the words cancel each other into hype; the reader's scam-alarm fires and the whole page loses credibility. Charge is powerful precisely because it is scarce.
+
+Before/after for over-charge: "Insane Game-Changing Hack Obliterates Brown Leaf Tips Instantly" (four charged words, zero believability) versus "The Ten-Second Trim That Stops Brown Leaf Tips from Spreading" (one modestly charged idea, concrete and believable).
+
+The anti-power-word: empty intensifiers
+
+"Amazing," "incredible," "unbelievable," "shocking," "mind-blowing" are the opposite of power words. They simulate charge without carrying a specific emotion or pointing at a specific unknown — volume with no signal. A true power word makes the reader feel something particular (fear of a named mistake, desire for a pictured outcome); an empty intensifier just announces that the writer wants them to feel something. This is the same failure the Curiosity Mechanics doc flags: loud-but-vague loses to specific-but-incomplete every time (see Curiosity Mechanics — Open Loops, Mechanism Teases, and the Curiosity Gap). If a word could be deleted and replaced with any other superlative without changing the meaning, it is empty — cut it and spend the slot on something concrete.
+
+Word-choice implications for compliance
+
+Some charge families are restricted regardless of craft: cure/reverse/prevent medical language, "guaranteed" and "risk-free" claims, and fabricated-urgency vocabulary ("last chance," "expires tonight" when nothing expires) are native-platform review triggers and are mostly off-limits on cold surfaces. This doc does not re-teach compliance — the full rules live in Credibility & Promise Calibration — Believability, Proof, and Compliance. The word-choice takeaway is simply: when reaching for a fear, greed, or urgency word, check whether it belongs to a restricted family before checking whether it is persuasive.
+
+Word economy
+
+Every word in a headline pays rent or gets evicted:
+
+- Verbs over adjectives: verbs create motion, adjectives decorate. "Revive a Wilting Fern" beats "Great Results for Unhealthy-Looking Ferns."
+- Numerals over spelled-out vagueness: a numeral is concrete, scannable, and stops the eye.
+- Cut the freeloaders: qualifiers ("really," "very," "quite"), throat-clearing ("Here's why…"), and duplicate modifiers add length without adding pull.
+- Front-load the strongest word: the reader decides in the first beat of the line, and on ad placements the tail may be truncated anyway — the word that carries the headline should come as early as grammar allows.
+
+Audience mirroring
+
+The highest-charge word available is usually the one the avatar already uses. A phrase lifted from how real prospects describe their problem — forum language, review language, the words they type into search — lands with more force than any copywriter's synonym, because it produces instant recognition: "that's exactly it." Before hunting a dictionary for a stronger word, hunt the audience's own language for the word they would have written. This is the word-level application of angle work (see Angle Selection — Choosing the Big Idea Before Writing a Word).
+
+Descriptiveness scales with the surface
+
+How many descriptive words a headline can carry is set by reader warmth and available room, not by a count. A cold feed reader gives the line one glance, so an ad headline compresses: fewer words, each concrete, strongest first. A reader who clicked has granted more attention, so an advertorial or jump-page headline unit can breathe — more descriptive weight, spread across headline and subheadline. The real ceiling on any surface is scannability and the mobile fold: the moment a line stops being graspable in one glance, it is too long, whatever its word count (see Headline Jobs by Surface — Ad, Advertorial, and Jump Page).
+
+Ad vs. advertorial word deployment
+
+The same word-choice doctrine deploys differently by surface:
+
+- Context words: on an ad, plant one front-loaded concrete anchor — a single vivid time/place/sensation detail early enough to survive truncation. On an advertorial or bridge-page headline unit, concreteness can layer: a concrete headline anchor plus further concrete detail in the subheadline.
+- Power words: scrutiny inverts with warmth. The ad faces the coldest reader plus direct platform review, so high-charge fear, greed, and urgency words carry double risk there — the reader disbelieves them and the reviewer flags them. The advertorial reader has self-selected by clicking, so moderate charge lands as resonance rather than hype (restricted compliance families stay off-limits content-wide).
+- Charge budget scales with the unit: one charged word absolute on a standalone ad headline. An advertorial headline unit may distribute charge across the pair — for example a pain word in the headline and a trust word in the subheadline — without any single line reading as hype.
+
+Your practical tools: the two dictionaries in the Creative Drive
+
+This doc teaches why word choice works; the working inventories live in the Creative Drive. The Context Word Dictionary collects concrete context words organized by family (time, insight, relativity/motion/space) — use it when a line feels abstract and you need a concrete anchor. The Power Word Dictionary collects emotionally charged words grouped by the emotion they trigger (fear, desire, encouragement, anger, greed, security, temptation) — use it when a line is concrete but flat and you know which emotion the block calls for. Draft first, then reach for the dictionaries deliberately: pick the family that matches the job, choose one word, and re-read the line against the one-charged-word rule.
+
+Related docs: Headline Jobs by Surface — Ad, Advertorial, and Jump Page; Credibility & Promise Calibration — Believability, Proof, and Compliance; Curiosity Mechanics — Open Loops, Mechanism Teases, and the Curiosity Gap; Headline Quality Rubric — The Two-Pass Headline Evaluation; Rhetorical Tools for Headlines — The Craft Toolbox; Copy Blocks — The Five Building Blocks of Persuasive Copy.
+
+This covers the fundamentals. For strategy specific to your product, your numbers, and where your campaign is right now, the next step is a live group Q&A coaching call or a 1-on-1 private coaching session — bring your campaign and a coach will work through it with you.`;
+
 const HEADLINE_SEED_DOCS: HeadlineSeedDoc[] = [
   {
     slug: "headline-jobs-by-surface",
@@ -649,12 +722,23 @@ const HEADLINE_SEED_DOCS: HeadlineSeedDoc[] = [
       "REVISION PROPOSAL for the live doc 'Headlines & Copy — Writing What Gets the Click' (staged with updateKind='update' + targetLiveDocId; the live row is untouched until approval). See updateSummary for the change scope. " +
       SOURCE_SET_NOTE,
   },
+  {
+    slug: "word-choice-for-headlines",
+    title: "Word Choice for Headlines — Concrete Words, Emotional Charge, and Word Economy",
+    docClassTarget: "curated",
+    taxonomyTags: ["headline", "copywriting"],
+    content: DOC_9_CONTENT,
+    adminNotes:
+      "Headline concept set companion (Task #1997): word-choice doctrine — concreteness beats abstraction (context-word families: time/insight/relativity-motion-space, before/after pairs per family), emotional charge as a dial (power-word emotion families mapped to Copy Blocks; one-charged-word rule; stacked charge = hype), empty-intensifier ban restated as the anti-power-word, short compliance word-family deferral, word economy (verbs/numerals/front-loading), audience mirroring, surface-scaled descriptiveness, and an explicit ad-vs-advertorial word-deployment section (house-doctrine synthesis — the dictionary sources make no surface distinction). Ends with the Creative Drive handoff naming the Context Word Dictionary and Power Word Dictionary. Deliberately NO raw word lists, density percentages, or word-count rules — conceptual teaching with small curated example word sets and fictional toy-domain examples only. " +
+      "Doc-specific provenance (admin-only, never in body): Sharethrough/Nielsen context-word research and the Context Word Dictionary (Creative Drive); SmartBlogger power-word dictionary; Brax article on power words in native ads. " +
+      SOURCE_SET_NOTE,
+  },
 ];
 
 // ── Idempotent seed ──────────────────────────────────────────────────────────
 
 /**
- * Seeds the 8 headline-concept drafts into the AI Document Review queue.
+ * Seeds the 9 headline-concept drafts into the AI Document Review queue.
  * Insert-only: rows already present for (source, sourceVideoTitle) are skipped
  * entirely so reviewer edits/decisions are never clobbered. Returns a summary
  * for boot logging.
@@ -665,7 +749,7 @@ export async function seedHeadlineConceptsStaging(): Promise<{
 }> {
   // Serialize concurrent boots: without this, two API processes booting at
   // the same moment both pass the check-then-insert and seed duplicates
-  // (observed once: 16 rows instead of 8). Uses a TRANSACTION-scoped advisory
+  // (observed once: double the expected row count). Uses a TRANSACTION-scoped advisory
   // lock on a pinned connection — `db` is backed by a pg.Pool, so a
   // session-level lock acquired via a bare db.execute() could land on a
   // different connection than the seed queries (no real mutual exclusion) and
