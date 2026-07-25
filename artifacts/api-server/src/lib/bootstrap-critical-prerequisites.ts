@@ -19,6 +19,7 @@ import { seedOperationsKb } from "./seed-operations-kb";
 import { runNavigationDriftScan } from "./kb-nav-drift-scan";
 import { seedProcessKb } from "./seed-process-kb";
 import { seedConceptsKb } from "./seed-concepts-kb";
+import { seedHeadlineConceptsStaging } from "./seed-headline-concepts-staging";
 import {
   rescrubKnowledgebaseDocs,
   findUnscrubbedTitles,
@@ -437,6 +438,19 @@ export async function bootstrapCriticalPrerequisites(): Promise<PrerequisiteResu
   } catch (err) {
     console.error("[Bootstrap] seedConceptsKb() threw:", err);
     missing.push("seedConceptsKb");
+  }
+
+  // 8e. Seed the headline-concept doc set (Task #1994) as DRAFTS into the
+  //     kb_staging_docs AI Document Review queue: 7 new concept docs + 1
+  //     revision proposal for the live "Headlines & Copy" doc. Human gate
+  //     absolute — everything lands pending_review; nothing goes live here.
+  //     Idempotent via (source, sourceVideoTitle); insert-only, so reviewer
+  //     edits/decisions are never clobbered.
+  try {
+    await seedHeadlineConceptsStaging();
+  } catch (err) {
+    console.error("[Bootstrap] seedHeadlineConceptsStaging() threw:", err);
+    missing.push("seedHeadlineConceptsStaging");
   }
 
   // 9. Backfill doc_class on every legacy knowledgebase_docs row so transcript-
