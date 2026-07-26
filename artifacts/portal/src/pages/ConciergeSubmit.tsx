@@ -44,8 +44,8 @@ function buildPhaseTasks(network: string, traffic: string): Task[] {
   const pageTasks: Task[] =
     network === "Clickbank"
       ? [
-          { id: "build-jumppage-heroshots", label: "Create Jump Page Hero Shot Images (10 images max)" },
-          { id: "build-jumppage-headlines", label: "Create Jump Page Headlines (10 headlines max)" },
+          { id: "build-jumppage-heroshots", label: "Create Landing Page Hero Shot Images (10 images max)" },
+          { id: "build-jumppage-headlines", label: "Create Landing Page Headlines (10 headlines max)" },
         ]
       : network === "MediaMavens"
         ? [
@@ -62,8 +62,8 @@ function buildPhaseTasks(network: string, traffic: string): Task[] {
         ]
       : traffic === "Grasshopper" || traffic === "Crane"
         ? [
-            { id: "build-banner-headlines", label: "Create Banner Headlines (20 Max)" },
-            { id: "build-banner-images", label: "Create Banner Images (10 Max)" },
+            { id: "build-banner-headlines", label: "Create Ad Headlines" },
+            { id: "build-banner-images", label: "Create Ad Images (10 Max)" },
             { id: "build-full-banner", label: "Create Full Banner (10 Max)" },
           ]
         : [];

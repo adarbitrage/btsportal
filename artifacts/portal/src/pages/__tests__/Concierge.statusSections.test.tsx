@@ -221,7 +221,7 @@ describe("Concierge — submission status sections", () => {
         senderType: "member",
         body: [
           "Offer Name: Zeta Offer",
-          "Selected Task(s): Create Jump Page Headlines (10 headlines max); Set Up Initial DIYTrax™ Campaign",
+          "Selected Task(s): Create Landing Page Headlines (10 headlines max); Set Up Initial DIYTrax™ Campaign",
         ].join("\n"),
         createdAt: "2026-06-01T00:00:00.000Z",
       },
@@ -254,7 +254,7 @@ describe("Concierge — submission status sections", () => {
     const active = await screen.findByTestId("concierge-active-6");
     const activeTasks = await within(active).findAllByTestId("concierge-summary-task-6");
     expect(activeTasks.map((n) => n.textContent)).toEqual([
-      "Create Jump Page Headlines (10 headlines max)",
+      "Create Landing Page Headlines (10 headlines max)",
       "Set Up Initial DIYTrax™ Campaign",
     ]);
     expect(within(active).getByTestId("concierge-summary-files-6")).toHaveTextContent("3 files");
