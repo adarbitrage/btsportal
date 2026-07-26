@@ -252,3 +252,9 @@ id = "jFKVYFUlzGpiSme2FuV2g"
 uri = "file://exports/doc-cleanup-prompt.md"
 type = "text"
 title = "Doc cleanup prompt (final, audited)"
+
+[[outputs]]
+id = "yU8uBiNrN6NpQZ-jVsQJD"
+uri = "file://research/image-foundations/report.md"
+type = "text"
+title = "Image Foundations — Deep Research Report"
