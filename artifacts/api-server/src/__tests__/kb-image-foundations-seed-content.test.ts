@@ -13,8 +13,8 @@ import {
  * review queue.
  */
 describe("Image Foundations staging seed manifest", () => {
-  it("has 8 docs with unique slugs and titles", () => {
-    expect(IMAGE_SEED_DOCS.length).toBe(8);
+  it("has 9 docs with unique slugs and titles", () => {
+    expect(IMAGE_SEED_DOCS.length).toBe(9);
     const slugs = IMAGE_SEED_DOCS.map((d) => d.slug);
     expect(new Set(slugs).size).toBe(slugs.length);
     const titles = IMAGE_SEED_DOCS.map((d) => d.title);
@@ -41,7 +41,7 @@ describe("Image Foundations staging seed manifest", () => {
     }
   });
 
-  it("the seven NEW docs carry the explicit coaching handoff close; only the revision targets the live doc", () => {
+  it("the NEW docs carry the explicit coaching handoff close; only the revision targets the live doc", () => {
     const revisions = IMAGE_SEED_DOCS.filter((d) => d.isRevision);
     expect(revisions.length).toBe(1);
     expect(revisions[0].title).toBe(IMAGE_LIVE_DOC_TITLE);
@@ -77,6 +77,21 @@ describe("Image Foundations staging seed manifest", () => {
     ]) {
       expect(compliance!.content).toContain(ban);
     }
+  });
+
+  it("workflow doc is pure assembly: ends at the compliance screen, nothing results-flavored, no rights content", () => {
+    const wf = IMAGE_SEED_DOCS.find((d) => d.slug === "image-selection-workflow");
+    expect(wf).toBeDefined();
+    expect(wf!.isRevision).toBeUndefined();
+    // Seven steps; the ban screen is the final one (user ruling: workflow ends here).
+    expect(wf!.content).toContain("Step 7 — Screen against the seven bans, then stop");
+    expect(wf!.content).not.toMatch(/Step 8/);
+    // Nothing results-flavored (user ruling: the series is purely about choosing images).
+    expect(wf!.content).not.toMatch(/record[- ]keep|track (what|which)|A\/B|split[- ]test/i);
+    // No rights/licensing content (user ruling).
+    expect(wf!.content).not.toMatch(/licens|royalty|model release|editorial[- ]use/i);
+    // References both human devices, including hands/first-person POV.
+    expect(wf!.content).toMatch(/first-person point of view/i);
   });
 
   it("content is already clean: privacy/brand/confidential scrubbers are no-ops on it", async () => {

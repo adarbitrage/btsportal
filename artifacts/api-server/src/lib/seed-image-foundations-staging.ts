@@ -486,6 +486,45 @@ The image-selection system now has its own foundation set — the Image Foundati
 
 // ── Seed manifest ────────────────────────────────────────────────────────────
 
+const DOC_9_CONTENT = `The Image Selection Workflow — From Angle to Finished Thumbnail
+
+This doc sequences the Image Foundations rules into the order a member actually works. It introduces no new doctrine — every rule here lives in one of the companion docs — but members (and coaches fielding "how do I actually pick an image?") need the steps in working order, not spread across seven references. Follow the steps in sequence; each one narrows the field the next step works on.
+
+Step 1 — Start from the angle, never from browsing images
+
+Image selection starts before any image exists: with the angle. Choosing an image first and retrofitting a story around it produces pretty-but-pointless creative. The angle decides what the image must communicate; the image is cast for that role (see Creative Strategy — Ads, Images & Landing Pages That Work Together). If the angle isn't settled, stop — settle it first.
+
+Step 2 — Identify the surface
+
+The same image can be right on one surface and wrong on another. Decide where this image lives: the native ad thumbnail (wins qualified attention from a cold scroller), the advertorial image (confirms the scent the click followed), or the jump-page image (supports the promise with credibility). Every later judgment — subject, polish level, assertiveness — calibrates to the surface's job and the reader's warmth at that point (see Image Jobs by Funnel Stage — Native Ad Thumbnail, Advertorial, and Jump Page).
+
+Step 3 — Choose the human device
+
+Decide how a person shows up in the frame:
+
+- A face, when the story is about the person and their feeling. Then decide the gaze job: direct gaze for connection and relatability, aimed gaze to transfer attention to the subject the reader should end on. A face with no job is wasted attention.
+- Hands doing something — including first-person point of view — when the story is about the doing: the mechanism, the ritual, the moment of use. An object alone is a product shot; the same object in a hand is a moment.
+
+Both devices, and the craft rules for each (shoulders-up crops, one face, one hand-action, expression matching the promise), live in Faces & Gaze Direction in Ad Images.
+
+Step 4 — Decide what to show and what to conceal
+
+With subject and device chosen, decide how much the image reveals. A bounded visual question — partially concealing the object of curiosity while the visible part carries a positive inference — earns the click that the next page can pay off. Concealment only works when what's hidden promises something good; hiding everything, or teasing something the destination never delivers, is bait and destroys accounts, not just campaigns (see Visual Curiosity & the Concealment Rule).
+
+Step 5 — Generate or source in the UGC register
+
+Now produce candidates. The default register is UGC-style: candid, phone-shot feel, real settings, imperfect lighting — an image the surrounding editorial feed could plausibly contain. When generating with AI, prompt for that register (candid, documentary, phone-camera language), use negative prompts to push away studio polish, generate many and shortlist few, and check every candidate for artifacts — especially anatomy — before it goes anywhere near a campaign. The prompting guidance lives in Creative Strategy — Ads, Images & Landing Pages That Work Together; the register doctrine and its narrow late-funnel exception live in The UGC-Style Default — Why Authentic Beats Produced.
+
+Step 6 — Run the glance test
+
+Judge the shortlist at the size it will actually render: thumbnail size, on a phone. One focal subject, instantly legible, no text in the image, edges that hold against the page background. A composition that needs two seconds to parse has already lost. If a candidate is a side-by-side, hold it to the demanding standard: each half legible on its own, the pairing expressing exactly one idea, a directional cue ordering the read, and the whole thing passing the glance test as a single unit (see Thumbnail Composition — One Subject, Instant Legibility).
+
+Step 7 — Screen against the seven bans, then stop
+
+The final gate, applied before falling in love with an image: the seven absolute bans (see Image Compliance — The Absolute Bans). The bans are content-triggered — judge what the image communicates as a whole, the way a regulator or network reviewer would, not its layout. Enforcement is hardest on ad images; landing pages get less scrutiny on some elements, but the same net-impression principle applies, so caution still. An image that fails here fails no matter how well it did on every earlier step. An image that passes is done — chosen, checked, and ready for its surface.
+
+This covers the fundamentals. For strategy specific to your product, your numbers, and where your campaign is right now, the next step is a live group Q&A coaching call or a 1-on-1 private coaching session — bring your campaign and a coach will work through it with you.`;
+
 export const IMAGE_SEED_DOCS: readonly ImageSeedDoc[] = [
   {
     slug: "image-jobs-by-funnel-stage",
@@ -556,6 +595,16 @@ export const IMAGE_SEED_DOCS: readonly ImageSeedDoc[] = [
     content: DOC_7_CONTENT,
     adminNotes:
       "The seven cross-network absolute bans (before/after transformation; sexualized/body-part; celebrities; fake UI; shock/gore; misleading/irrelevant; implied disease claims) under FTC net-impression framing, with an explicit ad-image-first enforcement note (landing pages get less scrutiny for some elements, caution still applies). Deliberate deviations from research report §5 per user ruling: side-by-side is a layout, not a ban — removed from this doc entirely; ban #1 is content-triggered (imagery presenting a bodily/financial result as product-caused). Side-by-side composition + compliance caution lives in Thumbnail Composition. The rights caution paragraph was also removed per user ruling. Do not otherwise broaden or narrow the categories. " +
+      SOURCE_SET_NOTE,
+  },
+  {
+    slug: "image-selection-workflow",
+    title: "The Image Selection Workflow — From Angle to Finished Thumbnail",
+    docClassTarget: "curated",
+    taxonomyTags: ["creative", "funnel"],
+    content: DOC_9_CONTENT,
+    adminNotes:
+      "Process doc (Task #2013): sequences the approved Image Foundations canon into working order — angle → surface → human device (face or hands/POV) → show-vs-conceal → UGC-register generation → glance test → seven-ban screen as the FINAL step. Pure assembly of approved doctrine; the only new content is the ordering itself. Deliberate scope rulings per user: nothing results-flavored (no record-keeping, results, or testing content — the workflow ends at the compliance screen) and no rights/licensing content. Authored against the approved effective DB text of the 8 published docs (reviewer edits canon), not the seed source. " +
       SOURCE_SET_NOTE,
   },
   {
