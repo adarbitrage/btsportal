@@ -71,6 +71,8 @@ export default function AiAssistant() {
   const [input, setInput] = useState("");
   const [mobileSidebar, setMobileSidebar] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const lastUserMessageRef = useRef<HTMLDivElement>(null);
+  const prevMessageCountRef = useRef(0);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
   const { user } = useAuth();
@@ -106,8 +108,22 @@ export default function AiAssistant() {
     setMessages((prev) => (prev.length >= fresh.length ? prev : fresh));
   }, [sessionId, loadedMessages, isStreaming, setMessages]);
 
+  // Scroll behavior (no follow-the-stream): when the member sends a message,
+  // pin their question to the top of the viewport so the incoming answer reads
+  // from the top — never auto-scroll to the bottom while the answer streams in.
+  // Bulk hydration (opening an existing session) still jumps to the latest
+  // exchange, instantly.
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    const count = messages.length;
+    const prev = prevMessageCountRef.current;
+    prevMessageCountRef.current = count;
+    if (count <= prev) return;
+    const last = messages[count - 1];
+    if (count - prev === 1 && last?.role === "user") {
+      lastUserMessageRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    } else if (count - prev > 1) {
+      messagesEndRef.current?.scrollIntoView({ behavior: "auto" });
+    }
   }, [messages]);
 
   // Load the Claude-style answer serif only on this page.
@@ -309,7 +325,11 @@ export default function AiAssistant() {
               ) : (
                 <div className="max-w-3xl mx-auto px-4 py-6 space-y-4">
                   {visibleMessages.map((msg, i) => (
-                    <div key={msg.id ?? `local-${i}`} className={`flex gap-3 ${msg.role === "user" ? "justify-end" : ""}`}>
+                    <div
+                      key={msg.id ?? `local-${i}`}
+                      ref={msg.role === "user" && i === visibleMessages.map((m) => m.role).lastIndexOf("user") ? lastUserMessageRef : undefined}
+                      className={`flex gap-3 ${msg.role === "user" ? "justify-end" : ""} ${msg.role === "user" ? "scroll-mt-4" : ""}`}
+                    >
                       {msg.role === "assistant" && (
                         <BotAvatar className="w-8 h-8 mt-0.5" />
                       )}
