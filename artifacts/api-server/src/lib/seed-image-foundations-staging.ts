@@ -123,7 +123,7 @@ The gaze rule: a face must do a job
 What the face's eyes are doing decides what the face accomplishes:
 
 - Direct gaze (looking at the camera/reader) creates connection. The reader feels addressed. Use it when the image's job is relatability and trust — "this is a person like me, and this is about people like me." Direct gaze suits testimonial-flavored moments and relatable-problem framing.
-- Aimed gaze (looking at something in the frame) transfers attention. The reader's eye follows the gaze to whatever the face is looking at — replicated repeatedly in eye-tracking work, where a face gazing toward an object pulls fixations to that object and measurably lifts interest in it. Use it when there is a subject the reader should end on: the person looking at the thing the story is about.
+- Aimed gaze (looking at something in the frame) transfers attention. The reader's eye follows the gaze to whatever the face is looking at — replicated repeatedly in eye-tracking work, where a face gazing toward an object pulls fixations to that object and measurably lifts interest in it. Use it when there is a subject the reader should end on: the person looking at the thing the story is about. Aimed gaze is also the device that can make a two-element composition work: a gaze leading from one part of the frame to the other gives the eye a reading order instead of two competing subjects (see Thumbnail Composition — One Subject, Instant Legibility on when a side-by-side is worth attempting).
 - Jobless gaze (looking off-frame at nothing, or a face pasted in with no relationship to anything) captures attention and wastes it. The reader's eye lands on the face, finds no direction, and moves on. This is the most common face mistake: adding "a person" because faces work, without deciding what the face is doing there.
 
 Expression must match the promise
@@ -213,7 +213,16 @@ A native ad thumbnail renders small — a few hundred pixels wide on a phone, gl
 
 One clear focal subject — never a collage
 
-The single most enforced composition rule in the system: a thumbnail has ONE subject. One person, one object, one moment. Multi-panel collages, side-by-side comparisons, busy scenes with several competing elements — all of them die at feed size, where the eye gets one fixation before the scroll decides. If a reader can't say what the image is OF in half a second on a phone, the image fails. (Be careful with side-by-side comparison layouts for a second reason too: they can read as before/after, and on our traffic source they may face higher compliance restrictions for certain offers — see Image Compliance — The Absolute Bans.)
+The single most enforced composition rule in the system: a thumbnail has ONE subject. One person, one object, one moment. Multi-panel collages and busy scenes with several competing elements die at feed size, where the eye gets one fixation before the scroll decides. If a reader can't say what the image is OF in half a second on a phone, the image fails.
+
+The side-by-side: possible, but demanding
+
+A side-by-side is not banned — it is a composition that has to earn its keep twice. It is effectively two thumbnails sharing one frame: each half gets half the pixels, and the reader's eye still gets only one first fixation. If you want to test one, hold it to a higher bar:
+- Each half needs its own single, instantly legible focal subject — a busy half kills the whole frame.
+- The two halves must express ONE idea or one clean contrast, not two separate ideas. A reader should get the point of the pairing in the same half-second glance.
+- Give the eye a reading order. A directional cue that leads from one half to the other — a gaze, a lean, implied motion — turns two competing subjects into one guided read (see Faces & Gaze Direction in Ad Images on aimed gaze as an attention-transfer device).
+- Verify at phone size, as one unit. If either half muddies at feed scale, drop to a single subject.
+One caution beyond composition: a side-by-side that contrasts two states can read as a before/after result, and for certain offers it may face higher compliance restrictions on our traffic source. The closer the contrast gets to a bodily, health, or financial transformation, the more caution it needs (see Image Compliance — The Absolute Bans).
 
 The complexity sweet spot
 
@@ -289,7 +298,7 @@ Where these bans apply hardest: your AD images. The bans below are enforced most
 
 The seven absolute bans
 
-1. Before/after transformation images. Transformation photos (weight loss, skin, hair, teeth, finances) that show the change itself are explicitly banned by the networks — including in health and beauty, where members most want them. This includes implied before/after: "transformation" collages and dramatic same-person contrasts. Instead: show ONE state — the desirable end state, or the relatable problem state — and let the headline carry the change over time. Note: side-by-side layouts as such are not outright banned on our traffic source, but they may face higher compliance restrictions for certain offers and can easily read as before/after — treat them with caution.
+1. Before/after transformation images. Transformation photos (weight loss, skin, hair, teeth, finances) that show the change itself are explicitly banned by the networks — including in health and beauty, where members most want them. This includes implied before/after: "transformation" collages and dramatic same-person body contrasts. The ban is about CONTENT, not layout: what triggers it is imagery that presents a bodily or financial result as caused by the product. When in doubt, show ONE state — the desirable end state, or the relatable problem state — and let the headline carry the change over time. (For composition guidance on multi-element layouts generally, see Thumbnail Composition — One Subject, Instant Legibility.)
 
 2. Sexualized imagery and body-part emphasis. No sexualized framing, no zoomed or cropped emphasis on intimate or isolated body parts (midriffs, chests, close-cropped skin), no imagery that highlights physical features in a way designed to make readers self-conscious. Health and fitness angles are the usual trap — a "belly fat" zoom is a ban on two counts (body-part emphasis + implied claim). Instead: whole people, in context, doing things.
 
@@ -391,7 +400,7 @@ The image-selection system now has its own foundation set — the Image Foundati
  - No text in ad images, ever — it breaks the editorial camouflage, dies at feed size under dynamic cropping, and invites policy scrutiny. No pricing in images. Avoid "breaking news" phrasing anywhere in the unit. Label the landing page "Advertorial" for editorial context and compliance.
  - Faces are the strongest attention device — shoulders‑up crops, one face, natural expression matched to the angle's emotion. Direct gaze creates connection; gaze aimed at a subject transfers attention to it; a face doing neither is wasted decoration. Unmistakable hands (holding, reacting) are the runner‑up device.
  - Start with static 16:9 images for ads; explore short motion (GIFs/short clips) only after message match is proven. For LP heroes, clean, photogenic compositions sized consistently (e.g., around 800×500) work well; avoid busy compositions with competing elements.
- - Compliance in ad images is strict: no before/after transformation images (show ONE state and let the headline carry the change), no sexualized or body‑part‑emphasis imagery, no celebrities or public figures, no fake UI elements (play buttons, close buttons), no shock/gore, no misleading or irrelevant images, no implied disease/medical claims via imagery. Side‑by‑side layouts aren't outright banned but may face higher compliance restrictions for certain offers — use caution. These rules bite hardest on the ad creative; some elements face less scrutiny on landing pages, but the same net‑impression principle applies there too. An image can make a claim by itself — "the text never said it" is no defense. See Image Compliance — The Absolute Bans for the full reference.
+ - Compliance in ad images is strict: no before/after transformation images (the trigger is content — imagery presenting a bodily or financial result as caused by the product; show ONE state and let the headline carry the change), no sexualized or body‑part‑emphasis imagery, no celebrities or public figures, no fake UI elements (play buttons, close buttons), no shock/gore, no misleading or irrelevant images, no implied disease/medical claims via imagery. Side‑by‑side layouts are a composition challenge rather than a ban — each half needs its own legible focal subject and a directional cue ordering the read — though state‑contrast pairings may face higher compliance restrictions for certain offers (see Thumbnail Composition — One Subject, Instant Legibility). These rules bite hardest on the ad creative; some elements face less scrutiny on landing pages, but the same net‑impression principle applies there too. An image can make a claim by itself — "the text never said it" is no defense. See Image Compliance — The Absolute Bans for the full reference.
  - Compare opposite "states" early: problem vs end‑result — as separate single‑state images, never combined into one before/after frame. Also test single‑state images (e.g., only the "problem").
  - Early exploration: begin with 3–5 diverse concepts (not near‑duplicates). After a winning concept emerges, refine with tight crops, brightness/clarity/color edits.
  - Sourcing and safety: hunt for unique, emotionally resonant visuals; avoid generic/templated stock. If a spy‑tool image inspires you, reverse‑search to source look‑alikes you can recreate. Never use identifiable internet‑sourced faces — you have no rights to them; AI‑generated faces are fine to use (check for artifacts/anatomy errors, and never generate a real person's likeness).
@@ -512,7 +521,7 @@ export const IMAGE_SEED_DOCS: readonly ImageSeedDoc[] = [
     taxonomyTags: ["creative", "native-ad"],
     content: DOC_5_CONTENT,
     adminNotes:
-      "One focal subject, complexity sweet spot, flat no-text-in-image rule, picture-word unity, crop/edge-safety basics. " +
+      "One focal subject default, complexity sweet spot, flat no-text-in-image rule, picture-word unity, crop/edge-safety basics. Per user ruling: side-by-sides are taught as a demanding-but-allowed composition (per-half legibility, one idea, directional cue ordering the read, phone-size check), with a compliance caution for state-contrast pairings on certain offers — not a ban. " +
       SOURCE_SET_NOTE,
   },
   {
@@ -532,7 +541,7 @@ export const IMAGE_SEED_DOCS: readonly ImageSeedDoc[] = [
     taxonomyTags: ["compliance", "creative"],
     content: DOC_7_CONTENT,
     adminNotes:
-      "The seven cross-network absolute bans (before/after transformation; sexualized/body-part; celebrities; fake UI; shock/gore; misleading/irrelevant; implied disease claims) under FTC net-impression framing, with an explicit ad-image-first enforcement note (landing pages get less scrutiny for some elements, caution still applies). Deliberate deviations from research report §5 per user ruling: side-by-side layouts are NOT taught as outright banned (higher compliance restrictions for certain offers instead), and the rights caution paragraph was removed. Do not otherwise broaden or narrow the categories. " +
+      "The seven cross-network absolute bans (before/after transformation; sexualized/body-part; celebrities; fake UI; shock/gore; misleading/irrelevant; implied disease claims) under FTC net-impression framing, with an explicit ad-image-first enforcement note (landing pages get less scrutiny for some elements, caution still applies). Deliberate deviations from research report §5 per user ruling: side-by-side is a layout, not a ban — removed from this doc entirely; ban #1 is content-triggered (imagery presenting a bodily/financial result as product-caused). Side-by-side composition + compliance caution lives in Thumbnail Composition. The rights caution paragraph was also removed per user ruling. Do not otherwise broaden or narrow the categories. " +
       SOURCE_SET_NOTE,
   },
   {
