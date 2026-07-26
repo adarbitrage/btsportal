@@ -19,11 +19,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Radar, MessageSquare, Phone, TrendingUp, Hash } from "lucide-react";
+import { Radar, MessageSquare, Phone, TrendingUp, Hash, LifeBuoy } from "lucide-react";
 import { fetchContentGaps } from "@/lib/admin-api";
 
 type SortKey = "frequency" | "recent";
 type SurfaceFilter = "all" | "chat" | "voice";
+type BandFilter = "all" | "rescued" | "hard";
 
 function StatCard({
   title,
@@ -64,14 +65,16 @@ function formatDate(value: string): string {
 export default function ContentGaps() {
   const [sort, setSort] = useState<SortKey>("frequency");
   const [surface, setSurface] = useState<SurfaceFilter>("all");
+  const [band, setBand] = useState<BandFilter>("all");
   const [page, setPage] = useState(1);
 
   const { data, isLoading, isError } = useQuery({
-    queryKey: ["admin-content-gaps", sort, surface, page],
+    queryKey: ["admin-content-gaps", sort, surface, band, page],
     queryFn: () =>
       fetchContentGaps({
         sort,
         surface: surface === "all" ? undefined : surface,
+        band: band === "all" ? undefined : band,
         page,
         limit: 25,
       }),
@@ -96,7 +99,7 @@ export default function ContentGaps() {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
           <StatCard
             title="Distinct Gaps"
             value={summary?.distinctQuestions ?? 0}
@@ -116,6 +119,11 @@ export default function ContentGaps() {
             title="From Voice"
             value={summary?.voiceQuestions ?? 0}
             icon={Phone}
+          />
+          <StatCard
+            title="Barely Rescued"
+            value={summary?.rescuedQuestions ?? 0}
+            icon={LifeBuoy}
           />
         </div>
 
@@ -157,6 +165,25 @@ export default function ContentGaps() {
               </SelectContent>
             </Select>
           </div>
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-muted-foreground">Gap type</span>
+            <Select
+              value={band}
+              onValueChange={(v) => {
+                setBand(v as BandFilter);
+                setPage(1);
+              }}
+            >
+              <SelectTrigger className="w-[180px]" data-testid="select-band-filter">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All</SelectItem>
+                <SelectItem value="rescued">Barely rescued</SelectItem>
+                <SelectItem value="hard">Hard gaps</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
         </div>
 
         <Card>
@@ -188,8 +215,18 @@ export default function ContentGaps() {
                   {questions.map((q) => (
                     <TableRow key={q.id}>
                       <TableCell>
-                        <div className="font-medium text-foreground">
-                          {q.questionText}
+                        <div className="font-medium text-foreground flex items-center gap-2 flex-wrap">
+                          <span>{q.questionText}</span>
+                          {q.nearMissRescued && (
+                            <Badge
+                              variant="secondary"
+                              className="shrink-0"
+                              title="The member's most recent ask got a hedged answer that only barely cleared retrieval — a purpose-written doc would move it to a confident answer."
+                              data-testid={`badge-rescued-${q.id}`}
+                            >
+                              Barely rescued
+                            </Badge>
+                          )}
                         </div>
                         {q.nearMisses.length > 0 && (
                           <div className="text-xs text-muted-foreground mt-1">

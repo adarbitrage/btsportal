@@ -611,6 +611,7 @@ export interface ContentGapQuestion {
   questionText: string;
   topScore: number;
   nearMisses: ContentGapNearMiss[];
+  nearMissRescued: boolean;
   askCount: number;
   firstAskedAt: string;
   lastAskedAt: string;
@@ -623,6 +624,7 @@ export interface ContentGapsResponse {
     totalAsks: number;
     chatQuestions: number;
     voiceQuestions: number;
+    rescuedQuestions: number;
   };
   pagination: { page: number; limit: number; total: number; totalPages: number };
 }
@@ -630,12 +632,14 @@ export interface ContentGapsResponse {
 export function fetchContentGaps(params: {
   sort?: "frequency" | "recent";
   surface?: "chat" | "voice";
+  band?: "rescued" | "hard";
   page?: number;
   limit?: number;
 } = {}) {
   const qs = new URLSearchParams();
   if (params.sort) qs.set("sort", params.sort);
   if (params.surface) qs.set("surface", params.surface);
+  if (params.band) qs.set("band", params.band);
   if (params.page) qs.set("page", String(params.page));
   if (params.limit) qs.set("limit", String(params.limit));
   const suffix = qs.toString();

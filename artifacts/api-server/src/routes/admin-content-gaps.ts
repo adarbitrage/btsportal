@@ -30,9 +30,20 @@ function parseSurface(value: unknown): "chat" | "voice" | null {
 }
 
 /**
+ * ?band=rescued  → only near-miss-rescued gaps (member got a hedged answer)
+ * ?band=hard     → only hard gaps (member got nothing)
+ * anything else  → no band filter.
+ */
+function parseBand(value: unknown): "rescued" | "hard" | null {
+  const str = Array.isArray(value) ? value[0] : value;
+  return str === "rescued" || str === "hard" ? str : null;
+}
+
+/**
  * GET /api/admin/content-gaps
  *   ?sort=frequency|recent  (default: frequency)
  *   ?surface=chat|voice     (optional filter)
+ *   ?band=rescued|hard      (optional filter on near_miss_rescued)
  *   ?page=&limit=           (limit capped at 100)
  *
  * Returns the grouped/counted unanswered questions plus summary totals.
@@ -44,6 +55,7 @@ router.get(
     try {
       const sort = parseSort(req.query.sort);
       const surface = parseSurface(req.query.surface);
+      const band = parseBand(req.query.band);
       const page = Math.max(parseInt(String(req.query.page ?? "1"), 10) || 1, 1);
       const limit = Math.min(
         Math.max(parseInt(String(req.query.limit ?? "25"), 10) || 25, 1),
@@ -54,6 +66,11 @@ router.get(
       const conditions: SQL[] = [];
       if (surface) {
         conditions.push(eq(contentGapQuestionsTable.surface, surface));
+      }
+      if (band) {
+        conditions.push(
+          eq(contentGapQuestionsTable.nearMissRescued, band === "rescued"),
+        );
       }
       const where = conditions.length > 0 ? and(...conditions) : undefined;
 
@@ -70,6 +87,7 @@ router.get(
             questionText: contentGapQuestionsTable.questionText,
             topScore: contentGapQuestionsTable.topScore,
             nearMisses: contentGapQuestionsTable.nearMisses,
+            nearMissRescued: contentGapQuestionsTable.nearMissRescued,
             askCount: contentGapQuestionsTable.askCount,
             firstAskedAt: contentGapQuestionsTable.firstAskedAt,
             lastAskedAt: contentGapQuestionsTable.lastAskedAt,
@@ -89,6 +107,7 @@ router.get(
             totalAsks: sql<number>`coalesce(sum(${contentGapQuestionsTable.askCount}), 0)::int`,
             chatQuestions: sql<number>`coalesce(sum(case when ${contentGapQuestionsTable.surface} = 'chat' then 1 else 0 end), 0)::int`,
             voiceQuestions: sql<number>`coalesce(sum(case when ${contentGapQuestionsTable.surface} = 'voice' then 1 else 0 end), 0)::int`,
+            rescuedQuestions: sql<number>`coalesce(sum(case when ${contentGapQuestionsTable.nearMissRescued} then 1 else 0 end), 0)::int`,
           })
           .from(contentGapQuestionsTable),
       ]);
@@ -102,6 +121,7 @@ router.get(
           totalAsks: summaryRow?.totalAsks ?? 0,
           chatQuestions: summaryRow?.chatQuestions ?? 0,
           voiceQuestions: summaryRow?.voiceQuestions ?? 0,
+          rescuedQuestions: summaryRow?.rescuedQuestions ?? 0,
         },
         pagination: {
           page,
