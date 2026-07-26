@@ -1,0 +1,13 @@
+The Image Foundations deep research is done. Here's what it produced:
+
+research/image-foundations/report.md — the consolidated report (presented above), built from 5 focus-area research passes + 2 gap-fill passes (~70 tier-rated sources). Highlights:
+
+Stage-fit framework validated — thumbnail = qualified attention, advertorial hero = congruence/information scent, jump page = credibility; grounded in Tier-1 fluency, post-click-quality, and Ohanian source-credibility literature (honestly labeled as a synthesis, not one study).
+Curiosity-gap in images upgraded from inference to direct evidence — JM 2020 visual-concealment experiments, with the "positive inference only" boundary.
+"UGC beats polished" verdict: conditionally true — Tier-1 meta-analytic support for feed ads, Tier-1 counter-evidence for luxury/credibility contexts (the Prada AI study).
+Color folklore explicitly busted — saturation→potency and contrast-vs-feed replicate; "red=urgency / blue=trust" don't.
+One consolidated compliance no-no list verified against primary policy docs from all four networks (including MGID's actual compliance PDF, which the first pass couldn't reach), FTC net-impression doctrine, Shutterstock's verbatim license terms, and 2024–2026 AI-likeness statutes.
+All three known-bad citations from your original PDF are properly re-sourced.
+research/image-foundations/examples/ — 34 harvested creatives (Joinative full-funnel pairs, Taboola annotated slides + vertical cases, MGID advertorial heroes) with a fully cross-referenced INDEX.md, opening with a rights warning: reference-only until a human clears licensing; recommended posture is recreate, don't republish.
+
+Raw research transcripts with full source lists are in .agents/outputs/image-foundations/ (git-tracked). The curriculum outline in §8 is marked proposal-only — no member docs, KB writes, or app changes were made. Note the still-pending publish for the earlier portal fixes (Creative Drive downloads, Offer Selection, chat scroll) whenever you're ready.
