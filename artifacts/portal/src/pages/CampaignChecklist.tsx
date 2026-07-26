@@ -518,7 +518,7 @@ function StepRow({
           )}
 
           {!isNetworkStep && items.length > 0 && open && (
-            <ul className="mt-2 space-y-2 pl-1">
+            <ul className="mt-2 space-y-2">
               {items.map((item) => {
                 const subChecked = itemChecked(item, checked);
                 const subIsUpNext = upNext !== null && upNext.substepId === item.primaryKey;
