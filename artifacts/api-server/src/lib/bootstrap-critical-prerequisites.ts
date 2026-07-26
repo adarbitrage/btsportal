@@ -20,6 +20,7 @@ import { runNavigationDriftScan } from "./kb-nav-drift-scan";
 import { seedProcessKb } from "./seed-process-kb";
 import { seedConceptsKb } from "./seed-concepts-kb";
 import { seedHeadlineConceptsStaging } from "./seed-headline-concepts-staging";
+import { seedImageFoundationsStaging } from "./seed-image-foundations-staging";
 import {
   rescrubKnowledgebaseDocs,
   findUnscrubbedTitles,
@@ -453,6 +454,19 @@ export async function bootstrapCriticalPrerequisites(): Promise<PrerequisiteResu
   } catch (err) {
     console.error("[Bootstrap] seedHeadlineConceptsStaging() threw:", err);
     missing.push("seedHeadlineConceptsStaging");
+  }
+
+  // 8f. Seed the Image Foundations doc set (Task #2010) as DRAFTS into the
+  //     kb_staging_docs AI Document Review queue: 7 new image-selection
+  //     concept docs + 1 revision proposal for the live "Creative Strategy"
+  //     doc. Human gate absolute — everything lands pending_review; nothing
+  //     goes live here. Idempotent via (source, sourceVideoTitle);
+  //     insert-only, so reviewer edits/decisions are never clobbered.
+  try {
+    await seedImageFoundationsStaging();
+  } catch (err) {
+    console.error("[Bootstrap] seedImageFoundationsStaging() threw:", err);
+    missing.push("seedImageFoundationsStaging");
   }
 
   // 9. Backfill doc_class on every legacy knowledgebase_docs row so transcript-
