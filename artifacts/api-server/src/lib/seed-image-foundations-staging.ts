@@ -136,11 +136,25 @@ Craft rules at feed size
 - One face. Two or more faces split the first fixation and dilute the emotional read. Group shots are for brand advertising, not for this system.
 - Real over posed. A candid, imperfect face in a real setting belongs in the feed; a stock-styled model grin reads as an ad and gets scrolled past (see The UGC-Style Default — Why Authentic Beats Produced).
 - Never a real, identifiable person you don't have rights to — and never a celebrity or public figure, period (see Image Compliance — The Absolute Bans). AI-generated faces are acceptable; check them for artifacts before use.
-- Hands count. When a face isn't the right device, unmistakable hands — holding, pointing, reacting — carry much of the same human-first attention power with less emotional commitment.
+- Hands count. When a face isn't the right device, hands doing something carry much of the same human-first power — see the section below.
+
+When hands are the subject: the human-first image without a face
+
+A face is not the only way to put a person in the frame. Hands doing something — gripping, opening, applying, mid-task — are the second-strongest human signal in imagery, and one we teach constantly. An object alone on a table is a product shot: static, anonymous, and ad-like. The same object in a hand is a moment: someone is using this, right now, and the reader's eye completes the story of what's happening. The hand converts an object into an action.
+
+Hands earn their place for three reasons:
+
+- They demonstrate instead of displaying. A hand mid-action answers the reader's silent question — "what is this and what do you do with it?" — in a single glance, before any words are read.
+- They read as UGC by default. A hand-held shot implies a phone in the other hand: it looks like a photo a real person took of their own life, which is exactly the register the feed expects (see The UGC-Style Default — Why Authentic Beats Produced). Object-on-white-table implies a studio; hand-in-real-setting implies a person.
+- First-person point of view puts the reader in the scene. Shot from the owner's perspective — your own hands, doing the thing — the image stops being about someone else and becomes a preview of the reader's own experience. First-person POV is the most immersive framing available without a face, and it sidesteps every casting question: no expression to match, no face to relate to, no likeness concerns.
+
+Craft rules for hand-led images follow the same feed-size logic as faces: crop tight enough that the action is unmistakable at phone size; one hand-action, not several; real skin, real setting, natural light — a manicured hand on a seamless background is a stock photo wearing a disguise. And the action must be the story's action: a hand doing something unrelated to the angle is the manual equivalent of a jobless gaze.
+
+Choose the device by the job: a face when the story is about the person and their feeling; hands when the story is about the doing — the mechanism, the ritual, the moment of use. When members ask "do I need a person in the shot?", the answer is usually yes — but a person can be a pair of hands.
 
 Which surface, which face
 
-On the native ad thumbnail, the face is a scroll-stopper and a qualifier: the person should look like the reader (or the reader's situation), and the gaze should serve the visual question the thumbnail opens (see Visual Curiosity & the Concealment Rule). On the advertorial, faces carry the story — the same person or same kind of person continuing the narrative the click started. On the jump page, a face is optional; when used, direct gaze plus a credible, composed expression supports the promise (see Image Jobs by Funnel Stage — Native Ad Thumbnail, Advertorial, and Jump Page).
+On the native ad thumbnail, the face is a scroll-stopper and a qualifier: the person should look like the reader (or the reader's situation), and the gaze should serve the visual question the thumbnail opens (see Visual Curiosity & the Concealment Rule). On the advertorial, faces carry the story — the same person or same kind of person continuing the narrative the click started. On the jump page, a face is optional; when used, direct gaze plus a credible, composed expression supports the promise (see Image Jobs by Funnel Stage — Native Ad Thumbnail, Advertorial, and Jump Page). Hand-led, first-person shots work on all three surfaces — they are especially strong on thumbnails for mechanism-led angles, where the doing is the story.
 
 This covers the fundamentals. For strategy specific to your product, your numbers, and where your campaign is right now, the next step is a live group Q&A coaching call or a 1-on-1 private coaching session — bring your campaign and a coach will work through it with you.`;
 
