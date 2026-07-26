@@ -69,6 +69,16 @@ export async function searchKnowledgebaseForVoice(query: string): Promise<string
   // Delegate to the shared surface-aware retrieval path so voice and chat share
   // identical ranking, synonym, tag-boost, nav-grounding and confidence
   // behaviour. Voice has no turn-by-turn history here, so no follow-up context.
+  //
+  // Voice deliberately stays BINARY (confident / no match) and does not opt
+  // into the chat-only semantic close-match band (Task #2001). Task #2002
+  // measured extending it here and found the band structurally unreachable
+  // for voice: this surface's entire retrieval scope is the Operations home
+  // root, which is the band's absolute high-stakes exclusion — so the
+  // band-eligible score is always 0 and an opt-in would be dead code. Pinned
+  // by __tests__/kb-voice-near-miss-calibration.test.ts; if voice's category
+  // scope ever widens beyond Operations, that suite is the alarm to design a
+  // spoken hedge contract and recalibrate before opting in.
   const result = await retrieveSurfaceAware(query, {
     surface: "voice",
     categories: VOICE_KB_CATEGORIES,
