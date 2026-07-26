@@ -72,7 +72,9 @@ export default function AiAssistant() {
   const [mobileSidebar, setMobileSidebar] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const lastUserMessageRef = useRef<HTMLDivElement>(null);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
   const prevMessageCountRef = useRef(0);
+  const lastAutoScrollTopRef = useRef<number | null>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
   const { user } = useAuth();
@@ -108,21 +110,50 @@ export default function AiAssistant() {
     setMessages((prev) => (prev.length >= fresh.length ? prev : fresh));
   }, [sessionId, loadedMessages, isStreaming, setMessages]);
 
-  // Scroll behavior (no follow-the-stream): when the member sends a message,
-  // pin their question to the top of the viewport so the incoming answer reads
-  // from the top — never auto-scroll to the bottom while the answer streams in.
-  // Bulk hydration (opening an existing session) still jumps to the latest
-  // exchange, instantly.
+  // Scroll behavior (clamped follow): as the answer streams in, auto-scroll
+  // down — but never so far that the member's latest prompt scrolls out of
+  // view. The prompt stops at the top of the viewport and the answer fills the
+  // space below it. Only ever scrolls DOWN, and backs off if the member
+  // manually scrolls up mid-stream. Bulk hydration (opening an existing
+  // session) still jumps instantly to the latest exchange.
   useEffect(() => {
+    const container = scrollContainerRef.current;
     const count = messages.length;
     const prev = prevMessageCountRef.current;
     prevMessageCountRef.current = count;
-    if (count <= prev) return;
-    const last = messages[count - 1];
-    if (count - prev === 1 && last?.role === "user") {
-      lastUserMessageRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-    } else if (count - prev > 1) {
+    if (!container) return;
+
+    // Bulk hydration: jump to the bottom instantly.
+    if (count - prev > 1) {
       messagesEndRef.current?.scrollIntoView({ behavior: "auto" });
+      lastAutoScrollTopRef.current = null;
+      return;
+    }
+
+    // New prompt sent: reset the manual-scroll backoff for this exchange.
+    if (count - prev === 1 && messages[count - 1]?.role === "user") {
+      lastAutoScrollTopRef.current = null;
+    }
+
+    const userEl = lastUserMessageRef.current;
+    if (!userEl) return;
+
+    // If the member scrolled up (above where we last auto-scrolled to), stop
+    // following until the next prompt is sent.
+    const lastAuto = lastAutoScrollTopRef.current;
+    if (lastAuto !== null && container.scrollTop < lastAuto - 8) return;
+
+    // Ceiling: the latest prompt pinned at the top of the viewport.
+    const promptTop =
+      userEl.getBoundingClientRect().top -
+      container.getBoundingClientRect().top +
+      container.scrollTop -
+      16;
+    const maxScroll = container.scrollHeight - container.clientHeight;
+    const target = Math.min(maxScroll, promptTop);
+    if (target > container.scrollTop) {
+      container.scrollTo({ top: target, behavior: "auto" });
+      lastAutoScrollTopRef.current = target;
     }
   }, [messages]);
 
@@ -319,7 +350,7 @@ export default function AiAssistant() {
               </div>
             </div>
 
-            <div className="flex-1 min-h-0 overflow-y-auto">
+            <div ref={scrollContainerRef} className="flex-1 min-h-0 overflow-y-auto">
               {visibleMessages.length === 0 ? (
                 <AssistantEmptyState onSendMessage={handleSend} />
               ) : (
