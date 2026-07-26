@@ -213,7 +213,7 @@ A native ad thumbnail renders small — a few hundred pixels wide on a phone, gl
 
 One clear focal subject — never a collage
 
-The single most enforced composition rule in the system: a thumbnail has ONE subject. One person, one object, one moment. Multi-panel collages, side-by-side comparisons, busy scenes with several competing elements — all of them die at feed size, where the eye gets one fixation before the scroll decides. If a reader can't say what the image is OF in half a second on a phone, the image fails. (Side-by-side comparison layouts are also a compliance trap — they read as before/after, which is banned outright; see Image Compliance — The Absolute Bans.)
+The single most enforced composition rule in the system: a thumbnail has ONE subject. One person, one object, one moment. Multi-panel collages, side-by-side comparisons, busy scenes with several competing elements — all of them die at feed size, where the eye gets one fixation before the scroll decides. If a reader can't say what the image is OF in half a second on a phone, the image fails. (Be careful with side-by-side comparison layouts for a second reason too: they can read as before/after, and on our traffic source they may face higher compliance restrictions for certain offers — see Image Compliance — The Absolute Bans.)
 
 The complexity sweet spot
 
@@ -285,9 +285,11 @@ First, the frame: an image can make a claim by itself
 
 Regulators and networks judge an ad by its NET IMPRESSION — the overall message a reasonable person takes away, from every element together. An image is fully capable of making a claim on its own: a photo implying dramatic weight loss IS a weight-loss claim; a photo implying a disease was cured IS a medical claim. "The text never said it" is no defense — if the image says it, the ad said it. Every ban below follows from that principle plus the networks' written policies.
 
+Where these bans apply hardest: your AD images. The bans below are enforced most aggressively on the ad creative itself — the thumbnail the network reviews and serves. Certain elements may face less scrutiny on your landing pages, but that is a difference in enforcement pressure, not permission: the same net-impression principle applies to the whole funnel, so use caution on your pages too.
+
 The seven absolute bans
 
-1. Before/after images. Side-by-side or sequential transformation photos (weight loss, skin, hair, teeth, finances) are explicitly banned by the networks — including in health and beauty, where members most want them. This includes implied before/after: split compositions, "transformation" collages, dramatic same-person contrasts. Instead: show ONE state — the desirable end state, or the relatable problem state — and let the headline carry the change over time.
+1. Before/after transformation images. Transformation photos (weight loss, skin, hair, teeth, finances) that show the change itself are explicitly banned by the networks — including in health and beauty, where members most want them. This includes implied before/after: "transformation" collages and dramatic same-person contrasts. Instead: show ONE state — the desirable end state, or the relatable problem state — and let the headline carry the change over time. Note: side-by-side layouts as such are not outright banned on our traffic source, but they may face higher compliance restrictions for certain offers and can easily read as before/after — treat them with caution.
 
 2. Sexualized imagery and body-part emphasis. No sexualized framing, no zoomed or cropped emphasis on intimate or isolated body parts (midriffs, chests, close-cropped skin), no imagery that highlights physical features in a way designed to make readers self-conscious. Health and fitness angles are the usual trap — a "belly fat" zoom is a ban on two counts (body-part emphasis + implied claim). Instead: whole people, in context, doing things.
 
@@ -300,10 +302,6 @@ The seven absolute bans
 6. Misleading or irrelevant images. The image must be an accurate representation of what the funnel is about. No borrowed drama, no unrelated eye-candy, no images whose only connection to the offer is that they get clicks, no misleading crops or zooms that make something appear to be what it isn't. Networks enforce this directly, and the funnel enforces it again: wrong-promise clicks don't convert (see Visual Curiosity & the Concealment Rule on the bait boundary).
 
 7. Implied disease and medical claims via imagery. No imagery that implies a product treats, cures, or reverses a disease or medical condition: no syringes-and-cure visuals, no disease-name props, no clinical imagery implying medical intervention, no imagery implying a supplement replaces medication. Symptom-level, experience-level framing is the ceiling — and even that stays inside ban #5's limits on depiction.
-
-The rights caution (two lines)
-
-Separate from network policy: only use imagery you have rights to — licensed, original, or AI-generated — and never a real person's likeness without a release. "Found it online" is not a license, and editorial-licensed stock cannot be used in ads.
 
 How to use this doc
 
@@ -393,10 +391,10 @@ The image-selection system now has its own foundation set — the Image Foundati
  - No text in ad images, ever — it breaks the editorial camouflage, dies at feed size under dynamic cropping, and invites policy scrutiny. No pricing in images. Avoid "breaking news" phrasing anywhere in the unit. Label the landing page "Advertorial" for editorial context and compliance.
  - Faces are the strongest attention device — shoulders‑up crops, one face, natural expression matched to the angle's emotion. Direct gaze creates connection; gaze aimed at a subject transfers attention to it; a face doing neither is wasted decoration. Unmistakable hands (holding, reacting) are the runner‑up device.
  - Start with static 16:9 images for ads; explore short motion (GIFs/short clips) only after message match is proven. For LP heroes, clean, photogenic compositions sized consistently (e.g., around 800×500) work well; avoid busy compositions with competing elements.
- - Compliance is absolute: no before/after images (show ONE state and let the headline carry the change), no sexualized or body‑part‑emphasis imagery, no celebrities or public figures, no fake UI elements (play buttons, close buttons), no shock/gore, no misleading or irrelevant images, no implied disease/medical claims via imagery. An image can make a claim by itself — "the text never said it" is no defense. See Image Compliance — The Absolute Bans for the full reference.
+ - Compliance in ad images is strict: no before/after transformation images (show ONE state and let the headline carry the change), no sexualized or body‑part‑emphasis imagery, no celebrities or public figures, no fake UI elements (play buttons, close buttons), no shock/gore, no misleading or irrelevant images, no implied disease/medical claims via imagery. Side‑by‑side layouts aren't outright banned but may face higher compliance restrictions for certain offers — use caution. These rules bite hardest on the ad creative; some elements face less scrutiny on landing pages, but the same net‑impression principle applies there too. An image can make a claim by itself — "the text never said it" is no defense. See Image Compliance — The Absolute Bans for the full reference.
  - Compare opposite "states" early: problem vs end‑result — as separate single‑state images, never combined into one before/after frame. Also test single‑state images (e.g., only the "problem").
  - Early exploration: begin with 3–5 diverse concepts (not near‑duplicates). After a winning concept emerges, refine with tight crops, brightness/clarity/color edits.
- - Sourcing and safety: hunt for unique, emotionally resonant visuals; avoid generic/templated stock. If a spy‑tool image inspires you, reverse‑search to source look‑alikes you can recreate. Never use identifiable internet‑sourced faces — you have no rights to them; AI‑generated faces are fine to use (check for artifacts/anatomy errors, and never generate a real person's likeness). Only use imagery you have rights to — licensed, original, or AI‑generated; editorial‑licensed stock cannot be used in ads.
+ - Sourcing and safety: hunt for unique, emotionally resonant visuals; avoid generic/templated stock. If a spy‑tool image inspires you, reverse‑search to source look‑alikes you can recreate. Never use identifiable internet‑sourced faces — you have no rights to them; AI‑generated faces are fine to use (check for artifacts/anatomy errors, and never generate a real person's likeness).
  - Composition tips: tighter crops on faces/hands to heighten intrigue; keep critical detail away from edges (networks auto‑crop per placement); maintain strong contrast.
  - Ad vs LP visuals: don't default to reusing the same image — their jobs differ — but keep the psychological "scent" aligned. After a winning LP headline/hero emerges, consider mirroring the ad image to the LP hero to attempt a CTR bump.
 
@@ -534,7 +532,7 @@ export const IMAGE_SEED_DOCS: readonly ImageSeedDoc[] = [
     taxonomyTags: ["compliance", "creative"],
     content: DOC_7_CONTENT,
     adminNotes:
-      "The seven cross-network absolute bans (before/after; sexualized/body-part; celebrities; fake UI; shock/gore; misleading/irrelevant; implied disease claims) under FTC net-impression framing, plus the two-line rights caution. Ban list is verbatim-equivalent to research report §5 — do not broaden or narrow categories. " +
+      "The seven cross-network absolute bans (before/after transformation; sexualized/body-part; celebrities; fake UI; shock/gore; misleading/irrelevant; implied disease claims) under FTC net-impression framing, with an explicit ad-image-first enforcement note (landing pages get less scrutiny for some elements, caution still applies). Deliberate deviations from research report §5 per user ruling: side-by-side layouts are NOT taught as outright banned (higher compliance restrictions for certain offers instead), and the rights caution paragraph was removed. Do not otherwise broaden or narrow the categories. " +
       SOURCE_SET_NOTE,
   },
   {
@@ -545,7 +543,7 @@ export const IMAGE_SEED_DOCS: readonly ImageSeedDoc[] = [
     content: DOC_8_CONTENT,
     isRevision: true,
     updateSummary:
-      "Light reconciliation with the new Image Foundations doc set — not a rewrite. §4 (Visual strategy) updated: pointers added into the seven new image docs; stage-fit roles sharpened (qualified attention / scent confirmation); no-white-background rule added; 'one color pops' folklore replaced with contrast-vs-feed + color-angle congruence; concealment/bait boundary added; transformation-visual advice aligned with the absolute before/after ban (single-state imagery only); face guidance expanded with gaze direction; rights caution strengthened (no identifiable internet-sourced faces — rights, not just risk; editorial-licensed stock unusable in ads); explicit seven-ban compliance summary added. All other sections preserved verbatim except straight-quote normalization.",
+      "Light reconciliation with the new Image Foundations doc set — not a rewrite. §4 (Visual strategy) updated: pointers added into the seven new image docs; stage-fit roles sharpened (qualified attention / scent confirmation); no-white-background rule added; 'one color pops' folklore replaced with contrast-vs-feed + color-angle congruence; concealment/bait boundary added; transformation-visual advice aligned with the before/after transformation ban (single-state imagery preferred; side-by-side layouts cautioned, not banned); face guidance expanded with gaze direction (no identifiable internet-sourced faces — rights, not just risk); explicit compliance summary added with ad-image-first enforcement framing. All other sections preserved verbatim except straight-quote normalization.",
     adminNotes:
       "REVISION PROPOSAL for the live doc 'Creative Strategy — Ads, Images & Landing Pages That Work Together' (staged with updateKind='update' + targetLiveDocId; the live row is untouched until approval). See updateSummary for the change scope. " +
       SOURCE_SET_NOTE,

@@ -67,7 +67,7 @@ describe("Image Foundations staging seed manifest", () => {
     expect(compliance).toBeDefined();
     expect(compliance!.content).toContain("The seven absolute bans");
     for (const ban of [
-      "Before/after images",
+      "Before/after transformation images",
       "Sexualized imagery",
       "Celebrities and public figures",
       "Fake UI elements",
