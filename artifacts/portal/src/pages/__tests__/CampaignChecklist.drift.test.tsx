@@ -221,8 +221,8 @@ describe("network-tailored member copy", () => {
     const page = screen.getByTestId("campaign-checklist-page");
     const pageText = normalize(page.textContent ?? "");
 
-    expect(pageText).toContain(normalize("Review the advertorial for the offer."));
-    expect(pageText).not.toContain(normalize("Review the VSL for the offer."));
+    expect(pageText).toContain(normalize("Review Products/Advertorials."));
+    expect(pageText).not.toContain(normalize("Review Products/VSLs."));
     expect(pageText).not.toContain(
       normalize("Review the presell page for the offer: the advertorial [MM] or the VSL [CB]."),
     );
@@ -269,8 +269,8 @@ describe("network-tailored member copy", () => {
     const page = screen.getByTestId("campaign-checklist-page");
     const pageText = normalize(page.textContent ?? "");
 
-    expect(pageText).toContain(normalize("Review the VSL for the offer."));
-    expect(pageText).not.toContain(normalize("Review the advertorial for the offer."));
+    expect(pageText).toContain(normalize("Review Products/VSLs."));
+    expect(pageText).not.toContain(normalize("Review Products/Advertorials."));
     const anglesText = normalize(
       screen.getByTestId("step-row-finalize-angles").textContent ?? "",
     );
@@ -431,6 +431,7 @@ describe("campaign checklist 'up next' cue", () => {
     fireEvent.click(screen.getByTestId("step-checkbox-orient"));
     fireEvent.click(screen.getByTestId("step-checkbox-know-the-gates"));
     fireEvent.click(screen.getByTestId("substep-checkbox-select-offer-review-presell"));
+    fireEvent.click(screen.getByTestId("substep-checkbox-select-offer-get-link"));
     fireEvent.click(screen.getByTestId("step-checkbox-finalize-angles"));
     fireEvent.click(screen.getByTestId("step-checkbox-create-ad-assets"));
 

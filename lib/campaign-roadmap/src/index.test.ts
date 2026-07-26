@@ -173,9 +173,9 @@ describe("AI spine guardrail — member-display copy NEVER affects the spine", (
     // If this fails without an explicit task changing spine wording,
     // canonical wording (what the AI sees) drifted — member copy and other
     // layers must never do that.
-    expect(spine.length).toBe(4537);
+    expect(spine.length).toBe(4990);
     expect(createHash("sha256").update(spine, "utf8").digest("hex")).toBe(
-      "a1256407afdb79bd45f2efb8ce56c7db61e78ff9ce33e16120bea7c10f8bf9f7",
+      "6721bb8d957792677d1240ac9806465236e0a264bb67b97974714fb32273e523",
     );
   });
 
@@ -232,9 +232,9 @@ describe("member-display copy layer helpers", () => {
   it("per-network substep action variants resolve, with canonical fallback", () => {
     const presell = byId.get("select-offer")!.substeps[0];
     expect(memberSubstepAction(presell, "media-mavens")).toBe(
-      "Review the advertorial for the offer.",
+      "Review Products/Advertorials.",
     );
-    expect(memberSubstepAction(presell, "clickbank")).toBe("Review the VSL for the offer.");
+    expect(memberSubstepAction(presell, "clickbank")).toBe("Review Products/VSLs.");
     expect(memberSubstepAction(presell, null)).toBe(presell.action);
   });
 

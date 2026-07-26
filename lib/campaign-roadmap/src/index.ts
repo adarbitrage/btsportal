@@ -172,6 +172,7 @@ export const CAMPAIGN_ROADMAP: readonly CampaignStep[] = [
     title: "Select your offer & get your affiliate link",
     description:
       "The affiliate link is required later for the DIYTrax Offer Pages tab when you complete your DIYTrax setup.",
+    member: { title: "Offer Selection" },
     substeps: [
       {
         substepId: "select-offer-review-presell",
@@ -180,10 +181,15 @@ export const CAMPAIGN_ROADMAP: readonly CampaignStep[] = [
           "Review the presell page for the offer: the advertorial [MM] or the VSL [CB].",
         member: {
           actionByNetwork: {
-            "media-mavens": "Review the advertorial for the offer.",
-            clickbank: "Review the VSL for the offer.",
+            "media-mavens": "Review Products/Advertorials.",
+            clickbank: "Review Products/VSLs.",
           },
         },
+      },
+      {
+        substepId: "select-offer-get-link",
+        lifecycle: "per-campaign",
+        action: "Select your offer and copy your affiliate link.",
       },
     ],
   },
