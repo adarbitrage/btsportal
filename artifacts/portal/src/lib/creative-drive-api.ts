@@ -49,6 +49,12 @@ async function driveFetch<T>(path: string, options?: RequestInit): Promise<T> {
 }
 
 // ── URLs (cookie-authenticated, safe for <img>/<iframe> src) ─────────────────
+// NOTE: these direct URLs authenticate via the short-lived access-token cookie
+// and do NOT auto-refresh on expiry. They are safe only for elements that load
+// immediately after an authFetch call (e.g. grid thumbnails rendered right
+// after browse). For user-initiated actions that can happen after idling
+// (downloads, opening a preview), use fetchDriveFileBlob/downloadDriveFile
+// below — those ride authFetch's 401→refresh→retry path.
 
 const API_BASE = `${import.meta.env.BASE_URL}api`;
 
@@ -56,8 +62,35 @@ export function driveFileContentUrl(fileId: number): string {
   return `${API_BASE}/creative-drive/files/${fileId}/content`;
 }
 
-export function driveFileDownloadUrl(fileId: number): string {
-  return `${driveFileContentUrl(fileId)}?download=1`;
+/**
+ * Fetch a drive file's bytes through authFetch so an expired access token is
+ * transparently refreshed instead of failing (the "file wasn't available on
+ * site" browser error on plain <a href> downloads).
+ */
+export async function fetchDriveFileBlob(fileId: number): Promise<Blob> {
+  const res = await authFetch(`/creative-drive/files/${fileId}/content`);
+  if (!res.ok) {
+    const data = await res.json().catch(() => null);
+    throw new Error(extractApiError(data) ?? `Download failed (${res.status})`);
+  }
+  return res.blob();
+}
+
+/** Download a drive file via authenticated fetch, then trigger a save-as. */
+export async function downloadDriveFile(file: Pick<DriveFile, "id" | "name">): Promise<void> {
+  const blob = await fetchDriveFileBlob(file.id);
+  const url = URL.createObjectURL(blob);
+  try {
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = file.name;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+  } finally {
+    // Revoke on the next tick so the click has consumed the URL.
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
 }
 
 // ── Member ────────────────────────────────────────────────────────────────────

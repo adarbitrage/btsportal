@@ -10,13 +10,82 @@ import { Button } from "@/components/ui/button";
 import { Download, FileIcon, Loader2 } from "lucide-react";
 import {
   type DriveFile,
-  driveFileContentUrl,
-  driveFileDownloadUrl,
+  downloadDriveFile,
+  fetchDriveFileBlob,
   formatFileSize,
   isImageMime,
   isPdfMime,
   isTextMime,
 } from "@/lib/creative-drive-api";
+import { useToast } from "@/hooks/use-toast";
+
+/**
+ * Load a drive file's bytes through the authenticated fetch path (which
+ * refreshes an expired access token) and expose them as an object URL for
+ * <img>/<iframe> previews. Direct cookie-authenticated URLs fail with a bare
+ * 401 when the preview opens after ~15 minutes of idling.
+ */
+function useDriveFileObjectUrl(fileId: number) {
+  const [url, setUrl] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    let objectUrl: string | null = null;
+    setUrl(null);
+    setError(null);
+    fetchDriveFileBlob(fileId)
+      .then((blob) => {
+        if (cancelled) return;
+        objectUrl = URL.createObjectURL(blob);
+        setUrl(objectUrl);
+      })
+      .catch((err: unknown) => {
+        if (!cancelled) setError(err instanceof Error ? err.message : "Failed to load file");
+      });
+    return () => {
+      cancelled = true;
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+    };
+  }, [fileId]);
+
+  return { url, error };
+}
+
+function BlobPreviewFrame({ file }: { file: DriveFile }) {
+  const { url, error } = useDriveFileObjectUrl(file.id);
+
+  if (error) {
+    return <p className="text-sm text-destructive py-8 text-center">{error}</p>;
+  }
+  if (!url) {
+    return (
+      <div className="flex items-center justify-center py-16">
+        <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+  if (isImageMime(file.mimeType)) {
+    return (
+      <div className="flex items-center justify-center bg-secondary/30 rounded-lg p-2">
+        <img
+          src={url}
+          alt={file.name}
+          className="max-h-[60vh] max-w-full object-contain rounded"
+          data-testid="img-file-preview"
+        />
+      </div>
+    );
+  }
+  return (
+    <iframe
+      src={url}
+      title={file.name}
+      className="w-full h-[60vh] rounded-lg border border-border"
+      data-testid="iframe-pdf-preview"
+    />
+  );
+}
 
 function TextPreview({ file }: { file: DriveFile }) {
   const [text, setText] = useState<string | null>(null);
@@ -26,11 +95,8 @@ function TextPreview({ file }: { file: DriveFile }) {
     let cancelled = false;
     setText(null);
     setError(null);
-    fetch(driveFileContentUrl(file.id), { credentials: "include" })
-      .then(async (res) => {
-        if (!res.ok) throw new Error(`Failed to load file (${res.status})`);
-        return res.text();
-      })
+    fetchDriveFileBlob(file.id)
+      .then((blob) => blob.text())
       .then((body) => {
         if (!cancelled) setText(body);
       })
@@ -66,6 +132,24 @@ export function FilePreviewDialog({
   file: DriveFile | null;
   onClose: () => void;
 }) {
+  const { toast } = useToast();
+  const [downloading, setDownloading] = useState(false);
+
+  const handleDownload = async (f: DriveFile) => {
+    setDownloading(true);
+    try {
+      await downloadDriveFile(f);
+    } catch (err: unknown) {
+      toast({
+        title: "Download failed",
+        description: err instanceof Error ? err.message : "Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setDownloading(false);
+    }
+  };
+
   return (
     <Dialog open={!!file} onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="max-w-4xl" data-testid="dialog-file-preview">
@@ -81,22 +165,8 @@ export function FilePreviewDialog({
             </DialogHeader>
 
             <div className="min-h-[200px]">
-              {isImageMime(file.mimeType) ? (
-                <div className="flex items-center justify-center bg-secondary/30 rounded-lg p-2">
-                  <img
-                    src={driveFileContentUrl(file.id)}
-                    alt={file.name}
-                    className="max-h-[60vh] max-w-full object-contain rounded"
-                    data-testid="img-file-preview"
-                  />
-                </div>
-              ) : isPdfMime(file.mimeType) ? (
-                <iframe
-                  src={driveFileContentUrl(file.id)}
-                  title={file.name}
-                  className="w-full h-[60vh] rounded-lg border border-border"
-                  data-testid="iframe-pdf-preview"
-                />
+              {isImageMime(file.mimeType) || isPdfMime(file.mimeType) ? (
+                <BlobPreviewFrame file={file} />
               ) : isTextMime(file.mimeType) ? (
                 <TextPreview file={file} />
               ) : (
@@ -108,11 +178,17 @@ export function FilePreviewDialog({
             </div>
 
             <div className="flex justify-end">
-              <Button asChild data-testid="button-download-file">
-                <a href={driveFileDownloadUrl(file.id)} download={file.name}>
+              <Button
+                onClick={() => handleDownload(file)}
+                disabled={downloading}
+                data-testid="button-download-file"
+              >
+                {downloading ? (
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                ) : (
                   <Download className="w-4 h-4 mr-2" />
-                  Download
-                </a>
+                )}
+                Download
               </Button>
             </div>
           </>

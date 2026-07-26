@@ -16,8 +16,8 @@ import {
 } from "lucide-react";
 import {
   browseDrive,
+  downloadDriveFile,
   driveFileContentUrl,
-  driveFileDownloadUrl,
   formatFileSize,
   isImageMime,
   isPdfMime,
@@ -178,15 +178,19 @@ export default function CreativeDrive() {
                             {formatFileSize(file.sizeBytes)}
                           </p>
                         </div>
-                        <a
-                          href={driveFileDownloadUrl(file.id)}
-                          download={file.name}
+                        <button
+                          onClick={() => {
+                            downloadDriveFile(file).catch(() => {
+                              // authFetch already retried once after a token
+                              // refresh; a residual failure here is transient.
+                            });
+                          }}
                           className="text-muted-foreground hover:text-foreground shrink-0 p-1"
                           title="Download"
                           data-testid={`link-download-${file.id}`}
                         >
                           <Download className="w-3.5 h-3.5" />
-                        </a>
+                        </button>
                       </div>
                     </div>
                   ))}

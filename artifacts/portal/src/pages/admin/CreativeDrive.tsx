@@ -63,7 +63,7 @@ import {
   deleteDriveFile,
   uploadDriveFile,
   driveFileContentUrl,
-  driveFileDownloadUrl,
+  downloadDriveFile,
   formatFileSize,
   isImageMime,
   isPdfMime,
@@ -499,10 +499,12 @@ export default function AdminCreativeDrive() {
                           <DropdownMenuItem onClick={() => setPreviewFile(file)}>
                             <Eye className="w-4 h-4 mr-2" /> Preview
                           </DropdownMenuItem>
-                          <DropdownMenuItem asChild>
-                            <a href={driveFileDownloadUrl(file.id)} download={file.name}>
-                              <Download className="w-4 h-4 mr-2" /> Download
-                            </a>
+                          <DropdownMenuItem
+                            onClick={() => {
+                              downloadDriveFile(file).catch(() => {});
+                            }}
+                          >
+                            <Download className="w-4 h-4 mr-2" /> Download
                           </DropdownMenuItem>
                           <DropdownMenuItem
                             onClick={() => {
