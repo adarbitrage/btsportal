@@ -582,6 +582,17 @@ export const CAMPAIGN_SPINE_LIFECYCLE_LEGEND =
   "Lifecycle tags: [ONE-TIME] = one-time initial setup, done once ever — a returning member has most likely already done it, so ask about it as an existence check (\"have you already set this up, or is this your first time?\"), never assign it as a fresh task. [PER-BRAND-DOMAIN] = done once per brand domain (consumerwatchdog.io for Consumer Watchdog templates, thecuttingedge.today for The Cutting Edge — template chosen by offer type, NOT by affiliate network); a completed setup on one brand domain never carries over to a different brand domain. Untagged steps are PER-CAMPAIGN: repeated for every new campaign — never phrase them as already-done existence checks.";
 
 /**
+ * Namespace guardrail rendered into the spine preamble (referenced by the
+ * chat prompt's checklist-vs-Blitz clause and its guard test): step titles
+ * below share a surface form with Blitz guide section names, but the two
+ * namespaces are DIFFERENT — a roadmap step title must never be presented as
+ * a Blitz guide section, portal page, or navigable location. Phrased so the
+ * model still freely discusses step content and ordering.
+ */
+export const CAMPAIGN_SPINE_NAMESPACE_GUARDRAIL =
+  "The step titles below are chronology markers ONLY — they are not Blitz guide sections, not portal pages, and not navigable locations, even when a title resembles a section name. Never point a member to a step title as a place to go; Blitz guide section names come only from the Blitz Guide Locations blocks when present. Discussing what a step involves and where it falls in the order is always fine.";
+
+/**
  * Render the compact prompt "spine" block from the roadmap module. Appended to
  * the chat assistant's system prompt at runtime on EVERY request — kept in the
  * ~500–600 token range. Numbered steps under phase headers, substeps folded as
@@ -592,6 +603,7 @@ export function renderCampaignSpine(): string {
     CAMPAIGN_SPINE_HEADER,
     "Authoritative 17-step BTS campaign chronology: ordering, prerequisites, phases, network branching. [MM]=Media Mavens, [CB]=ClickBank; untagged lines apply to both networks.",
     "The list numbers below are INTERNAL ordering markers only — never surface them to members. Refer to steps by phase + title (per the campaign-step naming rule).",
+    CAMPAIGN_SPINE_NAMESPACE_GUARDRAIL,
     CAMPAIGN_SPINE_LIFECYCLE_LEGEND,
   ];
 

@@ -62,6 +62,7 @@ function makeResult(docs: RetrievedDoc[]): SurfaceRetrievalResult {
   return {
     docs,
     confident: true,
+    outcome: "confident" as const,
     topScore: 0.5,
     topSemanticScore: 0,
     isNavigationQuery: false,

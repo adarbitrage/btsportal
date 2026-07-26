@@ -63,6 +63,7 @@ function retrievalResult(
   return {
     docs: [],
     confident: false,
+    outcome: "no_match" as const,
     topScore: 0,
     topSemanticScore: 0,
     isNavigationQuery: false,

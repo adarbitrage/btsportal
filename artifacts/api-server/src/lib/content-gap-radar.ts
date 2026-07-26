@@ -40,6 +40,13 @@ export interface LogUnansweredQuestionInput {
   topSemanticScore?: number;
   /** Nearest non-confident matches the retriever surfaced. */
   nearMisses?: NearMissDoc[];
+  /**
+   * True when this occurrence was rescued by the chat near-miss band (the
+   * member got a hedged answer). Stored as a separate flag — NEVER encoded in
+   * the normalized question, which is the dedup key (forking it would split
+   * demand counts).
+   */
+  nearMissRescued?: boolean;
 }
 
 const MAX_QUESTION_LEN = 500;
@@ -99,6 +106,7 @@ export async function logUnansweredQuestion(
         topScore,
         topSemanticScore,
         nearMisses,
+        nearMissRescued: input.nearMissRescued === true,
         lastAskedAt: now,
       })
       .onConflictDoUpdate({
@@ -112,6 +120,7 @@ export async function logUnansweredQuestion(
           topScore,
           topSemanticScore,
           nearMisses,
+          nearMissRescued: input.nearMissRescued === true,
           lastAskedAt: now,
           updatedAt: now,
         },

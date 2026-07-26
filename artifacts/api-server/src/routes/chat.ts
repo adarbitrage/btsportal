@@ -194,6 +194,21 @@ export function buildRagContext(
   return docs.map((r) => `[${r.category}] ${r.title}:\n${r.content}`).join("\n\n---\n\n");
 }
 
+/**
+ * "No confident match" prompt note (unchanged wording — the no-match path is
+ * byte-identical to pre-near-miss behavior). Exported for the three-state
+ * note-wiring tests.
+ */
+export const NO_MATCH_NOTE = `\n\n## Knowledge Base Search Result\n\nNo confident match — the knowledge base has no verified answer for this query. You must not fabricate an answer based on general affiliate marketing knowledge, and you must not stitch one together from loosely-related snippets. Follow Rule 8's Blitz-first ladder: tell the member you don't have a verified answer to that yet, then point them to the most likely Blitz guide section (see "Possibly Relevant Blitz Guide Sections" below, if present) with hedged wording. This reply is Step 1 ONLY: end it by asking the member to let you know if they find what they need there, and do NOT mention coaching, coaching calls, 1-on-1 sessions, or booking anything in this message — escalation comes only in a LATER turn if they come back still stuck. Do not suggest support tickets or the support email.`;
+
+/**
+ * "Close match" prompt note for the near-miss band (Task #2001). DISTINCT from
+ * {@link NO_MATCH_NOTE}: the articles ARE usable — Rule 8's third state
+ * applies (hedged answer at Rule 13 depth, no escalation ladder, reply counts
+ * as a consumed ladder step). Exported for the note-wiring tests.
+ */
+export const NEAR_MISS_NOTE = `\n\n## Knowledge Base Search Result\n\nClose match — the knowledge base articles above are a close (not fully confident) match for this query. They ARE usable: answer the member's question from them per Rule 8's close-match state — at the depth Rule 13 assigns to the question tier, with the two-part hedge (attribute the answer to the training; end with a one-line fit-check). Do NOT apply Rule 8's escalation ladder, do NOT reply with a pointer-only deflection, and do NOT say you have no verified answer. This reply counts as a consumed ladder step: if the member comes back saying it didn't help, continue at the ladder's NEXT step. Pointer rules per Rule 8: a "Blitz Guide Locations" block below is verified and may be named; a "Possibly Relevant Blitz Guide Sections" block is unverified and must be hedged; if neither block is present, add no pointer.`;
+
 async function getActiveSystemPrompt(): Promise<string> {
   const [prompt] = await db
     .select()
@@ -308,6 +323,11 @@ router.post("/chat", async (req, res): Promise<void> => {
     categories: config.knowledgebaseCategories,
     limit: 6,
     history: priorTurns,
+    // Chat is the ONLY surface that opts into the semantic near-miss band
+    // (Task #2001): its prompt carries the hedged close-match presentation
+    // contract (Rule 8) and the band was calibrated on chat phrasings. Voice
+    // keeps binary behavior end-to-end.
+    nearMissBand: true,
   });
   const ragResults = retrieval.docs.map((d) => ({ title: d.title, content: d.content, category: d.category }));
 
@@ -327,12 +347,40 @@ router.post("/chat", async (req, res): Promise<void> => {
     systemPrompt += buildAnchoredBlitzBlock(
       candidatesFromAnchors(retrieval.docs.map((d) => d.blitzSection)),
     );
+  } else if (retrieval.outcome === "near_miss" && ragResults.length > 0) {
+    // Near-miss band (Task #2001): the docs are usable — provide them plus a
+    // DISTINCT "close match" note (never the "no confident match" note) so
+    // Rule 8's third state fires: hedged answer at Rule 13 depth, no
+    // escalation ladder, reply counts as a consumed ladder step.
+    systemPrompt += `\n\n## Relevant Knowledge Base Articles\n\n${buildRagContext(ragResults)}`;
+    // Pointer tiers: Layer-1 verified anchors when the retrieved docs carry
+    // them; otherwise a hedged Layer-2 fuzzy block. No block → no pointer
+    // (the prompt forbids improvising section names).
+    const anchored = candidatesFromAnchors(retrieval.docs.map((d) => d.blitzSection));
+    if (anchored.length > 0) {
+      systemPrompt += buildAnchoredBlitzBlock(anchored);
+    } else {
+      systemPrompt += buildFuzzyBlitzBlock(await findLikelyBlitzSections(message));
+    }
+    systemPrompt += NEAR_MISS_NOTE;
+
+    // Content-gap visibility preserved: a near-miss rescue still records the
+    // demand signal, tagged via a separate flag (never the normalized
+    // question, which is the dedup key). Best-effort, fire-and-forget.
+    void logUnansweredQuestion({
+      surface: "chat",
+      question: message,
+      topScore: retrieval.topScore,
+      topSemanticScore: retrieval.topSemanticScore,
+      nearMisses: retrieval.docs.map((d) => ({ id: d.id, title: d.title, rank: d.rank })),
+      nearMissRescued: true,
+    });
   } else {
     // Layer 2: no confident KB answer — fuzzy-match the question against the
     // Blitz lesson library so Rule 8's Blitz-first pointer has a candidate
     // section to name. Advisory only; the block itself labels it unverified.
     const fuzzyCandidates = await findLikelyBlitzSections(message);
-    systemPrompt += `\n\n## Knowledge Base Search Result\n\nNo confident match — the knowledge base has no verified answer for this query. You must not fabricate an answer based on general affiliate marketing knowledge, and you must not stitch one together from loosely-related snippets. Follow Rule 8's Blitz-first ladder: tell the member you don't have a verified answer to that yet, then point them to the most likely Blitz guide section (see "Possibly Relevant Blitz Guide Sections" below, if present) with hedged wording. This reply is Step 1 ONLY: end it by asking the member to let you know if they find what they need there, and do NOT mention coaching, coaching calls, 1-on-1 sessions, or booking anything in this message — escalation comes only in a LATER turn if they come back still stuck. Do not suggest support tickets or the support email.`;
+    systemPrompt += NO_MATCH_NOTE;
     systemPrompt += buildFuzzyBlitzBlock(fuzzyCandidates);
 
     // Content-Gap Radar: the assistant has no verified answer for this question.

@@ -84,6 +84,25 @@ describe("logUnansweredQuestion capture", () => {
     expect(rows[0].normalizedQuestion).toBe(normalizeQuestion(`${base}?`));
   });
 
+  it("tags near-miss-rescued hits via a separate flag without forking the dedup key (Task #2001)", async () => {
+    const base = `What even is an angle ${TAG} epsilon`;
+    // First occurrence: a plain no-match miss.
+    await logUnansweredQuestion({ surface: "chat", question: base });
+    let rows = (await taggedRows()).filter((r) => r.questionText.includes("epsilon"));
+    expect(rows).toHaveLength(1);
+    expect(rows[0].nearMissRescued).toBe(false);
+
+    // Second occurrence rescued by the near-miss band: same row (dedup key
+    // untouched — normalized question is NEVER altered by the tag), ask_count
+    // bumped, flag flipped.
+    await logUnansweredQuestion({ surface: "chat", question: `${base}?`, nearMissRescued: true });
+    rows = (await taggedRows()).filter((r) => r.questionText.includes("epsilon"));
+    expect(rows).toHaveLength(1);
+    expect(rows[0].askCount).toBe(2);
+    expect(rows[0].nearMissRescued).toBe(true);
+    expect(rows[0].normalizedQuestion).toBe(normalizeQuestion(base));
+  });
+
   it("privacy-scrubs the stored question text and near-miss titles", async () => {
     const question = `Can Bruce Clark email me at jane.doe@example.com about ${TAG} gamma?`;
     await logUnansweredQuestion({

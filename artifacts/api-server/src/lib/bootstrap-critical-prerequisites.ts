@@ -45,6 +45,8 @@ import {
   CAMPAIGN_SPINE_SENTINEL,
   CREATIVE_BOUNDARY_SENTINEL,
   CHECKPOINT_PROGRESS_SENTINEL,
+  NEAR_MISS_CLOSE_MATCH_SENTINEL,
+  CHECKLIST_NOT_BLITZ_SENTINEL,
   LEGACY_GENERIC_KB_TITLES,
 } from "./chat-system-prompt";
 import { ensureFoundingSuperAdmins } from "./ensure-founding-superadmins";
@@ -650,7 +652,9 @@ export async function ensureKBGrounding(): Promise<void> {
       !activePrompt.content.includes(STEP_NAMES_SENTINEL) ||
       !activePrompt.content.includes(CAMPAIGN_SPINE_SENTINEL) ||
       !activePrompt.content.includes(CREATIVE_BOUNDARY_SENTINEL) ||
-      !activePrompt.content.includes(CHECKPOINT_PROGRESS_SENTINEL))
+      !activePrompt.content.includes(CHECKPOINT_PROGRESS_SENTINEL) ||
+     !activePrompt.content.includes(NEAR_MISS_CLOSE_MATCH_SENTINEL) ||
+     !activePrompt.content.includes(CHECKLIST_NOT_BLITZ_SENTINEL))
   ) {
     await db
       .update(chatSystemPromptsTable)

@@ -20,6 +20,8 @@ import {
   CAMPAIGN_SPINE_SENTINEL,
   CREATIVE_BOUNDARY_SENTINEL,
   CHECKPOINT_PROGRESS_SENTINEL,
+  NEAR_MISS_CLOSE_MATCH_SENTINEL,
+  CHECKLIST_NOT_BLITZ_SENTINEL,
 } from "../lib/chat-system-prompt";
 
 // ensureKBGrounding() touches the DB and a handful of seed/scrub modules. Mock
@@ -115,6 +117,8 @@ const ALL_SENTINELS: Array<[string, string]> = [
   ["CAMPAIGN_SPINE_SENTINEL", CAMPAIGN_SPINE_SENTINEL],
   ["CREATIVE_BOUNDARY_SENTINEL", CREATIVE_BOUNDARY_SENTINEL],
   ["CHECKPOINT_PROGRESS_SENTINEL", CHECKPOINT_PROGRESS_SENTINEL],
+  ["NEAR_MISS_CLOSE_MATCH_SENTINEL", NEAR_MISS_CLOSE_MATCH_SENTINEL],
+  ["CHECKLIST_NOT_BLITZ_SENTINEL", CHECKLIST_NOT_BLITZ_SENTINEL],
 ];
 
 beforeEach(() => {
@@ -210,6 +214,38 @@ describe("Rule 8 — honest limits + escalation ladder (merged old Rules 3+10+12
 
   it("keeps explicit precedence: ladder step gating overrides the portal-link rule until Step 3", () => {
     expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain("ladder's step gating overrides Rule 10");
+  });
+
+  it("carries the near-miss close-match third state (Task #2001): hedged answer, no ladder, consumed step", () => {
+    expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain(NEAR_MISS_CLOSE_MATCH_SENTINEL);
+    // The articles are usable — never a pointer-only deflection.
+    expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain("pointer-only deflection");
+    // Two-part hedge: attribute to the training + one-line fit-check closer.
+    expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain("attribute the answer to the training");
+    expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain("one-line fit-check");
+    // Depth per Rule 13 tier, not a blanket full-depth mandate.
+    expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain("depth Rule 13 assigns to the question tier");
+    // Ladder continuity: the hedged answer consumes a ladder step.
+    expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain("COUNTS as a consumed ladder step");
+    // The ladder is explicitly scoped to (a)/(b), never (c).
+    expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain("In situations (a) and (b) — never (c)");
+  });
+
+  it("carries the pointer-tier contract: verified Layer-1 for confident, hedged Layer-2 near-miss only, no block → no pointer, once per section", () => {
+    expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain("Pointer tiers");
+    expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain(
+      'ONLY from a verified "Blitz Guide Locations" block',
+    );
+    expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain(
+      "at most once per section per conversation",
+    );
+    expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain(
+      'hedged pointer from a "Possibly Relevant Blitz Guide Sections" block',
+    );
+    expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain(
+      "If neither block is present, add NO pointer",
+    );
+    expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain("improvising a section name is forbidden");
   });
 });
 
@@ -378,6 +414,23 @@ describe("Rule 17 — campaign steps by phase + title, never by number", () => {
     // a step for the member.
     expect(ANTI_HALLUCINATION_SYSTEM_PROMPT.split("never resolve the number to a step yourself").length - 1)
       .toBeGreaterThanOrEqual(1);
+  });
+
+  it("carries the checklist ≠ Blitz-section guardrail (Task #2001)", () => {
+    expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain(CHECKLIST_NOT_BLITZ_SENTINEL);
+    // Step titles are never sections/pages/locations — with the observed failure named.
+    expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain(
+      "NEVER Blitz guide sections, portal pages, or navigable locations",
+    );
+    expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain('"Finalize your angles"');
+    // Section names come only from the injected Blitz blocks.
+    expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain(
+      'Blitz guide section names come ONLY from the "Blitz Guide Locations"',
+    );
+    // Step content/ordering discussion stays free.
+    expect(ANTI_HALLUCINATION_SYSTEM_PROMPT).toContain(
+      "freely discuss what a checklist step involves",
+    );
   });
 });
 

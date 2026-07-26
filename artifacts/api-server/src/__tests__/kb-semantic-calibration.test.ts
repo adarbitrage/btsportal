@@ -72,24 +72,29 @@ describe("semantic confidence floor calibration (two-group)", () => {
     expect(embeddedDocCount).toBeGreaterThan(0);
   });
 
-  it("in-scope casual phrasings clear the floor", { timeout: 120_000 }, async (ctx) => {
+  it("in-scope casual phrasings are answerable on chat (confident, or rescued by the near-miss band)", { timeout: 120_000 }, async (ctx) => {
     if (!keyConfigured || embeddedDocCount === 0) return ctx.skip();
     const failures: string[] = [];
     for (const q of IN_SCOPE_QUERIES) {
+      // Task #2001: chat now has a three-state contract — an in-scope query
+      // may land just under the binary floor and still be answered (hedged)
+      // via the near-miss band. What must NEVER happen is falling below the
+      // band entirely (no_match = pointer-only deflection).
       const r = await retrieveSurfaceAware(q, {
         surface: "chat",
         categories: [...CITABLE_KB_CATEGORIES],
+        nearMissBand: true,
       });
-      if (r.topSemanticScore < SEMANTIC_CONFIDENCE_FLOOR) {
-        failures.push(`"${q}" → sem=${r.topSemanticScore.toFixed(4)} (< ${SEMANTIC_CONFIDENCE_FLOOR})`);
+      if (r.outcome === "no_match") {
+        failures.push(`"${q}" → sem=${r.topSemanticScore.toFixed(4)} outcome=no_match`);
       }
       console.log(
-        `[calibration/in-scope] sem=${r.topSemanticScore.toFixed(4)} lex=${r.topScore.toFixed(4)} confident=${r.confident} :: ${q}`,
+        `[calibration/in-scope] sem=${r.topSemanticScore.toFixed(4)} lex=${r.topScore.toFixed(4)} outcome=${r.outcome} :: ${q}`,
       );
     }
     expect(
       failures,
-      "In-scope questions BELOW the semantic floor (floor too high, or corpus/embeddings missing):\n" +
+      "In-scope questions BELOW the near-miss band (floor/band too high, or corpus/embeddings missing):\n" +
         failures.join("\n"),
     ).toEqual([]);
   });

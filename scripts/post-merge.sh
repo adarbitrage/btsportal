@@ -409,6 +409,17 @@ if [ -n "$DATABASE_URL" ]; then
     -f lib/db/drizzle/0123_chat_session_summaries.sql >/dev/null
 fi
 
+# Near-miss content-gap tagging (Task #2001). One additive boolean column
+# (near_miss_rescued) on content_gap_questions marking demand rescued by the
+# chat semantic near-miss band. Applied BEFORE the drift gate so the new
+# column never triggers an unnecessary push-force. Idempotent
+# (ADD COLUMN IF NOT EXISTS).
+if [ -n "$DATABASE_URL" ]; then
+  psql "$DATABASE_URL" \
+    -v ON_ERROR_STOP=1 \
+    -f lib/db/drizzle/0124_content_gap_near_miss_rescued.sql >/dev/null
+fi
+
 # Schema sync — CONDITIONAL push.
 #
 # `drizzle-kit push --force` does a full "Pulling schema from database"

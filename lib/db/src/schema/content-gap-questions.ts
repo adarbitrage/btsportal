@@ -1,4 +1,4 @@
-import { pgTable, text, serial, integer, real, jsonb, timestamp, index, unique } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, integer, real, jsonb, timestamp, index, unique, boolean } from "drizzle-orm/pg-core";
 
 // Content-Gap Radar (demand-side): one row per distinct unanswered/low-confidence
 // question the AI assistants (chat or voice) could not confidently answer.
@@ -36,6 +36,12 @@ export const contentGapQuestionsTable = pgTable(
       .$type<{ id: number; title: string; score: number }[]>()
       .notNull()
       .default([]),
+    // True when the MOST RECENT occurrence was rescued by the chat near-miss
+    // band (Task #2001): the member DID get a hedged answer, but the demand
+    // only barely cleared retrieval — KB authors should still see it. A
+    // separate flag (never a fork of normalized_question, which is the dedup
+    // key) so demand counts stay unified across rescued/unrescued repeats.
+    nearMissRescued: boolean("near_miss_rescued").notNull().default(false),
     // How many times this gap has been hit (grouped repeats).
     askCount: integer("ask_count").notNull().default(1),
     firstAskedAt: timestamp("first_asked_at", { withTimezone: true })

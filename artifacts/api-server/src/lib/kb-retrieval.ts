@@ -89,6 +89,11 @@ export interface SurfaceRetrievalOptions {
   history?: RetrievalTurn[];
   /** Ephemeral draft to assess through the same ranking (never returned in docs). */
   candidate?: EphemeralCandidate;
+  /**
+   * Opt into the semantic near-miss band (Task #2001). ONLY the chat route
+   * sets this — voice and every other caller keep binary behavior.
+   */
+  nearMissBand?: boolean;
 }
 
 export interface RetrievedDoc {
@@ -121,6 +126,14 @@ export interface SurfaceRetrievalResult {
    * was grounded in the portal map.
    */
   confident: boolean;
+  /**
+   * Three-state outcome: "confident" ⇔ `confident` true; "near_miss" only for
+   * callers that opted in via `nearMissBand` (chat) when the band-eligible
+   * (non-operations) top semantic score lands in
+   * [{@link SEMANTIC_NEAR_MISS_FLOOR}, {@link SEMANTIC_CONFIDENCE_FLOOR});
+   * otherwise "no_match". Non-opted-in callers see exactly today's binary.
+   */
+  outcome: RetrievalOutcome;
   /** Max precise-match ts_rank observed (0 when only the loose fallback matched). */
   topScore: number;
   /**
@@ -154,6 +167,62 @@ export const CONFIDENCE_FLOOR = 0.01;
  * unchanged. Recalibrate whenever {@link EMBEDDING_MODEL} changes.
  */
 export const SEMANTIC_CONFIDENCE_FLOOR = 0.5;
+
+/**
+ * Lower bound of the CHAT-ONLY semantic "near-miss" band (Task #2001):
+ * 0.40 ≤ topSemanticScore < {@link SEMANTIC_CONFIDENCE_FLOOR}.
+ *
+ * Calibrated by a 47-query labeled sweep against this seam (chat surface,
+ * citable categories, dev corpus): in-scope vague queries that retrieved the
+ * RIGHT docs but failed the binary floor scored 0.438–0.469, while the highest
+ * out-of-scope query scored 0.384 ("how do i get a refund from amazon"; all
+ * others ≤ 0.245). Lower bound = max(out-of-scope) + margin → 0.40. Pinned by
+ * __tests__/kb-near-miss-calibration.test.ts — recalibrate whenever
+ * {@link EMBEDDING_MODEL} changes or the corpus shifts materially.
+ *
+ * The band is a third retrieval state ("near_miss"), OPT-IN per surface: only
+ * the chat route enables it (its prompt carries the hedged close-match
+ * presentation contract and the calibration was chat-phrasing only). Voice and
+ * every other caller keep today's binary confident/no-match behavior.
+ *
+ * High-stakes exclusion: docs with home_root = 'operations' (refunds, billing,
+ * pricing, compliance policy, account/ops — incl. the billing-and-refunds
+ * node) can NEVER produce a near-miss state; for those the binary 0.50 floor
+ * stays absolute (no hedged policy answers, ever).
+ *
+ * Semantic-layer-down degradation: when embeddings are unavailable
+ * (topSemanticScore 0) the band simply never fires and behavior degrades to
+ * the lexical-only binary. NO lexical near-miss rescue is attempted.
+ */
+export const SEMANTIC_NEAR_MISS_FLOOR = 0.4;
+
+/** Home root excluded from the near-miss band (policy/ops/pricing territory). */
+export const NEAR_MISS_EXCLUDED_HOME_ROOT = "operations";
+
+/** Third retrieval state surfaced by the shared seam (chat opts into near_miss). */
+export type RetrievalOutcome = "confident" | "near_miss" | "no_match";
+
+/**
+ * Pure outcome resolver — the ONLY place the three-state decision lives.
+ * `bandEligibleTopSemanticScore` must already exclude
+ * {@link NEAR_MISS_EXCLUDED_HOME_ROOT} docs; callers that don't opt in
+ * (`nearMissBand` false/absent) can never see "near_miss".
+ */
+export function resolveRetrievalOutcome(params: {
+  confident: boolean;
+  nearMissBand: boolean;
+  bandEligibleTopSemanticScore: number;
+}): RetrievalOutcome {
+  if (params.confident) return "confident";
+  if (
+    params.nearMissBand &&
+    params.bandEligibleTopSemanticScore >= SEMANTIC_NEAR_MISS_FLOOR &&
+    params.bandEligibleTopSemanticScore < SEMANTIC_CONFIDENCE_FLOOR
+  ) {
+    return "near_miss";
+  }
+  return "no_match";
+}
 
 /** Blend weights for hybrid ordering within the same curated/tag tier. */
 const LEXICAL_BLEND_WEIGHT = 0.5;
@@ -469,6 +538,7 @@ export async function retrieveSurfaceAware(
     return {
       docs,
       confident: navDoc != null,
+      outcome: navDoc != null ? "confident" : "no_match",
       topScore: 0,
       topSemanticScore: 0,
       isNavigationQuery: navQuery,
@@ -532,6 +602,7 @@ export async function retrieveSurfaceAware(
   // lexical-only degradation). semantic_score = cosine similarity.
   let semanticRows: Record<string, unknown>[] = [];
   let topSemanticScore = 0;
+  let bandEligibleTopSemanticScore = 0;
   if (queryEmbedding) {
     try {
       const qvec = toVectorLiteral(queryEmbedding);
@@ -557,6 +628,15 @@ export async function retrieveSurfaceAware(
       semanticRows = semantic.rows as Record<string, unknown>[];
       topSemanticScore = semanticRows.reduce(
         (m, r) => Math.max(m, parseFloat(String(r.semantic_score ?? 0)) || 0),
+        0,
+      );
+      // Near-miss band eligibility (Task #2001): the high-stakes exclusion —
+      // operations-root docs (refunds/billing/policy) never enter the band.
+      bandEligibleTopSemanticScore = semanticRows.reduce(
+        (m, r) =>
+          (r.home_root as string | null) === NEAR_MISS_EXCLUDED_HOME_ROOT
+            ? m
+            : Math.max(m, parseFloat(String(r.semantic_score ?? 0)) || 0),
         0,
       );
     } catch (err) {
@@ -689,9 +769,16 @@ export async function retrieveSurfaceAware(
     );
   }
 
+  const outcome = resolveRetrievalOutcome({
+    confident,
+    nearMissBand: opts.nearMissBand === true,
+    bandEligibleTopSemanticScore,
+  });
+
   return {
     docs,
     confident,
+    outcome,
     topScore: primaryMaxRank,
     topSemanticScore,
     isNavigationQuery: navQuery,
