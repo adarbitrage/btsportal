@@ -84,11 +84,11 @@ Now there's a named mechanism ("Copper-Coil Trick" — concrete, physical, pictu
 
 ## Calibrating Curiosity Across the Three Surfaces
 
-Curiosity is not spread evenly across the funnel — it's front-loaded, and deliberately spent down as the reader warms up.
+Curiosity is not spread evenly across the funnel — it's front-loaded at the ad, and what happens to it next depends on the route.
 
 - **Ad — maximum curiosity.** This is the gap's home. Open the loop, name or gesture at the mechanism, and do not close anything. The click *is* the reader's attempt to close the loop.
 - **Advertorial — curiosity converted into story.** Re-open the ad's loop in the headline, then spend the page gradually paying it off: what the mechanism is, where it came from, why it works, who it's helped. Each partial payoff should open a smaller next-gap ("so how do I use it?") that pulls the reader down the page.
-- **Jump page — curiosity nearly spent, one loop left.** The reader knows the what and most of the how. Withhold only the final piece — the full demonstration, the exact protocol, "watch how it works" — and hand that last loop to the video. A jump page that re-teases from zero feels like being sent back to the start of the line.
+- **Jump page — the ad's loop, carried forward to the video.** This reader arrived straight from the ad, so the loop it opened is still nearly wide open — and the video, not the page, is where it closes. The jump-page headline restates the gap and aims it at the play button: the demonstration, the exact protocol, "watch how it works." What it must not do is open a *different* loop — a fresh, unrelated mystery breaks the scent the click was following.
 
 ## Key Takeaways
 
@@ -96,4 +96,4 @@ Curiosity is not spread evenly across the funnel — it's front-loaded, and deli
 - **Withhold the how, never the what.** Vague mystery is bait; precise incompleteness is craft.
 - Name the mechanism: a specific, memorable name for the real method creates a precise gap, implies newness, and gives skepticism somewhere to park.
 - Use the partial reveal — concrete enough to believe, incomplete enough to demand the next step. Beware both over-withholding and over-revealing.
-- Spend curiosity down the funnel: widest gap at the ad, story-paced payoff in the advertorial, one final loop handed to the video at the jump page.
+- Spend curiosity by route: widest gap at the ad; then a story-paced payoff through the advertorial, or the same loop carried forward on the jump page and handed to the video.

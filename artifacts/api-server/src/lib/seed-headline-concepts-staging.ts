@@ -111,7 +111,7 @@ Surface calibration at a glance
 - Compliance exposure: heaviest at ad and advertorial (native platform review), still real at the jump page.
 - Success metric: CTR (ad) → read-through/CTR (advertorial) → play rate (jump page).
 
-Why promise strength rises along the chain: the reader gets warmer at every step. A cold feed-scroller has no context for a big promise and will not believe it; a reader who chose to click and then chose to keep reading has demonstrated interest and can absorb a more direct promise. Matching promise strength to reader warmth is the deeper principle behind all the per-surface rules (see Angle Selection — Choosing the Big Idea Before Writing a Word for the awareness-stage lens).
+Why promise strength differs by surface: it must match the reader's actual warmth and the surface's job — and warmth depends on the route. A cold feed-scroller has no context for a big promise and will not believe it. On the advertorial route, a reader who chose to click and then chose to keep reading has demonstrated interest and can absorb a more direct promise. On the jump-page route, the reader is only one click warmer than the feed — the jump page is a second ad — so its headline is direct and promise-forward not because the reader is warm, but because the surface's entire job is to sell the watch decision; believability discipline still applies in full, and the video does the proving. Matching promise strength to the reader's actual state and the surface's job is the deeper principle behind all the per-surface rules (see Angle Selection — Choosing the Big Idea Before Writing a Word for the awareness-stage lens).
 
 Message match across the chain
 
@@ -214,7 +214,7 @@ A timeframe ("in 30 days") makes a promise concrete and testable — that's why 
 
 Industry evidence worth knowing
 
-Split-testing across native advertising has repeatedly found that trust-framed, softer editorial approaches outperform direct offer-first framing on cold traffic — and separately, that advertorial headlines that clearly show what the article is about and lead with a benefit beat pure curiosity teases. The pattern behind both findings: on cold surfaces, believability and relevance do more work than aggression. Save directness for warm readers.
+Split-testing across native advertising has repeatedly found that trust-framed, softer editorial approaches outperform direct offer-first framing on cold traffic — and separately, that advertorial headlines that clearly show what the article is about and lead with a benefit beat pure curiosity teases. The pattern behind both findings: on cold surfaces, believability and relevance do more work than aggression. Save headline directness for surfaces whose job demands it — the advertorial-route reader who has read on and warmed, or the jump page, where the page's whole job is to sell the watch decision.
 
 Compliance is a headline constraint, not fine print
 
@@ -231,11 +231,11 @@ Surface calibration
 
 - Ad headline: heaviest compliance exposure and lowest believability budget — the reader is cold, so promises stay small or implicit and curiosity does the lifting. Proof appears as light seasoning at most (an authority hint, a specific detail), never a stacked case.
 - Advertorial headline: still inside native review; benefit-clear but claim-careful. The format lends borrowed credibility, and the subheadline can carry a proof element. Precision beats size here.
-- Jump-page headline: directness rises — the reader has self-selected twice, so the promise can be stated plainly and proof can be stacked more aggressively (a credential plus a specific outcome in one unit). The believability ceiling still applies; a warm reader forgives directness, not dishonesty. Platform rules still reach this page via the ad that leads to it.
+- Jump-page headline: direct and promise-forward — not because the reader is warm (they are one click past the feed and still mostly cold), but because the surface's whole job is to sell the watch decision; proof can be stacked more aggressively (a credential plus a specific outcome in one unit) because the page must earn its credibility on the spot. The believability ceiling applies in full — directness is earned by the page's job, never a license for dishonesty. Platform rules still reach this page via the ad that leads to it.
 
 Fictional worked example (sourdough-baking offer): "Bake a Bakery-Quality Loaf on Your First Try — the No-Knead Overnight Method Even Beginners Get Right" carries a big promise (bakery-quality, first try), sized believable by the mechanism (overnight no-knead), scoped by the constraint ("even beginners"), with no regulated claims. The same idea over-promised — "Never Buy Bread Again: Perfect Loaves Guaranteed Every Time Forever" — sails past the ceiling and dies.
 
-Related docs: Headline Jobs by Surface — Ad, Advertorial, and Jump Page (why directness rises along the chain); Curiosity Mechanics — Open Loops, Mechanism Teases, and the Curiosity Gap (curiosity's ceiling is believability); Headline Quality Rubric — The Two-Pass Headline Evaluation (believability and skepticism-handling as scored dimensions).
+Related docs: Headline Jobs by Surface — Ad, Advertorial, and Jump Page (why directness differs by surface); Curiosity Mechanics — Open Loops, Mechanism Teases, and the Curiosity Gap (curiosity's ceiling is believability); Headline Quality Rubric — The Two-Pass Headline Evaluation (believability and skepticism-handling as scored dimensions).
 
 This covers the fundamentals. For strategy specific to your product, your numbers, and where your campaign is right now, the next step is a live group Q&A coaching call or a 1-on-1 private coaching session — bring your campaign and a coach will work through it with you.`;
 
@@ -391,7 +391,7 @@ Per surface: a workhorse on ads and advertorials (mistake/warning frames are nat
 6. "Even if" / "without" clauses
 
 The constraint-killer clause: "…without expensive equipment", "…even if you've killed every plant you've owned." This is the Constraint Block wearing its most common outfit — it names the reader's disqualifying objection and removes it in-line. Choose the ONE constraint that most blocks this avatar; stacking three "withouts" reads desperate and bloats the unit. The clause must be true: an "even if" the offer can't honor is a refund request in advance.
-Per surface: valuable everywhere; near-mandatory on jump pages, where warm-but-skeptical readers need their "yeah, but…" answered before pressing play. On ads, one short "without X" can double as a curiosity hook (how could that be possible?).
+Per surface: valuable everywhere; near-mandatory on jump pages, where a still-mostly-cold reader — one click past the feed — needs their "yeah, but…" answered before pressing play. On ads, one short "without X" can double as a curiosity hook (how could that be possible?).
 
 7. Fascinations
 

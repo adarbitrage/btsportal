@@ -62,13 +62,13 @@ Two craft notes keep you inside the lines.
 
 ## Calibrating Color Down the Funnel
 
-The color principles hold everywhere, but how hard you enforce them changes as the reader warms up across the funnel.
+The color principles hold everywhere, but how hard you enforce them changes with each place's job.
 
 - **The ad — every rule at maximum.** This is where the contrast war is fought and won or lost. The no-white-background rule is absolute here: a light-background ad image simply disappears in the feed, full stop. Saturation and contrast against the surroundings do their heaviest lifting here, because you're fighting for a glance from a cold, moving eye. Warm, saturated, single-dominant-note, congruent with your angle — no exceptions. If a candidate ad image is muted, monochrome, or backed by white, it's out before you weigh anything else.
 
 - **The advertorial page — congruence over pop.** The reader has already clicked; you're no longer clawing for attention against the feed. So raw contrast matters less, and *color-angle congruence* becomes the lead concern. Every image on the page should share a palette that agrees with the story's angle — earthy for a natural angle, warm for a comfort angle — so the page feels like one coherent world rather than a scrapbook. Backgrounds should still carry real environment (the page still shouldn't feel like an ad), but the job has shifted from *stopping the scroll* to *sustaining the mood*.
 
-- **Jump page (bridge page) — composed, still congruent.** By the bridge page the reader is warm and the page is doing credibility work, so a slightly cleaner, more composed color treatment can serve here (*see Document 5, The UGC Default*, on the late-funnel allowance for composure). But "composed" is not a license to go white-background catalog. The palette still agrees with the angle, backgrounds still carry depth and color, and the imagery still points the reader toward the next step rather than announcing itself as branded design.
+- **Jump page (bridge page) — composed, still congruent.** The bridge page is doing credibility work for a reader who is only one click past the feed, so a slightly cleaner, more composed color treatment can serve here (*see Document 5, The UGC Default*, on the late-funnel allowance for composure). But "composed" is not a license to go white-background catalog. The palette still agrees with the angle, backgrounds still carry depth and color, and the imagery still points the reader toward the next step rather than announcing itself as branded design.
 
 One check ties all three together, and it costs you five seconds: view every candidate image at phone size against a white background. If its edges blur into the page — if you can't instantly tell where the image ends and the white begins — it fails, no matter what other virtues it has. That single test catches the number-one color mistake before it ever reaches a feed.
 
@@ -79,4 +79,4 @@ One check ties all three together, and it costs you five seconds: view every can
 - Read fastest with **one dominant color note**, and make the **palette congruent with the angle** — earthy for natural, cool for clinical, warm for comfort. Incongruent color reads as subtly untrustworthy.
 - Unlearn the folklore: fixed hue-emotion charts ("red = urgency, blue = trust"), "red converts" (it was saturation and contrast), and the misquoted "color drives 85% of decisions" stat. Retire all of it.
 - The register default is **warm, natural, slightly-saturated real-world photography.** Push saturation only until it still looks like a photo — over-cooked HDR reads as an ad. Avoid black-and-white and desaturated looks in ad images; they lose the contrast war.
-- Down the funnel: enforce every rule hardest at the **ad image**, lead with **congruence** at the **advertorial**, and allow slightly cleaner-but-still-congruent color at the **jump page.** Test every image at phone size against white — if the edges blur, it fails.
+- By place: enforce every rule hardest at the **ad image**, lead with **congruence** at the **advertorial**, and allow slightly cleaner-but-still-congruent color at the **jump page.** Test every image at phone size against white — if the edges blur, it fails.

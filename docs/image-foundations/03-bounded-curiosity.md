@@ -48,13 +48,13 @@ That reframes the whole point of an image loop. Bounded curiosity is a promise, 
 
 ## Calibrating Curiosity Down the Funnel
 
-Visual curiosity, like the copy kind, is front-loaded and spent down as the reader warms up. The gap is widest at the coldest stage and nearly closed by the end.
+Visual curiosity, like the copy kind, is front-loaded at the ad — but how it gets spent depends on which route your funnel runs. The advertorial route pays the gap off through a story; the jump-page route keeps it alive and hands the payoff to the video.
 
 - **The ad — the gap at full width.** This is curiosity's home. The image poses the visual question — partial framing, occlusion, a reaction to something off-frame — and resolves nothing. The whole point of the ad image is to open the loop the click will reach to close, and to open it out of the target reader's world so it qualifies as it pulls.
 - **The advertorial page — the gap starts paying off.** Past the click, the same subject the ad image teased continues, and the answer arrives as the story unfolds. The concealment from the ad image is honored here: the reader finally sees the device, understands the moment, gets the "what" the image promised. Scent intact, question answered. The page can open smaller next-questions to keep the reader moving, but it must first settle the one the image opened.
-- **Jump page (bridge page) — almost nothing left to withhold.** By now the reader knows the what and most of the how. There's no room for a fresh visual mystery — reopening a big new gap this late feels like being shoved back to the start of the line. If any concealment remains, it's the smallest possible piece, and it points at the video: *watch how it actually works.* The image reassures far more than it teases.
+- **Jump page (bridge page) — the gap stays open and points at the video.** This reader clicked the ad and landed here directly — the loop the ad image opened is still almost fully open, and the video is where it gets closed. So the jump-page image doesn't resolve the mystery on the page; it restates it and aims it at the play button: *watch how it actually works.* What it must not do is open a *different* gap — a fresh, unrelated visual mystery breaks the scent the click was following. Same loop, carried forward, handed to the video.
 
-Same gap, three widths: wide open at the ad, closing through the advertorial, all but sealed at the jump page.
+Same gap, two routes: on the advertorial route it closes through the story; on the jump-page route it stays open and gets handed to the video.
 
 ## Key Takeaways
 

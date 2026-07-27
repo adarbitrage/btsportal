@@ -50,11 +50,11 @@ You know the images. The beaming model at a too-clean desk. The watermark-adjace
 
 And there's a fourth wound: readers have often seen the *exact same image* somewhere else, sometimes literally, because stock photos get reused across thousands of sites. Recognition is instant and fatal. The tidiest test for the cardinal sin: *if an image could plausibly appear in a bank's brochure, it does not belong in your funnel.* The polish, the casting, the impossible cleanliness — everything that makes a stock photo look "professional" is precisely what marks it as the enemy of a native creative.
 
-## The Narrow Exception: Late-Funnel Trust Elements
+## The Narrow Exception: Jump-Page Trust Elements
 
 There is exactly one place the polish rule loosens, and it's worth understanding precisely so you don't over-apply it.
 
-On the jump page (bridge page) — *after* the reader has clicked, read, and warmed up — small trust-supporting elements can be a touch cleaner and more composed. A tidy product-in-context shot. A credible, composed portrait. By this point the reader is no longer a cold scroller you're camouflaging your way past; they've self-selected into your story, and the page's job has shifted to *credibility*. A little order can serve that job (*see Document 1, The Three Jobs of an Ad Image*).
+On the jump page (bridge page) — the short page the reader lands on one click after the ad — small trust-supporting elements can be a touch cleaner and more composed. A tidy product-in-context shot. A credible, composed portrait. The reader is still mostly cold, but the *context* has changed: they self-selected by clicking, and the page no longer sits inside an editorial feed, so it doesn't need feed camouflage. Its job is *credibility* — looking legitimate enough that pressing play feels safe — and a little order can serve that job (*see Document 1, The Three Jobs of an Ad Image*).
 
 But hold the line on what this exception actually permits. It's a narrow allowance for *composure*, not a doorway back to studio polish. Even jump-page imagery never becomes branded advertising design — no seamless white backdrops, no hero product tiles, no stock. "Slightly more composed" is a small dial-turn, not a genre switch. Cross too far and you re-import the exact ad-signal you spent the whole funnel avoiding, right at the moment you can least afford to break trust.
 
@@ -64,13 +64,13 @@ It's worth saying plainly, because it's the misread that sinks people: choosing 
 
 ## Calibrating the Register Down the Funnel
 
-The UGC default holds across the whole funnel; what shifts is how strictly you enforce the "unpolished" end of the dial as the reader warms.
+The UGC default holds across the whole funnel; what shifts is how strictly you enforce the "unpolished" end of the dial at each place.
 
 - **The ad — maximum authenticity, zero polish.** The coldest reader, the trained ad-detector at full sensitivity, the highest stakes for camouflage. Everything here should read as captured, not produced: phone-camera feel, real setting, real person, single legible subject. The cardinal sin — obvious stock — is most fatal here, because it's where a single ad-tell earns an instant scroll-past. If a candidate ad image could appear in a brochure, it dies here first.
 
 - **The advertorial page — sustained authenticity across the story.** The reader has clicked, so raw camouflage matters slightly less, but the editorial register must hold across every image on the page. The images are illustrating a first-person narrative, so they should look like moments genuinely captured from that person's life — candid settings, real moments, one coherent unstaged world. Consistency is the job: one polished image dropped into a page of candid ones is more jarring than if the whole page were polished, because it exposes the seam.
 
-- **Jump page (bridge page) — the narrow allowance for composure.** This is where the exception lives. The reader is warm and the page is doing credibility work, so a slightly cleaner product-in-context shot or a composed portrait can serve. Still not stock, still not studio, still never branded design — just a small, deliberate turn toward order because the reader's need has shifted from *is this real?* to *can I trust this enough to act?*
+- **Jump page (bridge page) — the narrow allowance for composure.** This is where the exception lives. The page is off the feed and doing credibility work for a one-click reader, so a slightly cleaner product-in-context shot or a composed portrait can serve. Still not stock, still not studio, still never branded design — just a small, deliberate turn toward order, because this page's question isn't *does this blend into the feed?* but *does this look legitimate enough to press play?*
 
 The mental test that carries across all three: before you use any image, ask — *"Could this photo plausibly have been taken by the person the story is about?"* If yes, it fits the register. If it could only have come from a marketing department, it fails, however beautiful it is.
 
@@ -81,4 +81,4 @@ The mental test that carries across all three: before you use any image, ask —
 - In practice, UGC-style means phone-camera feel, real lived-in settings, ordinary real-looking people, and candid-but-legible composition — **one clear subject, readable at feed size.** It's a disciplined register, not permission to be blurry or unreadable.
 - **AI-generated imagery is allowed** when prompted to the register (candid, documentary, phone-shot, natural light) — but check every output for artifacts and anatomy errors, and never generate a real person's likeness (*see Document 7, The Seven Bans*).
 - **Obvious stock photography is the cardinal sin:** it breaks camouflage, torches authenticity, and signals spam all at once. If an image could appear in a bank's brochure, it does not belong in your funnel.
-- The **narrow late-funnel exception:** jump-page trust elements can be slightly cleaner and more composed — but that's an allowance for composure, never a return to studio polish or stock. Authenticity is a register, not carelessness.
+- The **narrow jump-page exception:** trust elements there can be slightly cleaner and more composed — the page is off the feed and doing credibility work — but that's an allowance for composure, never a return to studio polish or stock. Authenticity is a register, not carelessness.

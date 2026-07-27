@@ -93,9 +93,9 @@ An angle is not just an ad trick — it's the through-line of the whole funnel, 
 
 - **Ad — angle discovery.** The reader *meets* the angle: the warning is raised, the story begins, the discovery is announced. The ad's only job is to make this doorway irresistible to walk through.
 - **Advertorial — angle proof.** The middle page substantiates the angle it inherited: the warning gets evidence, the story gets its full arc, the mechanism gets its explanation. Changing angles mid-funnel — clicking a warning and landing on an unrelated cheerful story — breaks the scent and bleeds readers.
-- **Jump page — angle payoff.** The angle resolves into the promise at full intensity, pointed at the play button: the danger now avoidable, the transformation now available, the discovery now watchable.
+- **Jump page — angle sharpened into the watch.** On this route the reader meets the angle at the ad and lands here one click later. The jump page doesn't pay the angle off — the video does. It converts the angle into a plain reason to press play: the danger now avoidable, the transformation now available, the discovery now watchable.
 
-One angle, told in three acts — never three different angles taped together.
+One angle running the whole route — never different angles taped together.
 
 ## Key Takeaways
 
@@ -104,4 +104,4 @@ One angle, told in three acts — never three different angles taped together.
 - Learn the six families: **Story, Warning, Discovery/News, Contrarian, Local, Unique Mechanism** — and stack them freely.
 - Match the family to the reader's awareness stage: warnings and stories for the unaware, discovery for the problem-aware, mechanism and contrarian for the burned-and-skeptical.
 - Generate genuinely different angles before testing; three rewordings of one idea is not a test.
-- The angle runs the whole funnel: discovered at the ad, proven at the advertorial, paid off at the jump page.
+- The angle runs the whole funnel: discovered at the ad, then proven through the advertorial toward the sales page — or carried by the jump page into the video that proves it.

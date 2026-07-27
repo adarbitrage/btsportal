@@ -93,7 +93,7 @@ Word choice calibration is mostly *charge-budget* calibration — how much emoti
 
 - **Ad — lowest charge, highest grounding.** Platform review reads your words literally, and cold readers' hype detectors are at maximum sensitivity. Build almost entirely from context words; spend at most one moderate power word; ban absolutes and hot fear/greed vocabulary. The ad should sound like a well-written story link.
 - **Advertorial — the widest budget.** An editorial page can carry richer emotional vocabulary — story words, feeling words, stronger fear-and-relief arcs — because the surrounding prose earns and justifies the charge. This is where 🟡-tier Palette words belong. Still: concrete and active everywhere, and intensity in service of the story, never instead of it.
-- **Jump page — high clarity, focused charge.** Short, active, imperative rhythm. Spend the budget on certainty-and-safety vocabulary (*proven, guaranteed, watch, now*) rather than fear or hype — the reader needs confidence and a direction, and every word should point at the play button.
+- **Jump page — high clarity, focused charge.** This surface is a second ad for a reader one click past the feed: short, active, imperative rhythm. Spend the budget on certainty-and-safety vocabulary (*proven, guaranteed, watch, now*) rather than fear or hype — the reader needs confidence and a direction, and every word should point at the play button.
 
 ## Key Takeaways
 

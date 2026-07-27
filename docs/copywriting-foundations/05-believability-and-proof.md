@@ -69,7 +69,7 @@ Writing compliance-first delivers three compounding wins: your ads survive revie
 > **Swipe:** "Guaranteed To Go Through Ice, Mud or Snow — OR WE PAY THE TOW!" *(a famous classic tire ad)*
 > - **Anatomy:** [Concrete Performance Promise] + [Rhyming Risk Reversal].
 > - **Why It Works:** The guarantee is not fine print — it *is* the headline. The advertiser volunteers to pay the exact cost of their own failure, which makes the claim self-enforcing: you don't offer to pay tows you expect to pay. The rhyme makes the promise memorable enough to repeat over a fence.
-> - **Funnel Fit:** Jump page — a hot reader needs the last objection removed, and "we pay the tow" removes it.
+> - **Funnel Fit:** Jump page — a one-click reader hasn't seen proof yet, and a self-enforcing guarantee makes the next step feel safe before a single claim is argued.
 
 ## Fictional Before/After: From Round Hype to Qualified Proof
 
@@ -92,7 +92,7 @@ The believability ceiling sits at a different height on each surface, and the pr
 
 - **Ad — the compliance-safe hook.** Coldest reader, strictest review, lowest ceiling. Promise modestly, lean on specificity and curiosity rather than claim size, and keep every word platform-clean. The ad's proof job is simply to not trigger disbelief.
 - **Advertorial — proof stacking.** This is where evidence lives: the story, the numbers, the authority, the testimonials, layered in sequence so each claim is caught by the proof beneath it. The headline unit here can promise more than the ad did, because the page underneath immediately starts paying for it.
-- **Jump page — risk reversal.** The reader believes enough to be here; the remaining enemy is hesitation. Restate the promise at the full strength the funnel has earned, and pair it with the guarantee — make the next step feel like the *safe* choice, then hand them to the video.
+- **Jump page — safety before proof.** This reader clicked one ad; nothing has been proven to them yet — the video carries the proof. The jump page's believability job is to make *watching* feel safe and worth it: a plain, believable promise paired with the guarantee or another risk-reversal signal, so pressing play is the obviously safe choice.
 
 ## Key Takeaways
 
@@ -101,4 +101,4 @@ The believability ceiling sits at a different height on each surface, and the pr
 - When a true claim sounds too good, anticipate incredulity — voice the reader's doubt inside the headline ("It seems incredible…") instead of shouting over it.
 - Headline-sized proof signals: specific results, named/placed people, real authority, crowds, and risk reversal — often with promise in the headline and proof in the subheadline.
 - Compliance is a credibility strategy, not a constraint: the honest headline and the believable headline are usually the same headline.
-- Across surfaces: compliance-safe hook at the ad, proof stacking at the advertorial, risk reversal at the jump page.
+- Across surfaces: compliance-safe hook at the ad, proof stacking at the advertorial, and safety-before-proof at the jump page — risk reversal that makes watching the video feel safe.

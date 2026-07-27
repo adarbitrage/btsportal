@@ -102,7 +102,7 @@ Whatever the surfaces, the same visual idea must run through all of them. The th
 
 Why the jobs differ: reader warmth
 
-The reader gets warmer at every step. A cold feed-scroller has no context and no patience — the thumbnail must communicate in a glance. A reader who clicked has demonstrated interest — the advertorial image can carry more story. A reader who read the advertorial has invested attention — the jump-page image can support a direct promise. Matching the image's assertiveness to reader warmth is the deeper principle behind all the per-surface rules.
+Reader warmth depends on the route — the advertorial and the jump page are alternative click destinations, and the jump page never follows the advertorial. A cold feed-scroller has no context and no patience — the thumbnail must communicate in a glance. On the advertorial route, a reader who clicked has demonstrated interest — the advertorial image can carry more story. On the jump-page route, the reader lands one click after the feed and is still mostly cold — the jump page is effectively a second ad, so its image supports the headline's direct promise while earning credibility on the page itself, and the video does the real selling. Matching the image's assertiveness to the reader's actual state on its surface is the deeper principle behind all the per-surface rules.
 
 How to use this doc
 
@@ -292,7 +292,7 @@ The instantly recognizable stock photo — the beaming model at a too-clean desk
 
 The narrow exception: late-funnel trust elements
 
-On the jump page — after the reader has clicked and read — small trust-supporting elements can be cleaner and more composed: a tidy product-in-context shot, a credible composed portrait. The reader is warmer and the page's job is credibility, so a touch of order serves (see Image Jobs by Funnel Stage — Native Ad Thumbnail, Advertorial, and Jump Page). This is a narrow allowance for composure, not a doorway to studio polish: even jump-page imagery never becomes branded advertising design.
+On the jump page — the short page the reader lands on one click after the ad — small trust-supporting elements can be cleaner and more composed: a tidy product-in-context shot, a credible composed portrait. The reader is still mostly cold, but the page is off the feed and its job is credibility — looking legitimate enough that pressing play feels safe — so a touch of order serves (see Image Jobs by Funnel Stage — Native Ad Thumbnail, Advertorial, and Jump Page). This is a narrow allowance for composure, not a doorway to studio polish: even jump-page imagery never becomes branded advertising design.
 
 The mental test
 

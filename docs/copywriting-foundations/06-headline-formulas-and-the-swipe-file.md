@@ -94,7 +94,7 @@ Formulas are surface-agnostic skeletons — the calibration is in which you reac
 
 - **Ad — question, warning, and news skeletons.** Cold readers respond to self-check questions ("Do You Make These Mistakes…"), warnings, and news frames — the formulas that read as content, not commerce. Keep the fill editorial and platform-clean.
 - **Advertorial — story and "how to" skeletons.** The read is best sold by formulas that promise narrative or instruction: "They Laughed When…," "How to…," "The Secret of…" — shapes that a long editorial page can actually deliver on.
-- **Jump page — bargain and promise skeletons.** The hot reader responds to compressed, confident structures: "Give Me [90 Seconds] and I'll Show You…" pointed straight at the play button. No new questions, no fresh mysteries — closing shapes only.
+- **Jump page — bargain and promise skeletons.** This is a second ad for a one-click reader, so reach for compressed, confident structures that still sell: "Give Me [90 Seconds] and I'll Show You…" pointed straight at the play button — a time-bargain plus the loop the ad opened, aimed at the video. Keep the curiosity the reader arrived with; just don't open a new, unrelated mystery.
 
 ## Key Takeaways
 
@@ -102,4 +102,4 @@ Formulas are surface-agnostic skeletons — the calibration is in which you reac
 - Master the nine skeletons — from "How to…" and "Who Else Wants…" to the warning, the time-bargain, and the numbered list.
 - Build a swipe file: collect ads proven by paid repetition, organize by pattern and surface, and annotate each with Anatomy / Why It Works / Funnel Fit.
 - Swipe the structure, never the words — refill every skeleton with your market's specific audience, pain, and mechanism.
-- Match skeleton to surface: content-like shapes at the ad, narrative and instruction shapes at the advertorial, compressed closing shapes at the jump page.
+- Match skeleton to surface: content-like shapes at the ad, narrative and instruction shapes at the advertorial, compressed bargain-and-promise shapes at the jump page.

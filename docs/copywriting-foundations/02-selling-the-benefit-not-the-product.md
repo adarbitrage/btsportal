@@ -90,9 +90,9 @@ The benefit doesn't change across your funnel — but the *register* it's delive
 
 - **Ad — the identity and problem callout.** At the coldest stage, the benefit appears as recognition: name the reader's pain or identity so precisely that they feel personally addressed ("Desk workers with nagging lower-back ache…"). You're not promising the full transformation yet — you're proving you know who they are and what hurts.
 - **Advertorial — the emotional narrative.** Now the benefit unfolds as a story: a person like the reader had the pain, found the path, and lives on the other side. This is where hidden benefits earn their space — the confidence, the compliments, the relief — dramatized rather than claimed.
-- **Jump page — the high-intensity promise.** The reader is hot; deliver the benefit at full strength and point it at the play button: the sharpest version of the outcome, restated with the confidence the previous page earned.
+- **Jump page — the concrete promise of the video.** This reader clicked one ad and landed here still mostly cold — no story yet, no proof yet. Deliver the benefit as the plain, sharpest *believable* statement of the outcome, welded to what the video will show, and point it at the play button. The page doesn't get to assume belief; the video does the proving.
 
-Same benefit, three volumes: a whisper of recognition, a story, then a promise at full voice.
+Same benefit, different registers: a whisper of recognition at the ad, a story on the advertorial — or, on the jump-page route, a plain promise pointed straight at the play button.
 
 ## Key Takeaways
 
@@ -100,4 +100,4 @@ Same benefit, three volumes: a whisper of recognition, a story, then a promise a
 - Speak to the **bleeding neck** first — the single most urgent, painful problem — instead of stacking every benefit into one line.
 - Run the feature-to-benefit transformation by asking "so what?" until you reach something the reader actually feels.
 - Hidden emotional and social benefits (including **BOY PT MOM** — "Because Of You, People Think More Of Me") usually outpull obvious functional ones.
-- Across surfaces, the benefit stays constant but the register shifts: recognition in the ad, narrative in the advertorial, full-intensity promise on the jump page.
+- Across surfaces, the benefit stays constant but the register shifts: recognition in the ad, narrative in the advertorial, and a plain, believable promise of what the video will show on the jump page.
