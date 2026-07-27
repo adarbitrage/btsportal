@@ -149,4 +149,5 @@
 - [Chat continuity summary](chat-continuity-summary.md) — rolling per-session summary for aged-out chat turns; exact-watermark injection gate, incremental fold, fail-open; Rule 19 checkpoint rule + advisory recurrence_drift KB flag ride it.
 - [KB tests vs shared dev DB](kb-test-shared-db-isolation.md) — retrieval tests need fixture-only categories + slug-aware idempotent seeds; the shared corpus grows and pollutes fixed top-N/semantic-0 assertions.
 - [Series PDF render pipeline](series-pdf-render-pipeline.md) — member doc series = build-time committed PDFs (nix chromium, base64-inlined fonts) + content-addressed advisory-locked Drive boot-seed; setContent can't load file:// fonts.
+- [Chat E2E via throwaway member](chat-e2e-temp-member.md) — script-drive /api/chat with a temp member + `launchpad` grant (chat:full), SSE token parsing, FK-scan cleanup; validates KB DB edits end-to-end.
 - [KB push-approved corpus-wide](kb-push-approved-corpus-wide.md) — publish endpoint pushes EVERY approved staging row (no scoping); preflight the approved set first; conflict flag on update-drafts is expected supersede.

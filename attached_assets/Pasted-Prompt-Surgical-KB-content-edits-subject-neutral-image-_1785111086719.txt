@@ -1,0 +1,99 @@
+Prompt: Surgical KB content edits — subject-neutral image advice, focal-point crop principle, and "thumbnail" terminology rename
+
+I need precise, content-only edits to the image-foundations KB docs (live + staging, in lockstep). Three coordinated changes, no code, no schema, no seed-file edits:
+
+(A) Subject-neutral device framing. The docs currently teach "feature faces / human-first" as a deterministic rule. Our funnels also market pet products (dog/cat toys); the advice must work when the subject is a dog, a cat, or an object mid-use. Rewrite the rules at the level of the mechanism, not the instance. Canonical model for lead framings:
+
+"Lead with an expressive subject caught in a legible moment. The attention device is whatever carries the story's emotion or action at a glance — a face with a natural, readable expression, or the moment of use (mid-action). Crop tight enough that the emotion or action is unmistakable at phone size."
+
+(B) Crop-to-the-focal-point principle, scaled by where the image lives. Replace all "shoulders-up" / "crop tight" absolutes with this principle (adapt wording to context, keep meaning exact):
+
+"Crop to the focal point. Every image has one focal point — the expression, the action, the object of the visual question. How tightly you crop is set by where the image lives: in the ad, the image renders small in the feed and gets one glance — the focal point must fill the frame. On the advertorial page and the jump page, the image renders larger and the reader has already clicked — surrounding context can stay in frame when the scene serves the story, as long as the focal point still reads first. When in doubt, crop tighter; context must earn its place."
+
+(C) Terminology rename — "thumbnail" out, our vocabulary in. "Thumbnail" was introduced only by this doc set and conflicts with how we teach. Also, NEVER use the word "placement" (it means something different in our teaching) and drop "surfaces" as a framework noun. Throughout these docs:
+
+"native ad thumbnail" / "thumbnail" (noun) → "the ad image" (or "the ad" where context is clear)
+"advertorial image" → "the advertorial page image" / "on the advertorial page"
+"jump-page image" stays as-is
+"at thumbnail size" → "at feed size" or "small in the feed"
+"the three surfaces" → "the three places your images work: the ad, the advertorial page, and the jump page"
+Title renames (update the title field in BOTH tables, and every cross-reference to these titles inside all docs in this set):
+"Thumbnail Composition — One Subject, Instant Legibility" → "Ad Image Composition — One Subject, Instant Legibility"
+"The Image Selection Workflow — From Angle to Finished Thumbnail" → "The Image Selection Workflow — From Angle to Finished Ad Image"
+"Image Jobs by Funnel Stage — Native Ad Thumbnail, Advertorial, and Jump Page" → "Image Jobs by Funnel Stage — Ad Image, Advertorial, and Jump Page"
+Ordering requirement: BEFORE any edits, snapshot every occurrence of the three OLD titles across both tables (doc id + location). Perform title renames and cross-reference updates from that snapshot — never search for cross-references after renaming, or you'll miss them.
+Style rules for all edits:
+
+Rules become subject-neutral: no "person required," no implied human face in any rule. The word "human" may appear in descriptive examples like "(human or animal)" — it must never appear as a requirement.
+Keep concrete examples as illustrations of range (e.g. "a hand opening a jar, a dog mid-catch, a cat locked onto a toy") — never as if-human/if-pet conditional branches.
+Gaze mechanics (direct gaze = connection, aimed gaze = attention transfer, jobless gaze = wasted) are species-agnostic — keep them fully; stop implying the face is human.
+"One face" → "one subject, one emotional read."
+Preserve each doc's structure, approximate length, evidence citations, and compliance language. Surgical rewordings, not rewrites.
+Cross-reference mentions of other doc titles must exactly match the (new) titles.
+Process & safety (required):
+
+Work one doc pair at a time (staging row(s) + live row together), in the order listed below.
+Before the first write, snapshot the current content of ALL rows to be edited (live #8, 10538, 10605–10612 excluding 10608's pair? — no: all 10 live rows and staging #1454, #1531, #1612–#1620) to a scratch location for rollback.
+Before each edit, confirm the pre-edit text contains the exact target phrases quoted below. If a quoted phrase is not found verbatim in the row, STOP on that doc and report the discrepancy — do not improvise a similar edit.
+Use the base64-in/out convention for moving exact text through SQL to avoid quoting/CRLF corruption. Docs use em-dashes and typographic quotes — preserve them.
+Pipeline mechanics (required):
+
+Live docs: ai_live_documents. Staging: kb_staging_docs (effective text = edited_content ?? content; write edits to edited_content). The corpus-wide publish pushes every published staging row to live, so every edit must land in both tables identically or it gets reverted.
+Creative Strategy has TWO published staging rows targeting live #8: edit both #1531 and #1619, plus live #8, keeping all three effective texts identical.
+Preserve tags on every edited row — direct SQL edits have no tag-wipe guard.
+On every edited ai_live_documents row, set embedding = NULL, embedding_model = NULL, embedding_generated_at = NULL so the boot backfill regenerates semantic vectors. search_vector is a generated column — no action needed.
+Append an audit note to reviewer_notes (live) and admin_notes (staging) on each edited row, using the current date in YYYY-MM-DD format: [Surgical edit YYYY-MM-DD] Generalized image-device advice to subject-neutral framing; crop-to-focal-point principle; thumbnail→ad-image terminology. Content-only.
+Docs and specific edits (live id / staging id):
+
+#10610 / #1613 — "Faces & Gaze Direction in Ad Images" (heaviest)
+
+Reframe the "Why faces work" opener with framing (A): faces are one strong expressive-subject device, the moment of use the other; keep the eye-tracking evidence.
+Craft rules: replace the "Shoulders up…" bullet with principle (B); "One face" → "one subject, one emotional read."
+Remove: "When members ask 'do I need a person in the shot?', the answer is usually yes — but a person can be a pair of hands." Replace with: the shot needs an expressive subject or a legible action — a face, hands mid-task, or the moment of use — chosen by what the story is about.
+"When hands are the subject" section: keep, but frame hands as one form of "the moment of use," not "the human-first image."
+"Which surface, which face" section: retitle in new vocabulary; "the person should look like the reader" → "the subject should mirror the reader's situation."
+Preserve the closing coaching call-to-action paragraph verbatim (the "live group Q&A coaching call / 1-on-1" paragraph at the end).
+Apply terminology rename (C) throughout.
+#8 / #1531 + #1619 — "Creative Strategy — Ads, Images & Landing Pages That Work Together"
+
+Bullet "Faces are the strongest attention device — shoulders-up crops, one face…hands…runner-up device" → framing (A), keep gaze mechanics.
+"tighter crops on faces/hands to heighten intrigue" → "tighter crops on the focal point to heighten intrigue."
+Rename (C) throughout, including updated cross-reference titles in the Image Foundations index paragraph.
+#10538 / #1454 — "Create Your Native Ad Assets — Ad Images"
+
+Remove: "Decide 'human-first' whenever possible (faces, hands, reactions). If you use objects or pets, keep a compelling human element in frame when it fits the headline." → replace with: lead with an expressive subject or a clear moment of use; an object alone is a product shot — the same object mid-action (in a hand, mid-play) is a moment.
+"Human faces: expressive faces naturally draw the eye…" → "Expressive faces (human or animal) naturally draw the eye…"
+"Reaction close-up: a person's expressive face…" → "Reaction close-up: an expressive face responding to…"
+Checklist "Human-first: Is there an expressive face or unmistakable human reaction?" → "Expressive subject: Is there an expressive face or an unmistakable emotional/action read?"
+Keep AI-glitch warnings verbatim ("odd hands, extra fingers, warped eyes") — literal QA checks.
+Rename (C) throughout.
+#10612 / #1620 — "The Image Selection Workflow" (retitle per C)
+
+"A face, when the story is about the person and their feeling" → "A face (human or animal), when the story is about the subject and its feeling."
+Keep "Hands doing something…" bullet; generalize the moment of use (a paw batting the toy, first-person POV).
+Parenthetical "(shoulders-up crops, one face, one hand-action, expression matching the promise)" → "(crop to the focal point, one subject, one action, the moment matching the promise)."
+Rename (C) throughout, including references to the renamed docs.
+#10607 / #1616 — "Thumbnail Composition" (retitle to "Ad Image Composition — One Subject, Instant Legibility")
+
+"Crop tight. Fill the frame with the subject — shoulders-up for faces…" → principle (B).
+"One person, one object, one moment" → "One subject, one moment."
+Rename (C) throughout.
+#10608 / #1612 — "Image Jobs by Funnel Stage" (retitle to "Image Jobs by Funnel Stage — Ad Image, Advertorial, and Jump Page") — terminology-only: rename (C) throughout the body ("three surfaces" framing, ~9 "thumbnail" occurrences); advice content unchanged.
+
+#10609 / #1614 — "Visual Curiosity & the Concealment Rule" — "reaction-first (face responding to something off-frame)" and "Faces are natural curiosity partners: an expressive reaction…" → neutral "an expressive reaction" phrasing; rename (C) (~3 occurrences); mechanics unchanged.
+
+#10606 / #1615 — "Color for Ad Images" — terminology-only: rename (C) (~3 occurrences) + updated cross-reference titles. No advice changes.
+
+#10605 / #1617 — "The UGC-Style Default" — "Real-looking people: ordinary faces…" → "Real-looking subjects — ordinary faces, ordinary settings…"; keep the test "Could this photo plausibly have been taken by the person the story is about?" verbatim; rename (C) (~2 occurrences).
+
+#10611 / #1618 — "Image Compliance — The Absolute Bans" — terminology-only: rename (C) (~2 occurrences) + cross-reference titles. All compliance rules stay verbatim and human-specific (celebrities, identifiable faces, body-part emphasis) — that is policy, not framing.
+
+Do NOT touch: artifacts/api-server/src/lib/seed-image-foundations-staging.ts, anything under research/image-foundations/ (seeds are slug-idempotent and won't overwrite; research is historical), and any doc not listed above.
+
+Verification (all required; these are literal string checks — the canonical replacement texts in (A)/(B) are the intended end-state and contain "phone size"/"feed size", which is correct):
+
+Query both tables (staging via effective text): zero case-insensitive occurrences of the literal string thumbnail across all 10 doc pairs; zero occurrences of the literal hyphenated string human-first; zero references to any of the three OLD titles anywhere in the corpus; the removed "do I need a person in the shot → usually yes" line is gone.
+Zero occurrences of the standalone word placement in any edited doc (word-boundary match — "replacement" is fine).
+Confirm tags unchanged on every edited row (both tables); confirm staging effective text and live content are identical per pair (all three rows for Creative Strategy); confirm embedding columns nulled on all edited live rows.
+Confirm audit notes present on every edited row.
+End-to-end: as a member, ask the AI assistant "what image should I use for a cat-toy funnel ad?" — the answer should offer expressive-subject / moment-of-use framing and focal-point cropping without demanding a human in frame and without using the word "thumbnail." Also ask "how tightly should I crop my advertorial page image?" — the answer should allow scene context when the focal point still reads first.
