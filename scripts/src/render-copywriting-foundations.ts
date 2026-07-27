@@ -116,12 +116,28 @@ function parseDoc(file: string): DocMeta {
 
 // ── Markdown → HTML with ids on h2 ──────────────────────────────────────────
 
+/**
+ * Plain text straight from the raw marked tokens (no HTML entities ever enter
+ * the string — parseInline() output escapes `"` → `&quot;` etc., which then got
+ * double-escaped by the TOC template; see Task #2014).
+ */
+function tokensToPlainText(tokens: Array<Record<string, unknown>>): string {
+  return tokens
+    .map((t) => {
+      const child = t.tokens as Array<Record<string, unknown>> | undefined;
+      if (child && child.length) return tokensToPlainText(child);
+      if (typeof t.text === "string") return t.text;
+      return typeof t.raw === "string" ? t.raw : "";
+    })
+    .join("");
+}
+
 function renderMarkdown(md: string): { html: string; toc: Array<{ id: string; text: string }> } {
   const toc: Array<{ id: string; text: string }> = [];
   const renderer = new Renderer();
   renderer.heading = ({ tokens, depth }) => {
     const text = (renderer.parser?.parseInline(tokens) ?? "").trim();
-    const plain = text.replace(/<[^>]+>/g, "");
+    const plain = tokensToPlainText(tokens as Array<Record<string, unknown>>).trim();
     if (depth === 2) {
       const id = slugify(plain);
       toc.push({ id, text: plain });
@@ -417,6 +433,13 @@ async function main() {
     for (const doc of docs) {
       if (only && !doc.file.startsWith(only)) continue;
       const html = buildHtml(doc, docs.length);
+      // Guard: double-escaped entities must never appear (Task #2014).
+      const doubleEscaped = html.match(/&amp;(quot|#39|amp);/);
+      if (doubleEscaped) {
+        throw new Error(
+          `Double-escaped entity "${doubleEscaped[0]}" found in rendered HTML for ${doc.file}`,
+        );
+      }
       await page.setContent(html, { waitUntil: "networkidle" });
       const outFile = path.join(OUT_DIR, doc.file.replace(/\.md$/, ".pdf"));
       const footer = `
