@@ -1,0 +1,38 @@
+Review came back GO with corrections, and the reviewer found three concrete pipeline facts that materially improve the prompt: hardcoded constants that must change (DOCS_DIR, OUT_DIR, SERIES_NAME), the cover meta-line parser keyed on the literal series name string, and the exact renderer line (444) where the filename derivation needs an override for doc 2. Here's the final, corrected prompt — paste this into main:
+
+Render the Image Foundations PDFs and deliver to the Creative Drive
+Build the member-facing PDF series from the current, just-edited markdown in docs/image-foundations/, cloning the proven Copywriting Foundations pipeline. Read .agents/memory/series-pdf-render-pipeline.md before starting.
+
+Pre-flight gate (must pass before rendering anything)
+grep -ric "thumbnail" docs/image-foundations/ → 0
+grep -riw "placement" docs/image-foundations/ → 0
+grep -rn "Faces, Gaze, and Hands" docs/image-foundations/ → 0
+Doc 2's H1 is exactly # The Attention Devices: Expressive Subjects and the Moment of Use
+Doc 2's series meta line reads *Image Foundations · Document 2 of 8*
+grep -rn "do I even need a person" docs/image-foundations/ → 0
+If ANY fail, STOP — do not render.
+
+Build 1 — Render pipeline
+Clone/extend scripts/src/render-copywriting-foundations.ts for the image series. Specifics (verified against the current script):
+
+Update the hardcoded constants: DOCS_DIR → docs/image-foundations, OUT_DIR → the image-foundations assets directory (sibling of the copywriting one under api-server assets), and SERIES_NAME → "Image Foundations" (lines ~37/40/44). Do NOT overwrite the copywriting outputs.
+Series meta line: parseDoc identifies the cover meta line by matching the series-name string (line ~105) — it must match "Image Foundations" or covers render with an empty meta line.
+Filename override for doc 2: the renderer derives output filenames from md filenames (line ~444, doc.file.replace(/\.md$/, ".pdf")). The md file 02-faces-gaze-and-hands.md is deliberately frozen, so add a small filename-override map (or slugify from the H1 for this doc) so the committed PDF is 02-the-attention-devices.pdf. All other docs keep md-derived names.
+Cover layout check for doc 2: the new title is ~65 chars and will wrap ~3 lines at the cover's 30pt H1. Render doc 2 first and visually verify the cover's fixed-height layout absorbs the wrap (nothing pushed off-page or overlapping); adjust cover CSS for this series only if needed.
+Reuse the base64-font-inlining strategy (Chromium setContent cannot load file:// fonts) and the nix chromium executable path with --no-sandbox.
+The copywriting script contains copywriting-specific structure handlers (Swipe blocks, Anatomy/Why-It-Works callouts, word-palette styling). The image docs contain none of these patterns — confirm none of those handlers trigger on the image series output (spot-check for misapplied special styling).
+Build 2 — Drive boot-seed
+Clone artifacts/api-server/src/lib/seed-copywriting-foundations-drive.ts as a content-addressed (sha256 object-path), advisory-locked, idempotent boot-seed:
+
+Folder constant → "Image Foundations" (sibling of "Copywriting Foundations"); re-boots never duplicate; updated content replaces cleanly.
+The mapping table's name field is the ONLY member-visible name. Doc 2's entry must be: { sortOrder: 2, pdf: "02-the-attention-devices.pdf", name: "2. The Attention Devices — Expressive Subjects and the Moment of Use.pdf" }. No trace of "faces-gaze-and-hands" in any member-visible string. All other entries: numbered display names matching each doc's H1 title, same convention as the copywriting table.
+Acceptance checks (all must pass, in dev)
+Exactly 8 PDFs committed, numbered in series order; doc 2's committed filename is 02-the-attention-devices.pdf.
+Doc 2's PDF cover shows the full new title and the meta line "Image Foundations · Document 2 of 8"; cover layout intact despite the 3-line wrap.
+Extracted text from Docs 1, 2, and 8 PDFs: zero "thumbnail", zero "placement"; Doc 2 contains "Lead with an expressive subject caught in a legible moment."
+Fonts embedded; text-selectable; no broken page breaks around Key Takeaways boxes; no &quot;/entity artifacts in body or any TOC; no copywriting-specific styling misapplied.
+Boot dev: "Image Foundations" folder appears in the Creative Drive with all 8 PDFs under their display names, once — and still only once after a second boot; doc 2's Drive name shows "The Attention Devices", with no old-title trace anywhere member-visible.
+Out of scope
+Editing member-doc content in any way (STOP and report if you find a copy problem — never patch in the renderer).
+Publishing to production. Hand off a canary spec (what to verify in the live Creative Drive post-publish) and stop.
+After this runs and merges, two follow-ups remain in the main flow per your standard close-out: publish + run the canary, then archive superseded Drafts #2011 and #2012 (one-liner, separate from this prompt as agreed).
