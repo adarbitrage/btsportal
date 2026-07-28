@@ -13,19 +13,21 @@ import {
 const APP_TSX_PATH = path.resolve(__dirname, "..", "..", "App.tsx");
 const APP_TSX = readFileSync(APP_TSX_PATH, "utf8");
 
-describe("App.tsx community and DM routes", () => {
-  const expectedRoutes = [
-    "/community",
-    "/community/:postId",
-    "/dm",
-    "/dm/:threadId",
-  ];
+describe("App.tsx community routes", () => {
+  const expectedRoutes = ["/community", "/community/:postId"];
 
   for (const route of expectedRoutes) {
     it(`registers a <Route path="${route}"> in App.tsx`, () => {
       expect(APP_TSX).toContain(`path="${route}"`);
     });
   }
+
+  it("does not register any DM/messages routes (feature removed)", () => {
+    expect(APP_TSX).not.toContain('path="/dm"');
+    expect(APP_TSX).not.toContain('path="/dm/:threadId"');
+    expect(APP_TSX).not.toContain('path="/coach/messages"');
+    expect(APP_TSX).not.toContain('path="/coach/messages/:threadId"');
+  });
 });
 
 function collectLeaves(nodes: NavNode[]): NavLeaf[] {
@@ -51,7 +53,7 @@ function visibleHrefsForUser(
   return collectLeaves(filtered).map((l) => l.href);
 }
 
-describe("MEMBER_NAV community and messages wiring", () => {
+describe("MEMBER_NAV community wiring", () => {
   it("declares the Community leaf with community:access entitlement and no hiddenForRoles", () => {
     const community = collectLeaves(MEMBER_NAV).find(
       (l) => l.href === "/community",
@@ -62,54 +64,31 @@ describe("MEMBER_NAV community and messages wiring", () => {
     expect(community!.hiddenForRoles ?? []).toEqual([]);
   });
 
-  it("declares the Messages leaf as admin-only (dashboard:view) and hidden for coaches", () => {
-    const messages = collectLeaves(MEMBER_NAV).find((l) => l.href === "/dm");
-    expect(messages).toBeDefined();
-    expect(messages!.label).toBe("Messages");
-    expect(messages!.requiredEntitlement).toBeUndefined();
-    expect(messages!.hiddenForRoles).toEqual(["coach"]);
-    // Temporarily admin-only: a permission every admin role holds.
-    expect(messages!.requiredPermission).toBe("dashboard:view");
+  it("declares no Messages/DM leaf (feature removed)", () => {
+    const dm = collectLeaves(MEMBER_NAV).find((l) => l.href === "/dm");
+    expect(dm).toBeUndefined();
   });
 });
 
-describe("Sidebar nav filtering for community/DM by role and entitlement", () => {
-  it("a member with community:access sees Community but not the admin-only Messages", () => {
+describe("Sidebar nav filtering for community by role and entitlement", () => {
+  it("a member with community:access sees Community", () => {
     const hrefs = visibleHrefsForUser(
       new Set(["community:access"]),
       "free_member",
     );
     expect(hrefs).toContain("/community");
-    expect(hrefs).not.toContain("/dm");
   });
 
-  it("a member without community:access sees neither Community nor Messages", () => {
+  it("a member without community:access does not see Community", () => {
     const hrefs = visibleHrefsForUser(new Set(), "free_member");
     expect(hrefs).not.toContain("/community");
-    expect(hrefs).not.toContain("/dm");
   });
 
-  it("a coach sees neither Community nor Messages", () => {
-    // Coaches typically don't have community:access; even if they did, Messages
-    // is hidden for the coach role.
-    const hrefs = visibleHrefsForUser(new Set(), "coach");
-    expect(hrefs).not.toContain("/community");
-    expect(hrefs).not.toContain("/dm");
-
-    const hrefsWithAccess = visibleHrefsForUser(
-      new Set(["community:access"]),
-      "coach",
-    );
-    // Coach role hides Messages regardless of entitlement.
-    expect(hrefsWithAccess).not.toContain("/dm");
-  });
-
-  it("an admin (with community:access) sees both Community and Messages", () => {
+  it("an admin with community:access sees Community", () => {
     const hrefs = visibleHrefsForUser(
       new Set(["community:access"]),
       "super_admin",
     );
     expect(hrefs).toContain("/community");
-    expect(hrefs).toContain("/dm");
   });
 });

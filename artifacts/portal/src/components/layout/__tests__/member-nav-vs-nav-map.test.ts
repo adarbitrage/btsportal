@@ -33,7 +33,7 @@ function collectLeaves(nodes: readonly NavNode[]): NavLeaf[] {
 }
 
 // Member-visible leaves: exclude entries locked behind a staff PERMISSION
-// (e.g. /dm is temporarily admin-only). Entitlement gating and coach-hiding
+// (e.g. an entry temporarily restricted to admins). Entitlement gating and coach-hiding
 // (hiddenForRoles) still mean members can see the page, so those stay in.
 const memberLeaves = collectLeaves(MEMBER_NAV).filter((l) => !l.requiredPermission);
 const memberHrefs = new Set(memberLeaves.map((l) => l.href));

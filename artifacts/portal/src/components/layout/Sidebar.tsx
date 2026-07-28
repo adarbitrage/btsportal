@@ -75,7 +75,6 @@ import { useAuth } from "@/lib/auth";
 import { isCoachRole, isPartnerRole } from "@workspace/auth";
 import { NotificationBell, NotificationBadgeCount } from "@/components/community/NotificationBell";
 import { useAdminModerationPendingCount } from "@/hooks/useAdminModeration";
-import { UnreadBadge } from "@/components/dm/unread-badge";
 import {
   filterNavByContentAccess,
   filterNavByEntitlements,
@@ -176,18 +175,6 @@ export const MEMBER_NAV: NavNode[] = [
     icon: Users,
     requiredEntitlement: "community:access",
     showNotificationBadge: true,
-  },
-  {
-    kind: "leaf",
-    href: "/dm",
-    label: "Messages",
-    icon: MessageSquare,
-    hiddenForRoles: ["coach"],
-    // Temporarily admin-only: Messages is hidden from regular members but kept
-    // in the build. `dashboard:view` is held by every admin role, so all admins
-    // still see it. (Member nav is now run through filterNavByRole too.)
-    requiredPermission: "dashboard:view",
-    showUnreadBadge: true,
   },
   {
     kind: "folder",
@@ -460,7 +447,6 @@ function LeafRow({ leaf, activeHref, onNavClick, indent = 0 }: LeafRowProps) {
         <span className="truncate">{leaf.label}</span>
         {leaf.showNotificationBadge && <NotificationBadgeCount />}
         {leaf.showModerationBadge && <ModerationPendingBadge />}
-        {leaf.showUnreadBadge && <UnreadBadge />}
       </div>
     </Link>
   );

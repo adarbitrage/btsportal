@@ -394,6 +394,15 @@ if [ -n "$DATABASE_URL" ]; then
   #     CONSTRAINT/COLUMN).
   psql "$DATABASE_URL" -v ON_ERROR_STOP=1 \
     -f lib/db/drizzle/0097_call_bookings.sql >/dev/null
+
+  # 35. Drop the removed DM (direct-messaging) tables (Task #2024). The whole
+  #     DM feature was deleted (portal pages, coach messaging, /api/dm) and
+  #     both tables were verified empty. A pure table REMOVAL leaves the
+  #     live-schema-drift gate green (schema ⊆ DB), so push would never drop
+  #     them — drop explicitly here, like steps 6/9. Idempotent
+  #     (DROP TABLE IF EXISTS ... CASCADE).
+  psql "$DATABASE_URL" -v ON_ERROR_STOP=1 \
+    -f lib/db/drizzle/0125_drop_dm_tables.sql >/dev/null
 fi
 
 # Per-session chat Conversation Continuity Summary (Task #1989). One additive

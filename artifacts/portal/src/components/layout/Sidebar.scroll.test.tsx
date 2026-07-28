@@ -37,10 +37,6 @@ vi.mock("@/components/community/NotificationBell", () => ({
   NotificationBadgeCount: () => null,
 }));
 
-vi.mock("@/components/dm/unread-badge", () => ({
-  UnreadBadge: () => null,
-}));
-
 vi.mock("wouter", () => ({
   useLocation: () => ["/earn/become-a-coach", () => {}],
   Link: ({

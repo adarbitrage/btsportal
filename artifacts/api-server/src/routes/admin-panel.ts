@@ -6,7 +6,7 @@ import { getProductLabelByRank } from "../lib/entitlements";
 import { Router, type Request, type Response } from "express";
 import crypto from "crypto";
 import bcrypt from "bcryptjs";
-import { db, usersTable, userProductsTable, productsTable, ticketsTable, auditLogTable, systemSettingsTable, adminNotesTable, progressTable, emailChangeHistoryTable, emailChangeAttemptsTable, phoneChangeHistoryTable, webhookLogsTable, machineProductKeyMappingsTable, machineUnknownProductKeysTable, sessionsTable, adSpendTransactionsTable, memberRefundEventsTable, btsOrdersTable, callBookingsTable, partnerAssignmentsTable, partnerNotesTable, onboardingEffectsTable, sequenceEnrollmentsTable, signedDocumentsTable, communicationLogTable, chatSessionsTable, chatDailyUsageTable, chatPromptsTable, courseProgressTable, blitzDailyActivityTable, blitzEventsTable, memberHealthScoresTable, ghlSyncLogTable, memberAppInstancesTable, knowledgebaseBookmarksTable, vaultFavoritesTable, emailUnsubscribesTable, communityPostsTable, communityCommentsTable, communityReactionsTable, communityNotificationsTable, communityBadgesTable, dmThreadsTable, dmMessagesTable, winsTable, ticketSatisfactionTable, ticketMessagesTable, ticketSlaTable, ticketAttachmentsTable, userStrikesTable, coachingCallAttendanceTable, coachingCallsTable, moderationQueueTable, affiliateProfilesTable, checkoutIdempotencyTable, sessionPackBookingsTable, coachingCreditLedgerTable, subscriptionsTable, toolUserDataTable, toolUsageLogTable, toolDailyUsageTable, voiceCallsTable, voiceDailyUsageTable } from "@workspace/db";
+import { db, usersTable, userProductsTable, productsTable, ticketsTable, auditLogTable, systemSettingsTable, adminNotesTable, progressTable, emailChangeHistoryTable, emailChangeAttemptsTable, phoneChangeHistoryTable, webhookLogsTable, machineProductKeyMappingsTable, machineUnknownProductKeysTable, sessionsTable, adSpendTransactionsTable, memberRefundEventsTable, btsOrdersTable, callBookingsTable, partnerAssignmentsTable, partnerNotesTable, onboardingEffectsTable, sequenceEnrollmentsTable, signedDocumentsTable, communicationLogTable, chatSessionsTable, chatDailyUsageTable, chatPromptsTable, campaignChecklistProgressTable, courseProgressTable, blitzDailyActivityTable, blitzEventsTable, memberHealthScoresTable, ghlSyncLogTable, memberAppInstancesTable, knowledgebaseBookmarksTable, vaultFavoritesTable, emailUnsubscribesTable, communityPostsTable, communityCommentsTable, communityReactionsTable, communityNotificationsTable, communityBadgesTable, winsTable, ticketSatisfactionTable, ticketMessagesTable, ticketSlaTable, ticketAttachmentsTable, userStrikesTable, coachingCallAttendanceTable, coachingCallsTable, moderationQueueTable, affiliateProfilesTable, checkoutIdempotencyTable, sessionPackBookingsTable, coachingCreditLedgerTable, subscriptionsTable, toolUserDataTable, toolUsageLogTable, toolDailyUsageTable, voiceCallsTable, voiceDailyUsageTable } from "@workspace/db";
 import { cancelAppointment, COACHING_LOCATION_ID } from "../lib/ghl-coaching-calendar";
 import { eq, ne, and, gt, gte, lt, lte, desc, asc, sql, ilike, or, inArray, isNotNull, isNull, getTableColumns, type SQL } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
@@ -3100,8 +3100,6 @@ async function getMemberStaffReferenceBlockers(memberId: number): Promise<string
     UNION ALL
     (SELECT 'broadcasts.created_by' FROM broadcasts WHERE created_by = ${memberId} LIMIT 1)
     UNION ALL
-    (SELECT 'dm_threads.admin_id' FROM dm_threads WHERE admin_id = ${memberId} LIMIT 1)
-    UNION ALL
     (SELECT 'email_template_versions.saved_by' FROM email_template_versions WHERE saved_by = ${memberId} LIMIT 1)
     UNION ALL
     (SELECT 'kb_staging_docs.reviewed_by' FROM kb_staging_docs WHERE reviewed_by = ${memberId} LIMIT 1)
@@ -3386,7 +3384,6 @@ router.delete("/admin/members/:id", requirePermission("members:delete"), async (
       courseProgressDeleted: 0,
       blitzActivityDeleted: 0,
       communityContentDeleted: 0,
-      dmContentDeleted: 0,
       ticketsDeleted: 0,
       winsDeleted: 0,
       subscriptionsDeleted: 0,
@@ -3396,7 +3393,7 @@ router.delete("/admin/members/:id", requirePermission("members:delete"), async (
     await db.transaction(async (tx) => {
       // ----------------------------------------------------------------
       // Phase A: delete child rows that FK-reference tables we'll delete
-      // in Phase B (ticket_messages → tickets, dm_messages → dm_threads,
+      // in Phase B (ticket_messages → tickets,
       // community_reactions/notifications/comments → community_posts).
       // These must go before their parent rows or Postgres 23503 fires.
       // ----------------------------------------------------------------
@@ -3416,15 +3413,6 @@ router.delete("/admin/members/:id", requirePermission("members:delete"), async (
       }
       // ticket_satisfaction also has its own user_id FK
       await tx.delete(ticketSatisfactionTable).where(eq(ticketSatisfactionTable.userId, id));
-
-      // dm_messages reference dm_threads (NO ACTION)
-      await tx.delete(dmMessagesTable).where(eq(dmMessagesTable.senderId, id));
-      const memberThreadIds = (
-        await tx.select({ id: dmThreadsTable.id }).from(dmThreadsTable).where(eq(dmThreadsTable.memberId, id))
-      ).map((r) => r.id);
-      if (memberThreadIds.length > 0) {
-        await tx.delete(dmMessagesTable).where(inArray(dmMessagesTable.threadId, memberThreadIds));
-      }
 
       // community_reactions/notifications have post_id + comment_id FKs that are NO ACTION.
       // We must delete ALL reactions/notifications pointing to the member's posts/comments
@@ -3486,12 +3474,6 @@ router.delete("/admin/members/:id", requirePermission("members:delete"), async (
         .returning({ id: sessionPackBookingsTable.id });
       counts.sessionPackBookingsDeleted = deletedSessionPackBookings.length;
 
-      const deletedDmThreads = await tx
-        .delete(dmThreadsTable)
-        .where(eq(dmThreadsTable.memberId, id))
-        .returning({ id: dmThreadsTable.id });
-      counts.dmContentDeleted = deletedDmThreads.length;
-
       // ----------------------------------------------------------------
       // Phase C: remaining personal-data tables with direct user_id FK
       // ----------------------------------------------------------------
@@ -3510,6 +3492,9 @@ router.delete("/admin/members/:id", requirePermission("members:delete"), async (
 
       await tx.delete(chatDailyUsageTable).where(eq(chatDailyUsageTable.userId, id));
       await tx.delete(chatPromptsTable).where(eq(chatPromptsTable.userId, id));
+      await tx
+        .delete(campaignChecklistProgressTable)
+        .where(eq(campaignChecklistProgressTable.userId, id));
 
       const deletedProgress = await tx
         .delete(progressTable)

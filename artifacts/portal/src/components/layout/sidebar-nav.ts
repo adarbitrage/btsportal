@@ -12,7 +12,6 @@ export interface NavLeaf {
   requiredPermission?: Permission;
   showNotificationBadge?: boolean;
   showModerationBadge?: boolean;
-  showUnreadBadge?: boolean;
   hiddenForRoles?: string[];
   /**
    * When set, this nav item is hidden for members who lack access to the

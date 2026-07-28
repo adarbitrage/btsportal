@@ -101,6 +101,7 @@
 - [Next-call panel source of truth](next-call-panel-source-of-truth.md) — persistent "next call" UI queries call_bookings directly (any type), never the partner-assignment endpoint (null for LaunchPad by design).
 - [Grandfather backfill dev-DB run](grandfather-backfill-dev-db-run.md) — testing a one-time backfill in shared dev DB executes it forever; branch tests on pre-flight `alreadyMigrated`; watch read-after-write lag.
 - [vitest spyOn on existing mock](vitest-spyon-on-existing-mockfn.md) — vi.spyOn on an existing vi.fn() swaps identity; mockRestore() doesn't reliably undo it. Read/mockClear() in place instead.
+- [Member-delete FK guard catches other features' drift](member-delete-fk-guard-drift.md) — the FK exhaustiveness test scans the live shared dev DB, so unrelated merged features' new user-FKs fail it; classify SET NULLs, add NO ACTION member tables to the delete pipeline.
 - [Admin member hard-delete pipeline](admin-member-hard-delete.md) — GHL cancels first (outside tx, abort on failure); end active partner_assignments in-tx before delete; ANY financial row blocks.
 - [Entitlement key exhaustive metadata map](entitlement-key-exhaustive-metadata.md) — a new ENTITLEMENT_KEYS entry needs a matching seed.ts ENTITLEMENT_METADATA row or `tsc` fails.
 - [VIP pure-status product mechanics](vip-status-product-mechanics.md) — vip:status is rank-6 badge-only, co-granted with 1year, independent expiry clocks; excluded from rank checks via shared PARTNER_INELIGIBLE_SLUGS.
