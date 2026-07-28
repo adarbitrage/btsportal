@@ -9,6 +9,7 @@
     "render-foundations-pdfs": "tsx ./src/render-copywriting-foundations.ts",
     "render-image-foundations-pdfs": "tsx ./src/render-image-foundations.ts",
     "render-campaign-checklist-pdf": "tsx ./src/render-campaign-checklist.ts",
+    "render-campaign-checklist-v2-pdf": "tsx ./src/render-campaign-checklist-v2.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {

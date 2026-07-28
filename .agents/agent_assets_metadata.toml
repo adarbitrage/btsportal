@@ -258,3 +258,9 @@ id = "yU8uBiNrN6NpQZ-jVsQJD"
 uri = "file://research/image-foundations/report.md"
 type = "text"
 title = "Image Foundations — Deep Research Report"
+
+[[outputs]]
+id = "R4nCXWnfklC59TR-pMz9X"
+uri = "file://scripts/private-pdfs/campaign-checklist-v2.pdf"
+type = "pdf"
+title = "Campaign Checklist v2 (16-step subtitle)"
