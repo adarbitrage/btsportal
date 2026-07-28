@@ -1009,6 +1009,9 @@ importers:
 
   scripts:
     dependencies:
+      '@workspace/campaign-roadmap':
+        specifier: workspace:*
+        version: link:../lib/campaign-roadmap
       '@workspace/db':
         specifier: workspace:*
         version: link:../lib/db

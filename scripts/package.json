@@ -8,9 +8,11 @@
     "seed-sandy-admin": "tsx ./src/seed-sandy-admin.ts",
     "render-foundations-pdfs": "tsx ./src/render-copywriting-foundations.ts",
     "render-image-foundations-pdfs": "tsx ./src/render-image-foundations.ts",
+    "render-campaign-checklist-pdf": "tsx ./src/render-campaign-checklist.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
+    "@workspace/campaign-roadmap": "workspace:*",
     "@workspace/db": "workspace:*",
     "drizzle-orm": "catalog:"
   },

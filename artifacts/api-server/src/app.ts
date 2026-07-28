@@ -40,6 +40,7 @@ import { seedMediaMavens } from "./lib/seed-media-mavens";
 import { seedModerationWordlist } from "./lib/seed-moderation-wordlist";
 import { seedAssistantCards } from "./lib/seed-assistant-cards";
 import { seedCopywritingFoundationsDrive } from "./lib/seed-copywriting-foundations-drive";
+import { seedResourcesDrive } from "./lib/seed-resources-drive";
 import { seedImageFoundationsDrive } from "./lib/seed-image-foundations-drive";
 import { seedCoachRoster, generateWeeklyQaCalls } from "./lib/coaching-roster";
 import { retitleCleanedHoldingDocs, retitleFiledPrivateCoachingDocs, resetStuckCleaningDocs } from "./lib/transcript-cleaner";
@@ -154,6 +155,7 @@ seedAssistantCards().catch(err => console.error("[Seed] Failed to seed assistant
 // Copywriting Foundations series → Creative Drive folder + 8 committed PDFs
 // (Task #2005). Idempotent, advisory-locked; the prod delivery mechanism.
 seedCopywritingFoundationsDrive().catch(err => console.error("[Seed] Failed to seed Copywriting Foundations drive folder:", err));
+seedResourcesDrive().catch(err => console.error("[Seed] Failed to seed Resources drive folder:", err));
 seedImageFoundationsDrive().catch(err => console.error("[Seed] Failed to seed Image Foundations drive folder:", err));
 seedCoachRoster()
   .then(() => generateWeeklyQaCalls())
