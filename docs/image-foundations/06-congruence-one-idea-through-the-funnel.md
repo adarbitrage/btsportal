@@ -16,13 +16,13 @@ Congruence is the discipline of keeping that scent unbroken from the ad image, t
 
 Here's where beginners take a wrong turn. They hear "keep it congruent" and reach for the literal fix: use the same image everywhere. That's not congruence — it's laziness that ignores everything the earlier documents taught you about the three places an image works and their different jobs (*see Document 1, The Three Jobs of an Ad Image*).
 
-Congruence lives at the level of **idea**, not pixels. Each image should be purpose-built for its own job — a candid feed-native grab for the ad, an editorial photo that advances the story for the advertorial, a slightly cleaner credibility shot for the jump page — while every image in the campaign re-expresses the *same angle*. Remember from *Document 1* that a campaign runs one route, so in practice this is a two-image chain: the ad image plus your route's middle-page image, matched on idea and visual spirit. They don't have to be identical twins; they should be more like siblings who obviously come from the same family.
+Congruence lives at the level of **idea**, not pixels. Each image should be purpose-built for its own job — a candid feed-native grab for the ad, an editorial photo that advances the story for the advertorial, a jump-page shot that carries the ad's open question forward and makes the promise feel attainable — while every image in the campaign re-expresses the *same angle*. Remember from *Document 1* that a campaign runs one route, so in practice this is a two-image chain: the ad image plus your route's middle-page image, matched on idea and visual spirit. They don't have to be identical twins; they should be more like siblings who obviously come from the same family.
 
 Take a fictional example. Say your angle for a joint-support supplement is "the retired woodworker who thought stiff hands were just his new normal." Congruent imagery looks like this on each route:
 
 - **Ad image (both routes):** a grabbed-looking close shot of an older man's hands pausing mid-task on a workbench, flexing stiffly. It opens a question.
 - **Advertorial route:** the click lands on photos of the same kind of man in his shop, mid-story — working, then later working more freely. The page continues the exact subject and mood, advancing the narrative the copy tells.
-- **Jump-page route:** the same click lands instead on a cleaner image of confident, working hands supporting the direct promise the headline is making, pointed at the play button.
+- **Jump-page route:** the same click lands instead on an image of confident, working hands that keeps the ad's question alive and makes the headline's promise feel attainable, pointed at the play button.
 
 Different photographs, and on either route the same unmistakable idea — *hands, work, the return of ease.* That's congruence. The reader never once feels handed off to a different story.
 
@@ -52,7 +52,7 @@ The reason congruence and variety aren't in conflict is that each image has a di
 
 - **The ad image** meets the angle to a cold, distracted scroller. Its version of the idea has to land in a glance and open a visual question — it introduces the story.
 - **The advertorial image** meets a reader who has clicked and is deciding whether to invest a few minutes. Its version of the idea confirms the scent and then advances it, carrying more story because the reader is warmer and leaning in.
-- **The jump-page image** meets a reader who is only one click past the feed. Its version of the idea makes the promise concrete and credible and points it at the video — it doesn't presume belief; it makes pressing play feel like the obvious, safe next step.
+- **The jump-page image** meets a reader who is only one click past the feed, still carrying the curiosity the ad opened. Its version of the idea keeps that question alive, makes the promise concrete and attainable, and points it at the video — it doesn't presume belief; it makes pressing play feel like the obvious next step.
 
 One angle, two acts per campaign: the ad image raises it, your route's middle page carries it, the destination pays it off. Never different angles taped together and hoping the reader doesn't notice the seams — because they always notice, even when they can't say what bothered them.
 

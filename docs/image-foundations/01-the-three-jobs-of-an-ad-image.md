@@ -8,7 +8,7 @@ New to this series? Start here — this document defines the vocabulary every ot
 
 ## The Wrong First Question
 
-When a member drops an image in front of a coach and asks "is this a good image?", the honest answer is always another question: **good for what?**
+When you look at an image and ask "is this a good image?", the honest answer is always another question: **good for what?**
 
 Because there is no such thing as a good ad image in the abstract. An image that stops a cold scroller dead in a feed can be exactly the wrong image on a jump page. A photo that makes an advertorial feel like real journalism can be too soft, too composed, too "designed" to survive a native feed. The image is not judged against beauty, or polish, or even how much you like it. It is judged against a job — and the job changes depending on where the image lives.
 
@@ -42,13 +42,13 @@ The advertorial image's entire job is to answer that question with a confident *
 
 So advertorial imagery stays in the editorial register: photos that could plausibly illustrate a real article, each one advancing the story the copy is telling rather than decorating around it. The reader is warmer now — they've demonstrated interest by clicking — so these images can carry more story than the ad image could. But they still can't look like advertising, because the whole power of the advertorial is that it doesn't feel like one.
 
-## 3. The Jump Page Image — Builds Credibility and Momentum
+## 3. The Jump Page Image — Builds Curiosity, Believability, and Momentum
 
-The jump page (also called a bridge page) is the short page whose only job is to get the video playing — and the reader arrives here straight from the feed, having clicked exactly one ad. They have not read an article, seen any proof, or been warmed by a story. They're mildly curious, not sold. Think of the jump page as a **second ad**: it has to re-win the reader's attention and convert it into a play, the same way the ad won the click.
+The jump page (also called a bridge page) is the short page whose only job is to get the video playing — and the reader arrives here straight from the feed, having clicked exactly one ad. They have not read an article, seen any proof, or been warmed by a story. But the curiosity loop the ad opened is still almost fully open — that loop is the engine of this page. Think of the jump page as a **second ad**: it has to re-win the reader's attention and convert it into a play, the same way the ad won the click.
 
-The image on this page can't lean on an article format for borrowed trust — there's no journalism to hide behind. So it works with the headline as **one unit**, and its two jobs are to make the promise concrete and to give the page just enough visual credibility to feel legitimate. Subject matter that makes the transformation believable, supporting the direct promise the headline is making, pointing all momentum at the play button.
+The image on this page works with the headline as **one unit**, and its job is to keep the ad's loop open and aim it at the play button while making the promise feel real. "Believability" here means believed *attainability*: the hinted-at mechanism feels real and reachable behind the next click — not proof, not polish. Subject matter that makes the transformation feel attainable, carrying the same question the ad opened, pointing all momentum at the play button. The image still needs just enough visual legitimacy that pressing play feels safe — but that's a floor, not the job.
 
-This is also the one place slightly cleaner imagery is allowed. Trust elements can look a little more composed here — a jump page image doesn't have to look grabbed on a phone the way an ad image does. But "cleaner" has a hard ceiling: it never crosses into studio-branded advertising polish. Even at its most composed, the image stays believable, not slick.
+One minor permission rides along: because this page doesn't sit inside a feed, its imagery doesn't have to look grabbed on a phone the way an ad image does, so a touch more order is allowed. Composed is not the point and does not equal credible — the loop and the believable promise do that work — and "cleaner" never crosses into studio-branded advertising polish. Even at its most composed, the image stays believable, not slick.
 
 ## Why Cheap Wrong Clicks Poison Everything
 
@@ -64,7 +64,7 @@ If you strip away the specifics, one idea explains why the jobs differ: **the im
 
 - A cold feed-scroller has no context and no patience. The ad image must communicate in a single glance and can't ask for anything but a click. This is true on both routes.
 - On the **advertorial route**, a reader who clicked has demonstrated interest. The advertorial image has earned the right to carry more story, and by the time they reach the sales page they're genuinely warm.
-- On the **jump-page route**, the reader who lands is only one click warmer than the feed. The jump-page image can't assume belief or borrowed trust; it supports the headline's direct promise while *earning* credibility on the page itself, and lets the video do the real selling.
+- On the **jump-page route**, the reader who lands is only one click warmer than the feed. The jump-page image can't assume belief or borrowed trust; it keeps the curiosity the ad opened alive, makes the promise feel real and attainable, and lets the video do the real selling.
 
 Match the image's assertiveness to the reader's actual warmth and everything feels natural. Get it backwards — a hard-selling, over-composed image thrown at an ice-cold scroller, or an image that presumes a warmth the reader never built — and the image works against the moment. Reader warmth is the principle underneath all the per-page rules you'll meet in this series. When a specific rule ever feels arbitrary, ask "how warm is the reader here, on this route?" and it usually explains itself.
 
@@ -72,7 +72,7 @@ Match the image's assertiveness to the reader's actual warmth and everything fee
 
 Three places, three jobs — but on any one campaign they are not separate assignments. Your funnel's two images are acts of one story, and the same visual idea must run through both. The ad image opens a visual question; the middle page — advertorial or jump page, whichever your route runs — continues that exact subject and mood; the destination pays it off. This through-line is called **congruence**, and it's the thread the reader's scent follows from feed to video.
 
-Congruence does *not* mean reusing the identical image. It means congruence of **idea** — each image re-expresses the same angle in the way its own job demands. On the advertorial route: the ad image's grabbed-on-a-phone shot of tired feet, then the advertorial's photo of the same person mid-day at work. On the jump-page route: the same ad image, then a cleaner jump-page shot supporting the headline's promise. Different photographs, one unmistakable idea. Break the idea and the reader feels lost even when each individual image is strong.
+Congruence does *not* mean reusing the identical image. It means congruence of **idea** — each image re-expresses the same angle in the way its own job demands. On the advertorial route: the ad image's grabbed-on-a-phone shot of tired feet, then the advertorial's photo of the same person mid-day at work. On the jump-page route: the same ad image, then a jump-page shot carrying the same question forward and making the headline's promise feel real. Different photographs, one unmistakable idea. Break the idea and the reader feels lost even when each individual image is strong.
 
 That's the whole reason "is this a good image?" has to become "good for which of the three places, and does it carry the same angle as the pages around it?" Congruence is important enough that it gets its own full treatment later (*see Document 6, Congruence: One Idea Through the Whole Funnel*) — here, just lock in that the three jobs are always in service of one story.
 
@@ -87,8 +87,8 @@ Read them in any order once you have this one. But whichever technique you're ap
 ## Key Takeaways
 
 - There is no good image in the abstract. An image is only good *for the place it lives* — always name that place before you judge the image.
-- There are three places across two alternative routes (ad → advertorial → sales page, or ad → jump page → VSL — the jump page never follows the advertorial). Each place has one job: the **ad image** wins qualified attention, the **advertorial** image confirms the scent, the **jump page** image — a second ad's image — builds credibility and momentum toward the play.
+- There are three places across two alternative routes (ad → advertorial → sales page, or ad → jump page → VSL — the jump page never follows the advertorial). Each place has one job: the **ad image** wins qualified attention, the **advertorial** image confirms the scent, the **jump page** image — a second ad's image — builds curiosity, believability, and momentum toward the play.
 - The ad image is a filter, not a maximum-clicks device. Cheap, wrong clicks poison the whole campaign, because networks throttle or reprice ads whose post-click engagement is poor.
-- Match the image's assertiveness to the reader's actual warmth on your route: advertorial-route readers warm up through the story; a jump-page reader is only one click past the feed, so that image must earn credibility rather than assume it.
+- Match the image's assertiveness to the reader's actual warmth on your route: advertorial-route readers warm up through the story; a jump-page reader is only one click past the feed, so that image must keep the ad's loop open and make the promise feel attainable rather than assume belief.
 - One law ties the three places together: **congruence** — the same visual idea, re-expressed for each job, running through the whole chain (full treatment in *Document 6*).
 - Whichever technique you apply from this series, start the same way every time: name where the image lives, name its job, judge the image against that job.

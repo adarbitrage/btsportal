@@ -90,7 +90,7 @@ The benefit doesn't change across your funnel — but the *register* it's delive
 
 - **Ad — the identity and problem callout.** At the coldest stage, the benefit appears as recognition: name the reader's pain or identity so precisely that they feel personally addressed ("Desk workers with nagging lower-back ache…"). You're not promising the full transformation yet — you're proving you know who they are and what hurts.
 - **Advertorial — the emotional narrative.** Now the benefit unfolds as a story: a person like the reader had the pain, found the path, and lives on the other side. This is where hidden benefits earn their space — the confidence, the compliments, the relief — dramatized rather than claimed.
-- **Jump page — the concrete promise of the video.** This reader clicked one ad and landed here still mostly cold — no story yet, no proof yet. Deliver the benefit as the plain, sharpest *believable* statement of the outcome, welded to what the video will show, and point it at the play button. The page doesn't get to assume belief; the video does the proving.
+- **Jump page — the concrete promise of the video.** This reader clicked one ad and landed here still mostly cold — no story yet, no proof yet, but still carrying the curiosity the ad opened. Deliver the benefit as the plain, sharpest *believable* statement of the outcome — real enough to feel attainable behind the play button — welded to what the video will show. The page doesn't get to assume belief; the video does the proving.
 
 Same benefit, different registers: a whisper of recognition at the ad, a story on the advertorial — or, on the jump-page route, a plain promise pointed straight at the play button.
 

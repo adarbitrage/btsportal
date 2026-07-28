@@ -93,8 +93,8 @@ The reader is at their coldest: scrolling an editorial feed in discovery mode, n
 2. The advertorial image — confirms the scent.
 The reader just clicked an editorial-style ad and landed on what looks and feels like an article. The advertorial's imagery must make that click feel correct within a second: same subject matter, same tone, same implicit promise as the thumbnail that earned the click. This is congruence — the "scent" the reader is following. A jarring visual shift (new subject, new mood, suddenly polished product photography) breaks the scent and shows up in the numbers as a decent ad CTR followed by poor read-through. Advertorial imagery stays in the editorial register: photos that could plausibly illustrate a real article, advancing the story the copy is telling.
 
-3. The jump-page image — builds credibility and momentum.
-On the short page whose only job is to get the video playing, the image supports the promise the headline is making and gives the page just enough visual credibility to feel legitimate. It cannot borrow trust from an article format, so the image works with the headline as one unit: subject matter that makes the transformation concrete and believable. This is the one surface where slightly cleaner imagery can serve — trust elements can look composed — but it never becomes studio-branded advertising polish.
+3. The jump-page image — builds curiosity, believability, and momentum.
+On the short page whose only job is to get the video playing, the reader arrives one click from the feed with the curiosity loop the ad opened still almost fully open — that loop is the engine of the page. The image works with the headline as one unit to keep that loop open and aim it at the play button while making the promise feel real: believability here means believed attainability — the hinted-at mechanism feels real and reachable behind the next click — not proof-style credibility. Just enough visual legitimacy to feel safe pressing play is a floor, not the job. Because the page is off the feed, slightly more composed imagery is a minor permission — but composed does not equal credible, and it never becomes studio-branded advertising polish.
 
 The one universal law: congruence through the chain
 
@@ -102,7 +102,7 @@ Whatever the surfaces, the same visual idea must run through all of them. The th
 
 Why the jobs differ: reader warmth
 
-Reader warmth depends on the route — the advertorial and the jump page are alternative click destinations, and the jump page never follows the advertorial. A cold feed-scroller has no context and no patience — the thumbnail must communicate in a glance. On the advertorial route, a reader who clicked has demonstrated interest — the advertorial image can carry more story. On the jump-page route, the reader lands one click after the feed and is still mostly cold — the jump page is effectively a second ad, so its image supports the headline's direct promise while earning credibility on the page itself, and the video does the real selling. Matching the image's assertiveness to the reader's actual state on its surface is the deeper principle behind all the per-surface rules.
+Reader warmth depends on the route — the advertorial and the jump page are alternative click destinations, and the jump page never follows the advertorial. A cold feed-scroller has no context and no patience — the thumbnail must communicate in a glance. On the advertorial route, a reader who clicked has demonstrated interest — the advertorial image can carry more story. On the jump-page route, the reader lands one click after the feed and is still mostly cold — the jump page is effectively a second ad, so its image keeps the curiosity the ad opened alive and makes the headline's promise feel real and attainable, and the video does the real selling. Matching the image's assertiveness to the reader's actual state on its surface is the deeper principle behind all the per-surface rules.
 
 How to use this doc
 
@@ -154,7 +154,7 @@ Choose the device by the job: a face when the story is about the person and thei
 
 Which surface, which face
 
-On the native ad thumbnail, the face is a scroll-stopper and a qualifier: the person should look like the reader (or the reader's situation), and the gaze should serve the visual question the thumbnail opens (see Visual Curiosity & the Concealment Rule). On the advertorial, faces carry the story — the same person or same kind of person continuing the narrative the click started. On the jump page, a face is optional; when used, direct gaze plus a credible, composed expression supports the promise (see Image Jobs by Funnel Stage — Native Ad Thumbnail, Advertorial, and Jump Page). Hand-led, first-person shots work on all three surfaces — they are especially strong on thumbnails for mechanism-led angles, where the doing is the story.
+On the native ad thumbnail, the face is a scroll-stopper and a qualifier: the person should look like the reader (or the reader's situation), and the gaze should serve the visual question the thumbnail opens (see Visual Curiosity & the Concealment Rule). On the advertorial, faces carry the story — the same person or same kind of person continuing the narrative the click started. On the jump page, a face is optional; when used, direct gaze plus a natural, believable expression makes the promise feel real and attainable (see Image Jobs by Funnel Stage — Native Ad Thumbnail, Advertorial, and Jump Page). Hand-led, first-person shots work on all three surfaces — they are especially strong on thumbnails for mechanism-led angles, where the doing is the story.
 
 This covers the fundamentals. For strategy specific to your product, your numbers, and where your campaign is right now, the next step is a live group Q&A coaching call or a 1-on-1 private coaching session — bring your campaign and a coach will work through it with you.`;
 
@@ -198,7 +198,7 @@ Color advice in marketing is dominated by folklore — universal hue-emotion cha
 
 The headline rule: no white or light backgrounds
 
-Native feeds are white. The editorial pages your ads sit inside are white or near-white, and the surrounding content mostly sits on white cards. An image with a white or washed-out light background dissolves into the page — it has no edges, no presence, and it vanishes at a glance. This is the single most common color mistake in member creatives, and it's disqualifying: whatever else an image has going for it, a white background erases it in the feed. Choose images whose background carries color, depth, or a real environment. (Clean white product-photography backgrounds are a brand-advertiser convention — exactly the "looks like an ad" signal this system avoids.)
+Native feeds are white. The editorial pages your ads sit inside are white or near-white, and the surrounding content mostly sits on white cards. An image with a white or washed-out light background dissolves into the page — it has no edges, no presence, and it vanishes at a glance. This is the single most common color mistake in ad creatives, and it's disqualifying: whatever else an image has going for it, a white background erases it in the feed. Choose images whose background carries color, depth, or a real environment. (Clean white product-photography backgrounds are a brand-advertiser convention — exactly the "looks like an ad" signal this system avoids.)
 
 What the evidence actually supports
 
@@ -292,7 +292,7 @@ The instantly recognizable stock photo — the beaming model at a too-clean desk
 
 The narrow exception: late-funnel trust elements
 
-On the jump page — the short page the reader lands on one click after the ad — small trust-supporting elements can be cleaner and more composed: a tidy product-in-context shot, a credible composed portrait. The reader is still mostly cold, but the page is off the feed and its job is credibility — looking legitimate enough that pressing play feels safe — so a touch of order serves (see Image Jobs by Funnel Stage — Native Ad Thumbnail, Advertorial, and Jump Page). This is a narrow allowance for composure, not a doorway to studio polish: even jump-page imagery never becomes branded advertising design.
+On the jump page — the short page the reader lands on one click after the ad — imagery can be a touch cleaner and more composed: a tidy product-in-context shot, a believable portrait. The reader is still mostly cold, but the page is off the feed — there is no feed to camouflage into, so a touch more order won't hurt. The page's real job is keeping the curiosity the ad opened aimed at the play button while the promise feels real and attainable; looking legitimate enough that pressing play feels safe is a floor, not the purpose (see Image Jobs by Funnel Stage — Native Ad Thumbnail, Advertorial, and Jump Page). This is a narrow allowance for composure, not a doorway to studio polish: even jump-page imagery never becomes branded advertising design.
 
 The mental test
 
@@ -496,7 +496,7 @@ Image selection starts before any image exists: with the angle. Choosing an imag
 
 Step 2 — Identify the surface
 
-The same image can be right on one surface and wrong on another. Decide where this image lives: the native ad thumbnail (wins qualified attention from a cold scroller), the advertorial image (confirms the scent the click followed), or the jump-page image (supports the promise with credibility). Every later judgment — subject, polish level, assertiveness — calibrates to the surface's job and the reader's warmth at that point (see Image Jobs by Funnel Stage — Native Ad Thumbnail, Advertorial, and Jump Page).
+The same image can be right on one surface and wrong on another. Decide where this image lives: the native ad thumbnail (wins qualified attention from a cold scroller), the advertorial image (confirms the scent the click followed), or the jump-page image (keeps the ad's curiosity aimed at the play button while the promise feels attainable). Every later judgment — subject, polish level, assertiveness — calibrates to the surface's job and the reader's warmth at that point (see Image Jobs by Funnel Stage — Native Ad Thumbnail, Advertorial, and Jump Page).
 
 Step 3 — Choose the human device
 
@@ -534,7 +534,7 @@ export const IMAGE_SEED_DOCS: readonly ImageSeedDoc[] = [
     taxonomyTags: ["creative", "funnel"],
     content: DOC_1_CONTENT,
     adminNotes:
-      "Anchor/vocabulary doc for the Image Foundations set (stage-fit framework: qualified attention → scent/congruence → credibility). " +
+      "Anchor/vocabulary doc for the Image Foundations set (stage-fit framework: qualified attention → scent/congruence → curiosity/believability/momentum). " +
       SOURCE_SET_NOTE,
   },
   {
