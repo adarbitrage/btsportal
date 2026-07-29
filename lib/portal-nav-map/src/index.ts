@@ -99,7 +99,7 @@ export const PORTAL_NAVIGATION_MAP: readonly NavSection[] = [
     section: "Account",
     items: [
       { label: "Account", path: "/account", description: "Your account settings: profile, password, ad balance, saved payment cards, devices/sessions, and notification preferences." },
-      { label: "My Products", path: "/account/products", description: "The products / memberships you own." },
+      { label: "My Products", path: "/account?card=my-products", description: "The products / memberships you own — a card on the Account page (the old /account/products URL redirects here)." },
     ],
   },
 ];
@@ -120,6 +120,9 @@ export const NAV_MAP_ONLY_PATHS: readonly string[] = [
   "/support",
   // Fund Ad Spend is reached from the Ad Balance card on the Account page.
   "/ad-spend/fund",
+  // My Products is a collapsible card on the Account page (Task #2026), not
+  // a sidebar entry; the deep link expands the card.
+  "/account?card=my-products",
 ];
 
 /** Route prefixes that are STAFF-ONLY and must never appear in the nav map. */

@@ -106,12 +106,16 @@ test.describe("Member portal + admin — YSE-granted product details", () => {
     client.release();
 
     try {
-      // --- Member portal view: /account/products ----------------------------
+      // --- Member portal view: My Products card on the Account page ---------
+      // The old /account/products URL redirects to the Account page with the
+      // My Products card deep-linked open (Task #2026).
       await loginAs(page, memberEmail, memberPassword);
 
       await page.goto("/account/products");
 
-      await expect(page.getByTestId("my-products-page")).toBeVisible({ timeout: 15_000 });
+      await expect(page).toHaveURL(/\/account\?card=my-products/, { timeout: 15_000 });
+      await expect(page.getByTestId("button-toggle-my-products")).toHaveText(/Show Less/);
+      await expect(page.getByTestId("my-products-list")).toBeVisible({ timeout: 15_000 });
 
       const directCard = page.getByTestId(`my-product-card-${directUserProductId}`);
       const yseCard = page.getByTestId(`my-product-card-${yseUserProductId}`);

@@ -4,10 +4,12 @@ import bcrypt from "bcryptjs";
 import { Pool } from "pg";
 import { loginAs } from "./auth";
 
-// Task #1987: the Account page is now six collapsible cards (Profile, Change
-// Password, Ad Balance, Payment Methods, Where You're Signed In, Notification
-// Preferences), all collapsed by default, and /payment-methods redirects to
-// /account?card=payment-methods with that card pre-expanded.
+// Task #1987: the Account page is collapsible cards (Profile, Change
+// Password, Ad Balance, Payment Methods, My Products, Where You're Signed In,
+// Notification Preferences), all collapsed by default, and /payment-methods
+// redirects to /account?card=payment-methods with that card pre-expanded.
+// Task #2026 added the My Products card (and /account/products redirects to
+// /account?card=my-products).
 
 interface Fixture {
   memberEmail: string;
@@ -64,12 +66,12 @@ test.afterAll(async () => {
   await pool.end();
 });
 
-test("account page shows six collapsed cards and toggles expand", async ({ page }) => {
+test("account page shows seven collapsed cards and toggles expand", async ({ page }) => {
   await loginAs(page, fixture.memberEmail, fixture.memberPassword);
   await page.goto("/account");
 
-  // All six cards visible, collapsed (toggle says Show More, content hidden).
-  for (const id of ["profile", "password", "ad-balance", "payment-methods", "notifications"]) {
+  // All seven cards visible, collapsed (toggle says Show More, content hidden).
+  for (const id of ["profile", "password", "ad-balance", "payment-methods", "my-products", "notifications"]) {
     await expect(page.getByTestId(`button-toggle-${id}`)).toHaveText(/Show More/);
   }
   await expect(page.getByTestId("button-toggle-sessions")).toHaveText(/Show More/);
@@ -106,8 +108,25 @@ test("coach users do not see the Payment Methods card", async ({ page }) => {
 
   // Coaches still get the other cards…
   await expect(page.getByTestId("button-toggle-profile")).toBeVisible();
-  // …but the Payment Methods card is hidden entirely.
+  // …but the Payment Methods and My Products cards are hidden entirely.
   await expect(page.getByTestId("button-toggle-payment-methods")).toHaveCount(0);
+  await expect(page.getByTestId("button-toggle-my-products")).toHaveCount(0);
+});
+
+test("/account/products redirects to the My Products card pre-expanded", async ({ page }) => {
+  await loginAs(page, fixture.memberEmail, fixture.memberPassword);
+  await page.goto("/account/products");
+
+  await expect(page).toHaveURL(/\/account\?card=my-products/);
+  await expect(page.getByTestId("button-toggle-my-products")).toHaveText(/Show Less/);
+});
+
+test("/dashboard redirects to home", async ({ page }) => {
+  await loginAs(page, fixture.memberEmail, fixture.memberPassword);
+  await page.goto("/dashboard");
+
+  await expect(page).toHaveURL(/\/$|\/\?/);
+  await expect(page).not.toHaveURL(/dashboard/);
 });
 
 test("fund ad spend page renders with account back link", async ({ page }) => {

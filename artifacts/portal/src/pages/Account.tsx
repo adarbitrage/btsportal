@@ -19,10 +19,11 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/lib/auth";
 import { supportLinkProps } from "@/config/support";
 import { formatDeviceLabel } from "@/lib/device-label";
-import { User, Lock, Bell, Mail, Clock, AlertTriangle, X, Monitor, Loader2, Wallet, CreditCard, ChevronDown, ChevronUp } from "lucide-react";
+import { User, Lock, Bell, Mail, Clock, AlertTriangle, X, Monitor, Loader2, Wallet, CreditCard, ChevronDown, ChevronUp, Package } from "lucide-react";
 import { isCoachRole } from "@workspace/auth";
 import { customFetch } from "@workspace/api-client-react";
 import { PaymentMethodsCardContent } from "@/components/account/PaymentMethodsCardContent";
+import { MyProductsCardContent } from "@/components/account/MyProductsCardContent";
 import {
   useGetCurrentMember,
   usePatchMemberProfile,
@@ -851,6 +852,22 @@ export default function Account() {
               <PaymentMethodsCardContent />
             </CardContent>
           </CollapsibleCard>
+        )}
+
+        {/* Hidden for coaches, matching the old sidebar entry's hiddenForRoles. */}
+        {!isCoach && (
+        <CollapsibleCard
+          id="my-products"
+          icon={Package}
+          title="My Products"
+          subheader="The products and memberships you currently own, including ones granted through partner integrations like YSE."
+          expanded={expandedCards.has("my-products")}
+          onToggle={() => toggleCard("my-products")}
+        >
+          <CardContent>
+            <MyProductsCardContent />
+          </CardContent>
+        </CollapsibleCard>
         )}
 
         <CollapsibleCard

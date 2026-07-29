@@ -136,7 +136,7 @@ export default function Plans() {
     <AppLayout>
       <div className="space-y-8" data-testid="plans-page">
         <div>
-          <Link href="/dashboard">
+          <Link href="/">
             <Button
               variant="ghost"
               size="sm"
@@ -144,7 +144,7 @@ export default function Plans() {
               data-testid="plans-back-button"
             >
               <ArrowLeft className="w-4 h-4 mr-1" />
-              Back to dashboard
+              Back to home
             </Button>
           </Link>
           <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3">

@@ -167,9 +167,9 @@ const STATIC_GROUPS: StaticGroupSpec[] = [
         sortOrder: 2,
       },
       {
-        // Nav leaf: /account/products (no entitlement)
+        // My Products card on the Account page: /account?card=my-products (no entitlement)
         title: "My Products",
-        description: "Understanding which products and entitlements are active on your account.",
+        description: "Understanding which products and entitlements are active on your account — shown in the My Products card on the Account page.",
         icon: "Package",
         entitlementKey: null,
         upgradeProductSlug: null,

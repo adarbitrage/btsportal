@@ -17,6 +17,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { customFetch } from "@workspace/api-client-react";
 import { supportLinkProps } from "@/config/support";
+import { useAuth } from "@/lib/auth";
 import {
   getGetCurrentMemberQueryKey,
   getGetMemberEntitlementsQueryKey,
@@ -89,6 +90,7 @@ export default function Checkout() {
   const params = useParams<{ productId: string }>();
   const productId = parseInt(params.productId ?? "", 10);
   const [, navigate] = useLocation();
+  const { refreshUserQuietly } = useAuth();
   const queryClient = useQueryClient();
 
   const [state, setState] = useState<CheckoutState>({ phase: "loading" });
@@ -299,6 +301,14 @@ export default function Checkout() {
       queryClient.invalidateQueries({ queryKey: getGetMemberEntitlementsQueryKey() });
       queryClient.invalidateQueries({ queryKey: getGetMemberProductsQueryKey() });
 
+      // Tier-raising purchases re-open onboarding server-side
+      // (maybeForceOnboardingReentry). Route guards read AuthContext's
+      // user.onboardingComplete, so refresh it now — otherwise the upgrader
+      // sits on stale client state until a manual reload. Quiet variant:
+      // a transient refresh failure must NOT clear auth state and bounce a
+      // member who just paid to the login page.
+      await refreshUserQuietly();
+
       const isReconciling = result.reconciling === true || result.grantPending === true;
 
       setState({
@@ -443,7 +453,7 @@ export default function Checkout() {
                 This item is already part of your membership.
               </p>
               <Button variant="outline" size="sm" onClick={() => navigate("/")}>
-                Go to dashboard
+                Go to home
               </Button>
             </CardContent>
           </Card>
@@ -478,7 +488,7 @@ export default function Checkout() {
                 </div>
               ) : null}
               <Button onClick={() => navigate("/")} className="mt-2">
-                Go to dashboard
+                Go to home
               </Button>
             </CardContent>
           </Card>
@@ -506,7 +516,7 @@ export default function Checkout() {
                 support — do not submit a second time.
               </p>
               <div className="flex justify-center gap-3 pt-2">
-                <Link href="/account/products">
+                <Link href="/account?card=my-products">
                   <Button variant="outline" size="sm">
                     View billing history
                   </Button>

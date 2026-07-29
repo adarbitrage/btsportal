@@ -215,7 +215,7 @@ function buildMembershipDoc(): OperationsDoc {
     "",
     "Where to manage your membership:",
     "- Account: update your profile, manage your signed-in devices/sessions, and set your notification preferences (Account page).",
-    "- My Products: see the products and memberships you currently own (My Products page).",
+    "- My Products: see the products and memberships you currently own — a card on the Account page (expand \"My Products\").",
     "",
     "If a part of the portal is locked or you think you should have access to something you don't, that's an account/entitlement question — open a ticket on the Support page and the team can check your account. Refunds and billing are also handled through Support.",
   ];

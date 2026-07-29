@@ -41,7 +41,7 @@ export interface RegisterError extends Error {
   code?: string;
 }
 
-interface AuthContextType {
+export interface AuthContextType {
   user: User | null;
   loading: boolean;
   login: (
@@ -62,6 +62,11 @@ interface AuthContextType {
   // setUser() state update to flow through a re-render (React state reads in
   // the same closure would otherwise see the stale pre-refresh value).
   refreshAuth: () => Promise<User | null>;
+  // Non-destructive variant: re-fetches the user snapshot and updates state
+  // on success, but NEVER clears the signed-in user on failure. For callers
+  // that need fresh flags (e.g. onboardingComplete after a checkout) where a
+  // transient refresh failure must not log the member out mid-flow.
+  refreshUserQuietly: () => Promise<User | null>;
 }
 
 export const AuthContext = createContext<AuthContextType | null>(null);
@@ -145,6 +150,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return null;
     } catch {
       setUser(null);
+      return null;
+    }
+  }, []);
+
+  // Like refreshAuth, but keeps the current user state on any failure —
+  // safe to call after money movements where a transient /auth/me hiccup
+  // must not bounce the member to the login page.
+  const refreshUserQuietly = useCallback(async (): Promise<User | null> => {
+    try {
+      const res = await authFetch("/auth/me");
+      if (res.ok) {
+        const data = await res.json();
+        setUser(data);
+        return data;
+      }
+      return null;
+    } catch {
       return null;
     }
   }, []);
@@ -271,6 +293,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         resendVerificationEmail,
         logout,
         refreshAuth,
+        refreshUserQuietly,
       }}
     >
       {children}

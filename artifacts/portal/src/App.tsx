@@ -7,7 +7,6 @@ import { AuthProvider, useAuth } from "@/lib/auth";
 import { isAdminRole, isCoachRole, isPartnerRole } from "@workspace/auth";
 
 import { useGetCurrentMember } from "@workspace/api-client-react";
-import Dashboard from "@/pages/Dashboard";
 import Home from "@/pages/Home";
 import CoreTraining from "@/pages/CoreTraining";
 import QuickStartGuide from "@/pages/QuickStartGuide";
@@ -167,7 +166,6 @@ import Account from "@/pages/Account";
 import Plans from "@/pages/Plans";
 import Checkout from "@/pages/Checkout";
 import AdSpendFund from "@/pages/AdSpendFund";
-import MyProducts from "@/pages/MyProducts";
 import CoachDashboard from "@/pages/coaching/CoachDashboard";
 import PackCoachDashboard from "@/pages/coaching/PackCoachDashboard";
 import GroupCoaching from "@/pages/coaching/GroupCoaching";
@@ -494,7 +492,9 @@ function Router() {
       <Route path="/onboarding/send-off">{() => <OnboardingRoute component={OnboardingSendOffPage} stepName="send_off" />}</Route>
       <Route path="/terms-of-service">{() => <ProtectedRoute component={TermsOfService} />}</Route>
       <Route path="/">{() => <ProtectedRoute component={Home} />}</Route>
-      <Route path="/dashboard">{() => <ProtectedRoute component={Dashboard} />}</Route>
+      {/* Task #2026: the member dashboard page is hidden for now — old
+          bookmarks land on the home page instead of dead-ending. */}
+      <Route path="/dashboard">{() => <Redirect to="/" />}</Route>
       <Route path="/core-training">{() => <ContentAccessRoute component={CoreTraining} pageKey="core-training" />}</Route>
       <Route path="/core-training/quick-start">{() => <ContentAccessRoute component={QuickStartGuide} pageKey="quick-start" />}</Route>
       <Route path="/core-training/7-pillars">{() => <ContentAccessRoute component={SevenPillars} pageKey="seven-pillars" />}</Route>
@@ -552,7 +552,9 @@ function Router() {
       <Route path="/coaching">{() => <EntitlementRoute component={Coaching} entitlement="coaching:group" />}</Route>
       <Route path="/account">{() => <ProtectedRoute component={Account} />}</Route>
       <Route path="/legal/terms">{() => <ProtectedRoute component={TermsOfService} />}</Route>
-      <Route path="/account/products">{() => <ProtectedRoute component={MyProducts} />}</Route>
+      {/* Task #2026: My Products moved into an Account page card; the old URL
+          deep-links to that card so bookmarks and AI answers keep working. */}
+      <Route path="/account/products">{() => <Redirect to="/account?card=my-products" />}</Route>
       {/* Payment Methods now lives as a card on the Account page. */}
       <Route path="/payment-methods">{() => <Redirect to="/account?card=payment-methods" />}</Route>
       <Route path="/plans">{() => <ProtectedRoute component={Plans} />}</Route>

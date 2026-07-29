@@ -189,7 +189,6 @@ export const MEMBER_NAV: NavNode[] = [
     ],
   },
   { kind: "leaf", href: "/account", label: "Account", icon: UserCircle },
-  { kind: "leaf", href: "/account/products", label: "My Products", icon: Package, hiddenForRoles: ["coach"] },
 ];
 
 export const ADMIN_CHILDREN: NavNode[] = [
