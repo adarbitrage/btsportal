@@ -9,6 +9,7 @@ import {
   ShoppingCart,
   AlertTriangle,
   HardDrive,
+  BookOpen,
   Menu,
   X,
 } from "lucide-react";
@@ -32,9 +33,10 @@ const adminNavGroups: NavGroup[] = [
     ],
   },
   {
-    label: "Content",
+    label: "Resource Hub",
     items: [
-      { href: "/admin/creative-drive", label: "Creative Drive", icon: HardDrive },
+      { href: "/admin/resource-hub/content", label: "Content", icon: HardDrive },
+      { href: "/admin/resource-hub/glossary", label: "Glossary", icon: BookOpen },
     ],
   },
   {

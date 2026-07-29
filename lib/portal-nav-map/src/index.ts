@@ -61,9 +61,7 @@ export const PORTAL_NAVIGATION_MAP: readonly NavSection[] = [
   {
     section: "Resources",
     items: [
-      { label: "Resource Library", path: "/resource-library", description: "Downloadable resources hub — links to the Creative Drive, the P&L Tracker, and the dedicated email template." },
-      { label: "Creative Drive", path: "/creative-drive", description: "Built-in file drive — browse folders of high-converting ad templates, guides, brand logos, and creative assets; preview and download files right in the portal." },
-      { label: "Knowledge Base", path: "/knowledge-base", description: "Browse and search the knowledge base." },
+      { label: "Resource Hub", path: "/resource-hub", description: "The one curated resources page — the Copywriting and Image Foundations series (view/download each part), working documents like the Campaign Checklist and word dictionaries, the Headline Library references, templates like the P&L Tracker and dedicated email template, and the glossary of BTS working vocabulary. Replaces the old Resource Library, Creative Drive, and Knowledge Base pages." },
       { label: "Affiliate Networks", path: "/affiliate-networks", description: "Supported affiliate networks (Media Mavens, ClickBank)." },
       { label: "Prime Corporate", path: "/prime-corporate", description: "Prime Corporate Services resources." },
       { label: "Support", path: "/support", description: "Get help — support tickets and live chat." },

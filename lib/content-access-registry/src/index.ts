@@ -4,7 +4,7 @@
  * Single source of truth for:
  *   - The 12 mappable product slugs (front-ends + mentorship ladder)
  *   - The mentorship ladder order
- *   - The gateable page registry (13 pages)
+ *   - The gateable page registry (11 pages)
  *
  * This package is side-effect-free (no DB, no network) so it is safe to
  * import in both api-server (Node) and portal (browser/Vite).
@@ -69,7 +69,7 @@ export interface GateablePage {
 }
 
 /**
- * All 13 gateable pages.
+ * All 11 gateable pages.
  *
  * Rules:
  *   - `pageKey` values are the stable DB keys referenced by route guards and
@@ -130,24 +130,14 @@ export const GATEABLE_PAGES: readonly GateablePage[] = [
     label: "Tips & Tricks",
   },
   {
-    pageKey: "resource-library",
-    routePath: "/resource-library",
-    label: "Resource Library",
-  },
-  {
-    pageKey: "knowledge-base",
-    routePath: "/knowledge-base",
-    label: "Knowledge Base",
+    pageKey: "resource-hub",
+    routePath: "/resource-hub",
+    label: "Resource Hub",
   },
   {
     pageKey: "affiliate-networks",
     routePath: "/affiliate-networks",
     label: "Affiliate Networks",
-  },
-  {
-    pageKey: "creative-drive",
-    routePath: "/creative-drive",
-    label: "Creative Drive",
   },
 ] as const;
 

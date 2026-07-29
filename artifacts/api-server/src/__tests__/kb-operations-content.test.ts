@@ -60,7 +60,7 @@ describe("portal navigation map", () => {
 
   it("includes the key live destinations members ask for", () => {
     const paths = new Set(flattenNavigationMap().map((i) => i.path));
-    for (const p of ["/blitz", "/apps", "/coaching", "/support", "/resource-library", "/account"]) {
+    for (const p of ["/blitz", "/apps", "/coaching", "/support", "/resource-hub", "/account"]) {
       expect(paths.has(p), `nav map is missing ${p}`).toBe(true);
     }
     expect(PORTAL_NAVIGATION_MAP.some((s) => s.section === "Coaching")).toBe(true);

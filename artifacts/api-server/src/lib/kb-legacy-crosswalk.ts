@@ -82,10 +82,17 @@ export const LEGACY_CROSSWALK: readonly CrosswalkEntry[] = [
   },
   {
     legacy: ["Creative Vault", "the Vault", "asset vault"],
-    current: "Resource Library — Creative Drive (/resource-library)",
+    current: "Resource Hub (/resource-hub)",
     kind: "location",
-    note: "Downloadable ad templates, guides, logos, and the P&L Tracker live in the Resource Library (Creative Drive).",
+    note: "Downloadable guides, working documents, brand assets, and the P&L Tracker live on the Resource Hub page.",
     confidence: "uncertain",
+  },
+  {
+    legacy: ["Resource Library", "Creative Drive", "Knowledge Base page", "knowledge base search"],
+    current: "Resource Hub (/resource-hub)",
+    kind: "location",
+    note: "The Resource Library, Creative Drive, and member Knowledge Base pages were merged into the single curated Resource Hub — Foundations series, working documents, templates & assets, and the glossary all live there.",
+    confidence: "confirmed",
   },
   {
     legacy: ["Launchpad onboarding call", "kick-off call", "kickoff call"],

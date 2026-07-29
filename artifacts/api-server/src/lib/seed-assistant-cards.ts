@@ -215,9 +215,11 @@ const STATIC_GROUPS: StaticGroupSpec[] = [
         sortOrder: 3,
       },
       {
-        // Nav leaf: /resource-library (content:frontend implied)
-        title: "Resource Library",
-        description: "Finding templates, swipe files, case studies, and downloadable assets.",
+        // Nav leaf: /resource-hub (content:frontend implied). The legacy
+        // "Resource Library" card row is renamed in place by the Resource Hub
+        // boot hook (resource-hub-setup.ts) so this seed matches it.
+        title: "Resource Hub",
+        description: "Finding the Foundations series, working documents, templates, and the glossary on the Resource Hub.",
         icon: "Library",
         entitlementKey: "content:frontend",
         upgradeProductSlug: "reserve_income",

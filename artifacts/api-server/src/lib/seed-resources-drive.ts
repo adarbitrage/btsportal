@@ -11,7 +11,7 @@ import { objectStorageClient, ObjectStorageService } from "./objectStorage";
  * Publishes the committed brand-neutral "Campaign Checklist" PDF (rendered at
  * build time by scripts/src/render-campaign-checklist.ts and checked into
  * src/assets/campaign-checklist/) into a Creative Drive folder named
- * "Resources", downloadable by all members (the Creative Drive has no
+ * "Working Documents", downloadable by all members (the Creative Drive has no
  * per-folder gating; access rides the existing `creative-drive` page key).
  *
  * Clone of the proven Copywriting Foundations seed pattern
@@ -34,7 +34,9 @@ import { objectStorageClient, ObjectStorageService } from "./objectStorage";
  * missing (e.g. a fresh env without PRIVATE_OBJECT_DIR).
  */
 
-export const RESOURCES_FOLDER = "Resources";
+// Repointed from "Resources" to "Working Documents" (Task #2028 hub reorg) so
+// a restart never resurrects the old folder with a duplicate checklist.
+export const RESOURCES_FOLDER = "Working Documents";
 
 export const RESOURCES_FILES: ReadonlyArray<{
   sortOrder: number;

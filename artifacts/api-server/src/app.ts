@@ -42,6 +42,7 @@ import { seedAssistantCards } from "./lib/seed-assistant-cards";
 import { seedCopywritingFoundationsDrive } from "./lib/seed-copywriting-foundations-drive";
 import { seedResourcesDrive } from "./lib/seed-resources-drive";
 import { seedImageFoundationsDrive } from "./lib/seed-image-foundations-drive";
+import { ensureResourceHubReorg, ensureResourceHubCuration, ensureResourceHubAccessMigration } from "./lib/resource-hub-setup";
 import { seedCoachRoster, generateWeeklyQaCalls } from "./lib/coaching-roster";
 import { retitleCleanedHoldingDocs, retitleFiledPrivateCoachingDocs, resetStuckCleaningDocs } from "./lib/transcript-cleaner";
 import { repairGluedTranscriptFormats } from "./lib/kb-format-repair";
@@ -154,9 +155,20 @@ seedModerationWordlist().catch(err => console.error("[Seed] Failed to seed moder
 seedAssistantCards().catch(err => console.error("[Seed] Failed to seed assistant cards:", err));
 // Copywriting Foundations series → Creative Drive folder + 8 committed PDFs
 // (Task #2005). Idempotent, advisory-locked; the prod delivery mechanism.
-seedCopywritingFoundationsDrive().catch(err => console.error("[Seed] Failed to seed Copywriting Foundations drive folder:", err));
-seedResourcesDrive().catch(err => console.error("[Seed] Failed to seed Resources drive folder:", err));
-seedImageFoundationsDrive().catch(err => console.error("[Seed] Failed to seed Image Foundations drive folder:", err));
+// Resource Hub (Task #2028): the reorg MUST run before the drive seeds (the
+// repointed Campaign Checklist seeder must find the moved file, not recreate
+// the old "Resources" folder), and curation seeding after them (it matches
+// drive files by name). All steps are idempotent boot hooks (prod parity).
+(async () => {
+  await ensureResourceHubAccessMigration().catch(err => console.error("[Seed] Resource Hub access migration failed:", err));
+  await ensureResourceHubReorg().catch(err => console.error("[Seed] Resource Hub reorg failed:", err));
+  await Promise.allSettled([
+    seedCopywritingFoundationsDrive().catch(err => console.error("[Seed] Failed to seed Copywriting Foundations drive folder:", err)),
+    seedResourcesDrive().catch(err => console.error("[Seed] Failed to seed Resources drive folder:", err)),
+    seedImageFoundationsDrive().catch(err => console.error("[Seed] Failed to seed Image Foundations drive folder:", err)),
+  ]);
+  await ensureResourceHubCuration().catch(err => console.error("[Seed] Resource Hub curation seed failed:", err));
+})();
 seedCoachRoster()
   .then(() => generateWeeklyQaCalls())
   // Backfill depends on the coach roster for authority detection, so run it only

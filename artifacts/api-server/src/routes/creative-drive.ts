@@ -16,7 +16,9 @@ import { logAdminAction } from "../lib/audit-log";
 const router: IRouter = Router();
 const objectStorageService = new ObjectStorageService();
 
-const PAGE_KEY = "creative-drive";
+// The drive's member-facing surface is the Resource Hub (Task #2028); access
+// rides the single `resource-hub` content-access page key.
+const PAGE_KEY = "resource-hub";
 const MAX_FILE_SIZE_BYTES = 200 * 1024 * 1024; // 200MB
 
 function getParam(val: string | string[]): string {
@@ -132,7 +134,7 @@ async function listChildren(folderId: number | null) {
 
 // ── Member access gate ────────────────────────────────────────────────────────
 
-/** Whole-drive gate via the Content Access Map `creative-drive` page key.
+/** Whole-drive gate via the Content Access Map `resource-hub` page key.
  *  Admin/coach bypass happens inside getAccessiblePageKeys. */
 async function requireDriveAccess(req: Request, res: Response): Promise<boolean> {
   if (!req.userId) {
@@ -141,7 +143,7 @@ async function requireDriveAccess(req: Request, res: Response): Promise<boolean>
   }
   const keys = await getAccessiblePageKeys(req.userId);
   if (!keys.includes(PAGE_KEY)) {
-    res.status(403).json({ error: "You don't have access to the Creative Drive" });
+    res.status(403).json({ error: "You don't have access to the Resource Hub" });
     return false;
   }
   return true;

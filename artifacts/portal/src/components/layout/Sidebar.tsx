@@ -145,9 +145,7 @@ export const MEMBER_NAV: NavNode[] = [
     icon: FolderOpen,
     defaultOpen: false,
     children: [
-      { kind: "leaf", href: "/resource-library", label: "Resource Library", icon: Library, contentPageKey: "resource-library" },
-      { kind: "leaf", href: "/creative-drive", label: "Creative Drive", icon: HardDrive, contentPageKey: "creative-drive" },
-      { kind: "leaf", href: "/knowledge-base", label: "Knowledge Base", icon: BookOpen, contentPageKey: "knowledge-base" },
+      { kind: "leaf", href: "/resource-hub", label: "Resource Hub", icon: Library, contentPageKey: "resource-hub" },
       { kind: "leaf", href: "/affiliate-networks", label: "Affiliate Networks", icon: Network, contentPageKey: "affiliate-networks" },
       { kind: "leaf", href: "/prime-corporate", label: "Prime Corporate", icon: Building2 },
     ],

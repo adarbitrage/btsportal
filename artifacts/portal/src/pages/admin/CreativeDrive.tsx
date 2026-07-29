@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AdminLayout } from "@/components/layout/AdminLayout";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { ResourceHubCuration } from "@/components/admin/ResourceHubCuration";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -293,10 +295,10 @@ export default function AdminCreativeDrive() {
           <div>
             <div className="flex items-center gap-2 mb-1">
               <HardDrive className="w-6 h-6 text-primary" />
-              <h1 className="text-2xl font-bold">Creative Drive</h1>
+              <h1 className="text-2xl font-bold">Resource Hub — Content</h1>
             </div>
             <p className="text-sm text-muted-foreground">
-              Manage the files and folders members see in their Creative Drive.
+              Manage the files behind the member Resource Hub, and curate how they appear on the page.
             </p>
           </div>
           <div className="flex gap-2">
@@ -337,6 +339,17 @@ export default function AdminCreativeDrive() {
           </div>
         </div>
 
+        <Tabs defaultValue="files">
+          <TabsList>
+            <TabsTrigger value="files" data-testid="tab-files">Files</TabsTrigger>
+            <TabsTrigger value="curation" data-testid="tab-curation">Curation</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="curation" className="mt-4">
+            <ResourceHubCuration />
+          </TabsContent>
+
+          <TabsContent value="files" className="mt-4 space-y-6">
         {/* Breadcrumb */}
         <div className="flex items-center gap-1 text-sm flex-wrap">
           <button
@@ -537,6 +550,8 @@ export default function AdminCreativeDrive() {
             )
           )}
         </div>
+          </TabsContent>
+        </Tabs>
       </div>
 
       {/* New folder dialog */}

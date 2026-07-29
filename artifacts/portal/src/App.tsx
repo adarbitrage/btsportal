@@ -48,10 +48,7 @@ import ToolDetail from "@/pages/ToolDetail";
 import Apps from "@/pages/Apps";
 import PartnerTools from "@/pages/PartnerTools";
 import Resources from "@/pages/Resources";
-import ResourceLibrary from "@/pages/ResourceLibrary";
-import CreativeDrive from "@/pages/CreativeDrive";
 import AdminCreativeDrive from "@/pages/admin/CreativeDrive";
-import KnowledgeBase from "@/pages/KnowledgeBase";
 import AffiliateNetworks from "@/pages/AffiliateNetworks";
 import AdminAffiliateNetworks from "@/pages/admin/AdminAffiliateNetworks";
 import AdminMediaMavens from "@/pages/admin/AdminMediaMavens";
@@ -178,6 +175,8 @@ import { adminPanelApi } from "@/lib/admin-panel-api";
 import { useToast } from "@/hooks/use-toast";
 import { useContentAccess } from "@/hooks/use-content-access";
 import { ContentLockedScreen } from "@/components/content-access/ContentLockedScreen";
+import ResourceHub from "@/pages/ResourceHub";
+import AdminResourceHubGlossary from "@/pages/admin/ResourceHubGlossary";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -535,7 +534,9 @@ function Router() {
       <Route path="/admin/content/tracks">{() => <AdminRoute component={ContentTracks} permission="content:manage" />}</Route>
       <Route path="/admin/content/lessons/:id/edit">{() => <AdminRoute component={LessonEditor} permission="content:manage" />}</Route>
       <Route path="/admin/affiliate-networks">{() => <AdminRoute component={AdminAffiliateNetworks} permission="content:manage" />}</Route>
-      <Route path="/admin/creative-drive">{() => <AdminRoute component={AdminCreativeDrive} permission="content:manage" />}</Route>
+      <Route path="/admin/resource-hub/content">{() => <AdminRoute component={AdminCreativeDrive} permission="content:manage" />}</Route>
+      <Route path="/admin/resource-hub/glossary">{() => <AdminRoute component={AdminResourceHubGlossary} permission="content:manage" />}</Route>
+      <Route path="/admin/creative-drive">{() => <Redirect to="/admin/resource-hub/content" />}</Route>
       <Route path="/admin/media-mavens">{() => <AdminRoute component={AdminMediaMavens} permission="content:manage" />}</Route>
       <Route path="/community">{() => <ProtectedRoute component={CommunityFeed} />}</Route>
       <Route path="/community/members">{() => <EntitlementRoute component={MemberDirectory} entitlement="community:access" />}</Route>
@@ -569,9 +570,11 @@ function Router() {
       <Route path="/resources/:collectionSlug/:resourceId">{() => <ProtectedRoute component={ResourceDetail} />}</Route>
       <Route path="/resources/:collectionSlug">{() => <ProtectedRoute component={CollectionDetail} />}</Route>
       <Route path="/resources">{() => <ProtectedRoute component={Resources} />}</Route>
-      <Route path="/resource-library">{() => <ContentAccessRoute component={ResourceLibrary} pageKey="resource-library" />}</Route>
-      <Route path="/creative-drive">{() => <ContentAccessRoute component={CreativeDrive} pageKey="creative-drive" />}</Route>
-      <Route path="/knowledge-base">{() => <ContentAccessRoute component={KnowledgeBase} pageKey="knowledge-base" />}</Route>
+      <Route path="/resource-hub">{() => <ContentAccessRoute component={ResourceHub} pageKey="resource-hub" />}</Route>
+      {/* Old resource pages merged into the Resource Hub (Task #2028) */}
+      <Route path="/resource-library">{() => <Redirect to="/resource-hub" />}</Route>
+      <Route path="/creative-drive">{() => <Redirect to="/resource-hub" />}</Route>
+      <Route path="/knowledge-base">{() => <Redirect to="/resource-hub" />}</Route>
       <Route path="/affiliate-networks">{() => <ContentAccessRoute component={AffiliateNetworks} pageKey="affiliate-networks" />}</Route>
       <Route path="/media-mavens">{() => <ProtectedRoute component={MediaMavens} />}</Route>
       <Route path="/media-mavens/performance">{() => <ProtectedRoute component={MediaMavensPerformance} />}</Route>
