@@ -37,7 +37,6 @@ import {
   Server,
   LineChart,
   GraduationCap,
-  Lightbulb,
   Headphones,
   ShieldCheck,
   Building2,
@@ -123,7 +122,6 @@ export const MEMBER_NAV: NavNode[] = [
     children: [
       { kind: "leaf", href: "/core-training/7-pillars", label: "7 Pillars", icon: Layers, contentPageKey: "seven-pillars" },
       { kind: "leaf", href: "/blitz", label: "The Blitz™", icon: Zap, contentPageKey: "blitz" },
-      { kind: "leaf", href: "/tips-and-tricks", label: "Tips & Tricks", icon: Lightbulb, contentPageKey: "tips-and-tricks" },
     ],
   },
   {

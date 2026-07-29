@@ -129,6 +129,14 @@ test("/dashboard redirects to home", async ({ page }) => {
   await expect(page).not.toHaveURL(/dashboard/);
 });
 
+test("/tips-and-tricks redirects to home (page hidden, Task #2031)", async ({ page }) => {
+  await loginAs(page, fixture.memberEmail, fixture.memberPassword);
+  await page.goto("/tips-and-tricks");
+
+  await expect(page).toHaveURL(/\/$|\/\?/);
+  await expect(page).not.toHaveURL(/tips-and-tricks/);
+});
+
 test("fund ad spend page renders with account back link", async ({ page }) => {
   await loginAs(page, fixture.memberEmail, fixture.memberPassword);
   await page.goto("/ad-spend/fund");

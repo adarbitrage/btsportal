@@ -179,7 +179,7 @@ const STATIC_GROUPS: StaticGroupSpec[] = [
   },
   {
     // Mirrors the Training nav folder children:
-    //   7 Pillars (/core-training/7-pillars), The Blitz (/blitz), Tips & Tricks (/tips-and-tricks)
+    //   7 Pillars (/core-training/7-pillars), The Blitz (/blitz)
     // plus advanced training content (content:advanced entitlement).
     name: "Training",
     description: "Questions about BTS training content, lessons, and learning paths.",
@@ -204,15 +204,7 @@ const STATIC_GROUPS: StaticGroupSpec[] = [
         upgradeProductSlug: "reserve_income",
         sortOrder: 1,
       },
-      {
-        // Nav leaf: /tips-and-tricks (no explicit entitlement)
-        title: "Tips & Tricks",
-        description: "Finding and using the community-sourced tips and tricks library.",
-        icon: "Lightbulb",
-        entitlementKey: "content:frontend",
-        upgradeProductSlug: "reserve_income",
-        sortOrder: 2,
-      },
+      // Tips & Tricks card removed (page hidden, Task #2031); existing DB row deactivated directly.
       {
         // Advanced training modules (content:advanced entitlement)
         title: "Advanced Training",
