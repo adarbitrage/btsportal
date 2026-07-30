@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { render, screen, within } from "@testing-library/react";
+import { render, screen, within, fireEvent } from "@testing-library/react";
 import type { ReactNode } from "react";
 import type { SessionCoach } from "@/lib/session-packs-api";
 
@@ -97,5 +97,71 @@ describe("BookSessionPack — coach picker long description", () => {
     const card = screen.getByTestId("coach-card-8");
     expect(within(card).getByText("Bruce")).toBeInTheDocument();
     expect(within(card).queryByTestId("coach-long-bio-8")).not.toBeInTheDocument();
+  });
+
+  it("collapses long multi-sentence bios to two sentences with a Read more toggle", () => {
+    const longBio =
+      "Michael has coached for a decade. He specializes in paid traffic.\n\n" +
+      "Before coaching, he ran his own agency for years and managed millions in ad spend across many client accounts.";
+    useSessionCoaches.mockReturnValue({
+      data: [makeCoach({ id: 9, longBio })],
+      isLoading: false,
+    });
+    render(<BookSessionPack />);
+
+    const bioEl = screen.getByTestId("coach-long-bio-9");
+    expect(bioEl.textContent).toBe(
+      "Michael has coached for a decade. He specializes in paid traffic....",
+    );
+
+    const toggle = screen.getByTestId("coach-bio-toggle-9");
+    expect(toggle).toHaveAttribute("aria-expanded", "false");
+    fireEvent.click(toggle);
+    expect(screen.getByTestId("coach-long-bio-9").textContent).toBe(longBio);
+    expect(toggle).toHaveAttribute("aria-expanded", "true");
+    expect(toggle).toHaveTextContent("Read less");
+  });
+
+  it("collapses long punctuation-free bios at a word boundary", () => {
+    const longBio = Array(80).fill("word").join(" "); // 399 chars, no punctuation
+    useSessionCoaches.mockReturnValue({
+      data: [makeCoach({ id: 10, longBio })],
+      isLoading: false,
+    });
+    render(<BookSessionPack />);
+
+    const text = screen.getByTestId("coach-long-bio-10").textContent ?? "";
+    expect(text.endsWith("...")).toBe(true);
+    expect(text.length).toBeLessThan(longBio.length);
+    expect(screen.getByTestId("coach-bio-toggle-10")).toBeInTheDocument();
+  });
+
+  it("shows short bios in full with no toggle", () => {
+    useSessionCoaches.mockReturnValue({
+      data: [makeCoach({ id: 11, longBio: "One short sentence." })],
+      isLoading: false,
+    });
+    render(<BookSessionPack />);
+
+    expect(screen.getByTestId("coach-long-bio-11").textContent).toBe(
+      "One short sentence.",
+    );
+    expect(screen.queryByTestId("coach-bio-toggle-11")).not.toBeInTheDocument();
+  });
+
+  it("clicking Read more does not select the coach card", () => {
+    const longBio =
+      "Sentence one is here. Sentence two is here. Sentence three keeps going for a while longer.";
+    useSessionCoaches.mockReturnValue({
+      data: [makeCoach({ id: 12, longBio })],
+      isLoading: false,
+    });
+    render(<BookSessionPack />);
+
+    fireEvent.click(screen.getByTestId("coach-bio-toggle-12"));
+    // Selecting a coach advances to step 2 ("Select Date & Time") — the
+    // coach picker heading must still be present after toggling the bio.
+    expect(screen.getByText("Choose Your Coach")).toBeInTheDocument();
+    expect(screen.getByTestId("coach-card-12")).not.toHaveClass("ring-2");
   });
 });

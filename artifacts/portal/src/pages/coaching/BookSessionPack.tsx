@@ -51,6 +51,30 @@ const SLOT_DISPLAY_CAP = 8;
 
 type WizardStep = 1 | 2 | 3;
 
+/**
+ * First couple of sentences of a bio for the collapsed card preview.
+ * Returns null when the bio is short enough that no truncation is needed.
+ */
+export function bioPreview(bio: string): string | null {
+  const MAX_PREVIEW_CHARS = 240;
+  const normalized = bio.trim();
+  const firstParagraph = (normalized.split(/\n\s*\n/)[0] ?? normalized).trim();
+  const sentences = firstParagraph.match(/[^.!?]+[.!?]+(?:['")\]]+)?/g);
+  let preview =
+    sentences && sentences.length >= 2
+      ? sentences.slice(0, 2).map((s) => s.trim()).join(" ")
+      : firstParagraph;
+  // Fallback for punctuation-light bios: cut at a word boundary so long
+  // content still collapses predictably.
+  if (preview.length > MAX_PREVIEW_CHARS) {
+    const cut = preview.slice(0, MAX_PREVIEW_CHARS);
+    const lastSpace = cut.lastIndexOf(" ");
+    preview = (lastSpace > 0 ? cut.slice(0, lastSpace) : cut).trim();
+  }
+  if (preview.length >= normalized.length) return null;
+  return preview;
+}
+
 function coachInitials(name: string): string {
   return name
     .split(/\s+/)
@@ -81,6 +105,7 @@ export default function BookSessionPack() {
 
   const { data: balanceData } = useSessionBalance();
   const { data: coaches, isLoading: coachesLoading } = useSessionCoaches();
+  const [expandedBioIds, setExpandedBioIds] = useState<Set<number>>(new Set());
   const { data: myBookings } = useMySessionBookings();
 
   const balance = balanceData?.balance ?? 0;
@@ -293,44 +318,78 @@ export default function BookSessionPack() {
                 ))}
               </div>
             ) : coaches && coaches.length > 0 ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {coaches.map((coach) => (
-                  <Card
-                    key={coach.id}
-                    className={cn(
-                      "cursor-pointer transition-all hover:shadow-md",
-                      selectedCoach?.id === coach.id && "ring-2 ring-primary",
-                    )}
-                    onClick={() => handleSelectCoach(coach)}
-                    data-testid={`coach-card-${coach.id}`}
-                  >
-                    <CardContent className="p-6">
-                      <div className="flex flex-col items-center text-center">
-                        {coach.photoUrl ? (
-                          <img
-                            src={resolveCoachPhotoUrl(coach.photoUrl) ?? undefined}
-                            alt={coach.name}
-                            className="w-20 h-20 rounded-full object-cover mb-4"
-                          />
-                        ) : (
-                          <div className="w-20 h-20 rounded-full bg-primary/10 flex items-center justify-center text-2xl font-bold text-primary mb-4">
-                            {coachInitials(coach.name)}
-                          </div>
-                        )}
-                        <h3 className="text-lg font-bold text-foreground mb-1">{coach.name}</h3>
-                        <p className="text-sm text-muted-foreground">1-hour session</p>
-                        {coach.longBio && (
-                          <p
-                            data-testid={`coach-long-bio-${coach.id}`}
-                            className="text-sm text-muted-foreground mt-3 leading-relaxed"
-                          >
-                            {coach.longBio}
-                          </p>
-                        )}
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
+              <div
+                className={cn(
+                  "grid grid-cols-1 gap-6",
+                  coaches.length === 2 && "md:grid-cols-2",
+                  coaches.length >= 3 && "md:grid-cols-2 lg:grid-cols-3",
+                )}
+              >
+                {coaches.map((coach) => {
+                  const bio = coach.longBio?.trim() ?? "";
+                  const preview = bio ? bioPreview(bio) : null;
+                  const isExpanded = expandedBioIds.has(coach.id);
+                  return (
+                    <Card
+                      key={coach.id}
+                      className={cn(
+                        "cursor-pointer transition-all hover:shadow-md",
+                        selectedCoach?.id === coach.id && "ring-2 ring-primary",
+                      )}
+                      onClick={() => handleSelectCoach(coach)}
+                      data-testid={`coach-card-${coach.id}`}
+                    >
+                      <CardContent className="p-6">
+                        <div className="flex flex-col items-center">
+                          {coach.photoUrl ? (
+                            <img
+                              src={resolveCoachPhotoUrl(coach.photoUrl) ?? undefined}
+                              alt={coach.name}
+                              className="w-20 h-20 rounded-full object-cover mb-4"
+                            />
+                          ) : (
+                            <div className="w-20 h-20 rounded-full bg-primary/10 flex items-center justify-center text-2xl font-bold text-primary mb-4">
+                              {coachInitials(coach.name)}
+                            </div>
+                          )}
+                          <h3 className="text-lg font-bold text-foreground mb-1">{coach.name}</h3>
+                          <p className="text-sm text-muted-foreground">1-hour session</p>
+                          {bio && (
+                            <div className="w-full mt-3">
+                              <p
+                                id={`coach-bio-content-${coach.id}`}
+                                data-testid={`coach-long-bio-${coach.id}`}
+                                className="text-sm text-muted-foreground leading-relaxed whitespace-pre-line text-left"
+                              >
+                                {preview === null || isExpanded ? bio : `${preview}...`}
+                              </p>
+                              {preview !== null && (
+                                <button
+                                  type="button"
+                                  data-testid={`coach-bio-toggle-${coach.id}`}
+                                  aria-expanded={isExpanded}
+                                  aria-controls={`coach-bio-content-${coach.id}`}
+                                  className="text-sm font-medium text-primary hover:underline mt-1"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setExpandedBioIds((prev) => {
+                                      const next = new Set(prev);
+                                      if (next.has(coach.id)) next.delete(coach.id);
+                                      else next.add(coach.id);
+                                      return next;
+                                    });
+                                  }}
+                                >
+                                  {isExpanded ? "Read less" : "Read more"}
+                                </button>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  );
+                })}
               </div>
             ) : (
               <Card>
