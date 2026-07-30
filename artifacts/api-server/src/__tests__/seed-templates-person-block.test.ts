@@ -263,7 +263,7 @@ describe("partner-photos public assets exist and are real images", () => {
 });
 
 describe("VA_ROSTER photo coverage", () => {
-  const VAS_WITH_PHOTOS = ["John", "Neil", "Mikha"];
+  const VAS_WITH_PHOTOS = ["John", "Neil", "Mikha", "Jean"];
 
   for (const vaName of VAS_WITH_PHOTOS) {
     it(`${vaName} has a photoUrl in VA_ROSTER`, () => {

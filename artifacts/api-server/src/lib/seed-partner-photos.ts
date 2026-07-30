@@ -4,7 +4,8 @@ import { and, eq, isNull, inArray, sql } from "drizzle-orm";
 // Accountability-partner headshots hosted as portal static assets (same
 // convention as /coaching-photos/*). Keyed by EXACT display_name. Myco is
 // included even though his row is inactive — arming his reveal card for when
-// his calendar lands.
+// his calendar lands. Jean's headshot arrived 2026-07-30 (Task #1898), so her
+// person blocks now render a real photo instead of the "J" initials circle.
 export const PARTNER_PHOTO_PATHS: Record<string, string> = {
   Jean: "/partner-photos/jean.jpg",
   Mikha: "/partner-photos/mikha.jpg",
@@ -12,10 +13,6 @@ export const PARTNER_PHOTO_PATHS: Record<string, string> = {
   John: "/partner-photos/john.jpg",
   Neil: "/partner-photos/neil.png",
 };
-
-// Kickoff-coach headshots, same static-asset convention, keyed by EXACT
-// display_name on kickoff_coaches (a separate roster from `coaches` — the
-// strategic-coach Bruce/Todd photos under /coaching-photos/ are untouched).
 export const KICKOFF_COACH_PHOTO_PATHS: Record<string, string> = {
   Bruce: "/kickoff-photos/bruce.jpg",
   Mark: "/kickoff-photos/mark.jpg",

@@ -89,6 +89,7 @@ export const VA_ROSTER: RosterVa[] = [
     },
   },
   { name: "Mikha", sortOrder: 7, doesOneOnOneVaCalls: false, photoUrl: "/partner-photos/mikha.jpg" },
+  { name: "Jean", sortOrder: 8, doesOneOnOneVaCalls: false, photoUrl: "/partner-photos/jean.jpg" },
 ];
 
 // Legacy demo profiles seeded before the real roster existed. Removed by exact
