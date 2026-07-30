@@ -1360,6 +1360,15 @@ const smsTemplates = [
     variables: ["product_name", "portal_url"],
   },
   {
+    // Task #2049: short billing confirmation for large ad-spend deposits —
+    // insert-only seed, gated at the send site on smsOptIn + billingSmsOptIn
+    // like the purchase_confirmation SMS.
+    slug: "ad_spend_deposit_receipt",
+    name: "Ad-Spend Deposit Receipt SMS",
+    body: "BTS: Your ad-spend deposit of ${{deposit_amount}} was received. Card charged ${{total_charged}} (incl. ${{card_fee}} 3% card fee). Details: {{portal_url}}",
+    variables: ["deposit_amount", "card_fee", "total_charged", "portal_url"],
+  },
+  {
     slug: "payment_failed",
     name: "Payment Failed SMS",
     body: "BTS: Payment failed for {{product_name}}. Please update your payment info to avoid losing access: {{portal_url}}/settings/billing",
@@ -3255,6 +3264,9 @@ export const REQUIRED_SMS_TEMPLATE_SLUGS = [
   // Morning-of RSVP coaching reminder text (Task #1770) — insert-only, so
   // existing DBs pick it up on boot without clobbering admin edits.
   "coaching_rsvp_reminder",
+  // Ad-spend deposit confirmation text (Task #2049) — insert-only, so
+  // existing DBs pick it up on boot without clobbering admin edits.
+  "ad_spend_deposit_receipt",
 ] as const;
 
 /**

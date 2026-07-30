@@ -177,6 +177,10 @@ export async function fundAdSpend(params: AdSpendFundingParams): Promise<AdSpend
         feeCents,
         chargedCents,
       });
+      // Short SMS confirmation (Task #2049) — same fresh-paid-only rule as
+      // the email, gated on smsOptIn AND billingSmsOptIn like the
+      // purchase_confirmation SMS in webhook-handler.ts.
+      void sendDepositReceiptSms({ userId, creditedCents, feeCents, chargedCents });
       return { type: "paid", orderNumber: coreResult.orderNumber, creditedCents, feeCents, chargedCents };
     }
     case "replay_paid": {
@@ -283,6 +287,47 @@ async function sendDepositReceiptEmail(params: {
     });
   } catch (err) {
     console.error("[AdSpendFunding] deposit receipt email failed:", err);
+  }
+}
+
+/**
+ * Queue the ad-spend deposit receipt SMS. Sent only on the fresh `paid`
+ * outcome, gated on the member's master smsOptIn AND billingSmsOptIn (the
+ * same gate as the purchase_confirmation SMS). Never throws — a comms
+ * failure must not affect the payment outcome returned to the caller.
+ */
+async function sendDepositReceiptSms(params: {
+  userId: number;
+  creditedCents: number;
+  feeCents: number;
+  chargedCents: number;
+}): Promise<void> {
+  const { userId, creditedCents, feeCents, chargedCents } = params;
+  try {
+    const [smsUser] = await db
+      .select({
+        phone: usersTable.phone,
+        smsOptIn: usersTable.smsOptIn,
+        billingSmsOptIn: usersTable.billingSmsOptIn,
+      })
+      .from(usersTable)
+      .where(eq(usersTable.id, userId))
+      .limit(1);
+
+    if (!smsUser?.phone || !smsUser.smsOptIn || !smsUser.billingSmsOptIn) return;
+
+    await CommunicationService.queueSms({
+      templateSlug: "ad_spend_deposit_receipt",
+      to: smsUser.phone,
+      userId,
+      variables: {
+        deposit_amount: formatCents(creditedCents),
+        card_fee: formatCents(feeCents),
+        total_charged: formatCents(chargedCents),
+      },
+    });
+  } catch (err) {
+    console.error("[AdSpendFunding] deposit receipt SMS failed:", err);
   }
 }
 
