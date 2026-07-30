@@ -230,6 +230,9 @@ router.get("/coaching/sessions/coaches", async (_req, res): Promise<void> => {
       id: sessionPackCoachesTable.id,
       name: sessionPackCoachesTable.name,
       bio: sessionPackCoachesTable.bio,
+      // The private-coaching picker renders the LONG description; the short
+      // `bio` stays for the group "Your Coaches" cards.
+      longBio: sessionPackCoachesTable.longBio,
       photoUrl: sessionPackCoachesTable.photoUrl,
       sortOrder: sessionPackCoachesTable.sortOrder,
     })

@@ -87,6 +87,7 @@ interface CoachForm {
   name: string;
   specialties: string;
   bio: string;
+  longBio: string;
   photoUrl: string;
   isActive: boolean;
   type: CoachType;
@@ -109,6 +110,7 @@ const EMPTY_FORM: CoachForm = {
   name: "",
   specialties: "",
   bio: "",
+  longBio: "",
   photoUrl: "",
   isActive: true,
   type: "strategic_coach",
@@ -725,6 +727,7 @@ export default function CoachProfiles() {
       name: coach.name,
       specialties: coach.specialties,
       bio: coach.bio,
+      longBio: coach.longBio,
       photoUrl: coach.photoUrl ?? "",
       isActive: coach.isActive,
       type: coach.type,
@@ -789,6 +792,7 @@ export default function CoachProfiles() {
       name: form.name.trim(),
       specialties: form.specialties.trim(),
       bio: form.bio.trim(),
+      longBio: form.longBio.trim(),
       photoUrl: photoUrl || null,
       isActive: form.isActive,
       type: form.type,
@@ -1170,13 +1174,29 @@ export default function CoachProfiles() {
               />
             </div>
             <div>
-              <Label className="text-xs">Bio *</Label>
+              <Label className="text-xs">Short description (group calls)</Label>
+              <p className="text-xs text-muted-foreground mb-1">
+                Shown on the member "Your Coaches" cards on the group Coaching page.
+              </p>
               <Textarea
                 value={form.bio}
                 onChange={(e) => setForm({ ...form, bio: e.target.value })}
-                rows={4}
+                rows={3}
                 maxLength={2000}
                 data-testid="coach-bio"
+              />
+            </div>
+            <div>
+              <Label className="text-xs">Long description (private coaching)</Label>
+              <p className="text-xs text-muted-foreground mb-1">
+                Shown on the private-coaching booking page when members pick a coach.
+              </p>
+              <Textarea
+                value={form.longBio}
+                onChange={(e) => setForm({ ...form, longBio: e.target.value })}
+                rows={5}
+                maxLength={4000}
+                data-testid="coach-long-bio"
               />
             </div>
             <div className="space-y-3 rounded-lg border border-border/60 p-3">

@@ -43,7 +43,7 @@ import { seedCopywritingFoundationsDrive } from "./lib/seed-copywriting-foundati
 import { seedResourcesDrive } from "./lib/seed-resources-drive";
 import { seedImageFoundationsDrive } from "./lib/seed-image-foundations-drive";
 import { ensureResourceHubReorg, ensureResourceHubCuration, ensureResourceHubAccessMigration } from "./lib/resource-hub-setup";
-import { seedCoachRoster, generateWeeklyQaCalls } from "./lib/coaching-roster";
+import { seedCoachRoster, generateWeeklyQaCalls, backfillCoachLongBios } from "./lib/coaching-roster";
 import { retitleCleanedHoldingDocs, retitleFiledPrivateCoachingDocs, resetStuckCleaningDocs } from "./lib/transcript-cleaner";
 import { repairGluedTranscriptFormats } from "./lib/kb-format-repair";
 import { subscribeWordlistInvalidations } from "./lib/moderation/wordlist";
@@ -170,6 +170,9 @@ seedAssistantCards().catch(err => console.error("[Seed] Failed to seed assistant
   await ensureResourceHubCuration().catch(err => console.error("[Seed] Resource Hub curation seed failed:", err));
 })();
 seedCoachRoster()
+  // Bio split (Task #2043): copy legacy `bio` into `long_bio` once so the
+  // private-coaching picker isn't blank for pre-split coaches. Idempotent.
+  .then(() => backfillCoachLongBios())
   .then(() => generateWeeklyQaCalls())
   // Backfill depends on the coach roster for authority detection, so run it only
   // after the roster is seeded — otherwise a fresh boot can miss coach names.

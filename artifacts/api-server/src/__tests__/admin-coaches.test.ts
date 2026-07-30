@@ -79,6 +79,7 @@ beforeAll(async () => {
     .values({
       name: `${TAG} Coach`,
       bio: "Original bio",
+      longBio: "Original long bio",
       specialties: "Original specialty",
       photoUrl: "https://example.test/old.png",
     })
@@ -114,6 +115,7 @@ describe("admin coach profiles", () => {
       id: coachId,
       name: `${TAG} Coach`,
       bio: "Original bio",
+      longBio: "Original long bio",
       specialties: "Original specialty",
     });
   });
@@ -126,6 +128,7 @@ describe("admin coach profiles", () => {
         name: "New Name",
         specialties: "Funnel Strategy",
         bio: "Updated bio",
+        longBio: "Updated long description for the private-coaching picker.",
         photoUrl: "https://example.test/new.png",
       });
     expect(res.status).toBe(200);
@@ -134,6 +137,7 @@ describe("admin coach profiles", () => {
       name: "New Name",
       specialties: "Funnel Strategy",
       bio: "Updated bio",
+      longBio: "Updated long description for the private-coaching picker.",
       photoUrl: "https://example.test/new.png",
     });
 
@@ -143,6 +147,9 @@ describe("admin coach profiles", () => {
       .where(eq(coachesTable.id, coachId));
     expect(row.name).toBe("New Name");
     expect(row.bio).toBe("Updated bio");
+    expect(row.longBio).toBe(
+      "Updated long description for the private-coaching picker.",
+    );
   });
 
   it("includes visibility / capability flags in the list", async () => {
@@ -324,6 +331,22 @@ describe("admin coach profiles", () => {
     expect(res.body.error).toMatch(/bio/i);
   });
 
+  it("accepts a blank long description and rejects an over-length one", async () => {
+    const blank = await request(app)
+      .patch(`/api/admin/coaching/coaches/${coachId}`)
+      .set("Cookie", adminCookie)
+      .send({ longBio: "   " });
+    expect(blank.status).toBe(200);
+    expect(blank.body.longBio).toBe("");
+
+    const over = await request(app)
+      .patch(`/api/admin/coaching/coaches/${coachId}`)
+      .set("Cookie", adminCookie)
+      .send({ longBio: "a".repeat(4001) });
+    expect(over.status).toBe(400);
+    expect(over.body.error).toMatch(/long description/i);
+  });
+
   it("rejects an over-length photo URL", async () => {
     const longUrl = "https://example.test/" + "a".repeat(2048);
     const res = await request(app)
@@ -376,6 +399,7 @@ describe("admin coach profiles", () => {
         name: `${TAG} Created`,
         specialties: "Email Marketing",
         bio: "A brand new coach.",
+        longBio: "A much longer description for the private-coaching picker.",
         photoUrl: "https://example.test/created.png",
       });
     expect(res.status).toBe(201);
@@ -383,6 +407,7 @@ describe("admin coach profiles", () => {
       name: `${TAG} Created`,
       specialties: "Email Marketing",
       bio: "A brand new coach.",
+      longBio: "A much longer description for the private-coaching picker.",
       photoUrl: "https://example.test/created.png",
     });
     expect(typeof res.body.id).toBe("number");

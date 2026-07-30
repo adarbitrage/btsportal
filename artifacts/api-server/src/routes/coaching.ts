@@ -323,7 +323,9 @@ router.get("/coaches", async (_req, res): Promise<void> => {
     .orderBy(coachesTable.sortOrder);
   // bio/specialties are nullable on the unified roster (private-only coaches and
   // not-yet-filled-in group coaches have none); coalesce so the response matches
-  // the non-null string contract.
+  // the non-null string contract. `bio` is the SHORT description (group cards);
+  // the long description (`long_bio`) is private-coaching-picker-only and is
+  // deliberately not exposed here.
   const normalized = coaches.map((c) => ({
     ...c,
     bio: c.bio ?? "",

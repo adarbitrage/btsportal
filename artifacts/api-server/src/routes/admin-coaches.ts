@@ -21,6 +21,9 @@ const router: IRouter = Router();
 const NAME_MAX = 120;
 const SPECIALTIES_MAX = 200;
 const BIO_MAX = 2000;
+// The long description (private-coaching picker) gets more room than the short
+// group-card bio, but is still bounded against runaway input.
+const LONG_BIO_MAX = 4000;
 const PHOTO_URL_MAX = 2048;
 const GHL_ID_MAX = 128;
 
@@ -126,6 +129,16 @@ function parseCoachBody(
       return { error: `Bio must be ${BIO_MAX} characters or fewer` };
     }
     values.bio = bio;
+  }
+
+  // Long description (private-coaching picker). Optional; an empty string
+  // clears the field, mirroring bio/specialties.
+  if (body.longBio !== undefined) {
+    const longBio = typeof body.longBio === "string" ? body.longBio.trim() : "";
+    if (longBio.length > LONG_BIO_MAX) {
+      return { error: `Long description must be ${LONG_BIO_MAX} characters or fewer` };
+    }
+    values.longBio = longBio;
   }
 
   if (body.photoUrl !== undefined) {
@@ -359,6 +372,8 @@ const COACH_COLUMNS = {
   // (it calls .trim()) without null-guarding each field.
   specialties: sql<string>`coalesce(${coachesTable.specialties}, '')`.as("specialties"),
   bio: sql<string>`coalesce(${coachesTable.bio}, '')`.as("bio"),
+  // Long description for the private-coaching picker; same coalesce contract.
+  longBio: sql<string>`coalesce(${coachesTable.longBio}, '')`.as("longBio"),
   photoUrl: coachesTable.photoUrl,
   sortOrder: coachesTable.sortOrder,
   isActive: coachesTable.isActive,

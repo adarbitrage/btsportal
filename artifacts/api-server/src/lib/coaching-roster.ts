@@ -6,7 +6,7 @@ import {
   sessionPackBookingsTable,
   usersTable,
 } from "@workspace/db";
-import { and, eq, gte, inArray, isNotNull } from "drizzle-orm";
+import { and, eq, gte, inArray, isNotNull, isNull, ne, sql } from "drizzle-orm";
 import { COACHING_LOCATION_ID, COACHING_TIMEZONE } from "./ghl-coaching-calendar";
 
 // Single source of truth for the live coaching roster. Every coach here does
@@ -436,5 +436,28 @@ export async function generateWeeklyQaCalls(): Promise<void> {
   if (toInsert.length > 0) {
     await db.insert(coachingCallsTable).values(toInsert);
     console.log(`[Seed] Generated ${toInsert.length} upcoming weekly Q&A call(s)`);
+  }
+}
+
+// One-time data backfill for the bio split (short `bio` for group cards, long
+// `long_bio` for the private-coaching picker): coaches that predate the split
+// have only `bio`, so copy it into `long_bio` once so the private-coaching
+// picker doesn't go blank. Idempotent (only touches rows where long_bio is
+// still NULL) and safe on every boot — the prod delivery mechanism per the
+// startup-hook data-fix convention. Never overwrites an admin-edited long_bio.
+export async function backfillCoachLongBios(): Promise<void> {
+  const updated = await db
+    .update(coachesTable)
+    .set({ longBio: sql`${coachesTable.bio}` })
+    .where(
+      and(
+        isNull(coachesTable.longBio),
+        isNotNull(coachesTable.bio),
+        ne(coachesTable.bio, ""),
+      ),
+    )
+    .returning({ id: coachesTable.id });
+  if (updated.length > 0) {
+    console.log(`[Seed] Backfilled long_bio from bio for ${updated.length} coach(es)`);
   }
 }

@@ -27,6 +27,7 @@ interface ServerCoach {
   name: string;
   specialties: string;
   bio: string;
+  longBio: string;
   photoUrl: string | null;
 }
 
@@ -56,6 +57,7 @@ function fakeFetch(input: RequestInfo | URL, options?: RequestInit): Promise<Res
       name: body.name,
       specialties: body.specialties,
       bio: body.bio,
+      longBio: body.longBio ?? "",
       photoUrl: body.photoUrl ?? null,
     };
     coaches = [...coaches, created];
@@ -99,6 +101,7 @@ beforeEach(() => {
       name: "Sasha Coach",
       specialties: "Paid Traffic",
       bio: "Original bio.",
+      longBio: "Original long bio.",
       photoUrl: null,
     },
   ];
@@ -141,6 +144,10 @@ describe("CoachProfiles admin editor", () => {
     await user.clear(bioInput);
     await user.type(bioInput, "Updated bio copy.");
 
+    const longBioInput = within(dialog).getByTestId("coach-long-bio");
+    await user.clear(longBioInput);
+    await user.type(longBioInput, "Updated long description copy.");
+
     await user.click(within(dialog).getByTestId("save-coach"));
 
     // List reflects the saved values.
@@ -153,6 +160,11 @@ describe("CoachProfiles admin editor", () => {
     expect(within(updatedCard).getByText("Sasha Renamed")).toBeInTheDocument();
     expect(within(updatedCard).getByText("Funnels & Email")).toBeInTheDocument();
     expect(within(updatedCard).getByText("Updated bio copy.")).toBeInTheDocument();
+    // The long description was persisted through the PATCH (the card itself
+    // shows the short bio; the long copy lives on the private booking page).
+    expect(coaches.find((c) => c.id === 42)?.longBio).toBe(
+      "Updated long description copy.",
+    );
     expect(within(updatedCard).getByTestId("coach-photo-42")).toHaveAttribute(
       "src",
       "https://example.test/sasha.png",

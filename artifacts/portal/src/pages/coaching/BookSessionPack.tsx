@@ -94,6 +94,7 @@ export default function BookSessionPack() {
         id: booking.coachId,
         name: booking.coachName,
         bio: null,
+        longBio: null,
         photoUrl: booking.coachPhotoUrl,
         sortOrder: 0,
       });
@@ -318,6 +319,14 @@ export default function BookSessionPack() {
                         )}
                         <h3 className="text-lg font-bold text-foreground mb-1">{coach.name}</h3>
                         <p className="text-sm text-muted-foreground">1-hour session</p>
+                        {coach.longBio && (
+                          <p
+                            data-testid={`coach-long-bio-${coach.id}`}
+                            className="text-sm text-muted-foreground mt-3 leading-relaxed"
+                          >
+                            {coach.longBio}
+                          </p>
+                        )}
                       </div>
                     </CardContent>
                   </Card>

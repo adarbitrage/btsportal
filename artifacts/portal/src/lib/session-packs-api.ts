@@ -22,6 +22,9 @@ export interface SessionCoach {
   id: number;
   name: string;
   bio: string | null;
+  // Long description shown on the private-coaching coach picker (the short
+  // `bio` is the group "Your Coaches" card copy).
+  longBio: string | null;
   photoUrl: string | null;
   sortOrder: number;
 }

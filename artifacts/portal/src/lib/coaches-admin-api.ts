@@ -62,7 +62,10 @@ export interface AdminCoach {
   id: number;
   name: string;
   specialties: string;
+  // Short description shown on the group "Your Coaches" cards.
   bio: string;
+  // Long description shown on the private-coaching coach picker.
+  longBio: string;
   photoUrl: string | null;
   sortOrder: number;
   isActive: boolean;
@@ -91,6 +94,7 @@ export interface CoachProfileInput {
   name: string;
   specialties: string;
   bio: string;
+  longBio: string;
   photoUrl: string | null;
   isActive: boolean;
   type: CoachType;

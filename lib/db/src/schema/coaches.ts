@@ -24,7 +24,11 @@ export const coachesTable = pgTable("coaches", {
   // Internal-only record fields (never surfaced to members).
   fullName: text("full_name"),
   email: text("email"),
+  // Short description shown on the group-coaching "Your Coaches" cards.
   bio: text("bio"),
+  // Longer description shown on the private-coaching (session-pack) coach
+  // picker. Backfilled from `bio` at boot so pre-split coaches don't go blank.
+  longBio: text("long_bio"),
   photoUrl: text("photo_url"),
   specialties: text("specialties"),
   // What KIND of coach this is. Drives which capability switches + per-call-type
