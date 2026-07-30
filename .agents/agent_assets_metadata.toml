@@ -264,3 +264,21 @@ id = "R4nCXWnfklC59TR-pMz9X"
 uri = "file://scripts/private-pdfs/campaign-checklist-v2.pdf"
 type = "pdf"
 title = "Campaign Checklist v2 (16-step subtitle)"
+
+[[outputs]]
+id = "B6Dclg9sv1_ZdktAmNt8C"
+uri = "file://.local/drafts/04b-extracting-angles-from-existing-copy.pdf"
+type = "pdf"
+title = "DRAFT — Copywriting Foundations 4b: Extracting Angles from Existing Copy"
+
+[[outputs]]
+id = "c--BKD1kcTmkPqnrFZIqe"
+uri = "file://.local/drafts/04-finding-your-angle-REVISED.pdf"
+type = "pdf"
+title = "REVISED DRAFT — Doc 04: Finding Your Angle"
+
+[[outputs]]
+id = "Ghtds_REC-LQHX61lARLG"
+uri = "file://.local/drafts/04b-extracting-angles-from-existing-copy-REVISED.pdf"
+type = "pdf"
+title = "REVISED DRAFT — Doc 4b: Extracting Angles from Existing Copy"

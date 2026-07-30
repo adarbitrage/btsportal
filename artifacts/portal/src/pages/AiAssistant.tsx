@@ -2,10 +2,9 @@ import { AppLayout } from "@/components/layout/AppLayout";
 import { Button } from "@/components/ui/button";
 import {
   Send, Trash2, Plus, MessageCircle,
-  Loader2, AlertCircle, Menu, X, Mic,
+  Loader2, AlertCircle, Menu, X,
 } from "lucide-react";
 import botLogo from "@/assets/ai-assistant-logo.png";
-import { Link } from "wouter";
 import { AssistantEmptyState } from "@/components/assistant/AssistantEmptyState";
 import { RetrievalSourcesPanel } from "@/components/assistant/RetrievalSourcesPanel";
 import { useAuth } from "@/lib/auth";
@@ -286,20 +285,10 @@ export default function AiAssistant() {
             <MessageCircle className="w-8 h-8 text-primary" />
             <h1 className="text-3xl font-bold">AI Assistant</h1>
           </div>
-          <div className="flex items-center gap-3">
-            <p className="text-muted-foreground flex-1">
-              Ask anything about your mentorship, tools, campaigns, or strategies. Trained
-              on BTS coaching sessions, Q&A articles, and your complete tool documentation.
-            </p>
-            <Link href="/assistant/voice">
-              <a className="shrink-0">
-                <Button variant="outline" size="sm" className="gap-1.5 text-sm">
-                  <Mic className="w-3.5 h-3.5" />
-                  Talk it through (voice)
-                </Button>
-              </a>
-            </Link>
-          </div>
+          <p className="text-muted-foreground">
+            Ask anything about your mentorship, tools, campaigns, or strategies. Trained
+            on BTS coaching sessions, Q&A articles, and your complete tool documentation.
+          </p>
         </div>
 
         <div className="rounded-2xl border border-[#D6DEEC] dark:border-stone-800 bg-[#FDFDFE] dark:bg-stone-950 overflow-hidden flex h-[calc(100vh-14rem)] md:h-[calc(100vh-11rem)] min-h-[360px] md:min-h-[480px] shadow-[0_20px_50px_-20px_rgba(51,65,85,0.18),0_8px_20px_-8px_rgba(51,65,85,0.08)]">
