@@ -183,7 +183,8 @@ export const CURATION_SPEC: readonly CurationSpecItem[] = [
     section: "working_documents",
     kind: "file",
     displayTitle: "Campaign Checklist",
-    blurb: "The step-by-step pre-launch checklist — work through it before you activate any campaign.",
+    blurb:
+      "The step-by-step pre-launch checklist — work through it before you activate any campaign. This is a printable version of the Checklist page found in the Blitz.",
     sortOrder: 1,
     fileName: "Campaign Checklist.pdf",
     parentSlug: "wd-campaign-toolkit",
@@ -561,6 +562,27 @@ export async function ensureResourceHubCuration(): Promise<void> {
       }
     }
     if (seeded > 0) console.log(`[ResourceHub] curation: seeded ${seeded} items`);
+
+    // Targeted copy refreshes for already-seeded rows: only rows whose blurb
+    // still exactly matches the OLD seed text are updated, so any admin edit
+    // wins and the repair is a permanent no-op once applied.
+    const BLURB_REFRESHES: ReadonlyArray<{ slug: string; from: string; to: string }> = [
+      {
+        slug: "wd-campaign-checklist",
+        from: "The step-by-step pre-launch checklist — work through it before you activate any campaign.",
+        to: "The step-by-step pre-launch checklist — work through it before you activate any campaign. This is a printable version of the Checklist page found in the Blitz.",
+      },
+    ];
+    for (const fix of BLURB_REFRESHES) {
+      const updated = await tx
+        .update(resourceHubItemsTable)
+        .set({ blurb: fix.to })
+        .where(and(eq(resourceHubItemsTable.slug, fix.slug), eq(resourceHubItemsTable.blurb, fix.from)))
+        .returning({ slug: resourceHubItemsTable.slug });
+      if (updated.length > 0) {
+        console.log(`[ResourceHub] curation: refreshed blurb for "${fix.slug}"`);
+      }
+    }
 
     // One-time re-parenting (Task #2039): only when the group row was created
     // by THIS run, pull its still-ungrouped children under it. Existing admin
