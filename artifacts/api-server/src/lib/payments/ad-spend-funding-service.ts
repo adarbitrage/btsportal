@@ -13,6 +13,7 @@
 import { eq, sql } from "drizzle-orm";
 import { db, usersTable, productsTable, adSpendTransactionsTable } from "@workspace/db";
 import { runCheckoutCore } from "./checkout-core.js";
+import { cardFeeCents, chargedTotalCents } from "./ad-spend-fee.js";
 import { peekIdempotencyKey } from "./checkout-idempotency.js";
 import { getPaymentMethodForUser } from "../../storage/payment-methods-store.js";
 
@@ -22,8 +23,14 @@ const MIN_AMOUNT_CENTS = 100_000;
 const MAX_AMOUNT_CENTS = 1_000_000;
 
 export type AdSpendFundingOutcome =
-  | { type: "paid"; orderNumber: string; creditedCents: number }
-  | { type: "replay_paid"; orderNumber: string }
+  | { type: "paid"; orderNumber: string; creditedCents: number; feeCents: number; chargedCents: number }
+  | {
+      type: "replay_paid";
+      orderNumber: string;
+      creditedCents?: number;
+      feeCents?: number;
+      chargedCents?: number;
+    }
   | { type: "paid_reconciliation_needed"; orderNumber: string; transactionId?: string }
   | { type: "replay_reconciliation_needed"; orderNumber: string }
   | { type: "declined"; message: string; orderNumber?: string; declineReason?: string }
@@ -76,6 +83,10 @@ export async function fundAdSpend(params: AdSpendFundingParams): Promise<AdSpend
   const firstName = nameParts[0] ?? undefined;
   const lastName = nameParts.length > 1 ? nameParts.slice(1).join(" ") : undefined;
 
+  // Card deposits carry a 3% transaction fee: charge deposit + fee, credit deposit.
+  const feeCents = cardFeeCents(amountCents);
+  const chargedCents = chargedTotalCents(amountCents);
+
   const peek = await peekIdempotencyKey(idempotencyKey, userId, product.id);
   let resolvedVaultId: string | undefined;
   if (peek.type === "not_found") {
@@ -95,13 +106,13 @@ export async function fundAdSpend(params: AdSpendFundingParams): Promise<AdSpend
     firstName,
     lastName,
     idempotencyKey,
-    amountCents,
+    amountCents: chargedCents,
     currency: product.currency ?? "USD",
     orderType: "wallet_topup",
     grantEntitlements: false,
     entitlementKeys: [],
     durationDays: null,
-    lineItemDescription: "Ad-Spend Funding Deposit",
+    lineItemDescription: `Ad-Spend Funding Deposit ($${(amountCents / 100).toFixed(2)} credit + 3% card fee)`,
     ...(resolvedVaultId !== undefined ? { resolvedVaultId } : {}),
     ...(paymentToken !== undefined ? { paymentToken } : {}),
     onOrderPaid: async (_orderId, _orderNumber, chargeDetails) => {
@@ -115,19 +126,31 @@ export async function fundAdSpend(params: AdSpendFundingParams): Promise<AdSpend
         );
       }
 
+      if (confirmedCents !== chargedCents) {
+        throw new Error(
+          `NMI confirmed $${(confirmedCents / 100).toFixed(2)} but expected charge was ` +
+          `$${(chargedCents / 100).toFixed(2)} (deposit + 3% fee) — credit not written. ` +
+          "Manual reconciliation required.",
+        );
+      }
+
       await db
         .insert(adSpendTransactionsTable)
         .values({
           userId,
-          amountCents: confirmedCents,
+          amountCents,
           type: "funding",
           source: "nmi",
           nmiTransactionId: transactionId ?? null,
-          note: `Deposit via NMI checkout (order ${_orderNumber})`,
+          note:
+            `Deposit via NMI checkout (order ${_orderNumber}) — card charged ` +
+            `$${(chargedCents / 100).toFixed(2)} incl. $${(feeCents / 100).toFixed(2)} 3% card fee`,
         })
         .onConflictDoNothing();
 
-      return { creditedCents: confirmedCents };
+      // Persisted into the idempotency result so replays return the
+      // authoritative original amounts rather than client-side recomputation.
+      return { creditedCents: amountCents, feeCents, chargedCents };
     },
   });
 
@@ -140,10 +163,24 @@ export async function fundAdSpend(params: AdSpendFundingParams): Promise<AdSpend
         // returning an inaccurate amount to the caller.
         return { type: "paid_reconciliation_needed", orderNumber: coreResult.orderNumber };
       }
-      return { type: "paid", orderNumber: coreResult.orderNumber, creditedCents };
+      return { type: "paid", orderNumber: coreResult.orderNumber, creditedCents, feeCents, chargedCents };
     }
-    case "replay_paid":
-      return { type: "replay_paid", orderNumber: coreResult.orderNumber };
+    case "replay_paid": {
+      // Original amounts ride the stored idempotency result (see onOrderPaid).
+      const extra = coreResult.extra ?? {};
+      const num = (v: unknown): number | undefined =>
+        typeof v === "number" && Number.isFinite(v) ? v : undefined;
+      const replayCredited = num(extra.creditedCents);
+      const replayFee = num(extra.feeCents);
+      const replayCharged = num(extra.chargedCents);
+      return {
+        type: "replay_paid",
+        orderNumber: coreResult.orderNumber,
+        ...(replayCredited !== undefined ? { creditedCents: replayCredited } : {}),
+        ...(replayFee !== undefined ? { feeCents: replayFee } : {}),
+        ...(replayCharged !== undefined ? { chargedCents: replayCharged } : {}),
+      };
+    }
     case "paid_reconciliation_needed":
       return {
         type: "paid_reconciliation_needed",

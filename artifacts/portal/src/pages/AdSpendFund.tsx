@@ -20,6 +20,12 @@ import { Label } from "@/components/ui/label";
 import { customFetch } from "@workspace/api-client-react";
 import { supportLinkProps } from "@/config/support";
 import { initCollectJs, type CollectJsHandle } from "@/lib/collect-js";
+import {
+  cardFeeCents,
+  chargedTotalCents,
+  formatCentsExact,
+  feeBreakdownText,
+} from "@/lib/ad-spend-fee";
 import { usePaymentMethods, type SavedCard } from "@/hooks/use-payment-methods";
 
 const MIN_AMOUNT = 1000;
@@ -61,7 +67,14 @@ type FundState =
   | { phase: "submitting" }
   | { phase: "in_progress" }
   | { phase: "declined"; message: string }
-  | { phase: "success"; orderNumber: string; creditedCents: number; reconciling?: boolean }
+  | {
+      phase: "success";
+      orderNumber: string;
+      creditedCents: number;
+      feeCents?: number;
+      chargedCents?: number;
+      reconciling?: boolean;
+    }
   | { phase: "error"; message: string };
 
 type PaymentSource = "saved" | "new";
@@ -221,6 +234,8 @@ export default function AdSpendFund() {
         orderNumber: string;
         status: string;
         creditedCents?: number;
+        feeCents?: number;
+        chargedCents?: number;
         reconciling?: boolean;
       }>("/api/ad-spend/fund", {
         method: "POST",
@@ -235,6 +250,8 @@ export default function AdSpendFund() {
         phase: "success",
         orderNumber: result.orderNumber,
         creditedCents: result.creditedCents ?? amountCents,
+        feeCents: result.feeCents ?? cardFeeCents(amountCents),
+        chargedCents: result.chargedCents ?? chargedTotalCents(amountCents),
         reconciling: result.reconciling === true,
       });
     } catch (err: unknown) {
@@ -286,6 +303,14 @@ export default function AdSpendFund() {
   const isSubmitting = state.phase === "submitting";
   const isActivePhase = state.phase === "ready" || state.phase === "declined";
 
+  // Parsed entered amount for the live fee breakdown (display only — the
+  // server recomputes and enforces the fee from the entered amount).
+  const validEnteredCents = (() => {
+    const parsed = parseFloat(amountInput.replace(/[^0-9.]/g, ""));
+    if (!isFinite(parsed) || parsed < MIN_AMOUNT || parsed > MAX_AMOUNT) return null;
+    return Math.round(parsed * 100);
+  })();
+
   const canSubmit =
     !isSubmitting &&
     isActivePhase &&
@@ -308,7 +333,8 @@ export default function AdSpendFund() {
             <h1 className="text-3xl font-bold text-foreground">Fund Ad Spend</h1>
           </div>
           <p className="text-muted-foreground mt-2">
-            Deposit funds into your ad-spend balance using your credit card.
+            Deposit funds into your ad-spend balance by credit card, or pay by ACH bank
+            transfer with no card fee.
           </p>
         </div>
 
@@ -386,6 +412,12 @@ export default function AdSpendFund() {
                 <div className="rounded-lg border border-primary/30 bg-primary/5 p-4 text-sm text-foreground">
                   <CheckCircle2 className="w-4 h-4 inline mr-1.5 text-primary" />
                   {formatDollars(state.creditedCents)} has been added to your ad-spend balance.
+                  {state.chargedCents !== undefined && state.feeCents !== undefined && (
+                    <span className="block mt-1 text-muted-foreground">
+                      Your card was charged {formatCentsExact(state.chargedCents)}, including a{" "}
+                      {formatCentsExact(state.feeCents)} card processing fee (3%).
+                    </span>
+                  )}
                 </div>
               )}
               <Button variant="outline" size="sm" onClick={() => setState({ phase: "ready" })}>
@@ -524,10 +556,33 @@ export default function AdSpendFund() {
                 </div>
               )}
 
+              <div className="flex items-start gap-1.5 text-xs text-muted-foreground">
+                <CreditCard className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+                <p>
+                  <span className="font-medium text-foreground">
+                    Credit card payments include a 3% processing fee.
+                  </span>{" "}
+                  Prefer to pay by ACH bank transfer with no fee? Email{" "}
+                  <a
+                    href="mailto:support@buildtestscale.com"
+                    className="underline hover:text-foreground"
+                  >
+                    support@buildtestscale.com
+                  </a>{" "}
+                  to set it up.
+                </p>
+              </div>
+
               <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
                 <ShieldCheck className="w-3.5 h-3.5" />
                 Payments are processed securely through NMI. Card details are never stored on our servers.
               </div>
+
+              {validEnteredCents !== null && (
+                <div className="rounded-lg border border-border bg-muted/50 p-3 text-sm text-foreground">
+                  {feeBreakdownText(validEnteredCents)}
+                </div>
+              )}
 
               <Button
                 className="w-full"
@@ -542,7 +597,10 @@ export default function AdSpendFund() {
                 ) : (
                   <>
                     <CreditCard className="w-4 h-4 mr-2" />
-                    Deposit{amountInput ? ` $${parseFloat(amountInput.replace(/[^0-9.]/g, "") || "0").toLocaleString()}` : ""}
+                    Deposit
+                    {validEnteredCents !== null
+                      ? ` — ${formatCentsExact(chargedTotalCents(validEnteredCents))}`
+                      : ""}
                   </>
                 )}
               </Button>

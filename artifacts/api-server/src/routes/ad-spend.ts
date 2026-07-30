@@ -108,11 +108,19 @@ router.post("/ad-spend/fund", async (req, res): Promise<void> => {
         orderNumber: outcome.orderNumber,
         status: "paid",
         creditedCents: outcome.creditedCents,
+        feeCents: outcome.feeCents,
+        chargedCents: outcome.chargedCents,
       });
       return;
 
     case "replay_paid":
-      res.json({ orderNumber: outcome.orderNumber, status: "paid" });
+      res.json({
+        orderNumber: outcome.orderNumber,
+        status: "paid",
+        ...(outcome.creditedCents !== undefined ? { creditedCents: outcome.creditedCents } : {}),
+        ...(outcome.feeCents !== undefined ? { feeCents: outcome.feeCents } : {}),
+        ...(outcome.chargedCents !== undefined ? { chargedCents: outcome.chargedCents } : {}),
+      });
       return;
 
     case "paid_reconciliation_needed":

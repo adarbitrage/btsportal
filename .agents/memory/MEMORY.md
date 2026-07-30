@@ -22,6 +22,7 @@
 - [Moderation pod-silent threshold](moderation-pod-silent-threshold.md) — pod staleness (2× rolling window, totalCount===0) single-source in lib/moderation-shared; card + alerter import it; CI gate in api-server tests only.
 - [KB ingestion DB vs files](kb-ingestion-db-vs-files.md) — editing knowledge-base/*.txt does NOT update seeded knowledgebase_docs rows (ON CONFLICT DO NOTHING); must UPDATE DB too + restart; title UNIQUE.
 - [Prod super_admin bootstrap](prod-superadmin-bootstrap.md) — boot hook ensureFoundingSuperAdmins ALWAYS enforces hardcoded founders as super_admin (idempotent; UI demotion reverts next deploy); must publish to take effect.
+- [Ad-spend 3% card fee split](ad-spend-card-fee.md) — charge entered×1.03, credit entered; replay amounts ride onOrderPaid's return via checkout-core idempotency `extra`, never recomputed.
 - [NMI checkout idempotency outcomeType](nmi-checkout-idempotency.md) — store outcomeType enum in every idempotency result; never infer success from status string alone or reconciliation-needed replays misclassify as declines.
 - [Drizzle ANY(array) record-cast pitfall](drizzle-array-any-cast.md) — `ANY(${jsArray}::int[])` throws runtime 42846; pass a `{1,2,3}` literal string param instead. Typechecks fine, fails only at query time.
 - [Express req spread loses headers](express-req-spread.md) — spreading an Express Request makes a plain object; non-enumerable props (headers, ip) vanish. Use logAuditEvent with explicit actor fields, not logAdminAction with a faked req.
