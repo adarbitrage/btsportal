@@ -317,17 +317,15 @@ export default function ResourceHub() {
 
   return (
     <AppLayout>
-      <div className="max-w-4xl mx-auto space-y-8">
+      <div className="space-y-6 max-w-6xl">
         <div>
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
-              <Library className="w-5 h-5 text-primary" />
-            </div>
-            <h1 className="text-2xl md:text-3xl font-bold text-foreground tracking-tight" data-testid="text-page-title">
+          <div className="flex items-center gap-2 mb-2">
+            <Library className="w-6 h-6 text-primary" />
+            <h1 className="text-3xl font-bold" data-testid="text-page-title">
               Resource Hub
             </h1>
           </div>
-          <p className="text-muted-foreground mt-2">
+          <p className="text-muted-foreground">
             Everything you work from in one place — the Foundations series, working documents, templates, and the glossary.
           </p>
         </div>
