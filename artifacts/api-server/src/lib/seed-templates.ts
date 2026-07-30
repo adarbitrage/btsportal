@@ -708,6 +708,28 @@ const transactionalEmailTemplates = [
     variables: ["member_name", "product_name", "support_email", "current_year"],
   },
   {
+    slug: "ad_spend_deposit_receipt",
+    name: "Ad-Spend Deposit Receipt",
+    subject: "Receipt: your ${{deposit_amount}} ad-spend deposit (order {{order_number}})",
+    htmlBody: wrapHtml("Ad-Spend Deposit Receipt", `
+<h2 style="color:#1a1a2e;margin-top:0;">Ad-Spend Deposit Receipt</h2>
+<p>Hi {{member_name}},</p>
+<p>Thanks — your ad-spend deposit went through. Here's your receipt:</p>
+<table cellpadding="0" cellspacing="0" style="width:100%;max-width:420px;margin:16px 0;border:1px solid #e5e7eb;border-radius:6px;border-collapse:separate;overflow:hidden;">
+<tr><td style="padding:10px 16px;background:#f9fafb;color:#6b7280;">Order number</td><td style="padding:10px 16px;text-align:right;font-weight:bold;color:#1a1a2e;">{{order_number}}</td></tr>
+<tr><td style="padding:10px 16px;color:#6b7280;">Deposit credited to your balance</td><td style="padding:10px 16px;text-align:right;font-weight:bold;color:#1a1a2e;">\${{deposit_amount}}</td></tr>
+<tr><td style="padding:10px 16px;background:#f9fafb;color:#6b7280;">Card transaction fee (3%)</td><td style="padding:10px 16px;background:#f9fafb;text-align:right;font-weight:bold;color:#1a1a2e;">\${{card_fee}}</td></tr>
+<tr><td style="padding:10px 16px;color:#6b7280;border-top:2px solid #e5e7eb;">Total charged to your card</td><td style="padding:10px 16px;text-align:right;font-weight:bold;color:#1a1a2e;border-top:2px solid #e5e7eb;">\${{total_charged}}</td></tr>
+</table>
+{{balance_block_html}}
+<p>Only the deposit amount is credited to your ad-spend balance — the 3% fee covers card processing and is not credited.</p>
+<p>If anything looks off, contact us at {{support_email}}.</p>
+<p>The BTS Team</p>`),
+    textBody: "Hi {{member_name}},\n\nYour ad-spend deposit went through. Receipt:\n\nOrder number: {{order_number}}\nDeposit credited: ${{deposit_amount}}\nCard transaction fee (3%): ${{card_fee}}\nTotal charged to your card: ${{total_charged}}\n{{balance_line_text}}\nOnly the deposit amount is credited to your ad-spend balance — the 3% fee covers card processing and is not credited.\n\nQuestions? Contact {{support_email}}.\n\nThe BTS Team",
+    category: "transactional",
+    variables: ["member_name", "order_number", "deposit_amount", "card_fee", "total_charged", "balance_block_html", "balance_line_text", "support_email", "current_year"],
+  },
+  {
     slug: "subscription_cancelled",
     name: "Subscription Cancelled",
     subject: "Your {{product_name}} subscription has been cancelled",

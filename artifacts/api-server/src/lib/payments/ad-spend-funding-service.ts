@@ -16,6 +16,7 @@ import { runCheckoutCore } from "./checkout-core.js";
 import { cardFeeCents, chargedTotalCents } from "./ad-spend-fee.js";
 import { peekIdempotencyKey } from "./checkout-idempotency.js";
 import { getPaymentMethodForUser } from "../../storage/payment-methods-store.js";
+import { CommunicationService } from "../communication-service.js";
 
 export const AD_SPEND_FUNDING_SLUG = "ad-spend-funding";
 
@@ -163,6 +164,19 @@ export async function fundAdSpend(params: AdSpendFundingParams): Promise<AdSpend
         // returning an inaccurate amount to the caller.
         return { type: "paid_reconciliation_needed", orderNumber: coreResult.orderNumber };
       }
+      // Receipt email — fire-and-forget so a comms hiccup can never fail a
+      // charge that already succeeded. Only the fresh `paid` outcome sends:
+      // replays already emailed on the original attempt, and declined /
+      // reconciliation-needed outcomes must not claim a credited deposit.
+      void sendDepositReceiptEmail({
+        userId,
+        email: user.email,
+        memberName: user.name ?? "there",
+        orderNumber: coreResult.orderNumber,
+        creditedCents,
+        feeCents,
+        chargedCents,
+      });
       return { type: "paid", orderNumber: coreResult.orderNumber, creditedCents, feeCents, chargedCents };
     }
     case "replay_paid": {
@@ -213,6 +227,62 @@ export async function fundAdSpend(params: AdSpendFundingParams): Promise<AdSpend
       const _exhaustive: never = coreResult;
       return { type: "product_not_configured" };
     }
+  }
+}
+
+/** Format whole cents as a display string like "2,500.00". */
+function formatCents(cents: number): string {
+  return (cents / 100).toLocaleString("en-US", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+}
+
+/**
+ * Queue the ad-spend deposit receipt email. Never throws — a comms failure
+ * must not affect the payment outcome returned to the caller.
+ */
+async function sendDepositReceiptEmail(params: {
+  userId: number;
+  email: string;
+  memberName: string;
+  orderNumber: string;
+  creditedCents: number;
+  feeCents: number;
+  chargedCents: number;
+}): Promise<void> {
+  const { userId, email, memberName, orderNumber, creditedCents, feeCents, chargedCents } = params;
+  try {
+    // New balance is best-effort: if the read fails, send the receipt
+    // without the balance line rather than dropping the receipt.
+    let balanceBlockHtml = "";
+    let balanceLineText = "";
+    try {
+      const balanceCents = await getAdSpendBalance(userId);
+      const display = formatCents(balanceCents);
+      balanceBlockHtml =
+        `<p>Your new ad-spend balance is <strong>$${display}</strong>.</p>`;
+      balanceLineText = `New ad-spend balance: $${display}\n`;
+    } catch (err) {
+      console.error("[AdSpendFunding] balance read for receipt email failed:", err);
+    }
+
+    await CommunicationService.queueEmail({
+      templateSlug: "ad_spend_deposit_receipt",
+      to: email,
+      userId,
+      variables: {
+        member_name: memberName,
+        order_number: orderNumber,
+        deposit_amount: formatCents(creditedCents),
+        card_fee: formatCents(feeCents),
+        total_charged: formatCents(chargedCents),
+        balance_block_html: balanceBlockHtml,
+        balance_line_text: balanceLineText,
+      },
+    });
+  } catch (err) {
+    console.error("[AdSpendFunding] deposit receipt email failed:", err);
   }
 }
 

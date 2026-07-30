@@ -52,6 +52,12 @@ vi.mock("../lib/payments/checkout-idempotency.js", () => ({
 vi.mock("../storage/payment-methods-store.js", () => ({
   getPaymentMethodForUser: vi.fn(async () => ({ vaultId: "vault-1" })),
 }));
+const queueEmailMock = vi.fn(async () => ({ result: "queued" }));
+vi.mock("../lib/communication-service.js", () => ({
+  CommunicationService: {
+    queueEmail: (...args: unknown[]) => queueEmailMock(...(args as [])),
+  },
+}));
 vi.mock("@workspace/db", () => {
   const chain = {
     from: () => chain,
@@ -74,8 +80,14 @@ describe("fundAdSpend fee behavior", () => {
     runCheckoutCoreMock.mockReset();
     peekMock.mockReset();
     valuesMock.mockClear();
+    queueEmailMock.mockClear();
     peekMock.mockResolvedValue({ type: "not_found" });
   });
+
+  /** The receipt email is fired-and-forgotten; let queued microtasks drain. */
+  async function drainReceiptSend() {
+    await new Promise((resolve) => setImmediate(resolve));
+  }
 
   async function loadService() {
     const mod = await import("../lib/payments/ad-spend-funding-service.js");
@@ -197,6 +209,80 @@ describe("fundAdSpend fee behavior", () => {
       chargedCents: 257_500,
     });
     expect(valuesMock).not.toHaveBeenCalled();
+  });
+
+  it("queues a receipt email with order number, deposit, fee, and total on paid", async () => {
+    const fundAdSpend = await loadService();
+
+    runCheckoutCoreMock.mockImplementation(async (opts: {
+      amountCents: number;
+      onOrderPaid: (
+        orderId: number,
+        orderNumber: string,
+        details: { transactionId?: string; confirmedAmountCents?: number },
+      ) => Promise<Record<string, unknown>>;
+    }) => {
+      const extra = await opts.onOrderPaid(1, "ORD-R1", {
+        transactionId: "txn-r1",
+        confirmedAmountCents: opts.amountCents,
+      });
+      return { type: "paid", orderNumber: "ORD-R1", extra };
+    });
+
+    const outcome = await fundAdSpend({
+      userId: 42,
+      amountCents: 250_000,
+      idempotencyKey: "key-r1",
+      paymentToken: "tok-r1",
+    });
+    expect(outcome.type).toBe("paid");
+    await drainReceiptSend();
+
+    expect(queueEmailMock).toHaveBeenCalledTimes(1);
+    const call = (queueEmailMock.mock.calls as unknown as unknown[][])[0]![0] as {
+      templateSlug: string;
+      to: string;
+      userId: number;
+      variables: Record<string, string>;
+    };
+    expect(call.templateSlug).toBe("ad_spend_deposit_receipt");
+    expect(call.to).toBe("m@x.com");
+    expect(call.userId).toBe(42);
+    expect(call.variables).toMatchObject({
+      order_number: "ORD-R1",
+      deposit_amount: "2,500.00",
+      card_fee: "75.00",
+      total_charged: "2,575.00",
+    });
+  });
+
+  it("does NOT email on replay_paid, declined, or reconciliation-needed outcomes", async () => {
+    const fundAdSpend = await loadService();
+
+    runCheckoutCoreMock.mockResolvedValueOnce({
+      type: "replay_paid",
+      orderNumber: "ORD-RP",
+      extra: { creditedCents: 250_000, feeCents: 7_500, chargedCents: 257_500 },
+    });
+    await fundAdSpend({ userId: 42, amountCents: 250_000, idempotencyKey: "k1", paymentToken: "t" });
+
+    runCheckoutCoreMock.mockResolvedValueOnce({
+      type: "declined",
+      orderNumber: "ORD-D",
+      message: "declined",
+      declineReason: "card_declined",
+    });
+    await fundAdSpend({ userId: 42, amountCents: 250_000, idempotencyKey: "k2", paymentToken: "t" });
+
+    runCheckoutCoreMock.mockResolvedValueOnce({
+      type: "paid_reconciliation_needed",
+      orderNumber: "ORD-RN",
+      transactionId: "txn-x",
+    });
+    await fundAdSpend({ userId: 42, amountCents: 250_000, idempotencyKey: "k3", paymentToken: "t" });
+
+    await drainReceiptSend();
+    expect(queueEmailMock).not.toHaveBeenCalled();
   });
 
   it("refuses to credit when NMI confirms a different total than deposit + fee", async () => {
