@@ -14,9 +14,8 @@
  *    the tool row. This satisfies the "Tools & Apps section is the source of
  *    truth" requirement — the seed does not hand-list app names.
  *
- *  - Knowledge Base Topics: one card per distinct KB category found in
- *    knowledgebaseDocsTable. The set of categories grows as the team publishes
- *    more KB docs, and the seed picks them up dynamically.
+ *  - Knowledge Base Topics: RETIRED (Task #2029) — previously derived from the
+ *    legacy knowledgebase_docs table, which has been dropped.
  *
  * Idempotency:
  *  - Groups: upsert by name (check-before-insert).
@@ -31,7 +30,6 @@ import {
   assistantCardGroupsTable,
   assistantCardsTable,
   toolsTable,
-  knowledgebaseDocsTable,
   productsTable,
 } from "@workspace/db";
 import { eq, and, ne, sql } from "drizzle-orm";
@@ -387,58 +385,15 @@ export async function seedAssistantCards(): Promise<void> {
     console.log(`[seed-assistant-cards]   Apps & Tools: ${activeTools.length} tool cards derived from toolsTable.`);
   }
 
-  // 3. Knowledge Base Topics — one card per distinct KB category found in
-  //    knowledgebaseDocsTable. As the team publishes new KB categories the seed
-  //    will pick them up on re-deploy.
-  const KB_CATEGORY_META: Record<string, { label: string; description: string; icon: string }> = {
-    faq:               { label: "FAQ",               description: "Answers to frequently asked questions about BTS and affiliate marketing.",          icon: "HelpCircle"    },
-    platform_guide:    { label: "Platform Guide",    description: "Step-by-step guides for using the BTS Member Portal and its features.",            icon: "BookOpen"      },
-    marketing:         { label: "Marketing",         description: "Strategies and tactics for affiliate marketing campaigns and ad creatives.",        icon: "Megaphone"     },
-    compliance:        { label: "Compliance",        description: "Compliance rules, ad policies, and how to stay within publisher guidelines.",      icon: "ShieldCheck"   },
-    advanced_strategy: { label: "Advanced Strategy", description: "Advanced techniques for scaling campaigns and maximizing revenue.",                 icon: "TrendingUp"    },
-    troubleshooting:   { label: "Troubleshooting",   description: "Solutions for common issues, errors, and technical problems.",                     icon: "Wrench"        },
-  };
-
-  const kbCategoryRows = await db
-    .selectDistinct({ category: knowledgebaseDocsTable.category })
-    .from(knowledgebaseDocsTable)
-    .orderBy(knowledgebaseDocsTable.category);
-
-  if (kbCategoryRows.length > 0) {
-    const kbGroupId = await upsertGroup(
-      "Knowledge Base Topics",
-      "Browse curated questions by topic from the BTS knowledge base.",
-      "Database",
-      4,
-    );
-
-    for (let i = 0; i < kbCategoryRows.length; i++) {
-      const cat = kbCategoryRows[i].category;
-      const meta = KB_CATEGORY_META[cat] ?? {
-        label: cat.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase()),
-        description: `Questions and answers sourced from the "${cat}" knowledge base category.`,
-        icon: "Database",
-      };
-
-      await upsertCard(
-        kbGroupId,
-        meta.label,
-        meta.description,
-        meta.icon,
-        null,
-        null,
-        i,
-      );
-    }
-
-    console.log(`[seed-assistant-cards]   Knowledge Base Topics: ${kbCategoryRows.length} category cards derived from knowledgebaseDocsTable.`);
-  }
+  // 3. Knowledge Base Topics — RETIRED (Task #2029). These cards were derived
+  //    from the legacy knowledgebase_docs table, which has been dropped. The
+  //    Assistant Card Library stays dormant; a future re-tie will derive topic
+  //    cards from the new AI pipeline (ai_live_documents) instead.
 
   const totalStaticCards = STATIC_GROUPS.reduce((sum, g) => sum + g.cards.length, 0);
   console.log(
     `[seed-assistant-cards] Done. ${STATIC_GROUPS.length} static groups (${totalStaticCards} cards), ` +
-    `${activeTools?.length ?? 0} tool cards, ` +
-    `${kbCategoryRows?.length ?? 0} KB topic cards. ` +
+    `${activeTools?.length ?? 0} tool cards. ` +
     `Existing rows were skipped (idempotent).`,
   );
 }

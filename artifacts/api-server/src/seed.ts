@@ -9,7 +9,7 @@ import {
   communityPostsTable, communityCommentsTable, communityReactionsTable,
   communityBadgesTable, communityNotificationsTable,
   chatSessionsTable, chatMessagesTable, chatDailyUsageTable, chatPromptsTable,
-  chatSystemPromptsTable, knowledgebaseDocsTable,
+  chatSystemPromptsTable,
   affiliateProfilesTable, commissionRatesTable, referralLinksTable, referralClicksTable,
   commissionsTable, commissionPayoutsTable, affiliateResourcesTable,
   sequencesTable, sequenceStepsTable,
@@ -22,7 +22,6 @@ import bcrypt from "bcryptjs";
 import { seedCommunicationTemplates } from "./lib/seed-templates";
 import { seedVaultData } from "./lib/seed-vault";
 import { seedAssistantCards } from "./lib/seed-assistant-cards";
-import { seedKnowledgebaseFromFiles, seedInternalSops } from "./lib/seed-kb";
 import { ANTI_HALLUCINATION_SYSTEM_PROMPT } from "./lib/chat-system-prompt";
 import { affiliateNetworksTable, blitzPhasesTable } from "@workspace/db/schema";
 import { BLITZ_PHASES } from "./lib/blitz/sections";
@@ -1194,10 +1193,6 @@ async function seed() {
 
   await seedAssistantCards();
 
-  await seedKnowledgebaseFromFiles();
-
-  await seedInternalSops();
-
   for (const phase of BLITZ_PHASES) {
     await db.insert(blitzPhasesTable).values({
       slug: phase.key,
@@ -1216,7 +1211,7 @@ async function seed() {
   console.log("  Admin User (admin@bts.com / Demo1234) - Lifetime [affiliate: btsteam, tier: top]");
   console.log("  Jake Rivera (jake@example.com / Demo1234) - 1-Year [affiliate: jaker23, tier: premium]");
   console.log("  Lisa Thompson (lisa@example.com / Demo1234) - 3-Month [affiliate: lisat55, tier: entry]");
-  console.log("Chat data: system prompt, 10 knowledgebase docs, 3 demo chat sessions");
+  console.log("Chat data: system prompt, 3 demo chat sessions");
   console.log("Software & Tools: 6 categories, 8 tools, sample user data seeded.");
 }
 

@@ -4,7 +4,6 @@ import {
   buildVoiceSynonymTsquery,
   CONCEPT_SYNONYM_GROUPS,
 } from "../lib/voice-synonyms";
-import { buildConceptsDocs } from "../lib/seed-concepts-kb";
 
 // Concepts/strategy synonym layer (extends the operations synonym mechanism in
 // lib/voice-synonyms.ts). The concepts corpus uses curriculum vocabulary
@@ -240,26 +239,6 @@ describe("concepts synonym groups are wired to the real corpus", () => {
     for (const group of CONCEPT_SYNONYM_GROUPS) {
       for (const term of group.canonical) {
         expect(term).toMatch(/^[a-z0-9]+$/);
-      }
-    }
-  });
-
-  it("every canonical term actually appears in the concepts corpus", () => {
-    // The synonym layer only helps if the canonical lexemes exist in the docs
-    // the tsquery will run against. Guard against vocabulary drift between the
-    // synonym map and the seeded corpus.
-    const corpus = buildConceptsDocs()
-      .map((d) => `${d.title}\n${d.content}`)
-      .join("\n")
-      .toLowerCase();
-    for (const group of CONCEPT_SYNONYM_GROUPS) {
-      for (const term of group.canonical) {
-        // Stem-tolerant containment: "testing" → "testing", "scaling" →
-        // "scaling", "placement" → "placements" etc. all appear literally.
-        expect(
-          corpus.includes(term) || corpus.includes(term.replace(/ing$/, "")),
-          `canonical term "${term}" not found in the concepts corpus`,
-        ).toBe(true);
       }
     }
   });

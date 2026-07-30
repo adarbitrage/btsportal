@@ -12,7 +12,7 @@
  */
 
 import { db } from "@workspace/db";
-import { knowledgebaseDocsTable } from "@workspace/db/schema";
+import { aiLiveDocumentsTable } from "@workspace/db/schema";
 import { eq, isNotNull, and } from "drizzle-orm";
 import { scrubPrivateContent } from "./content-privacy-filter";
 import {
@@ -425,16 +425,16 @@ export async function gatherFlagContext(doc: {
 }): Promise<FlagContext> {
   const candidateTitle = scrubPrivateContent(doc.aiCleanedTitle?.trim() || doc.title);
   const [verified] = await db
-    .select({ title: knowledgebaseDocsTable.title })
-    .from(knowledgebaseDocsTable)
-    .where(and(eq(knowledgebaseDocsTable.title, candidateTitle), isNotNull(knowledgebaseDocsTable.lastVerified)))
+    .select({ title: aiLiveDocumentsTable.title })
+    .from(aiLiveDocumentsTable)
+    .where(and(eq(aiLiveDocumentsTable.title, candidateTitle), isNotNull(aiLiveDocumentsTable.lastVerified)))
     .limit(1);
   if (verified) return { duplicateTitle: verified.title, conflictsWithVerified: true };
 
   const [dup] = await db
-    .select({ title: knowledgebaseDocsTable.title })
-    .from(knowledgebaseDocsTable)
-    .where(eq(knowledgebaseDocsTable.title, candidateTitle))
+    .select({ title: aiLiveDocumentsTable.title })
+    .from(aiLiveDocumentsTable)
+    .where(eq(aiLiveDocumentsTable.title, candidateTitle))
     .limit(1);
   return { duplicateTitle: dup?.title ?? null, conflictsWithVerified: false };
 }

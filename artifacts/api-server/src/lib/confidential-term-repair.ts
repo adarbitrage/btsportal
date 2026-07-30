@@ -69,7 +69,6 @@ export function scrubConfidentialTerm(text: string): string {
 const TARGET_TABLES = [
   "blitz_lessons",
   "ai_source_documents",
-  "knowledgebase_docs",
   "kb_staging_docs",
   "kb_staging_archive",
   "kb_source_node_extracts",

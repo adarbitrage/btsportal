@@ -8,9 +8,8 @@
  * cleaned into the Transcript Cleaner holding store or already filed into the AI
  * Source Knowledge library — those rows still carry the old brand in storage.
  *
- * The seeded `knowledgebase_docs` rows are already covered by the existing
- * re-scrub pass (rescrub-knowledgebase-docs.ts, run on boot + in post-merge).
- * The two tables WITHOUT a re-scrub pass are the gap this closes:
+ * (The legacy `knowledgebase_docs` table and its re-scrub pass were retired in
+ * Task #2029.) The two tables WITHOUT a re-scrub pass are the gap this closes:
  *   - transcript_cleaner_documents (holding store): cleaned_content + the title
  *     fields title / suggested_title / proposed_title.
  *   - ai_source_documents (filed raw-source library): content + title.

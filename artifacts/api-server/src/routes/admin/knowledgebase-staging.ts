@@ -1,7 +1,7 @@
 import { getParam } from "../../lib/params";
 import { Router, Request, Response } from "express";
 import { db } from "@workspace/db";
-import { kbStagingDocsTable, knowledgebaseDocsTable, aiLiveDocumentsTable, aiLiveDocumentVersionsTable, kbDocProvenanceTable, kbTriageAuditLogTable, aiSourceDocumentsTable, kbTranscriptSourcesTable, kbHighlightDismissalsTable, kbFlagResolutionsTable } from "@workspace/db/schema";
+import { kbStagingDocsTable, aiLiveDocumentsTable, aiLiveDocumentVersionsTable, kbDocProvenanceTable, kbTriageAuditLogTable, aiSourceDocumentsTable, kbTranscriptSourcesTable, kbHighlightDismissalsTable, kbFlagResolutionsTable } from "@workspace/db/schema";
 import { eq, desc, sql, count, and, ne, isNotNull, inArray } from "drizzle-orm";
 import { requirePermission } from "../../middleware/rbac.js";
 import { resolveNavGapsForPublishedDoc } from "../../lib/kb-nav-gaps.js";
@@ -15,7 +15,6 @@ import {
 } from "../../lib/kb-triage.js";
 import { callLLMWithRetry } from "../../lib/kb-synthesis.js";
 import { CITABLE_DOC_CLASSES } from "../../lib/kb-taxonomy.js";
-import { detectLegacyRefs } from "../../lib/kb-mining.js";
 import { blocksBulkConfirm, RISK_FLAG_TYPES, type RiskFlag, type RiskFlagType } from "../../lib/kb-flags.js";
 import { buildReviewerSop } from "../../lib/kb-sop.js";
 import {
@@ -3178,66 +3177,12 @@ router.get("/:id/refine-thread", async (req: Request, res: Response) => {
   }
 });
 
-// ── Re-verify imported curated docs (Task #2, step 14) ───────────────────────
+// ── Curated-doc re-verification import — RETIRED (Task #2029) ───────────────
 //
-// The ~117 hand-written curated docs (doc_class='curated') from Task #1 carry no
-// last_verified, so the citable filter holds them back. This pulls them into the
-// review queue as `existing_doc` drafts so a human can confirm each on the
-// fast/guided track. Idempotent: a curated doc already staged as existing_doc is
-// skipped. Legacy refs are flagged so dated content is caught before re-verify.
-router.post("/import-curated", async (_req: Request, res: Response) => {
-  try {
-    const curated = await db
-      .select()
-      .from(knowledgebaseDocsTable)
-      .where(eq(knowledgebaseDocsTable.docClass, "curated"));
-
-    // Titles already staged as existing_doc drafts — don't double-import.
-    const existing = await db
-      .select({ title: kbStagingDocsTable.title })
-      .from(kbStagingDocsTable)
-      .where(eq(kbStagingDocsTable.docType, "existing_doc"));
-    const staged = new Set(existing.map((r) => r.title));
-
-    let imported = 0;
-    let skipped = 0;
-
-    for (const doc of curated) {
-      if (staged.has(doc.title)) {
-        skipped++;
-        continue;
-      }
-      const staleRefs = detectLegacyRefs(doc.content);
-      const tags = Array.isArray(doc.tags) ? doc.tags : [];
-
-      await db.insert(kbStagingDocsTable).values({
-        title: doc.title,
-        category: doc.category,
-        content: doc.content,
-        tags: tags.join(", "),
-        status: "needs_review",
-        source: "curated_import",
-        audience: doc.audience,
-        docType: "existing_doc",
-        originType: "curated_upload",
-        docClassTarget: doc.docClass ?? "curated",
-        homeRoot: doc.homeRoot,
-        node: doc.node,
-        taxonomyTags: tags,
-        blitzSection: doc.blitzSection,
-        ceiling: doc.ceiling,
-        handoff: doc.handoff,
-        staleReferences: staleRefs.length > 0 ? staleRefs : null,
-        adminNotes: "Imported curated doc for re-verification (Task #1 corpus).",
-      });
-      imported++;
-    }
-
-    res.json({ imported, skipped, totalCurated: curated.length });
-  } catch (err: unknown) {
-    res.status(500).json({ error: err instanceof Error ? err.message : "Unknown error" });
-  }
-});
+// The `/import-curated` bridge that staged legacy knowledgebase_docs curated
+// rows for re-verification is gone along with the legacy table itself. The
+// staging queue is fed exclusively by the modern pipelines (transcript
+// cleaner manifest import, synthesis, seeds).
 
 // ── Blitz reference-doc import — RETIRED ─────────────────────────────────────
 //

@@ -156,8 +156,12 @@ if [ -n "$DATABASE_URL" ]; then
     -f lib/db/drizzle/0069_kb_transcript_sources.sql >/dev/null
   psql "$DATABASE_URL" -v ON_ERROR_STOP=1 \
     -f lib/db/drizzle/0070_kb_doc_provenance.sql >/dev/null
-  psql "$DATABASE_URL" -v ON_ERROR_STOP=1 \
-    -f lib/db/drizzle/0071_knowledgebase_docs_taxonomy_columns.sql >/dev/null
+  # The legacy knowledgebase_docs table is dropped by step 36 (0127), so on
+  # replays after the drop skip its taxonomy-column migration entirely.
+  if [ "$(psql "$DATABASE_URL" -tAc "SELECT to_regclass('public.knowledgebase_docs') IS NOT NULL")" = "t" ]; then
+    psql "$DATABASE_URL" -v ON_ERROR_STOP=1 \
+      -f lib/db/drizzle/0071_knowledgebase_docs_taxonomy_columns.sql >/dev/null
+  fi
 
   # 12. Add the Task #2 (authoring/review pipeline) taxonomy + screening/risk
   #     columns to kb_staging_docs and the durable last_mined_at marker to
@@ -403,6 +407,15 @@ if [ -n "$DATABASE_URL" ]; then
   #     (DROP TABLE IF EXISTS ... CASCADE).
   psql "$DATABASE_URL" -v ON_ERROR_STOP=1 \
     -f lib/db/drizzle/0125_drop_dm_tables.sql >/dev/null
+
+  # 36. Drop the retired legacy knowledge-base tables (Task #2029). The legacy
+  #     admin/member KB stack was fully removed (admin page, CRUD + member
+  #     search/bookmark APIs, seeds, boot repair hooks); the AI assistant reads
+  #     only ai_live_documents. Like step 35, a pure table REMOVAL leaves the
+  #     drift gate green, so drop explicitly here. Idempotent
+  #     (DROP TABLE IF EXISTS, bookmarks first — it FKs onto docs).
+  psql "$DATABASE_URL" -v ON_ERROR_STOP=1 \
+    -f lib/db/drizzle/0127_drop_legacy_knowledgebase.sql >/dev/null
 fi
 
 # Per-session chat Conversation Continuity Summary (Task #1989). One additive
@@ -479,20 +492,6 @@ if [ -n "$DATABASE_URL" ]; then
     -v ON_ERROR_STOP=1 \
     -f lib/db/drizzle/0033_products_plan_metadata.sql \
     >/dev/null
-fi
-
-# Re-scrub knowledgebase_docs through the centralized privacy filter so a
-# freshly-synced dev database can never re-introduce a coach surname that was
-# already removed (e.g. a stale row copy carrying "Wisbaum"). The script cleans
-# both content AND titles; titles carry a UNIQUE constraint, so a scrubbed
-# title that would collide with another row is de-duplicated with a numeric
-# suffix instead of aborting the run. It only updates rows that actually change,
-# so it is idempotent and a no-op when nothing needs cleaning. Keeps the
-# kb-coach-name-leak-guard DB test green after every merge without anyone
-# running the script by hand.
-if [ -n "$DATABASE_URL" ]; then
-  pnpm --filter @workspace/api-server exec tsx \
-    src/scripts/rescrub-knowledgebase-docs.ts
 fi
 
 # Rebrand stored OLD-BRAND references (Cherrington / TCE / … -> BTS / Adam) in the

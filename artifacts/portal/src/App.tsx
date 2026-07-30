@@ -72,7 +72,6 @@ import ChatAnalytics from "@/pages/admin/ChatAnalytics";
 import ChatTranscripts from "@/pages/admin/ChatTranscripts";
 import SystemPrompts from "@/pages/admin/SystemPrompts";
 import FindInKnowledgeBase from "@/pages/admin/FindInKnowledgeBase";
-import Knowledgebase from "@/pages/admin/Knowledgebase";
 import ContentGaps from "@/pages/admin/ContentGaps";
 import KnowledgeBaseReview from "@/pages/admin/KnowledgeBaseReview";
 import LiveAIDocuments from "@/pages/admin/LiveAIDocuments";
@@ -605,7 +604,6 @@ function Router() {
       <Route path="/admin/chat/find-in-kb">{() => <AdminRoute component={FindInKnowledgeBase} permission="chat:view" />}</Route>
       <Route path="/admin/chat/knowledgebase/archivebackup">{() => <AdminRoute component={KnowledgeBaseArchive} permission="chat:manage" />}</Route>
       <Route path="/admin/chat/knowledgebase/review">{() => <AdminRoute component={KnowledgeBaseReview} permission="chat:manage" />}</Route>
-      <Route path="/admin/chat/knowledgebase">{() => <AdminRoute component={Knowledgebase} permission="chat:manage" />}</Route>
       <Route path="/admin/ai-knowledgebase/live-documents">{() => <AdminRoute component={LiveAIDocuments} permission="chat:manage" />}</Route>
       <Route path="/admin/ai-knowledgebase/source-knowledge">{() => <AdminRoute component={AiSourceKnowledge} permission="chat:manage" />}</Route>
       <Route path="/admin/ai-knowledgebase/transcript-cleaner">{() => <AdminRoute component={TranscriptCleaner} permission="chat:manage" />}</Route>

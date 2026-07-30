@@ -1,7 +1,7 @@
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
-import { scrubPrivateContent } from "./content-privacy-filter";
-import type { Ceiling, HandoffTarget } from "./kb-taxonomy";
+import { scrubPrivateContent } from "../../lib/content-privacy-filter";
+import type { Ceiling, HandoffTarget } from "../../lib/kb-taxonomy";
 
 /**
  * Concepts & Skills root content (Task #4b, Bucket A→B — human-verified truth
@@ -337,62 +337,47 @@ export function buildConceptsDocs(): ConceptsDoc[] {
   ];
 }
 
-export async function seedConceptsKb(): Promise<void> {
-  const docs = buildConceptsDocs();
-  let upserted = 0;
-  let errors = 0;
 
-  for (const doc of docs) {
+/**
+ * TEST-ONLY (Task #2029): the legacy seed path (knowledgebase_docs + boot
+ * mirror) is retired. Retrieval tests seed the concepts truth docs DIRECTLY
+ * into ai_live_documents so they exercise the exact production read path.
+ * Idempotent upsert on title; never resets last_verified on re-run.
+ */
+export async function seedConceptsLiveDocsForTest(): Promise<void> {
+  for (const doc of buildConceptsDocs()) {
     const cleanTitle = scrubPrivateContent(doc.title);
     const cleanContent = scrubPrivateContent(doc.content);
     const tagsJson = JSON.stringify(doc.tags);
-    try {
-      await db.execute(
-        sql`INSERT INTO knowledgebase_docs
-              (title, category, content, audience, doc_class, slug, home_root, node,
-               tags, ceiling, handoff, last_verified, source_path, source_label)
-            VALUES
-              (${cleanTitle}, 'concepts', ${cleanContent}, 'member', ${doc.docClass},
-               ${doc.slug}, 'concepts', ${doc.node}, ${tagsJson}::jsonb, ${doc.ceiling},
-               ${doc.handoff}, ${CONCEPTS_VERIFIED_AT}::timestamptz, ${doc.sourcePath},
-               ${doc.sourceLabel})
-            ON CONFLICT (title) DO UPDATE SET
-              category = EXCLUDED.category,
-              content = EXCLUDED.content,
-              audience = EXCLUDED.audience,
-              doc_class = EXCLUDED.doc_class,
-              slug = EXCLUDED.slug,
-              home_root = EXCLUDED.home_root,
-              node = EXCLUDED.node,
-              tags = EXCLUDED.tags,
-              ceiling = EXCLUDED.ceiling,
-              handoff = EXCLUDED.handoff,
-              source_path = EXCLUDED.source_path,
-              source_label = EXCLUDED.source_label,
-              updated_at = NOW()
-            WHERE
-              knowledgebase_docs.content IS DISTINCT FROM EXCLUDED.content
-              OR knowledgebase_docs.doc_class IS DISTINCT FROM EXCLUDED.doc_class
-              OR knowledgebase_docs.home_root IS DISTINCT FROM EXCLUDED.home_root
-              OR knowledgebase_docs.node IS DISTINCT FROM EXCLUDED.node
-              OR knowledgebase_docs.ceiling IS DISTINCT FROM EXCLUDED.ceiling
-              OR knowledgebase_docs.handoff IS DISTINCT FROM EXCLUDED.handoff
-              OR knowledgebase_docs.tags IS DISTINCT FROM EXCLUDED.tags
-              OR knowledgebase_docs.slug IS DISTINCT FROM EXCLUDED.slug
-              OR knowledgebase_docs.source_path IS DISTINCT FROM EXCLUDED.source_path
-              OR knowledgebase_docs.source_label IS DISTINCT FROM EXCLUDED.source_label`,
-      );
-      upserted++;
-    } catch (err) {
-      errors++;
-      console.error(
-        `[seed-concepts-kb] Error upserting "${doc.title}":`,
-        err instanceof Error ? err.message : err,
-      );
-    }
+    // Clear any stale row whose slug matches but whose title diverged (shared
+    // dev DBs), then upsert on title.
+    await db.execute(sql`
+      DELETE FROM ai_live_documents
+      WHERE slug = ${doc.slug} AND title <> ${cleanTitle}
+        AND NOT EXISTS (SELECT 1 FROM ai_live_documents x WHERE x.title = ${cleanTitle})`);
+    await db.execute(
+      sql`INSERT INTO ai_live_documents
+            (title, slug, category, content, audience, doc_class, home_root, node,
+             tags, ceiling, handoff, last_verified, source_path, source_label)
+          VALUES
+            (${cleanTitle}, ${doc.slug}, 'concepts', ${cleanContent}, 'member', ${doc.docClass},
+             'concepts', ${doc.node}, ${tagsJson}::jsonb, ${doc.ceiling}, ${doc.handoff},
+             ${CONCEPTS_VERIFIED_AT}::timestamptz, ${doc.sourcePath}, ${doc.sourceLabel})
+          ON CONFLICT (title) DO UPDATE SET
+            category = EXCLUDED.category,
+            content = EXCLUDED.content,
+            audience = EXCLUDED.audience,
+            doc_class = EXCLUDED.doc_class,
+            slug = EXCLUDED.slug,
+            home_root = EXCLUDED.home_root,
+            node = EXCLUDED.node,
+            tags = EXCLUDED.tags,
+            ceiling = EXCLUDED.ceiling,
+            handoff = EXCLUDED.handoff,
+            source_path = EXCLUDED.source_path,
+            source_label = EXCLUDED.source_label,
+            deleted_at = NULL,
+            updated_at = NOW()`,
+    );
   }
-
-  console.log(
-    `[seed-concepts-kb] Done. Processed: ${upserted}, Errors: ${errors}, Total: ${docs.length}`,
-  );
 }

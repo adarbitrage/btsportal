@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
-import { db, knowledgebaseDocsTable } from "@workspace/db";
+import { db, aiLiveDocumentsTable } from "@workspace/db";
 
 /**
  * Guard against coach last names leaking into the AI assistant.
@@ -12,8 +12,9 @@ import { db, knowledgebaseDocsTable } from "@workspace/db";
  *   1. The system-prompt path reads `qa-articles.txt` and `glossary.txt` RAW
  *      from disk (routes/openai/knowledge-base.ts) — it bypasses the privacy
  *      filter entirely, so those files must be physically clean.
- *   2. The DB path (`knowledgebase_docs`) is scrubbed at ingest time, but a
- *      NEW spelling variant in the source could slip past the filter.
+ *   2. The DB path (`ai_live_documents`, the assistant's retrieval corpus) is
+ *      scrubbed at ingest time, but a NEW spelling variant in the source could
+ *      slip past the filter.
  *
  * A coach surname previously leaked because the source used inconsistent
  * spellings (e.g. both "Wissbaum" and "Wisbaum") and only one variant was
@@ -96,14 +97,14 @@ describe("KB coach-name leak guard", () => {
     });
   }
 
-  it("seeded knowledgebase_docs rows contain no unscrubbed coach surname", async () => {
+  it("ai_live_documents rows contain no unscrubbed coach surname", async () => {
     const rows = await db
       .select({
-        id: knowledgebaseDocsTable.id,
-        title: knowledgebaseDocsTable.title,
-        content: knowledgebaseDocsTable.content,
+        id: aiLiveDocumentsTable.id,
+        title: aiLiveDocumentsTable.title,
+        content: aiLiveDocumentsTable.content,
       })
-      .from(knowledgebaseDocsTable);
+      .from(aiLiveDocumentsTable);
 
     const offenders: string[] = [];
     for (const row of rows) {
@@ -119,7 +120,7 @@ describe("KB coach-name leak guard", () => {
 
     expect(
       offenders,
-      `Unscrubbed coach surname(s) found in knowledgebase_docs:\n${offenders.join(
+      `Unscrubbed coach surname(s) found in ai_live_documents:\n${offenders.join(
         "\n",
       )}\nRe-scrub the offending rows and widen the rule in ` +
         `lib/content-privacy-filter.ts to cover the variant.`,

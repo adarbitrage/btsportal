@@ -744,23 +744,6 @@ export function previewSystemPrompt(data: { content: string; testMessage: string
   });
 }
 
-export interface KnowledgebaseDoc {
-  id: number;
-  title: string;
-  category: string;
-  content: string;
-  audience: "member" | "admin";
-  chunkCount: number;
-  updatedAt: string;
-}
-
-export function fetchKnowledgebaseDocs(params?: { category?: string; search?: string }) {
-  const qs = new URLSearchParams();
-  if (params?.category) qs.set("category", params.category);
-  if (params?.search) qs.set("search", params.search);
-  return adminFetch<KnowledgebaseDoc[]>(`/admin/chat/knowledgebase?${qs.toString()}`);
-}
-
 export interface KbManualReviewResult {
   stagingDocId: number;
   title: string;
@@ -774,17 +757,6 @@ export function createKnowledgebaseDocWithReview(data: { title: string; category
     "/admin/knowledgebase/pipeline/create-from-text",
     { method: "POST", body: JSON.stringify(data) },
   );
-}
-
-export function updateKnowledgebaseDoc(id: number, data: { title?: string; category?: string; content?: string; audience?: "member" | "admin" }) {
-  return adminFetch(`/admin/chat/knowledgebase/${id}`, {
-    method: "PUT",
-    body: JSON.stringify(data),
-  });
-}
-
-export function deleteKnowledgebaseDoc(id: number) {
-  return adminFetch(`/admin/chat/knowledgebase/${id}`, { method: "DELETE" });
 }
 
 // ── Live AI Documents (AI Knowledgebase — the assistant's citable corpus) ────
@@ -2226,13 +2198,13 @@ export interface KbDoc {
   updatedAt: string;
 }
 
-export function useAdminKbDocs(search?: string) {
+// RETIRED (Task #2029): the legacy /admin/chat/knowledgebase endpoint is gone.
+// The dormant Assistant Card Library question generator keeps compiling via
+// this stub; its future re-tie will read the new AI pipeline instead.
+export function useAdminKbDocs(_search?: string) {
   return useQuery({
-    queryKey: ["/api/admin/chat/knowledgebase", search ?? ""],
-    queryFn: () =>
-      adminFetch<KbDoc[]>(
-        `/admin/chat/knowledgebase${search ? `?search=${encodeURIComponent(search)}` : ""}`,
-      ),
+    queryKey: ["/api/admin/chat/knowledgebase-retired"],
+    queryFn: async () => [] as KbDoc[],
   });
 }
 
@@ -2433,66 +2405,8 @@ export function fileTranscriptCleanerBatch(ids: number[]) {
   );
 }
 
-// ── Gated triage import (Task #1484) ─────────────────────────────────────────
-
-export type TranscriptImportAction =
-  | "import"
-  | "skip_excluded"
-  | "skip_already_imported"
-  | "skip_unknown_folder"
-  | "skip_missing_sources"
-  | "skip_empty_content";
-
-export interface TranscriptImportEntry {
-  groupId: string;
-  originalTitle: string;
-  proposedTitle: string | null;
-  titleRenamed: boolean;
-  folder: string | null;
-  transcriptType: string | null;
-  authorityRole: string | null;
-  partCount: number;
-  duplicatePartsDropped: number;
-  action: TranscriptImportAction;
-  reason?: string;
-  documentId?: number;
-}
-
-export interface TranscriptImportSummary {
-  manifestTask: number;
-  generatedAt: string | null;
-  groupsTotal: number;
-  toImport: number;
-  imported: number;
-  stitched: number;
-  singlePart: number;
-  renamed: number;
-  partsStitched: number;
-  duplicatePartsDropped: number;
-  alreadyImported: number;
-  excluded: number;
-  unknownFolder: number;
-  missingSources: number;
-  emptyContent: number;
-  byFolder: Record<string, number>;
-  byAuthority: Record<string, number>;
-}
-
-export interface TranscriptImportPlan {
-  entries: TranscriptImportEntry[];
-  summary: TranscriptImportSummary;
-}
-
-export function previewTranscriptImport() {
-  return adminFetch<TranscriptImportPlan>("/admin/transcript-cleaner/import/preview");
-}
-
-export function runTranscriptImport() {
-  return adminFetch<TranscriptImportPlan>("/admin/transcript-cleaner/import", {
-    method: "POST",
-    body: JSON.stringify({ confirm: true }),
-  });
-}
+// RETIRED: the gated triaged-transcript import (legacy corpus) was removed —
+// the owner confirmed the old corpus will never be imported from again.
 
 // ── Coaching-transcript VALUE SCREENER (Task #1702, refined #1707) ──────────
 

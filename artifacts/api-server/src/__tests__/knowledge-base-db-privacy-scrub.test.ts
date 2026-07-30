@@ -7,14 +7,12 @@ import {
   db,
   usersTable,
   kbStagingDocsTable,
-  knowledgebaseDocsTable,
   aiLiveDocumentsTable,
   kbDocProvenanceTable,
 } from "@workspace/db";
 import { eq, inArray } from "drizzle-orm";
 
 import { buildTestAppWithRouters } from "./test-app";
-import adminChatRouter from "../routes/admin-chat";
 import knowledgebaseStagingRouter from "../routes/admin/knowledgebase-staging";
 import { retrieveSurfaceAware } from "../lib/kb-retrieval";
 
@@ -23,17 +21,12 @@ import { retrieveSurfaceAware } from "../lib/kb-retrieval";
  *
  * The static-file scrub is covered by knowledge-base-privacy-scrub.test.ts, but
  * coach/instructor surnames can also reach members through DB content. The
- * legacy `knowledgebase_docs` table (member-facing KB) is written by the admin
- * KB CRUD, and the assistant's corpus `ai_live_documents` is written by the
- * staging "push to live" flow — every path routes free text through
- * scrubPrivateContent():
- *   1. Admin manual create  — POST /admin/chat/knowledgebase   (legacy table)
- *   2. Admin manual edit     — PUT  /admin/chat/knowledgebase/:id (legacy table)
- *   3. Staging "push to live"— POST /push-approved              (ai_live_documents)
+ * assistant's corpus `ai_live_documents` is written by the staging
+ * "push to live" flow, which routes free text through scrubPrivateContent():
+ *   Staging "push to live" — POST /push-approved (ai_live_documents)
  * retrieveSurfaceAware() folds matching ai_live_documents rows into the chat
- * reply. NOTE (Task #1826): the legacy table and ai_live_documents are fully
- * decoupled — an admin legacy-KB write no longer reaches the assistant, so the
- * retrieval probe goes through the push-approved pipeline.
+ * reply. NOTE (Task #2029): the legacy knowledgebase_docs table and its admin
+ * KB CRUD are fully retired; the modern pipeline is the only DB ingestion path.
  *
  * These tests plant a forbidden coach FULL name through each write path and
  * assert the stored title/content keeps only the first name, then prove the
@@ -79,7 +72,7 @@ async function seedAdmin(): Promise<void> {
 }
 
 beforeAll(async () => {
-  app = buildTestAppWithRouters([adminChatRouter, knowledgebaseStagingRouter]);
+  app = buildTestAppWithRouters([knowledgebaseStagingRouter]);
   await seedAdmin();
 });
 
@@ -88,9 +81,6 @@ afterAll(async () => {
     await db.delete(kbStagingDocsTable).where(inArray(kbStagingDocsTable.id, seededStagingIds));
   }
   if (seededTitles.length > 0) {
-    await db
-      .delete(knowledgebaseDocsTable)
-      .where(inArray(knowledgebaseDocsTable.title, seededTitles));
     const liveRows = await db
       .select({ id: aiLiveDocumentsTable.id })
       .from(aiLiveDocumentsTable)
@@ -106,66 +96,7 @@ afterAll(async () => {
   }
 });
 
-describe("knowledgebase_docs DB ingestion — coach surname privacy scrub", () => {
-  it("strips a coach surname on admin manual create (POST /admin/chat/knowledgebase)", async () => {
-    const title = `${TEST_TAG} create ${FORBIDDEN_FULL_NAME} guide`;
-    seededTitles.push(title);
-
-    const res = await request(app)
-      .post("/api/admin/chat/knowledgebase")
-      .set("Cookie", adminCookie)
-      .send({
-        title,
-        category: "faq",
-        content: `Reach out to ${FORBIDDEN_FULL_NAME} for campaign reviews on DIYTrax.`,
-      });
-
-    expect(res.status).toBe(201);
-    // Track whatever title actually landed (post-scrub) for retrieval + cleanup.
-    seededTitles.push(res.body.title);
-
-    expect(res.body.title).toContain(ALLOWED_FIRST_NAME);
-    expect(res.body.title).not.toContain(FORBIDDEN_SURNAME);
-    expect(res.body.content).toContain(ALLOWED_FIRST_NAME);
-    expect(res.body.content).not.toContain(FORBIDDEN_SURNAME);
-
-    // Confirm the persisted row (not just the response) is clean.
-    const [stored] = await db
-      .select()
-      .from(knowledgebaseDocsTable)
-      .where(eq(knowledgebaseDocsTable.id, res.body.id));
-    expect(stored).toBeDefined();
-    expect(stored.title).not.toContain(FORBIDDEN_SURNAME);
-    expect(stored.content).not.toContain(FORBIDDEN_SURNAME);
-  });
-
-  it("strips a coach surname on admin manual edit (PUT /admin/chat/knowledgebase/:id)", async () => {
-    // Seed a clean row directly, then edit it with a surname via the route.
-    const title = `${TEST_TAG} edit target`;
-    seededTitles.push(title);
-    const [seed] = await db
-      .insert(knowledgebaseDocsTable)
-      .values({ title, category: "faq", content: "Clean starter content." })
-      .returning({ id: knowledgebaseDocsTable.id });
-
-    const res = await request(app)
-      .put(`/api/admin/chat/knowledgebase/${seed.id}`)
-      .set("Cookie", adminCookie)
-      .send({
-        content: `Updated: ${FORBIDDEN_FULL_NAME} now hosts the Friday call.`,
-      });
-
-    expect(res.status).toBe(200);
-    expect(res.body.content).toContain(ALLOWED_FIRST_NAME);
-    expect(res.body.content).not.toContain(FORBIDDEN_SURNAME);
-
-    const [stored] = await db
-      .select()
-      .from(knowledgebaseDocsTable)
-      .where(eq(knowledgebaseDocsTable.id, seed.id));
-    expect(stored.content).not.toContain(FORBIDDEN_SURNAME);
-  });
-
+describe("ai_live_documents ingestion — coach surname privacy scrub", () => {
   it("strips a coach surname on staging push-to-live (POST /push-approved)", async () => {
     const title = `${TEST_TAG} pushed ${FORBIDDEN_FULL_NAME} sop`;
     seededTitles.push(title);

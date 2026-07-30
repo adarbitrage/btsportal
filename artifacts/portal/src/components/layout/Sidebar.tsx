@@ -59,7 +59,6 @@ import {
   Package,
   Sparkles,
   Phone,
-  BookOpen,
   LayoutGrid,
   Radar,
   Wand2,
@@ -274,7 +273,6 @@ export const ADMIN_CHILDREN: NavNode[] = [
       { kind: "leaf", href: "/admin/communications/analytics", label: "Analytics", icon: BarChart3, requiredPermission: "communications:view" },
     ],
   },
-  { kind: "leaf", href: "/admin/chat/knowledgebase", label: "Knowledge Base", icon: BookOpen, requiredPermission: "chat:manage" },
   {
     kind: "folder",
     storageKey: "admin-ai-knowledgebase",

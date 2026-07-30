@@ -219,7 +219,6 @@ vi.mock("@workspace/db", () => {
     chatDailyUsageTable: { userId: {}, usageDate: {}, messageCount: {} },
     chatPromptsTable: {},
     chatSystemPromptsTable: {},
-    knowledgebaseDocsTable: {},
     chatRateLimitsTable: {},
     ticketsTable: {},
     ticketMessagesTable: {},

@@ -793,7 +793,6 @@ describe("FK exhaustiveness guard — every FK referencing users must be classif
       "course_progress_user_id_users_id_fk",
       "email_unsubscribes_user_id_users_id_fk",
       "ghl_sync_log_user_id_users_id_fk",
-      "knowledgebase_bookmarks_user_id_fkey",
       "member_app_instances_user_id_users_id_fk",
       "member_health_scores_user_id_users_id_fk",
       "moderation_queue_author_id_users_id_fk",

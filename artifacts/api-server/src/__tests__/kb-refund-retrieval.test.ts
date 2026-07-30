@@ -1,8 +1,7 @@
 import { describe, it, expect, beforeAll } from "vitest";
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
-import { ensureBtsAgreementKbContent } from "../lib/seed-kb";
-import { seedLiveDocsFromCitableLegacyForTest } from "./kb-live-docs-test-seed";
+import { seedRefundLiveDocsForTest } from "./fixtures/refund-docs.fixture";
 import { searchKnowledgebase } from "../routes/chat";
 
 // End-to-end retrieval guard for the AI assistant's refund answers.
@@ -56,29 +55,11 @@ const REFUND_QUERIES = [
 
 describe("AI assistant refund retrieval (searchKnowledgebase)", () => {
   beforeAll(async () => {
-    // Seed/refresh the refund + Agreement articles and glossary refund terms
-    // exactly as the server does on boot.
-    await ensureBtsAgreementKbContent();
-
-    // Task #1401 citable gate: chat retrieval now requires
-    //   doc_class IN ('curated','overview') AND last_verified IS NOT NULL.
-    // The seed hook lands these refund/glossary docs as curated but HELD
-    // (last_verified NULL), so they are non-citable until a human verifies
-    // them. Mark the curated docs verified here so this retrieval guard
-    // exercises genuinely citable docs (mirrors a post-review verified state).
-    await db.execute(
-      sql`UPDATE knowledgebase_docs
-          SET last_verified = NOW()
-          WHERE doc_class = 'curated' AND last_verified IS NULL`,
-    );
-
-    // The assistant retrieves from ai_live_documents, which production no
-    // longer populates from the legacy table (the boot mirror was retired,
-    // Task #1826). The seed hook above still authors the citable truth into the
-    // legacy table (member-facing /kb/search reads it), so copy the
-    // freshly-verified citable set into ai_live_documents as a TEST FIXTURE,
-    // otherwise the retrieval below finds nothing.
-    await seedLiveDocsFromCitableLegacyForTest();
+    // Seed the refund + Agreement articles and glossary refund terms directly
+    // into ai_live_documents (TEST FIXTURE — the legacy seed path is retired,
+    // Task #2029). They land curated + verified so the citable gate admits
+    // them, mirroring a post-review verified state.
+    await seedRefundLiveDocsForTest();
   });
 
   for (const query of REFUND_QUERIES) {

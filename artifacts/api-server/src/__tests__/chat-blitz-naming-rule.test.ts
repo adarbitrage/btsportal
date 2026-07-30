@@ -74,17 +74,6 @@ vi.mock("../lib/rebrand-old-brand-source-content", () => ({
     aiSource: { scanned: 0, updated: 0 },
   }),
 }));
-vi.mock("../lib/rescrub-knowledgebase-docs", () => ({
-  rescrubKnowledgebaseDocs: async () => ({ titleUpdated: 0, contentUpdated: 0, scanned: 0 }),
-  findUnscrubbedTitles: async () => [],
-}));
-vi.mock("../lib/seed-kb", () => ({
-  seedKnowledgebaseFromFiles: async () => {},
-  seedInternalSops: async () => {},
-}));
-vi.mock("../lib/seed-kb-member-content", () => ({
-  seedMemberBroadContent: async () => {},
-}));
 vi.mock("../lib/tapfiliate-migration", () => ({ runTapfiliateColumnMigration: async () => {} }));
 vi.mock("../lib/seed-yse-products", () => ({ seedYseProducts: async () => {} }));
 vi.mock("../lib/seed-machine-brand-products", () => ({ seedMachineBrandProducts: async () => {} }));

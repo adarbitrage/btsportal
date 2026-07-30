@@ -1,5 +1,3 @@
-import { db, knowledgebaseDocsTable } from "@workspace/db";
-import { sql, inArray } from "drizzle-orm";
 import { getAnthropicClient } from "@workspace/integrations-anthropic-ai";
 import { verifyQuestionBatch } from "./questionVerifier.js";
 
@@ -46,42 +44,14 @@ export interface GeneratorResult {
 }
 
 async function loadKbDocs(
-  kbDocIds?: number[],
-  kbTags?: string[],
+  _kbDocIds?: number[],
+  _kbTags?: string[],
 ): Promise<Array<{ id: number; title: string; content: string; category: string }>> {
-  if (kbDocIds && kbDocIds.length > 0) {
-    return db
-      .select({
-        id: knowledgebaseDocsTable.id,
-        title: knowledgebaseDocsTable.title,
-        content: knowledgebaseDocsTable.content,
-        category: knowledgebaseDocsTable.category,
-      })
-      .from(knowledgebaseDocsTable)
-      .where(inArray(knowledgebaseDocsTable.id, kbDocIds));
-  }
-
-  if (kbTags && kbTags.length > 0) {
-    const tagsArray = `{${kbTags.join(",")}}`;
-    const results = await db.execute(
-      sql`SELECT id, title, content, category FROM knowledgebase_docs WHERE category = ANY(${tagsArray}::text[])`,
-    );
-    return (results.rows as any[]).map((r) => ({
-      id: r.id as number,
-      title: r.title as string,
-      content: r.content as string,
-      category: r.category as string,
-    }));
-  }
-
-  return db
-    .select({
-      id: knowledgebaseDocsTable.id,
-      title: knowledgebaseDocsTable.title,
-      content: knowledgebaseDocsTable.content,
-      category: knowledgebaseDocsTable.category,
-    })
-    .from(knowledgebaseDocsTable);
+  // RETIRED (Task #2029): this generator previously sampled the legacy
+  // knowledgebase_docs table, which has been dropped. The Assistant Card
+  // Library remains dormant; a future re-tie will source content from the new
+  // AI pipeline (ai_live_documents). Until then no KB sample is available.
+  return [];
 }
 
 function buildKbSample(docs: Array<{ title: string; content: string }>): string {

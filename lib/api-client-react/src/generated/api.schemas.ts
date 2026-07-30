@@ -2461,16 +2461,6 @@ export interface SystemPromptVersion {
   updatedAt?: string;
 }
 
-export interface KnowledgebaseDocAdmin {
-  id?: number;
-  title?: string;
-  category?: string;
-  content?: string;
-  chunkCount?: number;
-  createdAt?: string;
-  updatedAt?: string;
-}
-
 export interface ChatRateLimit {
   id?: number;
   tier?: string;
@@ -3309,27 +3299,6 @@ export type AdminPreviewSystemPromptBody = {
 
 export type AdminPreviewSystemPrompt200 = {
   response?: string;
-};
-
-export type AdminListKnowledgebaseDocsParams = {
-  category?: string;
-  search?: string;
-};
-
-export type AdminCreateKnowledgebaseDocBody = {
-  title: string;
-  category?: string;
-  content: string;
-};
-
-export type AdminUpdateKnowledgebaseDocBody = {
-  title?: string;
-  category?: string;
-  content?: string;
-};
-
-export type AdminDeleteKnowledgebaseDoc200 = {
-  success?: boolean;
 };
 
 export type AdminUpdateRateLimitsBody = {

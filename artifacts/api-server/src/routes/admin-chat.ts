@@ -6,22 +6,13 @@ import {
   chatMessagesTable,
   chatDailyUsageTable,
   chatSystemPromptsTable,
-  knowledgebaseDocsTable,
   chatRateLimitsTable,
   usersTable,
   ticketMessagesTable,
 } from "@workspace/db";
 import { eq, and, desc, sql, asc, like, gte, lte, ilike } from "drizzle-orm";
 import { requirePermission } from "../middleware/rbac";
-import { scrubPrivateContent } from "../lib/content-privacy-filter";
 import { GLOBAL_CHAT_LIMIT_KEY } from "./chat";
-
-// DECOUPLED (Task #1826): this admin CRUD edits the legacy `knowledgebase_docs`
-// table, which is authoritative ONLY for the member-facing Knowledge Base
-// (/kb/search, browse, bookmarks). It has ZERO effect on the AI assistant's
-// corpus — `ai_live_documents` is owned exclusively by the staging review →
-// push-approved pipeline and the admin Live AI Documents editor. The legacy →
-// live mirror that used to re-sync here (and at boot) has been retired.
 
 const router: IRouter = Router();
 
@@ -393,156 +384,6 @@ router.post("/admin/chat/system-prompts/preview", requirePermission("chat:manage
   } catch (err: any) {
     res.status(500).json({ error: "Preview failed: " + (err.message || "Unknown error") });
   }
-});
-
-router.get("/admin/chat/knowledgebase", requirePermission("chat:view"), async (req, res): Promise<void> => {
-  const category = req.query.category as string;
-  const search = req.query.search as string;
-
-  const conditions: any[] = [];
-
-  if (category) {
-    conditions.push(eq(knowledgebaseDocsTable.category, category));
-  }
-
-  // Blended relevance search: exact full-text matching (OR-style tsquery so any
-  // word can match, not the implicit-AND of plainto_tsquery) combined with a
-  // pg_trgm fuzzy fallback so close-but-not-exact / misspelled queries still
-  // return results. Mirrors the member-facing kb-search route.
-  const orTsquery = search
-    ? sql`(
-        SELECT COALESCE(
-          NULLIF(
-            (SELECT to_tsquery('english', string_agg(lexeme, ' | '))
-             FROM unnest(to_tsvector('english', ${search}))),
-            NULL
-          ),
-          plainto_tsquery('english', ${search})
-        )
-      )`
-    : null;
-
-  if (search && orTsquery) {
-    conditions.push(
-      sql`(
-        to_tsvector('english', ${knowledgebaseDocsTable.title} || ' ' || ${knowledgebaseDocsTable.content}) @@ ${orTsquery}
-        OR similarity(${knowledgebaseDocsTable.title}, ${search}) > 0.15
-        OR word_similarity(${search}, ${knowledgebaseDocsTable.title}) > 0.2
-        OR word_similarity(${search}, ${knowledgebaseDocsTable.content}) > 0.15
-      )`
-    );
-  }
-
-  const orderBy =
-    search && orTsquery
-      ? sql`GREATEST(
-          ts_rank(
-            setweight(to_tsvector('english', ${knowledgebaseDocsTable.title}), 'A') ||
-              setweight(to_tsvector('english', ${knowledgebaseDocsTable.content}), 'B'),
-            ${orTsquery}
-          ),
-          similarity(${knowledgebaseDocsTable.title}, ${search}),
-          word_similarity(${search}, ${knowledgebaseDocsTable.title}),
-          word_similarity(${search}, ${knowledgebaseDocsTable.content})
-        ) DESC`
-      : desc(knowledgebaseDocsTable.updatedAt);
-
-  const docs = await db
-    .select()
-    .from(knowledgebaseDocsTable)
-    .where(conditions.length > 0 ? and(...conditions) : undefined)
-    .orderBy(orderBy);
-
-  const docsWithChunks = docs.map(d => ({
-    ...d,
-    chunkCount: Math.ceil(d.content.length / 500),
-  }));
-
-  res.json(docsWithChunks);
-});
-
-router.post("/admin/chat/knowledgebase", requirePermission("chat:manage"), async (req, res): Promise<void> => {
-  const { title, category, content, audience } = req.body as { title?: string; category?: string; content?: string; audience?: string };
-
-  if (!title || !content) {
-    res.status(400).json({ error: "Title and content are required" });
-    return;
-  }
-
-  if (audience !== undefined && audience !== "member" && audience !== "admin") {
-    res.status(400).json({ error: "audience must be 'member' or 'admin'" });
-    return;
-  }
-
-  const [doc] = await db
-    .insert(knowledgebaseDocsTable)
-    .values({
-      title: scrubPrivateContent(title),
-      category: category || "faq",
-      content: scrubPrivateContent(content),
-      audience: audience ?? "member",
-    })
-    .returning();
-
-  res.status(201).json({ ...doc, chunkCount: Math.ceil(doc.content.length / 500) });
-});
-
-router.put("/admin/chat/knowledgebase/:id", requirePermission("chat:manage"), async (req, res): Promise<void> => {
-  const id = parseInt(getParam(req.params.id));
-  if (isNaN(id)) {
-    res.status(400).json({ error: "Invalid document ID" });
-    return;
-  }
-
-  const [existing] = await db.select().from(knowledgebaseDocsTable).where(eq(knowledgebaseDocsTable.id, id));
-  if (!existing) {
-    res.status(404).json({ error: "Document not found" });
-    return;
-  }
-
-  const { title, category, content, audience } = req.body as { title?: string; category?: string; content?: string; audience?: string };
-
-  if (audience !== undefined && audience !== "member" && audience !== "admin") {
-    res.status(400).json({ error: "audience must be 'member' or 'admin'" });
-    return;
-  }
-
-  const updates: Record<string, any> = {};
-  if (title !== undefined) updates.title = scrubPrivateContent(title);
-  if (category !== undefined) updates.category = category;
-  if (content !== undefined) updates.content = scrubPrivateContent(content);
-  if (audience !== undefined) updates.audience = audience;
-
-  if (Object.keys(updates).length === 0) {
-    res.status(400).json({ error: "Nothing to update" });
-    return;
-  }
-
-  const [updated] = await db
-    .update(knowledgebaseDocsTable)
-    .set(updates)
-    .where(eq(knowledgebaseDocsTable.id, id))
-    .returning();
-
-  res.json({ ...updated, chunkCount: Math.ceil(updated.content.length / 500) });
-});
-
-router.delete("/admin/chat/knowledgebase/:id", requirePermission("chat:manage"), async (req, res): Promise<void> => {
-  const id = parseInt(getParam(req.params.id));
-  if (isNaN(id)) {
-    res.status(400).json({ error: "Invalid document ID" });
-    return;
-  }
-
-  const [existing] = await db.select().from(knowledgebaseDocsTable).where(eq(knowledgebaseDocsTable.id, id));
-  if (!existing) {
-    res.status(404).json({ error: "Document not found" });
-    return;
-  }
-
-  await db.delete(knowledgebaseDocsTable).where(eq(knowledgebaseDocsTable.id, id));
-
-  res.json({ success: true });
 });
 
 router.get("/admin/chat/rate-limits", requirePermission("chat:view"), async (_req, res): Promise<void> => {

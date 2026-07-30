@@ -10,7 +10,7 @@ import {
   voiceDailyUsageTable,
   productsTable,
   userProductsTable,
-  knowledgebaseDocsTable,
+  aiLiveDocumentsTable,
 } from "@workspace/db";
 import { inArray, eq, sql } from "drizzle-orm";
 
@@ -185,7 +185,7 @@ beforeAll(async () => {
 
 afterAll(async () => {
   if (insertedDocIds.length > 0) {
-    await db.delete(knowledgebaseDocsTable).where(inArray(knowledgebaseDocsTable.id, insertedDocIds));
+    await db.delete(aiLiveDocumentsTable).where(inArray(aiLiveDocumentsTable.id, insertedDocIds));
   }
   if (insertedCallIds.length > 0) {
     await db.delete(voiceCallsTable).where(inArray(voiceCallsTable.id, insertedCallIds));
@@ -506,14 +506,19 @@ describe("POST /api/voice/kb-search", () => {
     // Seed a uniquely-titled doc so the full-text search can surface it without
     // colliding with other rows already in the shared test database.
     const marker = `Quetzal${randomUUID().slice(0, 8)}`;
+    // Voice retrieval reads ai_live_documents (Task #2029: legacy table
+    // retired). Seed a citable row (curated + verified) under the operations
+    // category — the voice surface's retrieval scope.
     const [doc] = await db
-      .insert(knowledgebaseDocsTable)
+      .insert(aiLiveDocumentsTable)
       .values({
         title: `${marker} Affiliate Commission Guide`,
-        category: "faq",
+        category: "operations",
         content: `This ${marker} guide explains how affiliate commission payouts work each month.`,
+        docClass: "curated",
+        lastVerified: new Date(),
       })
-      .returning({ id: knowledgebaseDocsTable.id });
+      .returning({ id: aiLiveDocumentsTable.id });
     insertedDocIds.push(doc.id);
 
     const res = await request(app)

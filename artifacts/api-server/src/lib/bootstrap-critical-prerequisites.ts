@@ -8,23 +8,9 @@ import { seedVipArbitrageProduct } from "./seed-vip-arbitrage-product";
 import { seedMachineMembershipProduct } from "./seed-machine-membership-product";
 import { reconcileEntitlementKeys } from "./reconcile-entitlement-keys";
 import { seedMachineProductKeyMappings } from "./machine-product-key-mappings";
-import {
-  seedKnowledgebaseFromFiles,
-  seedInternalSops,
-  ensureBtsAgreementKbContent,
-  reclassifyKnowledgebaseDocClasses,
-} from "./seed-kb";
-import { seedMemberBroadContent } from "./seed-kb-member-content";
-import { seedOperationsKb } from "./seed-operations-kb";
 import { runNavigationDriftScan } from "./kb-nav-drift-scan";
-import { seedProcessKb } from "./seed-process-kb";
-import { seedConceptsKb } from "./seed-concepts-kb";
 import { seedHeadlineConceptsStaging } from "./seed-headline-concepts-staging";
 import { seedImageFoundationsStaging } from "./seed-image-foundations-staging";
-import {
-  rescrubKnowledgebaseDocs,
-  findUnscrubbedTitles,
-} from "./rescrub-knowledgebase-docs";
 import { rebrandOldBrandSourceContent } from "./rebrand-old-brand-source-content";
 import {
   ANTI_HALLUCINATION_SYSTEM_PROMPT,
@@ -48,7 +34,6 @@ import {
   CHECKPOINT_PROGRESS_SENTINEL,
   NEAR_MISS_CLOSE_MATCH_SENTINEL,
   CHECKLIST_NOT_BLITZ_SENTINEL,
-  LEGACY_GENERIC_KB_TITLES,
 } from "./chat-system-prompt";
 import { ensureFoundingSuperAdmins } from "./ensure-founding-superadmins";
 import { backfillMissingLiveDocEmbeddings } from "./kb-embeddings";
@@ -115,32 +100,6 @@ export async function bootstrapCriticalPrerequisites(): Promise<PrerequisiteResu
   } catch (err) {
     console.error("[Bootstrap] runAiLiveDocumentEmbeddingColumnMigration() threw:", err);
     missing.push("aiLiveDocumentEmbeddingColumnMigration");
-  }
-
-  // 0a-2. Add knowledgebase_docs.audience column (IF NOT EXISTS — idempotent).
-  //       Every member-facing KB retrieval path (AI Assistant chat, voice KB
-  //       search, RAG retriever, searchTranscripts) now filters on this column
-  //       to exclude admin-only docs. Added at boot so existing databases pick
-  //       it up BEFORE any retrieval query references it, avoiding a
-  //       "column audience does not exist" runtime error on environments where
-  //       the schema push hasn't run yet.
-  try {
-    await runKnowledgebaseAudienceColumnMigration();
-  } catch (err) {
-    console.error("[Bootstrap] runKnowledgebaseAudienceColumnMigration() threw:", err);
-    missing.push("knowledgebaseAudienceColumnMigration");
-  }
-
-  // 0a-3. Add knowledgebase_docs.source_path and source_label columns
-  //       (IF NOT EXISTS — idempotent). These columns power the member KB search
-  //       deep-links. Added at boot so /kb/search queries and the broad-content
-  //       seed never hit a "column does not exist" error on environments where
-  //       the schema push hasn't run yet.
-  try {
-    await runKnowledgebaseSourceColumnsMigration();
-  } catch (err) {
-    console.error("[Bootstrap] runKnowledgebaseSourceColumnsMigration() threw:", err);
-    missing.push("knowledgebaseSourceColumnsMigration");
   }
 
   // 0a-4. Bring ai_live_documents to parity with knowledgebase_docs and repoint
@@ -359,8 +318,7 @@ export async function bootstrapCriticalPrerequisites(): Promise<PrerequisiteResu
   }
 
   // 7. Replace every numeric "14-Day Blitz" / "14-day blitz" / "14 Day Blitz"
-  //    variant with the spelled-out "Fourteen-Day Blitz" in knowledgebase_docs
-  //    and kb_staging_docs. This ensures the text-to-speech engine says
+  //    variant with the spelled-out "Fourteen-Day Blitz" in kb_staging_docs. This ensures the text-to-speech engine says
   //    "fourteen-day" rather than "one-four-day". Idempotent: rows that already
   //    carry the spelled-out form (or don't contain the phrase at all) are
   //    untouched. Must run at boot so production also receives the fix.
@@ -369,35 +327,6 @@ export async function bootstrapCriticalPrerequisites(): Promise<PrerequisiteResu
   } catch (err) {
     console.error("[Bootstrap] ensureFourteenDayBlitzPronunciation() threw:", err);
     missing.push("ensureFourteenDayBlitzPronunciation");
-  }
-
-  // 8. Force-refresh the refund + BTS Mentorship Agreement KB articles and the
-  //    affiliate-marketing glossary from the source files (overwriting stale
-  //    rows). The normal KB seeder uses ON CONFLICT DO NOTHING, so it can add
-  //    the five new Agreement articles but can never update the two pre-existing
-  //    refund articles or the glossary rows that already carry stale content.
-  //    Production is a separate database the agent cannot write directly, so
-  //    this overwrite only reaches it when a freshly-deployed instance applies
-  //    it on boot. Idempotent: only rows whose content/category actually differ
-  //    from the source are rewritten.
-  try {
-    await ensureBtsAgreementKbContent();
-  } catch (err) {
-    console.error("[Bootstrap] ensureBtsAgreementKbContent() threw:", err);
-    missing.push("ensureBtsAgreementKbContent");
-  }
-
-  // 8b. Seed the Operations root (Task #3, Bucket C): human-verified curated
-  //     docs for the coach roster, support routing/escalation, coaching call
-  //     hours, refunds, membership basics, "how to get help", and the current
-  //     portal navigation map. Stamped with a fixed authored verification date
-  //     so they are immediately citable. Idempotent (keyed on title, only
-  //     rewrites changed rows); reaches prod only on boot.
-  try {
-    await seedOperationsKb();
-  } catch (err) {
-    console.error("[Bootstrap] seedOperationsKb() threw:", err);
-    missing.push("seedOperationsKb");
   }
 
   // 8b-2. Portal navigation drift scan (Task #1778): if the nav map's content
@@ -410,37 +339,6 @@ export async function bootstrapCriticalPrerequisites(): Promise<PrerequisiteResu
   } catch (err) {
     console.error("[Bootstrap] runNavigationDriftScan() threw:", err);
     missing.push("runNavigationDriftScan");
-  }
-
-  // 8c. Seed the Process root (Task #4a, Bucket A→B — content campaign):
-  //     human-verified curated/overview docs for the campaign-build lifecycle,
-  //     mined from the clean training-video corpus and rewritten as current
-  //     BTS truth (stale brand/product/portal-nav references translated; in-app
-  //     nav preserved). Covers all eight Process nodes, highest-demand gaps
-  //     (DIYTrax/Flexy/MetricMover/Caterpillar) first. Stamped with a fixed
-  //     authored verification date so they are immediately citable. Idempotent
-  //     (keyed on title, only rewrites changed rows); reaches prod only on boot.
-  try {
-    await seedProcessKb();
-  } catch (err) {
-    console.error("[Bootstrap] seedProcessKb() threw:", err);
-    missing.push("seedProcessKb");
-  }
-
-  // 8d. Seed the Concepts & Skills root (Task #4b, Bucket A→B): human-verified
-  //     curated docs for the marketing-craft topics (angles, headlines & copy,
-  //     creative strategy, offer strategy, testing methodology, scaling
-  //     strategy, metrics & unit economics, traffic & placements), synthesised
-  //     from the coaching transcripts and rewritten into current BTS voice.
-  //     Each carries the conceptual→coaching depth ceiling. Stamped with a
-  //     fixed authored verification date so they are immediately citable.
-  //     Idempotent (keyed on title, only rewrites changed rows); reaches prod
-  //     only on boot.
-  try {
-    await seedConceptsKb();
-  } catch (err) {
-    console.error("[Bootstrap] seedConceptsKb() threw:", err);
-    missing.push("seedConceptsKb");
   }
 
   // 8e. Seed the headline-concept doc set (Task #1994) as DRAFTS into the
@@ -469,28 +367,11 @@ export async function bootstrapCriticalPrerequisites(): Promise<PrerequisiteResu
     missing.push("seedImageFoundationsStaging");
   }
 
-  // 9. Backfill doc_class on every legacy knowledgebase_docs row so transcript-
-  //    derived rows (coaching / curriculum) are reclassified as non-citable
-  //    training data BEFORE the assistant serves a single answer. Idempotent
-  //    (only touches NULL doc_class). Awaited so the reclassification is in
-  //    place before retrieval runs; reaches prod via boot (post-merge is dev-only).
-  try {
-    await reclassifyKnowledgebaseDocClasses();
-  } catch (err) {
-    console.error("[Bootstrap] reclassifyKnowledgebaseDocClasses() threw:", err);
-    missing.push("reclassifyKnowledgebaseDocClasses");
-  }
-
-  // 10. RETIRED (Task #1826): the boot mirror that copied citable legacy
-  //     knowledgebase_docs rows into ai_live_documents is gone. The two systems
-  //     are now fully decoupled: ai_live_documents (the assistant's retrieval
-  //     corpus) is owned EXCLUSIVELY by the staging review → push-approved
-  //     pipeline and the admin Live AI Documents CRUD. The boot seeders
-  //     (steps 8-8d) still author the legacy table because the member-facing
-  //     Knowledge Base (/kb/search, browse, counts, bookmarks) reads it
-  //     directly — but nothing at boot writes ai_live_documents from it, so
-  //     admin deletes stick across restarts and new legacy seeds never leak
-  //     into the AI corpus.
+  // 10. The legacy knowledgebase stack (knowledgebase_docs / knowledgebase_bookmarks)
+  //     has been fully retired (Task #2029): no boot step reads or writes it, and
+  //     the tables themselves are dropped. ai_live_documents (the assistant's
+  //     retrieval corpus) is owned exclusively by the staging review ->
+  //     push-approved pipeline and the admin Live AI Documents CRUD.
 
   // 10b. Backfill missing/stale semantic embeddings (Task #1803). Idempotent
   //      (only touches rows with a NULL or wrong-model embedding) and
@@ -624,21 +505,7 @@ export async function bootstrapCriticalPrerequisites(): Promise<PrerequisiteResu
 }
 
 export async function ensureKBGrounding(): Promise<void> {
-  // 1. Remove legacy generic KB docs that can bias retrieval toward non-BTS facts.
-  //    These were the original 10 placeholder rows seeded before real BTS content
-  //    was ingested. The real BTS corpus (curriculum, faq, glossary, coaching, etc.)
-  //    now covers these topics with authoritative content.
-  const placeholders = LEGACY_GENERIC_KB_TITLES.map((t) => `'${t.replace(/'/g, "''")}'`).join(", ");
-  const deleteResult = await db.execute(
-    sql.raw(`DELETE FROM knowledgebase_docs WHERE title IN (${placeholders}) RETURNING id`),
-  );
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const deletedCount = ((deleteResult as any).rows ?? deleteResult).length;
-  if (deletedCount > 0) {
-    console.log(`[Bootstrap] Removed ${deletedCount} legacy generic KB doc(s).`);
-  }
-
-  // 2. Ensure the active system prompt has the anti-hallucination grounding rules.
+  // Ensure the active system prompt has the anti-hallucination grounding rules.
   //    If it's missing the sentinel (e.g. an old deploy still has the original prompt),
   //    overwrite it. The check is a substring test so it's safe to run every startup.
   const [activePrompt] = await db
@@ -679,102 +546,6 @@ export async function ensureKBGrounding(): Promise<void> {
     );
   }
 
-  // 3. Re-scrub every existing knowledgebase_docs row through the privacy filter
-  //    and verify the titles are clean — AWAITED so it completes BEFORE the HTTP
-  //    server accepts traffic (ensureKBGrounding is awaited by
-  //    bootstrapCriticalPrerequisites, which index.ts awaits before app.listen).
-  //    This closes the rollout window where a freshly-deployed instance could
-  //    otherwise serve a stale title/content still carrying a coach surname.
-  //
-  //    Why the re-scrub runs here at all (not just in post-merge.sh): post-merge
-  //    only ever touches the DEV database. PRODUCTION is a separate database the
-  //    agent cannot write directly, so the only way the title/content re-scrub
-  //    reaches prod is for a freshly-deployed instance to apply it against the
-  //    DATABASE_URL it boots with. The re-scrub is idempotent (only rows that
-  //    actually change are written) and de-duplicates colliding scrubbed titles
-  //    with a numeric suffix, so it never violates the UNIQUE constraint and is
-  //    a fast no-op once everything is clean.
-  const rescrub = await rescrubKnowledgebaseDocs((m) => console.log(m));
-
-  // One-time cleanliness verification: after the re-scrub no title may still
-  // carry an unscrubbed private token. Logged as deploy evidence; a non-empty
-  // result means the privacy filter missed a variant and must be widened.
-  const titleLeaks = await findUnscrubbedTitles();
-  if (titleLeaks.length > 0) {
-    console.error(
-      `[Bootstrap] CRITICAL: ${titleLeaks.length} knowledgebase_docs title(s) ` +
-        `still carry an unscrubbed coach surname after re-scrub: ` +
-        titleLeaks.map((l) => `#${l.id} "${l.title}"`).join("; ") +
-        `. Widen the rule in lib/content-privacy-filter.ts to cover the variant.`,
-    );
-  } else {
-    console.log(
-      `[Bootstrap] knowledgebase_docs titles verified clean ` +
-        `(${rescrub.titleUpdated} retitled, ${rescrub.contentUpdated} content ` +
-        `cleaned this run across ${rescrub.scanned} rows).`,
-    );
-  }
-
-  // 3b. Rebrand stored OLD-BRAND references (Cherrington / TCE / … -> BTS / Adam)
-  //     in the two raw AI-source tables that have no re-scrub pass of their own:
-  //     transcript_cleaner_documents (holding store) and ai_source_documents
-  //     (filed source library). The #1604 cleaner rules only rebrand NEW cleans /
-  //     refine + retrieval; this backfill fixes content already cleaned / filed
-  //     before those rules landed. Old-brand ONLY — coach / VA attribution in raw
-  //     source is deliberately preserved (NOT the full privacy filter). Runs here
-  //     (not just in post-merge, which only touches the dev DB) so a fresh
-  //     production deploy applies it against its own DATABASE_URL — the only way
-  //     the rewrite reaches prod. Idempotent: only rows that actually change are
-  //     written, so it is a fast no-op once everything is on-brand.
-  const rebrand = await rebrandOldBrandSourceContent((m) => console.log(m));
-  console.log(
-    `[Bootstrap] old-brand source rebrand: ` +
-      `${rebrand.transcriptCleaner.updated}/${rebrand.transcriptCleaner.scanned} ` +
-      `transcript_cleaner + ${rebrand.aiSource.updated}/${rebrand.aiSource.scanned} ` +
-      `ai_source row(s) updated.`,
-  );
-
-  // 4. Ingest BTS knowledge base files (idempotent via ON CONFLICT DO NOTHING).
-  //    Runs in the background after startup so it doesn't block the HTTP server.
-  //    Seed content is already scrubbed at ingest time (seed-kb runs
-  //    scrubPrivateContent before INSERT), so new rows are clean without waiting
-  //    on the re-scrub above — which targets pre-existing stale rows.
-  seedKnowledgebaseFromFiles().catch((err) => {
-    console.error("[Bootstrap] KB file ingestion failed:", err);
-  });
-
-  // 5. Seed internal, admin-only SOP docs (idempotent, audience='admin').
-  //    These are excluded from every member-facing KB retrieval path and
-  //    surface only in the admin Knowledge Base page. Inserts the row
-  //    directly to the DB (editing a knowledge-base/*.txt file would not).
-  seedInternalSops().catch((err) => {
-    console.error("[Bootstrap] Internal SOP seeding failed:", err);
-  });
-
-  // 6. Seed member-facing broad content index (Blitz lessons, Resource Library,
-  //    individual glossary terms) with source_path deep-links. Idempotent via
-  //    ON CONFLICT (title) DO UPDATE — re-runs safely refresh content + paths.
-  seedMemberBroadContent().catch((err) => {
-    console.error("[Bootstrap] Member broad content seeding failed:", err);
-  });
-}
-
-async function runKnowledgebaseAudienceColumnMigration(): Promise<void> {
-  await db.execute(
-    sql`ALTER TABLE knowledgebase_docs
-        ADD COLUMN IF NOT EXISTS audience text NOT NULL DEFAULT 'member'`,
-  );
-}
-
-async function runKnowledgebaseSourceColumnsMigration(): Promise<void> {
-  await db.execute(
-    sql`ALTER TABLE knowledgebase_docs
-        ADD COLUMN IF NOT EXISTS source_path text`,
-  );
-  await db.execute(
-    sql`ALTER TABLE knowledgebase_docs
-        ADD COLUMN IF NOT EXISTS source_label text`,
-  );
 }
 
 async function runKbToolTagsMigration(): Promise<void> {
@@ -826,7 +597,6 @@ async function runBtsHouseTermAliasesMigration(): Promise<void> {
 }
 
 async function runAiLiveDocumentsParityMigration(): Promise<void> {
-  // Parity columns (mirror knowledgebase_docs).
   await db.execute(sql`ALTER TABLE ai_live_documents ADD COLUMN IF NOT EXISTS audience text NOT NULL DEFAULT 'member'`);
   await db.execute(sql`ALTER TABLE ai_live_documents ADD COLUMN IF NOT EXISTS source_path text`);
   await db.execute(sql`ALTER TABLE ai_live_documents ADD COLUMN IF NOT EXISTS source_label text`);
@@ -850,19 +620,6 @@ async function runAiLiveDocumentsParityMigration(): Promise<void> {
   await db.execute(sql`CREATE INDEX IF NOT EXISTS ai_live_documents_search_idx ON ai_live_documents USING gin (search_vector)`);
   // Repoint the provenance FK onto ai_live_documents. Drop the legacy FK first.
   await db.execute(sql`ALTER TABLE kb_doc_provenance DROP CONSTRAINT IF EXISTS kb_doc_provenance_doc_id_knowledgebase_docs_id_fk`);
-  // Data-safe repoint: pre-existing provenance rows reference knowledgebase_docs
-  // ids. Remap to the mirrored ai_live twin by title (the mirror upserts on
-  // title), then drop any that still cannot resolve, so ADD CONSTRAINT never
-  // fails validation on prod data. Pre-cutover this table is empty (the staging
-  // publish that writes provenance is new here), so this is a no-op today and a
-  // safety net for replays / any future prod state.
-  await db.execute(sql`
-    UPDATE kb_doc_provenance p
-    SET doc_id = al.id
-    FROM knowledgebase_docs k
-    JOIN ai_live_documents al ON al.title = k.title
-    WHERE p.doc_id = k.id
-      AND NOT EXISTS (SELECT 1 FROM ai_live_documents a2 WHERE a2.id = p.doc_id)`);
   await db.execute(sql`
     DELETE FROM kb_doc_provenance p
     WHERE NOT EXISTS (SELECT 1 FROM ai_live_documents a WHERE a.id = p.doc_id)`);
@@ -910,19 +667,6 @@ const OLD_COMPANY_ADDRESS = "3000 Custer Road, Suite 270 #1505, Plano, TX 75075"
 const NEW_COMPANY_ADDRESS = "5900 Balcones Drive STE 100, Austin, TX 78731";
 
 async function ensureCompanyAddressUpdated(): Promise<void> {
-  const kbResult = await db.execute(
-    sql`UPDATE knowledgebase_docs
-        SET content = REPLACE(content, ${OLD_COMPANY_ADDRESS}, ${NEW_COMPANY_ADDRESS}),
-            updated_at = NOW()
-        WHERE content LIKE ${"%" + OLD_COMPANY_ADDRESS + "%"}
-        RETURNING id`,
-  );
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const kbUpdated = ((kbResult as any).rows ?? kbResult).length;
-  if (kbUpdated > 0) {
-    console.log(`[Bootstrap] Updated company address in ${kbUpdated} knowledgebase_docs row(s).`);
-  }
-
   const legalResult = await db.execute(
     sql`UPDATE legal_documents
         SET content = REPLACE(content, ${OLD_COMPANY_ADDRESS}, ${NEW_COMPANY_ADDRESS})
@@ -955,8 +699,8 @@ async function ensureCompanyAddressUpdated(): Promise<void> {
 
 /**
  * Replace every numeric "14-Day Blitz" variant with the spelled-out
- * "Fourteen-Day Blitz" in knowledgebase_docs (live, read by the assistant)
- * and kb_staging_docs (staging / pending-review). Idempotent: rows that
+ * "Fourteen-Day Blitz" in kb_staging_docs (staging / pending-review;
+ * approved rows are pushed to ai_live_documents). Idempotent: rows that
  * already carry the correct form are untouched.
  *
  * Why at boot: source-file edits and the seeder's ON CONFLICT DO NOTHING
@@ -978,23 +722,6 @@ async function ensureFourteenDayBlitzPronunciation(): Promise<void> {
     ` OR content ILIKE '%14-day blitz%'` +
     ` OR title   ILIKE '%14-Day Blitz%' OR title   ILIKE '%14 Day Blitz%'` +
     ` OR title   ILIKE '%14-day blitz%')`;
-
-  const kbResult = await db.execute(
-    sql.raw(
-      `UPDATE knowledgebase_docs
-       SET content = ${replaceExpr("content")},
-           title   = ${replaceExpr("title")}
-       WHERE ${likeFilter}
-       RETURNING id`,
-    ),
-  );
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const kbUpdated = ((kbResult as any).rows ?? kbResult).length;
-  if (kbUpdated > 0) {
-    console.log(
-      `[Bootstrap] Replaced "14-Day Blitz" with "Fourteen-Day Blitz" in ${kbUpdated} knowledgebase_docs row(s).`,
-    );
-  }
 
   const stagingResult = await db.execute(
     sql.raw(

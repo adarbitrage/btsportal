@@ -71,12 +71,20 @@ ALTER TABLE kb_doc_provenance
 -- title), then drop any that still cannot resolve, so the new FK never fails
 -- validation. Pre-cutover this table is empty (the staging publish that writes
 -- provenance is new here), so this is a no-op today and a safety net for replays.
-UPDATE kb_doc_provenance p
-SET doc_id = al.id
-FROM knowledgebase_docs k
-JOIN ai_live_documents al ON al.title = k.title
-WHERE p.doc_id = k.id
-  AND NOT EXISTS (SELECT 1 FROM ai_live_documents a2 WHERE a2.id = p.doc_id);
+-- Replay guard: knowledgebase_docs is dropped by 0127, so run this remap only
+-- while the legacy table still exists (dynamic SQL keeps the parse valid after
+-- the drop).
+DO $$ BEGIN
+  IF to_regclass('public.knowledgebase_docs') IS NOT NULL THEN
+    EXECUTE '
+      UPDATE kb_doc_provenance p
+      SET doc_id = al.id
+      FROM knowledgebase_docs k
+      JOIN ai_live_documents al ON al.title = k.title
+      WHERE p.doc_id = k.id
+        AND NOT EXISTS (SELECT 1 FROM ai_live_documents a2 WHERE a2.id = p.doc_id)';
+  END IF;
+END $$;
 --> statement-breakpoint
 DELETE FROM kb_doc_provenance p
 WHERE NOT EXISTS (SELECT 1 FROM ai_live_documents a WHERE a.id = p.doc_id);

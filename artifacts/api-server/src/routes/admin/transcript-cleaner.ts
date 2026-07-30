@@ -16,7 +16,6 @@ import {
   loadRosterList,
   applyVaFilenameAutofill,
 } from "../../lib/transcript-cleaner";
-import { buildImportPlan, executeImport } from "../../lib/transcript-import";
 import { applyBlitzCaptionAutofill } from "../../lib/blitz-caption-filename";
 import type { TranscriptCleanerChatTurn } from "@workspace/db";
 
@@ -648,49 +647,5 @@ router.post("/admin/transcript-cleaner/file-batch", requirePermission("chat:mana
   }
   res.json({ results });
 });
-
-// ───────────────────────────────────────────────────────────────────────────
-// Gated import of triaged transcripts (Task #1484).
-//
-// Reads the approved triage manifest (#1483) and loads keeper transcripts from
-// the legacy knowledgebase_docs corpus into this holding store — stitching
-// multi-part groups, skipping excludes/duplicates, titling from proposedTitle.
-// The preview is read-only; the import only runs on an explicit `confirm: true`.
-// ───────────────────────────────────────────────────────────────────────────
-
-/** GET /admin/transcript-cleaner/import/preview — dry-run plan + summary (no writes). */
-router.get(
-  "/admin/transcript-cleaner/import/preview",
-  requirePermission("chat:view"),
-  async (_req, res): Promise<void> => {
-    try {
-      const plan = await buildImportPlan();
-      res.json(plan);
-    } catch (err) {
-      const message = err instanceof Error ? err.message : "Failed to build import plan";
-      res.status(500).json({ error: message });
-    }
-  },
-);
-
-/** POST /admin/transcript-cleaner/import — perform the import (requires confirm: true). */
-router.post(
-  "/admin/transcript-cleaner/import",
-  requirePermission("chat:manage"),
-  async (req, res): Promise<void> => {
-    const confirm = (req.body as { confirm?: unknown })?.confirm === true;
-    if (!confirm) {
-      res.status(400).json({ error: "Import must be explicitly confirmed (send { confirm: true })." });
-      return;
-    }
-    try {
-      const result = await executeImport();
-      res.status(201).json(result);
-    } catch (err) {
-      const message = err instanceof Error ? err.message : "Import failed";
-      res.status(500).json({ error: message });
-    }
-  },
-);
 
 export default router;

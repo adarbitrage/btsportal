@@ -6,7 +6,6 @@ import {
   chatDailyUsageTable,
   chatPromptsTable,
   chatSystemPromptsTable,
-  knowledgebaseDocsTable,
   chatRateLimitsTable,
   ticketsTable,
   ticketMessagesTable,

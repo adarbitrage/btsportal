@@ -1,5 +1,5 @@
 import { Router, type Request, type Response } from "express";
-import { db, usersTable, voiceCallsTable, voiceDailyUsageTable, knowledgebaseDocsTable, ticketsTable, ticketMessagesTable } from "@workspace/db";
+import { db, usersTable, voiceCallsTable, voiceDailyUsageTable, ticketsTable, ticketMessagesTable } from "@workspace/db";
 import { eq, sql, and, desc, isNull } from "drizzle-orm";
 import { isAdminRole } from "@workspace/auth";
 import Retell from "retell-sdk";

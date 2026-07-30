@@ -1,8 +1,7 @@
 import { describe, it, expect, beforeAll } from "vitest";
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
-import { seedConceptsKb, buildConceptsDocs } from "../lib/seed-concepts-kb";
-import { seedLiveDocsFromCitableLegacyForTest } from "./kb-live-docs-test-seed";
+import { seedConceptsLiveDocsForTest, buildConceptsDocs } from "./fixtures/concepts-docs.fixture";
 import { retrieveSurfaceAware } from "../lib/kb-retrieval";
 import { CITABLE_KB_CATEGORIES } from "../lib/kb-taxonomy";
 
@@ -46,13 +45,10 @@ const POSITIVE_CASES: Array<{ query: string; title: string }> = [
 
 describe("concepts retrieval (seeded corpus, shared surface-aware path)", () => {
   beforeAll(async () => {
-    // Seed the concepts truth docs exactly as the server does on boot (they
-    // land pre-verified with a fixed authored verification date, so they are
-    // immediately citable), then copy the citable set into ai_live_documents
-    // as a TEST FIXTURE (the production boot mirror was retired, Task #1826) —
+    // Seed the concepts truth docs directly into ai_live_documents (TEST
+    // FIXTURE — the legacy seed + boot mirror are retired, Task #2029);
     // retrieval reads ai_live_documents.
-    await seedConceptsKb();
-    await seedLiveDocsFromCitableLegacyForTest();
+    await seedConceptsLiveDocsForTest();
 
     // Sanity: every concepts doc reached the live table, otherwise the
     // per-query assertions below fail confusingly.
