@@ -452,10 +452,6 @@ export default function Coaching() {
                 sessions are added every week.
               </div>
             )}
-
-            <p className="text-sm text-muted-foreground mt-5 italic">
-              Not able to make the calls? We've got you covered. All calls are recorded and posted in our "Live Q&amp;A" call archive.
-            </p>
           </CardContent>
         </Card>
 
