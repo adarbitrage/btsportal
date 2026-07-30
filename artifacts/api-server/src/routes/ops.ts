@@ -9,6 +9,8 @@
  *   GET  /api/ops/customers/:email          — aggregate customer view (read)
  *   POST /api/ops/orders/:orderNumber/refund — refund (write)
  *   POST /api/ops/orders/:orderNumber/access — grant/revoke access (write)
+ *   POST /api/ops/orders/:orderNumber/reconcile-ad-spend — resolve a stuck
+ *        ad-spend deposit: write the ledger credit + send the receipt (write)
  *
  * Hardening on top of the shared-secret auth:
  *   - Refunds at/above BTS_APPROVER_REQUIRED_THRESHOLD_CENTS additionally
@@ -35,6 +37,7 @@ import {
 } from "@workspace/db";
 import { requireOpsServiceAuth } from "../middleware/ops-service-auth.js";
 import { processRefund } from "../lib/ops-refund-service.js";
+import { resolveAdSpendReconciliation } from "../lib/payments/ad-spend-funding-service.js";
 import { insertUserProductGrant } from "../lib/external-grant-product.js";
 import {
   findOnboardingRepairCandidates,
@@ -243,6 +246,59 @@ router.post<{ orderNumber: string }>("/ops/orders/:orderNumber/refund", opsWrite
     default: {
       const _exhaustive: never = outcome;
       sendError(res, 500, "INTERNAL_ERROR", "Unexpected refund outcome");
+    }
+  }
+});
+
+// ─── POST /api/ops/orders/:orderNumber/reconcile-ad-spend ─────────────────────
+//
+// Resolves a stuck `paid_reconciliation_needed` ad-spend deposit: writes the
+// missing ledger credit (idempotently) and queues the deposit receipt email
+// exactly once. Deposits that already emailed on the fresh paid path can never
+// re-enter this flow (their stored outcomeType is "paid").
+
+router.post<{ orderNumber: string }>("/ops/orders/:orderNumber/reconcile-ad-spend", opsWriteKeyLimiter, opsWriteIpLimiter, async (req, res): Promise<void> => {
+  const orderNumber = req.params.orderNumber ?? "";
+  if (!orderNumber) {
+    sendError(res, 400, "INVALID_REQUEST", "orderNumber is required");
+    return;
+  }
+
+  const body = (req.body ?? {}) as Record<string, unknown>;
+  const actor = typeof body.actor === "string" ? body.actor.trim() : undefined;
+
+  const outcome = await resolveAdSpendReconciliation({ orderNumber, actor });
+
+  switch (outcome.type) {
+    case "resolved":
+      res.json({
+        outcome: "resolved",
+        order_number: outcome.orderNumber,
+        credited_cents: outcome.creditedCents,
+        fee_cents: outcome.feeCents,
+        charged_cents: outcome.chargedCents,
+        credit_inserted: outcome.creditInserted,
+        receipt_queued: true,
+      });
+      return;
+    case "already_resolved":
+      res.status(409).json({ error: "This deposit was already reconciled — receipt not re-sent" });
+      return;
+    case "not_reconciliation_needed":
+      res.status(409).json({ error: "Order is not in a reconciliation-needed state" });
+      return;
+    case "order_not_found":
+      res.status(404).json({ error: "Ad-spend deposit order not found" });
+      return;
+    case "amount_underivable":
+      res.status(422).json({ error: "Could not derive deposit amount from charged total" });
+      return;
+    case "user_not_found":
+      res.status(422).json({ error: "Order has no linked user" });
+      return;
+    default: {
+      const _exhaustive: never = outcome;
+      sendError(res, 500, "INTERNAL_ERROR", "Unexpected reconcile outcome");
     }
   }
 });

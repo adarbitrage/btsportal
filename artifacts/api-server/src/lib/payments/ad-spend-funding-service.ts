@@ -11,7 +11,15 @@
  */
 
 import { eq, sql } from "drizzle-orm";
-import { db, usersTable, productsTable, adSpendTransactionsTable } from "@workspace/db";
+import {
+  db,
+  usersTable,
+  productsTable,
+  adSpendTransactionsTable,
+  btsOrdersTable,
+  checkoutIdempotencyTable,
+} from "@workspace/db";
+import { logAuditEvent } from "../audit-log.js";
 import { runCheckoutCore } from "./checkout-core.js";
 import { cardFeeCents, chargedTotalCents } from "./ad-spend-fee.js";
 import { peekIdempotencyKey } from "./checkout-idempotency.js";
@@ -290,6 +298,21 @@ async function sendDepositReceiptEmail(params: {
   }
 }
 
+export type AdSpendReconcileOutcome =
+  | {
+      type: "resolved";
+      orderNumber: string;
+      creditedCents: number;
+      feeCents: number;
+      chargedCents: number;
+      creditInserted: boolean;
+    }
+  | { type: "already_resolved"; orderNumber: string }
+  | { type: "not_reconciliation_needed"; orderNumber: string }
+  | { type: "order_not_found" }
+  | { type: "amount_underivable"; orderNumber: string }
+  | { type: "user_not_found"; orderNumber: string };
+
 /**
  * Queue the ad-spend deposit receipt SMS. Sent only on the fresh `paid`
  * outcome, gated on the member's master smsOptIn AND billingSmsOptIn (the
@@ -342,4 +365,169 @@ export async function getAdSpendBalance(userId: number): Promise<number> {
     .where(eq(adSpendTransactionsTable.userId, userId));
 
   return parseInt(row?.balance ?? "0", 10);
+}
+
+/**
+ * Derive the deposit (credited) amount from the total charged to the card
+ * (deposit + 3% fee, fee rounded half-up). Searches a ±2¢ window around the
+ * naive inverse to absorb rounding; returns undefined when no deposit amount
+ * reproduces the charged total exactly.
+ */
+function depositCentsFromChargedTotal(chargedCents: number): number | undefined {
+  const approx = Math.round(chargedCents / 1.03);
+  for (let candidate = approx - 2; candidate <= approx + 2; candidate++) {
+    if (candidate > 0 && chargedTotalCents(candidate) === chargedCents) return candidate;
+  }
+  return undefined;
+}
+
+/**
+ * Resolve a stuck `paid_reconciliation_needed` ad-spend deposit.
+ *
+ * Money already moved on the original charge; this completes the two steps
+ * that failed or were never confirmed:
+ *   1. Writes the `funding` credit row into the ad-spend ledger (idempotent —
+ *      the partial unique index on nmi_transaction_id absorbs the case where
+ *      the original onOrderPaid callback DID write the credit before failing).
+ *   2. Queues the `ad_spend_deposit_receipt` email with the reconciled
+ *      amounts — exactly once, guarded by a conditional JSONB update on the
+ *      idempotency row (first resolver wins; re-runs return already_resolved).
+ *
+ * Fresh `paid` deposits never enter this path (their stored outcomeType is
+ * "paid"), so the receipt they already received is never duplicated.
+ */
+export async function resolveAdSpendReconciliation(params: {
+  orderNumber: string;
+  actor?: string;
+}): Promise<AdSpendReconcileOutcome> {
+  const { orderNumber, actor } = params;
+
+  const [order] = await db
+    .select()
+    .from(btsOrdersTable)
+    .where(eq(btsOrdersTable.orderNumber, orderNumber))
+    .limit(1);
+
+  if (!order || order.orderType !== "wallet_topup") return { type: "order_not_found" };
+
+  const [idem] = await db
+    .select()
+    .from(checkoutIdempotencyTable)
+    .where(eq(checkoutIdempotencyTable.orderId, order.id))
+    .limit(1);
+
+  const storedResult = (idem?.result ?? null) as Record<string, unknown> | null;
+  if (!idem || storedResult?.outcomeType !== "paid_reconciliation_needed") {
+    return { type: "not_reconciliation_needed", orderNumber };
+  }
+  if (storedResult.reconciliationResolvedAt !== undefined) {
+    return { type: "already_resolved", orderNumber };
+  }
+
+  const chargedCents = order.totalCents;
+  const creditedCents = depositCentsFromChargedTotal(chargedCents);
+  if (creditedCents === undefined) return { type: "amount_underivable", orderNumber };
+  const feeCents = chargedCents - creditedCents;
+
+  if (!order.userId) return { type: "user_not_found", orderNumber };
+  const [user] = await db
+    .select({ id: usersTable.id, email: usersTable.email, name: usersTable.name })
+    .from(usersTable)
+    .where(eq(usersTable.id, order.userId))
+    .limit(1);
+  if (!user) return { type: "user_not_found", orderNumber };
+
+  const transactionId =
+    typeof storedResult.transactionId === "string" && storedResult.transactionId
+      ? storedResult.transactionId
+      : (order.gatewayTransactionId ?? null);
+
+  // Claim + credit write in ONE transaction. The conditional JSONB update is
+  // the first-resolver-wins guard (concurrent re-runs can never double-send
+  // the receipt or double-credit); running the ledger insert in the same
+  // transaction means a failed insert rolls the claim back too, so a
+  // transient DB error can never strand the deposit as falsely "resolved" —
+  // a retry starts clean.
+  const resolvedAt = new Date().toISOString();
+  const txOutcome = await db.transaction(async (tx) => {
+    const claimed = await tx
+      .update(checkoutIdempotencyTable)
+      .set({
+        result: sql`${checkoutIdempotencyTable.result} || ${JSON.stringify({
+          reconciliationResolvedAt: resolvedAt,
+          reconciliationResolvedBy: actor ?? null,
+          creditedCents,
+          feeCents,
+          chargedCents,
+        })}::jsonb`,
+      })
+      .where(
+        sql`${checkoutIdempotencyTable.id} = ${idem.id} AND (${checkoutIdempotencyTable.result} ->> 'reconciliationResolvedAt') IS NULL`,
+      )
+      .returning({ id: checkoutIdempotencyTable.id });
+
+    if (claimed.length === 0) return { alreadyResolved: true as const, creditInserted: false };
+
+    // Write the ledger credit. onConflictDoNothing on the nmi_transaction_id
+    // partial unique index absorbs the "credit was actually written before the
+    // original attempt failed" case. When NMI never returned a transaction id,
+    // the resolution claim above is the sole (sufficient) duplicate guard.
+    const inserted = await tx
+      .insert(adSpendTransactionsTable)
+      .values({
+        userId: user.id,
+        amountCents: creditedCents,
+        type: "funding",
+        source: "nmi",
+        nmiTransactionId: transactionId,
+        note:
+          `Deposit via NMI checkout (order ${orderNumber}) — manually reconciled` +
+          `${actor ? ` by ${actor}` : ""} — card charged ` +
+          `$${(chargedCents / 100).toFixed(2)} incl. $${(feeCents / 100).toFixed(2)} 3% card fee`,
+      })
+      .onConflictDoNothing()
+      .returning({ id: adSpendTransactionsTable.id });
+
+    return { alreadyResolved: false as const, creditInserted: inserted.length > 0 };
+  });
+
+  if (txOutcome.alreadyResolved) return { type: "already_resolved", orderNumber };
+
+  logAuditEvent({
+    actorId: user.id,
+    actionType: "billing.ad_spend.reconciliation_resolved",
+    entityType: "bts_order",
+    entityId: String(order.id),
+    description: `Ad-spend deposit reconciliation resolved for order ${orderNumber}`,
+    metadata: {
+      orderNumber,
+      creditedCents,
+      feeCents,
+      chargedCents,
+      creditInserted: txOutcome.creditInserted,
+      transactionId,
+      actor: actor ?? null,
+    },
+  });
+
+  // Receipt email — awaited but never throws (sendDepositReceiptEmail
+  // swallows comms failures), so a comms hiccup can't fail the resolution.
+  await sendDepositReceiptEmail({
+    userId: user.id,
+    email: user.email,
+    memberName: user.name ?? "there",
+    orderNumber,
+    creditedCents,
+    feeCents,
+    chargedCents,
+  });
+
+  return {
+    type: "resolved",
+    orderNumber,
+    creditedCents,
+    feeCents,
+    chargedCents,
+    creditInserted: txOutcome.creditInserted,
+  };
 }
