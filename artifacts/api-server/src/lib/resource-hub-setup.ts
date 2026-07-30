@@ -6,7 +6,7 @@ import {
   resourceHubGlossaryTable,
   contentAccessMapTable,
 } from "@workspace/db";
-import { and, eq, isNull, sql } from "drizzle-orm";
+import { and, eq, inArray, isNull, sql } from "drizzle-orm";
 
 /**
  * Resource Hub setup (Task #2028) — idempotent boot-time hooks, following the
@@ -171,6 +171,14 @@ export const CURATION_SPEC: readonly CurationSpecItem[] = [
 
   // ── Working Documents ──────────────────────────────────────────────────────
   {
+    slug: "wd-campaign-toolkit",
+    section: "working_documents",
+    kind: "group",
+    displayTitle: "Campaign Toolkit",
+    blurb: "The working documents you keep open while building a campaign — the pre-launch checklist, both word dictionaries, and the persuasion classic.",
+    sortOrder: 1,
+  },
+  {
     slug: "wd-campaign-checklist",
     section: "working_documents",
     kind: "file",
@@ -178,6 +186,7 @@ export const CURATION_SPEC: readonly CurationSpecItem[] = [
     blurb: "The step-by-step pre-launch checklist — work through it before you activate any campaign.",
     sortOrder: 1,
     fileName: "Campaign Checklist.pdf",
+    parentSlug: "wd-campaign-toolkit",
   },
   {
     slug: "wd-power-word-dictionary",
@@ -187,6 +196,7 @@ export const CURATION_SPEC: readonly CurationSpecItem[] = [
     blurb: "High-impact power words for headlines — upload it to ChatGPT when drafting or punching up headlines.",
     sortOrder: 2,
     fileName: "Power Word Dictionary.pdf",
+    parentSlug: "wd-campaign-toolkit",
   },
   {
     slug: "wd-context-word-dictionary",
@@ -196,6 +206,7 @@ export const CURATION_SPEC: readonly CurationSpecItem[] = [
     blurb: "Context words that frame your promise — the companion reference to upload to ChatGPT alongside the Power Word Dictionary.",
     sortOrder: 3,
     fileName: "Context Word Dictionary.pdf",
+    parentSlug: "wd-campaign-toolkit",
   },
   {
     slug: "wd-one-sentence-persuasion",
@@ -205,6 +216,7 @@ export const CURATION_SPEC: readonly CurationSpecItem[] = [
     blurb: "Blair Warren's classic on the single sentence behind all persuasion — a quick read that sharpens every angle you write.",
     sortOrder: 4,
     fileName: "The One-Sentence Persuasion Course.pdf",
+    parentSlug: "wd-campaign-toolkit",
   },
   {
     slug: "headline-library",
@@ -245,6 +257,14 @@ export const CURATION_SPEC: readonly CurationSpecItem[] = [
 
   // ── Templates & Assets ─────────────────────────────────────────────────────
   {
+    slug: "ta-tracking-templates",
+    section: "templates_assets",
+    kind: "group",
+    displayTitle: "Tracking & Templates",
+    blurb: "Your campaign P&L tracker plus the proven dedicated email template.",
+    sortOrder: 1,
+  },
+  {
     slug: "ta-pnl-tracker",
     section: "templates_assets",
     kind: "external",
@@ -252,6 +272,7 @@ export const CURATION_SPEC: readonly CurationSpecItem[] = [
     blurb: "Make your own copy of the campaign P&L tracking spreadsheet — if you can't track it, you can't manage it.",
     sortOrder: 1,
     externalUrl: "https://docs.google.com/spreadsheets/d/1zQ47ozphtdmTqbHaiqy3rA9-pZbaA7mUifptdLCRh20/copy",
+    parentSlug: "ta-tracking-templates",
   },
   {
     slug: "ta-dedicated-email-template",
@@ -261,6 +282,30 @@ export const CURATION_SPEC: readonly CurationSpecItem[] = [
     blurb: "The proven dedicated email template (ZIP) — over $60 million in media sent through this exact layout.",
     sortOrder: 2,
     externalUrl: "https://experience.buildtestscale.com/wp-content/uploads/2025/04/1-DEDICATED-EMAIL-TEMPLATE.zip",
+    parentSlug: "ta-tracking-templates",
+  },
+];
+
+/**
+ * One-time re-parenting (Task #2039): environments seeded before the group
+ * cards existed have these six items at the section root. When (and only
+ * when) the group row is created by THIS boot, ungrouped children are moved
+ * under it. Because the move is gated on the group's creation, later admin
+ * edits (including deliberately un-grouping an item) are never clobbered.
+ */
+export const GROUP_REPARENT: ReadonlyArray<{ groupSlug: string; childSlugs: readonly string[] }> = [
+  {
+    groupSlug: "wd-campaign-toolkit",
+    childSlugs: [
+      "wd-campaign-checklist",
+      "wd-power-word-dictionary",
+      "wd-context-word-dictionary",
+      "wd-one-sentence-persuasion",
+    ],
+  },
+  {
+    groupSlug: "ta-tracking-templates",
+    childSlugs: ["ta-pnl-tracker", "ta-dedicated-email-template"],
   },
 ];
 
@@ -470,6 +515,7 @@ export async function ensureResourceHubCuration(): Promise<void> {
     );
 
     let seeded = 0;
+    const createdSlugs = new Set<string>();
     for (const item of ordered) {
       if (idBySlug.has(item.slug)) continue;
 
@@ -510,10 +556,38 @@ export async function ensureResourceHubCuration(): Promise<void> {
         .returning({ id: resourceHubItemsTable.id });
       if (created) {
         idBySlug.set(item.slug, created.id);
+        createdSlugs.add(item.slug);
         seeded++;
       }
     }
     if (seeded > 0) console.log(`[ResourceHub] curation: seeded ${seeded} items`);
+
+    // One-time re-parenting (Task #2039): only when the group row was created
+    // by THIS run, pull its still-ungrouped children under it. Existing admin
+    // parenting (non-null parentId) is never touched, and once the group
+    // exists this whole block is a permanent no-op.
+    for (const { groupSlug, childSlugs } of GROUP_REPARENT) {
+      if (!createdSlugs.has(groupSlug)) continue;
+      const groupId = idBySlug.get(groupSlug);
+      if (!groupId) continue;
+      const moved = await tx
+        .update(resourceHubItemsTable)
+        .set({ parentId: groupId })
+        .where(
+          and(
+            inArray(resourceHubItemsTable.slug, [...childSlugs]),
+            isNull(resourceHubItemsTable.parentId),
+          ),
+        )
+        .returning({ slug: resourceHubItemsTable.slug });
+      if (moved.length > 0) {
+        console.log(
+          `[ResourceHub] curation: re-parented ${moved.length} item(s) under "${groupSlug}" (${moved
+            .map((m) => m.slug)
+            .join(", ")})`,
+        );
+      }
+    }
 
     // Repair retired-page references inside published Live AI Docs so the
     // assistant never cites /resource-library, /creative-drive, or
