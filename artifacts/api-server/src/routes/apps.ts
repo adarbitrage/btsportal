@@ -1,7 +1,7 @@
 import { Router, type IRouter } from "express";
 import crypto from "crypto";
 import { db, memberAppInstancesTable, usersTable, appGlobalSettingsTable, APP_NAMES, type AppName } from "@workspace/db";
-import { eq, and } from "drizzle-orm";
+import { eq, and, inArray } from "drizzle-orm";
 import {
   APP_DOMAINS,
   buildSsoRedirectUrl,
@@ -22,6 +22,7 @@ import {
 } from "../lib/flexy-provision";
 import { findMemberAppInstance } from "../lib/member-app-instance-lookup";
 import { isAdminRole, isCoachRole } from "../middleware/rbac";
+import { requireAppDomainCheckAuth } from "../middleware/app-domain-check-auth";
 
 const isFlexy = (appName: string): boolean => appName === "flexy";
 
@@ -73,6 +74,46 @@ async function generateUniqueSubdomain(appName: string): Promise<string> {
   }
   throw new Error("Could not generate a unique subdomain after 10 attempts");
 }
+
+/**
+ * Machine-to-machine domain ownership check.
+ *
+ * GET /api/apps/domain-check?domain=abcd1234.example.com
+ * → { "belongs_to_member": boolean }
+ *
+ * Returns true only when an app instance row exists for that domain in an
+ * "active" state — i.e. a member currently has (or is in the middle of
+ * getting) a working instance on that domain: `installed` or `installing`.
+ * Rows in `not_installed`, `install_failed`, or `uninstalling` states are
+ * NOT treated as belonging to a member, so external services never trust a
+ * dead or torn-down instance.
+ *
+ * Auth: `Authorization: Bearer <APP_DOMAIN_CHECK_SECRET>` (shared secret,
+ * timing-safe compare, fail-closed when unset). The path is registered as
+ * public in the global auth layer so this guard is the sole gate — no member
+ * JWT is ever accepted here.
+ */
+router.get("/apps/domain-check", requireAppDomainCheckAuth, async (req, res): Promise<void> => {
+  const domain = req.query.domain;
+
+  if (typeof domain !== "string" || domain.trim().length === 0) {
+    res.status(400).json({ error: "A non-empty `domain` string is required" });
+    return;
+  }
+
+  const rows = await db
+    .select({ id: memberAppInstancesTable.id })
+    .from(memberAppInstancesTable)
+    .where(
+      and(
+        eq(memberAppInstancesTable.domain, domain.trim()),
+        inArray(memberAppInstancesTable.status, ["installed", "installing"]),
+      ),
+    )
+    .limit(1);
+
+  res.json({ belongs_to_member: rows.length > 0 });
+});
 
 router.get("/apps", async (req, res): Promise<void> => {
   const userId = req.userId!;

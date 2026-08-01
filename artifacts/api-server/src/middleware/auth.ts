@@ -56,6 +56,9 @@ const PUBLIC_PATHS = [
   "/coach/google/callback",
   "/voice/kb-search",
   "/voice/escalate",
+  // Machine-to-machine domain ownership check: gated solely by its own
+  // shared-secret bearer guard (APP_DOMAIN_CHECK_SECRET), never member JWTs.
+  "/apps/domain-check",
 ];
 
 export function authenticate(req: Request, res: Response, next: NextFunction): void {
