@@ -24,6 +24,7 @@ import {
   type SurfaceRetrievalResult,
 } from "../lib/kb-retrieval";
 import { logUnansweredQuestion } from "../lib/content-gap-radar";
+import { hasPageAccessForUser } from "../middleware/require-page-access";
 import {
   candidatesFromAnchors,
   findLikelyBlitzSections,
@@ -327,6 +328,10 @@ router.post("/chat", async (req, res): Promise<void> => {
     // contract (Rule 8) and the band was calibrated on chat phrasings. Voice
     // keeps binary behavior end-to-end.
     nearMissBand: true,
+    // Ownership gate: owner-gated corpora (e.g. the Blitz section docs) are
+    // retrievable/citable only when this member passes the same content-access
+    // check the gated pages' APIs use (admin/coach bypass, fail-closed).
+    access: { viewerUserId: userId },
   });
   const ragResults = retrieval.docs.map((d) => ({ title: d.title, content: d.content, category: d.category }));
 
@@ -358,7 +363,9 @@ router.post("/chat", async (req, res): Promise<void> => {
     const anchored = candidatesFromAnchors(retrieval.docs.map((d) => d.blitzSection));
     if (anchored.length > 0) {
       systemPrompt += buildAnchoredBlitzBlock(anchored);
-    } else {
+    } else if (await hasPageAccessForUser(userId, "blitz")) {
+      // Guide-section pointers only for members who own the Blitz (same
+      // fail-closed check as retrieval); non-owners get no section names.
       systemPrompt += buildFuzzyBlitzBlock(await findLikelyBlitzSections(message));
     }
     systemPrompt += NEAR_MISS_NOTE;
@@ -378,9 +385,12 @@ router.post("/chat", async (req, res): Promise<void> => {
     // Layer 2: no confident KB answer — fuzzy-match the question against the
     // Blitz lesson library so Rule 8's Blitz-first pointer has a candidate
     // section to name. Advisory only; the block itself labels it unverified.
-    const fuzzyCandidates = await findLikelyBlitzSections(message);
+    // Ownership gate: section pointers only for members who own the Blitz
+    // (non-owners may hear the Blitz exists, but get no section names).
     systemPrompt += NO_MATCH_NOTE;
-    systemPrompt += buildFuzzyBlitzBlock(fuzzyCandidates);
+    if (await hasPageAccessForUser(userId, "blitz")) {
+      systemPrompt += buildFuzzyBlitzBlock(await findLikelyBlitzSections(message));
+    }
 
     // Content-Gap Radar: the assistant has no verified answer for this question.
     // Log it (privacy-scrubbed) so authoring can follow real demand. Best-effort,

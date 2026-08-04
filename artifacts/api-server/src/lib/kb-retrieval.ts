@@ -32,6 +32,7 @@ import { db } from "@workspace/db";
 import { sql, type SQL } from "drizzle-orm";
 import { scrubPrivateContent } from "./content-privacy-filter";
 import { citableDocFilter } from "./kb-citable-filter";
+import { hasPageAccessForUser } from "../middleware/require-page-access";
 import { buildVoiceSynonymTsquery, expandVoiceQuerySynonyms } from "./voice-synonyms";
 import { detectQueryTags } from "./kb-tool-tags.js";
 import { embedQuery, toVectorLiteral, EMBEDDING_MODEL } from "./kb-embeddings.js";
@@ -94,6 +95,17 @@ export interface SurfaceRetrievalOptions {
    * sets this — voice and every other caller keep binary behavior.
    */
   nearMissBand?: boolean;
+  /**
+   * Ownership gate (data-driven via ai_live_documents.owner_page_key):
+   *  - `{ viewerUserId }` — member-facing surface: gated docs are included ONLY
+   *    when the viewer passes the SAME content-access check the gated pages'
+   *    APIs use (hasPageAccessForUser: same resolution, admin/coach bypass,
+   *    fail-closed on a missing access-map row or any resolver error).
+   *  - `"internal"` — non-member-facing callers (review self-test) see the full
+   *    corpus; NEVER use for a member-facing surface.
+   *  - omitted — FAIL CLOSED: every owner-gated doc is excluded.
+   */
+  access?: { viewerUserId: number } | "internal";
 }
 
 export interface RetrievedDoc {
@@ -109,6 +121,8 @@ export interface RetrievedDoc {
   sourceLabel: string | null;
   /** Blitz guide section anchor (1–23) when the doc was authored from the guide. */
   blitzSection: number | null;
+  /** Content-access page key gating this doc (null = ungated). */
+  ownerPageKey: string | null;
   /** Base lexical ts_rank of the precise/fallback match (0 for grounded docs). */
   rank: number;
   /** Cosine similarity of the doc embedding to the query (0 when unavailable). */
@@ -425,6 +439,7 @@ function mapRow(r: Record<string, unknown>, grounded: boolean): RetrievedDoc {
     sourcePath: (r.source_path as string | null) ?? null,
     sourceLabel: (r.source_label as string | null) ?? null,
     blitzSection: r.blitz_section == null ? null : Number(r.blitz_section),
+    ownerPageKey: (r.owner_page_key as string | null) ?? null,
     rank: typeof r.rank === "number" ? r.rank : parseFloat(String(r.rank ?? 0)) || 0,
     semanticScore:
       typeof r.semantic_score === "number"
@@ -442,7 +457,55 @@ function scrubDoc(d: RetrievedDoc): RetrievedDoc {
   };
 }
 
-const ROW_COLUMNS = sql`id, title, content, category, doc_class, home_root, node, tags, source_path, source_label, blitz_section`;
+const ROW_COLUMNS = sql`id, title, content, category, doc_class, home_root, node, tags, source_path, source_label, blitz_section, owner_page_key`;
+
+// ───────────────────────────────────────────────────────────────────────────
+// Ownership gate (owner_page_key) — data-driven, fail-closed.
+// ───────────────────────────────────────────────────────────────────────────
+
+/**
+ * Resolve the owner_page_key values the caller may see, then return the SQL
+ * predicate every retrieval query must carry.
+ *  - "internal" access → no predicate (full corpus).
+ *  - member access → distinct gated keys present in the corpus are each checked
+ *    through hasPageAccessForUser (same resolution + admin/coach bypass +
+ *    missing-map-row fail-closed as the gated pages' own APIs).
+ *  - omitted access, or ANY error → gated docs excluded (fail closed).
+ */
+async function buildOwnershipFilter(
+  access: SurfaceRetrievalOptions["access"],
+): Promise<SQL> {
+  if (access === "internal") return sql`TRUE`;
+  const ungatedOnly = sql`owner_page_key IS NULL`;
+  if (!access) return ungatedOnly;
+  try {
+    const keyRows = await db.execute(sql`
+      SELECT DISTINCT owner_page_key AS k FROM ai_live_documents
+      WHERE owner_page_key IS NOT NULL AND deleted_at IS NULL`);
+    const gatedKeys = (keyRows.rows as Array<{ k: string }>).map((r) => r.k);
+    if (gatedKeys.length === 0) return ungatedOnly;
+    const results = await Promise.all(
+      gatedKeys.map(async (k) => ({
+        k,
+        // hasPageAccessForUser never throws — fail-closed false on any error.
+        allowed: await hasPageAccessForUser(access.viewerUserId, k),
+      })),
+    );
+    // Controlled page-key vocabulary — defensively keep only plain slugs so the
+    // `{a,b}` literal below can never be malformed by an exotic key (such a key
+    // simply stays gated: fail closed).
+    const allowed = results
+      .filter((r) => r.allowed && /^[a-z0-9_-]+$/i.test(r.k))
+      .map((r) => r.k);
+    if (allowed.length === 0) return ungatedOnly;
+    // Pass as a `{a,b}` text[] literal to avoid the record→array cast pitfall.
+    const literal = `{${allowed.join(",")}}`;
+    return sql`(owner_page_key IS NULL OR owner_page_key = ANY(${literal}::text[]))`;
+  } catch (err) {
+    console.error("[kb-retrieval] ownership filter resolution failed — excluding gated docs:", err);
+    return ungatedOnly;
+  }
+}
 
 // ───────────────────────────────────────────────────────────────────────────
 // Shared hybrid tier/blend ordering (single source of truth).
@@ -507,6 +570,11 @@ export async function retrieveSurfaceAware(
   const fallbackMin = Math.max(1, Math.ceil(limit / 2));
   const navQuery = isNavigationQuery(rawQuery);
 
+  // Ownership gate — resolved ONCE per retrieval, applied to EVERY query below
+  // (navigation grounding, precise lexical, semantic, loose fallback) so a
+  // gated doc can never surface as a title/snippet through any path.
+  const ownershipFilter = await buildOwnershipFilter(opts.access);
+
   // ── Navigation grounding ───────────────────────────────────────────────────
   // For "where do I find X" asks, fetch the current portal navigation map doc
   // directly (Operations root, navigation node) — bypassing the category scope
@@ -520,6 +588,7 @@ export async function retrieveSurfaceAware(
         FROM ai_live_documents
         WHERE home_root = 'operations' AND node = 'navigation'
           AND audience <> 'admin' AND ${citableDocFilter()}
+          AND ${ownershipFilter}
         ORDER BY CASE doc_class
             WHEN 'navigation' THEN 0
             WHEN 'overview' THEN 1
@@ -573,6 +642,7 @@ export async function retrieveSurfaceAware(
         AND category = ANY(${categoriesArray}::text[])
         AND audience <> 'admin'
         AND ${citableDocFilter()}
+        AND ${ownershipFilter}
       ORDER BY ${buildBoostedOrderBy(synonymOr, detectedTags)}
       LIMIT ${limit}`),
     embedQuery(query).catch((err) => {
@@ -623,6 +693,7 @@ export async function retrieveSurfaceAware(
           AND category = ANY(${categoriesArray}::text[])
           AND audience <> 'admin'
           AND ${citableDocFilter()}
+          AND ${ownershipFilter}
         ORDER BY embedding <=> ${qvec}::vector
         LIMIT ${limit}`);
       semanticRows = semantic.rows as Record<string, unknown>[];
@@ -664,6 +735,7 @@ export async function retrieveSurfaceAware(
           AND category = ANY(${categoriesArray}::text[])
           AND audience <> 'admin'
           AND ${citableDocFilter()}
+          AND ${ownershipFilter}
         ORDER BY ${buildBoostedOrderBy(synonymOr, detectedTags)}
         LIMIT ${limit}`);
       const seen = new Set(rows.map((r) => Number(r.id)));

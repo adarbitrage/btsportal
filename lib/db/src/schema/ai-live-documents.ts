@@ -70,6 +70,12 @@ export const aiLiveDocumentsTable = pgTable(
     tags: jsonb("tags").$type<string[]>().notNull().default(sql`'[]'::jsonb`),
     // Blitz lifecycle. Guarded by the Blitz→node drift test.
     blitzSection: integer("blitz_section"),
+    // Ownership gate (data-driven): when set, this doc is retrievable/citable
+    // ONLY for viewers who pass the content-access check for this page key
+    // (same resolution + admin/coach bypass + missing-map-row fail-closed as
+    // requirePageAccess). NULL = ungated. Any funnel corpus can declare its
+    // owning page key here with no retrieval code change.
+    ownerPageKey: text("owner_page_key"),
     // Depth ceiling: how deep this doc is allowed to go before handing off.
     ceiling: text("ceiling"),
     // Where to hand off when the ceiling is hit (e.g. 'coaching' | 'support').

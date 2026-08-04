@@ -98,6 +98,9 @@ const defaultDeps: SelfTestDeps = {
       categories: SELF_TEST_CATEGORIES,
       limit: SELF_TEST_LIMIT,
       candidate,
+      // Internal review tooling — assesses drafts against the FULL corpus
+      // (ownership gating is a member-surface concern, not a review one).
+      access: "internal",
     }),
   embed: embedText,
 };

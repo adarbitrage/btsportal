@@ -11,6 +11,10 @@
  *  - Fail-closed missing-row behavior: with the `blitz` content_access_map
  *    row deleted, members (even blitz owners) get 403 while admins pass.
  *    The row is restored afterwards (the boot seed would also restore it).
+ *
+ * CONSTRAINT: this suite mutates shared dev-DB state (deletes/restores the
+ * `blitz` content_access_map row) — do NOT run it concurrently with other
+ * suites that read the content-access map.
  */
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import request from "supertest";

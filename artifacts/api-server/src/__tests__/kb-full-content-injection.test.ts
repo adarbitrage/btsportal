@@ -47,6 +47,7 @@ function makeDoc(overrides: Partial<RetrievedDoc> = {}): RetrievedDoc {
     docClass: "curated",
     homeRoot: "concepts",
     node: "angles",
+    ownerPageKey: null,
     tags: [],
     sourcePath: "/blitz",
     sourceLabel: "The Blitz",

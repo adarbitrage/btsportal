@@ -117,6 +117,17 @@ export async function bootstrapCriticalPrerequisites(): Promise<PrerequisiteResu
     missing.push("aiLiveDocumentsParityMigration");
   }
 
+  // 0a-4b. KB ownership gate (data-driven): owner_page_key column on staging +
+  //        live docs, plus an idempotent stamp of the Blitz corpora ('blitz'
+  //        page key). Retrieval fails closed for gated docs, so the stamp only
+  //        ever ADDS gating — never opens content up.
+  try {
+    await runKbOwnershipStampMigration();
+  } catch (err) {
+    console.error("[Bootstrap] runKbOwnershipStampMigration() threw:", err);
+    missing.push("kbOwnershipStampMigration");
+  }
+
   // 0a-5. Admin-manageable TOOL-tag vocabulary (Task #1586). Retrieval + triage
   //       read a MERGED effective vocab (DB tool tags + code concept +
   //       troubleshooting). Create the tables before seeding so a fresh dev DB
@@ -605,6 +616,7 @@ async function runAiLiveDocumentsParityMigration(): Promise<void> {
   await db.execute(sql`ALTER TABLE ai_live_documents ADD COLUMN IF NOT EXISTS node text`);
   await db.execute(sql`ALTER TABLE ai_live_documents ADD COLUMN IF NOT EXISTS tags jsonb NOT NULL DEFAULT '[]'::jsonb`);
   await db.execute(sql`ALTER TABLE ai_live_documents ADD COLUMN IF NOT EXISTS blitz_section integer`);
+  await db.execute(sql`ALTER TABLE ai_live_documents ADD COLUMN IF NOT EXISTS owner_page_key text`);
   await db.execute(sql`ALTER TABLE ai_live_documents ADD COLUMN IF NOT EXISTS ceiling text`);
   await db.execute(sql`ALTER TABLE ai_live_documents ADD COLUMN IF NOT EXISTS handoff text`);
   await db.execute(sql`ALTER TABLE ai_live_documents ADD COLUMN IF NOT EXISTS last_verified timestamp with time zone`);
@@ -629,6 +641,25 @@ async function runAiLiveDocumentsParityMigration(): Promise<void> {
       FOREIGN KEY (doc_id) REFERENCES ai_live_documents(id)
       ON DELETE cascade ON UPDATE no action;
   EXCEPTION WHEN duplicate_object THEN NULL; END $$`);
+}
+
+/**
+ * KB ownership gate (owner_page_key) — additive column on kb_staging_docs (the
+ * live-docs column rides the parity migration above) plus the idempotent Blitz
+ * stamp: every Blitz-derived doc (section-import staging rows; live rows
+ * carrying a blitz_section anchor) declares `owner_page_key = 'blitz'` so
+ * retrieval can gate it through the SAME content-access check the Blitz APIs
+ * use. Re-runs every boot, so a publish that lands without the stamp is
+ * repaired on the next boot; publish itself also preserves/copies the key.
+ */
+async function runKbOwnershipStampMigration(): Promise<void> {
+  await db.execute(sql`ALTER TABLE kb_staging_docs ADD COLUMN IF NOT EXISTS owner_page_key text`);
+  await db.execute(sql`
+    UPDATE kb_staging_docs SET owner_page_key = 'blitz'
+    WHERE source = 'blitz_section_import' AND owner_page_key IS NULL`);
+  await db.execute(sql`
+    UPDATE ai_live_documents SET owner_page_key = 'blitz'
+    WHERE blitz_section IS NOT NULL AND owner_page_key IS NULL`);
 }
 
 /**

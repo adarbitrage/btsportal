@@ -25,6 +25,9 @@ export const kbStagingDocsTable = pgTable("kb_staging_docs", {
   networkPath: text("network_path"),
   publisherPath: text("publisher_path"),
   blitzOrder: integer("blitz_order"),
+  // Ownership gate carried into ai_live_documents on publish (push-approved
+  // copies it; NULL never wipes an existing live stamp). NULL = ungated.
+  ownerPageKey: text("owner_page_key"),
   // AI triage fields (added in 0060_kb_staging_ai_triage.sql)
   aiConfidenceScore: real("ai_confidence_score"),
   aiRecommendedAction: text("ai_recommended_action"),

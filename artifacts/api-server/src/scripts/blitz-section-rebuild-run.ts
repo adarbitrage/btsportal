@@ -134,6 +134,9 @@ async function main() {
           node: entry.processNode,
           taxonomyTags: [],
           blitzSection: entry.section.id,
+          // Ownership gate: Blitz corpus docs are retrievable only for members
+          // who pass the 'blitz' content-access check (carried to live on publish).
+          ownerPageKey: "blitz",
           ceiling: "operational",
           phase: entry.section.phase,
           adminNotes: `Section-anchored Blitz reference doc (rebuild): guide section ${entry.section.id} "${entry.section.title}", part ${entry.partIndex}/${entry.partCount}, ${entry.transcripts.length} transcript(s) enriched.`,

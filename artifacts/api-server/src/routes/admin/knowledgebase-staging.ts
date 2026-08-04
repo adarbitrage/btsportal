@@ -2079,6 +2079,10 @@ router.post("/push-approved", async (_req: Request, res: Response) => {
                 // retrieval tag-boost tier). A draft with tags always wins.
                 tags: tags.length > 0 ? tags : (Array.isArray(target.tags) ? target.tags : []),
                 blitzSection: doc.blitzSection,
+                // Preserve-if-null guard: an update draft without an ownership
+                // key must never UN-gate the live doc (the boot stamp would
+                // also repair it, but never open the gate even transiently).
+                ownerPageKey: doc.ownerPageKey ?? target.ownerPageKey,
                 ceiling: doc.ceiling,
                 handoff: doc.handoff,
                 navApp: doc.navApp,
@@ -2114,6 +2118,7 @@ router.post("/push-approved", async (_req: Request, res: Response) => {
               node: doc.node,
               tags,
               blitzSection: doc.blitzSection,
+              ownerPageKey: doc.ownerPageKey,
               ceiling: doc.ceiling,
               handoff: doc.handoff,
               navApp: doc.navApp,
@@ -2133,6 +2138,8 @@ router.post("/push-approved", async (_req: Request, res: Response) => {
                 // an empty-tag draft must not wipe tags on the collided row.
                 tags: sql`CASE WHEN jsonb_array_length(EXCLUDED.tags) > 0 THEN EXCLUDED.tags ELSE ${aiLiveDocumentsTable}.tags END`,
                 blitzSection: sql`EXCLUDED.blitz_section`,
+                // Preserve-if-null: a NULL draft key keeps the collided row's gate.
+                ownerPageKey: sql`COALESCE(EXCLUDED.owner_page_key, ${aiLiveDocumentsTable.ownerPageKey})`,
                 ceiling: sql`EXCLUDED.ceiling`,
                 handoff: sql`EXCLUDED.handoff`,
                 navApp: sql`EXCLUDED.nav_app`,
@@ -2723,6 +2730,8 @@ BRAND RULES: say "Build Test Scale" / "BTS" (never "TCE" or "Cherrington"); no c
             surface: "chat",
             categories: HOME_ROOTS.map((r) => r.slug),
             limit: 5,
+            // Admin review tooling — coverage checks span the full corpus.
+            access: "internal",
           });
           for (const d of live.docs) {
             candidates.push({

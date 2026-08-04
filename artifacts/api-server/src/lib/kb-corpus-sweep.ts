@@ -282,6 +282,8 @@ async function gatherConceptCandidates(incorrect: string, correct: string): Prom
       surface: "chat",
       categories: HOME_ROOTS.map((r) => r.slug),
       limit: 8,
+      // Admin sweep tooling — inspects the full corpus, never member-facing.
+      access: "internal",
     });
     for (const d of live.docs) {
       push({ kind: "live", id: d.id, title: d.title, content: d.content ?? "" });
