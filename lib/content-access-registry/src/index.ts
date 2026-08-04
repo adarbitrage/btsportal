@@ -14,7 +14,7 @@
 
 export interface MappableProduct {
   slug: string;
-  group: "frontend" | "mentorship";
+  group: "frontend" | "funnel" | "mentorship";
   /** Ladder position (mentorship only; undefined for frontend products). */
   ladderOrder?: number;
 }
@@ -38,6 +38,13 @@ export const MAPPABLE_PRODUCTS: readonly MappableProduct[] = [
   { slug: "reserve_income",   group: "frontend" },
   { slug: "silent_partner",   group: "frontend" },
   { slug: "test_like_mad",    group: "frontend" },
+  // Funnel upsell/bump products (shared across all six front-end offers).
+  // "funnel" products are plain checkbox columns like front-ends — they do
+  // NOT participate in mentorship-ladder copy-upward propagation.
+  { slug: "yse_21_day_blitz",        group: "funnel" },
+  { slug: "yse_affiliate_cmo_bump",  group: "funnel" },
+  { slug: "yse_swipe_resource_bank", group: "funnel" },
+  { slug: "yse_profit_maximizer_pass", group: "funnel" },
   { slug: "launchpad",        group: "mentorship", ladderOrder: 1 },
   { slug: "3month",           group: "mentorship", ladderOrder: 2 },
   { slug: "6month",           group: "mentorship", ladderOrder: 3 },

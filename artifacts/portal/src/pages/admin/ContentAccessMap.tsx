@@ -70,6 +70,10 @@ const COLUMN_SHORT_LABELS: Record<string, string> = {
   reserve_income: "Reserve Inc.",
   silent_partner: "Silent Partner",
   test_like_mad: "Test Like Mad",
+  yse_21_day_blitz: "21-Day Blitz",
+  yse_affiliate_cmo_bump: "CMO Bump",
+  yse_swipe_resource_bank: "Swipe Bank",
+  yse_profit_maximizer_pass: "Profit Max",
   launchpad: "Launchpad",
   "3month": "3-Month",
   "6month": "6-Month",
@@ -272,6 +276,17 @@ export default function ContentAccessMap() {
     [productNameBySlug],
   );
 
+  const funnelProducts: ContentAccessProduct[] = useMemo(
+    () =>
+      MAPPABLE_PRODUCTS.filter((p) => p.group === "funnel").map((p) => ({
+        slug: p.slug,
+        group: p.group as "funnel",
+        ladderOrder: null,
+        name: productNameBySlug.get(p.slug) ?? COLUMN_SHORT_LABELS[p.slug] ?? p.slug,
+      })),
+    [productNameBySlug],
+  );
+
   const mentorshipProducts: ContentAccessProduct[] = useMemo(
     () =>
       MAPPABLE_PRODUCTS.filter((p) => p.group === "mentorship")
@@ -290,9 +305,19 @@ export default function ContentAccessMap() {
 
   // Ordered list of all product columns for the matrix.
   const allProducts: ContentAccessProduct[] = useMemo(
-    () => [...frontendProducts, ...mentorshipProducts],
-    [frontendProducts, mentorshipProducts],
+    () => [...frontendProducts, ...funnelProducts, ...mentorshipProducts],
+    [frontendProducts, funnelProducts, mentorshipProducts],
   );
+
+  // Column indices where a new product group starts (for vertical separators).
+  const groupBorderIndices = useMemo(() => {
+    const set = new Set<number>();
+    set.add(frontendProducts.length);
+    if (funnelProducts.length > 0) {
+      set.add(frontendProducts.length + funnelProducts.length);
+    }
+    return set;
+  }, [frontendProducts, funnelProducts]);
 
   // ── Render ────────────────────────────────────────────────────────────────────
 
@@ -409,6 +434,14 @@ export default function ContentAccessMap() {
                             Front-ends
                           </th>
                         )}
+                        {funnelProducts.length > 0 && (
+                          <th
+                            colSpan={funnelProducts.length}
+                            className="border-l border-border px-2 py-2 text-center font-semibold text-muted-foreground"
+                          >
+                            Funnel Upsells
+                          </th>
+                        )}
                         {mentorshipProducts.length > 0 && (
                           <th
                             colSpan={mentorshipProducts.length}
@@ -429,7 +462,7 @@ export default function ContentAccessMap() {
                         {allProducts.map((p, i) => (
                           <th
                             key={p.slug}
-                            className={`px-2 py-1.5 text-center text-xs font-medium text-muted-foreground${i === frontendProducts.length ? " border-l border-border" : ""}`}
+                            className={`px-2 py-1.5 text-center text-xs font-medium text-muted-foreground${groupBorderIndices.has(i) ? " border-l border-border" : ""}`}
                           >
                             <Tooltip>
                               <TooltipTrigger asChild>
@@ -499,7 +532,7 @@ export default function ContentAccessMap() {
                             {allProducts.map((p, colIdx) => (
                               <td
                                 key={p.slug}
-                                className={`px-2 py-2.5 text-center${colIdx === frontendProducts.length ? " border-l border-border" : ""}`}
+                                className={`px-2 py-2.5 text-center${groupBorderIndices.has(colIdx) ? " border-l border-border" : ""}`}
                               >
                                 <Checkbox
                                   checked={draft.has(p.slug)}

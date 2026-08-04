@@ -444,7 +444,7 @@ export type ContentAccessMappingRow = {
 
 export type ContentAccessProduct = {
   slug: string;
-  group: "frontend" | "mentorship";
+  group: "frontend" | "funnel" | "mentorship";
   ladderOrder: number | null;
   name: string;
 };

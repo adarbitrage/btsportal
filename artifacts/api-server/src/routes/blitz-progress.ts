@@ -4,6 +4,7 @@ import { eq, and, desc, sql, gte, lte } from "drizzle-orm";
 import { isAdminRole } from "../middleware/rbac";
 import { usersTable } from "@workspace/db";
 import { sendError, ErrorCodes } from "../lib/api-errors";
+import { requirePageAccess } from "../middleware/require-page-access";
 import {
   BLITZ_SECTIONS,
   BLITZ_PHASES,
@@ -16,6 +17,10 @@ import {
 } from "../lib/blitz/sections";
 
 const router: IRouter = Router();
+
+// Server-side ownership gate (fail-closed): all Blitz progress/streak/phase
+// endpoints require the `blitz` page key via the Content Access Map.
+router.use(["/blitz/events", "/blitz/continue", "/blitz/streak", "/blitz/phase-status"], requirePageAccess("blitz"));
 
 const VALID_EVENT_TYPES = new Set(["viewed", "completed", "uncompleted"]);
 

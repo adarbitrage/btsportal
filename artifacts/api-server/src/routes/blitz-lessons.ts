@@ -2,8 +2,13 @@ import { Router, type Request, type Response } from "express";
 import { db } from "@workspace/db";
 import { blitzLessonsTable } from "@workspace/db/schema";
 import { and, eq, ne, asc } from "drizzle-orm";
+import { requirePageAccess } from "../middleware/require-page-access";
 
 const router = Router();
+
+// Server-side ownership gate (fail-closed): every Blitz lesson endpoint
+// requires the `blitz` page key via the Content Access Map.
+router.use("/blitz/lessons", requirePageAccess("blitz"));
 
 router.get("/blitz/lessons", async (_req: Request, res: Response) => {
   try {
