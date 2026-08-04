@@ -1,4 +1,7 @@
 import type { Request, Response, NextFunction, RequestHandler } from "express";
+import { db, contentAccessMapTable, usersTable } from "@workspace/db";
+import { eq } from "drizzle-orm";
+import { isAdminRole, isCoachRole } from "@workspace/auth";
 import { getAccessiblePageKeys } from "../lib/content-access-resolver";
 
 /**
@@ -9,6 +12,10 @@ import { getAccessiblePageKeys } from "../lib/content-access-resolver";
  *   - unauthenticated → 401
  *   - resolver error  → 403 (never open on infrastructure failure)
  *   - page not in the member's accessible set → 403 with upgrade info
+ *   - NO content_access_map row for the page → 403 for members (the resolver
+ *     treats unmapped pages as open for nav purposes, but for server-enforced
+ *     endpoints an absent row means the boot seed hasn't landed — deny rather
+ *     than inherit open-by-default; admins/coaches still pass)
  */
 export function requirePageAccess(pageKey: string): RequestHandler {
   return async (req: Request, res: Response, next: NextFunction): Promise<void> => {
@@ -18,8 +25,26 @@ export function requirePageAccess(pageKey: string): RequestHandler {
       return;
     }
     let accessible: string[];
+    let mapped: boolean;
+    let bypass: boolean;
     try {
-      accessible = await getAccessiblePageKeys(userId);
+      const [keys, mapRows, userRows] = await Promise.all([
+        getAccessiblePageKeys(userId),
+        db
+          .select({ id: contentAccessMapTable.id })
+          .from(contentAccessMapTable)
+          .where(eq(contentAccessMapTable.pageKey, pageKey))
+          .limit(1),
+        db
+          .select({ role: usersTable.role })
+          .from(usersTable)
+          .where(eq(usersTable.id, userId))
+          .limit(1),
+      ]);
+      accessible = keys;
+      mapped = mapRows.length > 0;
+      const role = userRows[0]?.role;
+      bypass = !!role && (isAdminRole(role) || isCoachRole(role));
     } catch (err) {
       console.error(`[ContentAccess] requirePageAccess(${pageKey}) resolver error:`, err);
       res.status(403).json({
@@ -29,7 +54,7 @@ export function requirePageAccess(pageKey: string): RequestHandler {
       });
       return;
     }
-    if (!accessible.includes(pageKey)) {
+    if (!accessible.includes(pageKey) || (!mapped && !bypass)) {
       res.status(403).json({
         error: "CONTENT_NOT_OWNED",
         pageKey,

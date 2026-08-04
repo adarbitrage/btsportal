@@ -132,7 +132,7 @@ export const MEMBER_NAV: NavNode[] = [
     defaultOpen: false,
     children: [
       { kind: "leaf", href: "/apps", label: "Apps", icon: AppWindow, requiredEntitlement: "software:base" },
-      { kind: "leaf", href: "/partner-tools", label: "Tools", icon: Wrench },
+      { kind: "leaf", href: "/partner-tools", label: "Tools", icon: Wrench, contentPageKey: "partner-tools" },
       { kind: "leaf", href: "/ai-assistant", label: "AI Assistant", icon: MessageCircle },
       { kind: "leaf", href: "/assistant/voice", label: "Voice Assistant", icon: Mic, requiredEntitlement: "voice:access" },
       { kind: "leaf", href: "/compliance", label: "Compliance Review", icon: ShieldCheck, requiredEntitlement: "software:base" },
@@ -147,7 +147,7 @@ export const MEMBER_NAV: NavNode[] = [
     children: [
       { kind: "leaf", href: "/resource-hub", label: "Resource Hub", icon: Library, contentPageKey: "resource-hub" },
       { kind: "leaf", href: "/affiliate-networks", label: "Affiliate Networks", icon: Network, contentPageKey: "affiliate-networks" },
-      { kind: "leaf", href: "/prime-corporate", label: "Prime Corporate", icon: Building2 },
+      { kind: "leaf", href: "/prime-corporate", label: "Prime Corporate", icon: Building2, contentPageKey: "prime-corporate" },
     ],
   },
   {
@@ -158,9 +158,9 @@ export const MEMBER_NAV: NavNode[] = [
     defaultOpen: false,
     children: [
       { kind: "leaf", href: "/coaching", label: "Coaching Calls", icon: Video, requiredEntitlement: "coaching:group" },
-      { kind: "leaf", href: "/coaching/book-session", label: "Private Coaching", icon: UserCheck },
-      { kind: "leaf", href: "/coaching/partner-calls", label: "Accountability Partner", icon: Users },
-      { kind: "leaf", href: "/concierge", label: "BTS Concierge™", icon: Sparkles },
+      { kind: "leaf", href: "/coaching/book-session", label: "Private Coaching", icon: UserCheck, requiredEntitlement: "coaching:group" },
+      { kind: "leaf", href: "/coaching/partner-calls", label: "Accountability Partner", icon: Users, requiredEntitlement: "coaching:group" },
+      { kind: "leaf", href: "/concierge", label: "BTS Concierge™", icon: Sparkles, requiredEntitlement: "coaching:group" },
       { kind: "leaf", href: "/va-calls", label: "1-on-1 VA Calls", icon: Phone, requiredEntitlement: "coaching:group" },
     ],
   },
@@ -180,8 +180,8 @@ export const MEMBER_NAV: NavNode[] = [
     defaultOpen: false,
     children: [
       { kind: "leaf", href: "/self-promoting", label: "Promote BTS", icon: Megaphone, requiredEntitlement: "commissions:*" },
-      { kind: "leaf", href: "/ad-credit", label: "$1K Ad Credit", icon: Gift },
-      { kind: "leaf", href: "/coaching/recruitment", label: "Become a Coach", icon: UserPlus, hiddenForRoles: ["coach"] },
+      { kind: "leaf", href: "/ad-credit", label: "$1K Ad Credit", icon: Gift, contentPageKey: "ad-credit" },
+      { kind: "leaf", href: "/coaching/recruitment", label: "Become a Coach", icon: UserPlus, hiddenForRoles: ["coach"], contentPageKey: "become-a-coach" },
     ],
   },
   { kind: "leaf", href: "/account", label: "Account", icon: UserCircle },

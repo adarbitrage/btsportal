@@ -25,8 +25,18 @@ const MENTORSHIP_TIER_SLUGS = ["launchpad", "3month", "6month", "1year", "lifeti
 
 const BLITZ_OWNER_SLUGS = ["yse_21_day_blitz", ...MENTORSHIP_TIER_SLUGS];
 
+// Pitch/partner surfaces the business wants visible to LaunchPad-and-above
+// only (front-end/funnel buyers excluded).
+const LAUNCHPAD_PLUS_PAGE_KEYS = new Set([
+  "partner-tools",
+  "prime-corporate",
+  "ad-credit",
+  "become-a-coach",
+]);
+
 export function defaultSlugsForPageKey(pageKey: string): string[] {
   if (pageKey === "blitz") return [...BLITZ_OWNER_SLUGS];
+  if (LAUNCHPAD_PLUS_PAGE_KEYS.has(pageKey)) return [...MENTORSHIP_TIER_SLUGS];
   return [...FRONTEND_SLUGS, ...MENTORSHIP_TIER_SLUGS];
 }
 

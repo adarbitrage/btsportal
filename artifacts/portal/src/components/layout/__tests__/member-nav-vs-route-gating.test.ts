@@ -76,6 +76,11 @@ const NAV_ONLY_GATING: Record<string, string> = {
   "/va-calls": "coaching:group",
   "/self-promoting": "commissions:*",
   "/community": "community:access",
+  // Pitch items hidden from non-coaching members; pages still render their
+  // own pitch for direct visitors (deliberate, per adman3838 2026-08-04).
+  "/coaching/book-session": "coaching:group",
+  "/coaching/partner-calls": "coaching:group",
+  "/concierge": "coaching:group",
 };
 
 const routes = parseRoutes(appSource);

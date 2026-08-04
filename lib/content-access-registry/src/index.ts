@@ -146,6 +146,28 @@ export const GATEABLE_PAGES: readonly GateablePage[] = [
     routePath: "/affiliate-networks",
     label: "Affiliate Networks",
   },
+  // Pitch/partner surfaces gated to LaunchPad-and-above by default (sidebar
+  // visibility; the pages themselves stay reachable by direct link).
+  {
+    pageKey: "partner-tools",
+    routePath: "/partner-tools",
+    label: "Tools",
+  },
+  {
+    pageKey: "prime-corporate",
+    routePath: "/prime-corporate",
+    label: "Prime Corporate",
+  },
+  {
+    pageKey: "ad-credit",
+    routePath: "/ad-credit",
+    label: "$1K Ad Credit",
+  },
+  {
+    pageKey: "become-a-coach",
+    routePath: "/coaching/recruitment",
+    label: "Become a Coach",
+  },
 ] as const;
 
 /** All page keys as a plain array (for validation). */
