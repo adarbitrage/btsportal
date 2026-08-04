@@ -3,6 +3,7 @@ import { Router, type IRouter } from "express";
 import { db, courseProgressTable } from "@workspace/db";
 import { eq, and } from "drizzle-orm";
 import { isValidBlitzCourseId } from "../lib/blitz/sections";
+import { hasPageAccessForUser } from "../middleware/require-page-access";
 
 const router: IRouter = Router();
 
@@ -30,12 +31,43 @@ function isValidCourseId(id: unknown): id is string {
   return false;
 }
 
+/**
+ * True when the course id belongs to the Blitz in ANY of its forms: canonical
+ * v2 hub steps, legacy hub steps 1-18, or the static "21-day-blitz" course.
+ * These ride the same ownership gate as the /blitz/* APIs.
+ */
+export function isBlitzCourseId(id: string): boolean {
+  if (id === "21-day-blitz") return true;
+  if (isValidBlitzCourseId(id)) return true;
+  return /^blitz-hub-step-\d+$/.test(id);
+}
+
+function sendBlitzNotOwned(res: { status: (n: number) => { json: (b: unknown) => void } }): void {
+  res.status(403).json({
+    error: "CONTENT_NOT_OWNED",
+    pageKey: "blitz",
+    message: "This content isn't included in your current products.",
+    upgrade: {
+      reason: `Access to this page requires a product that includes "blitz".`,
+      learnMorePath: "/",
+    },
+  });
+}
+
 router.get("/course-progress", async (req, res): Promise<void> => {
   const userId = req.userId!;
   const entries = await db
     .select()
     .from(courseProgressTable)
     .where(eq(courseProgressTable.userId, userId));
+
+  // Blitz rows are ownership-gated content: hide them from non-owners so this
+  // legacy read path can't leak Blitz progress. Non-Blitz rows always serve.
+  const hasBlitzRows = entries.some((e) => isBlitzCourseId(e.courseId));
+  if (hasBlitzRows && !(await hasPageAccessForUser(userId, "blitz"))) {
+    res.json(entries.filter((e) => !isBlitzCourseId(e.courseId)));
+    return;
+  }
   res.json(entries);
 });
 
@@ -45,6 +77,11 @@ router.post("/course-progress", async (req, res): Promise<void> => {
 
   if (!isValidCourseId(courseId)) {
     res.status(400).json({ error: "Invalid courseId" });
+    return;
+  }
+
+  if (isBlitzCourseId(courseId) && !(await hasPageAccessForUser(userId, "blitz"))) {
+    sendBlitzNotOwned(res);
     return;
   }
 
@@ -109,6 +146,11 @@ router.delete("/course-progress/:courseId", async (req, res): Promise<void> => {
 
   if (!isValidCourseId(courseId)) {
     res.status(400).json({ error: "Invalid courseId" });
+    return;
+  }
+
+  if (isBlitzCourseId(courseId) && !(await hasPageAccessForUser(userId, "blitz"))) {
+    sendBlitzNotOwned(res);
     return;
   }
 

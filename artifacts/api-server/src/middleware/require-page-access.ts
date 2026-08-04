@@ -17,6 +17,42 @@ import { getAccessiblePageKeys } from "../lib/content-access-resolver";
  *     endpoints an absent row means the boot seed hasn't landed — deny rather
  *     than inherit open-by-default; admins/coaches still pass)
  */
+/**
+ * Express-free core of the guard: same semantics as requirePageAccess but
+ * usable from route handlers that gate a SUBSET of their requests (e.g. the
+ * legacy course-progress path, which only enforces Blitz course ids).
+ *
+ * Fail-closed: ANY error (resolver, DB) resolves to false for members.
+ * Never throws.
+ */
+export async function hasPageAccessForUser(
+  userId: number,
+  pageKey: string,
+): Promise<boolean> {
+  try {
+    const [keys, mapRows, userRows] = await Promise.all([
+      getAccessiblePageKeys(userId),
+      db
+        .select({ id: contentAccessMapTable.id })
+        .from(contentAccessMapTable)
+        .where(eq(contentAccessMapTable.pageKey, pageKey))
+        .limit(1),
+      db
+        .select({ role: usersTable.role })
+        .from(usersTable)
+        .where(eq(usersTable.id, userId))
+        .limit(1),
+    ]);
+    const mapped = mapRows.length > 0;
+    const role = userRows[0]?.role;
+    const bypass = !!role && (isAdminRole(role) || isCoachRole(role));
+    return keys.includes(pageKey) && (mapped || bypass);
+  } catch (err) {
+    console.error(`[ContentAccess] hasPageAccessForUser(${pageKey}) error:`, err);
+    return false;
+  }
+}
+
 export function requirePageAccess(pageKey: string): RequestHandler {
   return async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     const userId = req.userId;
@@ -24,37 +60,8 @@ export function requirePageAccess(pageKey: string): RequestHandler {
       res.status(401).json({ error: "Authentication required" });
       return;
     }
-    let accessible: string[];
-    let mapped: boolean;
-    let bypass: boolean;
-    try {
-      const [keys, mapRows, userRows] = await Promise.all([
-        getAccessiblePageKeys(userId),
-        db
-          .select({ id: contentAccessMapTable.id })
-          .from(contentAccessMapTable)
-          .where(eq(contentAccessMapTable.pageKey, pageKey))
-          .limit(1),
-        db
-          .select({ role: usersTable.role })
-          .from(usersTable)
-          .where(eq(usersTable.id, userId))
-          .limit(1),
-      ]);
-      accessible = keys;
-      mapped = mapRows.length > 0;
-      const role = userRows[0]?.role;
-      bypass = !!role && (isAdminRole(role) || isCoachRole(role));
-    } catch (err) {
-      console.error(`[ContentAccess] requirePageAccess(${pageKey}) resolver error:`, err);
-      res.status(403).json({
-        error: "CONTENT_NOT_OWNED",
-        pageKey,
-        message: "We couldn't verify access to this content. Please try again.",
-      });
-      return;
-    }
-    if (!accessible.includes(pageKey) || (!mapped && !bypass)) {
+    const allowed = await hasPageAccessForUser(userId, pageKey);
+    if (!allowed) {
       res.status(403).json({
         error: "CONTENT_NOT_OWNED",
         pageKey,

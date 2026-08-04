@@ -1,9 +1,9 @@
 import { describe, it, expect } from "vitest";
+import { BLITZ_SECTION_BY_ID } from "@workspace/blitz-curriculum";
 import {
-  BLITZ_SECTION_BY_ID,
   getBlitzLessonsForVideo,
   getKnownVidalyticsIds,
-} from "@workspace/blitz-curriculum";
+} from "@workspace/blitz-curriculum/blitz-video-map";
 import {
   parseBlitzCaptionFilename,
   applyBlitzCaptionAutofill,

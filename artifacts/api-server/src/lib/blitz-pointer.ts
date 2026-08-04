@@ -25,8 +25,8 @@ import {
   BLITZ_SECTION_BY_ID,
   BLITZ_PHASE_MAP,
   BLITZ_SECTIONS,
-  getBlitzVideoMap,
 } from "@workspace/blitz-curriculum";
+import { getBlitzVideoMap } from "@workspace/blitz-curriculum/blitz-video-map";
 
 /** Member-visible textual reference for a Blitz guide section. */
 export function formatBlitzSectionRef(sectionId: number): string | null {

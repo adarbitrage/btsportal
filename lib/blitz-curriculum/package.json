@@ -4,7 +4,9 @@
   "private": true,
   "type": "module",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./blitz-body-html": "./src/blitz-body-html.ts",
+    "./blitz-video-map": "./src/blitz-video-map.ts"
   },
   "scripts": {
     "test": "vitest run",

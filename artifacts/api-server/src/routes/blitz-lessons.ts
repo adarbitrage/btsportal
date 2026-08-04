@@ -3,12 +3,53 @@ import { db } from "@workspace/db";
 import { blitzLessonsTable } from "@workspace/db/schema";
 import { and, eq, ne, asc } from "drizzle-orm";
 import { requirePageAccess } from "../middleware/require-page-access";
+import { requirePermission } from "../middleware/rbac";
 
 const router = Router();
 
 // Server-side ownership gate (fail-closed): every Blitz lesson endpoint
 // requires the `blitz` page key via the Content Access Map.
 router.use("/blitz/lessons", requirePageAccess("blitz"));
+router.use("/blitz/guide", requirePageAccess("blitz"));
+
+/**
+ * GET /blitz/guide — the written guide body HTML.
+ *
+ * Deliberately served from behind the ownership gate instead of shipping in
+ * the portal's client bundle (where any member could read it from the static
+ * JS). Delivery seam only: the HTML itself is the same shared
+ * @workspace/blitz-curriculum source the caption/section tooling parses.
+ */
+router.get("/blitz/guide", async (_req: Request, res: Response) => {
+  try {
+    const { BLITZ_BODY_HTML } = await import(
+      "@workspace/blitz-curriculum/blitz-body-html"
+    );
+    res.json({ html: BLITZ_BODY_HTML });
+  } catch (err) {
+    console.error("[blitz-guide] load error:", err);
+    res.status(500).json({ error: "Failed to load the Blitz guide" });
+  }
+});
+
+/**
+ * GET /admin/blitz-archive-guide — the ARCHIVED guide snapshot, admin-only
+ * (matches the AdminRoute permission on /blitz-archive/guide). Same delivery
+ * seam as /blitz/guide: never bundled into the client.
+ */
+router.get(
+  "/admin/blitz-archive-guide",
+  requirePermission("content:manage"),
+  async (_req: Request, res: Response) => {
+    try {
+      const { BLITZ_ARCHIVE_HTML } = await import("../lib/blitz-archive-html");
+      res.json({ html: BLITZ_ARCHIVE_HTML });
+    } catch (err) {
+      console.error("[blitz-archive-guide] load error:", err);
+      res.status(500).json({ error: "Failed to load the archived Blitz guide" });
+    }
+  },
+);
 
 router.get("/blitz/lessons", async (_req: Request, res: Response) => {
   try {

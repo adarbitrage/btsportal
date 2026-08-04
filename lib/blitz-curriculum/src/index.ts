@@ -157,17 +157,12 @@ export function blitzLessonIdFromCourseId(courseId: string): number {
     : 0;
 }
 
-// Canonical Blitz guide body HTML (single source rendered by the portal and
-// parsed by the backend) + the dynamic video -> lessons map derived from it.
-export { BLITZ_BODY_HTML } from "./blitz-body-html";
-export {
-  getBlitzVideoMap,
-  getKnownVidalyticsIds,
-  getBlitzLessonsForVideo,
-  getBlitzVideoInfo,
-  getBlitzSectionHtmlSpans,
-  type BlitzVideoMap,
-  type BlitzVideoInfo,
-  type BlitzVideoPlacement,
-  type BlitzSectionHtmlSpan,
-} from "./blitz-video-map";
+// NOTE: the Blitz guide body HTML (and the video map derived from it) is
+// deliberately NOT exported from this barrel. The portal imports the barrel
+// for curriculum metadata, and the guide body must never ship in the client
+// bundle — non-owners would get the full guide from the static JS. Server
+// code imports it via the subpath exports:
+//   @workspace/blitz-curriculum/blitz-body-html
+//   @workspace/blitz-curriculum/blitz-video-map
+// The portal loads the guide at render time from the ownership-gated
+// GET /api/blitz/guide endpoint instead.

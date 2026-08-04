@@ -4,6 +4,11 @@ import userEvent from "@testing-library/user-event";
 import type { ReactNode } from "react";
 import { Router, Switch, Route } from "wouter";
 import { memoryLocation } from "wouter/memory-location";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+// Guide body no longer ships in the client bundle (served by the gated
+// /blitz/guide endpoint); the test loads it directly from the shared package
+// and serves it through the mocked authFetch below.
+import { BLITZ_BODY_HTML } from "@workspace/blitz-curriculum/blitz-body-html";
 
 vi.mock("@/components/layout/AppLayout", () => ({
   AppLayout: ({ children }: { children: ReactNode }) => (
@@ -25,6 +30,15 @@ vi.mock("@/lib/auth", async (importActual) => {
   const actual = await importActual<typeof import("@/lib/auth")>();
   return {
     ...actual,
+    authFetch: vi.fn(async (path: string) => {
+      if (path === "/blitz/guide") {
+        return {
+          ok: true,
+          json: async () => ({ html: BLITZ_BODY_HTML }),
+        } as Response;
+      }
+      return { ok: true, json: async () => [] } as unknown as Response;
+    }),
     AuthProvider: ({ children }: { children: ReactNode }) => <>{children}</>,
     useAuth: () => ({
       user: {
@@ -71,7 +85,11 @@ const visibleSections = (container: HTMLElement): string[] =>
 describe("Blitz hub → guide section navigation (SPA click, real route guard)", () => {
   it("clicking 'Go to Section' opens only that lesson's section, not the full guide", async () => {
     const { hook } = memoryLocation({ path: "/blitz", record: true });
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
     const { container } = render(
+      <QueryClientProvider client={queryClient}>
       <Router hook={hook}>
         <Switch>
           <Route path="/blitz">
@@ -84,7 +102,8 @@ describe("Blitz hub → guide section navigation (SPA click, real route guard)",
             {() => <ContentAccessRoute component={Blitz} pageKey="blitz" />}
           </Route>
         </Switch>
-      </Router>,
+      </Router>
+      </QueryClientProvider>,
     );
 
     const buttons = await screen.findAllByRole("link", {

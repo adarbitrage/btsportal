@@ -3,7 +3,7 @@
 // data-status tags on .video-slot elements in Blitz.tsx.
 import { useEffect, useMemo, useRef, useState } from "react";
 import { AppLayout } from "@/components/layout/AppLayout";
-import { blitzBodyHTML } from "@/pages/Blitz";
+import { useBlitzGuideHtml } from "@/pages/Blitz";
 
 type StatusKey =
   | "unreviewed"
@@ -47,9 +47,9 @@ function isPlayable(id: string): boolean {
   return !!id && id !== "—" && !id.startsWith("VIDEO_ID_");
 }
 
-function parseVideos(): VideoItem[] {
+function parseVideos(guideHtml: string): VideoItem[] {
   if (typeof window === "undefined") return [];
-  const doc = new DOMParser().parseFromString(blitzBodyHTML, "text/html");
+  const doc = new DOMParser().parseFromString(guideHtml, "text/html");
   const slots = Array.from(doc.querySelectorAll<HTMLElement>(".video-slot"));
   const items: VideoItem[] = [];
   for (const slot of slots) {
@@ -253,7 +253,13 @@ function VideoTable({
 }
 
 export default function VideoReview() {
-  const videos = useMemo(parseVideos, []);
+  // Guide HTML comes from the ownership-gated endpoint (admins bypass the
+  // gate); it is no longer bundled into the client.
+  const { guideHtml } = useBlitzGuideHtml();
+  const videos = useMemo(
+    () => (guideHtml ? parseVideos(guideHtml) : []),
+    [guideHtml],
+  );
   const [playing, setPlaying] = useState<VideoItem | null>(null);
   const unreviewed = videos.filter((v) => v.status === "unreviewed");
   const rerecord = videos.filter((v) => v.status === "needs-rerecord");

@@ -14,12 +14,12 @@
  */
 
 import {
-  BLITZ_BODY_HTML,
   BLITZ_SECTION_BY_ID,
   BLITZ_SECTION_COUNT,
-  getBlitzSectionHtmlSpans,
   type BlitzSection,
 } from "@workspace/blitz-curriculum";
+import { BLITZ_BODY_HTML } from "@workspace/blitz-curriculum/blitz-body-html";
+import { getBlitzSectionHtmlSpans } from "@workspace/blitz-curriculum/blitz-video-map";
 
 // ── HTML → plain text ────────────────────────────────────────────────────────
 

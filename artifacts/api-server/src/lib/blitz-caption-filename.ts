@@ -1,8 +1,8 @@
+import { BLITZ_SECTION_BY_ID } from "@workspace/blitz-curriculum";
 import {
-  BLITZ_SECTION_BY_ID,
   getKnownVidalyticsIds,
   getBlitzLessonsForVideo,
-} from "@workspace/blitz-curriculum";
+} from "@workspace/blitz-curriculum/blitz-video-map";
 
 /**
  * Blitz caption-filename recognizer.

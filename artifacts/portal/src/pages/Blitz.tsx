@@ -7,10 +7,11 @@ import {
   BLITZ_SECTIONS,
   BLITZ_SECTION_COUNT,
   BLITZ_SECTION_BY_ID,
-  BLITZ_BODY_HTML,
   buildBlitzCourseId,
   type BlitzPhaseKey,
 } from "@workspace/blitz-curriculum";
+import { useQuery } from "@tanstack/react-query";
+import { authFetch } from "@/lib/auth";
 
 // Lesson id → guide display label. The section anchor, phase, and total count
 // all come from the shared @workspace/blitz-curriculum source of truth; only
@@ -558,11 +559,30 @@ const blitzCSS = `.blitz-content{
   .blitz-content .phase-jump a.phase-pill.scale{background:#7f2ac9;border-color:#641f9e;}
   .blitz-content .version-banner{padding:5px 0;}`;
 
-// The Blitz guide body HTML now lives in the shared @workspace/blitz-curriculum
-// package so the backend can parse the SAME source to derive the video -> lessons
-// map. Re-exported here unchanged so the portal render path and VideoReview keep
-// importing `blitzBodyHTML` from this module.
-export const blitzBodyHTML = BLITZ_BODY_HTML;
+// The Blitz guide body HTML lives in the shared @workspace/blitz-curriculum
+// package (backend parses the SAME source for the video -> lessons map), but
+// it is deliberately NOT bundled into the client: non-owners could read the
+// full guide out of the static JS. It is fetched at render time from the
+// ownership-gated GET /api/blitz/guide endpoint instead. VideoReview reuses
+// this hook (admin/coach roles pass the gate).
+export function useBlitzGuideHtml(): {
+  guideHtml: string | undefined;
+  isLoading: boolean;
+  isError: boolean;
+} {
+  const { data, isLoading, isError } = useQuery({
+    queryKey: ["blitz", "guide-html"],
+    queryFn: async (): Promise<{ html: string }> => {
+      const res = await authFetch("/blitz/guide");
+      if (!res.ok) throw new Error("Failed to load the Blitz guide");
+      return res.json();
+    },
+    staleTime: Infinity,
+    gcTime: 30 * 60 * 1000,
+    retry: 1,
+  });
+  return { guideHtml: data?.html, isLoading, isError };
+}
 
 const SECTION_BAR_CSS = `
 .blitz-section-bar {
@@ -636,6 +656,9 @@ export default function Blitz() {
     setContentEl(el);
     if (el) setMountTick((t) => t + 1);
   }, []);
+
+  // Guide body HTML arrives from the ownership-gated endpoint (never bundled).
+  const { guideHtml, isLoading: guideLoading, isError: guideError } = useBlitzGuideHtml();
 
   // ── VIEW TRACKING ─────────────────────────────────────────────────────────
   // Rate-limit: max one viewed event per minute per lesson across navigations.
@@ -1214,11 +1237,23 @@ export default function Blitz() {
           V4.0 (Released April 21, 2026)
         </p>
       </div>
-      <div
-        className={`blitz-content${isSectionView ? " section-filtered" : " full-guide"}`}
-        ref={setRef}
-        dangerouslySetInnerHTML={{ __html: blitzBodyHTML }}
-      />
+      {guideLoading && (
+        <div className="py-16 text-center text-sm text-muted-foreground" data-testid="blitz-guide-loading">
+          Loading the guide…
+        </div>
+      )}
+      {guideError && (
+        <div className="py-16 text-center text-sm text-muted-foreground" data-testid="blitz-guide-error">
+          We couldn't load the guide. Please refresh the page to try again.
+        </div>
+      )}
+      {guideHtml != null && (
+        <div
+          className={`blitz-content${isSectionView ? " section-filtered" : " full-guide"}`}
+          ref={setRef}
+          dangerouslySetInnerHTML={{ __html: guideHtml }}
+        />
+      )}
       {isSectionView && (
         <nav
           aria-label="Lesson navigation"
