@@ -499,7 +499,7 @@ const frontendWelcome = {
   pageTitle: "Welcome To {{brand.full}}",
   video: WELCOME_PLACEHOLDER_VIDEO,
   introHtml: [
-    "Hey there, I'm Adam Cherrington! First off, a big congratulations to you for taking the leap and joining {{brand.full}}.",
+    "Hey there, I'm Adam Scott! First off, a big congratulations to you for taking the leap and joining {{brand.full}}.",
     "I've been around for a while now and I'll tell you: Not many people have the guts to put their money where their mouth is.",
     "This move speaks volumes about your ambition and your readiness to change your life for the better.",
     `So ${STRONG("BIG hats off to you.")}`,

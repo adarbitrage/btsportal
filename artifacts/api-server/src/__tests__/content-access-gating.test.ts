@@ -20,8 +20,14 @@
  *   - Any pre-existing content_access_map row for GATED_PAGE is snapshotted in
  *     beforeAll and restored (not deleted) in afterAll, so we never drop state
  *     we did not create.
- *   - OPEN_PAGE is verified to have no mapping at setup time; if one exists the
- *     suite throws rather than producing a false green.
+ *   - The boot seed maps EVERY gateable page key, so no page is genuinely
+ *     unmapped in the shared dev DB. To get an open-by-default control, the
+ *     seeded OPEN_PAGE row is snapshotted and DELETED in beforeAll (row absent
+ *     → open) and restored verbatim in afterAll.
+ *   - SHARED DEV DB — DO NOT RUN IN PARALLEL with other suites (or live
+ *     browsing) that touch content_access_map: while this suite runs,
+ *     OPEN_PAGE's row is really gone and GATED_PAGE's row is really remapped.
+ *     Run vitest with --pool=threads --no-file-parallelism.
  *   - All seeded users and user_products rows are deleted in afterAll.
  */
 

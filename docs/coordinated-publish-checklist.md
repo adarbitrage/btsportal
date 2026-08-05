@@ -29,6 +29,12 @@ The one acceptance item verified only by automated tests, never eyeballed in a b
 - Verify the **Vidalytics embed plays on 7 Pillars** (Vidalytics needs its JS loader; a blank box = regression).
 - Also confirm a **no-product** account gets the locked/denied experience on the same four pages and on `/affiliate-networks` (no prose flash, no console 500s — 403s with `CONTENT_NOT_OWNED` are expected).
 
+**Welcome page addendum (Aug 2026 — Front-End Welcome build):** with the same FE-only test account:
+
+- Landing on the **root route `/` shows the Welcome page** (not Home): placeholder Vidalytics video plays at the top, the "BOOK YOUR COACHING SESSION BELOW" section shows its **pending state**, and all **three inline "book your call" links smooth-scroll** to the booking anchor.
+- Read the Welcome copy under **all six front-end brands** (flip the account's `source_product` or use one account per brand) — brand substitution applied, no raw `{{brand.*}}` tokens, copy reads grammatically for every brand.
+- Log in as a **tier account** and confirm `/` still renders today's **Home byte-for-byte** — no Welcome flash while the member payload loads (shared spinner only).
+
 ### 2. Verify the four solitary-upsell holders in prod
 
 Enforcement will lock out anyone holding ONLY an upsell product with no front-end product.
@@ -72,6 +78,20 @@ After the publish boots prod:
   - The six seven-pillars docs stamped `owner_page_key = 'seven-pillars'` — **2 live** (`ai_live_documents`) + **4 staging** (`kb_staging_docs`). (Dev reference IDs: live 10508/10528, staging 1269/1362/1398/1491 — prod IDs will differ; match by title.)
 - `SELECT owner_page_key, COUNT(*) FROM ai_live_documents GROUP BY 1;` (and same for staging) is a quick sanity read.
 
+### 6b. Confirm the frontend-welcome access-map row seeds in prod
+
+Same pattern as item 6's boot-stamp checks. After the publish boots prod:
+
+- Read-only prod query: `SELECT product_slugs FROM content_access_map WHERE page_key = 'frontend-welcome';`
+- The row must exist with **all 15 slugs**: 6 front-end products, 4 funnel products, 5 mentorship tiers (seeded ON CONFLICT DO NOTHING by `seed-content-access-map.ts` on first boot; any later admin edit wins).
+
+---
+
+## Sign-offs & known items (Welcome page, Aug 2026)
+
+- **Routing predicate ratified by owner:** `vip` counts as a mentorship tier, so vip + front-end lands on **Home**; `machine` (and other non-mappable slugs like `ad-spend-funding`, `vip_arbitrage`) is invisible to the predicate, so machine + front-end lands on **Welcome**. Both confirmed intended.
+- **Known cosmetic item (future email-copy pass):** ~18 email templates in `seed-templates.ts` link `{{portal_url}}/dashboard` with CTAs like "Go to Dashboard" / "Check Your Progress"; FE-only members clicking them now land on the Welcome letter. Behavior is correct; only the email wording is a mismatch for that cohort.
+
 ---
 
 ## Post-publish canary (required — publish is not done without it)
@@ -81,7 +101,7 @@ After the publish boots prod:
 With a **no-product prod account** (test account with zero grants), verify **403/denied** across the five gated endpoint families:
 
 1. **Blitz APIs** — guide body endpoint (`/api/blitz/guide`), and course-progress reads/writes for Blitz including the **legacy course-progress IDs** (`21-day-blitz` and `blitz-hub-step-v2-*`).
-2. **The four curriculum page-body endpoints** — `/api/curriculum/seven-pillars`, `/quick-start`, `/pillars-to-blitz`, `/tips-and-tricks`.
+2. **The curriculum page-body endpoints** — `/api/curriculum/seven-pillars`, `/quick-start`, `/pillars-to-blitz`, `/tips-and-tricks`, **and `/frontend-welcome`** (the Welcome page body must 403 for the no-product account). Also verify **one FE-owner 200 check**: an account holding a front-end product gets a 200 with substituted brand copy from `/api/curriculum/frontend-welcome`.
 3. **`/api/affiliate-networks`** — 401 logged out, 403 `CONTENT_NOT_OWNED` for the no-product member (it is no longer public).
 4. **Gated course-progress writes** — POST/PATCH progress for any gated course family is rejected fail-closed.
 5. **KB retrieval** — the assistant (`/api/chat`) returns **no gated docs** to the no-product account: ask a Blitz-specific and a seven-pillars-specific question; answers must not cite or quote the stamped docs, and prompts must not leak Blitz section names.

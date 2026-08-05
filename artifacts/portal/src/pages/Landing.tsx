@@ -2,6 +2,7 @@ import { useGetCurrentMember } from "@workspace/api-client-react";
 import { MAPPABLE_PRODUCTS } from "@workspace/content-access-registry";
 import Home from "@/pages/Home";
 import FrontendWelcome from "@/pages/FrontendWelcome";
+import FullPageLoader from "@/components/FullPageLoader";
 
 /**
  * Root landing gate ("/") — decides which landing surface renders, computed
@@ -53,10 +54,12 @@ export function isFrontendWelcomeMember(
 export default function Landing() {
   const { data: member, isLoading } = useGetCurrentMember();
 
-  // While the member payload loads, render nothing surface-specific so
-  // neither landing flashes before the grant check resolves. On error /
-  // missing data we fail to today's behavior (Home) — never to the new page.
-  if (isLoading) return null;
+  // While the member payload loads, render the shared full-page loading
+  // treatment (same as the route guards) so first paint is never a blank
+  // screen and neither landing surface flashes before the grant check
+  // resolves. On error / missing data we fail to today's behavior (Home) —
+  // never to the new page.
+  if (isLoading) return <FullPageLoader />;
 
   if (isFrontendWelcomeMember(member?.products)) {
     return <FrontendWelcome />;
