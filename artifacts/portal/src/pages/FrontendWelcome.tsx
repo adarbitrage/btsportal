@@ -8,6 +8,10 @@ import {
   CURRICULUM_SKELETON_ROWS,
 } from "@/hooks/use-curriculum-content";
 import { CalendarClock, LifeBuoy, Sparkles } from "lucide-react";
+import {
+  FeIntensiveBooking,
+  type FeBookingUiCopy,
+} from "@/components/welcome/FeIntensiveBooking";
 
 /**
  * Front-End Welcome page — the post-purchase landing surface for members
@@ -43,7 +47,12 @@ interface FrontendWelcomeContent {
   afterPillarsHtml: string[];
   days: WelcomeDay[];
   closingHtml: string[];
-  booking: { heading: string; pendingTitle: string; pendingBodyHtml: string };
+  booking: {
+    heading: string;
+    pendingTitle: string;
+    pendingBodyHtml: string;
+    ui: FeBookingUiCopy;
+  };
 }
 
 const BOOKING_ANCHOR_ID = "booking";
@@ -183,9 +192,10 @@ export default function FrontendWelcome() {
             </div>
 
             {/* Booking section — anchor target for the copy's inline links.
-                Config-pending state until the native portal booking calendar
-                (GHL-backed) drops in here as its own component. Do NOT wire
-                front-end members into kickoff/session-pack/partner booking. */}
+                The native GHL-backed booking surface renders once the
+                FE-intensive calendar is configured in admin settings; until
+                then the pending card below stays. Do NOT wire front-end
+                members into kickoff/session-pack/partner booking. */}
             <section
               id={BOOKING_ANCHOR_ID}
               className="scroll-mt-24 space-y-4"
@@ -194,25 +204,30 @@ export default function FrontendWelcome() {
               <h2 className="text-2xl font-bold text-center">
                 {content.booking.heading}
               </h2>
-              <Card>
-                <CardContent className="py-10 text-center space-y-3">
-                  <CalendarClock className="w-10 h-10 text-primary mx-auto" />
-                  <p className="text-lg font-semibold">
-                    {content.booking.pendingTitle}
-                  </p>
-                  <p
-                    className="text-muted-foreground max-w-xl mx-auto leading-relaxed"
-                    dangerouslySetInnerHTML={{
-                      __html: content.booking.pendingBodyHtml,
-                    }}
-                  />
-                  <p className="text-sm text-muted-foreground flex items-center justify-center gap-1.5">
-                    <LifeBuoy className="w-4 h-4" />
-                    Need a hand? Contact support any time from the Support
-                    page.
-                  </p>
-                </CardContent>
-              </Card>
+              <FeIntensiveBooking
+                copy={content.booking.ui}
+                pending={
+                  <Card>
+                    <CardContent className="py-10 text-center space-y-3">
+                      <CalendarClock className="w-10 h-10 text-primary mx-auto" />
+                      <p className="text-lg font-semibold">
+                        {content.booking.pendingTitle}
+                      </p>
+                      <p
+                        className="text-muted-foreground max-w-xl mx-auto leading-relaxed"
+                        dangerouslySetInnerHTML={{
+                          __html: content.booking.pendingBodyHtml,
+                        }}
+                      />
+                      <p className="text-sm text-muted-foreground flex items-center justify-center gap-1.5">
+                        <LifeBuoy className="w-4 h-4" />
+                        Need a hand? Contact support any time from the Support
+                        page.
+                      </p>
+                    </CardContent>
+                  </Card>
+                }
+              />
             </section>
           </>
         )}

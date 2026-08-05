@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Settings, Save, Plus, Bell, Send, CheckCircle2, XCircle, AlertCircle, History, ShieldAlert, RotateCcw, Archive, ExternalLink, ChevronDown, ChevronRight, Gauge, LifeBuoy } from "lucide-react";
+import { Settings, Save, Plus, Bell, Send, CheckCircle2, XCircle, AlertCircle, History, ShieldAlert, RotateCcw, Archive, ExternalLink, ChevronDown, ChevronRight, Gauge, LifeBuoy, CalendarDays } from "lucide-react";
 import { TICKETDESK_URL } from "@/config/support";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -97,6 +97,8 @@ export default function AdminSettings() {
         </div>
 
         <OnCallDestinationsCard />
+
+        <FeIntensiveBookingCard />
 
         <PitchContentCard />
 
@@ -376,6 +378,108 @@ function actorDisplay(event: OnCallHistoryEvent): string {
   if (event.actorName) return event.actorName;
   if (event.actorEmail) return event.actorEmail;
   return "System";
+}
+
+// FE-Intensive booking calendar config (Task: Welcome page native booking
+// surface). Two plain-string system_settings keys saved through the generic
+// settings endpoint (auto audit-logged). Calendar id unset = the Welcome
+// booking slot keeps its pending state; setting it turns the surface on.
+const FE_INTENSIVE_CALENDAR_KEY = "fe_intensive_calendar_id";
+const FE_INTENSIVE_LOCATION_KEY = "fe_intensive_location_id";
+
+function FeIntensiveBookingCard() {
+  const { toast } = useToast();
+  const [loading, setLoading] = useState(true);
+  const [calendarId, setCalendarId] = useState("");
+  const [locationId, setLocationId] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const settings: { key: string; value: unknown }[] = await adminPanelApi.getSettings();
+        for (const s of settings) {
+          if (s.key === FE_INTENSIVE_CALENDAR_KEY && typeof s.value === "string") setCalendarId(s.value);
+          if (s.key === FE_INTENSIVE_LOCATION_KEY && typeof s.value === "string") setLocationId(s.value);
+        }
+      } catch (err: any) {
+        toast({ title: "Error", description: err.message, variant: "destructive" });
+      } finally {
+        setLoading(false);
+      }
+    })();
+  }, []);
+
+  const save = async () => {
+    try {
+      setSaving(true);
+      await adminPanelApi.updateSetting(
+        FE_INTENSIVE_CALENDAR_KEY,
+        calendarId.trim(),
+        "booking",
+        "GHL calendar id for the FE-Intensive Welcome-page booking surface (blank = pending state)",
+      );
+      await adminPanelApi.updateSetting(
+        FE_INTENSIVE_LOCATION_KEY,
+        locationId.trim(),
+        "booking",
+        "Optional GHL sub-account (location) id for the FE-Intensive calendar; blank = default coaching location",
+      );
+      toast({
+        title: "Saved",
+        description: calendarId.trim()
+          ? "FE-Intensive booking calendar is configured — the Welcome page booking grid is live."
+          : "Calendar id cleared — the Welcome page shows the pending state.",
+      });
+    } catch (err: any) {
+      toast({ title: "Error", description: err.message, variant: "destructive" });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <Card data-testid="fe-intensive-booking-card">
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <CalendarDays className="w-5 h-5" /> FE-Intensive Booking Calendar
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <p className="text-sm text-muted-foreground">
+          Powers the booking grid on the front-end Welcome page. Leave the calendar id blank to
+          keep the "scheduling is opening shortly" pending state.
+        </p>
+        {loading ? (
+          <p className="text-sm text-muted-foreground">Loading…</p>
+        ) : (
+          <>
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium">GHL calendar id</label>
+              <Input
+                value={calendarId}
+                onChange={(e) => setCalendarId(e.target.value)}
+                placeholder="e.g. Cq7Rr..."
+                data-testid="fe-intensive-calendar-input"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium">GHL location id (optional)</label>
+              <Input
+                value={locationId}
+                onChange={(e) => setLocationId(e.target.value)}
+                placeholder="Blank = default coaching sub-account"
+                data-testid="fe-intensive-location-input"
+              />
+            </div>
+            <Button onClick={save} disabled={saving} data-testid="fe-intensive-save">
+              <Save className="w-4 h-4 mr-2" /> {saving ? "Saving…" : "Save"}
+            </Button>
+          </>
+        )}
+      </CardContent>
+    </Card>
+  );
 }
 
 function OnCallDestinationsCard() {

@@ -649,11 +649,40 @@ const frontendWelcome = {
   ],
   booking: {
     heading: "BOOK YOUR COACHING SESSION BELOW",
-    // Config-pending state until the native portal booking calendar (backed
-    // by the GHL API) ships — a separate future task. Never a broken embed.
+    // Config-pending state while the FE-intensive GHL calendar id is unset
+    // in admin settings. Never a broken embed.
     pendingTitle: "Scheduling is opening shortly",
     pendingBodyHtml:
       "Your coach's booking calendar is being set up and will appear right here very soon. In the meantime, our support team can get your first call on the books — just reach out through the Support page and we'll take care of it.",
+    // Native booking surface copy (renders once the calendar is configured).
+    ui: {
+      intro:
+        "Pick a day and time that works for you — your {{brand.short}} coach will meet you there. Your name and email are already on file, so one click books it.",
+      timezoneNote: "All times shown in your timezone:",
+      chooseDayHint: "Choose a highlighted day to see available times.",
+      noSlotsForDay: "No open times on this day — try another highlighted day.",
+      noSlotsAtAll:
+        "No open times right now. New times are added regularly — check back soon, or reach out through the Support page and we'll get you scheduled.",
+      confirmCta: "Confirm booking",
+      bookingInProgress: "Booking…",
+      confirmationTitle: "You're booked!",
+      confirmationBody:
+        "Your coaching session is confirmed. A calendar invitation is on its way to your inbox — from all of us at {{brand.short}}, we can't wait to meet you.",
+      bookedTitle: "Your coaching session is booked",
+      bookedBody:
+        "You're all set — your {{brand.short}} coach will see you then. Need to make a change? You can cancel or pick a new time below.",
+      cancelCta: "Cancel session",
+      rebookCta: "Pick a new time",
+      cancelConfirmTitle: "Cancel this session?",
+      cancelConfirmBody:
+        "Your session time will be released. You can book a new time right away.",
+      keepCta: "Keep my session",
+      supportLine: "Need a hand? Contact support any time from the Support page.",
+      errorTitle: "We couldn't load the calendar",
+      errorBody:
+        "Something went wrong on our end — give it another try. If it keeps happening, reach out through the Support page and we'll get your call booked.",
+      retryCta: "Try again",
+    },
   },
 };
 

@@ -150,4 +150,6 @@
 - [Resource Hub curation layer](resource-hub-curation-layer.md) — hub renders from a curation table over creative-drive files; seeds never overwrite admin rows, skip absent files; route-retirement lockstep checklist inside.
 - [KB push-approved corpus-wide](kb-push-approved-corpus-wide.md) — publish endpoint pushes EVERY approved staging row (no scoping); preflight the approved set first; conflict flag on update-drafts is expected supersede.
 - [Curriculum de-bundle gating](curriculum-debundle-gating.md) — course prose served from gated endpoints, never bundled or sessionStorage-cached; gating a formerly public endpoint means removing it from auth PUBLIC_PATHS too.
+- [FE-Intensive booking surface](fe-intensive-booking-surface.md) — own table not call_bookings, dormant until admin sets calendar-id setting, shared member advisory lock for book+cancel, copy via curriculum payload.
+- [Companion-SQL UNIQUE re-add raises duplicate_table](fe-intensive-booking-surface.md) — idempotent `ADD CONSTRAINT ... UNIQUE` must catch `duplicate_object OR duplicate_table` (the backing index collides), or sync-dev warns on every replay.
 - [Legacy knowledge base retired](legacy-kb-retired.md) — knowledgebase_docs/bookmarks dropped; tests/fixtures now target ai_live_documents; kb-legacy-crosswalk kept (pure terminology map).
