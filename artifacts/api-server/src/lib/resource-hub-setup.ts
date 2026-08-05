@@ -492,6 +492,129 @@ export async function ensureResourceHubReorg(): Promise<void> {
   });
 }
 
+// ── Phase A2: admin-uploaded drive file rows (durable-storage seed) ──────────
+//
+// Canary Close-Out item 2: the Headline Library set, both word dictionaries,
+// and The One-Sentence Persuasion Course were uploaded through the dev admin
+// UI, so their `creative_drive_files` rows existed only in the dev DB — a
+// fresh prod boot found no rows, and the curation seed skipped those hub
+// entries ("file ... absent"). The PDF *bytes* already live in the shared,
+// durable object-storage bucket (`/objects/uploads/<id>`), which every
+// environment reads. This seed makes the DB rows themselves boot-derived:
+// insert-if-absent by exact file name, pointing at the existing bucket
+// object, gated on the object actually existing (skip + warn when the bucket
+// genuinely lacks it, e.g. a scratch env with a different bucket). Admin
+// renames/moves win — an existing row with the name is never touched, and
+// rows are keyed by the same exact names Phase A's rename/move steps produce.
+interface UploadedFileSeed {
+  name: string;
+  objectPath: string;
+  mimeType: string;
+  sizeBytes: number;
+  folder: string;
+}
+
+export const UPLOADED_FILE_SEEDS: readonly UploadedFileSeed[] = [
+  // Working Documents
+  { name: "Power Word Dictionary.pdf", objectPath: "/objects/uploads/8eb032eb-d57f-4764-9f16-a8a34f2de4d8", mimeType: "application/pdf", sizeBytes: 117778, folder: WORKING_DOCS_FOLDER },
+  { name: "Context Word Dictionary.pdf", objectPath: "/objects/uploads/a71be5e0-b8e5-49bc-9084-f93180fa0a19", mimeType: "application/pdf", sizeBytes: 615947, folder: WORKING_DOCS_FOLDER },
+  { name: "The One-Sentence Persuasion Course.pdf", objectPath: "/objects/uploads/cfba8b51-b92e-4a32-ab8e-a2da0e8df7ad", mimeType: "application/pdf", sizeBytes: 229831, folder: WORKING_DOCS_FOLDER },
+  // Headline Library
+  { name: "How to Write Magnetic Headlines (Copyblogger).pdf", objectPath: "/objects/uploads/6b8f9ac8-329d-46bd-9367-17e5b153ae39", mimeType: "application/pdf", sizeBytes: 356190, folder: HEADLINE_FOLDER },
+  { name: "Great Headlines Instantly (Robert Boduch).pdf", objectPath: "/objects/uploads/68d82031-2e6f-4bc7-81da-db33bf459f9e", mimeType: "application/pdf", sizeBytes: 862973, folder: HEADLINE_FOLDER },
+  { name: "The Entrepreneur's Headline Writing Blueprint (Robert Pascoe).pdf", objectPath: "/objects/uploads/b1f76bef-b0ff-45b2-8bfe-6052e597e446", mimeType: "application/pdf", sizeBytes: 1428039, folder: HEADLINE_FOLDER },
+  { name: "How to Write Powerful Headlines (Andy Owen).pdf", objectPath: "/objects/uploads/7ed0decb-2e3e-4341-bbaf-47278d1ee24a", mimeType: "application/pdf", sizeBytes: 2082309, folder: HEADLINE_FOLDER },
+  { name: "The Rhetoric of Headlines (Suzanne Pope).pdf", objectPath: "/objects/uploads/f9fd4a93-ec40-491f-b3c1-d34b5e90aa38", mimeType: "application/pdf", sizeBytes: 8772458, folder: HEADLINE_FOLDER },
+  { name: "Writing Killer Headlines (Stefan Georgi).pdf", objectPath: "/objects/uploads/d2a2dfb2-181e-457e-baab-652593333d42", mimeType: "application/pdf", sizeBytes: 829991, folder: HEADLINE_FOLDER },
+  { name: "Headline Formulas by Funnel Stage (Joel Klettke).pdf", objectPath: "/objects/uploads/f2d6aece-4b29-427e-b45a-14febcef4a65", mimeType: "application/pdf", sizeBytes: 175592, folder: HEADLINE_FOLDER },
+  { name: "The Conversational Copywriting Cheat Sheet (Bret Thomson).pdf", objectPath: "/objects/uploads/01fc5388-617e-400a-844a-ab4b9db20b3a", mimeType: "application/pdf", sizeBytes: 857608, folder: HEADLINE_FOLDER },
+  { name: "The Big Headline Formula List (Neil Patel).pdf", objectPath: "/objects/uploads/c6faaf86-838e-459b-abb8-24ecdadc0c0c", mimeType: "application/pdf", sizeBytes: 291219, folder: HEADLINE_FOLDER },
+  { name: "100 Greatest Headlines Ever Written (Jay Abraham).pdf", objectPath: "/objects/uploads/e0dffdc1-3444-4bff-9eff-391f94bb3637", mimeType: "application/pdf", sizeBytes: 136651, folder: HEADLINE_FOLDER },
+  { name: "The Eugene Schwartz Swipe File.pdf", objectPath: "/objects/uploads/0b1483a9-b51b-4424-9093-1b4c0bff2100", mimeType: "application/pdf", sizeBytes: 1417105, folder: HEADLINE_FOLDER },
+  { name: "The Headline Masterclass Swipe File (Copywrite Matters).pdf", objectPath: "/objects/uploads/847a5e27-9030-44a7-b877-0348239fbc6a", mimeType: "application/pdf", sizeBytes: 476762, folder: HEADLINE_FOLDER },
+];
+
+export async function ensureUploadedDriveFiles(): Promise<void> {
+  // Existence checks against the bucket happen OUTSIDE the transaction (slow
+  // network calls; no need to hold the lock). Import lazily so environments
+  // without object storage configured fail per-file, not at module load.
+  const { ObjectStorageService } = await import("./objectStorage");
+  const storage = new ObjectStorageService();
+
+  const existingRows = await db
+    .select({ name: creativeDriveFilesTable.name, objectPath: creativeDriveFilesTable.objectPath })
+    .from(creativeDriveFilesTable);
+  const existingNames = new Set(existingRows.map((r) => r.name));
+  // Rename safety: a row already pointing at the seed's bucket object means
+  // the file exists (possibly admin-renamed) — never recreate it by name.
+  const existingObjectPaths = new Set(existingRows.map((r) => r.objectPath));
+
+  const toInsert: UploadedFileSeed[] = [];
+  for (const seed of UPLOADED_FILE_SEEDS) {
+    if (existingNames.has(seed.name) || existingObjectPaths.has(seed.objectPath)) continue;
+    try {
+      await storage.getObjectEntityFile(seed.objectPath); // throws when absent
+      toInsert.push(seed);
+    } catch {
+      console.warn(
+        `[ResourceHub] uploaded-file seed: bucket object missing for "${seed.name}" (${seed.objectPath}) — skipping`,
+      );
+    }
+  }
+  if (toInsert.length === 0) return;
+
+  await db.transaction(async (tx) => {
+    await tx.execute(sql`SELECT pg_advisory_xact_lock(${LOCK_KEY_1}, 4)`);
+
+    const folderIdByName = new Map<string, number>();
+    const resolveFolder = async (name: string): Promise<number> => {
+      const cached = folderIdByName.get(name);
+      if (cached !== undefined) return cached;
+      const [existing] = await tx
+        .select({ id: creativeDriveFoldersTable.id })
+        .from(creativeDriveFoldersTable)
+        .where(eq(creativeDriveFoldersTable.name, name))
+        .limit(1);
+      let id = existing?.id;
+      if (id === undefined) {
+        const [created] = await tx
+          .insert(creativeDriveFoldersTable)
+          .values({ name, parentId: null })
+          .returning({ id: creativeDriveFoldersTable.id });
+        id = created.id;
+        console.log(`[ResourceHub] uploaded-file seed: created folder "${name}"`);
+      }
+      folderIdByName.set(name, id);
+      return id;
+    };
+
+    let seeded = 0;
+    for (const seed of toInsert) {
+      // Re-check inside the lock (another boot may have inserted meanwhile) —
+      // by name AND by object path (rename safety).
+      const [row] = await tx
+        .select({ id: creativeDriveFilesTable.id })
+        .from(creativeDriveFilesTable)
+        .where(
+          sql`${creativeDriveFilesTable.name} = ${seed.name} OR ${creativeDriveFilesTable.objectPath} = ${seed.objectPath}`,
+        )
+        .limit(1);
+      if (row) continue;
+      await tx.insert(creativeDriveFilesTable).values({
+        name: seed.name,
+        folderId: await resolveFolder(seed.folder),
+        objectPath: seed.objectPath,
+        mimeType: seed.mimeType,
+        sizeBytes: seed.sizeBytes,
+      });
+      seeded++;
+    }
+    if (seeded > 0) {
+      console.log(`[ResourceHub] uploaded-file seed: inserted ${seeded} drive file row(s)`);
+    }
+  });
+}
+
 // ── Phase B: curation + glossary seeding ─────────────────────────────────────
 
 export async function ensureResourceHubCuration(): Promise<void> {

@@ -17,3 +17,7 @@ When an edit dialog is initialized from a list row, every nullable relation (e.g
 
 ## Retired-page lockstep checklist (route removals)
 When retiring member routes: content-access registry key, portal-nav-map package, sidebar, SPA redirects, live AI navigation truth docs (idempotent string-replace boot repair), assistant card titles (rename in place — title-keyed seeds duplicate otherwise), AND hardcoded route lists in the api-server nav-guard tests and the portal member-nav-vs-nav-map fixtures.
+
+**Admin-uploaded PDFs are boot-seeded too (Aug 2026):** `ensureUploadedDriveFiles()` in resource-hub-setup.ts inserts the 15 admin-uploaded drive rows (Headline Library + dictionaries + One-Sentence) pointing at the durable shared bucket objects (`/objects/uploads/<id>`), existence-checked, insert-if-absent by name OR objectPath (rename safety). Root cause it fixes: dev-UI uploads create DB rows only in dev — fresh prod boots had the bytes (shared bucket) but no rows, so curation skipped 11 hub entries. Never fix this class of gap by bundling files.
+
+**GrandfatherBackfill retired unrun (Aug 2026):** removed entirely (pre-launch; all prod members were test/team). `users.grandfathered` column stays, nothing sets it true.

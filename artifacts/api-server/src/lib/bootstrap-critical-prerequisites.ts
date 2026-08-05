@@ -49,7 +49,6 @@ import {
 import { seedSendoffVideoSettings, seedDevSendoffDummyVideo } from "./sendoff-video-settings";
 import { seedCallBookingRoster } from "./seed-call-booking-roster";
 import { seedPartnerPhotos } from "./seed-partner-photos";
-import { runGrandfatherBackfillBootHook } from "./grandfather-backfill";
 
 // Critical prerequisites for the /api/integrations/machine-purchase and
 // /api/integrations/grant-product endpoints. Both are awaited from index.ts
@@ -509,21 +508,11 @@ export async function bootstrapCriticalPrerequisites(): Promise<PrerequisiteResu
     missing.push("seedPartnerPhotos");
   }
 
-  // 14. Grandfather backfill for pre-existing members (Task #1643, TB2).
-  //     Report-and-confirm gate: every boot logs the LIVE pre-flight bucket
-  //     counts until the one-time marker exists, but never writes anything
-  //     unless an admin has explicitly armed it via
-  //     `PUT /admin/settings/grandfather_backfill_armed`. This is the only
-  //     way the repair reaches production (the agent cannot write prod
-  //     directly) while still honoring report -> confirm -> execute — see
-  //     docs/grandfather-backfill-runbook.md for the full prod sequence.
-  //     Non-fatal: never blocks traffic.
-  try {
-    await runGrandfatherBackfillBootHook();
-  } catch (err) {
-    console.error("[Bootstrap] runGrandfatherBackfillBootHook() threw:", err);
-    missing.push("grandfatherBackfill");
-  }
+  // (Retired) 14. Grandfather backfill — RETIRED without ever being armed
+  //     (Aug 2026, pre-launch decision): all current prod members are test
+  //     or team accounts, there is nothing to grandfather, and every future
+  //     member onboards through the normal flow. The boot repair, its
+  //     pre-flight announcement, CLI, and runbook were removed entirely.
 
   if (missing.length === 0) {
     console.log("[Bootstrap] All critical prerequisites OK");

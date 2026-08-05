@@ -1,8 +1,7 @@
--- Task #1643 (TB2): grandfather-backfill audit marker.
+-- Grandfather audit marker column. (The one-time backfill that wrote it was
+-- retired unrun in Aug 2026 — pre-launch, nothing to grandfather.)
 -- Additive column: idempotent, safe on a fresh or already-migrated DB.
--- Defaults to false; the one-time backfill (see
--- artifacts/api-server/src/lib/grandfather-backfill.ts) is the only writer
--- that ever sets it true, for members that pre-date the tiered onboarding
--- contract (Task #1640).
+-- Defaults to false; nothing writes it true anymore (the retired backfill
+-- would have set it for members pre-dating the tiered onboarding contract).
 
 ALTER TABLE users ADD COLUMN IF NOT EXISTS grandfathered boolean NOT NULL DEFAULT false;

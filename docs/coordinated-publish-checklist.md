@@ -48,7 +48,11 @@ Row exists with all 15 slugs.
 3. ~~Fresh full `test` run~~ ✅ **DONE Aug 5** — 137 files / 783 tests, all green on a quiet box.
 4. **Six-brand Welcome browser eyeball** (follow-up #2067) — read Welcome copy under all six front-end brands; no raw `{{brand.*}}` tokens *in the rendered portal UI* (API body intentionally carries tokens).
 5. **EXTERNAL — owner action:** confirm **The Machine's own deploy** landed to pair with the 5-brand grant wiring now live on the BTS side. Outside this workspace's visibility.
-6. **KB content item:** push staging doc id 7 (seven-pillars truth doc) through review → live so the assistant can actually cite it for owners (see canary caveat above).
+6. ~~KB content item~~ ✅ **DONE Aug 5 (runtime, no deploy needed).** Staging doc 7 approved + pushed through the standard `push-approved` flow (it was the only approved row — exactly 1 pushed, live corpus 27 → 28). Live doc id 6373 carries `owner_page_key=seven-pillars`. Positive citation canary now PASSES: the FE-owner probe gets a grounded 7-Pillars answer with the `/core-training/7-pillars` portal link; zero-grant chat still 403; FE-owner Blitz probe still leaks nothing; blitz guide still 403 for non-owners.
+
+## Retired: GrandfatherBackfill (Aug 5, 2026 — owner decision)
+
+The grandfather backfill was **removed entirely without ever being armed**. Rationale (owner, pre-launch): all 25 current prod members are test or team accounts — there is nothing to grandfather — and every future member onboards through the normal tiered flow. Removed: the boot hook + every-boot pre-flight announcement (`bootstrap-critical-prerequisites.ts` step 14), `lib/grandfather-backfill.ts`, the CLI script + package scripts, the runbook, and its three test files. The `users.grandfathered` column and the onboarding-grant-repair logic that *respects* grandfathered rows remain untouched. The `grandfather_backfill_armed` setting was never set in prod; no marker exists; nothing was ever written.
 
 ---
 

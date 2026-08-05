@@ -33,8 +33,9 @@ export const usersTable = pgTable("users", {
   // who organically completed onboarding through the real flow. Lets support
   // answer "why does this member show onboarding complete with no kickoff
   // booking" from the data forever, even after onboardingComplete/step no
-  // longer show any trace of how completion happened. See
-  // lib/grandfather-backfill.ts in api-server for the backfill itself.
+  // longer show any trace of how completion happened. (The one-time backfill
+  // that wrote it was retired unrun in Aug 2026 — pre-launch, nothing to
+  // grandfather — so nothing sets this true anymore.)
   grandfathered: boolean("grandfathered").notNull().default(false),
   experienceLevel: text("experience_level"),
   primaryGoal: text("primary_goal"),

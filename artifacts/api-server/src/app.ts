@@ -42,7 +42,7 @@ import { seedAssistantCards } from "./lib/seed-assistant-cards";
 import { seedCopywritingFoundationsDrive } from "./lib/seed-copywriting-foundations-drive";
 import { seedResourcesDrive } from "./lib/seed-resources-drive";
 import { seedImageFoundationsDrive } from "./lib/seed-image-foundations-drive";
-import { ensureResourceHubReorg, ensureResourceHubCuration, ensureResourceHubAccessMigration } from "./lib/resource-hub-setup";
+import { ensureResourceHubReorg, ensureResourceHubCuration, ensureResourceHubAccessMigration, ensureUploadedDriveFiles } from "./lib/resource-hub-setup";
 import { ensureContentAccessMapSeed } from "./lib/seed-content-access-map";
 import { seedCoachRoster, generateWeeklyQaCalls, backfillCoachLongBios } from "./lib/coaching-roster";
 import { retitleCleanedHoldingDocs, retitleFiledPrivateCoachingDocs, resetStuckCleaningDocs } from "./lib/transcript-cleaner";
@@ -168,6 +168,11 @@ seedAssistantCards().catch(err => console.error("[Seed] Failed to seed assistant
     seedResourcesDrive().catch(err => console.error("[Seed] Failed to seed Resources drive folder:", err)),
     seedImageFoundationsDrive().catch(err => console.error("[Seed] Failed to seed Image Foundations drive folder:", err)),
   ]);
+  // Admin-uploaded PDFs (Headline Library + word dictionaries): the bytes are
+  // durable in the shared object-storage bucket; this makes the DB rows
+  // boot-derived too, so a fresh env (e.g. prod) can't silently lose the hub
+  // entries. Must run before curation (matched by exact file name).
+  await ensureUploadedDriveFiles().catch(err => console.error("[Seed] Resource Hub uploaded-file seed failed:", err));
   await ensureResourceHubCuration().catch(err => console.error("[Seed] Resource Hub curation seed failed:", err));
 })();
 // Content Access Map defaults (ownership-gated navigation). Idempotent —
