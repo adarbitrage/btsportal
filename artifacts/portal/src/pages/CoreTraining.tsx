@@ -7,7 +7,7 @@ import { authFetch } from "@/lib/auth";
 import { useBrand } from "@/hooks/use-brand";
 import {
   Rocket, Search, CalendarDays, Layers, Radio,
-  BookOpen, ArrowRight, CheckCircle2, Circle
+  ArrowRight, CheckCircle2, Circle
 } from "lucide-react";
 
 interface CourseItem {
@@ -66,15 +66,6 @@ function getCourses(brandShort: string): CourseItem[] {
     icon: Layers,
     ctaLabel: "HEAD TO THE 7 PILLARS",
     href: "/core-training/7-pillars",
-  },
-  {
-    number: 6,
-    courseId: "direct-edge",
-    title: "The Direct Edge: Mastering the Art of High-Impact Media Buying",
-    description: "Master the art of Direct Media Buying with expert-level guidance backed by $75 million+ in ad spend experience. Learn how to bypass intermediaries, secure premium placements, and create high-performing campaigns that deliver maximum ROI. From research and negotiation to scaling and optimization, you'll gain actionable strategies to build your Direct Media Buying empire \u2014 plus access exclusive bonuses including walkthroughs and troubleshooting guides.",
-    icon: BookOpen,
-    ctaLabel: "HEAD TO THE DIRECT EDGE",
-    href: "/core-training/direct-edge",
   },
   ];
 }

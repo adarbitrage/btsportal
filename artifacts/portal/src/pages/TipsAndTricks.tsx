@@ -1,42 +1,23 @@
 import { useEffect, useRef } from "react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Card, CardContent } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Lightbulb, Image, PenTool } from "lucide-react";
-
-const VIDALYTICS_PLAYER = "trR5xdVa";
+import { useCurriculumContent } from "@/hooks/use-curriculum-content";
 
 interface Tip {
   title: string;
   vidalyticsId: string;
 }
 
-const imageTips: Tip[] = [
-  {
-    title: 'Creating Images With Google\'s "Nano Banana"',
-    vidalyticsId: "qgpAV6gDFy_EujDM",
-  },
-  {
-    title: "Making Slight Adjustments To Images With Qwen",
-    vidalyticsId: "uZA1qpHWKIw6O4ao",
-  },
-  {
-    title: "Creating Animated GIF's With Grok Imagine",
-    vidalyticsId: "urBv1xbiAL6LST5x",
-  },
-];
+interface TipsContent {
+  intro: string;
+  vidalyticsPlayer: string;
+  imageTips: Tip[];
+  copywritingTips: Tip[];
+}
 
-const copywritingTips: Tip[] = [
-  {
-    title: "Creating Headlines In Specific Styles",
-    vidalyticsId: "smS9hAL9_0kXcPsf",
-  },
-  {
-    title: "Creating Native Ad Headlines With Anstrex",
-    vidalyticsId: "ER6QheTSaVmuoMvN",
-  },
-];
-
-function VidalyticsEmbed({ id }: { id: string }) {
+function VidalyticsEmbed({ id, player }: { id: string; player: string }) {
   const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -57,23 +38,23 @@ function VidalyticsEmbed({ id }: { id: string }) {
           i.getElementsByTagName("head")[0].appendChild(s);
         };}
         vsl(l+'loader.min.js',function(){if(!vli){var vlc=v[c][vl];vli=new vlc();}vli.loadScript(l+'player.min.js',function(){var vec=v[d][ve];t=new vec();t.run(a);});});
-      })(window, document, 'Vidalytics', '${embedDivId}', 'https://fast.vidalytics.com/embeds/${VIDALYTICS_PLAYER}/${id}/');
+      })(window, document, 'Vidalytics', '${embedDivId}', 'https://fast.vidalytics.com/embeds/${player}/${id}/');
     `;
     container.appendChild(script);
 
     return () => {
       container.innerHTML = "";
     };
-  }, [id]);
+  }, [id, player]);
 
   return <div ref={containerRef} className="rounded-lg overflow-hidden bg-black" />;
 }
 
-function TipCard({ tip }: { tip: Tip }) {
+function TipCard({ tip, player }: { tip: Tip; player: string }) {
   return (
     <Card className="border-border/60 overflow-hidden">
       <CardContent className="p-0">
-        <VidalyticsEmbed id={tip.vidalyticsId} />
+        <VidalyticsEmbed id={tip.vidalyticsId} player={player} />
         <div className="p-5">
           <h3 className="font-bold text-foreground text-base">{tip.title}</h3>
         </div>
@@ -83,6 +64,8 @@ function TipCard({ tip }: { tip: Tip }) {
 }
 
 export default function TipsAndTricks() {
+  const { content, isLoading, isError } = useCurriculumContent<TipsContent>("tips-and-tricks");
+
   return (
     <AppLayout>
       <div className="space-y-6 max-w-6xl">
@@ -91,60 +74,78 @@ export default function TipsAndTricks() {
             <Lightbulb className="w-6 h-6 text-primary" />
             <h1 className="text-3xl font-bold">Tips & Tricks</h1>
           </div>
-          <p className="text-muted-foreground">
-            Quick wins to level up your campaigns. Browse short, focused walkthroughs on
-            creating images, writing headlines, and other day-to-day workflows.
-          </p>
+          {content && <p className="text-muted-foreground">{content.intro}</p>}
         </div>
 
-        <Card className="border-border/60">
-          <CardContent className="p-5">
-            <h2 className="text-sm font-semibold text-foreground mb-3">Jump to:</h2>
-            <div className="flex flex-wrap gap-2">
-              <a
-                href="#image-tips"
-                className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm border border-border bg-background text-foreground hover:border-foreground/40 transition-colors"
-                data-testid="link-jump-images"
-              >
-                <Image className="w-4 h-4 text-muted-foreground" />
-                Images
-              </a>
-              <a
-                href="#copywriting-tips"
-                className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm border border-border bg-background text-foreground hover:border-foreground/40 transition-colors"
-                data-testid="link-jump-copywriting"
-              >
-                <PenTool className="w-4 h-4 text-muted-foreground" />
-                Copywriting
-              </a>
+        {isLoading && (
+          <div className="space-y-4" data-testid="tips-loading">
+            <Skeleton className="h-24 w-full rounded-xl" />
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <Skeleton className="h-64 w-full rounded-xl" />
+              <Skeleton className="h-64 w-full rounded-xl" />
             </div>
-          </CardContent>
-        </Card>
+          </div>
+        )}
 
-        <section id="image-tips" className="space-y-4 scroll-mt-6">
-          <div className="flex items-center gap-2">
-            <Image className="w-5 h-5 text-foreground" />
-            <h2 className="text-xl font-bold text-foreground">Image Tips</h2>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {imageTips.map((tip) => (
-              <TipCard key={tip.vidalyticsId} tip={tip} />
-            ))}
-          </div>
-        </section>
+        {isError && !isLoading && (
+          <Card className="border-border/60">
+            <CardContent className="p-6 text-sm text-muted-foreground">
+              This content couldn't be loaded. Please refresh the page or try again later.
+            </CardContent>
+          </Card>
+        )}
 
-        <section id="copywriting-tips" className="space-y-4 scroll-mt-6">
-          <div className="flex items-center gap-2">
-            <PenTool className="w-5 h-5 text-foreground" />
-            <h2 className="text-xl font-bold text-foreground">Copywriting Tips</h2>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {copywritingTips.map((tip) => (
-              <TipCard key={tip.vidalyticsId} tip={tip} />
-            ))}
-          </div>
-        </section>
+        {content && (
+          <>
+            <Card className="border-border/60">
+              <CardContent className="p-5">
+                <h2 className="text-sm font-semibold text-foreground mb-3">Jump to:</h2>
+                <div className="flex flex-wrap gap-2">
+                  <a
+                    href="#image-tips"
+                    className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm border border-border bg-background text-foreground hover:border-foreground/40 transition-colors"
+                    data-testid="link-jump-images"
+                  >
+                    <Image className="w-4 h-4 text-muted-foreground" />
+                    Images
+                  </a>
+                  <a
+                    href="#copywriting-tips"
+                    className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm border border-border bg-background text-foreground hover:border-foreground/40 transition-colors"
+                    data-testid="link-jump-copywriting"
+                  >
+                    <PenTool className="w-4 h-4 text-muted-foreground" />
+                    Copywriting
+                  </a>
+                </div>
+              </CardContent>
+            </Card>
 
+            <section id="image-tips" className="space-y-4 scroll-mt-6">
+              <div className="flex items-center gap-2">
+                <Image className="w-5 h-5 text-foreground" />
+                <h2 className="text-xl font-bold text-foreground">Image Tips</h2>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {content.imageTips.map((tip) => (
+                  <TipCard key={tip.vidalyticsId} tip={tip} player={content.vidalyticsPlayer} />
+                ))}
+              </div>
+            </section>
+
+            <section id="copywriting-tips" className="space-y-4 scroll-mt-6">
+              <div className="flex items-center gap-2">
+                <PenTool className="w-5 h-5 text-foreground" />
+                <h2 className="text-xl font-bold text-foreground">Copywriting Tips</h2>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {content.copywritingTips.map((tip) => (
+                  <TipCard key={tip.vidalyticsId} tip={tip} player={content.vidalyticsPlayer} />
+                ))}
+              </div>
+            </section>
+          </>
+        )}
       </div>
     </AppLayout>
   );

@@ -7,6 +7,7 @@
   },
   "columns": {
     "onlyInPush": [
+      "ai_live_documents.owner_page_key | text | NULL",
       "bts_orders.subscription_id | int4 | NULL",
       "chat_messages.admin_notes | text | NULL",
       "chat_messages.flagged | bool | NOT NULL",
@@ -28,6 +29,7 @@
       "kb_screened_exchanges.context_bound | bool | NOT NULL",
       "kb_screened_exchanges.emergency_split | bool | NOT NULL",
       "kb_screened_exchanges.passage | text | NOT NULL",
+      "kb_staging_docs.owner_page_key | text | NULL",
       "kb_synthesis_runs.length_starved_calls | int4 | NOT NULL",
       "media_mavens_products.tapfiliate_program_id | text | NULL",
       "media_mavens_products.tapfiliate_program_title | text | NULL",

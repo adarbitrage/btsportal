@@ -13,8 +13,17 @@ const STATIC_VALID_COURSE_IDS = new Set([
   "21-day-blitz",
   "live-coaching",
   "7-pillars",
-  "direct-edge",
 ]);
+
+/**
+ * Ownership page key for each non-Blitz static course family (front-end
+ * curriculum enforcement). `live-coaching` deliberately stays ungated.
+ */
+const STATIC_COURSE_PAGE_KEYS: Record<string, string> = {
+  "7-pillars": "seven-pillars",
+  "quick-start": "quick-start",
+  "finding-your-edge": "core-training",
+};
 
 function isValidCourseId(id: unknown): id is string {
   if (typeof id !== "string") return false;
@@ -42,13 +51,25 @@ export function isBlitzCourseId(id: string): boolean {
   return /^blitz-hub-step-\d+$/.test(id);
 }
 
-function sendBlitzNotOwned(res: { status: (n: number) => { json: (b: unknown) => void } }): void {
+/**
+ * Ownership page key for ANY course id, or null when the id is ungated
+ * (live-coaching, legacy ids with no owning page).
+ */
+export function pageKeyForCourseId(id: string): string | null {
+  if (isBlitzCourseId(id)) return "blitz";
+  return STATIC_COURSE_PAGE_KEYS[id] ?? null;
+}
+
+function sendNotOwned(
+  res: { status: (n: number) => { json: (b: unknown) => void } },
+  pageKey: string,
+): void {
   res.status(403).json({
     error: "CONTENT_NOT_OWNED",
-    pageKey: "blitz",
+    pageKey,
     message: "This content isn't included in your current products.",
     upgrade: {
-      reason: `Access to this page requires a product that includes "blitz".`,
+      reason: `Access to this page requires a product that includes "${pageKey}".`,
       learnMorePath: "/",
     },
   });
@@ -61,14 +82,27 @@ router.get("/course-progress", async (req, res): Promise<void> => {
     .from(courseProgressTable)
     .where(eq(courseProgressTable.userId, userId));
 
-  // Blitz rows are ownership-gated content: hide them from non-owners so this
-  // legacy read path can't leak Blitz progress. Non-Blitz rows always serve.
-  const hasBlitzRows = entries.some((e) => isBlitzCourseId(e.courseId));
-  if (hasBlitzRows && !(await hasPageAccessForUser(userId, "blitz"))) {
-    res.json(entries.filter((e) => !isBlitzCourseId(e.courseId)));
+  // Ownership-gated rows (Blitz + front-end curriculum families) are hidden
+  // from non-owners so this legacy read path can't leak gated progress.
+  const gatedKeys = new Set<string>();
+  for (const e of entries) {
+    const key = pageKeyForCourseId(e.courseId);
+    if (key) gatedKeys.add(key);
+  }
+  const deniedKeys = new Set<string>();
+  for (const key of gatedKeys) {
+    if (!(await hasPageAccessForUser(userId, key))) deniedKeys.add(key);
+  }
+  if (deniedKeys.size === 0) {
+    res.json(entries);
     return;
   }
-  res.json(entries);
+  res.json(
+    entries.filter((e) => {
+      const key = pageKeyForCourseId(e.courseId);
+      return !key || !deniedKeys.has(key);
+    }),
+  );
 });
 
 router.post("/course-progress", async (req, res): Promise<void> => {
@@ -80,8 +114,9 @@ router.post("/course-progress", async (req, res): Promise<void> => {
     return;
   }
 
-  if (isBlitzCourseId(courseId) && !(await hasPageAccessForUser(userId, "blitz"))) {
-    sendBlitzNotOwned(res);
+  const pageKey = pageKeyForCourseId(courseId);
+  if (pageKey && !(await hasPageAccessForUser(userId, pageKey))) {
+    sendNotOwned(res, pageKey);
     return;
   }
 
@@ -149,8 +184,9 @@ router.delete("/course-progress/:courseId", async (req, res): Promise<void> => {
     return;
   }
 
-  if (isBlitzCourseId(courseId) && !(await hasPageAccessForUser(userId, "blitz"))) {
-    sendBlitzNotOwned(res);
+  const pageKey = pageKeyForCourseId(courseId);
+  if (pageKey && !(await hasPageAccessForUser(userId, pageKey))) {
+    sendNotOwned(res, pageKey);
     return;
   }
 

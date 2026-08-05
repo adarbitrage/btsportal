@@ -12,7 +12,6 @@ import CoreTraining from "@/pages/CoreTraining";
 import QuickStartGuide from "@/pages/QuickStartGuide";
 import SevenPillars from "@/pages/SevenPillars";
 import PillarsToBlitz from "@/pages/PillarsToBlitz";
-import DirectEdge from "@/pages/DirectEdge";
 import Concierge from "@/pages/Concierge";
 import ConciergeSubmit from "@/pages/ConciergeSubmit";
 import BookVaCall from "@/pages/coaching/BookVaCall";
@@ -497,7 +496,6 @@ function Router() {
       <Route path="/core-training/quick-start">{() => <ContentAccessRoute component={QuickStartGuide} pageKey="quick-start" />}</Route>
       <Route path="/core-training/7-pillars">{() => <ContentAccessRoute component={SevenPillars} pageKey="seven-pillars" />}</Route>
       <Route path="/core-training/pillars-to-blitz">{() => <ContentAccessRoute component={PillarsToBlitz} pageKey="pillars-to-blitz" />}</Route>
-      <Route path="/core-training/direct-edge">{() => <ContentAccessRoute component={DirectEdge} pageKey="direct-edge" />}</Route>
       {/* Tips & Tricks page hidden (Task #2031) — page component kept on disk for easy restore */}
       <Route path="/tips-and-tricks">{() => <Redirect to="/" />}</Route>
       <Route path="/va-calls/book">{() => <EntitlementRoute component={BookVaCall} entitlement="coaching:group" />}</Route>

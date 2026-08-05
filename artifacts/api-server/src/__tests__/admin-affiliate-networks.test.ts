@@ -63,9 +63,16 @@ afterAll(async () => {
   }
 });
 
-describe("GET /affiliate-networks — public list", () => {
-  it("returns the seeded networks in display order", async () => {
+describe("GET /affiliate-networks — ownership-gated list", () => {
+  it("returns 401 without auth (no longer a public endpoint)", async () => {
     const res = await request(app).get("/api/affiliate-networks");
+    expect(res.status).toBe(401);
+  });
+
+  it("returns the seeded networks in display order for an admin (gate bypass)", async () => {
+    const res = await request(app)
+      .get("/api/affiliate-networks")
+      .set("Cookie", adminCookie);
     expect(res.status).toBe(200);
     expect(Array.isArray(res.body)).toBe(true);
 

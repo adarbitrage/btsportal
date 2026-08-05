@@ -42,7 +42,8 @@ const PUBLIC_PATHS = [
   "/healthz",
   "/products",
   "/announcements",
-  "/affiliate-networks",
+  // "/affiliate-networks" was public pre-enforcement; it is now member
+  // curriculum content gated on the `affiliate-networks` page key.
   "/email/unsubscribe",
   // Coaching-only one-click unsubscribe (Task #1770) — clicked from email
   // while logged out, HMAC-token verified inside the route itself.

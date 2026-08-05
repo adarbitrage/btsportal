@@ -3,12 +3,17 @@ import { Router, type Request, type Response } from "express";
 import { db, affiliateNetworksTable } from "@workspace/db";
 import { eq, asc } from "drizzle-orm";
 import { requirePermission } from "../middleware/rbac";
+import { requirePageAccess } from "../middleware/require-page-access";
 import { ObjectStorageService } from "../lib/objectStorage";
 
 const router = Router();
 const objectStorageService = new ObjectStorageService();
 
-router.get("/affiliate-networks", async (_req: Request, res: Response) => {
+// Server-side ownership gate (fail-closed): the member-facing affiliate
+// networks list is front-end curriculum content, gated on the
+// `affiliate-networks` page key via the Content Access Map — matching the
+// Blitz enforcement pattern. Admin CRUD below stays behind content:manage.
+router.get("/affiliate-networks", requirePageAccess("affiliate-networks"), async (_req: Request, res: Response) => {
   try {
     const networks = await db
       .select()

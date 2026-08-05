@@ -107,11 +107,6 @@ export const GATEABLE_PAGES: readonly GateablePage[] = [
     label: "Quick Start Guide",
   },
   {
-    pageKey: "direct-edge",
-    routePath: "/core-training/direct-edge",
-    label: "Direct Edge",
-  },
-  {
     pageKey: "training",
     routePath: "/training",
     label: "Track list",

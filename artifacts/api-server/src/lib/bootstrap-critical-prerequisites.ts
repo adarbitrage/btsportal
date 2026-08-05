@@ -660,6 +660,28 @@ async function runKbOwnershipStampMigration(): Promise<void> {
   await db.execute(sql`
     UPDATE ai_live_documents SET owner_page_key = 'blitz'
     WHERE blitz_section IS NOT NULL AND owner_page_key IS NULL`);
+
+  // Front-end curriculum gate: the 7-Pillars docs (re-authored as the
+  // assistant's source corpus) are gated on the `seven-pillars` page key so
+  // non-owners get zero 7-Pillars material from chat, mirroring the Blitz gate.
+  // Matched by exact canonical titles (both the live pair and their published
+  // staging counterparts). Idempotent; re-runs every boot to self-heal.
+  const SEVEN_PILLARS_TITLES = [
+    "The 7 Pillars™ of a Profitable Digital Business (checklist for building a profitable affiliate marketing business the Build Test Scale way)",
+    "What Are the BTS 7 Pillars and How They Map to the Blitz",
+    "The 7 Pillars™ of a Profitable Digital Business",
+    "BTS Blitz Overview: How Build, Test, Scale Maps to the 7 Pillars",
+  ];
+  const titleList = sql.join(
+    SEVEN_PILLARS_TITLES.map((t) => sql`${t}`),
+    sql`, `,
+  );
+  await db.execute(sql`
+    UPDATE ai_live_documents SET owner_page_key = 'seven-pillars'
+    WHERE owner_page_key IS NULL AND title IN (${titleList})`);
+  await db.execute(sql`
+    UPDATE kb_staging_docs SET owner_page_key = 'seven-pillars'
+    WHERE owner_page_key IS NULL AND title IN (${titleList})`);
 }
 
 /**
