@@ -128,6 +128,23 @@ export async function bootstrapCriticalPrerequisites(): Promise<PrerequisiteResu
     missing.push("kbOwnershipStampMigration");
   }
 
+  // 0a-4c. Post-publish reconciliation repairs (Aug 2026): purge the dead
+  //        direct-edge access-map/course-progress residue, and run the ONE-TIME
+  //        sourceProduct backfill (marker-gated so later deliberate
+  //        source_product edits are never clobbered by a reboot).
+  try {
+    await runDirectEdgeResidueCleanup();
+  } catch (err) {
+    console.error("[Bootstrap] runDirectEdgeResidueCleanup() threw:", err);
+    missing.push("directEdgeResidueCleanup");
+  }
+  try {
+    await runSourceProductBackfillOnce();
+  } catch (err) {
+    console.error("[Bootstrap] runSourceProductBackfillOnce() threw:", err);
+    missing.push("sourceProductBackfillOnce");
+  }
+
   // 0a-5. Admin-manageable TOOL-tag vocabulary (Task #1586). Retrieval + triage
   //       read a MERGED effective vocab (DB tool tags + code concept +
   //       troubleshooting). Create the tables before seeding so a fresh dev DB
@@ -664,24 +681,125 @@ async function runKbOwnershipStampMigration(): Promise<void> {
   // Front-end curriculum gate: the 7-Pillars docs (re-authored as the
   // assistant's source corpus) are gated on the `seven-pillars` page key so
   // non-owners get zero 7-Pillars material from chat, mirroring the Blitz gate.
-  // Matched by exact canonical titles (both the live pair and their published
-  // staging counterparts). Idempotent; re-runs every boot to self-heal.
-  const SEVEN_PILLARS_TITLES = [
-    "The 7 Pillars™ of a Profitable Digital Business (checklist for building a profitable affiliate marketing business the Build Test Scale way)",
-    "What Are the BTS 7 Pillars and How They Map to the Blitz",
-    "The 7 Pillars™ of a Profitable Digital Business",
-    "BTS Blitz Overview: How Build, Test, Scale Maps to the 7 Pillars",
-  ];
-  const titleList = sql.join(
-    SEVEN_PILLARS_TITLES.map((t) => sql`${t}`),
+  //
+  // Matched by NORMALIZED title identity (lowercase, all non-alphanumerics
+  // stripped), NOT exact strings: the Aug 2026 publish proved exact-title
+  // matching is brittle across environments — prod's copy of "The 7 Pillars of
+  // a Profitable Digital Business" lacks the ™ character, so the stamp never
+  // landed there. Normalization tolerates ™/punctuation/whitespace drift while
+  // still requiring full-title equality (no substring over-matching).
+  // Idempotent; re-runs every boot to self-heal.
+  const normalizedList = sql.join(
+    SEVEN_PILLARS_TITLES.map((t) => sql`${normalizeKbDocTitle(t)}`),
     sql`, `,
   );
   await db.execute(sql`
     UPDATE ai_live_documents SET owner_page_key = 'seven-pillars'
-    WHERE owner_page_key IS NULL AND title IN (${titleList})`);
+    WHERE owner_page_key IS NULL
+      AND regexp_replace(lower(title), '[^a-z0-9]+', '', 'g') IN (${normalizedList})`);
   await db.execute(sql`
     UPDATE kb_staging_docs SET owner_page_key = 'seven-pillars'
-    WHERE owner_page_key IS NULL AND title IN (${titleList})`);
+    WHERE owner_page_key IS NULL
+      AND regexp_replace(lower(title), '[^a-z0-9]+', '', 'g') IN (${normalizedList})`);
+}
+
+/**
+ * Direct Edge was removed entirely (page, route, card). This purges any
+ * lingering residue so environments that never ran the manual purge (prod)
+ * self-heal on boot. Idempotent — deleting already-absent rows is a no-op.
+ */
+async function runDirectEdgeResidueCleanup(): Promise<void> {
+  const mapRes = await db.execute(
+    sql`DELETE FROM content_access_map WHERE page_key = 'direct-edge' RETURNING page_key`,
+  );
+  const progRes = await db.execute(
+    sql`DELETE FROM course_progress WHERE course_id = 'direct-edge' RETURNING id`,
+  );
+  const mapCount = (mapRes as unknown as { rows: unknown[] }).rows.length;
+  const progCount = (progRes as unknown as { rows: unknown[] }).rows.length;
+  if (mapCount > 0 || progCount > 0) {
+    console.log(
+      `[Bootstrap] Direct-edge residue cleanup: removed ${mapCount} access-map row(s), ${progCount} course-progress row(s)`,
+    );
+  }
+}
+
+const SOURCE_PRODUCT_BACKFILL_MARKER = "source_product_backfill_2026_08";
+
+/**
+ * ONE-TIME sourceProduct backfill (mirrors scripts/backfill-source-product.ts):
+ * every user gets users.source_product from their earliest active front-end
+ * grant, else 'bts'. Marker-gated in system_settings so it runs exactly once
+ * per environment — a perpetual boot enforcement would silently clobber any
+ * later deliberate source_product edit (admin brand flips, test accounts).
+ */
+async function runSourceProductBackfillOnce(): Promise<void> {
+  // Advisory lock: two instances booting concurrently must not both run the
+  // backfill (the update is idempotent, but "exactly once" is the contract).
+  await db.execute(sql`SELECT pg_advisory_lock(hashtext(${SOURCE_PRODUCT_BACKFILL_MARKER}))`);
+  try {
+    await runSourceProductBackfillOnceLocked();
+  } finally {
+    await db.execute(sql`SELECT pg_advisory_unlock(hashtext(${SOURCE_PRODUCT_BACKFILL_MARKER}))`);
+  }
+}
+
+async function runSourceProductBackfillOnceLocked(): Promise<void> {
+  const marker = await db.execute(
+    sql`SELECT value FROM system_settings WHERE key = ${SOURCE_PRODUCT_BACKFILL_MARKER}`,
+  );
+  if ((marker as unknown as { rows: unknown[] }).rows.length > 0) return;
+
+  const pre = await db.execute(
+    sql`SELECT COUNT(*)::int AS n FROM users WHERE source_product IS NULL`,
+  );
+  const preNull = Number((pre as unknown as { rows: { n: number }[] }).rows[0]?.n ?? 0);
+
+  const res = await db.execute(sql`
+    WITH entry AS (
+      SELECT DISTINCT ON (up.user_id) up.user_id, p.slug
+      FROM user_products up
+      JOIN products p ON up.product_id = p.id
+      WHERE up.status = 'active'
+        AND p.type = 'frontend'
+        AND (up.expires_at IS NULL OR up.expires_at >= now())
+      ORDER BY up.user_id, up.created_at ASC
+    )
+    UPDATE users u
+    SET source_product = COALESCE(entry.slug, 'bts')
+    FROM (SELECT id FROM users) all_users
+    LEFT JOIN entry ON entry.user_id = all_users.id
+    WHERE u.id = all_users.id
+      AND u.source_product IS DISTINCT FROM COALESCE(entry.slug, 'bts')
+    RETURNING u.id`);
+  const updated = (res as unknown as { rows: unknown[] }).rows.length;
+
+  await db.execute(sql`
+    INSERT INTO system_settings (key, value)
+    VALUES (${SOURCE_PRODUCT_BACKFILL_MARKER}, ${JSON.stringify({ ranAt: new Date().toISOString(), preNullCount: preNull, updated })})
+    ON CONFLICT (key) DO NOTHING`);
+
+  console.log(
+    `[Bootstrap] sourceProduct backfill (one-time): pre-flight NULL count=${preNull}, rows updated=${updated}; marker '${SOURCE_PRODUCT_BACKFILL_MARKER}' recorded`,
+  );
+}
+
+/** Canonical seven-pillars doc titles (dev-authored forms; matching is normalized). */
+export const SEVEN_PILLARS_TITLES = [
+  "The 7 Pillars™ of a Profitable Digital Business (checklist for building a profitable affiliate marketing business the Build Test Scale way)",
+  "What Are the BTS 7 Pillars and How They Map to the Blitz",
+  "The 7 Pillars™ of a Profitable Digital Business",
+  "BTS Blitz Overview: How Build, Test, Scale Maps to the 7 Pillars",
+];
+
+/**
+ * Title identity used by the seven-pillars ownership stamp: lowercase with
+ * every non-alphanumeric run removed. MUST stay in lockstep with the SQL
+ * `regexp_replace(lower(title), '[^a-z0-9]+', '', 'g')` in
+ * runKbOwnershipStampMigration().
+ */
+export function normalizeKbDocTitle(title: string): string {
+  return title.toLowerCase().replace(/[^a-z0-9]+/g, "");
 }
 
 /**

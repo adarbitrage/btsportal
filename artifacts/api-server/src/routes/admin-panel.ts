@@ -6,7 +6,7 @@ import { getProductLabelByRank } from "../lib/entitlements";
 import { Router, type Request, type Response } from "express";
 import crypto from "crypto";
 import bcrypt from "bcryptjs";
-import { db, usersTable, userProductsTable, productsTable, ticketsTable, auditLogTable, systemSettingsTable, adminNotesTable, progressTable, emailChangeHistoryTable, emailChangeAttemptsTable, phoneChangeHistoryTable, webhookLogsTable, machineProductKeyMappingsTable, machineUnknownProductKeysTable, sessionsTable, adSpendTransactionsTable, memberRefundEventsTable, btsOrdersTable, callBookingsTable, partnerAssignmentsTable, partnerNotesTable, onboardingEffectsTable, sequenceEnrollmentsTable, signedDocumentsTable, communicationLogTable, chatSessionsTable, chatDailyUsageTable, chatPromptsTable, campaignChecklistProgressTable, courseProgressTable, blitzDailyActivityTable, blitzEventsTable, memberHealthScoresTable, ghlSyncLogTable, memberAppInstancesTable, vaultFavoritesTable, emailUnsubscribesTable, communityPostsTable, communityCommentsTable, communityReactionsTable, communityNotificationsTable, communityBadgesTable, winsTable, ticketSatisfactionTable, ticketMessagesTable, ticketSlaTable, ticketAttachmentsTable, userStrikesTable, coachingCallAttendanceTable, coachingCallsTable, moderationQueueTable, affiliateProfilesTable, checkoutIdempotencyTable, sessionPackBookingsTable, coachingCreditLedgerTable, subscriptionsTable, toolUserDataTable, toolUsageLogTable, toolDailyUsageTable, voiceCallsTable, voiceDailyUsageTable } from "@workspace/db";
+import { db, usersTable, userProductsTable, productsTable, ticketsTable, auditLogTable, systemSettingsTable, adminNotesTable, progressTable, emailChangeHistoryTable, emailChangeAttemptsTable, phoneChangeHistoryTable, webhookLogsTable, machineProductKeyMappingsTable, machineUnknownProductKeysTable, sessionsTable, adSpendTransactionsTable, memberRefundEventsTable, btsOrdersTable, callBookingsTable, partnerAssignmentsTable, partnerNotesTable, onboardingEffectsTable, sequenceEnrollmentsTable, signedDocumentsTable, communicationLogTable, chatSessionsTable, chatDailyUsageTable, chatPromptsTable, campaignChecklistProgressTable, courseProgressTable, blitzDailyActivityTable, blitzEventsTable, memberHealthScoresTable, ghlSyncLogTable, memberAppInstancesTable, vaultFavoritesTable, emailUnsubscribesTable, communityPostsTable, communityCommentsTable, communityReactionsTable, communityNotificationsTable, communityBadgesTable, winsTable, ticketSatisfactionTable, ticketMessagesTable, ticketSlaTable, ticketAttachmentsTable, userStrikesTable, coachingCallAttendanceTable, coachingCallsTable, moderationQueueTable, affiliateProfilesTable, checkoutIdempotencyTable, sessionPackBookingsTable, coachingCreditLedgerTable, subscriptionsTable, toolUserDataTable, toolUsageLogTable, toolDailyUsageTable, voiceCallsTable, voiceDailyUsageTable, feIntensiveBookingsTable } from "@workspace/db";
 import { cancelAppointment, COACHING_LOCATION_ID } from "../lib/ghl-coaching-calendar";
 import { eq, ne, and, gt, gte, lt, lte, desc, asc, sql, ilike, or, inArray, isNotNull, isNull, getTableColumns, type SQL } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
@@ -3388,6 +3388,7 @@ router.delete("/admin/members/:id", requirePermission("members:delete"), async (
       winsDeleted: 0,
       subscriptionsDeleted: 0,
       sessionPackBookingsDeleted: 0,
+      feIntensiveBookingsDeleted: 0,
     };
 
     await db.transaction(async (tx) => {
@@ -3594,6 +3595,12 @@ router.delete("/admin/members/:id", requirePermission("members:delete"), async (
         .where(eq(signedDocumentsTable.userId, id))
         .returning({ id: signedDocumentsTable.id });
       counts.signedDocumentsDeleted = deletedDocs.length;
+
+      const deletedFeIntensive = await tx
+        .delete(feIntensiveBookingsTable)
+        .where(eq(feIntensiveBookingsTable.memberId, id))
+        .returning({ id: feIntensiveBookingsTable.id });
+      counts.feIntensiveBookingsDeleted = deletedFeIntensive.length;
 
       const deletedProducts = await tx
         .delete(userProductsTable)

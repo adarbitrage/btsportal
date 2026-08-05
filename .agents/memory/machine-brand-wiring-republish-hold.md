@@ -3,6 +3,13 @@ name: Machine brand-wiring republish hold
 description: Why the merged Machine front-end brand grant fix is intentionally NOT live in prod, and the condition for releasing it.
 ---
 
+**STATUS (2026-08-05): HOLD RETIRED.** A deliberate human-initiated publish
+(~18:00 UTC Aug 5, 2026) shipped everything including the 5-brand grant wiring;
+owner confirmed pre-launch/zero-customer status, so publishes are now deliberate
+acts after checks, not forbidden ones. ONE open EXTERNAL item: the owner must
+confirm The Machine's own deploy landed to pair with the BTS-side wiring
+(outside this workspace's visibility). Historical context below.
+
 # Machine brand-wiring: merged-but-intentionally-not-live
 
 The BTS portal changes that make Machine brand buyers receive their own product
