@@ -16,7 +16,13 @@ import { requirePageAccess } from "../middleware/require-page-access";
  */
 const router: IRouter = Router();
 
-const PAGE_KEYS = ["seven-pillars", "quick-start", "pillars-to-blitz", "tips-and-tricks"] as const;
+const PAGE_KEYS = [
+  "seven-pillars",
+  "quick-start",
+  "pillars-to-blitz",
+  "tips-and-tricks",
+  "frontend-welcome",
+] as const;
 
 for (const pageKey of PAGE_KEYS) {
   router.get(`/curriculum/${pageKey}`, requirePageAccess(pageKey), async (_req, res): Promise<void> => {

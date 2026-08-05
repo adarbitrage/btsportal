@@ -23,6 +23,7 @@ export const CURRICULUM_PAGE_KEYS = [
   "quick-start",
   "pillars-to-blitz",
   "tips-and-tricks",
+  "frontend-welcome",
 ] as const;
 
 export type CurriculumPageKey = (typeof CURRICULUM_PAGE_KEYS)[number];
@@ -468,14 +469,204 @@ const tipsAndTricks = {
   ],
 };
 
+/* ------------------------------------------------------------------ */
+/* Front-End Welcome (post-purchase landing for front-end/funnel-only  */
+/* members — ported from the old WordPress welcome page)               */
+/* ------------------------------------------------------------------ */
+
+/**
+ * PLACEHOLDER welcome video.
+ *
+ * ── SWAP ME ────────────────────────────────────────────────────────────
+ * This is the 7 Pillars intro video reused as a stand-in until the real
+ * welcome video is produced. To swap in the final video, replace embedId
+ * (and loaderUrl if it lives under a different Vidalytics account path)
+ * below — nothing else needs to change.
+ * ───────────────────────────────────────────────────────────────────────
+ */
+const WELCOME_PLACEHOLDER_VIDEO = {
+  embedId: "CsHMvOhZEPEm1Dpp",
+  loaderUrl: "https://fast.vidalytics.com/embeds/trR5xdVa/CsHMvOhZEPEm1Dpp/",
+  /** Renders a visible "placeholder" badge over/near the player. */
+  isPlaceholder: true,
+};
+
+// Inline anchor-scroll link to the booking section at the bottom of the page.
+const BOOK_LINK = (t: string) =>
+  `<a data-booking href="#booking" class="text-primary underline underline-offset-2 font-medium">${t}</a>`;
+
+const frontendWelcome = {
+  pageTitle: "Welcome To {{brand.full}}",
+  video: WELCOME_PLACEHOLDER_VIDEO,
+  introHtml: [
+    "Hey there, I'm Adam Cherrington! First off, a big congratulations to you for taking the leap and joining {{brand.full}}.",
+    "I've been around for a while now and I'll tell you: Not many people have the guts to put their money where their mouth is.",
+    "This move speaks volumes about your ambition and your readiness to change your life for the better.",
+    `So ${STRONG("BIG hats off to you.")}`,
+    "I also want to just appreciate the faith you've shown in me and my team.",
+    "Believe me, we are revved up and ready to repay some of that faith.",
+    "We're here to guide you every single step of the way.",
+    "Now quickly, before you jump into your product, I want to walk you through how this is gonna work.",
+    "Look, the whole idea of paying for this was so you could skip all the hard, beginner stuff about affiliate marketing and start your journey as close to the money as possible.",
+    "Right?",
+    `So I want you to know this: to make sure you extract every ounce of success with this program, you ${STRONG("MUST")} work closely with your coach.`,
+    "In fact, the very first thing you should do after watching this video is book a call with them.",
+    "Why is it so important?",
+    `Because the core of this program is a ${STRONG("3-day, one-on-one intensive")} that's designed to get you set up and making money with affiliate marketing ASAP.`,
+    `So make sure you ${BOOK_LINK("book that call")} and get in touch with your coach.`,
+    "Now, in addition to the 3-day coaching intensive, you're entitled to a ton of video and text training sessions that'll help you understand the crucial 7 pillars of affiliate marketing.",
+    "I'll quickly recap each pillar, so you know what to expect.",
+  ],
+  pillars: [
+    {
+      title: "Pillar #1: Your Business Model",
+      paragraphsHtml: [
+        `You'll discover my one-of-a-kind ${STRONG('"Ad Arbitrage"')} method that allows you to exploit traffic loopholes to make MASSIVE returns on your ad spend.`,
+      ],
+    },
+    {
+      title: "Pillar #2: Your Proven Market & Product",
+      paragraphsHtml: [
+        "I'll reveal the #1 market you should be in and even give you the exact products you can start selling. Remember, I've spent millions on ads, and I know, from the real world, what is currently selling like hotcakes and what isn't.",
+      ],
+    },
+    {
+      title: "Pillar #3: Your Target Demographic",
+      paragraphsHtml: [
+        "We're talking about the most lucrative demographic on earth that has all the money in the world to spend on the products I tell you to promote.",
+        "With this hard-won information, you'll be miles ahead of the competition who has to spend hundreds of thousands to figure this out on their own.",
+      ],
+    },
+    {
+      title: "Pillar #4: My Invisible Traffic Source",
+      paragraphsHtml: [
+        "While everyone else is fighting Facebook or grappling with Google, you'll be living the affiliate lifestyle on easy mode. Once you discover this Invisible Traffic source for yourself, getting red hot, high-converting, cheap traffic to your affiliate products is as easy as cheating on your diet on a Friday night.",
+      ],
+    },
+    {
+      title: "Pillar #5: My Step-By-Step Execution Strategy",
+      paragraphsHtml: [
+        "It's great that I'm giving you… the business model, the niche to be in, the products to sell, the demographic to sell to… but that's still not enough. You need a proven strategy that you can follow. And so that's what the 5th pillar is all about. I'll show you step by step how to take your product and your marketing campaign and get it ready for the big show.",
+      ],
+    },
+    {
+      title: "Pillar #6: Your Secret Weapon",
+      paragraphsHtml: [
+        "These are a suite of software tools that automate about 95% of the work required to run my {{brand.full}}.",
+        "This pillar will open your eyes to how passive this system is, and you'll instantly understand how I can spend most of my time traveling with my wife and kids instead of working.",
+      ],
+    },
+    {
+      title: "Pillar #7: Your Million-Dollar Mindset",
+      lead: "And finally…",
+      paragraphsHtml: [
+        "I won't sugarcoat it... There'll be days when things don't quite click. But those are the moments when you need to stick to your guns, keep your eyes on the prize, and push forward.",
+        "We'll dive into mindset hacks that'll keep you revved up and raring to go, even on days when you don't feel great.",
+        "Because here's the thing - with the right mindset, you can achieve anything. You can overcome any obstacle.",
+        "Heck, you can even make a million dollars as an affiliate marketer… I have done it, and so have some of my students.",
+      ],
+    },
+  ],
+  afterPillarsHtml: [
+    "Alright, that's a quick summary of what's waiting for you. There are still more resources that are part of your package. But you need to speak to your coach first to unlock them.",
+    `Now let's talk about how the ${STRONG("3-day intensive")} will play out:`,
+  ],
+  days: [
+    {
+      title: "Day 1:",
+      paragraphsHtml: [
+        `Your coach will chat with you about your goals and targets (${BOOK_LINK("book your first call here")}).`,
+        "We want to get a picture of where you currently are with affiliate marketing, where you want to go, and how you can get there the fastest.",
+        "After we understand your goals, your coach will then proceed to explain exactly how my affiliate marketing system works and answer any questions you might have.",
+        "Here's a slice of what to expect on day 1:",
+      ],
+      bullets: [
+        {
+          title: "How to Use The Proprietary Software:",
+          text: "Your coach will introduce you to your suite of automation tools and software. These cost me $700,000 to build and they can automate 95% of the tasks. So, most of the heavy-lifting is already taken care of.",
+        },
+        {
+          title: "The Cash Flow Mechanics:",
+          text: "It's not just about making money; it's about managing it smartly. Understand the financial ins and outs of {{brand.short}}—how the money comes in, where it goes, and how to ensure it's working in your best interest.",
+        },
+        {
+          title: "Affiliating with My Mentorship:",
+          text: "Here's a golden opportunity —You can tap into my mentorship program's earnings without diving deep into selling or marketing. It's like adding a high-octane booster to your income.",
+        },
+        {
+          title: "Access to My Personal Fulfillment Team:",
+          text: "You won't be navigating the technical maze alone. My team, including my army of VAs, will be right there, setting things up and ensuring you're never feeling overwhelmed or lost. We've got your back.",
+        },
+      ],
+      closingHtml: [
+        "Plus much more.",
+        "As you can tell, day 1 is all about setting the groundwork and making sure you've got the right tools and guidance to succeed.",
+        "Quickly, Let's move on to Day 2:",
+      ],
+    },
+    {
+      title: "Day two is all about growth and operations:",
+      paragraphsHtml: [
+        "First, your coach will guide you in cementing the 'why' behind your business. This clarity is a potent fuel for your journey. Because at the end of the day, this is a business…and they have their ups and downs.",
+        `To ensure that you're always standing tall, no matter the circumstance, you need to understand your ${STRONG('"why"')}.`,
+        "You'll understand what you actually need to operate your business and how long it takes to begin generating an ongoing business profit per month.",
+        "Plus, your coach will also unveil ways you can pump funds into your business—leveraging other people's money. This is one of my favorite topics we teach as part of {{brand.full}}.",
+        "And finally…",
+      ],
+      bullets: [],
+      closingHtml: [],
+    },
+    {
+      title: "Day 3:",
+      paragraphsHtml: [
+        "Day three is all about setting the stage for your explosive growth.",
+        "Here's what you can expect on that call:",
+      ],
+      bullets: [
+        {
+          title: "A Customized Business Plan:",
+          text: "Your coach will help you create an A-Z affiliate marketing business plan. This isn't a generic one-size-fits-all deal; it's laser-focused on you—your goals, your aspirations. It's designed to help you start making maximum money in minimum time.",
+        },
+        {
+          title: "Rapid Launch Strategy:",
+          text: "We're not about that slow life. The plan will equip you with the tools and strategies to hit the ground running, ushering in an era of profit from the get-go.",
+        },
+        {
+          title: "Financial Clarity:",
+          text: "Get a crystal-clear picture of your financial landscape—where your money's coming from, where it's going, and how to maximize those profits.",
+        },
+      ],
+      closingHtml: ["And there you have it."],
+    },
+  ],
+  closingHtml: [
+    "Remember, your coach is your co-pilot, guiding you through the ins and outs of the {{brand.short}} journey.",
+    "Don't be afraid to ask questions, and exchange ideas.",
+    "Even after the three days, you still have full access to them and me. So don't hesitate to reach out!",
+    `So here's what you should do next: ${BOOK_LINK("schedule a call with your coach")}. Not tomorrow or next week but ${STRONG("RIGHT NOW")}. Let them guide you from here.`,
+    "I cannot wait to see you become an affiliate marketing success.",
+    "Once again, welcome aboard! Go ahead and schedule your first call with your coach below.",
+  ],
+  booking: {
+    heading: "BOOK YOUR COACHING SESSION BELOW",
+    // Config-pending state until the native portal booking calendar (backed
+    // by the GHL API) ships — a separate future task. Never a broken embed.
+    pendingTitle: "Scheduling is opening shortly",
+    pendingBodyHtml:
+      "Your coach's booking calendar is being set up and will appear right here very soon. In the meantime, our support team can get your first call on the books — just reach out through the Support page and we'll take care of it.",
+  },
+};
+
 export const CURRICULUM_CONTENT: Record<CurriculumPageKey, unknown> = {
   "seven-pillars": sevenPillars,
   "quick-start": quickStart,
   "pillars-to-blitz": pillarsToBlitz,
   "tips-and-tricks": tipsAndTricks,
+  "frontend-welcome": frontendWelcome,
 };
 
 export type SevenPillarsContent = typeof sevenPillars;
 export type QuickStartContent = typeof quickStart;
 export type PillarsToBlitzContent = typeof pillarsToBlitz;
 export type TipsAndTricksContent = typeof tipsAndTricks;
+export type FrontendWelcomeContent = typeof frontendWelcome;

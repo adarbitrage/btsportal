@@ -52,7 +52,12 @@ const TAG = `ca-gating-${randomUUID().slice(0, 8)}`;
 /** Page that will be mapped to ["6month"] during tests. */
 const GATED_PAGE = "tips-and-tricks";
 
-/** Page that will never have a content_access_map row — open by default. */
+/**
+ * Page used as the "open by default" control: the boot seed now maps EVERY
+ * gateable key, so no page is unmapped in the shared dev DB. We snapshot the
+ * seeded row, DELETE it for the duration of the suite (row absent → open),
+ * and restore it verbatim in afterAll.
+ */
 const OPEN_PAGE = "affiliate-networks";
 
 // ── Test state ────────────────────────────────────────────────────────────────
@@ -77,6 +82,12 @@ let app: ReturnType<typeof buildTestAppWithRouters>;
  * Restored verbatim in afterAll so we never drop state we didn't create.
  */
 let preExistingGatedPageRow: {
+  productSlugs: string[];
+  updatedBy: string | null;
+} | null = null;
+
+/** Snapshot of the OPEN_PAGE row we delete in beforeAll (restored in afterAll). */
+let preExistingOpenPageRow: {
   productSlugs: string[];
   updatedBy: string | null;
 } | null = null;
@@ -108,16 +119,19 @@ async function gatePageFor6Month(tag: string): Promise<void> {
 beforeAll(async () => {
   app = buildTestAppWithRouters([contentAccessRouter]);
 
-  // -- Precondition: OPEN_PAGE must not already be mapped ----------------------
+  // -- Make OPEN_PAGE genuinely open: snapshot + delete its seeded row ---------
   const [openPageRow] = await db
-    .select({ id: contentAccessMapTable.id })
+    .select({
+      productSlugs: contentAccessMapTable.productSlugs,
+      updatedBy: contentAccessMapTable.updatedBy,
+    })
     .from(contentAccessMapTable)
     .where(eq(contentAccessMapTable.pageKey, OPEN_PAGE));
+  preExistingOpenPageRow = openPageRow ?? null;
   if (openPageRow) {
-    throw new Error(
-      `${OPEN_PAGE} already has a content_access_map row — cannot use it as the ` +
-        `open-by-default control; choose a different OPEN_PAGE constant.`,
-    );
+    await db
+      .delete(contentAccessMapTable)
+      .where(eq(contentAccessMapTable.pageKey, OPEN_PAGE));
   }
 
   // -- Snapshot any existing GATED_PAGE row so we can restore it in afterAll --
@@ -265,6 +279,25 @@ afterAll(async () => {
     await db
       .delete(contentAccessMapTable)
       .where(eq(contentAccessMapTable.pageKey, GATED_PAGE));
+  }
+
+  // Restore the OPEN_PAGE row we deleted in beforeAll (if any).
+  if (preExistingOpenPageRow) {
+    await db
+      .insert(contentAccessMapTable)
+      .values({
+        pageKey: OPEN_PAGE,
+        productSlugs: preExistingOpenPageRow.productSlugs,
+        updatedBy: preExistingOpenPageRow.updatedBy,
+      })
+      .onConflictDoUpdate({
+        target: contentAccessMapTable.pageKey,
+        set: {
+          productSlugs: preExistingOpenPageRow.productSlugs,
+          updatedBy: preExistingOpenPageRow.updatedBy,
+          updatedAt: new Date(),
+        },
+      });
   }
 
   // Remove user_products then users (leave canonical products untouched).

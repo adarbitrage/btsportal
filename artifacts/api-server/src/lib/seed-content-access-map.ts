@@ -19,6 +19,10 @@ const FRONTEND_SLUGS = MAPPABLE_PRODUCTS.filter((p) => p.group === "frontend").m
   (p) => p.slug,
 );
 
+const FUNNEL_SLUGS = MAPPABLE_PRODUCTS.filter((p) => p.group === "funnel").map(
+  (p) => p.slug,
+);
+
 // The five mentorship tiers (deliberately excludes `vip` — it is a badge-only
 // status product; VIP-specific gating is an explicit admin decision).
 const MENTORSHIP_TIER_SLUGS = ["launchpad", "3month", "6month", "1year", "lifetime"];
@@ -36,6 +40,11 @@ const LAUNCHPAD_PLUS_PAGE_KEYS = new Set([
 
 export function defaultSlugsForPageKey(pageKey: string): string[] {
   if (pageKey === "blitz") return [...BLITZ_OWNER_SLUGS];
+  // Front-End Welcome landing: front-ends + funnel products + tiers. Tiers
+  // are included deliberately — ROUTING decides who lands here; a tier
+  // member following a direct link must not be hard-blocked.
+  if (pageKey === "frontend-welcome")
+    return [...FRONTEND_SLUGS, ...FUNNEL_SLUGS, ...MENTORSHIP_TIER_SLUGS];
   if (LAUNCHPAD_PLUS_PAGE_KEYS.has(pageKey)) return [...MENTORSHIP_TIER_SLUGS];
   return [...FRONTEND_SLUGS, ...MENTORSHIP_TIER_SLUGS];
 }

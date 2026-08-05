@@ -7,7 +7,7 @@ import { AuthProvider, useAuth } from "@/lib/auth";
 import { isAdminRole, isCoachRole, isPartnerRole } from "@workspace/auth";
 
 import { useGetCurrentMember } from "@workspace/api-client-react";
-import Home from "@/pages/Home";
+import Landing from "@/pages/Landing";
 import CoreTraining from "@/pages/CoreTraining";
 import QuickStartGuide from "@/pages/QuickStartGuide";
 import SevenPillars from "@/pages/SevenPillars";
@@ -488,7 +488,7 @@ function Router() {
       <Route path="/onboarding/book-partner-call">{() => <OnboardingRoute component={OnboardingBookPartnerCall} stepName="partner_call_booked" />}</Route>
       <Route path="/onboarding/send-off">{() => <OnboardingRoute component={OnboardingSendOffPage} stepName="send_off" />}</Route>
       <Route path="/terms-of-service">{() => <ProtectedRoute component={TermsOfService} />}</Route>
-      <Route path="/">{() => <ProtectedRoute component={Home} />}</Route>
+      <Route path="/">{() => <ProtectedRoute component={Landing} />}</Route>
       {/* Task #2026: the member dashboard page is hidden for now — old
           bookmarks land on the home page instead of dead-ending. */}
       <Route path="/dashboard">{() => <Redirect to="/" />}</Route>

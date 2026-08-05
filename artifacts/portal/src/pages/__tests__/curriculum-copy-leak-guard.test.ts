@@ -23,6 +23,9 @@ const FORBIDDEN_PHRASES = [
   // Tips & Tricks Vidalytics embed ids (fetched from the gated endpoint)
   "qgpAV6gDFy_EujDM",
   "smS9hAL9_0kXcPsf",
+  // Front-End Welcome page prose
+  "cheating on your diet on a Friday night",
+  "adding a high-octane booster to your income",
 ];
 
 const SRC_ROOT = path.resolve(__dirname, "../..");

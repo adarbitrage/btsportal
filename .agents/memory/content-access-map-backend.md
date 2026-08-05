@@ -49,3 +49,6 @@ disabled. Verify the fetch URL and table contents before assuming gating works.
 
 ## post-merge.sh
 Step 13 applies `0073_content_access_map.sql` before the drift gate.
+
+## Open-by-default testing after full-seed (Aug 2026)
+The boot seed now maps EVERY gateable key ("no page key remains unmapped"), so no page is genuinely open in the shared dev DB. Tests that need an "open" control page must snapshot → DELETE the seeded row in beforeAll → restore verbatim in afterAll (see content-access-gating.test.ts). A precondition that asserts "this key has no row" can never pass again.

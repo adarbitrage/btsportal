@@ -141,6 +141,15 @@ export const GATEABLE_PAGES: readonly GateablePage[] = [
     routePath: "/affiliate-networks",
     label: "Affiliate Networks",
   },
+  {
+    // Post-purchase Welcome landing for front-end/funnel-only members. The
+    // sidebar "Welcome" item and the root route stay ungated (the root
+    // decides what to render); this key gates ONLY the served page body
+    // (GET /curriculum/frontend-welcome).
+    pageKey: "frontend-welcome",
+    routePath: "/",
+    label: "Welcome (front-end landing)",
+  },
   // Pitch/partner surfaces gated to LaunchPad-and-above by default (sidebar
   // visibility; the pages themselves stay reachable by direct link).
   {
