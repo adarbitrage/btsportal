@@ -43,11 +43,12 @@ Row exists with all 15 slugs.
 
 ## Punch list (remaining)
 
-1. **Republish** (deliberate, post-checks) so the fixed stamp, direct-edge cleanup, sourceProduct backfill, and member-delete pipeline fix reach prod — then verify the boot log lines and re-run the item-6/3/4 prod queries.
-2. **Post-publish canary (item 7 below)** — required after that publish; especially proves the seven-pillars gate now that the stamp landed.
-3. **Fresh full `test` workflow run on a quiet box** (last run's 3 failures individually confirmed as flakes, but a green full run is the clean close).
-4. **Six-brand Welcome browser eyeball** (follow-up #2067) — read Welcome copy under all six front-end brands; no raw `{{brand.*}}` tokens.
+1. ~~Republish + verify~~ ✅ **DONE Aug 5 ~19:36 UTC.** Boot log confirmed: direct-edge cleanup removed 1 access-map row / 0 progress rows; sourceProduct backfill pre-flight 23 NULL → 33 rows updated, marker recorded; prod queries verified 0 NULL / 0 legacy `yse`, staging doc id 7 stamped `seven-pillars`, Blitz 12 live stamps intact, direct-edge rows 0/0.
+2. ~~Post-publish canary (item 7)~~ ✅ **DONE Aug 5.** 29/29 effective (28 hard passes; the one scripted "failure" — raw `{{brand.*}}` in the frontend-welcome API body — is the designed contract: substitution is client-side in `useCurriculumContent`). All five gated families 403 for a zero-grant member (+401 logged out), FE owner 200s + still denied Blitz, admin bypass 200s. **Caveat:** the positive "assistant cites seven-pillars" check cannot pass in prod yet — prod's `ai_live_documents` has ZERO seven-pillars docs (only staging id 7 is stamped, unpublished to live). Gate correctness proven via stamp + denial paths; citation check becomes possible once that doc is pushed to live.
+3. ~~Fresh full `test` run~~ ✅ **DONE Aug 5** — 137 files / 783 tests, all green on a quiet box.
+4. **Six-brand Welcome browser eyeball** (follow-up #2067) — read Welcome copy under all six front-end brands; no raw `{{brand.*}}` tokens *in the rendered portal UI* (API body intentionally carries tokens).
 5. **EXTERNAL — owner action:** confirm **The Machine's own deploy** landed to pair with the 5-brand grant wiring now live on the BTS side. Outside this workspace's visibility.
+6. **KB content item:** push staging doc id 7 (seven-pillars truth doc) through review → live so the assistant can actually cite it for owners (see canary caveat above).
 
 ---
 
