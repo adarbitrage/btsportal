@@ -6,7 +6,7 @@ import { scrubConfidentialTerm } from "./confidential-term-repair.js";
 
 /**
  * Headline-concept KB doc set (Task #1994, extended by Task #1997) — seeds
- * 9 DRAFTS into the `kb_staging_docs` AI Document Review queue on boot:
+ * 10 DRAFTS into the `kb_staging_docs` AI Document Review queue on boot:
  *
  *   - 7 new concept documents (6 headline-concept docs + 1 upgraded Copy
  *     Blocks foundation doc) distilled from the Creative Drive headline PDFs,
@@ -241,58 +241,98 @@ This covers the fundamentals. For strategy specific to your product, your number
 
 const DOC_4_CONTENT = `Angle Selection — Choosing the Big Idea Before Writing a Word
 
-Purpose: this doc teaches the step that comes before headline writing: choosing the angle — the big idea the headline expresses. Angle first, words second. A brilliantly-worded headline on a weak angle loses to a plain headline on a strong one, and no amount of word-tweaking rescues a wrong big idea.
+Purpose: this doc teaches the step that comes before headline writing: choosing the angle — the big idea the headline expresses. Angles are identified first, headlines are written second — always. A brilliantly-worded headline on a weak angle loses to a plain headline on a strong one, and no amount of word-tweaking rescues a wrong big idea.
 
 What an angle is
 
-An angle is the specific reason-to-care you lead with: the frame that makes this offer feel relevant and new to this audience right now. The same product supports many angles. A fictional example — a garden tool sharpener could be angled as: the money angle ("stop replacing tools you could restore"), the mastery angle ("the edge professional landscapers insist on"), the mechanism angle ("the 3-angle jig that takes the guesswork out of sharpening"), or the identity angle ("for gardeners who keep tools for decades"). One product; four different big ideas; four different audiences stopped mid-scroll.
+An angle is the big idea the ad leads with — the specific doorway through which the reader enters the story. It is not the product, not the benefit, and not a headline. The same product with the same benefit can be introduced through a dozen different doorways, and which doorway you pick usually matters more than any wordsmithing afterward. A funnel tells one story — the ad is the beginning, the advertorial or jump page is the middle, the sales page or VSL is the end — and the angle is how the ad starts that story.
 
-The four primary angle families
+Hold an angle as an angle statement: one plain line naming the doorway, written with no craft at all ("Warning angle: your current fix is quietly failing and you don't know it"). If it reads like an ad, you've skipped ahead. A good angle statement could produce ten different headlines; a headline can only produce itself.
 
-Most headline angles resolve to one of four callouts:
+A gallery of lenses, not a fence
 
-1. Problem callout — lead with the pain, named the way the reader names it ("Tools going dull mid-season?"). Strongest when the pain is felt acutely and competitors lead with solutions.
-2. Benefit callout — lead with the outcome ("A razor edge on every tool you own"). Strongest with warm or solution-aware readers who already want the outcome and are choosing a path.
-3. Mechanism callout — lead with the new "how" ("A 3-angle jig ends freehand guesswork"). Strongest in skeptical, burned-out markets where readers have tried things: newness of mechanism re-opens belief.
-4. Identity/audience callout — lead with who it's for ("For serious home gardeners…"). Strongest when the audience is proud of the identity or underserved by generic messaging; sharpens qualification at some cost to reach.
+Angles are countless. An angle lives at the intersection of a product, a specific reader, and a specific moment; nobody has catalogued them all, because they can't be catalogued. Certain doorways recur often enough to have earned names — Story, Warning, Discovery/News, Contrarian, Local, Unique Mechanism, Transformation, Social Proof/Authority, plus the honest benefit lead — and they're genuinely useful as lenses: point each one at the product and see what it shows you. But hold them the right way: they are a gallery, never a fence. The families combine freely (a local everywoman stumbling across a discovery is Local + Story + Discovery in one angle); different teachers group them differently, and none of those lists is official; and an angle that fits no family is not a mistake — unclassifiable might mean unfenced, and unfenced might be the edge. The families are lenses for generating and naming angles, never a checklist to test through. Nobody runs one of each.
 
-These map directly onto Copy Blocks: an angle decides which block leads the headline unit — Pain, Promise, Curiosity/Mechanism, or a Constraint-flavored identity call (see Copy Blocks — The Five Building Blocks of Persuasive Copy).
+The three questions every angle must answer
 
-Lens 1: awareness stage
+Angles can come from anywhere — the page, the audience's day-to-day life, a customer review, a competitor's ad in a spy tool. The source doesn't matter. What matters is that every angle, wherever it came from, answers three questions before it goes near traffic:
 
-Readers differ in how much they already know, and the angle must meet them where they are. The classical progression: unaware → problem-aware → solution-aware → product-aware → most-aware. The colder the reader, the earlier the stage, and the less direct the angle can afford to be:
+1. Who exactly is this doorway for? Not a demographic — a person. An angle that can't name its one specific reader isn't an angle yet; if you're marketing to everyone, you're marketing to no one.
+2. What on the page pays it off? The advertorial and sales page are fixed; whatever doorway the ad opens, those pages must deliver on it. The test is sentiment paid off proportionally — mention is not payoff. You must be able to point at the part of the page (a line or a passage) that delivers the doorway's promise, in roughly the amount the doorway suggests. If you can't point at anything, the angle is wrong for this offer, no matter how good it is.
+3. Why hasn't this reader already walked past it? A doorway can name its reader and be fully paid off and still be dead because it's saturated — the reader has seen it forty times this month. Spy tools and feed research show which angles are already invisible to this reader. Fresh doesn't mean exotic; it means this reader hasn't been approached through this door lately.
 
-- Unaware/problem-aware (native ad traffic, mostly): problem callouts and curiosity-led mechanism teases work; a direct product promise has no context yet.
-- Solution-aware (a reader who clicked an editorial ad): benefit callouts and mechanism callouts land — they're comparing paths.
-- Product-aware and warmer (a reader arriving at a jump page): direct promise restatement with proof; the angle can be at its most explicit.
+The three questions are a filter, not a workflow: every generator's output goes through them, and they take well under a minute per angle once the habit is set.
 
-Using one angle register everywhere is among the most common and expensive headline errors. The angle stays constant along the funnel; its directness rises with awareness (see Headline Jobs by Surface — Ad, Advertorial, and Jump Page).
+Mine the advertorial first
 
-Lens 2: reading mode — discovery vs. seeking
+The most reliable generator of angles is the page itself: the advertorial and sales page were researched, written, and usually tested with real spend before the media buyer arrived, and angles mined from them arrive with the first half of question 2 built in. The full mining workflow — gold lines, naming the idea, loose sorting, merging duplicates, the congruency lift — lives in Extracting Angles from an Advertorial — The Mining Workflow. Mining is the right first move on nearly every campaign, but it is a generator, not the only source, and any teaching that says angles can only come from one place is selling a fence.
 
-The same reader behaves differently by context. In seeking mode (search), instruction-style phrasing wins: "how to sharpen garden tools" matches an intent that already exists. In discovery mode (scrolling a feed — where native ads live), the reader isn't looking for anything; instruction-style "how to" phrasing underperforms because it presumes an intent the reader hasn't formed. Discovery-mode angles must generate the itch, not answer it: story frames, surprising claims, identity callouts, mechanism curiosity. This is why headline advice imported from blogging and search contexts often fails on native traffic.
+Other legitimate sources
 
-Both lenses are subordinate to the surface's job. Awareness stage and reading mode help you pick WHICH angle and how direct to make it; the destination-defined job (click / read / play) still governs what the headline must accomplish.
+Audience observation (the concrete, everyday behaviors the product touches — angles built on observed behavior land as recognition, not advertising); the audience's own words in reviews, ad comments, and forum threads; competitor ads via spy tools (with the caution that a borrowed angle was built to be paid off by the competitor's page — re-check question 2 against yours); and plain invention, which is legitimate as long as the invented angle can still point at its payoff on the page.
 
-Raw material for angles
+Matching the lens to the reader's state
 
-Strong angles come out of avatar research, not brainstorming in a vacuum. The durable sources: the avatar's own words for their pain (their forums, reviews, support questions); their desires ranked by intensity; their suspicions about why past solutions failed them; their picture of who's to blame; their fears about what happens if nothing changes. Persuasion travels furthest when the message confirms what the reader already feels — encourage their dreams, validate their frustrations, echo their suspicions — rather than arguing them into a new worldview. An angle that requires the reader to first admit they were wrong is fighting uphill.
+The biggest input to which doorway to lead with is the reader's stage of awareness — question 1 sharpened into what state of mind the reader is in when the ad interrupts them. Unaware readers respond to Warning and Story (surface the pain, or let them recognize themselves in someone else). Problem-aware readers respond to Discovery/News and vivid Transformation. Solution-aware readers who have tried and failed respond to Unique Mechanism and Contrarian (why this attempt ends differently; why the old advice was the problem). Product-aware, skeptical readers respond to proof-heavy Story, Social Proof, and Local. The angle stays constant along the funnel; its directness rises with awareness (see Headline Jobs by Surface — Ad, Advertorial, and Jump Page).
 
-Breadth then depth
+Payoff and proportion
 
-Test angles the way the system teaches everywhere else: breadth first, then depth. Round one runs several genuinely different angles — different big ideas, not synonym swaps. When one wins, switch to micro-iterations within the winning angle: different expressions, different leading blocks, different specificity levels. A batch of near-duplicate headlines that all rephrase one idea is not an angle test; it's one angle wearing five outfits, and it teaches you nothing about the market.
+Congruence is sentiment-level and proportional. The page must deliver the feeling and promise the doorway creates, in roughly the amount the doorway suggests — a page that spends one throwaway sentence on the angle's promise before four paragraphs of something else is a bait, whatever it technically "contains." Passage-anchored angles are valid: some angles are carried by the page's arc rather than any quotable line, and they pass the payoff test by pointing at the passage instead. But every angle needs a pointable anchor — no line and no passage means invention, not extraction. Angle drift between funnel steps shows up as good CTR followed by a poor next-step rate: the numbers' way of saying the reader felt a bait-and-switch.
 
-Message match: the angle travels whole
+Angle before headline
 
-Once an angle is chosen, it runs the full route: the ad opens it, the advertorial or jump page continues it, the destination pays it off. Never invent headline details the body copy can't support — derive the angle from what the advertorial or VSL actually argues (its hook, mechanism, and strongest pains), so the handoff feels seamless. Angle drift between steps shows up as good CTR followed by a poor next-step rate — the numbers' way of saying the reader felt a bait-and-switch.
+Keep the wall between the two steps. Deciding which story to start and writing the sentence that starts it are different skills, done at different times. Once the angle list is set, each angle gets several competing headlines — never one headline per angle, and never headlines drafted straight from the advertorial with no angle decision in between. Test breadth first (genuinely different doorways, not synonym swaps), then depth within the winner. A batch of near-duplicate headlines that all rephrase one idea is one angle wearing five outfits, and it teaches nothing about the market.
 
-Surface calibration
+Fast checklist
 
-- Ad: pick the angle for coldest awareness — problem, story, or curiosity-mechanism callouts; keep the angle broad enough to invite the whole qualified audience.
-- Advertorial: same angle, benefit-clear expression; the headline confirms the click and narrows toward the solution.
-- Jump page: same angle at maximum directness — promise-forward restatement with the mechanism named or teased, handing off to the video.
+- Hold every candidate as a plain angle statement, written for one nameable reader.
+- Run the three questions: specific reader? pointable, proportional payoff on the page? not already saturated for this reader?
+- Use the families as lenses to generate and name — never as a checklist to test through.
+- Mine the page first (see the mining workflow doc), then widen to audience research and spy tools as needed.
+- Match doorway to awareness stage; keep one angle running the whole route, directness rising with warmth.
+- Only then write headlines — several per angle (see Headline Quality Rubric — The Two-Pass Headline Evaluation for evaluating them).
 
-Related docs: Headline Jobs by Surface — Ad, Advertorial, and Jump Page (jobs and metrics per surface); Curiosity Mechanics — Open Loops, Mechanism Teases, and the Curiosity Gap (mechanism angles); Headline Quality Rubric — The Two-Pass Headline Evaluation (evaluating expressions of an angle).
+Related docs: Extracting Angles from an Advertorial — The Mining Workflow (the full extraction workflow this doc hands off to); Headline Jobs by Surface — Ad, Advertorial, and Jump Page (jobs and metrics per surface); Curiosity Mechanics — Open Loops, Mechanism Teases, and the Curiosity Gap (mechanism-led doorways); Headline Quality Rubric — The Two-Pass Headline Evaluation (evaluating expressions of an angle).
+
+This covers the fundamentals. For strategy specific to your product, your numbers, and where your campaign is right now, the next step is a live group Q&A coaching call or a 1-on-1 private coaching session — bring your campaign and a coach will work through it with you.`;
+
+const DOC_10_CONTENT = `Extracting Angles from an Advertorial — The Mining Workflow
+
+Purpose: this doc teaches the full workflow for mining an existing advertorial and sales page for angles — the most reliable generator of angles, because its output arrives already anchored to what the page can pay off. For what an angle is, the three questions every angle must answer, and the gallery of recurring angle families, see Angle Selection — Choosing the Big Idea Before Writing a Word; this doc assumes that foundation.
+
+Why mine the page first
+
+Two reasons. First, the material is pre-proven: the advertorial and sales page were researched, written, and (on a scaling offer) tested with real ad spend before the affiliate arrived. The writer packed the page with claims, stories, mechanisms, and proof points, and each one is a potential doorway. The job is not to out-write that page; it is to mine it. Second, an idea extracted from the page is by definition already in the page the click lands on — the first half of the payoff question is built in. Whether the page pays it off proportionally still needs checking; mention is not payoff.
+
+Mining is a generator, not an exemption: a mined angle still needs its specific reader, and still has to be a doorway this reader hasn't already walked past — which is exactly where a saturated offer's most obvious gold lines fail. And the reader question works during the mining, not after: which lines read as gold depends entirely on who you're reading for.
+
+Gold lines
+
+A gold line is any line in the advertorial or sales page that could carry an ad on its own — a sharp claim, a human moment, a named villain, a quantified saving, a revealed insider. Gold lines are concrete and specific; filler is abstract and interchangeable. Two things a gold line is not: it is not an angle yet (a typical advertorial yields five to fifteen gold lines containing only three to five genuinely different angles, because good advertorials hammer their central idea from many directions), and gold lines are not the only place page angles live — some angles are carried by the page's arc (the long build of frustration before the reveal, the unnamed villain the whole page circles) rather than any quotable sentence. Those passage-anchored angles are real, and they pass the payoff test by pointing at the passage. Quotable lines are the strongest evidence of payoff, not the definition of it. An angle with no line and no passage to point at is invented, not extracted.
+
+The five-step workflow
+
+Work the advertorial top to bottom, then the sales page, reading as the specific reader — not as the media buyer holding the highlighter.
+
+1. Highlight the gold lines. Mark every sentence that would make that reader feel something specific or learn something concrete, and record the exact quote. If an idea grips but no single line carries it, note the passage instead — an anchor is required either way, because the anchor is the payoff answer.
+2. Name the big idea. For each highlight, write the idea in three words or fewer ("hidden failure", "inventor's story", "saves money", "new mechanism"). If it can't be named that tightly, it's two ideas tangled together, or none.
+3. Sort with the families — loosely. Try each idea against the recurring families, or flag it as a benefit lead. The families are a loose sorting aid here, not a test: an idea that fits no family but would still make the reader click is still an angle. Lines playing a purely supporting role (statistics, credentials, guarantees) are set aside as proof material — unless one creates its own distinct reason to care for this reader, in which case it stays a candidate angle.
+4. Merge the duplicates. The step that turns gold lines into angles, and the one most often skipped. The rule: two entries expressing the same underlying idea are one angle wearing two outfits — merge them, keeping the strongest source quotes attached as proof material. Family labels help spot merge candidates, but the test is always the idea, not the label: two same-family entries can be genuinely different doorways, and one idea can hide under two labels. An advertorial's central thesis typically shows up in four or five gold lines dressed as its mechanism, its myth-busting, its diagnosis, and its analogy — after merging, that's one angle. A list that survives this step honestly is short. Short is correct.
+5. Flag the congruency lift, then run the three questions. The advertorial's own headline (or lead claim) goes on the list as angle #1, labeled the congruency lift — the maximum-scent baseline every other angle is trying to beat, and usually worth testing in its own right. It isn't a new angle; it's the purest execution of one angle running the whole route. Then every surviving angle goes through the three questions from Angle Selection: name its specific reader and awareness stage; check proportional payoff (mention is not payoff — a doorway the page only gestures at is still a bait); and check freshness against what's already running on the offer, because the most obvious gold line on a scaling offer is usually the most saturated one.
+
+The output is a deduplicated, source-anchored, stage-tagged angle list — angle statements, not headlines. Headline writing is a separate act that comes afterward: several competing headlines per angle, never one headline per gold line.
+
+Auditing an AI's extraction
+
+Much of this workflow now runs through an AI assistant, and that's a fine way to work — but left to itself, an AI makes one predictable error: it returns gold lines dressed up as angles. Ask for ten angles and half collapse into the same doorway restated as its mechanism, its myth, its diagnosis, and its analogy. The workflow above is the audit of the machine, and what's being checked is distinct underlying ideas, each anchored to the page — not whether the AI used approved family names (its labels are made up on the spot, and labels are cheap; ideas are what get counted).
+
+- Demand anchors: every proposed angle must point at an exact quoted line or a named passage. No anchor means the machine invented it.
+- Count ideas, not entries: name each proposal's underlying idea in three words or fewer and force the merge rule — same underlying idea = merge, whatever the labels say. Ten entries collapsing to four ideas is the normal outcome, not a failure.
+- Demand the lift: if the batch doesn't include the page's own headline labeled as the congruency-lift baseline, add it — and watch for the sneaky version where the AI includes the page's headline as just another unlabeled "angle".
+- Make it answer the three questions: specific reader and awareness stage per angle, proportional payoff, freshness against what's running.
+- The member keeps the judgment: the assistant highlights and sorts faster, but which doorway fits the reader is a call only the buyer can calibrate against their own results.
+
+Related docs: Angle Selection — Choosing the Big Idea Before Writing a Word (what an angle is, the three questions, the family gallery — read it first); Headline Jobs by Surface — Ad, Advertorial, and Jump Page (where the mined angle runs); Headline Quality Rubric — The Two-Pass Headline Evaluation (evaluating the headlines written from the angle list).
 
 This covers the fundamentals. For strategy specific to your product, your numbers, and where your campaign is right now, the next step is a live group Q&A coaching call or a 1-on-1 private coaching session — bring your campaign and a coach will work through it with you.`;
 
@@ -675,7 +715,17 @@ const HEADLINE_SEED_DOCS: HeadlineSeedDoc[] = [
     taxonomyTags: ["angle", "headline"],
     content: DOC_4_CONTENT,
     adminNotes:
-      "Headline concept set (Task #1994): four angle families (problem/benefit/mechanism/identity), awareness stages + reading mode (discovery vs. seeking) as subordinate lenses, angle-first-words-second, breadth-then-depth, message match. Complements the existing live 'Angles — Finding What Makes People Buy' doc (angles node) — this one is scoped to angle selection FOR HEADLINES. " +
+      "Headline concept set (Task #1994; rewritten Task #2095 to match the reworked Copywriting Foundations angle docs): angles-first-headlines-second, angle statements, gallery-of-lenses-not-a-fence (recurring families — Story/Warning/Discovery/Contrarian/Local/Unique Mechanism/Transformation/Social Proof + benefit lead — never a taxonomy or checklist), the three-question test (specific reader / proportional pointable payoff — mention is not payoff / not already saturated), mine-the-advertorial-first as the most reliable generator (hands off to the mining-workflow doc), awareness-stage lens matching, breadth-then-depth. Complements the existing live 'Angles — Finding What Makes People Buy' doc (angles node) — this one is scoped to angle selection FOR HEADLINES. " +
+      SOURCE_SET_NOTE,
+  },
+  {
+    slug: "angle-extraction-workflow",
+    title: "Extracting Angles from an Advertorial — The Mining Workflow",
+    docClassTarget: "curated",
+    taxonomyTags: ["angle", "headline", "copywriting"],
+    content: DOC_10_CONTENT,
+    adminNotes:
+      "Angle doc set (Task #2095): the standalone extraction-workflow companion to 'Angle Selection — Choosing the Big Idea Before Writing a Word'. Mirrors the member doc 'Extracting Angles from Existing Copy' (Copywriting Foundations doc 3): gold lines (not angles yet; passage-anchored angles are real), five-step workflow (highlight → name the idea → sort loosely → merge duplicates → congruency lift + three questions), and the AI-audit rules (demand anchors, count ideas not entries, demand the lift, three-questions answers, buyer keeps judgment). Points back to Angle Selection for the three questions and the family gallery. " +
       SOURCE_SET_NOTE,
   },
   {
@@ -738,7 +788,7 @@ const HEADLINE_SEED_DOCS: HeadlineSeedDoc[] = [
 // ── Idempotent seed ──────────────────────────────────────────────────────────
 
 /**
- * Seeds the 9 headline-concept drafts into the AI Document Review queue.
+ * Seeds the 10 headline-concept drafts into the AI Document Review queue.
  * Insert-only: rows already present for (source, sourceVideoTitle) are skipped
  * entirely so reviewer edits/decisions are never clobbered. Returns a summary
  * for boot logging.

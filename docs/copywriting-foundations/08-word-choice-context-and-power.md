@@ -1,6 +1,6 @@
 # Word Choice: Context and Power
 
-*Copywriting Foundations · Document 7 of 8*
+*Copywriting Foundations · Document 8 of 9*
 
 If you're new to this series, start with **What a Headline Actually Does**.
 

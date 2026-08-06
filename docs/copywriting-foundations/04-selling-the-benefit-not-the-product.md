@@ -1,6 +1,6 @@
 # Selling the Benefit, Not the Product
 
-*Copywriting Foundations · Document 2 of 8*
+*Copywriting Foundations · Document 4 of 9*
 
 If you're new to this series, start with **What a Headline Actually Does**.
 

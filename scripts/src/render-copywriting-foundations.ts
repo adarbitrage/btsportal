@@ -421,6 +421,15 @@ async function main() {
     .filter((f) => f.endsWith(".md"))
     .sort();
   if (files.length === 0) throw new Error(`No markdown docs found in ${DOCS_DIR}`);
+  // Series guard (Task #2095): exactly 9 docs, numbered 01–09, no gaps/dupes.
+  const EXPECTED_COUNT = 9;
+  const prefixes = files.map((f) => f.slice(0, 2)).sort();
+  const expected = Array.from({ length: EXPECTED_COUNT }, (_, i) => String(i + 1).padStart(2, "0"));
+  if (files.length !== EXPECTED_COUNT || prefixes.join(",") !== expected.join(",")) {
+    throw new Error(
+      `Copywriting Foundations series guard: expected exactly ${EXPECTED_COUNT} docs with prefixes 01–0${EXPECTED_COUNT}, found: ${files.join(", ")}`,
+    );
+  }
   const docs = files.map(parseDoc);
   fs.mkdirSync(OUT_DIR, { recursive: true });
 

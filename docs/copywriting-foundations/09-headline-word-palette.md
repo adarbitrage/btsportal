@@ -1,6 +1,6 @@
 # The Headline Word Palette
 
-*Copywriting Foundations · Document 8 of 8 — a reference companion to* **Word Choice: Context and Power**
+*Copywriting Foundations · Document 9 of 9 — a reference companion to* **Word Choice: Context and Power**
 
 If you're new to this series, start with **What a Headline Actually Does**.
 

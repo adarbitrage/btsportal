@@ -8,7 +8,7 @@ import { objectStorageClient, ObjectStorageService } from "./objectStorage";
 /**
  * Copywriting Foundations — Creative Drive boot-seed (Task #2005).
  *
- * Publishes the 8 committed "Copywriting Foundations" PDFs (rendered at build
+ * Publishes the 9 committed "Copywriting Foundations" PDFs (rendered at build
  * time by scripts/src/render-copywriting-foundations.ts and checked into
  * src/assets/copywriting-foundations/) into a Creative Drive folder named
  * "Copywriting Foundations", visible to all members (the Creative Drive has
@@ -20,7 +20,7 @@ import { objectStorageClient, ObjectStorageService } from "./objectStorage";
  *      path `/objects/copywriting-foundations/<slug>-<hash12>.pdf`;
  *   2. upload to object storage ONLY when that object doesn't already exist
  *      (content-addressing makes re-upload checks a pure existence test);
- *   3. upsert the folder row + 8 file rows (sort_order 1-8, series order)
+ *   3. upsert the folder row + 9 file rows (sort_order 1-9, series order)
  *      under a pg_advisory_xact_lock so concurrent boots can't double-seed.
  *
  * Idempotency contract:
@@ -46,13 +46,14 @@ export const COPYWRITING_FOUNDATIONS_FILES: ReadonlyArray<{
   name: string; // member-facing file name in the Drive
 }> = [
   { sortOrder: 1, pdf: "01-what-a-headline-actually-does.pdf", name: "1. What a Headline Actually Does.pdf" },
-  { sortOrder: 2, pdf: "02-selling-the-benefit-not-the-product.pdf", name: "2. Selling the Benefit, Not the Product.pdf" },
-  { sortOrder: 3, pdf: "03-curiosity-withholding-the-how.pdf", name: "3. Curiosity — Withholding the How.pdf" },
-  { sortOrder: 4, pdf: "04-finding-your-angle.pdf", name: "4. Finding Your Angle.pdf" },
-  { sortOrder: 5, pdf: "05-believability-and-proof.pdf", name: "5. Believability and Proof.pdf" },
-  { sortOrder: 6, pdf: "06-headline-formulas-and-the-swipe-file.pdf", name: "6. Headline Formulas and the Swipe File.pdf" },
-  { sortOrder: 7, pdf: "07-word-choice-context-and-power.pdf", name: "7. Word Choice — Context and Power.pdf" },
-  { sortOrder: 8, pdf: "08-headline-word-palette.pdf", name: "8. The Headline Word Palette.pdf" },
+  { sortOrder: 2, pdf: "02-finding-your-angle.pdf", name: "2. Finding Your Angle.pdf" },
+  { sortOrder: 3, pdf: "03-extracting-angles-from-existing-copy.pdf", name: "3. Extracting Angles from Existing Copy.pdf" },
+  { sortOrder: 4, pdf: "04-selling-the-benefit-not-the-product.pdf", name: "4. Selling the Benefit, Not the Product.pdf" },
+  { sortOrder: 5, pdf: "05-curiosity-withholding-the-how.pdf", name: "5. Curiosity — Withholding the How.pdf" },
+  { sortOrder: 6, pdf: "06-believability-and-proof.pdf", name: "6. Believability and Proof.pdf" },
+  { sortOrder: 7, pdf: "07-headline-formulas-and-the-swipe-file.pdf", name: "7. Headline Formulas and the Swipe File.pdf" },
+  { sortOrder: 8, pdf: "08-word-choice-context-and-power.pdf", name: "8. Word Choice — Context and Power.pdf" },
+  { sortOrder: 9, pdf: "09-headline-word-palette.pdf", name: "9. The Headline Word Palette.pdf" },
 ];
 
 // Advisory lock key pair for this seed (arbitrary but stable/unique).

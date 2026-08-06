@@ -1,6 +1,6 @@
 # Curiosity: Withholding the How
 
-*Copywriting Foundations · Document 3 of 8*
+*Copywriting Foundations · Document 5 of 9*
 
 If you're new to this series, start with **What a Headline Actually Does**.
 

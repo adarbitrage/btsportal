@@ -141,17 +141,18 @@ export const CURATION_SPEC: readonly CurationSpecItem[] = [
     section: "foundations",
     kind: "group",
     displayTitle: "Copywriting Foundations",
-    blurb: "An eight-part series on writing headlines and ad copy that convert — work through the parts in order.",
+    blurb: "A nine-part series on writing headlines and ad copy that convert — work through the parts in order.",
     sortOrder: 1,
   },
   cw(1, "What a Headline Actually Does", "The single job a headline has — and why most beginner headlines fail at it."),
-  cw(2, "Selling the Benefit, Not the Product", "How to translate features into the benefit your reader actually buys."),
-  cw(3, "Curiosity — Withholding the How", "Building curiosity gaps that pull the click without giving the answer away."),
-  cw(4, "Finding Your Angle", "Finding the specific slant that makes a familiar promise feel new."),
-  cw(5, "Believability and Proof", "Making big claims believable with proof, specifics, and restraint."),
-  cw(6, "Headline Formulas and the Swipe File", "How to use formulas and swipe files without writing copycat headlines."),
-  cw(7, "Word Choice — Context and Power", "Choosing the power and context words that carry real weight."),
-  cw(8, "The Headline Word Palette", "The working word palette to draw from when drafting headlines."),
+  cw(2, "Finding Your Angle", "Choosing the big idea your ad leads with — before you write a single headline."),
+  cw(3, "Extracting Angles from Existing Copy", "Mining the advertorial and sales page for angles already anchored to the offer."),
+  cw(4, "Selling the Benefit, Not the Product", "How to translate features into the benefit your reader actually buys."),
+  cw(5, "Curiosity — Withholding the How", "Building curiosity gaps that pull the click without giving the answer away."),
+  cw(6, "Believability and Proof", "Making big claims believable with proof, specifics, and restraint."),
+  cw(7, "Headline Formulas and the Swipe File", "How to use formulas and swipe files without writing copycat headlines."),
+  cw(8, "Word Choice — Context and Power", "Choosing the power and context words that carry real weight."),
+  cw(9, "The Headline Word Palette", "The working word palette to draw from when drafting headlines."),
   {
     slug: "foundations-image",
     section: "foundations",
@@ -758,6 +759,11 @@ export async function ensureResourceHubCuration(): Promise<void> {
         from: "The step-by-step pre-launch checklist — work through it before you activate any campaign.",
         to: "The step-by-step pre-launch checklist — work through it before you activate any campaign. This is a printable version of the Checklist page found in the Blitz.",
       },
+      {
+        slug: "foundations-copywriting",
+        from: "An eight-part series on writing headlines and ad copy that convert — work through the parts in order.",
+        to: "A nine-part series on writing headlines and ad copy that convert — work through the parts in order.",
+      },
     ];
     for (const fix of BLURB_REFRESHES) {
       const updated = await tx
@@ -767,6 +773,39 @@ export async function ensureResourceHubCuration(): Promise<void> {
         .returning({ slug: resourceHubItemsTable.slug });
       if (updated.length > 0) {
         console.log(`[ResourceHub] curation: refreshed blurb for "${fix.slug}"`);
+      }
+    }
+
+    // Copywriting Foundations 9-doc reorder (Task #2095): environments seeded
+    // with the original 8-doc series have curation rows 2-8 whose slugs are
+    // positional (foundations-copywriting-N) but whose titles/blurbs now
+    // belong at a different position. The Drive seed repoints each drive-file
+    // row IN PLACE by sortOrder, so each curation row's fileId already points
+    // at the file now occupying that position — only the display copy needs
+    // repair. Gated on the exact OLD seed title so admin edits always win,
+    // and a permanent no-op once applied.
+    const FOUNDATIONS_RETITLES: ReadonlyArray<{ slug: string; fromTitle: string; toTitle: string; toBlurb: string }> = [
+      { slug: "foundations-copywriting-2", fromTitle: "Selling the Benefit, Not the Product", toTitle: "Finding Your Angle", toBlurb: "Choosing the big idea your ad leads with — before you write a single headline." },
+      { slug: "foundations-copywriting-3", fromTitle: "Curiosity — Withholding the How", toTitle: "Extracting Angles from Existing Copy", toBlurb: "Mining the advertorial and sales page for angles already anchored to the offer." },
+      { slug: "foundations-copywriting-4", fromTitle: "Finding Your Angle", toTitle: "Selling the Benefit, Not the Product", toBlurb: "How to translate features into the benefit your reader actually buys." },
+      { slug: "foundations-copywriting-5", fromTitle: "Believability and Proof", toTitle: "Curiosity — Withholding the How", toBlurb: "Building curiosity gaps that pull the click without giving the answer away." },
+      { slug: "foundations-copywriting-6", fromTitle: "Headline Formulas and the Swipe File", toTitle: "Believability and Proof", toBlurb: "Making big claims believable with proof, specifics, and restraint." },
+      { slug: "foundations-copywriting-7", fromTitle: "Word Choice — Context and Power", toTitle: "Headline Formulas and the Swipe File", toBlurb: "How to use formulas and swipe files without writing copycat headlines." },
+      { slug: "foundations-copywriting-8", fromTitle: "The Headline Word Palette", toTitle: "Word Choice — Context and Power", toBlurb: "Choosing the power and context words that carry real weight." },
+    ];
+    for (const fix of FOUNDATIONS_RETITLES) {
+      const updated = await tx
+        .update(resourceHubItemsTable)
+        .set({ displayTitle: fix.toTitle, blurb: fix.toBlurb })
+        .where(
+          and(
+            eq(resourceHubItemsTable.slug, fix.slug),
+            eq(resourceHubItemsTable.displayTitle, fix.fromTitle),
+          ),
+        )
+        .returning({ slug: resourceHubItemsTable.slug });
+      if (updated.length > 0) {
+        console.log(`[ResourceHub] curation: retitled "${fix.slug}" → "${fix.toTitle}"`);
       }
     }
 

@@ -1,6 +1,6 @@
 # What a Headline Actually Does
 
-*Copywriting Foundations · Document 1 of 8*
+*Copywriting Foundations · Document 1 of 9*
 
 New to this series? Start here — this document defines the vocabulary every other document uses.
 

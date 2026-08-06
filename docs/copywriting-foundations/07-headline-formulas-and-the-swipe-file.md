@@ -1,6 +1,6 @@
 # Headline Formulas and the Swipe File
 
-*Copywriting Foundations · Document 6 of 8*
+*Copywriting Foundations · Document 7 of 9*
 
 If you're new to this series, start with **What a Headline Actually Does**.
 
@@ -73,6 +73,25 @@ A **swipe file** is a personal, organized collection of proven advertising you s
 > - **Anatomy:** [Who Else] + [Vivid Aspirational Image].
 > - **Why It Works:** "Else" smuggles in a crowd of satisfied users without citing one, and "screen-star figure" is a benefit the reader can *see* rather than parse. Question form makes the reader answer — and a "yes, me" is the click.
 > - **Funnel Fit:** Ad — self-selecting question, instant image, zero explanation needed.
+
+## Three Angle-Built Swipes, Annotated
+
+Headlines are angles wearing words (see **Finding Your Angle**). These three classics show recurring angle families executed as finished headlines — study how the doorway underneath shapes every word choice.
+
+> **Swipe:** "Brisbane Local Jane Mathews Stumbles Across A Natural Arthritis Relief Solution"
+> - **Anatomy:** [Geographic Anchor] + [Named Everywoman] + [Accidental Discovery] + [Benefit Category].
+> - **Why It Works:** Three angle families stacked — Local (Brisbane), Story (Jane, a specific person), Discovery ("stumbles across," which removes sales intent: she wasn't selling anything, she just *found* it). Reads like community news, not advertising.
+> - **Funnel Fit:** Ad — the local-news register is built for a native feed.
+
+> **Swipe:** "They Laughed When I Sat Down at the Piano — But When I Started to Play!" *(a famous 1920s ad)*
+> - **Anatomy:** [Social Humiliation] + [Pivot Dash] + [Implied Triumph].
+> - **Why It Works:** Perhaps the most imitated story angle ever written. It compresses a complete transformation arc into one sentence and stops at the exact peak of the turn, forcing the reader into the copy to see the ending. The reader isn't buying piano lessons; they're buying the moment the laughter stops.
+> - **Funnel Fit:** Advertorial — it's the first line of a story the page then tells in full.
+
+> **Swipe:** "Small Company's New Golf Ball Flies Too Far; Could Obsolete Many Golf Courses" *(a famous classic)*
+> - **Anatomy:** [Underdog Source] + [Benefit Disguised as a Problem] + [Absurd Institutional Consequence].
+> - **Why It Works:** Discovery + Contrarian in one line. The benefit (distance) is framed as *too much of a good thing* — a complaint — which flips the sales pitch into news and makes the claim feel like a leak rather than an ad.
+> - **Funnel Fit:** Ad — the news register and the "wait, what?" flip are engineered for cold scrollers.
 
 ## Fictional Before/After: Filling a Formula vs. Wearing It
 
