@@ -583,7 +583,7 @@ const frontendWelcome = {
       bullets: [
         {
           title: "How to Use The Proprietary Software:",
-          text: "Your coach will introduce you to your suite of automation tools and software. These cost me $700,000 to build and they can automate 95% of the tasks. So, most of the heavy-lifting is already taken care of.",
+          text: "Your coach will introduce you to your suite of automation tools and software. These cost me $4.7 million to build and they can automate 95% of the tasks. So, most of the heavy-lifting is already taken care of.",
         },
         {
           title: "The Cash Flow Mechanics:",
