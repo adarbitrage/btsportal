@@ -1,0 +1,326 @@
+// Auto-generated from the user-supplied legal copy (do not reflow).
+// The trailing marketing-footer block (link row + copyright + disclaimer)
+// is stripped here — the shared portal Footer renders it once per page.
+// Source: attached_assets/Pasted--PRIVACY-POLICY-Last-Updated-July-17-2026-1-INTRODUCTIO_1786026821456.txt
+export const privacyPolicyTitle = "Privacy Policy";
+export const privacyPolicyBody = `PRIVACY POLICY
+Last Updated: July 17, 2026
+
+1. INTRODUCTION AND SCOPE
+This Privacy Policy ("Policy") describes how Build. Test. Scale., LLC ("we," "our," "us," "Company") collects, uses, shares, and protects personal information obtained from users ("you," "your," "user") of the https://buildtestscale.com website and any associated services, features, content, applications, or products (collectively, the "Services").
+
+This Policy is designed to help you understand our data practices and your rights regarding your personal information. By accessing or using our Services, you acknowledge that you have read, understood, and agree to be bound by this Privacy Policy. If you do not agree with our policies and practices, please do not use our Services.
+
+This Privacy Policy applies to information we collect:
+
+On our website https://buildtestscale.com
+Through email, text, and other electronic communications between you and our Services
+When you interact with our advertising and applications on third-party websites and services
+This Privacy Policy is governed by and construed in accordance with the laws of the State of Texas and applicable federal laws of the United States, including the Federal Trade Commission Act (15 U.S.C. §45).
+
+2. INFORMATION WE COLLECT
+Notice at Collection
+We collect the following categories of personal information for the purposes described below:
+
+What We Collect
+
+Identifiers (Name, Email, IP Address)
+Contact Information (Phone Number, Address)
+Internet Activity (Browsing history, interactions)
+Commercial Information (Purchase history)
+Why We Collect It
+
+To provide our services and products
+Marketing and advertising communications
+Analytics to improve user experience
+Fraud prevention and security
+We collect several types of information from and about users of our Services, including:
+
+2.1 Personal Information You Provide to Us
+We collect personal information that you voluntarily provide to us when you:
+
+Register for an account
+Subscribe to our newsletter or communications
+Request information or materials
+Purchase products or services
+Participate in surveys, contests, or promotions
+Contact our customer service
+Submit feedback or testimonials
+The personal information we collect may include:
+
+Identity Information: Your name, username, or similar identifier
+Contact Information: Your email address, mailing address, phone number
+Transaction Information: Details about purchases or orders you have made
+Correspondence Information: Records of your communications with us
+2.2 Information We Collect Automatically
+As you navigate through and interact with our Services, we may use automatic data collection technologies to collect certain information about your equipment, browsing actions, and patterns, including:
+
+Usage Data: Details of your visits to our Services, including traffic data, location data, logs, and other communication data and the resources that you access and use on the Services
+Device Information: Information about your computer, mobile device, internet connection, and browser, including your IP address, operating system, and browser type
+Location Information: General location information derived from your IP address
+2.3 Information We Do Not Collect
+We do not intentionally collect:
+
+Sensitive personal information such as racial or ethnic origin, political opinions, religious beliefs, health information, or sexual orientation
+Biometric identifiers as defined under Texas Business and Commerce Code Chapter 503
+Information from children under the age of 13 (see Section 10: Children's Privacy)
+Financial information such as credit card numbers directly (these are processed by our third-party payment processors)
+3. HOW WE USE YOUR INFORMATION
+We use the information we collect about you or that you provide to us for the following purposes:
+
+3.1 Provide and Improve Our Services
+To present our Services and their contents to you
+To provide you with information, products, or services that you request from us
+To fulfill any other purpose for which you provide it
+To improve our website, products, and services
+To develop new products, services, features, and functionality
+3.2 Communications
+To provide you with notices about your account
+To notify you about changes to our Services or any products or services we offer or provide
+To send you marketing and promotional communications (with your consent where required by law)
+To respond to your inquiries, comments, feedback, or questions
+3.3 Analytics and Research
+To analyze usage patterns and trends
+To better understand how users access and use our Services
+To evaluate and improve our Services and your experience
+3.4 Legal and Security
+To comply with applicable legal obligations
+To enforce our Terms of Service and other agreements
+To protect the security and integrity of our Services
+To investigate and prevent fraudulent transactions, unauthorized access to our Services, and other illegal activities
+3.5 No Automated Decision-Making or Profiling
+We do not use automated decision-making processes or profiling techniques that produce legal effects concerning you or similarly significantly affect you. While we may use automated tools to analyze data and improve our Services, these processes do not make decisions that affect your legal rights or access to our Services.
+
+4. INFORMATION SHARING AND DISCLOSURE
+We do not sell your personal information to third parties for monetary consideration. We may share your personal information in the following circumstances:
+
+4.1 Service Providers
+We may share your information with third-party vendors, service providers, contractors, or agents who perform functions on our behalf. These entities include:
+
+Analytics Providers: Google Analytics, Google Tag Manager
+Advertising Partners: Google Ads, Meta Ads
+Hosting and Infrastructure: Cloudflare
+These service providers are contractually obligated to use your personal information only as necessary to provide services to us and are prohibited from using or disclosing your information for any other purpose.
+
+4.2 Business Transfers
+If we are involved in a merger, acquisition, financing, reorganization, bankruptcy, receivership, sale of company assets, or transition of service to another provider, your information may be transferred as part of that transaction. We will notify you of any such change in ownership or control of your personal information.
+
+4.3 Legal Requirements
+We may disclose your information if required to do so by law or in response to valid requests by public authorities (e.g., a court or government agency). We may also disclose your information to:
+
+Enforce our Terms of Service and other agreements
+Protect and defend our rights or property
+Prevent or investigate possible wrongdoing in connection with the Services
+Protect the personal safety of users of the Services or the public
+Protect against legal liability
+4.4 With Your Consent
+We may share your information with third parties when you have given us your consent to do so.
+
+4.5 No International Transfers
+We do not transfer your personal information outside of the United States. All data processing activities occur within the United States.
+
+4.6 Mobile Data Sharing
+No mobile information will be shared with third parties/affiliates for marketing/promotional purposes. Information sharing to subcontractors in support services, such as customer service, is permitted.
+
+5. SMS/TEXT MESSAGING PROGRAM
+5.1 Program Description
+Build. Test. Scale., LLC operates an SMS/text messaging program through which we may send you transactional and marketing messages related to our affiliate marketing mentorship program and Services. These messages may include program updates, coaching reminders, promotional offers, account notifications, and other information relevant to your membership.
+
+5.2 How to Opt In
+You may opt in to receive text messages from us through the following methods:
+
+Website Sign-Up Form: By checking the SMS consent checkbox on our waitlist or sign-up form, which clearly discloses that you are agreeing to receive text messages from us.
+Text Message: By texting the keyword "START" to our designated number.
+Written Form: By completing and signing a written form that clearly discloses these terms.
+Consent to receive SMS messages is not required as a condition of purchasing any goods or services from us.
+
+5.3 Message Frequency
+Message frequency varies. You may receive recurring messages depending on your account activity, enrollment status, and promotional periods.
+
+5.4 Message and Data Rates
+Message and data rates may apply. These charges are billed by your mobile carrier. Please check your mobile plan for details.
+
+5.5 How to Opt Out and Get Help
+You may opt out of our SMS program at any time by replying STOP to any text message you receive from us. After opting out, you will receive a final confirmation message and no further messages will be sent to that number unless you opt in again.
+
+For help or support, reply HELP to any text message or contact us at support@buildtestscale.com.
+
+5.6 SMS Terms and Conditions
+For complete details about our SMS program, including carrier disclosures, consent requirements, and your full rights, please review our SMS Terms and Conditions.
+
+6. COOKIES AND TRACKING TECHNOLOGIES
+6.1 Cookies and Similar Technologies
+We use cookies and similar tracking technologies to track activity on our Services and hold certain information. Cookies are files with a small amount of data which may include an anonymous unique identifier. Cookies are sent to your browser from a website and stored on your device.
+
+The types of cookies we use include:
+
+Essential Cookies: Necessary for the operation of our Services
+Analytics Cookies: Help us understand how visitors interact with our Services by collecting and reporting information anonymously
+Performance Cookies: Collect information about how visitors use our Services, such as which pages visitors go to most often
+6.2 Third-Party Cookies
+Some cookies are placed by third parties on our behalf, such as:
+
+Google Analytics: Used to analyze user behavior and improve our Services
+Google Tag Manager: Used to manage and deploy marketing tags on our website
+Google Ads: Used to track conversions from Google Ads campaigns
+Meta Ads: Used to track conversions from Meta (Facebook) advertising campaigns
+6.3 Your Choices Regarding Cookies
+You can instruct your browser to refuse all cookies or to indicate when a cookie is being sent. However, if you do not accept cookies, you may not be able to use some portions of our Services. Most web browsers allow you to manage your cookie preferences.
+
+6.4 Global Privacy Control Signal
+Our Services recognize and respond to Global Privacy Control (GPC) signals. If you have enabled GPC in your browser, we will treat this as a valid request to opt out of the sale or sharing of your personal information.
+
+7. DATA RETENTION
+We retain your personal information for as long as necessary to fulfill the purposes outlined in this Privacy Policy, unless a longer retention period is required or permitted by law. The criteria used to determine our retention periods include:
+
+The length of time we have an ongoing relationship with you and provide the Services to you
+Whether there is a legal obligation to which we are subject
+Whether retention is advisable in light of our legal position (such as in regard to applicable statutes of limitations, litigation, or regulatory investigations)
+When we no longer need to use your personal information, we will take steps to securely delete or anonymize it. If this is not possible (for example, because your personal information has been stored in backup archives), then we will securely store your personal information and isolate it from any further processing until deletion is possible.
+
+8. YOUR PRIVACY RIGHTS
+8.1 Access, Correction, and Deletion Rights
+You have the right to:
+
+Access: Request information about the personal information we hold about you and how we use it
+Correction: Request that we correct or update any personal information that is inaccurate or incomplete
+Deletion: Request that we delete your personal information in certain circumstances, subject to certain exceptions provided by law
+8.2 How to Exercise Your Rights
+You may exercise your privacy rights by:
+
+Email: Contacting us at support@buildtestscale.com
+Online Form: Submitting a request through our website
+Response Timing and Format
+
+We strive to respond to a verifiable consumer request within 45 days of its receipt. If we require more time (up to 90 days), we will inform you of the reason and extension period in writing. We will deliver our written response by mail or electronically, at your option.
+
+Any disclosures we provide will only cover the 12-month period preceding the verifiable consumer request's receipt. The response we provide will also explain the reasons we cannot comply with a request, if applicable.
+
+8.3 Non-Discrimination
+We will not discriminate against you for exercising any of your privacy rights. We will not:
+
+Deny you goods or services
+Charge you different prices or rates for goods or services
+Provide you with a different level or quality of goods or services
+Suggest that you may receive a different price or rate for goods or services or a different level or quality of goods or services
+8.4 Opt-Out Rights
+You have the right to opt out of:
+
+Marketing communications: You can unsubscribe from our marketing emails by clicking the "unsubscribe" link included in those emails
+SMS messages: You can opt out of text messages by replying STOP to any message we send you (see Section 5)
+Cookies and tracking technologies: You can manage your preferences through your browser settings
+9. DATA SECURITY
+We have implemented appropriate technical and organizational measures designed to secure your personal information from accidental loss and from unauthorized access, use, alteration, and disclosure. Our security measures include:
+
+Encryption: We use industry-standard encryption to protect sensitive information transmitted online
+Access Controls: We restrict access to personal information to employees, contractors, and agents who need to know that information to perform their job functions
+Monitoring: We maintain systems to detect potential security breaches and monitor for suspicious activities
+Regular Backups: We perform regular backups of our systems to ensure data can be restored in case of data loss
+Security Assessments: We conduct periodic assessments of our security measures to identify and address potential vulnerabilities
+Employee Training: We train our employees on privacy and security best practices
+Despite our efforts, no method of transmission over the Internet or electronic storage is 100% secure. Therefore, while we strive to protect your personal information, we cannot guarantee its absolute security.
+
+9.1 Data Breach Response
+In the event of a data breach that compromises your personal information, we will:
+
+Promptly investigate the incident to determine its scope and impact
+Take immediate steps to contain and mitigate the breach
+Notify affected individuals without unreasonable delay, typically within 72 hours of discovery, where feasible
+Provide clear information about what happened, what information was affected, steps we are taking, and what you can do to protect yourself
+Notify relevant regulatory authorities as required by applicable law
+Review and update our security measures to prevent similar incidents in the future
+10. CHILDREN'S PRIVACY
+Our Services are not directed to children under 13 years of age, and we do not knowingly collect personal information from children under 13. If we learn we have collected or received personal information from a child under 13 without verification of parental consent, we will delete that information.
+
+If you believe we might have any information from or about a child under 13, please contact us at support@buildtestscale.com.
+
+We are committed to complying with the Children's Online Privacy Protection Act (COPPA) and its implementing regulations (15 U.S.C. 6501-6505 and 16 CFR Part 312).
+
+11. THIRD-PARTY SERVICES AND EXTERNAL LINKS
+11.1 Third-Party Services
+Our Services may use third-party services that collect, monitor, and analyze user data to help us improve our Services. These third-party service providers include:
+
+Google Analytics: Used to analyze user behavior on our website
+Google Tag Manager: Used to manage and deploy marketing tags
+Google Ads: Used for advertising and conversion tracking
+Meta Ads: Used for advertising and conversion tracking on Facebook platforms
+Cloudflare: Our hosting provider, located at 101 Townsend St., San Francisco, CA 94107 (USA)
+These third-party service providers have their own privacy policies addressing how they use the information they collect. We encourage you to review their privacy policies.
+
+11.2 Links to Other Websites
+Our Services may contain links to other websites that are not operated by us. If you click on a third-party link, you will be directed to that third party's site. We strongly advise you to review the Privacy Policy of every site you visit.
+
+We have no control over and assume no responsibility for the content, privacy policies, or practices of any third-party sites or services. The inclusion of links to such websites does not imply an endorsement of the content on such websites.
+
+12. UPDATES TO THIS PRIVACY POLICY
+We may update our Privacy Policy from time to time. We will notify you of any changes by posting the new Privacy Policy on this page and updating the "Last Updated" date at the top of this Privacy Policy.
+
+You are advised to review this Privacy Policy periodically for any changes. Changes to this Privacy Policy are effective when they are posted on this page. For significant changes, we will make reasonable efforts to provide notification through our Services or via email if we have your contact information.
+
+We will review this Privacy Policy at least annually and whenever there are significant changes to our data processing activities or applicable privacy laws.
+
+13. CONTACT INFORMATION
+If you have any questions about this Privacy Policy or our privacy practices, please contact us at:
+
+Build. Test. Scale., LLC
+5900 Balcones Drive, STE 100
+Austin, TX 78731, US
+
+Email: support@buildtestscale.com
+Online Form: Available on our website
+
+14. LEGAL DISCLOSURES
+14.1 Law Enforcement Requests
+We may disclose your personal information in response to lawful requests by public authorities, including to meet national security or law enforcement requirements. We carefully review all such requests to ensure they are legally valid and narrowly tailored.
+
+14.2 Compliance with Laws
+We are subject to various laws and regulations that may require us to disclose your personal information. We will only disclose information as required by applicable law and will limit such disclosure to what is strictly necessary to comply with the law.
+
+14.3 Protection of Rights
+We may disclose your personal information when we believe in good faith that disclosure is necessary to:
+
+Protect our rights, property, or safety
+Protect the rights, property, or safety of our users or others
+Investigate fraud, security, or technical issues
+Respond to an emergency
+15. STATE-SPECIFIC PRIVACY RIGHTS
+15.1 Texas Residents (TDPSA)
+Under the Texas Data Privacy and Security Act (TDPSA), Texas residents have specific rights regarding their personal data. As a business operating in Texas, we are committed to transparency and limiting data collection to what is reasonably necessary.
+
+Texas residents have the right to:
+
+Confirm whether we are processing your personal data and access that data
+Correct inaccuracies in your personal data
+Delete personal data provided by or obtained about you
+Obtain a copy of your personal data in a portable format
+Opt out of the processing of personal data for targeted advertising, the sale of personal data, or profiling in furtherance of decisions that produce legal or similarly significant effects
+We recognize and honor universal opt-out mechanisms, including Global Privacy Control (GPC) signals, as valid requests to opt out of the sale or sharing of personal information where applicable under Texas law. We do not collect biometric identifiers.
+
+15.2 California Residents (CCPA/CPRA)
+This section applies solely to visitors, users, and others who reside in the State of California.
+
+Right to Know: You have the right to request that we disclose certain information to you about our collection and use of your personal information over the past 12 months.
+Right to Delete: You have the right to request that we delete any of your personal information that we collected from you and retained, subject to certain exceptions.
+Right to Opt-Out: You have the right to opt-out of the sale or sharing of your personal information.
+Right to Non-Discrimination: We will not discriminate against you for exercising any of your CCPA rights.
+15.3 Virginia Residents (VCDPA)
+Under the Virginia Consumer Data Protection Act (VCDPA), Virginia residents have certain rights regarding their personal data, including:
+
+To confirm whether or not we are processing your personal data and to access such personal data
+To correct inaccuracies in your personal data
+To delete personal data provided by or obtained about you
+To obtain a copy of your personal data in a portable format
+To opt out of the processing of personal data for purposes of targeted advertising, the sale of personal data, or profiling in furtherance of decisions that produce legal or similarly significant effects concerning the consumer
+15.4 Appeals Process
+If we decline to take action regarding your request, we will inform you of our decision and reasoning. If you are a resident of Texas, Virginia, or another state with applicable laws, you may appeal our decision by contacting us at support@buildtestscale.com. We will respond to your appeal within 60 days.
+
+16. DISCLAIMERS AND ADDITIONAL INFORMATION
+16.1 Platform Relationships
+This site is not a part of the YouTube, Google or Facebook website; Google Inc or Facebook Inc. Additionally, this site is NOT endorsed by YouTube, Google or Facebook in any way. FACEBOOK is a trademark of FACEBOOK, Inc. YOUTUBE is a trademark of GOOGLE Inc.
+
+16.2 Business Opportunity and Earnings Disclaimer
+In the nature of transparency and authenticity, we do make a special offer at the end only if you'd like help actually implementing these ad tactics and strategies. Is it required? Absolutely not. Will you receive value & insight even if you don't want to speak together? 100% yes. Some people will take this training, implement it by themselves, and see breakthrough. Some people will see what's possible, and know that working together is just what they need to get results even faster. It's completely up to you but we hope that you'll at least participate in the free training, use it, and let us know what you think!
+
+DISCLAIMER: Any sales figures stated anywhere on this site are our personal sales figures. Please understand our results are not typical, we're not implying you'll duplicate them (or do anything for that matter). Historical performance is not indicative of future results. We have the benefit of practicing direct response marketing and advertising since we were 14 years old, and have an established following as a result. The average person who buys any 'how to' information gets little to no results. We're using these references for example purposes only. Your results will vary and depend on many factors including but not limited to your background, experience, and work ethic. All business entails risk as well as massive and consistent effort and action. If you're not willing to accept that, please DO NOT GET OUR INFORMATION.
+
+© 2026 Build. Test. Scale., LLC. All rights reserved.`;

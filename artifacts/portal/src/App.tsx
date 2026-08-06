@@ -94,6 +94,16 @@ import OnboardingBookKickoff from "@/pages/onboarding/BookKickoff";
 import OnboardingBookPartnerCall from "@/pages/onboarding/BookPartnerCall";
 import OnboardingSendOffPage from "@/pages/onboarding/SendOff";
 import TermsOfService from "@/pages/TermsOfService";
+import {
+  PrivacyPolicyPage,
+  EarningsDisclaimerPage,
+  AffiliateDisclaimerPage,
+  DmcaPolicyPage,
+  AccessibilityPage,
+  SmsTermsPage,
+  RefundPolicyPage,
+} from "@/pages/legal/LegalPages";
+import ContactUs from "@/pages/legal/ContactUs";
 import CommunityCategories from "@/pages/admin/CommunityCategories";
 import CommunityModeration from "@/pages/admin/CommunityModeration";
 import CommunityAnalytics from "@/pages/admin/CommunityAnalytics";
@@ -551,6 +561,15 @@ function Router() {
       <Route path="/coaching">{() => <EntitlementRoute component={Coaching} entitlement="coaching:group" />}</Route>
       <Route path="/account">{() => <ProtectedRoute component={Account} />}</Route>
       <Route path="/legal/terms">{() => <ProtectedRoute component={TermsOfService} />}</Route>
+      {/* Static legal pages linked from the footer (mirrors the marketing-site footer). */}
+      <Route path="/legal/privacy">{() => <ProtectedRoute component={PrivacyPolicyPage} />}</Route>
+      <Route path="/legal/earnings-disclaimer">{() => <ProtectedRoute component={EarningsDisclaimerPage} />}</Route>
+      <Route path="/legal/affiliate-disclaimer">{() => <ProtectedRoute component={AffiliateDisclaimerPage} />}</Route>
+      <Route path="/legal/dmca">{() => <ProtectedRoute component={DmcaPolicyPage} />}</Route>
+      <Route path="/legal/accessibility">{() => <ProtectedRoute component={AccessibilityPage} />}</Route>
+      <Route path="/legal/sms-terms">{() => <ProtectedRoute component={SmsTermsPage} />}</Route>
+      <Route path="/legal/refund-policy">{() => <ProtectedRoute component={RefundPolicyPage} />}</Route>
+      <Route path="/legal/contact">{() => <ProtectedRoute component={ContactUs} />}</Route>
       {/* Task #2026: My Products moved into an Account page card; the old URL
           deep-links to that card so bookmarks and AI answers keep working. */}
       <Route path="/account/products">{() => <Redirect to="/account?card=my-products" />}</Route>
