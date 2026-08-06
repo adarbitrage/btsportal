@@ -88,7 +88,7 @@ export default function FrontendWelcome() {
 
   return (
     <AppLayout>
-      <div className="space-y-8 max-w-4xl" onClick={onBodyClick}>
+      <div className="space-y-8 max-w-4xl mx-auto" onClick={onBodyClick}>
         {isLoading && (
           <div className="space-y-4" data-testid="welcome-loading">
             {CURRICULUM_SKELETON_ROWS.map((r) => (
