@@ -75,6 +75,7 @@ import { isCoachRole, isPartnerRole } from "@workspace/auth";
 import { NotificationBell, NotificationBadgeCount } from "@/components/community/NotificationBell";
 import { useAdminModerationPendingCount } from "@/hooks/useAdminModeration";
 import {
+  buildFrontendOnlyNav,
   filterNavByContentAccess,
   filterNavByEntitlements,
   filterNavByHiddenRoles,
@@ -93,6 +94,51 @@ import { useContentAccess } from "@/hooks/use-content-access";
 import { hasPermission } from "@/lib/permissions";
 import { UpgradeFeaturesCard } from "@/components/upgrade/UpgradeFeaturesCard";
 import { NextCallPanel } from "./NextCallPanel";
+import { isFrontendWelcomeMember } from "@/pages/Landing";
+import { useAdvisorCallNav } from "@/hooks/use-fe-call-bar";
+import { scrollToBookingWithRetry } from "./FeCallBar";
+import { CalendarCheck2, PhoneCall } from "lucide-react";
+
+/**
+ * Prominent "Book Your Advisor Call" nav entry for front-end-only members.
+ * CTA state: highlighted green button linking to the Welcome page's booking
+ * section. Booked state: calm confirmed row (no nagging). Hidden for every
+ * other audience (useAdvisorCallNav returns "hidden").
+ */
+function AdvisorCallNavLink({ onNavClick }: { onNavClick?: () => void }) {
+  const state = useAdvisorCallNav();
+  const [location, navigate] = useLocation();
+
+  if (state === "hidden") return null;
+
+  if (state === "booked") {
+    return (
+      <div
+        data-testid="advisor-call-nav-booked"
+        className="flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium text-emerald-700 bg-emerald-50 border border-emerald-200"
+      >
+        <CalendarCheck2 className="w-4 h-4 shrink-0" />
+        <span className="truncate">Advisor Call Booked</span>
+      </div>
+    );
+  }
+
+  return (
+    <button
+      type="button"
+      data-testid="advisor-call-nav-cta"
+      onClick={() => {
+        if (location !== "/") navigate("/");
+        scrollToBookingWithRetry();
+        onNavClick?.();
+      }}
+      className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-semibold bg-emerald-600 text-white hover:bg-emerald-700 shadow-sm transition-colors cursor-pointer"
+    >
+      <PhoneCall className="w-4 h-4 shrink-0" />
+      <span className="truncate">Book Your Advisor Call</span>
+    </button>
+  );
+}
 
 function ModerationPendingBadge() {
   const { data } = useAdminModerationPendingCount({ refetchInterval: 30_000 });
@@ -601,7 +647,12 @@ export function SidebarContent({ onNavClick }: { onNavClick?: () => void }) {
 
   const { accessiblePageKeys, isError: accessError } = useContentAccess();
 
-  const filteredMemberNav = filterNavByRole(
+  // Front-end-only (funnel buyer) audience: same predicate the landing gate
+  // and bottom bar use. Never true for admins/coaches (role !== "member").
+  const isFrontendOnly =
+    user?.role === "member" && isFrontendWelcomeMember(member?.products);
+
+  const standardFilteredNav = filterNavByRole(
     filterNavByHiddenRoles(
       filterNavByContentAccess(
         filterNavByEntitlements(MEMBER_NAV, entitlements, isAdminUser || isCoach),
@@ -612,6 +663,13 @@ export function SidebarContent({ onNavClick }: { onNavClick?: () => void }) {
     ),
     userRole,
   );
+
+  // Front-end-only members get a flat, stripped-down nav: Welcome, the
+  // content pages their purchases actually grant, and Account. Everyone else
+  // keeps the full filtered nav untouched.
+  const filteredMemberNav: NavNode[] = isFrontendOnly
+    ? buildFrontendOnlyNav(standardFilteredNav)
+    : standardFilteredNav;
 
   const filteredAdminChildren = isAdminUser
     ? filterNavByRole(ADMIN_CHILDREN, userRole)
@@ -708,14 +766,18 @@ export function SidebarContent({ onNavClick }: { onNavClick?: () => void }) {
 
       <div ref={scrollRef} data-testid="member-sidebar-scroll" className="flex-1 min-h-0 py-4 px-3 space-y-0.5 overflow-y-auto">
         {filteredMemberNav.map((node, i) => (
-          <NavNodeRow
-            key={node.kind === "leaf" ? node.href : node.storageKey + i}
-            node={node}
-            activeHref={activeHref}
-            onNavClick={onNavClick}
-            indent={0}
-            isAdminNode={false}
-          />
+          <div key={node.kind === "leaf" ? node.href : node.storageKey + i} className="space-y-0.5">
+            <NavNodeRow
+              node={node}
+              activeHref={activeHref}
+              onNavClick={onNavClick}
+              indent={0}
+              isAdminNode={false}
+            />
+            {isFrontendOnly && node.kind === "leaf" && node.href === "/" && (
+              <AdvisorCallNavLink onNavClick={onNavClick} />
+            )}
+          </div>
         ))}
 
         {showCoachSection && (

@@ -19,7 +19,7 @@ const BOOKING_ANCHOR_ID = "booking";
 const SCROLL_RETRY_MS = 250;
 const SCROLL_RETRY_MAX = 20; // ~5s of retries while the page body loads
 
-function scrollToBookingWithRetry(attempt = 0) {
+export function scrollToBookingWithRetry(attempt = 0) {
   const el = document.getElementById(BOOKING_ANCHOR_ID);
   if (el) {
     el.scrollIntoView({ behavior: "smooth", block: "start" });

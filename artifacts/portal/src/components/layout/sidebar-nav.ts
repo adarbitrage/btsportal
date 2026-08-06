@@ -148,6 +148,39 @@ export function filterNavByHiddenRoles(
   return result;
 }
 
+/**
+ * Front-end-only (funnel buyer) nav mode: reduce the ALREADY-FILTERED member
+ * nav to a flat list of just Welcome, the content-access-gated leaves the
+ * member actually passed (i.e. survived filterNavByContentAccess), and
+ * Account. Folders are flattened away entirely — no empty shells. Leaves that
+ * are neither Welcome/Account nor content-page-gated (AI Assistant,
+ * entitlement pitches, etc.) are dropped for this audience.
+ *
+ * Call this AFTER the standard filter pipeline; it never applies to admins,
+ * coaches, or mentorship-tier members (the caller gates on the shared
+ * front-end-audience predicate from Landing.tsx).
+ */
+export function buildFrontendOnlyNav(nodes: NavNode[]): NavLeaf[] {
+  const out: NavLeaf[] = [];
+  const walk = (list: NavNode[]) => {
+    for (const node of list) {
+      if (node.kind === "folder") {
+        walk(node.children);
+        continue;
+      }
+      if (
+        node.href === "/" ||
+        node.href === "/account" ||
+        node.contentPageKey !== undefined
+      ) {
+        out.push(node);
+      }
+    }
+  };
+  walk(nodes);
+  return out;
+}
+
 export interface ResolvedAdminRole {
   userRole: string;
   isAdminUser: boolean;

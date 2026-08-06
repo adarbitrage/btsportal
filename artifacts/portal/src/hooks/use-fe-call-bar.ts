@@ -53,6 +53,55 @@ async function fetchFeStatus(): Promise<FeStatusResponse> {
   return (await res.json()) as FeStatusResponse;
 }
 
+/**
+ * Sidebar "Book Your Advisor Call" link state for the front-end-only
+ * audience. Pure — unit-tested alongside shouldShowFeCallBar.
+ *
+ *   - "hidden": not a plain member, or not the Frontend Welcome audience.
+ *   - "booked": audience member with an active upcoming FE-intensive booking
+ *     (status endpoint succeeded and reported one) — render the confirmed
+ *     state instead of the urgent CTA.
+ *   - "cta": audience member without a known booking (including while the
+ *     status query is loading or errored — the link's destination is always
+ *     valid, so the nav entry fails open to the CTA, unlike the bottom bar).
+ */
+export type AdvisorCallNavState = "hidden" | "cta" | "booked";
+
+export function getAdvisorCallNavState({
+  role,
+  products,
+  status,
+}: FeCallBarInputs): AdvisorCallNavState {
+  if (role !== "member") return "hidden";
+  if (!isFrontendWelcomeMember(products)) return "hidden";
+  if (status.isSuccess && status.data && status.data.booking != null) {
+    return "booked";
+  }
+  return "cta";
+}
+
+export function useAdvisorCallNav(): AdvisorCallNavState {
+  const { user } = useAuth();
+  const { data: member } = useGetCurrentMember();
+
+  const isAudience =
+    user?.role === "member" && isFrontendWelcomeMember(member?.products);
+
+  // Shares the ["fe-intensive-status"] cache entry with the booking surface
+  // and the bottom bar, so booking/canceling updates all three at once.
+  const statusQuery = useQuery({
+    queryKey: ["fe-intensive-status"],
+    queryFn: fetchFeStatus,
+    enabled: isAudience,
+  });
+
+  return getAdvisorCallNavState({
+    role: user?.role,
+    products: member?.products,
+    status: statusQuery,
+  });
+}
+
 export function useFeCallBar(): boolean {
   const { user } = useAuth();
   const { data: member } = useGetCurrentMember();
