@@ -42,10 +42,10 @@ export const PORTAL_NAVIGATION_MAP: readonly NavSection[] = [
     ],
   },
   {
-    section: "Training",
+    section: "Your Purchases",
     items: [
-      { label: "7 Pillars", path: "/core-training/pillars-to-blitz", description: "The foundational 7 Pillars training — opens the What The Blitz Is bridge page." },
-      { label: "The Blitz", path: "/blitz", description: "The Blitz — the step-by-step affiliate marketing training program and the place your progress is tracked." },
+      { label: "Your Second Engine", path: "/core-training/pillars-to-blitz", description: "Your Second Engine — the front-end offer's foundational 7 Pillars training; opens the What The Blitz Is bridge page. Shown to members who own the front-end offer or a mentorship tier." },
+      { label: "The Blitz", path: "/blitz", description: "The Blitz — the step-by-step affiliate marketing training program and the place your progress is tracked. Shown to members who own the Blitz offer or a mentorship tier." },
     ],
   },
   {

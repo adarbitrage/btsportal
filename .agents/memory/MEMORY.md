@@ -154,4 +154,5 @@
 - [FE-Intensive booking surface](fe-intensive-booking-surface.md) — own table not call_bookings, dormant until admin sets calendar-id setting, shared member advisory lock for book+cancel, copy via curriculum payload.
 - [Companion-SQL UNIQUE re-add raises duplicate_table](fe-intensive-booking-surface.md) — idempotent `ADD CONSTRAINT ... UNIQUE` must catch `duplicate_object OR duplicate_table` (the backing index collides), or sync-dev warns on every replay.
 - [KB owner stamps: normalized-title identity](kb-owner-stamp-normalized-title.md) — never match docs by exact title (prod ™ variant broke the seven-pillars gate); one-time backfills must be marker-gated, not perpetual boot enforcement.
+- [Your Purchases nav ownership](your-purchases-nav-ownership.md) — sidebar purchases folder = code-owned slug→label map; mentorship tiers own both entries; sidebar label renames must update nav map + assistant link-normalizer tests in lockstep.
 - [Legacy knowledge base retired](legacy-kb-retired.md) — knowledgebase_docs/bookmarks dropped; tests/fixtures now target ai_live_documents; kb-legacy-crosswalk kept (pure terminology map).

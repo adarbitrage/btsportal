@@ -78,6 +78,9 @@ import {
   buildFrontendOnlyNav,
   filterNavByContentAccess,
   filterNavByEntitlements,
+  filterNavByOwnedProducts,
+  getActiveOwnedProductSlugs,
+  PURCHASE_OWNER_SLUGS,
   filterNavByHiddenRoles,
   filterNavByRole,
   getSidebarTierLabel,
@@ -157,14 +160,18 @@ export const MEMBER_NAV: NavNode[] = [
     icon: Home,
   },
   {
+    // "Your Purchases" (replaces the old "Training" folder / "7 Pillars"
+    // leaf): children are the member's purchased offers under their real
+    // product names, ownership-derived via filterNavByOwnedProducts. The
+    // folder disappears when the member owns none of them.
     kind: "folder",
-    storageKey: "training",
-    label: "Training",
-    icon: GraduationCap,
+    storageKey: "your-purchases",
+    label: "Your Purchases",
+    icon: Package,
     defaultOpen: false,
     children: [
-      { kind: "leaf", href: "/core-training/pillars-to-blitz", label: "7 Pillars", icon: Layers, contentPageKey: "pillars-to-blitz" },
-      { kind: "leaf", href: "/blitz", label: "The Blitz™", icon: Zap, contentPageKey: "blitz" },
+      { kind: "leaf", href: "/core-training/pillars-to-blitz", label: "Your Second Engine", icon: Layers, contentPageKey: "pillars-to-blitz", ownedProductSlugs: PURCHASE_OWNER_SLUGS.yourSecondEngine },
+      { kind: "leaf", href: "/blitz", label: "The Blitz™", icon: Zap, contentPageKey: "blitz", ownedProductSlugs: PURCHASE_OWNER_SLUGS.blitz },
     ],
   },
   {
@@ -647,10 +654,16 @@ export function SidebarContent({ onNavClick }: { onNavClick?: () => void }) {
   const isFrontendOnly =
     user?.role === "member" && isFrontendWelcomeMember(member?.products);
 
+  const ownedProductSlugs = getActiveOwnedProductSlugs(member?.products);
+
   const standardFilteredNav = filterNavByRole(
     filterNavByHiddenRoles(
       filterNavByContentAccess(
-        filterNavByEntitlements(MEMBER_NAV, entitlements, isAdminUser || isCoach),
+        filterNavByEntitlements(
+          filterNavByOwnedProducts(MEMBER_NAV, ownedProductSlugs, isAdminUser || isCoach),
+          entitlements,
+          isAdminUser || isCoach,
+        ),
         accessiblePageKeys,
         isAdminUser || isCoach || accessError,
       ),

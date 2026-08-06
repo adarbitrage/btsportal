@@ -1,5 +1,6 @@
 import type { ComponentType } from "react";
 import { hasPermission, isAdminRole, isCoachRole, type Permission } from "@workspace/auth";
+import { MAPPABLE_PRODUCTS } from "@workspace/content-access-registry";
 
 export type NavIcon = ComponentType<{ className?: string }>;
 
@@ -19,6 +20,14 @@ export interface NavLeaf {
    * Must match a key from the shared GATEABLE_PAGES registry.
    */
   contentPageKey?: string;
+  /**
+   * When set, this nav item is only shown to members holding an ACTIVE grant
+   * of at least one of the listed product slugs ("Your Purchases" ownership
+   * gating). Admin/coach bypass applies, like the other member-only filters.
+   * Keep the slug lists code-owned (see PURCHASE_OWNER_SLUGS) so labels and
+   * ownership rules stay consistent.
+   */
+  ownedProductSlugs?: readonly string[];
 }
 
 export interface NavFolder {
@@ -101,6 +110,83 @@ export function filterNavByEntitlements(
  * Admin and coach users bypass this filter entirely.
  * Items without a `contentPageKey` are always shown.
  */
+// ── "Your Purchases" ownership gating ────────────────────────────────────────
+
+const MENTORSHIP_SLUGS: readonly string[] = MAPPABLE_PRODUCTS.filter(
+  (p) => p.group === "mentorship",
+).map((p) => p.slug);
+
+const FRONTEND_SLUGS: readonly string[] = MAPPABLE_PRODUCTS.filter(
+  (p) => p.group === "frontend",
+).map((p) => p.slug);
+
+/**
+ * Code-owned ownership map for the "Your Purchases" sidebar folder: which
+ * product grants entitle a member to see each purchases entry. Mentorship
+ * tiers include the core front-end training, so every mentorship slug counts
+ * as an owner of both entries (preserving today's visibility for tier
+ * members); labels stay fixed here, never free-text from the API.
+ */
+export const PURCHASE_OWNER_SLUGS = {
+  /** "Your Second Engine" — the front-end offer's Seven Pillars training. */
+  yourSecondEngine: [...FRONTEND_SLUGS, ...MENTORSHIP_SLUGS] as readonly string[],
+  /** "The Blitz™" — the 21-Day Blitz funnel offer / mentorship curriculum. */
+  blitz: ["yse_21_day_blitz", ...MENTORSHIP_SLUGS] as readonly string[],
+} as const;
+
+export interface OwnedProductLike {
+  productSlug: string;
+  status: string;
+  expiresAt?: string | Date | null;
+}
+
+/** Slugs of the member's ACTIVE, unexpired product grants. */
+export function getActiveOwnedProductSlugs(
+  products: readonly OwnedProductLike[] | undefined,
+  now: number = Date.now(),
+): Set<string> {
+  const out = new Set<string>();
+  for (const p of products ?? []) {
+    if (p.status !== "active") continue;
+    if (p.expiresAt && new Date(p.expiresAt).getTime() <= now) continue;
+    out.add(p.productSlug);
+  }
+  return out;
+}
+
+/**
+ * Drops leaves whose `ownedProductSlugs` has no overlap with the member's
+ * active grants. Admin/coach users bypass (same as the other filters).
+ * Leaves without `ownedProductSlugs` are always shown; empty folders vanish.
+ */
+export function filterNavByOwnedProducts(
+  nodes: NavNode[],
+  ownedSlugs: Set<string>,
+  bypass = false,
+): NavNode[] {
+  const result: NavNode[] = [];
+  for (const node of nodes) {
+    if (node.kind === "leaf") {
+      if (
+        bypass ||
+        !node.ownedProductSlugs ||
+        node.ownedProductSlugs.some((slug) => ownedSlugs.has(slug))
+      ) {
+        result.push(node);
+      }
+      continue;
+    }
+    const filteredChildren = filterNavByOwnedProducts(
+      node.children,
+      ownedSlugs,
+      bypass,
+    );
+    if (filteredChildren.length === 0) continue;
+    result.push({ ...node, children: filteredChildren });
+  }
+  return result;
+}
+
 export function filterNavByContentAccess(
   nodes: NavNode[],
   accessiblePageKeys: Set<string>,
