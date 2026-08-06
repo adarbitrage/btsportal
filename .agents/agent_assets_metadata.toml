@@ -275,8 +275,8 @@ title = "DRAFT — Copywriting Foundations 4b: Extracting Angles from Existing C
 id = "c--BKD1kcTmkPqnrFZIqe"
 uri = "file://.local/drafts/04-finding-your-angle-REVISED.pdf"
 type = "pdf"
-title = "Doc 4 of 9 — Finding Your Angle (final draft)"
-description = "Adds the Three Wells section, unbounded-angles framing, expanded family gallery, and renumbered cross-references."
+title = "Doc 4 of 9 — Finding Your Angle (three-questions draft)"
+description = "Replaces the wells with the Three Questions framing, adds proportional sentiment-congruence and the one-specific-reader discipline."
 
 [[outputs]]
 id = "Ghtds_REC-LQHX61lARLG"
@@ -288,5 +288,5 @@ title = "Doc 4b — Extracting Angles (rev. 2)"
 id = "5xVvhCH4_VflwET7jYNqN"
 uri = "file://.local/drafts/05-extracting-angles-from-existing-copy.pdf"
 type = "pdf"
-title = "Doc 5 of 9 — Extracting Angles from Existing Copy (final draft)"
-description = "Now a full series document (5 of 9), opening with 'The Default Well' and the idea-based merge workflow."
+title = "Doc 5 of 9 — Extracting Angles (three-questions draft)"
+description = "Extraction reframed as the most reliable generator; anchors (lines or passages) as evidence of payoff; three-questions finish."
