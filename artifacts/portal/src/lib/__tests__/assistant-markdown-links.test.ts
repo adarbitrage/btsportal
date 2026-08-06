@@ -32,14 +32,14 @@ describe("normalizeAssistantLinks", () => {
   });
 
   it("leaves correctly formatted links untouched", () => {
-    const good = "Start with [The Blitz](/blitz) and [7 Pillars](/core-training/7-pillars).";
+    const good = "Start with [The Blitz](/blitz) and [7 Pillars](/core-training/pillars-to-blitz).";
     expect(normalizeAssistantLinks(good)).toBe(good);
   });
 
   it("handles multi-segment nav paths", () => {
     expect(
-      normalizeAssistantLinks("7 Pillars ([/core-training/7-pillars](/core-training/7-pillars))"),
-    ).toBe("[7 Pillars](/core-training/7-pillars)");
+      normalizeAssistantLinks("7 Pillars ([/core-training/pillars-to-blitz](/core-training/pillars-to-blitz))"),
+    ).toBe("[7 Pillars](/core-training/pillars-to-blitz)");
   });
 
   it("does not touch paths that are not in the navigation map", () => {

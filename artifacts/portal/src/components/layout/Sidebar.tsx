@@ -120,7 +120,7 @@ export const MEMBER_NAV: NavNode[] = [
     icon: GraduationCap,
     defaultOpen: false,
     children: [
-      { kind: "leaf", href: "/core-training/7-pillars", label: "7 Pillars", icon: Layers, contentPageKey: "seven-pillars" },
+      { kind: "leaf", href: "/core-training/pillars-to-blitz", label: "7 Pillars", icon: Layers, contentPageKey: "pillars-to-blitz" },
       { kind: "leaf", href: "/blitz", label: "The Blitz™", icon: Zap, contentPageKey: "blitz" },
     ],
   },

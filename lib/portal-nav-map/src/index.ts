@@ -44,7 +44,7 @@ export const PORTAL_NAVIGATION_MAP: readonly NavSection[] = [
   {
     section: "Training",
     items: [
-      { label: "7 Pillars", path: "/core-training/7-pillars", description: "The foundational 7 Pillars training." },
+      { label: "7 Pillars", path: "/core-training/pillars-to-blitz", description: "The foundational 7 Pillars training — opens the What The Blitz Is bridge page." },
       { label: "The Blitz", path: "/blitz", description: "The Blitz — the step-by-step affiliate marketing training program and the place your progress is tracked." },
     ],
   },
