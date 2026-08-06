@@ -521,7 +521,7 @@ export default function BlitzHub() {
 
           <div className="rounded-xl border border-border/60 bg-card p-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <p className="text-sm text-muted-foreground">
-              <strong className="text-foreground">Just finished the 7 Pillars?</strong> You've learned the
+              <strong className="text-foreground">Just finished the 7 Pillars™?</strong> You've learned the
               framework — now you build. New here?{" "}
               <Link
                 href="/core-training/pillars-to-blitz"
@@ -534,7 +534,7 @@ export default function BlitzHub() {
             <Button asChild variant="outline" size="sm" className="gap-2 shrink-0">
               <Link href="/core-training/7-pillars">
                 <ArrowLeft className="w-4 h-4" />
-                Back to the 7 Pillars
+                Back to the 7 Pillars™
               </Link>
             </Button>
           </div>

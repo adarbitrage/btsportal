@@ -186,7 +186,7 @@ export const CURATION_SPEC: readonly CurationSpecItem[] = [
     kind: "file",
     displayTitle: "Campaign Checklist",
     blurb:
-      "The step-by-step pre-launch checklist — work through it before you activate any campaign. This is a printable version of the Checklist page found in the Blitz.",
+      "The step-by-step pre-launch checklist — work through it before you activate any campaign. This is a printable version of the Checklist page found in the Blitz™.",
     sortOrder: 1,
     fileName: "Campaign Checklist.pdf",
     parentSlug: "wd-campaign-toolkit",
@@ -758,7 +758,7 @@ export async function ensureResourceHubCuration(): Promise<void> {
       {
         slug: "wd-campaign-checklist",
         from: "The step-by-step pre-launch checklist — work through it before you activate any campaign.",
-        to: "The step-by-step pre-launch checklist — work through it before you activate any campaign. This is a printable version of the Checklist page found in the Blitz.",
+        to: "The step-by-step pre-launch checklist — work through it before you activate any campaign. This is a printable version of the Checklist page found in the Blitz™.",
       },
       {
         slug: "foundations-copywriting",

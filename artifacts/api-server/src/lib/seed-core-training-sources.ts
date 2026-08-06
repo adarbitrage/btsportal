@@ -85,33 +85,33 @@ Build Test Scale is a comprehensive training program that covers all aspects of 
 
 const PILLARS_TO_BLITZ_DOC: CoreTrainingDoc = {
   title: "What The Blitz™ Is — And Why It's Built the Way It Is (Core Training)",
-  sourceName: "Pillars → Blitz Bridge — Core Training",
+  sourceName: "Pillars → Blitz™ Bridge — Core Training",
   provenanceNote:
     "Core training prose from the portal /core-training/pillars-to-blitz page, filed as AI source-mining material.",
   content: `What The Blitz™ Is — And Why It's Built the Way It Is
 A bridge from the 7 Pillars™ to your first campaign.
 
-You've just finished the 7 Pillars™ — the foundation of everything in this business. Now you're about to open The Blitz™, the step-by-step system for actually building and launching your first campaign. Every major step in The Blitz is a direct application of one of the pillars you just learned. Nothing in it is arbitrary.
+You've just finished the 7 Pillars™ — the foundation of everything in this business. Now you're about to open The Blitz™, the step-by-step system for actually building and launching your first campaign. Every major step in The Blitz™ is a direct application of one of the pillars you just learned. Nothing in it is arbitrary.
 
 Pillar 1 — The Business Model — Affiliate Arbitrage
 "Spend less on ads than you earn in commissions. Scale that and the numbers get very big, very fast."
-The Blitz is built around a short Introduction, then three working phases — Build, Test, and Scale. Build is where you set everything up before spending a dollar on ads. Test is where you run small amounts of traffic to find what works. Scale is where you spend more on the combinations that are already proven profitable. The entire sequence exists for one reason — to find a reliable spread between what you spend on ads and what you earn in commissions. That's the arbitrage. The Blitz has strict rules about when you're allowed to move from one phase to the next; those rules exist to protect the math — you don't scale until the arbitrage is proven.
+The Blitz™ is built around a short Introduction, then three working phases — Build, Test, and Scale. Build is where you set everything up before spending a dollar on ads. Test is where you run small amounts of traffic to find what works. Scale is where you spend more on the combinations that are already proven profitable. The entire sequence exists for one reason — to find a reliable spread between what you spend on ads and what you earn in commissions. That's the arbitrage. The Blitz™ has strict rules about when you're allowed to move from one phase to the next; those rules exist to protect the math — you don't scale until the arbitrage is proven.
 
 Pillar 2 — The Market — Health & Wellness
 "Traditional supplements and wellness gadgets — two categories that work together beautifully and cover all the bases for people serious about their health."
-One of your first steps in The Blitz is choosing a product to promote. You'll do this inside one of two affiliate networks — Media Mavens (BTS's in-house network) or ClickBank. Both are stocked with health and wellness products: supplements, gadgets, and wellness devices aimed at the exact market described in Pillar 2. You won't be hunting for a market or a niche — that decision has already been made. Your job is simply to choose a specific product within it.
+One of your first steps in The Blitz™ is choosing a product to promote. You'll do this inside one of two affiliate networks — Media Mavens (BTS's in-house network) or ClickBank. Both are stocked with health and wellness products: supplements, gadgets, and wellness devices aimed at the exact market described in Pillar 2. You won't be hunting for a market or a niche — that decision has already been made. Your job is simply to choose a specific product within it.
 
 Pillar 3 — The Demographic — Know Your Buyer
 "Approximately 80% of the money that flows through the internet comes from women in their 40s, 50s, and 60s. Health and wellness products aimed at this group convert like nothing else."
-A significant portion of The Blitz is devoted to creating your marketing materials — the ads people see and the landing pages they arrive at. The core principle is simple: know exactly who you're writing for before you write a single word. For the majority of health and wellness products in our networks, that person is a woman in her 40s, 50s, or 60s dealing with a real health challenge — joint pain, low energy, sleep issues, stress. That said, the demographic follows the product; some offers skew toward a broader or younger audience. Make sure every headline, image, and landing page speaks directly to that person. Your coach can help you identify the right target if you're unsure.
+A significant portion of The Blitz™ is devoted to creating your marketing materials — the ads people see and the landing pages they arrive at. The core principle is simple: know exactly who you're writing for before you write a single word. For the majority of health and wellness products in our networks, that person is a woman in her 40s, 50s, or 60s dealing with a real health challenge — joint pain, low energy, sleep issues, stress. That said, the demographic follows the product; some offers skew toward a broader or younger audience. Make sure every headline, image, and landing page speaks directly to that person. Your coach can help you identify the right target if you're unsure.
 
 Pillar 4 — The Traffic Channel — Email
 "We're not building our own email list. We're finding the people who already have massive lists and placing our ads inside the emails they send to their subscribers."
-In The Blitz you'll be running your ads on a platform called Caterpillar — the name used throughout the guide to protect the source. Caterpillar is one of the large email publishers described in Pillar 4. When your ad runs there, it's appearing inside emails being sent to large subscriber lists. You're not on Google. You're not on Facebook. You're placing your ad inside someone else's email, reaching their audience — no algorithm changes, no account bans, warmer traffic because those subscribers already opted in.
+In The Blitz™ you'll be running your ads on a platform called Caterpillar — the name used throughout the guide to protect the source. Caterpillar is one of the large email publishers described in Pillar 4. When your ad runs there, it's appearing inside emails being sent to large subscriber lists. You're not on Google. You're not on Facebook. You're placing your ad inside someone else's email, reaching their audience — no algorithm changes, no account bans, warmer traffic because those subscribers already opted in.
 
 Pillar 5 — The Strategy — Test with Sponsorships, Scale with Dedicateds
 "Dedicateds are where you want to end up — that's where the big scale happens. But sponsorships are where you test. You don't spend dedicated money until you know what works."
-The Blitz maps these stages directly onto this strategy. During the Test phase, your ads run as sponsorships — your ad appears alongside other content inside an email, at a lower cost per click. You run several rounds of tests to find the combination of ad and landing page that works best while keeping your spend manageable. Once you've found a profitable combination and run it for 14 or more consecutive profitable days, The Blitz graduates you to the Master Publisher — a dedicated email send where the entire email is your ad, going out to a massive list all at once. That's the dedicated email phase from Pillar 5, and The Blitz won't let you go there until you've earned it through the data.
+The Blitz™ maps these stages directly onto this strategy. During the Test phase, your ads run as sponsorships — your ad appears alongside other content inside an email, at a lower cost per click. You run several rounds of tests to find the combination of ad and landing page that works best while keeping your spend manageable. Once you've found a profitable combination and run it for 14 or more consecutive profitable days, The Blitz™ graduates you to the Master Publisher — a dedicated email send where the entire email is your ad, going out to a massive list all at once. That's the dedicated email phase from Pillar 5, and The Blitz™ won't let you go there until you've earned it through the data.
 
 Pillar 6 — The Edge — Proprietary Software + Your VA Team
 "You don't want to be the one working your business. We are entrepreneurs — not cogs in the machine. The software and the team exist so you can focus on strategy."
@@ -119,17 +119,17 @@ Throughout the Build phase you'll use proprietary software built specifically fo
 
 Pillar 7 — The Commitment — Perseverance over Perfection
 "You're going to have days when you want to throw in the towel. What you must cultivate is a tenacity to persevere."
-The first rounds of testing in The Blitz almost always lose money — and that is completely by design. You are spending money to buy data: which headlines your audience responds to, which images stop the scroll, which landing pages turn visitors into buyers. That information is what makes the later rounds — and eventually the Scale phase — profitable. The early loss is the price of the knowledge, not a sign that something is wrong. The Blitz builds the mindset pillar into its structure: rules about how long to wait before making decisions, checkpoints that prevent you from panicking and changing things too early, and clear instructions on when to ask for help.
+The first rounds of testing in The Blitz™ almost always lose money — and that is completely by design. You are spending money to buy data: which headlines your audience responds to, which images stop the scroll, which landing pages turn visitors into buyers. That information is what makes the later rounds — and eventually the Scale phase — profitable. The early loss is the price of the knowledge, not a sign that something is wrong. The Blitz™ builds the mindset pillar into its structure: rules about how long to wait before making decisions, checkpoints that prevent you from panicking and changing things too early, and clear instructions on when to ask for help.
 
 Before You Start The Blitz™
-The 7 Pillars™ shows you the destination — a profitable campaign scaling with dedicated email blasts. The Blitz™ starts you at step one of getting there. The early steps will look nothing like the finished picture, and that's exactly right. Every step you take in The Blitz is grounded in one of the pillars you just learned.`,
+The 7 Pillars™ shows you the destination — a profitable campaign scaling with dedicated email blasts. The Blitz™ starts you at step one of getting there. The early steps will look nothing like the finished picture, and that's exactly right. Every step you take in The Blitz™ is grounded in one of the pillars you just learned.`,
 };
 
 const PROSE_DOCS: readonly CoreTrainingDoc[] = [SEVEN_PILLARS_DOC, PILLARS_TO_BLITZ_DOC];
 
 /**
  * Exact reference-doc titles of the two core-training prose docs (not
- * `blitz_lessons` rows). Single source of truth shared with the Blitz identity
+ * `blitz_lessons` rows). Single source of truth shared with the Blitz™ identity
  * map + its drift guard so the prose entries can't silently drift from the
  * seeder.
  */

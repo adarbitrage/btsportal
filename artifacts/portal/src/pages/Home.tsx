@@ -23,7 +23,7 @@ const firstSteps = [
   {
     href: "/core-training/7-pillars",
     icon: Layers,
-    title: "Learn the 7 Pillars",
+    title: "Learn the 7 Pillars™",
     desc: "Get the big-picture model behind the whole program before you build anything.",
   },
   {
@@ -138,7 +138,7 @@ export default function Home() {
                 and digest when taken a little slower.
               </p>
               <p>
-                <strong className="text-foreground">We recommend you start with the 7 Pillars and then move into The Blitz™, completing each
+                <strong className="text-foreground">We recommend you start with the 7 Pillars™ and then move into The Blitz™, completing each
                 lesson in the order it's delivered.</strong> Go through the material as it is laid out, top to bottom,
                 and when you need help, our support team and amazing mentors will be available to answer your
                 questions.
@@ -184,7 +184,7 @@ export default function Home() {
             <div className="flex flex-col sm:flex-row sm:items-center gap-3 pt-1">
               <Button asChild size="lg" className="gap-2">
                 <Link href="/core-training/7-pillars">
-                  Start with the 7 Pillars
+                  Start with the 7 Pillars™
                   <ArrowRight className="w-4 h-4" />
                 </Link>
               </Button>

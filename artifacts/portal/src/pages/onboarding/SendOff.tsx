@@ -152,7 +152,7 @@ export default function OnboardingSendOffPage() {
 
         <div className="flex justify-center">
           <Button size="lg" onClick={handleContinue} disabled={submitting} className="px-12">
-            {submitting ? "Saving..." : "Start with the 7 Pillars \u2192"}
+            {submitting ? "Saving..." : "Start with the 7 Pillars\u2122 \u2192"}
           </Button>
         </div>
       </div>

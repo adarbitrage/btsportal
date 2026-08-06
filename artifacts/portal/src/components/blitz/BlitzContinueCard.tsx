@@ -94,7 +94,7 @@ export function BlitzContinueCard() {
     ? "Continue where you left off"
     : "Up next";
 
-  const buttonLabel = isNew ? "Start the Blitz" : isInProgress ? "Resume" : "Continue";
+  const buttonLabel = isNew ? "Start the Blitz™" : isInProgress ? "Resume" : "Continue";
   const ButtonIcon = isNew ? PlayCircle : isInProgress ? PlayCircle : ArrowRight;
 
   return (

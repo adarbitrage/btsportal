@@ -48,7 +48,7 @@ export function BlitzStreakWidget() {
       <CardHeader className="pb-4 border-b border-border/50">
         <div className="flex items-center gap-2 text-foreground font-semibold">
           <Flame className="w-5 h-5 text-primary" />
-          Blitz Streak
+          Blitz™ Streak
         </div>
       </CardHeader>
       <CardContent className="pt-4 space-y-4">
@@ -72,7 +72,7 @@ export function BlitzStreakWidget() {
         {dailyStreak === 0 && (
           <div className="bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 flex items-center gap-2">
             <Zap className="w-4 h-4 text-amber-500 shrink-0" />
-            <p className="text-xs text-amber-700">Complete a Blitz section today to start your streak!</p>
+            <p className="text-xs text-amber-700">Complete a Blitz™ section today to start your streak!</p>
           </div>
         )}
 

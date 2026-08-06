@@ -586,7 +586,7 @@ function ConciergeForm() {
           ))}
         </div>
         <p className="text-xs text-muted-foreground mt-1">
-          Refer to the Blitz if you are unsure.
+          Refer to the Blitz™ if you are unsure.
         </p>
       </div>
 
