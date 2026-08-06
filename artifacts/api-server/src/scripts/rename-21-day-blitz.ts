@@ -15,6 +15,7 @@ import { db, kbStagingDocsTable, aiLiveDocumentsTable } from "@workspace/db";
 import { eq, or, ilike } from "drizzle-orm";
 import { rebrandOldBrandContent } from "../lib/content-privacy-filter";
 import { CLEARED_EMBEDDING_FIELDS } from "../lib/kb-embeddings.js";
+import { snapshotLiveDocVersion } from "../lib/live-doc-snapshot.js";
 
 async function rewriteTable(
   label: string,
@@ -33,10 +34,15 @@ async function rewriteTable(
     if (table === aiLiveDocumentsTable) {
       // A content rewrite makes any stored semantic embedding stale — clear it
       // ATOMICALLY in the same update; the boot backfill regenerates it.
-      await db
-        .update(aiLiveDocumentsTable)
-        .set({ title: newTitle, content: newContent, ...CLEARED_EMBEDDING_FIELDS })
-        .where(eq(aiLiveDocumentsTable.id, row.id));
+      // Task #2098: snapshot version history in the same transaction before
+      // any live-body rewrite (the shared seam rule).
+      await db.transaction(async (tx) => {
+        await snapshotLiveDocVersion(tx, row.id);
+        await tx
+          .update(aiLiveDocumentsTable)
+          .set({ title: newTitle, content: newContent, ...CLEARED_EMBEDDING_FIELDS })
+          .where(eq(aiLiveDocumentsTable.id, row.id));
+      });
     } else {
       await db
         .update(table)

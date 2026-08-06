@@ -929,6 +929,12 @@ export default function KnowledgeBaseReview() {
   const [showCorpusSweep, setShowCorpusSweep] = useState(false);
   const [liveSimilarMap, setLiveSimilarMap] = useState<Record<number, LiveSimilarMatch>>({});
   const [viewLiveDocId, setViewLiveDocId] = useState<number | null>(null);
+  // Task #2098: the "Live" tab shows the ACTUAL live corpus (ai_live_documents),
+  // not historical published staging rows (superseded generations + orphans).
+  // Count and list must match the Live AI Documents page exactly.
+  const [liveDocCount, setLiveDocCount] = useState(0);
+  const [liveDocs, setLiveDocs] = useState<Array<{ id: number; title: string; category: string | null; docClass: string | null; homeRoot: string | null; node: string | null; content: string; updatedAt: string | null; lastVerified: string | null }>>([]);
+  const [liveDocsLoading, setLiveDocsLoading] = useState(false);
 
   const fetchDocs = useCallback(async () => {
     setLoading(true);
@@ -956,6 +962,7 @@ export default function KnowledgeBaseReview() {
       const data = await res.json();
       setDocs(data.documents);
       setStatusCounts(data.statusCounts || {});
+      setLiveDocCount(data.liveDocCount || 0);
       setOriginCounts(data.originCounts || {});
       setDocTypeCounts(data.docTypeCounts || {});
       setDocClassCounts(data.docClassCounts || {});
@@ -973,6 +980,27 @@ export default function KnowledgeBaseReview() {
       setLoading(false);
     }
   }, [statusFilter, docTypeFilter, shelfFilter, nodeFilter, docClassFilter, updateKindFilter, tagFilter, riskFilter, sourceKindFilter, sortMode, staleOnly, searchQuery, page, toast]);
+
+  // Live tab data: the real live corpus, matching the Live AI Documents page.
+  const fetchLiveDocs = useCallback(async () => {
+    setLiveDocsLoading(true);
+    try {
+      const params = new URLSearchParams();
+      if (searchQuery) params.set("search", searchQuery);
+      const res = await authFetch(`/admin/ai-live-documents?${params.toString()}`);
+      if (!res.ok) throw new Error("Failed to fetch");
+      const data = await res.json();
+      setLiveDocs(Array.isArray(data) ? data : []);
+    } catch {
+      toast({ title: "Error loading live documents", variant: "destructive" });
+    } finally {
+      setLiveDocsLoading(false);
+    }
+  }, [searchQuery, toast]);
+
+  useEffect(() => {
+    if (statusFilter === "published") fetchLiveDocs();
+  }, [statusFilter, fetchLiveDocs]);
 
   const fetchTriageStatus = useCallback(async () => {
     try {
@@ -3623,7 +3651,7 @@ export default function KnowledgeBaseReview() {
               onClick={() => { setStatusFilter(key); setPage(1); }}
               className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${statusFilter === key ? "bg-gray-900 text-white" : "bg-gray-100 text-gray-700 hover:bg-gray-200"}`}
             >
-              {label} ({statusCounts[key] || 0})
+              {label} ({key === "published" ? liveDocCount : statusCounts[key] || 0})
             </button>
           ))}
           {(statusCounts.merged || 0) > 0 && (
@@ -3808,7 +3836,60 @@ export default function KnowledgeBaseReview() {
           )}
         </div>
 
-        {loading ? (
+        {statusFilter === "published" ? (
+          // Task #2098: the Live tab lists the REAL live corpus (one row per
+          // ai_live_documents doc), matching the Live AI Documents page — not
+          // historical "published" staging rows.
+          liveDocsLoading ? (
+            <div className="flex items-center justify-center py-20">
+              <Loader2 className="w-8 h-8 animate-spin text-[#1a56db]" />
+            </div>
+          ) : liveDocs.length === 0 ? (
+            <Card>
+              <CardContent className="py-16 text-center">
+                <FileText className="w-12 h-12 text-gray-300 mx-auto mb-4" />
+                <p className="text-gray-500 text-lg">No live documents found</p>
+                <p className="text-gray-400 mt-1">Try a different search</p>
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="space-y-3">
+              <p className="text-xs text-gray-500">
+                Showing the live corpus ({liveDocs.length} document{liveDocs.length === 1 ? "" : "s"}) — identical to the Live AI Documents page. Manage them there; click a row to read it.
+              </p>
+              {liveDocs.map((d) => (
+                <Card
+                  key={d.id}
+                  onClick={() => setViewLiveDocId(d.id)}
+                  data-testid={`card-live-doc-${d.id}`}
+                  className="transition-colors hover:border-[#1a56db]/30 cursor-pointer"
+                >
+                  <CardContent className="py-4 px-5">
+                    <div className="text-[10px] font-mono text-gray-400 mb-0.5">#{d.id}</div>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <h3 className="font-semibold text-gray-900 truncate">{d.title}</h3>
+                      <Badge variant="outline" className="text-[10px] bg-green-50 text-green-700 border-green-200">Live</Badge>
+                      {d.docClass && (
+                        <Badge variant="outline" className="text-[10px] bg-gray-50 text-gray-600 border-gray-200">{d.docClass}</Badge>
+                      )}
+                      {d.homeRoot && (
+                        <Badge variant="outline" className="text-[10px] bg-sky-50 text-sky-700 border-sky-200">
+                          <FolderTree className="w-2.5 h-2.5 mr-1" />{shelfLabel(d.homeRoot)}
+                        </Badge>
+                      )}
+                      {d.node && (
+                        <Badge variant="outline" className="text-[10px] bg-violet-50 text-violet-700 border-violet-200">{d.node}</Badge>
+                      )}
+                    </div>
+                    <p className="text-sm text-gray-600 mt-1 line-clamp-2">
+                      {d.content.replace(/^#.*\n/gm, "").replace(/\*\*.*?\*\*/g, "").trim().substring(0, 200)}
+                    </p>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )
+        ) : loading ? (
           <div className="flex items-center justify-center py-20">
             <Loader2 className="w-8 h-8 animate-spin text-[#1a56db]" />
           </div>

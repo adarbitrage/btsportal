@@ -7,6 +7,7 @@ import {
   contentAccessMapTable,
 } from "@workspace/db";
 import { and, eq, inArray, isNull, sql } from "drizzle-orm";
+import { snapshotLiveDocVersion } from "./live-doc-snapshot.js";
 
 /**
  * Resource Hub setup (Task #2028) — idempotent boot-time hooks, following the
@@ -851,10 +852,32 @@ export async function ensureResourceHubCuration(): Promise<void> {
       { from: "/creative-drive", to: "/resource-hub" },
       { from: "/knowledge-base", to: "/resource-hub" },
     ];
+    // Task #2098: content mutation on live docs must snapshot version history
+    // first (same transaction) and clear stale embeddings atomically — the
+    // boot embedding backfill regenerates them. Snapshot each affected doc at
+    // most once per boot run, before its first change.
+    const snapshottedThisRun = new Set<number>();
     for (const { from, to } of LIVE_DOC_LINK_FIXES) {
+      const affected = await tx.execute(sql`
+        SELECT id FROM ai_live_documents
+        WHERE content LIKE ${"%" + from + "%"}
+        FOR UPDATE
+      `);
+      if (affected.rows.length === 0) continue;
+      for (const row of affected.rows as Array<{ id: number }>) {
+        const docId = Number(row.id);
+        if (!snapshottedThisRun.has(docId)) {
+          await snapshotLiveDocVersion(tx, docId);
+          snapshottedThisRun.add(docId);
+        }
+      }
       const updated = await tx.execute(sql`
         UPDATE ai_live_documents
-        SET content = replace(content, ${from}, ${to}), updated_at = now()
+        SET content = replace(content, ${from}, ${to}),
+            updated_at = now(),
+            embedding = NULL,
+            embedding_model = NULL,
+            embedding_generated_at = NULL
         WHERE content LIKE ${"%" + from + "%"}
         RETURNING id
       `);

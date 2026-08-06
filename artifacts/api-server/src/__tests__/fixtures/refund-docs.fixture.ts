@@ -139,16 +139,17 @@ export async function seedRefundLiveDocsForTest(): Promise<void> {
   for (const doc of docs) {
     // Curated + verified NOW so the citable gate admits them (mirrors a
     // post-review verified state, as the retired legacy test did via UPDATE).
+    //
+    // INSERT-ONLY (Task #2098 incident guard). This fixture previously
+    // upserted by title with content overwrite, which let a test run against
+    // the shared dev DB silently rewrite real corpus rows (2026-08-04
+    // incident). Fixtures must NEVER modify, resurrect, or delete an existing
+    // live row — ON CONFLICT DO NOTHING fills a fresh/empty database only.
+    // Guard: kb-fixture-corpus-immutability.test.ts.
     await db.execute(
       sql`INSERT INTO ai_live_documents (title, category, content, audience, doc_class, last_verified)
           VALUES (${scrubPrivateContent(doc.title)}, ${doc.category}, ${scrubPrivateContent(doc.content)}, 'member', 'curated', NOW())
-          ON CONFLICT (title) DO UPDATE SET
-            content = EXCLUDED.content,
-            category = EXCLUDED.category,
-            doc_class = EXCLUDED.doc_class,
-            last_verified = COALESCE(ai_live_documents.last_verified, EXCLUDED.last_verified),
-            deleted_at = NULL,
-            updated_at = NOW()`,
+          ON CONFLICT (title) DO NOTHING`,
     );
   }
 }

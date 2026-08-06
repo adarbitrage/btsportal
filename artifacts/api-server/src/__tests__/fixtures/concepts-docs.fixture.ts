@@ -349,12 +349,15 @@ export async function seedConceptsLiveDocsForTest(): Promise<void> {
     const cleanTitle = scrubPrivateContent(doc.title);
     const cleanContent = scrubPrivateContent(doc.content);
     const tagsJson = JSON.stringify(doc.tags);
-    // Clear any stale row whose slug matches but whose title diverged (shared
-    // dev DBs), then upsert on title.
-    await db.execute(sql`
-      DELETE FROM ai_live_documents
-      WHERE slug = ${doc.slug} AND title <> ${cleanTitle}
-        AND NOT EXISTS (SELECT 1 FROM ai_live_documents x WHERE x.title = ${cleanTitle})`);
+    // INSERT-ONLY (Task #2098 incident guard). This fixture previously
+    // upserted by title with content overwrite — on 2026-08-04 a test run
+    // against the shared dev DB silently reverted seven rich, human-reviewed
+    // live docs to these short stubs. Fixtures must NEVER modify, resurrect,
+    // or delete an existing live row: if the real corpus already has the doc,
+    // the real (richer, reviewed) content is authoritative and the tests run
+    // against it. ON CONFLICT DO NOTHING fills a fresh/empty database only.
+    // Guard: kb-fixture-corpus-immutability.test.ts fails if this ever
+    // mutates an existing row again.
     await db.execute(
       sql`INSERT INTO ai_live_documents
             (title, slug, category, content, audience, doc_class, home_root, node,
@@ -363,21 +366,7 @@ export async function seedConceptsLiveDocsForTest(): Promise<void> {
             (${cleanTitle}, ${doc.slug}, 'concepts', ${cleanContent}, 'member', ${doc.docClass},
              'concepts', ${doc.node}, ${tagsJson}::jsonb, ${doc.ceiling}, ${doc.handoff},
              ${CONCEPTS_VERIFIED_AT}::timestamptz, ${doc.sourcePath}, ${doc.sourceLabel})
-          ON CONFLICT (title) DO UPDATE SET
-            category = EXCLUDED.category,
-            content = EXCLUDED.content,
-            audience = EXCLUDED.audience,
-            doc_class = EXCLUDED.doc_class,
-            slug = EXCLUDED.slug,
-            home_root = EXCLUDED.home_root,
-            node = EXCLUDED.node,
-            tags = EXCLUDED.tags,
-            ceiling = EXCLUDED.ceiling,
-            handoff = EXCLUDED.handoff,
-            source_path = EXCLUDED.source_path,
-            source_label = EXCLUDED.source_label,
-            deleted_at = NULL,
-            updated_at = NOW()`,
+          ON CONFLICT (title) DO NOTHING`,
     );
   }
 }

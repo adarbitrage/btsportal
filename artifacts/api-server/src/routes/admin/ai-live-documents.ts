@@ -13,6 +13,7 @@ import { runTriageBackground } from "../../lib/kb-triage.js";
 import { scanCoreTrainingSourceChanges } from "../../lib/kb-source-change-scan.js";
 import { embedLiveDocumentInBackground, CLEARED_EMBEDDING_FIELDS } from "../../lib/kb-embeddings.js";
 import { clusterDuplicates } from "../../lib/kb-duplicates.js";
+import { snapshotLiveDocVersion } from "../../lib/live-doc-snapshot.js";
 
 // Lifecycle management for the "Live AI Documents" corpus — the assistant's
 // citable set (Task #1665). Mounted at /admin/ai-live-documents. Reads/writes
@@ -214,11 +215,19 @@ router.put("/admin/ai-live-documents/:id", requirePermission("chat:manage"), asy
   if (contentChanged) Object.assign(updates, CLEARED_EMBEDDING_FIELDS);
 
   try {
-    const [updated] = await db
-      .update(aiLiveDocumentsTable)
-      .set(updates)
-      .where(eq(aiLiveDocumentsTable.id, id))
-      .returning();
+    // Task #2098: even the escape hatch must never mutate a live body without
+    // version history — snapshot the prior state in the same transaction.
+    const updated = await db.transaction(async (tx) => {
+      if (contentChanged) {
+        await snapshotLiveDocVersion(tx, id);
+      }
+      const [row] = await tx
+        .update(aiLiveDocumentsTable)
+        .set(updates)
+        .where(eq(aiLiveDocumentsTable.id, id))
+        .returning();
+      return row;
+    });
 
     // Re-embed after a direct edit: fire-and-forget. The stale vector was
     // already cleared atomically above, so a failure here = lexical-only.

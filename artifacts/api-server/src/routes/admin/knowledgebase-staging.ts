@@ -6,6 +6,7 @@ import { eq, desc, sql, count, and, ne, isNotNull, inArray } from "drizzle-orm";
 import { requirePermission } from "../../middleware/rbac.js";
 import { resolveNavGapsForPublishedDoc } from "../../lib/kb-nav-gaps.js";
 import { scrubPrivateContent } from "../../lib/content-privacy-filter";
+import { snapshotLiveDocVersion } from "../../lib/live-doc-snapshot.js";
 import {
   undoAutoAction,
   runTriageBackground,
@@ -301,6 +302,15 @@ router.get("/", async (req: Request, res: Response) => {
       `),
     ]);
 
+    // Task #2098: the "Live" tab shows the ACTUAL live corpus, not historical
+    // "published" staging bookkeeping (which accumulates superseded
+    // generations and orphans, and misses docs created outside staging). The
+    // tab count must match the Live AI Documents page exactly.
+    const [{ cnt: liveDocCount }] = await db
+      .select({ cnt: count() })
+      .from(aiLiveDocumentsTable)
+      .where(sql`${aiLiveDocumentsTable.deletedAt} IS NULL`);
+
     const updateKindRow = (updateKindAgg.rows?.[0] ?? {}) as Record<string, unknown>;
     const sourceKindRow = (sourceKindAgg.rows?.[0] ?? {}) as Record<string, unknown>;
     const sourceAllCount = Number(sourceKindRow.all_count ?? 0);
@@ -322,6 +332,7 @@ router.get("/", async (req: Request, res: Response) => {
         totalPages: Math.ceil(total[0].cnt / limit),
       },
       statusCounts: Object.fromEntries(statusCounts.map((s) => [s.status, s.cnt])),
+      liveDocCount,
       originCounts: {
         ...Object.fromEntries(
           originCounts
@@ -624,10 +635,13 @@ async function loadLiveDocsForSimilarity() {
 // duplicate are excluded. Each doc also carries its "similar live doc" match.
 router.get("/duplicates", async (_req: Request, res: Response) => {
   try {
+    // Task #2098: the review queue holds drafts in BOTH pending_review (new /
+    // untriaged) and needs_review. Clustering only needs_review let duplicate
+    // concepts slip through review unnoticed — cluster the whole open queue.
     const allDocs = await db
       .select()
       .from(kbStagingDocsTable)
-      .where(eq(kbStagingDocsTable.status, "needs_review"));
+      .where(inArray(kbStagingDocsTable.status, ["pending_review", "needs_review"]));
 
     // Unconfirmed AI merge drafts (Task #1902) are near-copies of their own
     // source drafts, so they would always cluster with them — exclude them
@@ -2034,32 +2048,7 @@ router.post("/push-approved", async (_req: Request, res: Response) => {
             .where(eq(aiLiveDocumentsTable.id, doc.targetLiveDocId));
 
           if (target) {
-            const [{ cnt: priorVersions }] = await tx
-              .select({ cnt: count() })
-              .from(aiLiveDocumentVersionsTable)
-              .where(eq(aiLiveDocumentVersionsTable.docId, target.id));
-
-            const priorProvenance = await tx
-              .select({
-                sourceId: kbDocProvenanceTable.sourceId,
-                chunkRef: kbDocProvenanceTable.chunkRef,
-                relation: kbDocProvenanceTable.relation,
-              })
-              .from(kbDocProvenanceTable)
-              .where(eq(kbDocProvenanceTable.docId, target.id));
-
-            await tx.insert(aiLiveDocumentVersionsTable).values({
-              docId: target.id,
-              versionNumber: priorVersions + 1,
-              title: target.title,
-              content: target.content,
-              docClass: target.docClass,
-              homeRoot: target.homeRoot,
-              node: target.node,
-              lastVerified: target.lastVerified,
-              provenance: priorProvenance,
-              supersededByStagingDocId: doc.id,
-            });
+            await snapshotLiveDocVersion(tx, target, { supersededByStagingDocId: doc.id });
 
             await tx
               .update(aiLiveDocumentsTable)
@@ -2104,6 +2093,19 @@ router.post("/push-approved", async (_req: Request, res: Response) => {
 
         // Create / upsert path (new docs, or an update whose target vanished).
         if (!live) {
+          // Task #2098: the upsert can OVERWRITE an existing row on title
+          // collision — that overwrite previously bypassed version history
+          // (the 2026-08-04 incident had no snapshots to recover from on two
+          // docs). Lock and snapshot any collided row BEFORE the upsert, in
+          // the same transaction, so no live overwrite ever skips history.
+          const [collided] = await tx
+            .select()
+            .from(aiLiveDocumentsTable)
+            .where(eq(aiLiveDocumentsTable.title, scrubPrivateContent(doc.title)))
+            .for("update");
+          if (collided) {
+            await snapshotLiveDocVersion(tx, collided, { supersededByStagingDocId: doc.id });
+          }
           const [inserted] = await tx
             .insert(aiLiveDocumentsTable)
             .values({
