@@ -184,6 +184,8 @@ import { adminPanelApi } from "@/lib/admin-panel-api";
 import { useToast } from "@/hooks/use-toast";
 import { useContentAccess } from "@/hooks/use-content-access";
 import { ContentLockedScreen } from "@/components/content-access/ContentLockedScreen";
+import { LiveChatCallout } from "@/components/chat/LiveChatCallout";
+import { useFeCallBar } from "@/hooks/use-fe-call-bar";
 import ResourceHub from "@/pages/ResourceHub";
 import ResourceHubDocument from "@/pages/ResourceHubDocument";
 import AdminResourceHubGlossary from "@/pages/admin/ResourceHubGlossary";
@@ -780,6 +782,24 @@ export function TicketDeskSectionSync() {
   return null;
 }
 
+// Mounts the live-chat attention callout only for the signed-in member
+// portal experience (mirrors ProtectedRoute's gate: signed in, past the
+// forced password change, and past onboarding — coach/partner roles skip
+// onboarding). The TicketDesk widget script loads on every page, but the
+// bubble is only part of the member experience we point at. Raises the
+// callout when the sticky FE "book your call" bar is visible so the two
+// never collide.
+function LiveChatCalloutGate() {
+  const { user, loading } = useAuth();
+  const showFeCallBar = useFeCallBar();
+
+  if (loading || !user) return null;
+  if (user.mustChangePassword) return null;
+  if (!user.onboardingComplete && !isCoachRole(user.role) && !isPartnerRole(user.role)) return null;
+
+  return <LiveChatCallout raised={showFeCallBar} />;
+}
+
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
@@ -789,6 +809,7 @@ function App() {
             <ImpersonationBanner />
             <ScrollToTop />
             <TicketDeskSectionSync />
+            <LiveChatCalloutGate />
             <Router />
           </WouterRouter>
           <Toaster />
