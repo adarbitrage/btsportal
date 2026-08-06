@@ -1,0 +1,15 @@
+Read-only diagnostic — no changes. Next build: the Swipe Resource Bank (funnel upsell 2, product yse_swipe_resource_bank). The deliverable, from the old WordPress site: a two-part creative swipe library — part 1, banner ad creatives organized vertical → sub-vertical → marketing angle, displayed as thumbnail grids per angle; part 2, advertorial/landing-page swipes by vertical, each item with preview and a downloadable file. Hundreds of image assets plus downloadable landing-page files, with legally load-bearing ownership/DMCA disclaimer blocks. The intent is a dedicated gated gallery surface that the team can grow over time via admin tooling, not a frozen port. One structured report:
+
+1. VAULT FIT vs DEDICATED SURFACE: How are resource collections at /resources/:slug defined and gated (per-collection entitlement keys? enforced server-side on listing AND file download?), and your honest assessment: can the vault system represent a hierarchical creative gallery (vertical → sub-vertical → angle → thumbnail grids with lightbox preview and gated downloads), or is a dedicated page-key surface the right home? What existing components exist for image grids, lightboxes, or media galleries anywhere in the portal?
+
+2. CARVE-OUT CHECK: Locate the swipe-adjacent material already in the vault (the 12 Headline Library files, Eugene Schwartz Swipe File, Headline Masterclass Swipe File, word dictionaries, One-Sentence Persuasion) — which collections hold them, what gates those collections, and can an FE-only buyer currently see and download them? This feeds a product decision about whether existing swipe content moves behind the bank.
+
+3. OFFER KEY + PAGE KEY: Confirm the exact entitlement key granted by yse_swipe_resource_bank and that nothing consumes it. A dedicated surface would need a new page key in the gateable registry plus an access map row (the frontend-welcome pattern) — confirm that's the cost, or correct me.
+
+4. STORAGE + BULK IMPORT: The durable object-storage patterns available for a large image set; the admin upload path today (single-file or bulk?); what a zip-based bulk import would ride on (existing patterns from the drive-file seeds?); and whether any thumbnail/resize machinery exists or images serve at original size.
+
+5. SCHEMA SHAPE: What exists to extend versus build new for a growable swipe library — items carrying type (banner vs advertorial), vertical, sub-vertical, marketing angle, source label, thumbnail path, asset path, preview — plus admin CRUD. Propose the shape you'd build.
+
+6. GATED DOWNLOADS: Confirm how gated file downloads are enforced today (proxied through an authed route? signed URLs?) so bank assets can't be hotlinked or fetched by non-owners, and whether that pattern handles image rendering in-page for owners (thumbnails in an authed gallery) without leaking public URLs.
+
+Inventory only — no writes.
