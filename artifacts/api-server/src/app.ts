@@ -44,6 +44,7 @@ import { seedResourcesDrive } from "./lib/seed-resources-drive";
 import { seedImageFoundationsDrive } from "./lib/seed-image-foundations-drive";
 import { ensureResourceHubReorg, ensureResourceHubCuration, ensureResourceHubAccessMigration, ensureResourceHubLaunchpadTighten, ensureUploadedDriveFiles } from "./lib/resource-hub-setup";
 import { ensureContentAccessMapSeed } from "./lib/seed-content-access-map";
+import { seedFeIntensiveSettings } from "./lib/seed-fe-intensive-settings";
 import { seedCoachRoster, generateWeeklyQaCalls, backfillCoachLongBios } from "./lib/coaching-roster";
 import { retitleCleanedHoldingDocs, retitleFiledPrivateCoachingDocs, resetStuckCleaningDocs } from "./lib/transcript-cleaner";
 import { repairGluedTranscriptFormats } from "./lib/kb-format-repair";
@@ -179,6 +180,10 @@ seedAssistantCards().catch(err => console.error("[Seed] Failed to seed assistant
 // Content Access Map defaults (ownership-gated navigation). Idempotent —
 // ON CONFLICT DO NOTHING, so admin-edited rows are never overwritten.
 ensureContentAccessMapSeed().catch(err => console.error("[Seed] Content Access Map seed failed:", err));
+// FE-Intensive advisor-call calendar (Ash's BTS Strategy Session calendar,
+// Task #2084). Non-clobbering: only fills when the key is absent so a later
+// admin edit via the AdminSettings card always wins.
+seedFeIntensiveSettings().catch(err => console.error("[Seed] FE-Intensive settings seed failed:", err));
 seedCoachRoster()
   // Bio split (Task #2043): copy legacy `bio` into `long_bio` once so the
   // private-coaching picker isn't blank for pre-split coaches. Idempotent.
