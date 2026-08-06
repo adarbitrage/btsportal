@@ -3,6 +3,7 @@ import { Sidebar } from "./Sidebar";
 import { motion } from "framer-motion";
 import { Footer } from "./Footer";
 import { FeCallBar } from "./FeCallBar";
+import { BackToTopButton } from "./BackToTopButton";
 import { useFeCallBar } from "@/hooks/use-fe-call-bar";
 
 // Note: the old CallDayBanner (top-of-page "today's call" strip) was
@@ -32,6 +33,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
         </div>
         <Footer />
       </main>
+      <BackToTopButton raised={showFeCallBar} />
       {showFeCallBar && <FeCallBar />}
     </div>
   );

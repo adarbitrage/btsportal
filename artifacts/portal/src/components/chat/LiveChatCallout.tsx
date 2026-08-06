@@ -22,6 +22,11 @@ import { ArrowDown, X } from "lucide-react";
  *   renders ~64px tall, so the callout's default `bottom-44` (176px) puts the
  *   arrow ~16px above the bubble's top edge, pointing down at it without ever
  *   overlapping. Keep these offsets in lockstep with the index.css rule.
+ * - Horizontal offset: right-16 (64px) keeps the pill to the LEFT of the
+ *   fixed back-to-top button column (BackToTopButton: 40px wide at
+ *   right-3/right-5, spanning up to 60px from the right edge), so the two
+ *   floating controls can share the same vertical band without the z-50
+ *   callout covering the z-40 button.
  *
  * Purely presentational + localStorage — auth/audience gating lives in the
  * App-level mount (LiveChatCalloutGate in App.tsx).
@@ -55,7 +60,7 @@ export function LiveChatCallout({ raised = false }: { raised?: boolean }) {
 
   return (
     <div
-      className={`fixed right-3 sm:right-4 z-50 pointer-events-none flex flex-col items-end motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-bottom-3 motion-safe:duration-500 ${
+      className={`fixed right-16 z-50 pointer-events-none flex flex-col items-end motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-bottom-3 motion-safe:duration-500 ${
         raised ? "bottom-56" : "bottom-44"
       }`}
       data-testid="live-chat-callout"
