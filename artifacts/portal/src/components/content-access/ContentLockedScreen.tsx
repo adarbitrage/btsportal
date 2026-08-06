@@ -1,27 +1,16 @@
 import { Lock } from "lucide-react";
-import { useLocation } from "wouter";
-import { useGetCurrentMember } from "@workspace/api-client-react";
-import { isLifetimeSlug } from "@/components/layout/sidebar-nav";
-import { UpgradeFeaturesCard } from "@/components/upgrade/UpgradeFeaturesCard";
 
 /**
- * Full-page locked/upgrade screen shown when a member tries to reach a
+ * Full-page locked screen shown when a member tries to reach a
  * content-access-gated route they are not entitled to.
  *
  * Intentionally NOT a redirect — the user stays at their URL and sees this
  * screen instead of silently bouncing to the dashboard.
  *
- * Reuses UpgradeFeaturesCard (dashboard variant) for the upgrade prompt so
- * locked-page messaging stays visually consistent with the rest of the portal.
+ * Deliberately contains NO upgrade pitch or plan-shopping CTA: upgrades
+ * happen only through a sales coach on a call.
  */
 export function ContentLockedScreen() {
-  const [, navigate] = useLocation();
-  const { data: member } = useGetCurrentMember();
-
-  const entitlements = new Set<string>(member?.entitlements ?? []);
-  const highestSlug = member?.highestProductSlug ?? "free";
-  const hasLifetime = isLifetimeSlug(highestSlug);
-
   return (
     <div className="min-h-[60vh] flex flex-col items-center justify-center gap-6 p-8 max-w-2xl mx-auto w-full">
       <div className="text-center">
@@ -32,19 +21,9 @@ export function ContentLockedScreen() {
           This page is locked
         </h2>
         <p className="text-sm text-muted-foreground leading-relaxed">
-          Your current membership plan does not include access to this content.
-          Upgrade to unlock this page and more.
+          This content isn't included in your plan — talk to your coach for
+          access.
         </p>
-      </div>
-
-      <div className="w-full">
-        <UpgradeFeaturesCard
-          entitlements={entitlements}
-          hasLifetime={hasLifetime}
-          variant="dashboard"
-          sourceTier={member ? highestSlug : null}
-          onCtaClick={() => navigate("/plans")}
-        />
       </div>
     </div>
   );

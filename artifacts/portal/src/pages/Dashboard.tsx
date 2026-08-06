@@ -12,10 +12,8 @@ import { Link, useLocation } from "wouter";
 import { useAuth } from "@/lib/auth";
 import { getMemberTimezone, formatMemberDateTime } from "@/lib/member-timezone";
 import { WinsSummaryWidget } from "@/components/wins/WinsSummaryWidget";
-import { UpgradeFeaturesCard } from "@/components/upgrade/UpgradeFeaturesCard";
 import { PartnerRevealCard } from "@/components/onboarding/PartnerRevealCard";
 import { isCoachRole } from "@workspace/auth";
-import { FEATURE_TO_PLAN_SLUG } from "@/lib/upgrade-plans";
 import { BlitzContinueCard } from "@/components/blitz/BlitzContinueCard";
 import { BlitzStreakWidget } from "@/components/blitz/BlitzStreakWidget";
 
@@ -78,8 +76,6 @@ export default function Dashboard() {
   const { data: member } = useGetCurrentMember();
   const { user } = useAuth();
   const [, navigate] = useLocation();
-  const memberEntitlements = new Set(member?.entitlements ?? []);
-  const hasLifetime = (member?.sourceProduct ?? "free") === "lifetime";
   const { data: vaultStats } = useVaultStats();
   const timeZone = getMemberTimezone(user?.timezone);
 
@@ -214,20 +210,6 @@ export default function Dashboard() {
               </Card>
             )}
 
-            {!isCoachRole(member?.role) && (
-              <UpgradeFeaturesCard
-                entitlements={memberEntitlements}
-                hasLifetime={hasLifetime}
-                variant="dashboard"
-                sourceTier={member ? (member.sourceProduct ?? "free") : null}
-                onCtaClick={() => navigate("/plans")}
-                onFeatureClick={(featureKey) => {
-                  const planSlug = FEATURE_TO_PLAN_SLUG[featureKey];
-                  navigate(planSlug ? `/plans?highlight=${planSlug}` : "/plans");
-                }}
-              />
-            )}
-
             {dashboard.recentAnnouncements.length > 0 && (
               <div>
                 <h3 className="text-lg font-bold mb-4 text-foreground flex items-center gap-2">
@@ -316,15 +298,10 @@ export default function Dashboard() {
                           {call.isAccessible ? (
                             <Button size="sm" variant="default" className="h-7 text-xs px-3">RSVP</Button>
                           ) : (
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              className="h-7 text-xs px-3 gap-1.5"
-                              onClick={() => navigate(call.upgradeUrl ?? "/plans")}
-                            >
+                            <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
                               <Lock className="w-3 h-3" />
-                              Unlock
-                            </Button>
+                              Not in your plan
+                            </span>
                           )}
                         </div>
                       </div>

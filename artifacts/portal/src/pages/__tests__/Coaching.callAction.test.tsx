@@ -6,15 +6,14 @@ import type { CoachingCall } from "@workspace/api-client-react";
 
 // Focused guard for the per-call action buttons rendered on the Coaching page
 // (the CallAction component). The branching gates off each call's
-// `isAccessible` flag and, when locked, deep-links to that call's OWN
-// `upgradeUrl` — never a single shared upgrade link or Meet link. This is the
-// regression class the test exists to catch:
+// `isAccessible` flag. This is the regression class the test exists to catch:
 //   - accessible + meetLink  -> "Join Call" link pointing at THAT call's link
 //   - accessible + no link   -> disabled "Link soon" button
-//   - locked                 -> "Unlock" navigating to THAT call's upgradeUrl
-//                               (falling back to "/plans" when none is set)
+//   - locked                 -> neutral "Not in your plan" note with NO
+//                               upgrade/plan-shopping CTA (upgrades happen
+//                               only through a sales coach on a call)
 // We drive it through the rendered Coaching page's weekly schedule rows so the
-// real wiring (props passed to CallAction, onUnlock=navigate) is exercised.
+// real wiring (props passed to CallAction) is exercised.
 
 vi.mock("@/components/layout/AppLayout", () => ({
   AppLayout: ({ children }: { children: ReactNode }) => (
@@ -126,7 +125,7 @@ describe("Coaching — CallAction button gating", () => {
     expect(within(row).queryByRole("button", { name: /unlock/i })).not.toBeInTheDocument();
   });
 
-  it("renders an Unlock button that navigates to the call's own upgradeUrl when locked", async () => {
+  it("renders a neutral locked note with no upgrade CTA when locked", () => {
     const call = makeCall({
       id: 32,
       isAccessible: false,
@@ -138,27 +137,11 @@ describe("Coaching — CallAction button gating", () => {
     render(<Coaching />);
 
     const row = screen.getByTestId("weekly-call-32");
-    const unlock = within(row).getByRole("button", { name: /unlock/i });
-    await userEvent.click(unlock);
-    expect(navigate).toHaveBeenCalledWith("/plans?highlight=vip");
+    expect(within(row).getByTestId("weekly-locked-32")).toHaveTextContent(/not in your plan/i);
+    // No upsell controls, and never navigate to plan shopping.
+    expect(within(row).queryByRole("button", { name: /unlock|upgrade|view plans/i })).not.toBeInTheDocument();
+    expect(navigate).not.toHaveBeenCalled();
     // A locked call must never expose the Meet link.
     expect(within(row).queryByRole("link", { name: /join call/i })).not.toBeInTheDocument();
-  });
-
-  it("falls back to /plans when a locked call has no upgradeUrl", async () => {
-    const call = makeCall({
-      id: 33,
-      isAccessible: false,
-      meetLink: null,
-      upgradeUrl: null,
-    });
-    useListCoachingCalls.mockReturnValue({ data: [call] });
-
-    render(<Coaching />);
-
-    const row = screen.getByTestId("weekly-call-33");
-    const unlock = within(row).getByRole("button", { name: /unlock/i });
-    await userEvent.click(unlock);
-    expect(navigate).toHaveBeenCalledWith("/plans");
   });
 });

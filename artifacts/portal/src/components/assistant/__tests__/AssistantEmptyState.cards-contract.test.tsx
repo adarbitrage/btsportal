@@ -150,7 +150,9 @@ describe("AssistantEmptyState — server payload contract", () => {
     expect(onSendMessage).toHaveBeenCalledWith("How do I write a great subject line?");
   });
 
-  it("clicking a locked card opens the upgrade modal with product name and price", async () => {
+  it("a locked card is non-actionable and never shows an upgrade pitch", async () => {
+    // Upgrades happen only through a sales coach on a call — clicking a locked
+    // card must not open any upgrade modal, name a product, or show a price.
     mockUseAssistantCards.mockReturnValue({
       data: SERVER_FIXTURE,
       isLoading: false,
@@ -161,35 +163,15 @@ describe("AssistantEmptyState — server payload contract", () => {
     render(<AssistantEmptyState onSendMessage={vi.fn()} />);
 
     const lockedCard = await screen.findByTestId("button-card-102");
+    expect(lockedCard).toBeDisabled();
+    expect(lockedCard).toHaveTextContent(/not included in your plan/i);
     await user.click(lockedCard);
 
-    await waitFor(() => {
-      expect(screen.getAllByText(/Reserve Income Pro/).length).toBeGreaterThan(0);
-      expect(screen.getByText("$97/mo")).toBeInTheDocument();
-    });
-
-    expect(screen.getByTestId("button-upgrade-102")).toBeDisabled();
-  });
-
-  it("upgrade modal close button dismisses the modal", async () => {
-    mockUseAssistantCards.mockReturnValue({
-      data: SERVER_FIXTURE,
-      isLoading: false,
-      isError: false,
-    });
-
-    const user = userEvent.setup();
-    render(<AssistantEmptyState onSendMessage={vi.fn()} />);
-
-    const lockedCard = await screen.findByTestId("button-card-102");
-    await user.click(lockedCard);
-
-    await screen.findByTestId("button-upgrade-modal-close");
-    await user.click(screen.getByTestId("button-upgrade-modal-close"));
-
-    await waitFor(() => {
-      expect(screen.queryByTestId("button-upgrade-modal-close")).not.toBeInTheDocument();
-    });
+    // No modal, no product name/price, no upgrade button.
+    expect(screen.queryByText(/Reserve Income Pro/)).not.toBeInTheDocument();
+    expect(screen.queryByText("$97/mo")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("button-upgrade-102")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("button-upgrade-modal-close")).not.toBeInTheDocument();
   });
 
   it("shows loading skeleton while data is loading", () => {

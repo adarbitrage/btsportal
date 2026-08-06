@@ -81,18 +81,15 @@ import {
   filterNavByHiddenRoles,
   filterNavByRole,
   getSidebarTierLabel,
-  isLifetimeSlug,
   findActiveHref,
   nodeContainsActiveHref,
   resolveAdminRole,
-  shouldShowUpgradeCard,
   type NavFolder,
   type NavLeaf,
   type NavNode,
 } from "./sidebar-nav";
 import { useContentAccess } from "@/hooks/use-content-access";
 import { hasPermission } from "@/lib/permissions";
-import { UpgradeFeaturesCard } from "@/components/upgrade/UpgradeFeaturesCard";
 import { NextCallPanel } from "./NextCallPanel";
 import { isFrontendWelcomeMember } from "@/pages/Landing";
 import { useAdvisorCallNav } from "@/hooks/use-fe-call-bar";
@@ -642,7 +639,6 @@ export function SidebarContent({ onNavClick }: { onNavClick?: () => void }) {
   const showPartnerSection = shouldShowPartnerSection(user?.role, member?.role);
 
   const highestSlug: string = member?.highestProductSlug ?? "free";
-  const hasLifetime = isLifetimeSlug(highestSlug);
 
   const { accessiblePageKeys, isError: accessError } = useContentAccess();
 
@@ -854,19 +850,6 @@ export function SidebarContent({ onNavClick }: { onNavClick?: () => void }) {
       </div>
 
       <div className="p-4 mt-auto">
-        {shouldShowUpgradeCard(isAdminUser, isCoach) && (
-          <UpgradeFeaturesCard
-            entitlements={entitlements}
-            hasLifetime={hasLifetime}
-            variant="sidebar"
-            sourceTier={member ? highestSlug : null}
-            onCtaClick={() => {
-              onNavClick?.();
-              setLocation("/plans");
-            }}
-          />
-        )}
-
         <div className="flex items-center gap-3 px-2 py-2">
           <div className="w-8 h-8 rounded-full bg-primary/10 text-primary flex items-center justify-center font-bold text-xs shrink-0">
             {member?.name?.split(" ").map((n) => n[0]).join("") ?? "??"}

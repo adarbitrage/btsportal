@@ -83,7 +83,9 @@ export default function ToolDetail() {
             <Lock className="w-6 h-6 text-muted-foreground mx-auto mb-2" />
             <h2 className="text-xl font-semibold">{tool.name}</h2>
             <p className="text-muted-foreground mt-2 max-w-md mx-auto">{tool.shortDescription}</p>
-            <Button className="mt-6">Upgrade to Unlock</Button>
+            <p className="text-sm text-muted-foreground mt-6">
+              This tool isn't included in your plan — talk to your coach for access.
+            </p>
           </div>
         </div>
       </AppLayout>

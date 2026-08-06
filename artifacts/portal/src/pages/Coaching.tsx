@@ -5,7 +5,6 @@ import { Badge } from "@/components/ui/badge";
 import { Calendar, Video, Lock, Check, Users } from "lucide-react";
 import { format } from "date-fns";
 import { useEffect, useState, type ReactNode } from "react";
-import { useLocation } from "wouter";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   useListCoachingCalls,
@@ -63,7 +62,8 @@ function coachInitials(name: string): string {
 }
 
 // RSVP-first action shared by the recurring weekly schedule and the one-off
-// special sessions. Locked calls deep-link to the call's own `upgradeUrl`.
+// special sessions. Locked calls show a neutral "not in your plan" note (no
+// upgrade CTA — upgrades happen only through a sales coach on a call).
 // For eligible members the flow is: RSVP (closes 1h before start, server
 // enforced) -> "join opens 5 min before" -> Join (stamps joined-at server-side
 // and opens the meet link handed back by the API — the listing withholds the
@@ -71,13 +71,11 @@ function coachInitials(name: string): string {
 function GroupCallAction({
   call,
   now,
-  onUnlock,
   testPrefix,
   showCount = false,
 }: {
   call: CoachingCall;
   now: Date;
-  onUnlock: (url: string) => void;
   testPrefix: string;
   showCount?: boolean;
 }) {
@@ -113,15 +111,13 @@ function GroupCallAction({
   let caption: string | null = null;
   if (!call.isAccessible) {
     rsvpSlot = (
-      <Button
-        size="sm"
-        variant="outline"
-        className="font-semibold shrink-0 gap-1.5"
-        onClick={() => onUnlock(call.upgradeUrl ?? "/plans")}
+      <span
+        className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground shrink-0"
+        data-testid={`${testPrefix}-locked-${call.id}`}
       >
         <Lock className="w-3.5 h-3.5" />
-        Unlock
-      </Button>
+        Not in your plan
+      </span>
     );
   } else if (call.hasRegistered && !rsvpOpen) {
     // Between the RSVP cutoff and the join window: locked in, waiting.
@@ -240,7 +236,6 @@ const ONE_OFF_CALL_LABELS: Record<OneOffCallType, string> = {
 };
 
 export default function Coaching() {
-  const [, navigate] = useLocation();
   const now = useNow();
   const { data: upcomingCalls } = useListCoachingCalls({ upcoming: true });
   const { data: coaches } = useListCoaches();
@@ -441,7 +436,7 @@ export default function Coaching() {
                           with {coachFirst}
                         </span>
                       </div>
-                      <GroupCallAction call={call} now={now} onUnlock={navigate} testPrefix="weekly" />
+                      <GroupCallAction call={call} now={now} testPrefix="weekly" />
                     </div>
                   );
                 })}
@@ -496,7 +491,7 @@ export default function Coaching() {
                         with {call.coachName.split(" ")[0]}
                       </span>
                     </div>
-                    <GroupCallAction call={call} now={now} onUnlock={navigate} testPrefix="oneoff" showCount />
+                    <GroupCallAction call={call} now={now} testPrefix="oneoff" showCount />
                   </div>
                 ))}
               </div>

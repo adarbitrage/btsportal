@@ -73,13 +73,8 @@ export default function VoiceAssistant() {
               <div>
                 <h3 className="font-semibold text-amber-900 dark:text-amber-200 mb-1">Voice Access Required</h3>
                 <p className="text-sm text-amber-700 dark:text-amber-300">
-                  The voice assistant is available to members with voice access. Upgrade your plan to unlock this feature.
+                  The voice assistant isn't included in your plan — talk to your coach for access.
                 </p>
-                <Link href="/plans">
-                  <a className="inline-block mt-3 text-sm font-semibold text-amber-800 dark:text-amber-300 underline underline-offset-2">
-                    View upgrade options →
-                  </a>
-                </Link>
               </div>
             </div>
           </div>

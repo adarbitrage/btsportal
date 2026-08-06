@@ -39,9 +39,6 @@ vi.mock("@/components/wins/WinsSummaryWidget", () => ({
   WinsSummaryWidget: () => <div data-testid="wins-summary-stub" />,
 }));
 
-vi.mock("@/components/upgrade/UpgradeFeaturesCard", () => ({
-  UpgradeFeaturesCard: () => <div data-testid="upgrade-features-stub" />,
-}));
 
 vi.mock("@/components/blitz/BlitzContinueCard", () => ({
   BlitzContinueCard: () => <div data-testid="blitz-continue-stub" />,

@@ -152,7 +152,7 @@ export default function ModuleDetail() {
                         )}
                         {isLocked && (
                           <span className="text-orange-600 bg-orange-50 px-2 py-0.5 rounded border border-orange-100 text-xs font-medium">
-                            Upgrade Required
+                            Not in your plan
                           </span>
                         )}
                         {isDone && (

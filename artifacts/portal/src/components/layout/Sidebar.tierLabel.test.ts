@@ -3,7 +3,6 @@ import {
   getSidebarTierLabel,
   getStaffLabel,
   resolveAdminRole,
-  shouldShowUpgradeCard,
 } from "./sidebar-nav";
 
 describe("getStaffLabel", () => {
@@ -104,27 +103,7 @@ describe("getSidebarTierLabel staff vs member", () => {
   });
 });
 
-describe("shouldShowUpgradeCard", () => {
-  it("hides the upgrade card for admins/staff", () => {
-    expect(shouldShowUpgradeCard(true)).toBe(false);
-  });
-
-  it("shows the upgrade card for non-admin members", () => {
-    expect(shouldShowUpgradeCard(false)).toBe(true);
-  });
-
-  it("hides the upgrade card for coaches (staff, never upsell targets)", () => {
-    expect(shouldShowUpgradeCard(false, true)).toBe(false);
-    // Admin OR coach both suppress it.
-    expect(shouldShowUpgradeCard(true, true)).toBe(false);
-  });
-
-  it("still shows the upgrade card for a plain member (isCoach=false)", () => {
-    expect(shouldShowUpgradeCard(false, false)).toBe(true);
-  });
-});
-
-describe("sidebar staff label + upgrade card wiring (end to end via resolveAdminRole)", () => {
+describe("sidebar staff label wiring (end to end via resolveAdminRole)", () => {
   function sidebarStateFor(params: {
     authRole: string | undefined | null;
     memberRole: string | undefined | null;
@@ -140,47 +119,42 @@ describe("sidebar staff label + upgrade card wiring (end to end via resolveAdmin
         userRole,
         highestProductSlug: params.highestProductSlug,
       }),
-      showsUpgradeCard: shouldShowUpgradeCard(isAdminUser),
     };
   }
 
-  it("a super_admin sees 'Super Admin' and no upgrade card", () => {
+  it("a super_admin sees 'Super Admin'", () => {
     const state = sidebarStateFor({
       authRole: "super_admin",
       memberRole: "free_member",
       highestProductSlug: "free",
     });
     expect(state.label).toBe("Super Admin");
-    expect(state.showsUpgradeCard).toBe(false);
   });
 
-  it("an admin sees 'Admin' and no upgrade card", () => {
+  it("an admin sees 'Admin'", () => {
     const state = sidebarStateFor({
       authRole: "admin",
       memberRole: "free_member",
       highestProductSlug: "free",
     });
     expect(state.label).toBe("Admin");
-    expect(state.showsUpgradeCard).toBe(false);
   });
 
-  it("a genuine free member sees 'Free Member' and the upgrade card", () => {
+  it("a genuine free member sees 'Free Member'", () => {
     const state = sidebarStateFor({
       authRole: "free_member",
       memberRole: "free_member",
       highestProductSlug: "free",
     });
     expect(state.label).toBe("Free Member");
-    expect(state.showsUpgradeCard).toBe(true);
   });
 
-  it("a paying member sees their product tier and the upgrade card", () => {
+  it("a paying member sees their product tier", () => {
     const state = sidebarStateFor({
       authRole: "member",
       memberRole: "member",
       highestProductSlug: "6month",
     });
     expect(state.label).toBe("6-Month Mentorship");
-    expect(state.showsUpgradeCard).toBe(true);
   });
 });

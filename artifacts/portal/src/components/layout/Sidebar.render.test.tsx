@@ -106,8 +106,8 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-describe("SidebarContent staff label + upgrade card (rendered)", () => {
-  it("shows the Super Admin label and hides the upgrade card for a super_admin", () => {
+describe("SidebarContent staff label (rendered; upgrade card removed portal-wide)", () => {
+  it("shows the Super Admin label and no upgrade card for a super_admin", () => {
     useAuthMock.mockReturnValue({ user: { role: "super_admin" }, logout: vi.fn() });
     useGetCurrentMemberMock.mockReturnValue({
       data: {
@@ -127,7 +127,7 @@ describe("SidebarContent staff label + upgrade card (rendered)", () => {
     expect(screen.queryByTestId(UPGRADE_CARD_TESTID)).toBeNull();
   });
 
-  it("shows the Admin label and hides the upgrade card for a non-super admin", () => {
+  it("shows the Admin label and no upgrade card for a non-super admin", () => {
     useAuthMock.mockReturnValue({ user: { role: "admin" }, logout: vi.fn() });
     useGetCurrentMemberMock.mockReturnValue({
       data: {
@@ -146,7 +146,7 @@ describe("SidebarContent staff label + upgrade card (rendered)", () => {
     expect(screen.queryByTestId(UPGRADE_CARD_TESTID)).toBeNull();
   });
 
-  it("shows the Free Member label and the upgrade card for a free member", () => {
+  it("shows the Free Member label and no upgrade card for a free member", () => {
     useAuthMock.mockReturnValue({ user: { role: "free_member" }, logout: vi.fn() });
     useGetCurrentMemberMock.mockReturnValue({
       data: {
@@ -162,20 +162,20 @@ describe("SidebarContent staff label + upgrade card (rendered)", () => {
 
     // The tier label paragraph reads "Free Member".
     expect(screen.getByText("Free Member", { selector: "p" })).toBeInTheDocument();
-    // A genuine free member with no entitlements has locked features, so the
-    // sidebar upgrade card renders.
-    expect(screen.getByTestId(UPGRADE_CARD_TESTID)).toBeInTheDocument();
+    // Upgrades happen only through a sales coach — no member ever sees the
+    // sidebar upgrade card, including free members with locked features.
+    expect(screen.queryByTestId(UPGRADE_CARD_TESTID)).toBeNull();
   });
 
-  it("shows the product-tier label and the upgrade card for a paying member", () => {
+  it("shows the product-tier label and no upgrade card for a paying member", () => {
     useAuthMock.mockReturnValue({ user: { role: "member" }, logout: vi.fn() });
     useGetCurrentMemberMock.mockReturnValue({
       data: {
         id: 4,
         name: "Pat Paying",
         role: "member",
-        // A 6-Month member still has features locked behind higher tiers, so
-        // the upgrade card must keep rendering for them.
+        // A 6-Month member still has features locked behind higher tiers, but
+        // the upgrade card must NOT render (no in-portal upsell).
         entitlements: [],
         highestProductSlug: "6month",
       },
@@ -186,11 +186,11 @@ describe("SidebarContent staff label + upgrade card (rendered)", () => {
     // The tier label paragraph reflects the purchased product, not "Free Member".
     expect(screen.getByText("6-Month Mentorship", { selector: "p" })).toBeInTheDocument();
     expect(screen.queryByText("Free Member")).toBeNull();
-    // Paying members below lifetime still see the sidebar upgrade card.
-    expect(screen.getByTestId(UPGRADE_CARD_TESTID)).toBeInTheDocument();
+    // Paying members below lifetime also see no upgrade card.
+    expect(screen.queryByTestId(UPGRADE_CARD_TESTID)).toBeNull();
   });
 
-  it("shows the Lifetime Member label and hides the upgrade card for a lifetime member", () => {
+  it("shows the Lifetime Member label and no upgrade card for a lifetime member", () => {
     useAuthMock.mockReturnValue({ user: { role: "member" }, logout: vi.fn() });
     useGetCurrentMemberMock.mockReturnValue({
       data: {

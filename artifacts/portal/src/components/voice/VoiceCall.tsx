@@ -159,7 +159,7 @@ export function VoiceCall() {
       if (err.code === "voice_cap_reached") {
         setErrorMsg("Daily voice limit reached. Try again tomorrow.");
       } else if (err.code === "voice_access_required") {
-        setErrorMsg("Voice assistant requires a higher membership level.");
+        setErrorMsg("The voice assistant isn't included in your plan — talk to your coach for access.");
       } else {
         setErrorMsg(err.message || "Failed to start call. Please try again.");
       }

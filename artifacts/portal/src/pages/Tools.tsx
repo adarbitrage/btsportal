@@ -71,7 +71,7 @@ export default function Tools() {
           <h2 className="text-xl font-semibold">Could not load tools</h2>
           <p className="text-muted-foreground mt-2">
             {(error as any)?.message?.includes("403")
-              ? "You need a software entitlement to access tools. Upgrade your plan to unlock this feature."
+              ? "Tools aren't included in your plan — talk to your coach for access."
               : "Please try refreshing the page."}
           </p>
         </div>
@@ -253,10 +253,10 @@ function ToolCard({ tool }: { tool: any }) {
                     <Users className="w-3 h-3" />
                     {tool.totalLaunches.toLocaleString()} launches
                   </div>
-                  <Button size="sm" variant="outline" className="h-7 text-xs" disabled>
-                    <Lock className="w-3 h-3 mr-1" />
-                    Upgrade to unlock
-                  </Button>
+                  <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                    <Lock className="w-3 h-3" />
+                    Not in your plan
+                  </span>
                 </div>
               </div>
             </div>

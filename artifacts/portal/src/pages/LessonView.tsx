@@ -164,7 +164,7 @@ export default function LessonView() {
                     </div>
                     {isLocked ? (
                       <Badge variant="outline" className="text-xs shrink-0">
-                        <Lock className="w-3 h-3 mr-1" /> Upgrade
+                        <Lock className="w-3 h-3 mr-1" /> Not in your plan
                       </Badge>
                     ) : (
                       <a href={resource.url} download={resource.name} target="_blank" rel="noopener noreferrer">

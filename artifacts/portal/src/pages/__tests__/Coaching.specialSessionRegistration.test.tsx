@@ -154,7 +154,8 @@ describe("Coaching — special-session registration", () => {
     expect(within(row).queryByTestId("oneoff-register-72")).not.toBeInTheDocument();
     expect(within(row).queryByTestId("oneoff-cancel-72")).not.toBeInTheDocument();
     expect(within(row).queryByTestId("oneoff-registered-count-72")).not.toBeInTheDocument();
-    // Locked sessions still surface the Unlock deep-link.
-    expect(within(row).getByRole("button", { name: /unlock/i })).toBeInTheDocument();
+    // Locked sessions show a neutral locked note with no upgrade CTA.
+    expect(within(row).getByTestId("oneoff-locked-72")).toHaveTextContent(/not in your plan/i);
+    expect(within(row).queryByRole("button", { name: /unlock|upgrade|view plans/i })).not.toBeInTheDocument();
   });
 });

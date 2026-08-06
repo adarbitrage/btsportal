@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Link } from "wouter";
 import {
   Search, Heart, FileText, Video, ExternalLink, Download,
-  ChevronLeft, Star, Lock, FolderOpen, ArrowUpDown, Crown,
+  ChevronLeft, Star, Lock, FolderOpen, ArrowUpDown,
 } from "lucide-react";
 import { useVaultCollectionDetail, useToggleFavorite } from "@/lib/vault-api";
 
@@ -79,13 +79,9 @@ export default function CollectionDetail() {
               <Lock className="w-8 h-8 text-muted-foreground/50" />
             </div>
             <h2 className="text-2xl font-bold text-foreground mb-2">{collection.name}</h2>
-            <p className="text-muted-foreground mb-6 max-w-md mx-auto">
-              This collection requires a higher membership tier. Upgrade your plan to access these resources.
+            <p className="text-muted-foreground max-w-md mx-auto">
+              This collection isn't included in your plan — talk to your coach for access.
             </p>
-            <Button size="lg">
-              <Crown className="w-4 h-4 mr-2" />
-              Upgrade Your Plan
-            </Button>
           </div>
         </div>
       </AppLayout>

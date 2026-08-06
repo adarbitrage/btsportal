@@ -62,12 +62,12 @@ describe("MemberDirectory — community-access paywall", () => {
 
     render(<MemberDirectory />);
 
-    // The paywall heading and upgrade copy must show.
+    // The paywall heading and neutral locked copy must show.
     expect(screen.getByText("Community Access Required")).toBeInTheDocument();
+    expect(screen.getByText(/talk to your coach/i)).toBeInTheDocument();
 
-    // The upgrade CTA links to the plans page.
-    const upgradeLink = screen.getByRole("link", { name: /view plans & upgrade/i });
-    expect(upgradeLink).toHaveAttribute("href", "/plans");
+    // No upgrade CTA / plan-shopping link (upgrades happen via a sales coach).
+    expect(screen.queryByRole("link", { name: /view plans|upgrade/i })).not.toBeInTheDocument();
 
     // The member list must NOT render for a gated member.
     expect(screen.queryByTestId("member-card-stub")).not.toBeInTheDocument();

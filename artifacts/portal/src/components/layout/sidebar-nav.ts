@@ -295,10 +295,3 @@ export function getSidebarTierLabel(params: {
   if (isCoachRole(params.userRole)) return "Coach";
   return getProductDisplayName(params.highestProductSlug);
 }
-
-export function shouldShowUpgradeCard(
-  isAdminUser: boolean,
-  isCoach = false,
-): boolean {
-  return !isAdminUser && !isCoach;
-}

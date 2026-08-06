@@ -293,7 +293,7 @@ export default function Resources() {
                             <div className="flex items-center gap-2">
                               <h3 className="font-semibold text-sm text-foreground">{collection.name}</h3>
                               {!collection.isAccessible && (
-                                <Badge variant="outline" className="text-[9px] bg-secondary text-muted-foreground">Upgrade</Badge>
+                                <Badge variant="outline" className="text-[9px] bg-secondary text-muted-foreground">Locked</Badge>
                               )}
                             </div>
                             <p className="text-xs text-muted-foreground mt-0.5 line-clamp-1">{collection.description}</p>

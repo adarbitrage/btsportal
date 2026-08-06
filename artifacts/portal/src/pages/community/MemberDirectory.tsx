@@ -18,12 +18,9 @@ function PaywallCard() {
           <Lock className="w-8 h-8 text-primary/60" />
         </div>
         <h2 className="text-xl font-semibold text-foreground mb-2">Community Access Required</h2>
-        <p className="text-muted-foreground text-sm max-w-sm mb-6">
-          Community access requires 3-Month Mentorship or higher. Upgrade your plan to join the conversation.
+        <p className="text-muted-foreground text-sm max-w-sm">
+          Community access isn't included in your plan — talk to your coach for access.
         </p>
-        <Link href="/plans">
-          <Button className="shadow-sm">View Plans & Upgrade</Button>
-        </Link>
       </CardContent>
     </Card>
   );

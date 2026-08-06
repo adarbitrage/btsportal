@@ -341,8 +341,8 @@ export default function VaCalls() {
                 Full membership required
               </h3>
               <p className="text-sm text-muted-foreground max-w-md mx-auto">
-                Free 1-on-1 VA calls are included with full BTS memberships.
-                Upgrade your membership to book a call with the Concierge™ team.
+                Free 1-on-1 VA calls aren't included in your plan — talk to
+                your coach for access.
               </p>
             </CardContent>
           </Card>

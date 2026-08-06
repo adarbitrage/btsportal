@@ -163,7 +163,7 @@ export function ReferralLinksTab() {
                     <span className="text-sm text-muted-foreground">{link.productName}</span>
                   </div>
                   <Badge variant="outline" className="text-xs">
-                    Upgrade to Unlock
+                    Not in your plan
                   </Badge>
                 </CardContent>
               </Card>

@@ -97,6 +97,32 @@ async function startCallFlow(queryClient: QueryClient) {
 
 // ── tests ─────────────────────────────────────────────────────────────────────
 
+describe("VoiceCall — locked-access error copy", () => {
+  it("shows neutral coach-directed copy (no upgrade pitch) when the API returns voice_access_required", async () => {
+    const user = userEvent.setup({ delay: null });
+    renderVoiceCall(makeQueryClient());
+
+    Object.defineProperty(navigator, "mediaDevices", {
+      value: { getUserMedia: vi.fn().mockResolvedValue({}) },
+      writable: true,
+      configurable: true,
+    });
+
+    // startWebCall rejects with the access-gate error code.
+    mockMutateAsync.mockRejectedValueOnce(
+      Object.assign(new Error("Voice access required"), { code: "voice_access_required" }),
+    );
+
+    await user.click(screen.getByRole("button", { name: /start call/i }));
+
+    // Neutral locked copy — upgrades happen only via a sales coach on a call.
+    expect(
+      await screen.findByText(/isn't included in your plan — talk to your coach for access/i),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/higher membership|upgrade|view plans/i)).not.toBeInTheDocument();
+  });
+});
+
 beforeEach(() => {
   vi.clearAllMocks();
   Object.keys(registeredHandlers).forEach((k) => delete registeredHandlers[k]);

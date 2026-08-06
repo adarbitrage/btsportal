@@ -60,11 +60,7 @@ export function MyProductsCardContent() {
         className="py-8 text-center text-muted-foreground text-sm"
         data-testid="my-products-empty"
       >
-        You don't have any products yet.{" "}
-        <Link href="/plans" className="text-primary font-medium hover:underline">
-          Browse plans
-        </Link>{" "}
-        to get started.
+        You don't have any products yet. Talk to your coach to get started.
       </div>
     );
   }

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Lock, ArrowLeft, ExternalLink } from "lucide-react";
+import { Lock, ArrowLeft } from "lucide-react";
 import botLogo from "@/assets/ai-assistant-logo.png";
 import { Button } from "@/components/ui/button";
 import { useAssistantCards } from "@/hooks/use-assistant-cards";
@@ -35,74 +35,6 @@ function GroupSkeletons() {
           </div>
         </div>
       ))}
-    </div>
-  );
-}
-
-interface UpgradeModalProps {
-  card: AssistantCard;
-  onClose: () => void;
-}
-
-function UpgradeModal({ card, onClose }: UpgradeModalProps) {
-  const productName = card.upgradeProduct?.name ?? "an upgrade";
-  const priceDisplay = card.upgradeProduct?.priceDisplay;
-
-  return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4"
-      onClick={onClose}
-    >
-      <div className="absolute inset-0 bg-stone-900/60 backdrop-blur-sm" />
-      <div
-        className="relative z-10 w-full max-w-sm rounded-2xl border border-stone-200 dark:border-stone-800 bg-white dark:bg-stone-950 p-6 shadow-2xl"
-        style={{ fontFamily: "'Roboto', sans-serif" }}
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="flex items-center gap-3 mb-4">
-          <div className="w-10 h-10 rounded-xl bg-stone-100 dark:bg-stone-800 flex items-center justify-center shrink-0 text-xl">
-            {card.icon}
-          </div>
-          <div>
-            <h3 className="font-semibold text-stone-900 dark:text-stone-100 text-base leading-tight">
-              {card.title} requires {productName}
-            </h3>
-          </div>
-        </div>
-
-        <p className="text-[14px] text-stone-600 dark:text-stone-400 leading-relaxed mb-4">
-          {card.description} Unlock this category and more with{" "}
-          <span className="font-medium text-stone-900 dark:text-stone-100">
-            {productName}
-          </span>
-          .
-        </p>
-
-        {priceDisplay && (
-          <p className="text-2xl font-bold text-stone-900 dark:text-stone-100 mb-4">
-            {priceDisplay}
-          </p>
-        )}
-
-        <div className="flex gap-2">
-          <Button
-            className="flex-1 bg-stone-900 hover:bg-stone-800 text-stone-50 dark:bg-stone-100 dark:hover:bg-white dark:text-stone-900"
-            disabled
-            data-testid={`button-upgrade-${card.id}`}
-          >
-            Upgrade
-            <ExternalLink className="w-3.5 h-3.5 ml-1.5" />
-          </Button>
-          <Button
-            variant="outline"
-            onClick={onClose}
-            className="border-stone-200 dark:border-stone-800"
-            data-testid="button-upgrade-modal-close"
-          >
-            Cancel
-          </Button>
-        </div>
-      </div>
     </div>
   );
 }
@@ -160,18 +92,18 @@ function QuestionList({ card, onBack, onSelectQuestion }: QuestionListProps) {
 interface CardTileProps {
   card: AssistantCard;
   onClickEntitled: (card: AssistantCard) => void;
-  onClickLocked: (card: AssistantCard) => void;
 }
 
-function CardTile({ card, onClickEntitled, onClickLocked }: CardTileProps) {
+function CardTile({ card, onClickEntitled }: CardTileProps) {
   const isLocked = card.locked;
 
   return (
     <button
-      onClick={() => (isLocked ? onClickLocked(card) : onClickEntitled(card))}
+      onClick={() => (isLocked ? undefined : onClickEntitled(card))}
+      disabled={isLocked}
       className={`relative text-left rounded-xl border p-4 transition-all group ${
         isLocked
-          ? "border-[#D6DEEC] dark:border-stone-800 bg-[#F6F8FC]/60 dark:bg-stone-900/40 opacity-60 cursor-pointer hover:opacity-75"
+          ? "border-[#D6DEEC] dark:border-stone-800 bg-[#F6F8FC]/60 dark:bg-stone-900/40 opacity-60 cursor-default"
           : "border-[#D6DEEC] dark:border-stone-800 bg-white dark:bg-stone-900 hover:border-[#B9C7E2] dark:hover:border-stone-700 hover:bg-[#F6F8FC] dark:hover:bg-stone-800/60 hover:shadow-sm"
       }`}
       style={{ fontFamily: "'Roboto', sans-serif" }}
@@ -191,7 +123,7 @@ function CardTile({ card, onClickEntitled, onClickLocked }: CardTileProps) {
       </p>
       {isLocked && (
         <p className="mt-2 text-[11px] font-medium text-stone-400 dark:text-stone-500">
-          Upgrade to unlock
+          Not included in your plan
         </p>
       )}
     </button>
@@ -203,7 +135,6 @@ const TRANSITION_MS = 160;
 export function AssistantEmptyState({ onSendMessage }: AssistantEmptyStateProps) {
   const { data: groups, isLoading, isError } = useAssistantCards();
   const [selectedCard, setSelectedCard] = useState<AssistantCard | null>(null);
-  const [upgradeCard, setUpgradeCard] = useState<AssistantCard | null>(null);
   const [view, setView] = useState<"cards" | "questions">("cards");
   const [exiting, setExiting] = useState(false);
 
@@ -221,10 +152,6 @@ export function AssistantEmptyState({ onSendMessage }: AssistantEmptyStateProps)
     transitionTo("questions", card);
   };
 
-  const handleLocked = (card: AssistantCard) => {
-    setUpgradeCard(card);
-  };
-
   const handleBack = () => {
     transitionTo("cards");
   };
@@ -235,10 +162,6 @@ export function AssistantEmptyState({ onSendMessage }: AssistantEmptyStateProps)
 
   return (
     <>
-      {upgradeCard && (
-        <UpgradeModal card={upgradeCard} onClose={() => setUpgradeCard(null)} />
-      )}
-
       <div className="flex flex-col items-center justify-center h-full px-6 text-center">
         <div className="w-16 h-16 flex items-center justify-center mb-5">
           <img
@@ -304,7 +227,6 @@ export function AssistantEmptyState({ onSendMessage }: AssistantEmptyStateProps)
                           key={card.id}
                           card={card}
                           onClickEntitled={handleEntitled}
-                          onClickLocked={handleLocked}
                         />
                       ))}
                     </div>

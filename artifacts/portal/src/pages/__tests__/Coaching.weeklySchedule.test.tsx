@@ -125,9 +125,8 @@ describe("Coaching — data-driven weekly schedule", () => {
     const lockedRow = screen.getByTestId("weekly-call-11");
     // Locked rows keep the persistent Join button, but it stays disabled.
     expect(within(lockedRow).getByTestId("weekly-join-11")).toBeDisabled();
-    const unlock = within(lockedRow).getByRole("button", { name: /unlock/i });
-    await userEvent.click(unlock);
-    expect(navigate).toHaveBeenCalledWith("/plans?highlight=3month");
+    expect(within(lockedRow).getByTestId("weekly-locked-11")).toHaveTextContent(/not in your plan/i);
+    expect(within(lockedRow).queryByRole("button", { name: /unlock|upgrade|view plans/i })).not.toBeInTheDocument();
 
     expect(screen.queryByTestId("weekly-call-12")).not.toBeInTheDocument();
   });

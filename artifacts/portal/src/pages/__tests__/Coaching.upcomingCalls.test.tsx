@@ -130,12 +130,12 @@ describe("Coaching — upcoming one-off special sessions", () => {
     expect(within(strategyRow).getByTestId("oneoff-call-type-40")).toHaveTextContent("Strategy");
     expect(within(strategyRow).getByTestId("oneoff-join-40")).toHaveTextContent(/join call/i);
 
-    // Locked mastermind call → Unlock navigating to its OWN upgradeUrl.
+    // Locked mastermind call → neutral locked note, no upgrade CTA.
     const mastermindRow = screen.getByTestId("oneoff-call-41");
     expect(within(mastermindRow).getByTestId("oneoff-call-type-41")).toHaveTextContent("Mastermind");
     expect(within(mastermindRow).getByTestId("oneoff-join-41")).toBeDisabled();
-    await userEvent.click(within(mastermindRow).getByRole("button", { name: /unlock/i }));
-    expect(navigate).toHaveBeenCalledWith("/plans?highlight=mastermind");
+    expect(within(mastermindRow).getByTestId("oneoff-locked-41")).toHaveTextContent(/not in your plan/i);
+    expect(within(mastermindRow).queryByRole("button", { name: /unlock|upgrade|view plans/i })).not.toBeInTheDocument();
 
     // Accessible VIP call well ahead of start → Join visible but disabled, and
     // the member can RSVP ahead of time.
