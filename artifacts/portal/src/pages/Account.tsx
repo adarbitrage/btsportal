@@ -301,9 +301,19 @@ export default function Account() {
   const smsPhoneBlockedMessage =
     "Add a phone number to receive text reminders — or uncheck SMS notifications";
 
+  // A phone-less member with SMS on used to dead-end here: the server
+  // correctly rejects SMS-on + empty phone, but the phone field lives in the
+  // (collapsed) Profile card. So when SMS is on and no phone is on file, the
+  // notifications card renders its own inline phone input (bound to the same
+  // shared `phone` state) and sends the number along with the preferences in
+  // one save.
+  const notifNeedsPhone = smsOptIn && !(member?.phone || "").trim();
+  const notifSmsPhoneBlocked = smsOptIn && !phone.trim();
+
   const notifDirty =
     !!member &&
-    (smsOptIn !== (member.smsOptIn ?? false) ||
+    ((notifNeedsPhone && phone.trim() !== "") ||
+      smsOptIn !== (member.smsOptIn ?? false) ||
       ticketReplySmsOptIn !== (member.ticketReplySmsOptIn ?? true) ||
       securitySmsOptIn !== (member.securitySmsOptIn ?? true) ||
       billingSmsOptIn !== (member.billingSmsOptIn ?? true) ||
@@ -343,10 +353,19 @@ export default function Account() {
 
   const handleNotificationsSave = async () => {
     setNotifError("");
+    // Same client-side guard as the Profile card: never fire a request that
+    // would leave SMS on with no phone on file — the server would 400 it.
+    if (notifSmsPhoneBlocked) {
+      setNotifError(smsPhoneBlockedMessage);
+      return;
+    }
     setNotifSaving(true);
     try {
       await patchProfile.mutateAsync({
         data: {
+          // Include the inline-entered phone so one save resolves both the
+          // preference change and the missing number.
+          ...(notifNeedsPhone ? { phone: phone.trim() || null } : {}),
           smsOptIn,
           ticketReplySmsOptIn,
           securitySmsOptIn,
@@ -364,7 +383,9 @@ export default function Account() {
         description: "Your notification preferences have been updated.",
       });
     } catch (err: any) {
-      setNotifError(err?.message || "Failed to save preferences.");
+      // Prefer the server body's human-readable `error` text over the raw
+      // thrown message (which can be an "HTTP 400 · ..." string).
+      setNotifError(err?.data?.error || err?.message || "Failed to save preferences.");
     } finally {
       setNotifSaving(false);
     }
@@ -1031,6 +1052,30 @@ export default function Account() {
                 aria-label="Toggle SMS notifications"
               />
             </div>
+
+            {notifNeedsPhone && (
+              <div
+                className="pl-4 border-l-2 border-border/60 ml-1 space-y-1.5"
+                data-testid="section-notif-phone"
+              >
+                <Label htmlFor="notif-phone">Phone number</Label>
+                <Input
+                  id="notif-phone"
+                  type="tel"
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                  placeholder="+1 (555) 000-0000"
+                  className={notifSmsPhoneBlocked ? "border-red-400" : undefined}
+                  data-testid="input-notif-phone"
+                />
+                <p
+                  className={`text-xs mt-1.5 ${notifSmsPhoneBlocked ? "text-red-600" : "text-muted-foreground"}`}
+                  data-testid="text-notif-sms-phone-blocked"
+                >
+                  {smsPhoneBlockedMessage}
+                </p>
+              </div>
+            )}
 
             <div className="flex items-start justify-between gap-4 py-2 pl-4 border-l-2 border-border/60 ml-1">
               <div className="flex-1">
