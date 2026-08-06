@@ -1,10 +1,14 @@
 ---
 name: Live-chat callout offset lockstep
-description: TicketDesk bubble is pinned at bottom 96px; the attention callout's bottom offset must clear it.
+description: TicketDesk chat widget renders in an OPEN SHADOW ROOT — page CSS can never restyle it; repositioning must be injected into the shadow root, and bubble + panel + callout + back-to-top geometry move in lockstep.
 ---
 
-The portal pins the TicketDesk bubble at `bottom: 96px !important` (`.woot-widget-bubble` in portal index.css) so it clears the AI chat launcher. The bubble renders ~64px tall, so its top edge is ~160px.
+The TicketDesk widget is NOT Chatwoot. It renders inside an **open shadow root** on a fixed host div it appends to `document.body`, so page-level stylesheets can never reach the bubble or panel — a CSS rule targeting widget class names silently matches nothing.
 
-**Why:** the LiveChatCallout attention pointer must sit fully above the bubble (arrow pointing down at it) — a callout at bottom-24 (96px) overlaps the bubble. Default is `bottom-44` (176px), `raised` (FE call bar visible) is `bottom-56`.
+**Why:** the original bubble pin lived in portal CSS targeting Chatwoot class names; it never applied, so the bubble sat at the widget's stock corner while the attention callout pointed at empty air.
 
-**How to apply:** if the index.css widget offset or launcher stack changes, update LiveChatCallout's bottom classes + its class-contract test in lockstep. Any mockup-sandbox preview simulating the bubble must use bottom:96px, not the widget's stock 20px.
+**How to apply:**
+- Reposition the widget only via the portal's ticketdesk-bubble-pin module (style injected into the open shadow root; the host is created even when the widget's origin gate 403s in dev, so injection is testable everywhere). Never reintroduce page-CSS rules for it.
+- Bubble and open panel must move together (the panel's bottom and max-height derive from the bubble's pinned top edge), and the callout/back-to-top offsets are locked to the same geometry — the pin module's doc comment is the single source; change all of them plus their class-contract tests in lockstep.
+- The widget's origin gate blocks non-prod origins, so the bubble never fully renders in dev/preview; visual verification needs a replica of the widget's own host+bubble+panel markup (Playwright + nix chromium).
+- Any mockup-sandbox preview simulating the bubble must copy the pinned geometry from the pin module, not the widget's stock offsets.

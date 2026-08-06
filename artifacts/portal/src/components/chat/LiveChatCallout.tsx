@@ -15,18 +15,23 @@ import { ArrowDown, X } from "lucide-react";
  *   so they are disabled entirely for prefers-reduced-motion users.
  * - Stacking: z-50 — above page content and the FE call bar (z-40), below
  *   the Toaster (z-[100]) and the impersonation banner (z-[9999]).
- * - The `raised` prop lifts the callout when the sticky FE "book your call"
- *   bottom bar is visible so the two never collide.
- * - Vertical clearance: the portal pins the TicketDesk bubble at
- *   `bottom: 96px !important` (index.css .woot-widget-bubble) and the bubble
- *   renders ~64px tall, so the callout's default `bottom-44` (176px) puts the
- *   arrow ~16px above the bubble's top edge, pointing down at it without ever
- *   overlapping. Keep these offsets in lockstep with the index.css rule.
- * - Horizontal offset: right-16 (64px) keeps the pill to the LEFT of the
- *   fixed back-to-top button column (BackToTopButton: 40px wide at
- *   right-3/right-5, spanning up to 60px from the right edge), so the two
- *   floating controls can share the same vertical band without the z-50
- *   callout covering the z-40 button.
+ * - Geometry (keep in lockstep with src/lib/ticketdesk-bubble-pin.ts and
+ *   BackToTopButton.tsx): the TicketDesk bubble renders inside an open shadow
+ *   root at the widget's stock `right: 20px`, is 56px wide/tall, and is
+ *   pinned at `bottom: 96px` by the injected shadow style — so it occupies
+ *   96–152px from the bottom with its horizontal center 48px from the right
+ *   viewport edge.
+ *   - Wrapper: `right-5` (20px) + `bottom-40` (160px) puts the arrow's
+ *     bottom edge 8px above the bubble's 152px top edge.
+ *   - Arrow: w-7 (28px) with mr-3.5 (14px) → arrow center at
+ *     20 + 14 + 14 = 48px from the right = the bubble's center.
+ *   - Pill: sits above the arrow with mt-7 (28px) of clearance so its bottom
+ *     edge (160 + 28 + 28 = 216px) clears the BackToTopButton's highest
+ *     position (raised mobile: bottom-44 + 40px height = 216px top edge).
+ * - The `raised` prop marks the sticky FE "book your call" bottom bar as
+ *   visible. The bubble is pinned at 96px regardless (well above the bar),
+ *   so the callout keeps the same offsets in both states — the prop is
+ *   retained for the App-level gate's API and future-proofing.
  *
  * Purely presentational + localStorage — auth/audience gating lives in the
  * App-level mount (LiveChatCalloutGate in App.tsx).
@@ -58,11 +63,13 @@ export function LiveChatCallout({ raised = false }: { raised?: boolean }) {
     setDismissed(true);
   };
 
+  // `raised` intentionally unused for positioning — the bubble is pinned at
+  // 96px in both states; kept so the App gate's contract stays stable.
+  void raised;
+
   return (
     <div
-      className={`fixed right-16 z-50 pointer-events-none flex flex-col items-end motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-bottom-3 motion-safe:duration-500 ${
-        raised ? "bottom-56" : "bottom-44"
-      }`}
+      className="fixed right-5 bottom-40 z-50 pointer-events-none flex flex-col items-end motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-bottom-3 motion-safe:duration-500"
       data-testid="live-chat-callout"
     >
       {/* Branded speech-bubble pill */}
@@ -88,10 +95,11 @@ export function LiveChatCallout({ raised = false }: { raised?: boolean }) {
           className="absolute -bottom-1.5 right-6 h-3 w-3 rotate-45 bg-primary"
         />
       </div>
-      {/* Bouncing arrow pointing straight down at the chat bubble beneath */}
+      {/* Bouncing arrow pointing straight down at the chat bubble beneath —
+          mr-3.5 centers it on the bubble's 48px-from-right column */}
       <ArrowDown
         aria-hidden="true"
-        className="mt-2 mr-5 w-7 h-7 text-primary drop-shadow-sm motion-safe:animate-bounce"
+        className="mt-7 mr-3.5 w-7 h-7 text-primary drop-shadow-sm motion-safe:animate-bounce"
         data-testid="live-chat-callout-arrow"
       />
     </div>

@@ -103,12 +103,11 @@
   }
 }
 
-/* Push the TicketDesk widget bubble above the AI chat launcher (bottom-6 +
-   height ≈ 96 px) so the two bubbles don't overlap when both are present. */
-.woot-widget-bubble,
-.chatwoot-widget-bubble {
-  bottom: 96px !important;
-}
+/* NOTE: the TicketDesk live-chat bubble renders inside an OPEN SHADOW ROOT,
+   so page CSS cannot restyle it. Its 96px bottom pinning (above the AI chat
+   launcher) is injected into the shadow root by
+   src/lib/ticketdesk-bubble-pin.ts — keep offsets in lockstep with that
+   module, LiveChatCallout.tsx, and BackToTopButton.tsx. */
 
 /* Custom Scrollbar for a premium feel */
 ::-webkit-scrollbar {

@@ -144,8 +144,11 @@ describe("front-end-only nav keeps the purchases dropdown", () => {
     );
     expect(folder).toBeDefined();
     expect(folder!.label).toBe("Your Purchases");
+    // Front-end grants now also own The Blitz™ (Blitz unlocked for all
+    // member levels — PURCHASE_OWNER_SLUGS.blitz includes front-end slugs).
     expect(folder!.children.map((c) => (c as NavLeaf).label)).toEqual([
       "Your Second Engine",
+      "The Blitz™",
     ]);
   });
 

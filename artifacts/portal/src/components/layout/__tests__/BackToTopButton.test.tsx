@@ -11,9 +11,9 @@ import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { BackToTopButton, SCROLL_THRESHOLD_PX } from "../BackToTopButton";
 import { LiveChatCallout } from "@/components/chat/LiveChatCallout";
 
-// The portal's index.css pushes the TicketDesk/Chatwoot bubble to
-// `bottom: 96px !important` (above the AI launcher); the bubble itself is
-// ~56px tall, so the bottom-right widget stack tops out at ~152px.
+// src/lib/ticketdesk-bubble-pin.ts injects `bottom: 96px !important` into the
+// widget's shadow root (above the AI launcher); the bubble itself is
+// 56px tall, so the bottom-right widget column tops out at 152px.
 const CHAT_LAUNCHER_TOP_PX = 96 + 56;
 
 // Tailwind bottom-* utilities used by the component → px, so the test fails
@@ -87,12 +87,12 @@ describe("BackToTopButton", () => {
     }
   });
 
-  it("is never covered by the LiveChatCallout when both are raised by the FE call bar", () => {
-    // The callout (z-50) shares the raised vertical band with the button
-    // (z-40); usability relies on HORIZONTAL separation: the callout is
-    // anchored at right-16 (64px), fully left of the button column
-    // (40px wide at right-3 = 12px / sm:right-5 = 20px → right edge span
-    // ends at 60px). Regression-test both rendered simultaneously.
+  it("stays clear of the TicketDesk bubble column and the LiveChatCallout arrow", () => {
+    // The callout's arrow must hover directly over the bubble (right
+    // 20–76px), so the button relies on HORIZONTAL separation: right-24
+    // (96px) keeps the whole 40px-wide button (96–136px) left of the bubble
+    // column and the callout arrow (right 34–62px). Regression-test both
+    // rendered simultaneously.
     window.localStorage.removeItem("bts:live-chat-callout-dismissed");
     render(
       <>
@@ -103,21 +103,23 @@ describe("BackToTopButton", () => {
     const btn = screen.getByTestId("back-to-top");
     const callout = screen.getByTestId("live-chat-callout");
 
-    // Button's furthest extent from the right edge, per breakpoint.
-    const BUTTON_WIDTH_PX = 40; // h-10 w-10
-    const buttonRights = btn.className
-      .split(/\s+/)
-      .filter((c) => /^(sm:)?right-/.test(c))
-      .map((c) => ({ "right-3": 12, "sm:right-5": 20 }[c]));
-    expect(buttonRights).toEqual([12, 20]);
-    const buttonMaxExtent = Math.max(...(buttonRights as number[])) + BUTTON_WIDTH_PX;
+    const BUBBLE_COLUMN_MAX_PX = 76; // bubble right edge 20px + 56px width
+    expect(btn.className).toContain("right-24"); // 96px
+    expect(96).toBeGreaterThanOrEqual(BUBBLE_COLUMN_MAX_PX + 8);
 
-    // Callout wrapper must start left of the button column with a gap.
-    expect(callout.className).toContain("right-16"); // 64px
-    expect(64).toBeGreaterThanOrEqual(buttonMaxExtent + 4);
+    // The button must never regress back into the bubble column.
+    expect(btn.className).not.toMatch(/(^|\s)(sm:)?right-(3|5|16)(\s|$)/);
 
-    // And the callout must never regress back into the button column.
-    expect(callout.className).not.toMatch(/(^|\s)(sm:)?right-(3|5)(\s|$)/);
+    // The callout wrapper anchors AT the bubble column (right-5 = 20px) so
+    // its arrow can center on the bubble.
+    expect(callout.className).toContain("right-5");
+
+    // The callout's pill starts at 216px from the bottom (bottom-40 = 160px
+    // + 28px arrow + mt-7 = 28px gap), exactly the raised button's top edge
+    // (bottom-44 = 176px + 40px height), so they never overlap vertically.
+    for (const px of bottomOffsetsPx(btn)) {
+      expect(px + 40).toBeLessThanOrEqual(216);
+    }
   });
 
   it("has an accessible label", () => {
