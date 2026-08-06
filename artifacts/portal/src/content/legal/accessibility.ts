@@ -62,13 +62,10 @@ Title: Chief Operating Officer
 
 Email: support@buildtestscale.com
 
-Phone: 1-888-996-5513
-
 B. Reporting Accessibility Barriers
 If you encounter any accessibility barriers on our Website, we encourage you to report them through the following channels:
 
 Email: support@buildtestscale.com (Please include "Accessibility" in the subject line)
-Phone: 1-888-996-5513 (During regular business hours: Monday-Friday, 9:00 AM - 5:00 PM Central Time)
 When reporting an accessibility barrier, please provide the following information if possible:
 
 The specific page URL where you encountered the barrier
@@ -115,7 +112,6 @@ Electronic documents in accessible formats (e.g., accessible PDF, HTML, or plain
 B. Phone and Email Assistance
 For users who cannot access standard web content, we offer:
 
-Phone Support: Call 1-888-996-5513 during regular business hours (Monday-Friday, 9:00 AM - 5:00 PM Central Time) for assistance with accessing information or completing transactions.
 Email Assistance: Contact support@buildtestscale.com for help with accessing information or services available on our Website.
 C. Staff Training for Accessibility Support
 Our customer-facing staff receive basic disability awareness and accessibility training to ensure they can effectively assist users with disabilities. This training includes:

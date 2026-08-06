@@ -57,8 +57,6 @@ Company Name: Build. Test. Scale., LLC
 
 Mailing Address: 5900 Balcones Drive, STE 100, Austin, TX 78731, US
 
-Phone Number: 1-888-996-5513
-
 Email Address: support@buildtestscale.com
 
 1.4 Relationship to Other Agreements
@@ -122,7 +120,6 @@ We may send text messages from multiple phone numbers or short codes. Each messa
 3.4 Business Contact Information
 For questions, concerns, or complaints regarding our SMS messaging program, you may contact us through the following methods:
 
-Phone: 1-888-996-5513
 Email: support@buildtestscale.com
 Mail: Build. Test. Scale., LLC, 5900 Balcones Drive, STE 100, Austin, TX 78731, US
 Website: https://buildtestscale.com/contact
@@ -161,7 +158,6 @@ Other emergency situations where immediate communication is necessary
 To stop receiving messages, reply STOP to any text message. You may also opt out through the following methods:
 
 Text Message: Reply "STOP" to any text message you receive from us
-Phone: Call our customer service at 1-888-996-5513
 Email: Send an opt-out request to support@buildtestscale.com
 Mail: Send a written opt-out request to Build. Test. Scale., LLC, 5900 Balcones Drive, STE 100, Austin, TX 78731, US
 Website: Submit an opt-out request through our website at https://buildtestscale.com/sms-opt-out
@@ -172,7 +168,7 @@ We will process your opt-out request immediately upon receipt. In accordance wit
 Upon processing your opt-out request, we will send you a one-time confirmation message confirming that you have been unsubscribed from our SMS messaging program. After this confirmation message, you will not receive any additional text messages from us unless you provide new express written consent.
 
 5.4 Partial Opt-Out Options
-If we operate multiple SMS messaging programs, you may choose to opt out of specific programs while remaining enrolled in others. To do so, please contact our customer service at 1-888-996-5513 or support@buildtestscale.com with your specific opt-out preferences.
+If we operate multiple SMS messaging programs, you may choose to opt out of specific programs while remaining enrolled in others. To do so, please contact our customer service at support@buildtestscale.com with your specific opt-out preferences.
 
 5.5 Opt-Out Record Retention
 We maintain records of all opt-out requests, including:
@@ -233,11 +229,11 @@ We do not sell, rent, or lease your mobile phone number or other personal inform
 We retain records of your consent, opt-out requests, and text message history for a minimum of four (4) years from the date of consent, opt-out, or the last text message sent or received, whichever is later. This retention period is designed to comply with TCPA record-keeping requirements and Texas Business & Commerce Code Chapter 302 documentation standards.
 
 7.5 Access to Your Information
-You have the right to request access to the personal information we have collected from you in connection with our SMS messaging program. To request access to your information, please contact us at support@buildtestscale.com or 1-888-996-5513.
+You have the right to request access to the personal information we have collected from you in connection with our SMS messaging program. To request access to your information, please contact us at support@buildtestscale.com.
 
 8. DISPUTE RESOLUTION AND ARBITRATION
 8.1 Informal Dispute Resolution
-If you have a dispute or claim arising out of or relating to these Terms or our SMS messaging program, you agree to first contact us at support@buildtestscale.com or 1-888-996-5513 to attempt to resolve the dispute informally.
+If you have a dispute or claim arising out of or relating to these Terms or our SMS messaging program, you agree to first contact us at support@buildtestscale.com to attempt to resolve the dispute informally.
 
 8.2 Binding Arbitration
 If we cannot resolve the dispute informally within sixty (60) days, you and the Company agree that any dispute, claim, or controversy arising out of or relating to these Terms or our SMS messaging program shall be resolved through binding arbitration administered by the American Arbitration Association ("AAA") in accordance with its Consumer Arbitration Rules.
@@ -352,8 +348,6 @@ Build. Test. Scale., LLC
 5900 Balcones Drive, STE 100
 
 Austin, TX 78731, US
-
-Phone: 1-888-996-5513
 
 Email: support@buildtestscale.com
 

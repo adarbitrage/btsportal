@@ -8,7 +8,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { useCreateTicket } from "@workspace/api-client-react";
-import { Loader2, Mail, MapPin, MessageCircle, Phone, Send } from "lucide-react";
+import { Loader2, Mail, MapPin, MessageCircle, Send } from "lucide-react";
 
 // In-portal Contact Us page (linked from the footer), mirroring the
 // buildtestscale.com contact page: "Send us a Message" form, Contact
@@ -193,18 +193,6 @@ export default function ContactUs() {
                 </div>
 
                 <div className="flex items-start gap-3">
-                  <Phone className="w-5 h-5 text-primary mt-0.5 shrink-0" />
-                  <div>
-                    <p className="text-sm font-semibold text-foreground">Phone</p>
-                    <p className="text-sm text-muted-foreground">
-                      1-888-996-5513
-                      <br />
-                      Mon-Fri, 9:00 AM - 5:00 PM CST
-                    </p>
-                  </div>
-                </div>
-
-                <div className="flex items-start gap-3">
                   <MessageCircle className="w-5 h-5 text-primary mt-0.5 shrink-0" />
                   <div>
                     <p className="text-sm font-semibold text-foreground">Live chat support</p>
@@ -265,8 +253,7 @@ export default function ContactUs() {
               100, Austin, TX 78731, US.
             </p>
             <p className="text-sm text-foreground/90">
-              <span className="font-semibold">1.3 Contact Methods:</span> Telephone: 1-888-996-5513
-              | Email: {SUPPORT_EMAIL}
+              <span className="font-semibold">1.3 Contact Methods:</span> Email: {SUPPORT_EMAIL}
             </p>
           </div>
 

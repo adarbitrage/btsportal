@@ -22,8 +22,6 @@ Company: Build. Test. Scale., LLC
 
 Address: 5900 Balcones Drive, STE 100, Austin, TX 78731, US
 
-Phone: 1-888-996-5513
-
 Email: support@buildtestscale.com
 
 The Company has registered its Designated Agent with the U.S. Copyright Office as required by law. The registration is maintained and updated as necessary to ensure continuous compliance with DMCA requirements.
@@ -181,8 +179,6 @@ Designated Agent: Jean Balanon, COO
 Company: Build. Test. Scale., LLC
 
 Address: 5900 Balcones Drive, STE 100, Austin, TX 78731, US
-
-Phone: 1-888-996-5513
 
 Email: support@buildtestscale.com
 

@@ -52,7 +52,8 @@ describe("Contact Us page", () => {
     // Contact information from the supplied copy.
     expect(screen.getAllByText(/5900 Balcones Drive/).length).toBeGreaterThan(0);
     expect(screen.getByText("support@buildtestscale.com")).toBeInTheDocument();
-    expect(screen.getAllByText(/1-888-996-5513/).length).toBeGreaterThan(0);
+    // The support phone number was removed from the portal entirely.
+    expect(screen.queryAllByText(/1-888-996-5513/)).toHaveLength(0);
 
     // Contact page terms and conditions section.
     expect(screen.getByText("CONTACT PAGE TERMS AND CONDITIONS")).toBeInTheDocument();
