@@ -40,7 +40,7 @@ export function FeCallBar() {
 
   return (
     <div
-      className="fixed bottom-0 inset-x-0 z-40 border-t border-primary/30 bg-primary text-primary-foreground shadow-[0_-4px_12px_rgba(0,0,0,0.15)]"
+      className="fixed bottom-0 inset-x-0 z-40 border-t border-emerald-700/40 bg-emerald-600 text-white shadow-[0_-4px_12px_rgba(0,0,0,0.15)]"
       data-testid="fe-call-bar"
     >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex flex-col sm:flex-row items-center justify-center gap-2 sm:gap-4 text-center sm:text-left">
@@ -52,6 +52,7 @@ export function FeCallBar() {
           type="button"
           variant="secondary"
           size="sm"
+          className="bg-white text-emerald-700 hover:bg-emerald-50"
           onClick={onCta}
           data-testid="fe-call-bar-cta"
         >
