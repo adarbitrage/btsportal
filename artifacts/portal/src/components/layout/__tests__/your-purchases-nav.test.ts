@@ -10,9 +10,11 @@
 import { describe, it, expect } from "vitest";
 import { MEMBER_NAV } from "../Sidebar";
 import {
+  buildFrontendOnlyNav,
   filterNavByOwnedProducts,
   getActiveOwnedProductSlugs,
   PURCHASE_OWNER_SLUGS,
+  PURCHASES_FOLDER_STORAGE_KEY,
   type NavFolder,
   type NavLeaf,
   type NavNode,
@@ -95,6 +97,32 @@ describe("filterNavByOwnedProducts", () => {
       (n): n is NavFolder => n.kind === "folder" && n.label === "Your Purchases",
     );
     expect(folder!.children).toHaveLength(2);
+  });
+});
+
+describe("front-end-only nav keeps the purchases dropdown", () => {
+  it("preserves the folder (with owned children) instead of flattening it", () => {
+    const owned = filterNavByOwnedProducts(MEMBER_NAV, new Set(["yse_front_end"]));
+    const nav = buildFrontendOnlyNav(owned);
+    const folder = nav.find(
+      (n): n is NavFolder =>
+        n.kind === "folder" && n.storageKey === PURCHASES_FOLDER_STORAGE_KEY,
+    );
+    expect(folder).toBeDefined();
+    expect(folder!.label).toBe("Your Purchases");
+    expect(folder!.children.map((c) => (c as NavLeaf).label)).toEqual([
+      "Your Second Engine",
+    ]);
+  });
+
+  it("folder vanishes for front-end members owning nothing mapped", () => {
+    const owned = filterNavByOwnedProducts(MEMBER_NAV, new Set());
+    const nav = buildFrontendOnlyNav(owned);
+    expect(
+      nav.some(
+        (n) => n.kind === "folder" && n.storageKey === PURCHASES_FOLDER_STORAGE_KEY,
+      ),
+    ).toBe(false);
   });
 });
 

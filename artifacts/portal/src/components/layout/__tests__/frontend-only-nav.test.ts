@@ -2,9 +2,11 @@
  * Front-end-only (funnel buyer) simplified nav — unit tests.
  *
  * Covers:
- *   - buildFrontendOnlyNav reduces the filtered member nav to a flat list of
- *     Welcome + content-access-gated leaves the member passed + Account
- *     (folders flattened, no empty shells, entitlement-only leaves dropped);
+ *   - buildFrontendOnlyNav reduces the filtered member nav to Welcome + the
+ *     "Your Purchases" dropdown folder (preserved, ownership-filtered) +
+ *     other content-access-gated leaves the member passed + Account
+ *     (other folders flattened, no empty shells, entitlement-only leaves
+ *     dropped);
  *   - mentorship tiers / admins / coaches are never in this mode (the caller
  *     gates on the shared audience predicate — asserted here for the
  *     predicate itself);
@@ -18,6 +20,10 @@ import {
   filterNavByEntitlements,
   filterNavByHiddenRoles,
   filterNavByRole,
+  filterNavByOwnedProducts,
+  PURCHASES_FOLDER_STORAGE_KEY,
+  type NavFolder,
+  type NavLeaf,
   type NavNode,
 } from "../sidebar-nav";
 import { isFrontendWelcomeMember } from "@/pages/Landing";
@@ -51,8 +57,24 @@ const allPageKeys = new Set([
   "become-a-coach",
 ]);
 
+function allHrefs(nodes: readonly NavNode[]): string[] {
+  const out: string[] = [];
+  for (const node of nodes) {
+    if (node.kind === "leaf") out.push(node.href);
+    else out.push(...allHrefs(node.children));
+  }
+  return out;
+}
+
+function purchasesFolderIn(nodes: readonly NavNode[]): NavFolder | undefined {
+  return nodes.find(
+    (n): n is NavFolder =>
+      n.kind === "folder" && n.storageKey === PURCHASES_FOLDER_STORAGE_KEY,
+  );
+}
+
 describe("buildFrontendOnlyNav", () => {
-  it("Blitz-style owner: flat Welcome + granted content pages + Account, nothing else", () => {
+  it("Blitz-style owner: Welcome, 'Your Purchases' dropdown with granted pages, Account", () => {
     // NOTE: resource-hub is deliberately absent — it is gated LaunchPad+ by
     // default now, so a front-end/funnel member's access map never grants it.
     const filtered = memberFiltered(
@@ -60,12 +82,30 @@ describe("buildFrontendOnlyNav", () => {
       new Set(["pillars-to-blitz", "blitz"]),
     );
     const nav = buildFrontendOnlyNav(filtered);
-    expect(nav.every((n) => n.kind === "leaf")).toBe(true);
-    expect(nav.map((l) => l.href)).toEqual([
-      "/",
+    // Shape: flat Welcome, then the preserved purchases FOLDER, then flat Account.
+    expect(
+      nav.map((n) => (n.kind === "leaf" ? n.href : `folder:${n.storageKey}`)),
+    ).toEqual(["/", `folder:${PURCHASES_FOLDER_STORAGE_KEY}`, "/account"]);
+    const folder = purchasesFolderIn(nav)!;
+    expect(folder.label).toBe("Your Purchases");
+    expect(folder.children.map((c) => (c as NavLeaf).href)).toEqual([
       "/core-training/pillars-to-blitz",
       "/blitz",
-      "/account",
+    ]);
+  });
+
+  it("purchases folder children respect ownership filtering (front-end-only owner sees just Your Second Engine)", () => {
+    // Full Sidebar pipeline including the ownership filter, as a real
+    // yse_front_end-only member: owns only the front-end offer.
+    const filtered = memberFiltered(
+      new Set(),
+      new Set(["pillars-to-blitz"]),
+    );
+    const owned = filterNavByOwnedProducts(filtered, new Set(["yse_front_end"]));
+    const nav = buildFrontendOnlyNav(owned);
+    const folder = purchasesFolderIn(nav)!;
+    expect(folder.children.map((c) => (c as NavLeaf).label)).toEqual([
+      "Your Second Engine",
     ]);
   });
 
@@ -73,8 +113,16 @@ describe("buildFrontendOnlyNav", () => {
     const nav = buildFrontendOnlyNav(
       memberFiltered(new Set(), new Set(["blitz"])),
     );
-    expect(nav.map((l) => l.href)).toEqual(["/", "/blitz", "/account"]);
-    expect(nav.map((l) => l.href)).not.toContain("/resource-hub");
+    expect(allHrefs(nav)).toEqual(["/", "/blitz", "/account"]);
+    // Blitz stays inside the preserved dropdown, not flattened.
+    expect(purchasesFolderIn(nav)).toBeDefined();
+    expect(allHrefs(nav)).not.toContain("/resource-hub");
+  });
+
+  it("the purchases folder vanishes when the member owns/passes none of its entries", () => {
+    const nav = buildFrontendOnlyNav(memberFiltered(new Set(), new Set()));
+    expect(purchasesFolderIn(nav)).toBeUndefined();
+    expect(allHrefs(nav)).toEqual(["/", "/account"]);
   });
 
   it("never includes entitlement-only or ungated tool leaves (AI Assistant, Apps, Community, Coaching...)", () => {
@@ -91,7 +139,7 @@ describe("buildFrontendOnlyNav", () => {
       allPageKeys,
     );
     const nav = buildFrontendOnlyNav(filtered);
-    const hrefs = nav.map((l) => l.href);
+    const hrefs = allHrefs(nav);
     for (const banned of [
       "/apps",
       "/ai-assistant",
@@ -105,8 +153,12 @@ describe("buildFrontendOnlyNav", () => {
     }
     expect(hrefs[0]).toBe("/");
     expect(hrefs[hrefs.length - 1]).toBe("/account");
-    // No folders survive — flat list only.
-    expect(nav.every((n) => n.kind === "leaf")).toBe(true);
+    // The ONLY folder that survives is the purchases dropdown; everything
+    // else is flat.
+    const folders = nav.filter((n) => n.kind === "folder");
+    expect(folders.map((f) => (f as NavFolder).storageKey)).toEqual([
+      PURCHASES_FOLDER_STORAGE_KEY,
+    ]);
   });
 });
 

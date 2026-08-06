@@ -234,33 +234,44 @@ export function filterNavByHiddenRoles(
   return result;
 }
 
+/** storageKey of the "Your Purchases" folder — preserved (not flattened) in front-end-only nav mode. */
+export const PURCHASES_FOLDER_STORAGE_KEY = "your-purchases";
+
 /**
  * Front-end-only (funnel buyer) nav mode: reduce the ALREADY-FILTERED member
- * nav to a flat list of just Welcome, the content-access-gated leaves the
- * member actually passed (i.e. survived filterNavByContentAccess), and
- * Account. Folders are flattened away entirely — no empty shells. Leaves that
- * are neither Welcome/Account nor content-page-gated (AI Assistant,
- * entitlement pitches, etc.) are dropped for this audience.
+ * nav to just Welcome, the content-access-gated leaves the member actually
+ * passed (i.e. survived filterNavByContentAccess), and Account. The
+ * "Your Purchases" folder is PRESERVED as a folder (dropdown) containing its
+ * surviving, ownership-filtered children; every other folder is flattened
+ * away entirely — no empty shells. Leaves that are neither Welcome/Account
+ * nor content-page-gated (AI Assistant, entitlement pitches, etc.) are
+ * dropped for this audience.
  *
  * Call this AFTER the standard filter pipeline; it never applies to admins,
  * coaches, or mentorship-tier members (the caller gates on the shared
  * front-end-audience predicate from Landing.tsx).
  */
-export function buildFrontendOnlyNav(nodes: NavNode[]): NavLeaf[] {
-  const out: NavLeaf[] = [];
+export function buildFrontendOnlyNav(nodes: NavNode[]): NavNode[] {
+  const keepLeaf = (leaf: NavLeaf): boolean =>
+    leaf.href === "/" ||
+    leaf.href === "/account" ||
+    leaf.contentPageKey !== undefined;
+
+  const out: NavNode[] = [];
   const walk = (list: NavNode[]) => {
     for (const node of list) {
       if (node.kind === "folder") {
+        if (node.storageKey === PURCHASES_FOLDER_STORAGE_KEY) {
+          const children = node.children.filter(
+            (c): c is NavLeaf => c.kind === "leaf" && keepLeaf(c),
+          );
+          if (children.length > 0) out.push({ ...node, children });
+          continue;
+        }
         walk(node.children);
         continue;
       }
-      if (
-        node.href === "/" ||
-        node.href === "/account" ||
-        node.contentPageKey !== undefined
-      ) {
-        out.push(node);
-      }
+      if (keepLeaf(node)) out.push(node);
     }
   };
   walk(nodes);
