@@ -130,8 +130,16 @@ const FRONTEND_SLUGS: readonly string[] = MAPPABLE_PRODUCTS.filter(
 export const PURCHASE_OWNER_SLUGS = {
   /** "Your Second Engine" — the front-end offer's Seven Pillars training. */
   yourSecondEngine: [...FRONTEND_SLUGS, ...MENTORSHIP_SLUGS] as readonly string[],
-  /** "The Blitz™" — the 21-Day Blitz funnel offer / mentorship curriculum. */
-  blitz: ["yse_21_day_blitz", ...MENTORSHIP_SLUGS] as readonly string[],
+  /**
+   * "The Blitz™" — unlocked for ALL member levels: every front-end offer,
+   * the 21-Day Blitz funnel offer, and every mentorship tier (incl. vip).
+   * Keep in lockstep with the server seed's BLITZ_OWNER_SLUGS.
+   */
+  blitz: [
+    ...FRONTEND_SLUGS,
+    "yse_21_day_blitz",
+    ...MENTORSHIP_SLUGS,
+  ] as readonly string[],
 } as const;
 
 export interface OwnedProductLike {

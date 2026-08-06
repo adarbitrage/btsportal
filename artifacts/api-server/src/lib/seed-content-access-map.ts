@@ -3,7 +3,8 @@
  * navigation defaults (Task: ownership-gated nav + Blitz server enforcement).
  *
  * Policy seeded here:
- *   - `blitz` → owned by the 21-Day Blitz upsell + all five mentorship tiers.
+ *   - `blitz` → owned by ALL six front-end offers + the 21-Day Blitz upsell +
+ *     every mentorship tier including vip (all member levels see The Blitz).
  *   - LaunchPad+ pages (resource-hub, partner-tools, …) → mentorship tiers only.
  *   - Every other gateable page → all six front-end offers + all five
  *     mentorship tiers.
@@ -14,7 +15,7 @@
  * Admin edits always win.
  */
 import { db, contentAccessMapTable } from "@workspace/db";
-import { inArray } from "drizzle-orm";
+import { eq, inArray } from "drizzle-orm";
 import { GATEABLE_PAGE_KEYS, MAPPABLE_PRODUCTS } from "@workspace/content-access-registry";
 
 const FRONTEND_SLUGS = MAPPABLE_PRODUCTS.filter((p) => p.group === "frontend").map(
@@ -29,7 +30,19 @@ const FUNNEL_SLUGS = MAPPABLE_PRODUCTS.filter((p) => p.group === "funnel").map(
 // status product; VIP-specific gating is an explicit admin decision).
 const MENTORSHIP_TIER_SLUGS = ["launchpad", "3month", "6month", "1year", "lifetime"];
 
-const BLITZ_OWNER_SLUGS = ["yse_21_day_blitz", ...MENTORSHIP_TIER_SLUGS];
+/**
+ * The Blitz is available to EVERY member level: all six front-end offers, the
+ * 21-Day Blitz funnel upsell, and every mentorship tier. `vip` is included
+ * here deliberately (aligned with the sidebar's PURCHASE_OWNER_SLUGS.blitz,
+ * which uses ALL mentorship slugs including vip) so a vip-only grant never
+ * loses Blitz visibility.
+ */
+export const BLITZ_OWNER_SLUGS = [
+  ...FRONTEND_SLUGS,
+  "yse_21_day_blitz",
+  ...MENTORSHIP_TIER_SLUGS,
+  "vip",
+];
 
 // Pitch/partner surfaces the business wants visible to LaunchPad-and-above
 // only (front-end/funnel buyers excluded).
@@ -59,6 +72,45 @@ export function defaultSlugsForPageKey(pageKey: string): string[] {
  */
 const RETIRED_PAGE_KEYS = ["affiliate-networks"];
 
+/**
+ * Idempotent, ADDITIVE-ONLY boot repair for the `blitz` map row.
+ *
+ * The seed above is ON CONFLICT DO NOTHING, so environments where the Blitz
+ * row was already seeded (shared dev DB, prod) would never pick up the
+ * expanded default owner set. This repair unions the current default
+ * BLITZ_OWNER_SLUGS into the existing row:
+ *   - never removes any slug (admin additions always survive);
+ *   - no-op when every default slug is already present (idempotent);
+ *   - no-op when the row does not exist (the seed insert covers that case).
+ */
+export async function ensureBlitzOwnerSlugsRepair(): Promise<void> {
+  const [row] = await db
+    .select({
+      productSlugs: contentAccessMapTable.productSlugs,
+    })
+    .from(contentAccessMapTable)
+    .where(eq(contentAccessMapTable.pageKey, "blitz"))
+    .limit(1);
+
+  if (!row) return;
+
+  const existing = Array.isArray(row.productSlugs) ? row.productSlugs : [];
+  const missing = BLITZ_OWNER_SLUGS.filter((s) => !existing.includes(s));
+  if (missing.length === 0) return;
+
+  await db
+    .update(contentAccessMapTable)
+    .set({
+      productSlugs: [...existing, ...missing],
+      updatedBy: "boot-repair-blitz-all-levels",
+      updatedAt: new Date(),
+    })
+    .where(eq(contentAccessMapTable.pageKey, "blitz"));
+  console.log(
+    `[Seed] Content Access Map: added missing Blitz owner slugs: ${missing.join(", ")}`,
+  );
+}
+
 export async function ensureContentAccessMapSeed(): Promise<void> {
   await db
     .delete(contentAccessMapTable)
@@ -74,4 +126,7 @@ export async function ensureContentAccessMapSeed(): Promise<void> {
     .insert(contentAccessMapTable)
     .values(values)
     .onConflictDoNothing({ target: contentAccessMapTable.pageKey });
+
+  // Additive repair for pre-existing Blitz rows (see doc comment above).
+  await ensureBlitzOwnerSlugsRepair();
 }

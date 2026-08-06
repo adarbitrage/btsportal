@@ -61,14 +61,48 @@ describe("MEMBER_NAV structure", () => {
 });
 
 describe("filterNavByOwnedProducts", () => {
-  it("shows only owned entries; unowned ones are dropped", () => {
+  it("a front-end-only member sees Your Second Engine AND The Blitz™", () => {
     const filtered = filterNavByOwnedProducts(MEMBER_NAV, new Set(["yse_front_end"]));
     const folder = filtered.find(
       (n): n is NavFolder => n.kind === "folder" && n.label === "Your Purchases",
     );
     expect(folder).toBeDefined();
     const labels = folder!.children.map((c) => (c as NavLeaf).label);
-    expect(labels).toEqual(["Your Second Engine"]);
+    expect(labels).toEqual(["Your Second Engine", "The Blitz™"]);
+  });
+
+  it("every front-end product slug unlocks The Blitz™", () => {
+    for (const slug of [
+      "yse_front_end",
+      "backroad",
+      "offmarket",
+      "reserve_income",
+      "silent_partner",
+      "test_like_mad",
+    ]) {
+      expect(PURCHASE_OWNER_SLUGS.blitz).toContain(slug);
+      const filtered = filterNavByOwnedProducts(MEMBER_NAV, new Set([slug]));
+      const folder = filtered.find(
+        (n): n is NavFolder => n.kind === "folder" && n.label === "Your Purchases",
+      );
+      expect(folder!.children.map((c) => (c as NavLeaf).label)).toContain("The Blitz™");
+    }
+  });
+
+  it("funnel Blitz, all mentorship tiers, and vip keep The Blitz™", () => {
+    for (const slug of ["yse_21_day_blitz", "launchpad", "3month", "6month", "1year", "lifetime", "vip"]) {
+      expect(PURCHASE_OWNER_SLUGS.blitz).toContain(slug);
+    }
+  });
+
+  it("a purchases-unrelated slug still hides both entries", () => {
+    const filtered = filterNavByOwnedProducts(
+      MEMBER_NAV,
+      new Set(["yse_swipe_resource_bank"]),
+    );
+    expect(
+      filtered.some((n) => n.kind === "folder" && n.label === "Your Purchases"),
+    ).toBe(false);
   });
 
   it("a mentorship tier owns both entries", () => {
