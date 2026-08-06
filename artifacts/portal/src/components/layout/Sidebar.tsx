@@ -192,7 +192,6 @@ export const MEMBER_NAV: NavNode[] = [
     defaultOpen: false,
     children: [
       { kind: "leaf", href: "/resource-hub", label: "Resource Hub", icon: Library, contentPageKey: "resource-hub" },
-      { kind: "leaf", href: "/affiliate-networks", label: "Affiliate Networks", icon: Network, contentPageKey: "affiliate-networks" },
       { kind: "leaf", href: "/prime-corporate", label: "Prime Corporate", icon: Building2, contentPageKey: "prime-corporate" },
     ],
   },

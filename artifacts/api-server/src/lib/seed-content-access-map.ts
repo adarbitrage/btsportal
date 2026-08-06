@@ -13,6 +13,7 @@
  * Admin edits always win.
  */
 import { db, contentAccessMapTable } from "@workspace/db";
+import { inArray } from "drizzle-orm";
 import { GATEABLE_PAGE_KEYS, MAPPABLE_PRODUCTS } from "@workspace/content-access-registry";
 
 const FRONTEND_SLUGS = MAPPABLE_PRODUCTS.filter((p) => p.group === "frontend").map(
@@ -49,7 +50,18 @@ export function defaultSlugsForPageKey(pageKey: string): string[] {
   return [...FRONTEND_SLUGS, ...MENTORSHIP_TIER_SLUGS];
 }
 
+/**
+ * Page keys retired from the registry whose stale map rows must be removed
+ * (a lingering row is harmless to the resolver — it filters by the registry —
+ * but it would confuse forensics and any future re-registration).
+ */
+const RETIRED_PAGE_KEYS = ["affiliate-networks"];
+
 export async function ensureContentAccessMapSeed(): Promise<void> {
+  await db
+    .delete(contentAccessMapTable)
+    .where(inArray(contentAccessMapTable.pageKey, RETIRED_PAGE_KEYS));
+
   const values = GATEABLE_PAGE_KEYS.map((pageKey) => ({
     pageKey,
     productSlugs: defaultSlugsForPageKey(pageKey),

@@ -62,7 +62,6 @@ export const PORTAL_NAVIGATION_MAP: readonly NavSection[] = [
     section: "Resources",
     items: [
       { label: "Resource Hub", path: "/resource-hub", description: "The one curated resources page — the Copywriting and Image Foundations series (view/download each part), working documents like the Campaign Checklist and word dictionaries, the Headline Library references, templates like the P&L Tracker and dedicated email template, and the glossary of BTS working vocabulary. Replaces the old Resource Library, Creative Drive, and Knowledge Base pages." },
-      { label: "Affiliate Networks", path: "/affiliate-networks", description: "Supported affiliate networks (Media Mavens, ClickBank)." },
       { label: "Prime Corporate", path: "/prime-corporate", description: "Prime Corporate Services resources." },
       { label: "Support", path: "/support", description: "Get help — support tickets and live chat." },
     ],

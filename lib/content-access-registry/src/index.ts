@@ -136,11 +136,11 @@ export const GATEABLE_PAGES: readonly GateablePage[] = [
     routePath: "/resource-hub",
     label: "Resource Hub",
   },
-  {
-    pageKey: "affiliate-networks",
-    routePath: "/affiliate-networks",
-    label: "Affiliate Networks",
-  },
+  // "affiliate-networks" was retired from the member-facing registry
+  // (2026-08: members must not see the Affiliate Networks page). The page
+  // key is deliberately absent so the resolver never grants it and the
+  // server guard fails closed for everyone; the admin management page lives
+  // under /admin and is unaffected.
   {
     // Post-purchase Welcome landing for front-end/funnel-only members. The
     // sidebar "Welcome" item and the root route stay ungated (the root

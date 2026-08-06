@@ -69,9 +69,16 @@ describe("GET /affiliate-networks — ownership-gated list", () => {
     expect(res.status).toBe(401);
   });
 
-  it("returns the seeded networks in display order for an admin (gate bypass)", async () => {
+  it("returns 403 even for an admin — page key retired from the registry; admins use /admin/affiliate-networks", async () => {
     const res = await request(app)
       .get("/api/affiliate-networks")
+      .set("Cookie", adminCookie);
+    expect(res.status).toBe(403);
+  });
+
+  it("admin list endpoint still returns the seeded networks in display order", async () => {
+    const res = await request(app)
+      .get("/api/admin/affiliate-networks")
       .set("Cookie", adminCookie);
     expect(res.status).toBe(200);
     expect(Array.isArray(res.body)).toBe(true);

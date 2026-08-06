@@ -46,7 +46,6 @@ const allPageKeys = new Set([
   "blitz",
   "partner-tools",
   "resource-hub",
-  "affiliate-networks",
   "prime-corporate",
   "ad-credit",
   "become-a-coach",
@@ -56,7 +55,7 @@ describe("buildFrontendOnlyNav", () => {
   it("Blitz-style owner: flat Welcome + granted content pages + Account, nothing else", () => {
     const filtered = memberFiltered(
       new Set(), // no entitlements — funnel products grant none of the gated ones
-      new Set(["pillars-to-blitz", "blitz", "resource-hub", "affiliate-networks"]),
+      new Set(["pillars-to-blitz", "blitz", "resource-hub"]),
     );
     const nav = buildFrontendOnlyNav(filtered);
     expect(nav.every((n) => n.kind === "leaf")).toBe(true);
@@ -65,7 +64,6 @@ describe("buildFrontendOnlyNav", () => {
       "/core-training/pillars-to-blitz",
       "/blitz",
       "/resource-hub",
-      "/affiliate-networks",
       "/account",
     ]);
   });

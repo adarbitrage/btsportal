@@ -64,7 +64,7 @@ const GATED_PAGE = "tips-and-tricks";
  * seeded row, DELETE it for the duration of the suite (row absent → open),
  * and restore it verbatim in afterAll.
  */
-const OPEN_PAGE = "affiliate-networks";
+const OPEN_PAGE = "resource-hub";
 
 // ── Test state ────────────────────────────────────────────────────────────────
 

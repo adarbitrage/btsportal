@@ -55,7 +55,7 @@ let adminCookie: string;
 let app: ReturnType<typeof buildTestAppWithRouters>;
 
 /** Page keys that must be mapped for the fail-closed contract to be testable. */
-const REQUIRED_KEYS = [...CURRICULUM_PAGE_KEYS, "affiliate-networks"];
+const REQUIRED_KEYS = [...CURRICULUM_PAGE_KEYS];
 
 /** An "owner product" that grants access to every required key. We derive it
  * from the live map rows instead of hardcoding a slug: the first slug shared
@@ -211,7 +211,7 @@ describe("gated curriculum endpoints", () => {
 
 // ── 2. Affiliate networks member endpoint ─────────────────────────────────────
 
-describe("GET /affiliate-networks gate", () => {
+describe("GET /affiliate-networks gate (page key retired from the registry — fail-closed for everyone)", () => {
   it("403 CONTENT_NOT_OWNED for a no-product member", async () => {
     const res = await request(app)
       .get("/api/affiliate-networks")
@@ -220,19 +220,19 @@ describe("GET /affiliate-networks gate", () => {
     expect(res.body.error).toBe("CONTENT_NOT_OWNED");
   });
 
-  it("200 for an owner", async () => {
+  it("403 even for a product owner (member content retired)", async () => {
     const res = await request(app)
       .get("/api/affiliate-networks")
       .set("Cookie", ownerCookie);
-    expect(res.status).toBe(200);
-    expect(Array.isArray(res.body)).toBe(true);
+    expect(res.status).toBe(403);
+    expect(res.body.error).toBe("CONTENT_NOT_OWNED");
   });
 
-  it("200 for admin bypass", async () => {
+  it("403 for admin too — the member endpoint is dead; admins use /admin/affiliate-networks", async () => {
     const res = await request(app)
       .get("/api/affiliate-networks")
       .set("Cookie", adminCookie);
-    expect(res.status).toBe(200);
+    expect(res.status).toBe(403);
   });
 });
 
