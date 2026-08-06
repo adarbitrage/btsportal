@@ -9,6 +9,7 @@ import {
   ShoppingCart,
   AlertTriangle,
   HardDrive,
+  Images,
   BookOpen,
   Menu,
   X,
@@ -37,6 +38,7 @@ const adminNavGroups: NavGroup[] = [
     items: [
       { href: "/admin/resource-hub/content", label: "Content", icon: HardDrive },
       { href: "/admin/resource-hub/glossary", label: "Glossary", icon: BookOpen },
+      { href: "/admin/swipe-bank", label: "Swipe Bank", icon: Images },
     ],
   },
   {

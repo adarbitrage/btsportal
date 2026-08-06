@@ -44,6 +44,7 @@ import { seedResourcesDrive } from "./lib/seed-resources-drive";
 import { seedImageFoundationsDrive } from "./lib/seed-image-foundations-drive";
 import { ensureResourceHubReorg, ensureResourceHubCuration, ensureResourceHubAccessMigration, ensureResourceHubLaunchpadTighten, ensureUploadedDriveFiles } from "./lib/resource-hub-setup";
 import { ensureContentAccessMapSeed } from "./lib/seed-content-access-map";
+import { seedSwipeBankTaxonomy } from "./lib/seed-swipe-bank";
 import { seedFeIntensiveSettings } from "./lib/seed-fe-intensive-settings";
 import { seedCoachRoster, generateWeeklyQaCalls, backfillCoachLongBios } from "./lib/coaching-roster";
 import { retitleCleanedHoldingDocs, retitleFiledPrivateCoachingDocs, resetStuckCleaningDocs } from "./lib/transcript-cleaner";
@@ -177,6 +178,8 @@ seedAssistantCards().catch(err => console.error("[Seed] Failed to seed assistant
   await ensureUploadedDriveFiles().catch(err => console.error("[Seed] Resource Hub uploaded-file seed failed:", err));
   await ensureResourceHubCuration().catch(err => console.error("[Seed] Resource Hub curation seed failed:", err));
 })();
+// Swipe Resource Bank taxonomy (Task #2104): advisory-locked, insert-if-absent.
+seedSwipeBankTaxonomy().catch(err => console.error("[Seed] Swipe Bank taxonomy seed failed:", err));
 // Content Access Map defaults (ownership-gated navigation). Idempotent —
 // ON CONFLICT DO NOTHING, so admin-edited rows are never overwritten.
 ensureContentAccessMapSeed().catch(err => console.error("[Seed] Content Access Map seed failed:", err));

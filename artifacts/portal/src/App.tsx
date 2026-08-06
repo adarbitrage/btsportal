@@ -189,6 +189,8 @@ import { useFeCallBar } from "@/hooks/use-fe-call-bar";
 import ResourceHub from "@/pages/ResourceHub";
 import ResourceHubDocument from "@/pages/ResourceHubDocument";
 import AdminResourceHubGlossary from "@/pages/admin/ResourceHubGlossary";
+import SwipeBank from "@/pages/SwipeBank";
+import AdminSwipeBank from "@/pages/admin/SwipeBank";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -547,6 +549,7 @@ function Router() {
       <Route path="/admin/affiliate-networks">{() => <AdminRoute component={AdminAffiliateNetworks} permission="content:manage" />}</Route>
       <Route path="/admin/resource-hub/content">{() => <AdminRoute component={AdminCreativeDrive} permission="content:manage" />}</Route>
       <Route path="/admin/resource-hub/glossary">{() => <AdminRoute component={AdminResourceHubGlossary} permission="content:manage" />}</Route>
+      <Route path="/admin/swipe-bank">{() => <AdminRoute component={AdminSwipeBank} permission="content:manage" />}</Route>
       <Route path="/admin/creative-drive">{() => <Redirect to="/admin/resource-hub/content" />}</Route>
       <Route path="/admin/media-mavens">{() => <AdminRoute component={AdminMediaMavens} permission="content:manage" />}</Route>
       <Route path="/community">{() => <ProtectedRoute component={CommunityFeed} />}</Route>
@@ -590,6 +593,7 @@ function Router() {
       <Route path="/resources/:collectionSlug/:resourceId">{() => <ProtectedRoute component={ResourceDetail} />}</Route>
       <Route path="/resources/:collectionSlug">{() => <ProtectedRoute component={CollectionDetail} />}</Route>
       <Route path="/resources">{() => <ProtectedRoute component={Resources} />}</Route>
+      <Route path="/swipe-bank">{() => <ContentAccessRoute component={SwipeBank} pageKey="swipe-bank" />}</Route>
       <Route path="/resource-hub">{() => <ContentAccessRoute component={ResourceHub} pageKey="resource-hub" />}</Route>
       <Route path="/resource-hub/view/:slug">{() => <ContentAccessRoute component={ResourceHubDocument} pageKey="resource-hub" />}</Route>
       {/* Old resource pages merged into the Resource Hub (Task #2028) */}

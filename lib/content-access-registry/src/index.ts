@@ -136,6 +136,14 @@ export const GATEABLE_PAGES: readonly GateablePage[] = [
     routePath: "/resource-hub",
     label: "Resource Hub",
   },
+  // Swipe Resource Bank (Task #2104): funnel upsell gallery. Default owners
+  // are seeded as yse_swipe_resource_bank + the five mentorship tiers ONLY
+  // (see defaultSlugsForPageKey) — front-end-only buyers do NOT get it.
+  {
+    pageKey: "swipe-bank",
+    routePath: "/swipe-bank",
+    label: "Swipe Resource Bank",
+  },
   // "affiliate-networks" was retired from the member-facing registry
   // (2026-08: members must not see the Affiliate Networks page). The page
   // key is deliberately absent so the resolver never grants it and the

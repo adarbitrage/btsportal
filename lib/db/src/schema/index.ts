@@ -84,6 +84,7 @@ export * from "./voice-daily-usage";
 export * from "./content-access-map";
 export * from "./creative-drive";
 export * from "./resource-hub";
+export * from "./swipe-bank";
 export * from "./content-gap-questions";
 export * from "./subscriptions";
 export * from "./bts-orders";

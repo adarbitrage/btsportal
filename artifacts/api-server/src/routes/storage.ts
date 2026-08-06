@@ -5,7 +5,7 @@ import {
   RequestUploadUrlResponse,
 } from "@workspace/api-zod/schemas";
 import { ObjectStorageService, ObjectNotFoundError } from "../lib/objectStorage";
-import { ObjectPermission } from "../lib/objectAcl";
+import { ObjectPermission, getObjectAclPolicy } from "../lib/objectAcl";
 
 const router: IRouter = Router();
 const objectStorageService = new ObjectStorageService();
@@ -94,6 +94,24 @@ router.get("/storage/objects/*path", async (req: Request, res: Response) => {
     if (!req.userId) {
       res.status(401).json({ error: "Authentication required" });
       return;
+    }
+
+    // Objects stamped with an ACL policy (e.g. gated Swipe Bank assets) are
+    // NOT generically readable by every authenticated member — enforce the
+    // policy here so this route can't be used to bypass feature-level gates.
+    // Objects without a policy (legacy uploads: coach photos, ticket
+    // attachments, …) keep the historical authenticated-only behavior.
+    const aclPolicy = await getObjectAclPolicy(objectFile);
+    if (aclPolicy) {
+      const allowed = await objectStorageService.canAccessObjectEntity({
+        userId: String(req.userId),
+        objectFile,
+        requestedPermission: ObjectPermission.READ,
+      });
+      if (!allowed) {
+        res.status(403).json({ error: "Forbidden" });
+        return;
+      }
     }
 
     const response = await objectStorageService.downloadObject(objectFile);

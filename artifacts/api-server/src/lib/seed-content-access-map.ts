@@ -54,8 +54,19 @@ const LAUNCHPAD_PLUS_PAGE_KEYS = new Set([
   "become-a-coach",
 ]);
 
+/**
+ * Swipe Resource Bank (Task #2104): sold as the `yse_swipe_resource_bank`
+ * funnel upsell; mentorship tiers get it included. Front-end-only buyers
+ * WITHOUT the bank are deliberately excluded.
+ */
+export const SWIPE_BANK_OWNER_SLUGS = [
+  "yse_swipe_resource_bank",
+  ...MENTORSHIP_TIER_SLUGS,
+];
+
 export function defaultSlugsForPageKey(pageKey: string): string[] {
   if (pageKey === "blitz") return [...BLITZ_OWNER_SLUGS];
+  if (pageKey === "swipe-bank") return [...SWIPE_BANK_OWNER_SLUGS];
   // Front-End Welcome landing: front-ends + funnel products + tiers. Tiers
   // are included deliberately — ROUTING decides who lands here; a tier
   // member following a direct link must not be hard-blocked.

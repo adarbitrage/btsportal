@@ -61,6 +61,7 @@ export const PORTAL_NAVIGATION_MAP: readonly NavSection[] = [
   {
     section: "Resources",
     items: [
+      { label: "Swipe Resource Bank", path: "/swipe-bank", description: "Gated gallery of proven third-party banner ads and advertorial swipes, organized by vertical (Health, Wealth, Everything Else), sub-vertical, and marketing angle — for research and inspiration. Available to Swipe Resource Bank owners and mentorship tiers.", entitlement: "offer:swipe_bank" },
       { label: "Resource Hub", path: "/resource-hub", description: "The one curated resources page, available to LaunchPad and above — the Copywriting and Image Foundations series, working documents like the Campaign Checklist and word dictionaries, the Headline Library references, templates like the P&L Tracker and dedicated email template, and the glossary of BTS working vocabulary. Each document opens on its own read-only page inside the portal (no downloads). Replaces the old Resource Library, Creative Drive, and Knowledge Base pages." },
       { label: "Prime Corporate", path: "/prime-corporate", description: "Prime Corporate Services resources." },
       { label: "Support", path: "/support", description: "Get help — support tickets and live chat." },

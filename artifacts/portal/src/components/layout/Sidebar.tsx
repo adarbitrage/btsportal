@@ -12,6 +12,7 @@ import {
   Shield,
   FolderOpen,
   Library,
+  Images,
   HardDrive,
   Eye,
   Archive,
@@ -196,6 +197,7 @@ export const MEMBER_NAV: NavNode[] = [
     defaultOpen: false,
     children: [
       { kind: "leaf", href: "/resource-hub", label: "Resource Hub", icon: Library, contentPageKey: "resource-hub" },
+      { kind: "leaf", href: "/swipe-bank", label: "Swipe Resource Bank", icon: Images, contentPageKey: "swipe-bank" },
       { kind: "leaf", href: "/prime-corporate", label: "Prime Corporate", icon: Building2, contentPageKey: "prime-corporate" },
     ],
   },

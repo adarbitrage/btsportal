@@ -169,6 +169,32 @@ export class ObjectStorageService {
     };
   }
 
+  // Saves raw bytes as a new object entity under PRIVATE_OBJECT_DIR and
+  // returns its normalized `/objects/...` path. Used by the Swipe Bank
+  // thumbnail pipeline to store generated thumbnails alongside originals
+  // (server-side write — no presigned URL round-trip needed).
+  async saveObjectEntityBytes(
+    relativePath: string,
+    bytes: Buffer,
+    contentType: string,
+  ): Promise<string> {
+    let entityDir = this.getPrivateObjectDir();
+    if (!entityDir.endsWith("/")) entityDir = `${entityDir}/`;
+    const fullPath = `${entityDir}${relativePath}`;
+    const { bucketName, objectName } = parseObjectPath(fullPath);
+    const file = objectStorageClient.bucket(bucketName).file(objectName);
+    await file.save(bytes, { contentType, resumable: false });
+    return `/objects/${relativePath}`;
+  }
+
+  // Downloads the full bytes of an object entity (small assets only — the
+  // thumbnail pipeline needs the original in memory to resize it).
+  async getObjectEntityBytes(objectPath: string): Promise<Buffer> {
+    const file = await this.getObjectEntityFile(objectPath);
+    const [bytes] = await file.download();
+    return bytes;
+  }
+
   normalizeObjectEntityPath(rawPath: string): string {
     if (!rawPath.startsWith("https://storage.googleapis.com/")) {
       return rawPath;
