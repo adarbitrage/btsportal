@@ -1,22 +1,27 @@
 import { useState } from "react";
-import { ArrowDownRight, X } from "lucide-react";
+import { ArrowDown, X } from "lucide-react";
 
 /**
- * Attention callout floating just above/left of the TicketDesk live-chat
- * bubble (bottom-right corner), pointing at it with a gently bouncing arrow
- * so members notice the live-chat option.
+ * Attention callout floating directly above the TicketDesk live-chat bubble
+ * (bottom-right corner). A branded speech-bubble pill carries the message and
+ * a gently bouncing arrow beneath it points straight down at the chat bubble.
  *
- * - Dismissible: the × persists dismissal in localStorage so the callout
- *   never nags the same browser again.
+ * - Dismissible: the integrated × persists dismissal in localStorage so the
+ *   callout never nags the same browser again.
  * - Pointer-events: the fixed wrapper is pointer-events-none so the chat
  *   bubble underneath / around it always stays clickable; only the visible
- *   card re-enables pointer events.
- * - Motion: the arrow bounce uses `motion-safe:` so it is disabled entirely
- *   for prefers-reduced-motion users.
+ *   pill re-enables pointer events (the arrow never captures clicks).
+ * - Motion: the arrow bounce and the entrance animation use `motion-safe:`
+ *   so they are disabled entirely for prefers-reduced-motion users.
  * - Stacking: z-50 — above page content and the FE call bar (z-40), below
  *   the Toaster (z-[100]) and the impersonation banner (z-[9999]).
  * - The `raised` prop lifts the callout when the sticky FE "book your call"
  *   bottom bar is visible so the two never collide.
+ * - Vertical clearance: the portal pins the TicketDesk bubble at
+ *   `bottom: 96px !important` (index.css .woot-widget-bubble) and the bubble
+ *   renders ~64px tall, so the callout's default `bottom-44` (176px) puts the
+ *   arrow ~16px above the bubble's top edge, pointing down at it without ever
+ *   overlapping. Keep these offsets in lockstep with the index.css rule.
  *
  * Purely presentational + localStorage — auth/audience gating lives in the
  * App-level mount (LiveChatCalloutGate in App.tsx).
@@ -50,30 +55,40 @@ export function LiveChatCallout({ raised = false }: { raised?: boolean }) {
 
   return (
     <div
-      className={`fixed right-3 sm:right-5 z-50 pointer-events-none ${
-        raised ? "bottom-44 sm:bottom-40" : "bottom-24 sm:bottom-24"
+      className={`fixed right-3 sm:right-4 z-50 pointer-events-none flex flex-col items-end motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-bottom-3 motion-safe:duration-500 ${
+        raised ? "bottom-56" : "bottom-44"
       }`}
       data-testid="live-chat-callout"
     >
-      <div className="pointer-events-auto relative max-w-[240px] rounded-lg border border-border bg-card text-card-foreground shadow-lg px-3 py-2.5 pr-8">
+      {/* Branded speech-bubble pill */}
+      <div className="pointer-events-auto relative max-w-[260px] rounded-2xl rounded-br-md bg-primary text-primary-foreground shadow-xl shadow-primary/25 ring-1 ring-black/5 px-4 py-3 pr-9">
         <button
           type="button"
           aria-label="Dismiss"
           onClick={dismiss}
-          className="absolute top-1.5 right-1.5 rounded p-0.5 text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+          className="absolute top-2 right-2 rounded-full p-1 text-primary-foreground/70 hover:text-primary-foreground hover:bg-white/15 transition-colors"
           data-testid="live-chat-callout-dismiss"
         >
           <X className="w-3.5 h-3.5" />
         </button>
-        <p className="text-sm font-medium leading-snug">
-          Have questions? Chat with a live team member now.
+        <p className="text-sm font-semibold leading-snug">
+          Have questions?
         </p>
-        <ArrowDownRight
+        <p className="text-sm leading-snug text-primary-foreground/90">
+          Chat with a live team member now.
+        </p>
+        {/* Speech-bubble tail, bottom-right, nudged toward the chat bubble */}
+        <span
           aria-hidden="true"
-          className="absolute -bottom-6 right-2 w-6 h-6 text-primary motion-safe:animate-bounce"
-          data-testid="live-chat-callout-arrow"
+          className="absolute -bottom-1.5 right-6 h-3 w-3 rotate-45 bg-primary"
         />
       </div>
+      {/* Bouncing arrow pointing straight down at the chat bubble beneath */}
+      <ArrowDown
+        aria-hidden="true"
+        className="mt-2 mr-5 w-7 h-7 text-primary drop-shadow-sm motion-safe:animate-bounce"
+        data-testid="live-chat-callout-arrow"
+      />
     </div>
   );
 }

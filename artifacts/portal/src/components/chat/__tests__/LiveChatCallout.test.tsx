@@ -16,9 +16,8 @@ describe("LiveChatCallout", () => {
   it("renders the callout copy, arrow, and dismiss control", () => {
     render(<LiveChatCallout />);
     expect(screen.getByTestId("live-chat-callout")).toBeInTheDocument();
-    expect(
-      screen.getByText("Have questions? Chat with a live team member now."),
-    ).toBeInTheDocument();
+    expect(screen.getByText("Have questions?")).toBeInTheDocument();
+    expect(screen.getByText("Chat with a live team member now.")).toBeInTheDocument();
     expect(screen.getByTestId("live-chat-callout-arrow")).toBeInTheDocument();
     expect(screen.getByTestId("live-chat-callout-dismiss")).toBeInTheDocument();
   });
@@ -28,9 +27,17 @@ describe("LiveChatCallout", () => {
     expect(screen.getByTestId("live-chat-callout").className).toContain("pointer-events-none");
   });
 
+  it("clears the TicketDesk bubble by default (bubble bottom 96px + ~64px height + gap)", () => {
+    // index.css pins .woot-widget-bubble at bottom: 96px !important; the
+    // callout must sit fully above the bubble's ~160px top edge so the arrow
+    // points down at it without overlapping. bottom-44 = 176px.
+    render(<LiveChatCallout />);
+    expect(screen.getByTestId("live-chat-callout").className).toContain("bottom-44");
+  });
+
   it("raises the callout when the sticky FE call bar is visible", () => {
     render(<LiveChatCallout raised />);
-    expect(screen.getByTestId("live-chat-callout").className).toContain("bottom-44");
+    expect(screen.getByTestId("live-chat-callout").className).toContain("bottom-56");
   });
 
   it("dismisses on × click and persists the dismissal to localStorage", () => {

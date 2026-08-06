@@ -155,4 +155,5 @@
 - [Companion-SQL UNIQUE re-add raises duplicate_table](fe-intensive-booking-surface.md) — idempotent `ADD CONSTRAINT ... UNIQUE` must catch `duplicate_object OR duplicate_table` (the backing index collides), or sync-dev warns on every replay.
 - [KB owner stamps: normalized-title identity](kb-owner-stamp-normalized-title.md) — never match docs by exact title (prod ™ variant broke the seven-pillars gate); one-time backfills must be marker-gated, not perpetual boot enforcement.
 - [Your Purchases nav ownership](your-purchases-nav-ownership.md) — sidebar purchases folder = code-owned slug→label map; mentorship tiers own both entries; sidebar label renames must update nav map + assistant link-normalizer tests in lockstep.
+- [Live-chat callout offset lockstep](live-chat-callout-offset-lockstep.md) — TicketDesk bubble pinned at bottom 96px in portal CSS; callout bottom offsets (default/raised) must clear bubble-top ~160px, keep in lockstep.
 - [Legacy knowledge base retired](legacy-kb-retired.md) — knowledgebase_docs/bookmarks dropped; tests/fixtures now target ai_live_documents; kb-legacy-crosswalk kept (pure terminology map).
