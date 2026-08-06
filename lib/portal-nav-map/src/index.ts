@@ -61,7 +61,7 @@ export const PORTAL_NAVIGATION_MAP: readonly NavSection[] = [
   {
     section: "Resources",
     items: [
-      { label: "Resource Hub", path: "/resource-hub", description: "The one curated resources page — the Copywriting and Image Foundations series (view/download each part), working documents like the Campaign Checklist and word dictionaries, the Headline Library references, templates like the P&L Tracker and dedicated email template, and the glossary of BTS working vocabulary. Replaces the old Resource Library, Creative Drive, and Knowledge Base pages." },
+      { label: "Resource Hub", path: "/resource-hub", description: "The one curated resources page, available to LaunchPad and above — the Copywriting and Image Foundations series, working documents like the Campaign Checklist and word dictionaries, the Headline Library references, templates like the P&L Tracker and dedicated email template, and the glossary of BTS working vocabulary. Each document opens on its own read-only page inside the portal (no downloads). Replaces the old Resource Library, Creative Drive, and Knowledge Base pages." },
       { label: "Prime Corporate", path: "/prime-corporate", description: "Prime Corporate Services resources." },
       { label: "Support", path: "/support", description: "Get help — support tickets and live chat." },
     ],

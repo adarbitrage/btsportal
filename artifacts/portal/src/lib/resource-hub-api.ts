@@ -6,6 +6,7 @@ export type HubSection = "foundations" | "working_documents" | "templates_assets
 
 export type HubItem = {
   id: number;
+  slug: string;
   section: HubSection;
   kind: "file" | "external" | "group";
   fileId: number | null;

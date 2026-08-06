@@ -53,9 +53,11 @@ const allPageKeys = new Set([
 
 describe("buildFrontendOnlyNav", () => {
   it("Blitz-style owner: flat Welcome + granted content pages + Account, nothing else", () => {
+    // NOTE: resource-hub is deliberately absent — it is gated LaunchPad+ by
+    // default now, so a front-end/funnel member's access map never grants it.
     const filtered = memberFiltered(
       new Set(), // no entitlements — funnel products grant none of the gated ones
-      new Set(["pillars-to-blitz", "blitz", "resource-hub"]),
+      new Set(["pillars-to-blitz", "blitz"]),
     );
     const nav = buildFrontendOnlyNav(filtered);
     expect(nav.every((n) => n.kind === "leaf")).toBe(true);
@@ -63,16 +65,16 @@ describe("buildFrontendOnlyNav", () => {
       "/",
       "/core-training/pillars-to-blitz",
       "/blitz",
-      "/resource-hub",
       "/account",
     ]);
   });
 
-  it("drops content pages the member's access map does not grant", () => {
+  it("drops content pages the member's access map does not grant (resource-hub hidden without a grant)", () => {
     const nav = buildFrontendOnlyNav(
-      memberFiltered(new Set(), new Set(["resource-hub"])),
+      memberFiltered(new Set(), new Set(["blitz"])),
     );
-    expect(nav.map((l) => l.href)).toEqual(["/", "/resource-hub", "/account"]);
+    expect(nav.map((l) => l.href)).toEqual(["/", "/blitz", "/account"]);
+    expect(nav.map((l) => l.href)).not.toContain("/resource-hub");
   });
 
   it("never includes entitlement-only or ungated tool leaves (AI Assistant, Apps, Community, Coaching...)", () => {

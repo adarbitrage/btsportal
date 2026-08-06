@@ -27,6 +27,7 @@ function parseId(raw: string | string[]): number | null {
 
 type HubItemOut = {
   id: number;
+  slug: string;
   section: string;
   kind: string;
   fileId: number | null;
@@ -44,6 +45,7 @@ type HubItemOut = {
 function toOut(row: ResourceHubItem, fileName: string | null): HubItemOut {
   return {
     id: row.id,
+    slug: row.slug,
     section: row.section,
     kind: row.kind,
     fileId: row.fileId,

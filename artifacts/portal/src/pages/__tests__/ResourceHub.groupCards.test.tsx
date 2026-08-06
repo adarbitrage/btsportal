@@ -24,18 +24,15 @@ vi.mock("@/lib/resource-hub-api", async () => {
   return { ...actual, fetchResourceHub: vi.fn() };
 });
 
-vi.mock("@/lib/creative-drive-api", () => ({
-  downloadDriveFile: vi.fn(),
-  fetchDriveFileBlob: vi.fn(),
-}));
-
 import { fetchResourceHub, type HubItem } from "@/lib/resource-hub-api";
 import ResourceHub from "@/pages/ResourceHub";
 
 let nextId = 1;
 function item(overrides: Partial<HubItem>): HubItem {
+  const id = overrides.id ?? nextId++;
   return {
-    id: nextId++,
+    id,
+    slug: `item-${id}`,
     section: "working_documents",
     kind: "file",
     fileId: 1,
@@ -130,8 +127,11 @@ describe("ResourceHub — collapsible full-width cards (Task #2039)", () => {
 
     await user.click(screen.getByTestId("button-toggle-series-100"));
     expect(screen.getByText("What a Headline Actually Does")).toBeTruthy();
-    expect(screen.getByTestId("button-view-101")).toBeTruthy();
-    expect(screen.getByTestId("button-download-101")).toBeTruthy();
+    const read = screen.getByTestId("link-read-101");
+    expect(read.getAttribute("href")).toBe("/resource-hub/view/item-101");
+    // View-only: no download or open-in-new-tab actions on file rows.
+    expect(screen.queryByTestId("button-download-101")).toBeNull();
+    expect(screen.queryByTestId("button-view-101")).toBeNull();
     // The other series stays collapsed independently.
     expect(screen.queryByTestId("row-series-part-111")).toBeNull();
   });
@@ -146,7 +146,8 @@ describe("ResourceHub — collapsible full-width cards (Task #2039)", () => {
     await user.click(screen.getByTestId("button-toggle-group-200"));
     expect(screen.getByText("Campaign Checklist")).toBeTruthy();
     expect(screen.getByText("Power Word Dictionary")).toBeTruthy();
-    expect(screen.getByTestId("button-view-201")).toBeTruthy();
+    expect(screen.getByTestId("link-read-201")).toBeTruthy();
+    expect(screen.queryByTestId("button-download-201")).toBeNull();
   });
 
   it("renders external children inside a group with a working Open link", async () => {
@@ -159,8 +160,22 @@ describe("ResourceHub — collapsible full-width cards (Task #2039)", () => {
     const open = screen.getByTestId("button-open-301");
     expect(open.getAttribute("href")).toBe("https://example.com/pnl-copy");
     expect(open.getAttribute("target")).toBe("_blank");
-    // An external child never shows file view/download actions.
-    expect(screen.queryByTestId("button-view-301")).toBeNull();
+    // An external child never shows file read/download actions.
+    expect(screen.queryByTestId("link-read-301")).toBeNull();
     expect(screen.queryByTestId("button-download-301")).toBeNull();
+  });
+
+  it("exposes no download or blob-open controls anywhere on the hub (view-only)", async () => {
+    renderPage();
+    const user = userEvent.setup();
+    await screen.findByText("Campaign Toolkit");
+    for (const id of ["button-toggle-series-100", "button-toggle-series-110", "button-toggle-group-200", "button-toggle-group-300"]) {
+      await user.click(screen.getByTestId(id));
+    }
+    const testIds = Array.from(document.querySelectorAll("[data-testid]")).map(
+      (el) => el.getAttribute("data-testid") ?? "",
+    );
+    expect(testIds.some((t) => t.startsWith("button-download-"))).toBe(false);
+    expect(testIds.some((t) => t.startsWith("button-view-"))).toBe(false);
   });
 });

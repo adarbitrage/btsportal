@@ -4,6 +4,7 @@
  *
  * Policy seeded here:
  *   - `blitz` → owned by the 21-Day Blitz upsell + all five mentorship tiers.
+ *   - LaunchPad+ pages (resource-hub, partner-tools, …) → mentorship tiers only.
  *   - Every other gateable page → all six front-end offers + all five
  *     mentorship tiers.
  *   - No page key remains unmapped/open.
@@ -33,6 +34,7 @@ const BLITZ_OWNER_SLUGS = ["yse_21_day_blitz", ...MENTORSHIP_TIER_SLUGS];
 // Pitch/partner surfaces the business wants visible to LaunchPad-and-above
 // only (front-end/funnel buyers excluded).
 const LAUNCHPAD_PLUS_PAGE_KEYS = new Set([
+  "resource-hub",
   "partner-tools",
   "prime-corporate",
   "ad-credit",

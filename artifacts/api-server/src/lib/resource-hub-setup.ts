@@ -388,6 +388,69 @@ export async function ensureResourceHubAccessMigration(): Promise<void> {
   });
 }
 
+// ── Phase 0b: one-time LaunchPad+ tighten (view-only hub, owner decision) ────
+//
+// The Resource Hub was originally seeded open to all front-end offers. The
+// owner restricted it to LaunchPad-and-above (mentorship tiers only), so
+// already-seeded environments (dev AND prod on next publish) must have any
+// front-end/funnel product slugs stripped from the existing resource-hub map
+// row. Marker-gated in system_settings so it runs exactly once per
+// environment — after that, admin edits (including deliberately re-opening
+// the hub to a front-end product) always win.
+const LAUNCHPAD_TIGHTEN_MARKER = "resource_hub_launchpad_tighten_2026_08";
+
+export async function ensureResourceHubLaunchpadTighten(): Promise<void> {
+  const { MAPPABLE_PRODUCTS } = await import("@workspace/content-access-registry");
+  const nonMentorship = new Set(
+    MAPPABLE_PRODUCTS.filter((p) => p.group !== "mentorship").map((p) => p.slug),
+  );
+
+  await db.transaction(async (tx) => {
+    await tx.execute(sql`SELECT pg_advisory_xact_lock(${LOCK_KEY_1}, 5)`);
+
+    const marker = await tx.execute(
+      sql`SELECT value FROM system_settings WHERE key = ${LAUNCHPAD_TIGHTEN_MARKER}`,
+    );
+    if ((marker as unknown as { rows: unknown[] }).rows.length > 0) return;
+
+    const [hubRow] = await tx
+      .select({
+        id: contentAccessMapTable.id,
+        productSlugs: contentAccessMapTable.productSlugs,
+      })
+      .from(contentAccessMapTable)
+      .where(eq(contentAccessMapTable.pageKey, HUB_ACCESS_KEY))
+      .limit(1);
+
+    let removed: string[] = [];
+    if (hubRow) {
+      const kept = hubRow.productSlugs.filter((s) => !nonMentorship.has(s));
+      removed = hubRow.productSlugs.filter((s) => nonMentorship.has(s));
+      if (removed.length > 0) {
+        await tx
+          .update(contentAccessMapTable)
+          .set({
+            productSlugs: kept,
+            updatedBy: "boot:resource-hub-launchpad-tighten",
+            updatedAt: new Date(),
+          })
+          .where(eq(contentAccessMapTable.id, hubRow.id));
+      }
+    }
+
+    await tx.execute(sql`
+      INSERT INTO system_settings (key, value)
+      VALUES (${LAUNCHPAD_TIGHTEN_MARKER}, ${JSON.stringify({ ranAt: new Date().toISOString(), removed })})
+      ON CONFLICT (key) DO NOTHING`);
+
+    if (removed.length > 0) {
+      console.log(
+        `[ResourceHub] LaunchPad+ tighten (one-time): removed [${removed.join(", ")}] from the "${HUB_ACCESS_KEY}" access row`,
+      );
+    }
+  });
+}
+
 // ── Phase A: folder reorganization ───────────────────────────────────────────
 
 export async function ensureResourceHubReorg(): Promise<void> {

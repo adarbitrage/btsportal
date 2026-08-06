@@ -30,6 +30,7 @@ import { ResourceHubCuration } from "../ResourceHubCuration";
 
 const group: HubItem = {
   id: 10,
+  slug: "headline-library",
   section: "working_documents",
   kind: "group",
   fileId: null,
@@ -44,6 +45,7 @@ const group: HubItem = {
   children: [
     {
       id: 11,
+      slug: "headline-library-21",
       section: "working_documents",
       kind: "file",
       fileId: 42,

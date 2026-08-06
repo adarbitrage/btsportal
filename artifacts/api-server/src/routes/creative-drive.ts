@@ -191,9 +191,9 @@ router.get(
 /**
  * GET /api/creative-drive/files/:id/content
  * Streams the file bytes from object storage through the API (authenticated,
- * gated on the creative-drive page key). `?download=1` forces a Save-As
- * Content-Disposition; otherwise the file is served inline so images/PDFs
- * render directly in <img>/<iframe> previews.
+ * gated on the resource-hub page key). ALWAYS served inline — the Resource
+ * Hub is view-only for members, so no member-reachable endpoint may offer
+ * these files with an attachment (Save-As) disposition.
  */
 router.get(
   "/creative-drive/files/:id/content",
@@ -226,10 +226,9 @@ router.get(
         res.setHeader("Content-Type", file.mimeType);
       }
       const encodedName = encodeURIComponent(file.name).replace(/'/g, "%27");
-      const disposition = req.query.download === "1" ? "attachment" : "inline";
       res.setHeader(
         "Content-Disposition",
-        `${disposition}; filename*=UTF-8''${encodedName}`,
+        `inline; filename*=UTF-8''${encodedName}`,
       );
 
       if (response.body) {

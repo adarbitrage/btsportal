@@ -185,6 +185,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useContentAccess } from "@/hooks/use-content-access";
 import { ContentLockedScreen } from "@/components/content-access/ContentLockedScreen";
 import ResourceHub from "@/pages/ResourceHub";
+import ResourceHubDocument from "@/pages/ResourceHubDocument";
 import AdminResourceHubGlossary from "@/pages/admin/ResourceHubGlossary";
 
 const queryClient = new QueryClient({
@@ -588,6 +589,7 @@ function Router() {
       <Route path="/resources/:collectionSlug">{() => <ProtectedRoute component={CollectionDetail} />}</Route>
       <Route path="/resources">{() => <ProtectedRoute component={Resources} />}</Route>
       <Route path="/resource-hub">{() => <ContentAccessRoute component={ResourceHub} pageKey="resource-hub" />}</Route>
+      <Route path="/resource-hub/view/:slug">{() => <ContentAccessRoute component={ResourceHubDocument} pageKey="resource-hub" />}</Route>
       {/* Old resource pages merged into the Resource Hub (Task #2028) */}
       <Route path="/resource-library">{() => <Redirect to="/resource-hub" />}</Route>
       <Route path="/creative-drive">{() => <Redirect to="/resource-hub" />}</Route>

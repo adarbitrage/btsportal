@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { Link } from "wouter";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -9,13 +10,10 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion";
-import { useToast } from "@/hooks/use-toast";
 import {
   BookOpen,
   ChevronDown,
-  Download,
   ExternalLink,
-  Eye,
   FileText,
   Image as ImageIcon,
   Library,
@@ -23,13 +21,17 @@ import {
   PenLine,
 } from "lucide-react";
 import { fetchResourceHub, type HubItem } from "@/lib/resource-hub-api";
-import { downloadDriveFile, fetchDriveFileBlob } from "@/lib/creative-drive-api";
 
 /**
  * Resource Hub (Task #2028, layout reworked in Task #2039) — the single
  * curated member resources page, rendered entirely from the admin-managed
  * curation model. Every content card is a full-width collapsible stacked
  * vertically, matching the member-page conventions used elsewhere.
+ *
+ * VIEW-ONLY (LaunchPad+ gating task): file items link to their own in-portal
+ * reading page (/resource-hub/view/:slug) — there are deliberately NO
+ * download, save-as, or open-raw-PDF-in-new-tab actions anywhere on this
+ * page. External items (Google-Docs copies etc.) still open in a new tab.
  */
 
 function SectionDivider({ label }: { label: string }) {
@@ -41,60 +43,8 @@ function SectionDivider({ label }: { label: string }) {
   );
 }
 
-function useFileActions() {
-  const { toast } = useToast();
-  const [busyId, setBusyId] = useState<string | null>(null);
-
-  const view = async (item: HubItem) => {
-    if (!item.fileId) return;
-    setBusyId(`view-${item.id}`);
-    try {
-      const blob = await fetchDriveFileBlob(item.fileId);
-      const url = URL.createObjectURL(blob);
-      window.open(url, "_blank", "noopener");
-      setTimeout(() => URL.revokeObjectURL(url), 60_000);
-    } catch (err) {
-      toast({
-        title: "Couldn't open the file",
-        description: err instanceof Error ? err.message : "Please try again.",
-        variant: "destructive",
-      });
-    } finally {
-      setBusyId(null);
-    }
-  };
-
-  const download = async (item: HubItem) => {
-    if (!item.fileId) return;
-    setBusyId(`download-${item.id}`);
-    try {
-      await downloadDriveFile({ id: item.fileId, name: item.fileName ?? `${item.displayTitle}.pdf` });
-    } catch (err) {
-      toast({
-        title: "Download failed",
-        description: err instanceof Error ? err.message : "Please try again.",
-        variant: "destructive",
-      });
-    } finally {
-      setBusyId(null);
-    }
-  };
-
-  return { view, download, busyId };
-}
-
-/** View/Download (file) or Open (external) actions for a row inside a card. */
-function RowActions({
-  item,
-  view,
-  download,
-  busyId,
-}: {
-  item: HubItem;
-  view: (item: HubItem) => void;
-  download: (item: HubItem) => void;
-  busyId: string | null;
-}) {
+/** Read (file → in-portal reading page) or Open (external) action for a row. */
+function RowActions({ item }: { item: HubItem }) {
   if (item.kind === "external" && item.externalUrl) {
     return (
       <Button asChild variant="outline" size="sm" className="h-8" data-testid={`button-open-${item.id}`}>
@@ -106,30 +56,12 @@ function RowActions({
     );
   }
   return (
-    <>
-      <Button
-        variant="ghost"
-        size="sm"
-        className="h-8 px-2"
-        onClick={() => view(item)}
-        disabled={busyId === `view-${item.id}`}
-        data-testid={`button-view-${item.id}`}
-      >
-        {busyId === `view-${item.id}` ? <Loader2 className="w-4 h-4 animate-spin" /> : <Eye className="w-4 h-4" />}
-        <span className="sr-only">View</span>
-      </Button>
-      <Button
-        variant="ghost"
-        size="sm"
-        className="h-8 px-2"
-        onClick={() => download(item)}
-        disabled={busyId === `download-${item.id}`}
-        data-testid={`button-download-${item.id}`}
-      >
-        {busyId === `download-${item.id}` ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
-        <span className="sr-only">Download</span>
-      </Button>
-    </>
+    <Button asChild variant="outline" size="sm" className="h-8" data-testid={`link-read-${item.id}`}>
+      <Link href={`/resource-hub/view/${item.slug}`}>
+        Read
+        <BookOpen className="w-3.5 h-3.5 ml-1.5" />
+      </Link>
+    </Button>
   );
 }
 
@@ -165,7 +97,6 @@ function CollapsibleHeader({
 
 /** Full-width collapsible card for a Foundations series (numbered parts). */
 function SeriesCard({ group, icon }: { group: HubItem; icon: typeof BookOpen }) {
-  const { view, download, busyId } = useFileActions();
   const [open, setOpen] = useState(false);
   const parts = group.children ?? [];
   return (
@@ -192,7 +123,7 @@ function SeriesCard({ group, icon }: { group: HubItem; icon: typeof BookOpen }) 
                     <p className="text-xs text-muted-foreground mt-0.5 leading-snug">{part.blurb}</p>
                   </div>
                   <div className="flex items-center gap-1 shrink-0">
-                    <RowActions item={part} view={view} download={download} busyId={busyId} />
+                    <RowActions item={part} />
                   </div>
                 </div>
               ))}
@@ -206,7 +137,6 @@ function SeriesCard({ group, icon }: { group: HubItem; icon: typeof BookOpen }) 
 
 /** Full-width standalone item card (files or external links at section root). */
 function ItemCard({ item }: { item: HubItem }) {
-  const { view, download, busyId } = useFileActions();
   return (
     <Card className="border-border/60 shadow-sm" data-testid={`card-hub-item-${item.id}`}>
       <CardContent className="p-5">
@@ -219,7 +149,7 @@ function ItemCard({ item }: { item: HubItem }) {
             <p className="text-sm text-muted-foreground leading-relaxed mt-1">{item.blurb}</p>
           </div>
           <div className="flex items-center gap-1 shrink-0">
-            <RowActions item={item} view={view} download={download} busyId={busyId} />
+            <RowActions item={item} />
           </div>
         </div>
       </CardContent>
@@ -229,7 +159,6 @@ function ItemCard({ item }: { item: HubItem }) {
 
 /** Full-width collapsible group card (Headline Library, Campaign Toolkit, …). */
 function GroupCard({ group }: { group: HubItem }) {
-  const { view, download, busyId } = useFileActions();
   const [open, setOpen] = useState(false);
   const children = group.children ?? [];
 
@@ -278,7 +207,7 @@ function GroupCard({ group }: { group: HubItem }) {
                           <p className="text-xs text-muted-foreground mt-0.5 leading-snug">{child.blurb}</p>
                         </div>
                         <div className="flex items-center gap-1 shrink-0">
-                          <RowActions item={child} view={view} download={download} busyId={busyId} />
+                          <RowActions item={child} />
                         </div>
                       </div>
                     ))}

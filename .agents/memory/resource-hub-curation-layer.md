@@ -21,3 +21,8 @@ When retiring member routes: content-access registry key, portal-nav-map package
 **Admin-uploaded PDFs are boot-seeded too (Aug 2026):** `ensureUploadedDriveFiles()` in resource-hub-setup.ts inserts the 15 admin-uploaded drive rows (Headline Library + dictionaries + One-Sentence) pointing at the durable shared bucket objects (`/objects/uploads/<id>`), existence-checked, insert-if-absent by name OR objectPath (rename safety). Root cause it fixes: dev-UI uploads create DB rows only in dev — fresh prod boots had the bytes (shared bucket) but no rows, so curation skipped 11 hub entries. Never fix this class of gap by bundling files.
 
 **GrandfatherBackfill retired unrun (Aug 2026):** removed entirely (pre-launch; all prod members were test/team). `users.grandfathered` column stays, nothing sets it true.
+
+## LaunchPad+ view-only policy (Aug 2026)
+- Resource Hub is gated to mentorship tiers only (seed default in LAUNCHPAD_PLUS_PAGE_KEYS) and is VIEW-ONLY: file items open on /resource-hub/view/:slug rendered as pdf.js canvases; NO member download/open-raw paths.
+- **Why:** owner wants content unshareable outside the portal; the creative-drive content endpoint always serves `inline` disposition now (the ?download=1 attachment branch was deliberately removed — don't re-add it on a member-reachable route).
+- **How to apply:** already-seeded envs tighten via a marker-gated one-time repair (`resource_hub_launchpad_tighten_2026_08` in system_settings) — after it runs once, admin map edits always win. Admin blob-download in admin Creative Drive UI is client-side and unaffected.

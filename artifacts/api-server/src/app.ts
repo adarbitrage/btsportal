@@ -42,7 +42,7 @@ import { seedAssistantCards } from "./lib/seed-assistant-cards";
 import { seedCopywritingFoundationsDrive } from "./lib/seed-copywriting-foundations-drive";
 import { seedResourcesDrive } from "./lib/seed-resources-drive";
 import { seedImageFoundationsDrive } from "./lib/seed-image-foundations-drive";
-import { ensureResourceHubReorg, ensureResourceHubCuration, ensureResourceHubAccessMigration, ensureUploadedDriveFiles } from "./lib/resource-hub-setup";
+import { ensureResourceHubReorg, ensureResourceHubCuration, ensureResourceHubAccessMigration, ensureResourceHubLaunchpadTighten, ensureUploadedDriveFiles } from "./lib/resource-hub-setup";
 import { ensureContentAccessMapSeed } from "./lib/seed-content-access-map";
 import { seedCoachRoster, generateWeeklyQaCalls, backfillCoachLongBios } from "./lib/coaching-roster";
 import { retitleCleanedHoldingDocs, retitleFiledPrivateCoachingDocs, resetStuckCleaningDocs } from "./lib/transcript-cleaner";
@@ -162,6 +162,7 @@ seedAssistantCards().catch(err => console.error("[Seed] Failed to seed assistant
 // drive files by name). All steps are idempotent boot hooks (prod parity).
 (async () => {
   await ensureResourceHubAccessMigration().catch(err => console.error("[Seed] Resource Hub access migration failed:", err));
+  await ensureResourceHubLaunchpadTighten().catch(err => console.error("[Seed] Resource Hub LaunchPad+ tighten failed:", err));
   await ensureResourceHubReorg().catch(err => console.error("[Seed] Resource Hub reorg failed:", err));
   await Promise.allSettled([
     seedCopywritingFoundationsDrive().catch(err => console.error("[Seed] Failed to seed Copywriting Foundations drive folder:", err)),
