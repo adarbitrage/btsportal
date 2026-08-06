@@ -1,4 +1,4 @@
-import { pgTable, text, serial, integer, jsonb, timestamp, index } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, integer, jsonb, timestamp, index, uniqueIndex } from "drizzle-orm/pg-core";
 import { aiLiveDocumentsTable } from "./ai-live-documents";
 
 // ── Live AI Document version history (Synthesis Engine Part 3) ────────────────
@@ -36,7 +36,13 @@ export const aiLiveDocumentVersionsTable = pgTable(
     supersededAt: timestamp("superseded_at", { withTimezone: true }).notNull().defaultNow(),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
-  (table) => [index("ai_live_doc_versions_doc_idx").on(table.docId)],
+  (table) => [
+    index("ai_live_doc_versions_doc_idx").on(table.docId),
+    // Task #2098 hardening: concurrent snapshotters must never write duplicate
+    // version numbers for the same doc (the snapshot seam serializes via an
+    // advisory lock; this constraint is the fail-loud backstop).
+    uniqueIndex("ai_live_doc_versions_doc_version_uniq").on(table.docId, table.versionNumber),
+  ],
 );
 
 export type AiLiveDocumentVersion = typeof aiLiveDocumentVersionsTable.$inferSelect;

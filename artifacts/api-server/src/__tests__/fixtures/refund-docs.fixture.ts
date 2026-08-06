@@ -149,7 +149,7 @@ export async function seedRefundLiveDocsForTest(): Promise<void> {
     await db.execute(
       sql`INSERT INTO ai_live_documents (title, category, content, audience, doc_class, last_verified)
           VALUES (${scrubPrivateContent(doc.title)}, ${doc.category}, ${scrubPrivateContent(doc.content)}, 'member', 'curated', NOW())
-          ON CONFLICT (title) DO NOTHING`,
+          ON CONFLICT DO NOTHING`,
     );
   }
 }

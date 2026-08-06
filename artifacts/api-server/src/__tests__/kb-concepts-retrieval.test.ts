@@ -17,7 +17,7 @@ import { CITABLE_KB_CATEGORIES } from "../lib/kb-taxonomy";
 const CHAT_CATEGORIES = [...CITABLE_KB_CATEGORIES];
 
 const TITLES = {
-  angles: "Angles — Finding What Makes People Buy",
+  angles: "Angles: How to Build and Test Winning Ad Angles",
   headlines: "Headlines & Copy — Writing What Gets the Click",
   creative: "Creative Strategy — Ads, Images & Landing Pages That Work Together",
   offer: "Offer Strategy — Picking & Promoting the Right Product",

@@ -48,22 +48,30 @@ export async function snapshotLiveDocVersion(
   docOrId: LiveDocSnapshotSource | number,
   opts: { supersededByStagingDocId?: number | null } = {},
 ): Promise<number | null> {
-  let doc: LiveDocSnapshotSource | undefined;
-  if (typeof docOrId === "number") {
-    const [row] = await tx
-      .select()
-      .from(aiLiveDocumentsTable)
-      .where(eq(aiLiveDocumentsTable.id, docOrId));
-    doc = row as LiveDocSnapshotSource | undefined;
-  } else {
-    doc = docOrId;
-  }
+  // Serialize concurrent snapshotters of the same doc for the remainder of
+  // this transaction, and ALWAYS re-read the row under the lock (FOR UPDATE).
+  // A caller-supplied row object was selected BEFORE the lock and may be
+  // stale — snapshotting it would record an outdated version and lose the
+  // intermediate state a concurrent writer just committed. The object form
+  // is accepted purely as an id source. UNIQUE(doc_id, version_number) is the
+  // fail-loud backstop.
+  const lockDocId = typeof docOrId === "number" ? docOrId : docOrId.id;
+  await tx.execute(sql`SELECT pg_advisory_xact_lock(872098, ${lockDocId})`);
+
+  const [row] = await tx
+    .select()
+    .from(aiLiveDocumentsTable)
+    .where(eq(aiLiveDocumentsTable.id, lockDocId))
+    .for("update");
+  const doc = row as LiveDocSnapshotSource | undefined;
   if (!doc) return null;
 
+  // max()+1 (not count()+1): survives gaps and is race-safe under the lock.
   const res = await tx.execute(sql`
-    SELECT count(*)::int AS cnt FROM ai_live_document_versions WHERE doc_id = ${doc.id}
+    SELECT coalesce(max(version_number), 0)::int AS max_v
+    FROM ai_live_document_versions WHERE doc_id = ${doc.id}
   `);
-  const priorVersions = Number((res.rows[0] as { cnt: number }).cnt);
+  const priorVersions = Number((res.rows[0] as { max_v: number }).max_v);
 
   const priorProvenance = await tx
     .select({

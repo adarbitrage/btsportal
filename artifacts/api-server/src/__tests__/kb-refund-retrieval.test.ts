@@ -3,6 +3,7 @@ import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
 import { seedRefundLiveDocsForTest } from "./fixtures/refund-docs.fixture";
 import { searchKnowledgebase } from "../routes/chat";
+import { retrieveSurfaceAware } from "../lib/kb-retrieval.js";
 
 // End-to-end retrieval guard for the AI assistant's refund answers.
 //
@@ -99,12 +100,23 @@ describe("AI assistant refund retrieval (searchKnowledgebase)", () => {
     // every lexeme is absent from the refund / Agreement / glossary corpus so
     // neither the primary tsquery nor the looser word-OR fallback can surface a
     // refund doc.
-    const results = await searchKnowledgebase(
-      "how do I reset my password",
-      MEMBER_CATEGORIES,
-    );
-    const titles = results.map((r) => r.title);
-    expect(titles).not.toContain(REFUND_REQUIREMENTS_TITLE);
-    expect(titles).not.toContain(REFUND_REQUEST_TITLE);
+    // Task #2098: assert the REAL chat contract, not the raw fallback pool.
+    // The loose word-OR fallback may rank arbitrary docs when nothing matches
+    // (its contents drift with the shared corpus), but the chat route only
+    // injects KB context when the outcome is `confident` or `near_miss` —
+    // so "no refund context" means: outcome must be no_match, and if docs
+    // were ever presented as confident/near-miss, they must not be refund docs.
+    const retrieval = await retrieveSurfaceAware("how do I reset my password", {
+      surface: "chat",
+      categories: MEMBER_CATEGORIES,
+      limit: 6,
+      nearMissBand: true,
+    });
+    expect(retrieval.outcome).toBe("no_match");
+    if (retrieval.outcome !== "no_match") {
+      const titles = retrieval.docs.map((r) => r.title);
+      expect(titles).not.toContain(REFUND_REQUIREMENTS_TITLE);
+      expect(titles).not.toContain(REFUND_REQUEST_TITLE);
+    }
   });
 });

@@ -57,7 +57,7 @@ const COACHING_HANDOFF =
 
 function buildAnglesDoc(): ConceptsDoc {
   const lines = [
-    "Angles — Finding What Makes People Buy",
+    "Angles: How to Build and Test Winning Ad Angles",
     "",
     "An angle is the specific reason-to-buy you lead with — the emotional or practical motivation that makes a particular audience stop and pay attention. The same product can be sold from many different angles, and finding the angle that resonates is usually the single biggest lever on whether a campaign works.",
     "",
@@ -76,7 +76,7 @@ function buildAnglesDoc(): ConceptsDoc {
   ];
 
   return {
-    title: "Angles — Finding What Makes People Buy",
+    title: "Angles: How to Build and Test Winning Ad Angles",
     slug: "concepts-angles",
     node: "angles",
     docClass: "curated",
@@ -366,7 +366,7 @@ export async function seedConceptsLiveDocsForTest(): Promise<void> {
             (${cleanTitle}, ${doc.slug}, 'concepts', ${cleanContent}, 'member', ${doc.docClass},
              'concepts', ${doc.node}, ${tagsJson}::jsonb, ${doc.ceiling}, ${doc.handoff},
              ${CONCEPTS_VERIFIED_AT}::timestamptz, ${doc.sourcePath}, ${doc.sourceLabel})
-          ON CONFLICT (title) DO NOTHING`,
+          ON CONFLICT DO NOTHING`,
     );
   }
 }

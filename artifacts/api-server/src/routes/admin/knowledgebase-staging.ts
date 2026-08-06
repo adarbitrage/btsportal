@@ -2098,10 +2098,16 @@ router.post("/push-approved", async (_req: Request, res: Response) => {
           // (the 2026-08-04 incident had no snapshots to recover from on two
           // docs). Lock and snapshot any collided row BEFORE the upsert, in
           // the same transaction, so no live overwrite ever skips history.
+          // Absent-row race guard: FOR UPDATE can't lock a row that doesn't
+          // exist yet, so a concurrent insert of the same title between this
+          // check and the upsert would be overwritten unsnapshotted. Serialize
+          // same-title pushers via an advisory xact lock on the title hash.
+          const scrubbedTitle = scrubPrivateContent(doc.title);
+          await tx.execute(sql`SELECT pg_advisory_xact_lock(872099, hashtext(${scrubbedTitle}))`);
           const [collided] = await tx
             .select()
             .from(aiLiveDocumentsTable)
-            .where(eq(aiLiveDocumentsTable.title, scrubPrivateContent(doc.title)))
+            .where(eq(aiLiveDocumentsTable.title, scrubbedTitle))
             .for("update");
           if (collided) {
             await snapshotLiveDocVersion(tx, collided, { supersededByStagingDocId: doc.id });
