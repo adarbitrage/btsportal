@@ -100,7 +100,7 @@ import { scrollToBookingWithRetry } from "./FeCallBar";
 import { CalendarCheck2, PhoneCall } from "lucide-react";
 
 /**
- * Prominent "Book Your Advisor Call" nav entry for front-end-only members.
+ * Prominent "Book your first coaching call" nav entry for front-end-only members.
  * CTA state: highlighted green button linking to the Welcome page's booking
  * section. Booked state: calm confirmed row (no nagging). Hidden for every
  * other audience (useAdvisorCallNav returns "hidden").
@@ -118,7 +118,7 @@ function AdvisorCallNavLink({ onNavClick }: { onNavClick?: () => void }) {
         className="flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium text-emerald-700 bg-emerald-50 border border-emerald-200"
       >
         <CalendarCheck2 className="w-4 h-4 shrink-0" />
-        <span className="truncate">Advisor Call Booked</span>
+        <span className="truncate">Coaching Call Booked</span>
       </div>
     );
   }
@@ -135,7 +135,7 @@ function AdvisorCallNavLink({ onNavClick }: { onNavClick?: () => void }) {
       className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-semibold bg-emerald-600 text-white hover:bg-emerald-700 shadow-sm transition-colors cursor-pointer"
     >
       <PhoneCall className="w-4 h-4 shrink-0" />
-      <span className="truncate">Book Your Advisor Call</span>
+      <span className="truncate">Book your first coaching call</span>
     </button>
   );
 }

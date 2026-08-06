@@ -54,7 +54,7 @@ async function fetchFeStatus(): Promise<FeStatusResponse> {
 }
 
 /**
- * Sidebar "Book Your Advisor Call" link state for the front-end-only
+ * Sidebar "Book your first coaching call" link state for the front-end-only
  * audience. Pure — unit-tested alongside shouldShowFeCallBar.
  *
  *   - "hidden": not a plain member, or not the Frontend Welcome audience.
