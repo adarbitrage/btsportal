@@ -1,0 +1,150 @@
+
+TERMS OF SERVICE
+Build. Test. Scale., LLC
+Effective Date: October 1, 2025
+
+1. ACCEPTANCE AND MODIFICATION OF TERMS
+1.1 Agreement to Terms
+By accessing, browsing, or using the website located at https://buildtestscale.com (the "Website") or any services provided through the Website, you ("User," "you," or "your") acknowledge that you have read, understood, and agree to be bound by these Terms of Service ("Terms" or "Agreement") and all applicable laws and regulations. If you do not agree to these Terms, you must immediately discontinue use of the Website and all related services.
+
+1.2 Binding Agreement
+These Terms constitute a legally binding agreement between you and Build. Test. Scale., LLC, a Texas limited liability company ("Company," "we," "us," or "our"). Your use of the Website constitutes acceptance of these Terms, regardless of whether you create an account or make a purchase.
+
+1.3 Modifications to Terms
+We reserve the right, in our sole discretion, to modify, update, or revise these Terms at any time without prior notice. Any changes to these Terms will become effective immediately upon posting on the Website. We will provide notice of material changes by sending an email notification to the email address associated with your account, if applicable, and by posting a notice on the Website. Your continued use of the Website after any such changes constitutes your acceptance of the modified Terms. It is your responsibility to review these Terms periodically to stay informed of any updates.
+
+1.4 Additional Terms
+Certain features or services may be subject to additional terms and conditions, which will be presented to you at the time you access such features or services. Such additional terms are incorporated by reference into these Terms and form part of the agreement between you and the Company.
+
+2. BUSINESS INFORMATION AND CONTACT DETAILS
+2.1 Company Information
+Legal Name: Build. Test. Scale., LLC
+Business Address: 5900 Balcones Drive, STE 100, Austin, TX 78731, US
+Email Address: support@buildtestscale.com
+Website: https://buildtestscale.com
+
+2.2 Legal Notices
+All legal notices, including but not limited to notices of breach, termination, or legal process, must be sent in writing to the Company's business address listed above or to our designated email address. Electronic notices sent to support@buildtestscale.com will be deemed received when we send a confirmation of receipt.
+
+2.3 Customer Service
+For customer service inquiries, technical support, or general questions about our products or services, please contact us at support@buildtestscale.com. We will make reasonable efforts to respond to customer service inquiries within two (2) business days, though response times may vary depending on the nature and complexity of your inquiry.
+
+3. ACCOUNT REGISTRATION AND SECURITY
+3.1 Account Creation Requirements
+To access certain features of the Website or to make purchases, you must create an account by providing accurate, current, and complete information as prompted by our registration form. You must verify your email address through our email verification process before your account becomes fully active. You are responsible for maintaining the accuracy of your account information and must promptly update any changes to your personal information, including your email address, billing information, and contact details.
+
+3.2 Age Restrictions
+You must be at least eighteen (18) years of age to create an account or use our services. By creating an account, you represent and warrant that you are at least eighteen (18) years of age and have the legal capacity to enter into this Agreement. If you are under eighteen (18) years of age, you are prohibited from using the Website and our services.
+
+3.3 Account Security
+You are solely responsible for maintaining the confidentiality of your account credentials, including your username and password. You agree to notify us immediately of any unauthorized use of your account or any other breach of security. You are responsible for all activities that occur under your account, whether or not you authorized such activities. We reserve the right to refuse service, terminate accounts, or cancel orders at our sole discretion.
+
+3.4 Account Suspension and Termination
+We reserve the right to suspend or terminate your account at any time, with or without cause, and with or without notice, if we determine that you have violated these Terms or engaged in conduct that we deem inappropriate or harmful to the Company, other users, or third parties. Upon termination, your right to use the Website and access your account will cease immediately.
+
+4. PRODUCTS AND SERVICES
+4.1 Product Description
+The Company offers digital information products through the Website. All products and services are described on the Website to the best of our ability, but we do not warrant that product descriptions are accurate, complete, reliable, current, or error-free. Digital products are delivered electronically through download links, email, or through your account dashboard.
+
+4.2 Geographic Limitations
+Our products and services are available only to customers located within the United States. We do not ship physical products internationally, and digital products are licensed for use only within the United States. By placing an order, you represent that you are located within the United States and that you will use our products only within the United States.
+
+4.3 Product Availability
+All products are subject to availability. We reserve the right to discontinue any product at any time without notice. In the event that a product becomes unavailable after you have placed an order, we will notify you and provide a full refund.
+
+4.4 Pricing
+All prices are stated in United States dollars and are subject to change without notice. We reserve the right to modify prices at any time, but price changes will not affect orders that have already been confirmed and paid for. The price charged will be the price in effect at the time your order is placed.
+
+5. PAYMENT TERMS AND REFUND POLICY
+5.1 Accepted Payment Methods
+We accept payment through credit cards, PayPal, and other online payment methods as displayed during the checkout process. By providing payment information, you represent and warrant that you are authorized to use the payment method and that all payment information is accurate and current.
+
+5.2 Payment Processing
+All payments are processed securely through third-party payment processors. We do not store your complete credit card information on our servers. Your payment information is subject to the privacy policies and terms of service of our payment processors, in addition to our own Privacy Policy.
+
+5.3 Refund Policy
+We offer a thirty (30) day, no questions asked refund policy for all digital products. To request a refund, you must contact us at support@buildtestscale.com within thirty (30) days of your purchase date. Refunds will be processed using the same payment method used for the original purchase and may take five (5) to ten (10) business days to appear on your account statement.
+
+5.4 Billing Disputes
+If you believe there has been an error in billing or if you wish to dispute a charge, you must contact us within sixty (60) days of the charge appearing on your statement. We will investigate all billing disputes in good faith and work with you to resolve any legitimate errors.
+
+5.5 Electronic Fund Transfer Act Compliance
+For transactions involving electronic fund transfers, you have certain rights under the Electronic Fund Transfer Act. You have the right to receive documentation of electronic fund transfers, to stop payment on preauthorized transfers, and to receive notice of varying amounts in preauthorized transfers. Error resolution procedures are available as required by federal law.
+
+6. INTELLECTUAL PROPERTY RIGHTS
+6.1 Company Intellectual Property
+All content on the Website, including but not limited to text, graphics, logos, images, audio clips, video clips, digital downloads, data compilations, software, and the compilation of all content (collectively, "Company Content"), is the exclusive property of the Company or its licensors and is protected by United States and international copyright, trademark, patent, trade secret, and other intellectual property laws.
+
+6.2 Restrictions on Use
+You are granted a limited, non-exclusive, non-transferable, revocable license to access and use the Company Content solely for your personal, non-commercial use in accordance with these Terms. You may not reproduce, distribute, modify, create derivative works of, publicly display, publicly perform, republish, download, store, or transmit any Company Content, except as expressly permitted by these Terms or with our prior written consent.
+
+6.3 Prohibited Uses of Company Content
+Without limiting the generality of the foregoing, you may not: (a) use Company Content for any commercial purpose or for the benefit of any third party; (b) modify, adapt, translate, reverse engineer, decompile, disassemble, or create derivative works based on Company Content; (c) remove, alter, or obscure any copyright, trademark, or other proprietary rights notices from Company Content; (d) use any automated system or software to extract data from the Website; or (e) frame or mirror any part of the Website without our express written authorization.
+
+6.4 Digital Millennium Copyright Act
+We respect the intellectual property rights of others and expect our users to do the same. If you believe that your copyrighted work has been copied and is accessible on the Website in a way that constitutes copyright infringement, please notify us by providing our designated copyright agent with the information required by the Digital Millennium Copyright Act.
+
+7. USER-GENERATED CONTENT LICENSE
+7.1 User Content Definition
+"User Content" means any and all content that you submit, post, upload, or otherwise make available through the Website, including but not limited to text, comments, reviews, images, videos, audio files, and any other materials.
+
+7.2 License Grant
+By submitting User Content to the Website, you grant to the Company a worldwide, non-exclusive, royalty-free, sublicensable, and transferable license to use, reproduce, distribute, prepare derivative works of, display, perform, and otherwise exploit your User Content in connection with the Website and the Company's business operations. This license includes the right to make your User Content available to other users of the Website and to use your User Content for promotional and marketing purposes.
+
+7.3 Retention of Ownership
+You retain all ownership rights in your User Content. The license granted to the Company does not transfer ownership of your User Content to the Company, but rather grants the Company the right to use your User Content as described in these Terms.
+
+7.4 User Content Representations
+By submitting User Content, you represent and warrant that: (a) you own or have the necessary rights to grant the license described above; (b) your User Content does not infringe, violate, or misappropriate any third-party rights; (c) your User Content complies with all applicable laws and regulations; and (d) your User Content does not contain any harmful, offensive, or inappropriate material.
+
+7.5 Content Moderation
+We reserve the right, but have no obligation, to monitor, review, edit, or remove any User Content at our sole discretion. We may remove User Content that we determine violates these Terms or is otherwise objectionable, without notice to you.
+
+8. PRIVACY AND DATA COLLECTION
+8.1 Texas Data Privacy and Security Act Compliance
+The Company complies with the Texas Data Privacy and Security Act (Chapter 541, Texas Business and Commerce Code) ("TDPSA") in its collection, use, and disclosure of personal information. This section provides the privacy disclosures required under Section 541.02 of the TDPSA.
+
+8.2 Personal Information Collection
+We collect personal information that you voluntarily provide to us, including but not limited to your name, email address, billing address, payment information, and any other information you choose to provide when creating an account, making a purchase, or contacting us. We also automatically collect certain technical information about your use of the Website, including your IP address, browser type, device information, and usage patterns.
+
+8.3 Use of Personal Information
+We use your personal information for the following purposes: (a) to provide and maintain our services; (b) to process transactions and deliver products; (c) to communicate with you about your account and our services; (d) to provide customer support; (e) to improve our Website and services; (f) to comply with legal obligations; and (g) for other purposes with your consent.
+
+8.4 Consumer Rights Under TDPSA
+As a Texas resident, you have the following rights regarding your personal information: (a) the right to know what personal information we collect about you; (b) the right to know whether we sell or share your personal information; (c) the right to access your personal information; (d) the right to delete your personal information; (e) the right to correct inaccurate personal information; and (f) the right to opt out of the sale or sharing of your personal information.
+
+8.5 Universal Opt-Out Mechanism
+Effective January 1, 2025, we will recognize universal opt-out preference signals transmitted by your browser or device as a valid request to opt out of the sale or sharing of your personal information, as required by the TDPSA.
+
+8.6 Data Security
+We implement appropriate technical and organizational security measures to protect your personal information against unauthorized access, alteration, disclosure, or destruction. However, no method of transmission over the internet or electronic storage is completely secure, and we cannot guarantee absolute security.
+
+8.7 Third-Party Services
+We may use third-party service providers to assist us in operating our Website and providing our services. These third parties may have access to your personal information only to perform these tasks on our behalf and are obligated not to disclose or use it for any other purpose.
+
+Home
+|
+Privacy Policy
+|
+Terms of Use
+|
+Earnings Disclaimer
+|
+Affiliate Disclaimer
+|
+DMCA Policy
+|
+Accessibility
+|
+SMS Terms
+|
+Refund Policy
+|
+Contact Us
+Copyright 2025 Build. Test. Scale., LLC dba Build, Test, Scale™
+
+*DISCLAIMER: We are committed to transparency and integrity. Please understand that building a successful business takes time, effort, and dedication. We do not promote "get rich quick" schemes. The results you achieve will depend on your own background, dedication, desire, and motivation.
+
+There is NO GUARANTEE and NO WARRANTY that employing the same techniques, ideas, strategies, products or services that are detailed on buildtestscale.com will produce the same results for you and/or your web properties. Historical performance is not indicative of future results. Examples that may be provided in articles, videos and other sources on the site are just that – examples. They may or may not work for your specific situation and are not to be interpreted as a guarantee or promise of earnings.
+
+The materials provided on buildtestscale.com are not to be interpreted as a “get rich quick” scheme in any way. Your earning potential is entirely dependent upon you, and the then current state of web marketing at the time you employ such techniques and ideas. THE LEVEL OF SUCCESS YOU REACH EMPLOYING THESE TECHNIQUES AND IDEAS IS ENTIRELY DEPENDENT UPON YOUR SKILLS, FINANCIAL RESOURCES, MARKETING KNOWLEDGE AND TIME YOU DEVOTE TO BECOMING AN ONLINE SUCCESS. BECAUSE OF THIS, WE CANNOT GUARANTEE YOUR EARNINGS LEVEL NOR DO WE IN ANY WAY WHETHER DIRECTLY OR INDIRECTLY DO SO.

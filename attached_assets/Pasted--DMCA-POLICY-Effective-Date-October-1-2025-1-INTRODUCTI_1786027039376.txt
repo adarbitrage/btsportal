@@ -1,0 +1,236 @@
+
+DMCA POLICY
+Effective Date: October 1, 2025
+
+1. INTRODUCTION AND SCOPE
+This Digital Millennium Copyright Act ("DMCA") Policy is established by Build. Test. Scale., LLC ("Company," "we," "us," or "our") in compliance with the Digital Millennium Copyright Act of 1998, 17 U.S.C. § 512, and the Online Copyright Infringement Liability Limitation Act (OCILLA), 17 U.S.C. § 512.
+
+This Policy applies to all content displayed, transmitted, or otherwise made available on or through our website located at https://buildtestscale.com (the "Website"). The Website primarily consists of static content created and owned by the Company, including but not limited to images, videos, text, landing pages, advertisements, banner advertisements, and animated GIFs.
+
+The purpose of this Policy is to establish clear procedures for addressing claims of copyright infringement, to maintain compliance with applicable federal laws, and to preserve our eligibility for safe harbor protection under the DMCA.
+
+2. DESIGNATED AGENT INFORMATION
+In accordance with the DMCA, the Company has designated an agent to receive notifications of alleged copyright infringement ("Designated Agent"). The contact information for the Designated Agent is as follows:
+
+Designated Agent: Jean Balanon, COO
+
+Company: Build. Test. Scale., LLC
+
+Address: 5900 Balcones Drive, STE 100, Austin, TX 78731, US
+
+Phone: 1-888-996-5513
+
+Email: support@buildtestscale.com
+
+The Company has registered its Designated Agent with the U.S. Copyright Office as required by law. The registration is maintained and updated as necessary to ensure continuous compliance with DMCA requirements.
+
+3. TAKEDOWN NOTICE REQUIREMENTS
+To file a copyright infringement notification with us ("Takedown Notice"), you must provide a written communication that includes substantially the following information:
+
+Physical or Electronic Signature: A physical or electronic signature of a person authorized to act on behalf of the owner of an exclusive right that is allegedly infringed.
+Identification of the Copyrighted Work: Identification of the copyrighted work claimed to have been infringed, or, if multiple copyrighted works at a single online site are covered by a single notification, a representative list of such works at that site.
+Identification of the Infringing Material: Identification of the material that is claimed to be infringing or to be the subject of infringing activity and that is to be removed or access to which is to be disabled, and information reasonably sufficient to permit us to locate the material. Providing URLs in the body of an email is the best way to help us locate content quickly.
+Contact Information: Information reasonably sufficient to permit us to contact the complaining party, such as an address, telephone number, and, if available, an electronic mail address at which the complaining party may be contacted.
+Good Faith Statement: A statement that the complaining party has a good faith belief that use of the material in the manner complained of is not authorized by the copyright owner, its agent, or the law.
+Accuracy Statement: A statement that the information in the notification is accurate, and under penalty of perjury, that the complaining party is authorized to act on behalf of the owner of an exclusive right that is allegedly infringed.
+Takedown Notices that do not comply with all of the above requirements may not be valid or may result in a delay of processing.
+
+4. RESPONSE PROCEDURES AND TIMEFRAMES
+Upon receipt of a valid Takedown Notice, we will take the following actions:
+
+Acknowledgment: We will promptly acknowledge receipt of the Takedown Notice.
+Review and Verification: We will review the Takedown Notice to ensure it complies with all requirements outlined in Section 3 above.
+Deficient Notices: If the Takedown Notice is deficient or incomplete, we will notify the sender of the specific deficiencies and provide an opportunity to submit a corrected notice.
+Content Removal: If the Takedown Notice is valid and complete, we will remove or disable access to the allegedly infringing material within 24-48 hours of receiving the valid notice.
+Notification to Alleged Infringer: If applicable, we will make a good faith attempt to notify the party who provided the allegedly infringing content that it has been removed or disabled.
+Documentation: We will document all actions taken in response to the Takedown Notice, including the date and time of receipt, review, and any actions taken.
+We are committed to processing valid Takedown Notices expeditiously and within the 24-48 hour timeframe specified above, except in extraordinary circumstances or when additional verification is required.
+
+5. COUNTER-NOTIFICATION PROCESS
+If material has been removed or disabled as a result of a Takedown Notice, and you believe that the material was removed or disabled as a result of mistake or misidentification, you may submit a counter-notification ("Counter-Notice") to our Designated Agent containing the following information:
+
+Physical or Electronic Signature: Your physical or electronic signature.
+Identification of Material: Identification of the material that has been removed or to which access has been disabled and the location at which the material appeared before it was removed or access to it was disabled.
+Statement Under Penalty of Perjury: A statement under penalty of perjury that you have a good faith belief that the material was removed or disabled as a result of mistake or misidentification of the material to be removed or disabled.
+Contact Information: Your name, address, telephone number, and email address.
+Consent to Jurisdiction: A statement that you consent to the jurisdiction of the Federal District Court for the judicial district in which your address is located, or if your address is outside of the United States, for any judicial district in which the Company may be found, and that you will accept service of process from the person who provided the original Takedown Notice or an agent of such person.
+Additional Documentation: We require additional documentation to support your Counter-Notice, which may include:
+
+Proof of ownership of the content in question
+Explanation of why the content does not infringe upon the claimant's copyright
+Any licenses, permissions, or other documentation demonstrating your right to use the content
+Upon receipt of a valid Counter-Notice, we will:
+
+Promptly provide a copy of the Counter-Notice to the person who submitted the original Takedown Notice.
+Inform the original complainant that the removed material may be restored in 10-14 business days unless we receive notice that the copyright owner has filed a legal action seeking a court order to restrain the alleged infringer from engaging in the infringing activity.
+Replace the removed material or cease disabling access to it within 10-14 business days following receipt of the Counter-Notice, unless we first receive notice from the person who submitted the original Takedown Notice that such person has filed a legal action seeking a court order to restrain the alleged infringer from engaging in the infringing activity.
+6. REPEAT INFRINGER POLICY
+The Company maintains a zero tolerance policy for repeat copyright infringers. Any party found to be responsible for posting infringing content on our Website will have their access terminated after the first valid DMCA notice.
+
+This policy is implemented as follows:
+
+First Valid Notice: Upon receipt of the first valid Takedown Notice regarding content posted by a particular party, we will:
+Remove or disable access to the allegedly infringing content
+Issue a formal warning to the responsible party
+Immediately terminate the responsible party's access to our Website and services
+Documentation: We will maintain records of all Takedown Notices, warnings issued, and terminations implemented.
+Reinstatement: Once terminated under this policy, the responsible party will not be eligible for reinstatement except in extraordinary circumstances and at the sole discretion of the Company.
+Circumvention: Any attempt to circumvent termination (such as creating new accounts or identities) will result in immediate and permanent exclusion from our Website and services.
+This policy is designed to demonstrate our commitment to respecting intellectual property rights and maintaining compliance with the DMCA's safe harbor provisions.
+
+7. SAFE HARBOR COMPLIANCE STATEMENT
+The Company is committed to complying with all requirements necessary to maintain safe harbor protection under the Digital Millennium Copyright Act of 1998, 17 U.S.C. § 512. Specifically, we:
+
+Have adopted and implemented this DMCA Policy.
+Have designated an agent to receive Takedown Notices and registered this agent with the U.S. Copyright Office.
+Expeditiously respond to valid Takedown Notices by removing or disabling access to allegedly infringing material.
+Have implemented a repeat infringer policy as described in Section 6.
+Accommodate and do not interfere with standard technical measures used by copyright owners to identify or protect copyrighted works.
+Do not have actual knowledge of infringing activity on our Website or awareness of facts or circumstances from which infringing activity is apparent. If we obtain such knowledge or awareness, we act expeditiously to remove or disable access to the infringing material.
+Do not receive a financial benefit directly attributable to infringing activity where we have the right and ability to control such activity.
+This Policy is publicly accessible on our Website and is designed to provide clear guidance on our copyright infringement procedures.
+
+8. RECORD KEEPING AND DOCUMENTATION
+The Company maintains detailed records of all DMCA-related communications and actions, including:
+
+Takedown Notices: All received Takedown Notices, including date and time of receipt, sender information, and content identified.
+Response Actions: All actions taken in response to Takedown Notices, including content removal, notifications to affected parties, and timeframes for each action.
+Counter-Notices: All received Counter-Notices and subsequent actions.
+Correspondence: All communications with complainants, alleged infringers, and any other relevant parties.
+Terminations: Records of all account terminations implemented under our repeat infringer policy.
+These records are maintained for a minimum of three (3) years from the date of the corresponding Takedown Notice or action. This record-keeping system enables us to:
+
+Demonstrate compliance with DMCA requirements.
+Track repeat infringers for enforcement of our zero tolerance policy.
+Respond effectively to any disputes or legal proceedings related to DMCA claims.
+Continuously improve our copyright compliance procedures.
+All records are maintained in a secure, confidential manner in accordance with applicable privacy laws and our Privacy Policy.
+
+9. FALSE CLAIMS AND BAD FAITH POLICY
+The Company takes the integrity of the DMCA process seriously and will not tolerate false, fraudulent, or bad faith copyright claims. We note that:
+
+Penalty of Perjury: Takedown Notices are submitted under penalty of perjury. Knowingly making material misrepresentations in a Takedown Notice may result in liability for damages, including costs and attorneys' fees incurred by alleged infringers or by the Company.
+Good Faith Requirement: Before submitting a Takedown Notice, copyright owners must evaluate whether the use of their work might be protected by fair use or other legal doctrines.
+Misrepresentation Consequences: Any person who knowingly materially misrepresents that material is infringing, or that material was removed or disabled by mistake or misidentification, shall be liable for any damages incurred by the alleged infringer, the copyright owner, or the service provider.
+Company Response to Bad Faith Notices:
+
+In cases where we have a reasonable belief that a Takedown Notice was submitted in bad faith or contains material misrepresentations, we reserve the right to:
+
+Reject the Takedown Notice
+Maintain access to the content in question
+Pursue legal remedies against the complainant, including but not limited to claims for knowingly making false or bad faith misrepresentations
+Ban the complainant from submitting future Takedown Notices
+We encourage all parties to act in good faith and to carefully consider the legal basis for any copyright claims before initiating the DMCA process.
+
+10. EDUCATIONAL INFORMATION ON COPYRIGHT AND FAIR USE
+Understanding Copyright
+Copyright is a form of legal protection provided to the authors of "original works of authorship," including literary, dramatic, musical, artistic, and certain other intellectual works, both published and unpublished. Copyright law gives the owner of copyright the exclusive right to:
+
+Reproduce the copyrighted work
+Prepare derivative works based upon the work
+Distribute copies of the work to the public
+Perform the copyrighted work publicly
+Display the copyrighted work publicly
+These rights are established under the Federal Copyright Act, 17 U.S.C. § 106.
+
+Fair Use Doctrine
+The fair use doctrine is a limitation on copyright protection that allows limited use of copyrighted material without permission from the rights holder. Fair use may be found when a work is used for purposes such as:
+
+Criticism
+Comment
+News reporting
+Teaching
+Scholarship
+Research
+In determining whether a particular use qualifies as fair use, courts consider four factors:
+
+Purpose and Character of the Use: Whether the use is of a commercial nature or is for nonprofit educational purposes. Transformative uses (those that add something new, with a further purpose or different character) are more likely to be considered fair use.
+Nature of the Copyrighted Work: Using factual works is more likely to be fair use than using highly creative works.
+Amount and Substantiality: The amount and substantiality of the portion used in relation to the copyrighted work as a whole. Using small portions is more likely to be fair use, though using the "heart" of a work may weigh against fair use even if the portion is small.
+Effect on Potential Market: The effect of the use upon the potential market for or value of the copyrighted work. Uses that harm the commercial market for the original work are less likely to be fair use.
+User Responsibilities
+All users of our Website should:
+
+Respect the intellectual property rights of others
+Only upload, share, or use content for which they have the necessary rights or permissions
+Consider whether their use of copyrighted material might qualify as fair use before claiming copyright infringement
+Understand that copyright protection is automatic upon creation of an original work; registration is not required for protection (though it provides additional benefits)
+This educational information is provided to promote understanding of copyright law and is not intended as legal advice. For specific legal guidance, please consult with a qualified attorney.
+
+11. POLICY UPDATES AND REVIEW
+This DMCA Policy will be reviewed and updated according to the following schedule:
+
+Annual Review: The Company will conduct a comprehensive review of this Policy at least once per calendar year to ensure continued compliance with applicable laws and best practices.
+Legal Changes: The Policy will be promptly updated whenever there are relevant changes to copyright law, DMCA regulations, or judicial interpretations that affect our obligations or procedures.
+Operational Changes: The Policy will be updated as needed to reflect changes in our business operations, website functionality, or internal procedures related to copyright compliance.
+Documentation of Reviews: Each review will be documented, including the date of review, individuals involved, findings, and any recommended updates.
+Version Control: All versions of this Policy will be archived with clear documentation of changes made between versions.
+Notification of Updates: Material changes to this Policy will be announced on our Website, and the "Effective Date" at the top of this document will be updated to reflect the date of the most recent revision.
+Continuous Improvement: We welcome feedback on this Policy from users, copyright owners, and legal experts. Suggestions for improvement may be submitted to our Designated Agent using the contact information in Section 2.
+This regular review process ensures that our DMCA Policy remains current, effective, and compliant with all applicable legal requirements.
+
+12. CONTACT INFORMATION
+For questions, concerns, or communications regarding this DMCA Policy, please contact:
+
+Designated Agent: Jean Balanon, COO
+
+Company: Build. Test. Scale., LLC
+
+Address: 5900 Balcones Drive, STE 100, Austin, TX 78731, US
+
+Phone: 1-888-996-5513
+
+Email: support@buildtestscale.com
+
+Please note that the above contact information is specifically designated for copyright-related matters. For other inquiries regarding our Website or services, please refer to the general contact information provided on our Website.
+
+13. LEGAL DISCLAIMERS AND EFFECTIVE DATE
+Effective Date
+This DMCA Policy is effective as of October 1, 2025, and supersedes any prior policies regarding copyright infringement or DMCA compliance.
+
+Governing Law
+This Policy shall be governed by and construed in accordance with the laws of the State of Texas and applicable federal laws of the United States, without regard to its conflict of law provisions. The federal and state courts located in Austin, Texas shall have exclusive jurisdiction over any disputes arising under or related to this Policy.
+
+No Legal Advice
+Nothing in this Policy constitutes legal advice. Users and copyright owners are encouraged to seek independent legal counsel regarding their specific rights and obligations under copyright law.
+
+Severability
+If any provision of this Policy is found to be unenforceable or invalid under any applicable law, such unenforceability or invalidity shall not render this Policy unenforceable or invalid as a whole. Any such provision shall be modified only to the extent necessary to make it enforceable and valid, and the remaining provisions of this Policy will remain in full force and effect.
+
+Entire Agreement
+This Policy, together with our Terms of Service and Privacy Policy, constitutes the entire agreement between users and the Company with respect to the subject matter hereof and supersedes all prior or contemporaneous communications and proposals, whether electronic, oral, or written, between users and the Company with respect to copyright matters.
+
+Waiver
+The failure of the Company to enforce any right or provision of this Policy will not constitute a waiver of such right or provision unless acknowledged and agreed to by the Company in writing.
+
+Reservation of Rights
+The Company reserves all rights not expressly granted in this Policy. No license, right, or interest in any intellectual property is granted by implication, estoppel, or otherwise.
+
+© 2026 Build. Test. Scale., LLC. All rights reserved.
+
+Home
+|
+Privacy Policy
+|
+Terms of Use
+|
+Earnings Disclaimer
+|
+Affiliate Disclaimer
+|
+DMCA Policy
+|
+Accessibility
+|
+SMS Terms
+|
+Refund Policy
+|
+Contact Us
+Copyright 2025 Build. Test. Scale., LLC dba Build, Test, Scale™
+
+*DISCLAIMER: We are committed to transparency and integrity. Please understand that building a successful business takes time, effort, and dedication. We do not promote "get rich quick" schemes. The results you achieve will depend on your own background, dedication, desire, and motivation.
+
+There is NO GUARANTEE and NO WARRANTY that employing the same techniques, ideas, strategies, products or services that are detailed on buildtestscale.com will produce the same results for you and/or your web properties. Historical performance is not indicative of future results. Examples that may be provided in articles, videos and other sources on the site are just that – examples. They may or may not work for your specific situation and are not to be interpreted as a guarantee or promise of earnings.
+
+The materials provided on buildtestscale.com are not to be interpreted as a “get rich quick” scheme in any way. Your earning potential is entirely dependent upon you, and the then current state of web marketing at the time you employ such techniques and ideas. THE LEVEL OF SUCCESS YOU REACH EMPLOYING THESE TECHNIQUES AND IDEAS IS ENTIRELY DEPENDENT UPON YOUR SKILLS, FINANCIAL RESOURCES, MARKETING KNOWLEDGE AND TIME YOU DEVOTE TO BECOMING AN ONLINE SUCCESS. BECAUSE OF THIS, WE CANNOT GUARANTEE YOUR EARNINGS LEVEL NOR DO WE IN ANY WAY WHETHER DIRECTLY OR INDIRECTLY DO SO.
