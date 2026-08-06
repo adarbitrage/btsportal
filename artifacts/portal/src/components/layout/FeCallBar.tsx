@@ -46,7 +46,7 @@ export function FeCallBar() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex flex-col sm:flex-row items-center justify-center gap-2 sm:gap-4 text-center sm:text-left">
         <p className="text-sm sm:text-base font-medium flex items-center gap-2">
           <CalendarClock className="w-5 h-5 shrink-0" />
-          Your next step: book your call with a coach.
+          Book your first coaching call.
         </p>
         <Button
           type="button"
