@@ -24,6 +24,7 @@ import {
 import { fetchResourceHub, type HubItem } from "@/lib/resource-hub-api";
 import { downloadDriveFile } from "@/lib/creative-drive-api";
 import { useToast } from "@/hooks/use-toast";
+import { useIsAdmin } from "@/hooks/use-is-admin";
 
 /**
  * Resource Hub (Task #2028, layout reworked in Task #2039) — the single
@@ -32,9 +33,11 @@ import { useToast } from "@/hooks/use-toast";
  * vertically, matching the member-page conventions used elsewhere.
  *
  * File items link to their own in-portal reading page
- * (/resource-hub/view/:slug) AND offer a Download (save-as) action — the
- * earlier view-only restriction was reversed at the owner's request
- * (2026-08-07). External items (Google-Docs copies etc.) open in a new tab.
+ * (/resource-hub/view/:slug). A Download (save-as) action is shown to ADMIN
+ * accounts only (owner request 2026-08-07): members read in-portal, admins
+ * additionally get save-as. This is UI gating — the bytes necessarily reach
+ * any member who can read. External items (Google-Docs copies etc.) open in
+ * a new tab.
  */
 
 function SectionDivider({ label }: { label: string }) {
@@ -46,10 +49,11 @@ function SectionDivider({ label }: { label: string }) {
   );
 }
 
-/** Read + Download (file) or Open (external) actions for a row. */
+/** Read (+ admin-only Download) for files, or Open for external links. */
 function RowActions({ item }: { item: HubItem }) {
   const { toast } = useToast();
   const [downloading, setDownloading] = useState(false);
+  const isAdmin = useIsAdmin();
 
   if (item.kind === "external" && item.externalUrl) {
     return (
@@ -86,7 +90,7 @@ function RowActions({ item }: { item: HubItem }) {
           <BookOpen className="w-3.5 h-3.5 ml-1.5" />
         </Link>
       </Button>
-      {item.fileId && (
+      {isAdmin && item.fileId && (
         <Button
           variant="outline"
           size="sm"

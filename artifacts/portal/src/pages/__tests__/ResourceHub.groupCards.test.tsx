@@ -24,6 +24,10 @@ vi.mock("@/lib/resource-hub-api", async () => {
   return { ...actual, fetchResourceHub: vi.fn() };
 });
 
+// Admin-only downloads (Task #2110): default to a regular member session.
+vi.mock("@/hooks/use-is-admin", () => ({ useIsAdmin: vi.fn(() => false) }));
+
+import { useIsAdmin } from "@/hooks/use-is-admin";
 import { fetchResourceHub, type HubItem } from "@/lib/resource-hub-api";
 import ResourceHub from "@/pages/ResourceHub";
 
@@ -129,9 +133,9 @@ describe("ResourceHub — collapsible full-width cards (Task #2039)", () => {
     expect(screen.getByText("What a Headline Actually Does")).toBeTruthy();
     const read = screen.getByTestId("link-read-101");
     expect(read.getAttribute("href")).toBe("/resource-hub/view/item-101");
-    // File rows offer Read AND Download (owner request 2026-08-07); no legacy
+    // Members see Read only — Download is admin-only (Task #2110); no legacy
     // blob-open ("view") action.
-    expect(screen.getByTestId("button-download-101")).toBeTruthy();
+    expect(screen.queryByTestId("button-download-101")).toBeNull();
     expect(screen.queryByTestId("button-view-101")).toBeNull();
     // The other series stays collapsed independently.
     expect(screen.queryByTestId("row-series-part-111")).toBeNull();
@@ -148,7 +152,8 @@ describe("ResourceHub — collapsible full-width cards (Task #2039)", () => {
     expect(screen.getByText("Campaign Checklist")).toBeTruthy();
     expect(screen.getByText("Power Word Dictionary")).toBeTruthy();
     expect(screen.getByTestId("link-read-201")).toBeTruthy();
-    expect(screen.getByTestId("button-download-201")).toBeTruthy();
+    // Member session: no download action.
+    expect(screen.queryByTestId("button-download-201")).toBeNull();
   });
 
   it("renders external children inside a group with a working Open link", async () => {
@@ -166,7 +171,22 @@ describe("ResourceHub — collapsible full-width cards (Task #2039)", () => {
     expect(screen.queryByTestId("button-download-301")).toBeNull();
   });
 
-  it("shows a Download action on every file row and none on external rows", async () => {
+  it("member session: no download controls anywhere on the hub", async () => {
+    renderPage();
+    const user = userEvent.setup();
+    await screen.findByText("Campaign Toolkit");
+    for (const id of ["button-toggle-series-100", "button-toggle-series-110", "button-toggle-group-200", "button-toggle-group-300"]) {
+      await user.click(screen.getByTestId(id));
+    }
+    const testIds = Array.from(document.querySelectorAll("[data-testid]")).map(
+      (el) => el.getAttribute("data-testid") ?? "",
+    );
+    expect(testIds.some((t) => t.startsWith("button-download-"))).toBe(false);
+    expect(testIds.some((t) => t.startsWith("button-view-"))).toBe(false);
+  });
+
+  it("admin session: every file row gets a Download action, external rows don't", async () => {
+    vi.mocked(useIsAdmin).mockReturnValue(true);
     renderPage();
     const user = userEvent.setup();
     await screen.findByText("Campaign Toolkit");
@@ -182,8 +202,7 @@ describe("ResourceHub — collapsible full-width cards (Task #2039)", () => {
     for (const id of readIds) {
       expect(testIds).toContain(`button-download-${id}`);
     }
-    // External rows never get file actions; no legacy blob-open action anywhere.
+    // External rows never get file actions.
     expect(testIds).not.toContain("button-download-301");
-    expect(testIds.some((t) => t.startsWith("button-view-"))).toBe(false);
   });
 });

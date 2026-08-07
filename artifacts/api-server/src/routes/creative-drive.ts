@@ -191,9 +191,9 @@ router.get(
 /**
  * GET /api/creative-drive/files/:id/content
  * Streams the file bytes from object storage through the API (authenticated,
- * gated on the resource-hub page key). Served inline; the portal's Download
- * actions save the fetched blob client-side (view-only restriction reversed
- * at the owner's request, 2026-08-07).
+ * gated on the resource-hub page key). Served inline; the portal shows
+ * Download (client-side blob save-as) to admin accounts only (owner request
+ * 2026-08-07) — that is UI gating; any member who can read can fetch bytes.
  */
 router.get(
   "/creative-drive/files/:id/content",

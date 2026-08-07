@@ -8,12 +8,14 @@ import { fetchResourceHub, type HubItem, type HubResponse } from "@/lib/resource
 import { fetchDriveFileBlob, downloadDriveFile } from "@/lib/creative-drive-api";
 import { PdfCanvasViewer } from "@/components/pdf/PdfCanvasViewer";
 import { useToast } from "@/hooks/use-toast";
+import { useIsAdmin } from "@/hooks/use-is-admin";
 
 /**
  * Per-item Resource Hub reading page: each hub file item gets its own
  * in-portal page at /resource-hub/view/:slug that renders the PDF as
- * canvases, plus a Download (save-as) action — the earlier view-only
- * restriction was reversed at the owner's request (2026-08-07).
+ * canvases, plus a Download (save-as) action for ADMIN accounts only
+ * (owner request 2026-08-07; members read in-portal without a save-as
+ * control — UI gating, the bytes still reach any member who can read).
  * The route is gated on the same `resource-hub` content-access page key as
  * the hub itself, and the bytes ride the existing authenticated,
  * page-key-gated content endpoint.
@@ -41,6 +43,7 @@ export default function ResourceHubDocument() {
 
   const { toast } = useToast();
   const [downloading, setDownloading] = useState(false);
+  const isAdmin = useIsAdmin();
   const handleDownload = async () => {
     if (!item?.fileId || downloading) return;
     setDownloading(true);
@@ -85,6 +88,7 @@ export default function ResourceHubDocument() {
                 </h1>
                 {item.blurb && <p className="text-muted-foreground mt-1">{item.blurb}</p>}
               </div>
+              {isAdmin && (
               <Button
                 variant="outline"
                 size="sm"
@@ -100,6 +104,7 @@ export default function ResourceHubDocument() {
                   <Download className="w-3.5 h-3.5 ml-1.5" />
                 )}
               </Button>
+              )}
             </div>
           )}
         </div>
