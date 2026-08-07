@@ -43,7 +43,16 @@ const PARTNER_ROSTER: PartnerRosterEntry[] = [
 
 const KICKOFF_COACH_ROSTER: KickoffCoachRosterEntry[] = [
   { displayName: "Todd", ghlCalendarId: "Nx8nzFJxkxHQlQyx5ZSW", isActive: true, tier: "full" },
-  { displayName: "Mark", ghlCalendarId: "wvSF5RfAi8FlsgHRo8IQ", isActive: true, tier: "full" },
+  // Task #2112: Sandy relayed a new calendar for Mark's kickoff row ("BTS
+  // Mentorship Onboarding Call With Mark", replacing wvSF5RfAi8FlsgHRo8IQ).
+  // Verified read-only via probe-mark-kickoff-calendar.ts before arming:
+  // name matches exactly, lives under the shared BTS location
+  // (7XrT9sAfQ4rSyuk5QhhC), slotDuration = 60, slotInterval = 60, and
+  // free-slots returns bookable times. NOTE: unlike the other kickoff
+  // calendars this one is calendarType = class_booking (not personal) —
+  // free-slots and appointment creation both work against it, and durations
+  // are always read live from the calendar config, so no code change needed.
+  { displayName: "Mark", ghlCalendarId: "hDgKQotAHrjq5iRLeDaV", isActive: true, tier: "full" },
   { displayName: "Bruce", ghlCalendarId: "wLvil3ING3i1d4oX7vg5", isActive: true, tier: "full" },
   // Task #1655: Sandy relayed the real GHL calendar ID for Neil's dedicated
   // LaunchPad kickoff calendar ("BTS LaunchPad Kickoff with Neil"). Verified

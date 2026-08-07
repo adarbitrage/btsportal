@@ -346,6 +346,7 @@ export async function listCalendarBusyEvents(
 
 interface CalendarConfigResponse {
   calendar?: {
+    name?: string;
     slotDuration?: number;
     slotDurationUnit?: string;
     slotInterval?: number;
@@ -353,6 +354,7 @@ interface CalendarConfigResponse {
     calendarType?: string;
     locationId?: string;
   };
+  name?: string;
   slotDuration?: number;
   slotDurationUnit?: string;
   slotInterval?: number;
@@ -362,6 +364,7 @@ interface CalendarConfigResponse {
 }
 
 export interface CalendarDetails {
+  name: string | undefined;
   calendarType: string | undefined;
   slotDuration: number | undefined;
   slotDurationUnit: string | undefined;
@@ -387,6 +390,7 @@ export async function getCalendarDetails(
   );
   const cal = data.calendar ?? data;
   return {
+    name: cal.name,
     calendarType: cal.calendarType,
     slotDuration: cal.slotDuration,
     slotDurationUnit: cal.slotDurationUnit,
