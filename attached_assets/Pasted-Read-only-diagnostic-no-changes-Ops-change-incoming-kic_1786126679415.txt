@@ -1,0 +1,15 @@
+Read-only diagnostic — no changes. Ops change incoming: kickoff/onboarding calls for the high-ticket mentorship tiers (3month, 6month, 1year, lifetime) are moving to a single coach — Mark — with Bruce Clark and Todd Rupp removed from the kickoff rotation. The onboarding kickoff step must show Mark's profile photo, his blurb, and only his calendar. Before speccing, one structured report:
+
+1. KICKOFF ASSIGNMENT MECHANICS: How does kickoff coach assignment work today — where does the rotation live (round-robin logic, data table vs code list), who is currently in it (confirm Bruce Clark and Todd Rupp; does a Mark coach record already exist?), how does each rotation member tie to a GHL calendar, and where do the daily caps and tier-based rotation rules apply? Which onboarding variants actually book kickoffs — rank 2+ only, or does LaunchPad's variant book them too?
+
+2. COACH PROFILES: What does a coach profile record carry (photo, bio/blurb, calendar linkage)? Does Mark exist in the system with a photo, blurb, and a GHL calendar wired? What does the onboarding kickoff booking step currently display about the coach — the assigned coach's photo and bio, or something generic?
+
+3. SINGLE-COACH PATH: What does collapsing the rotation to Mark-only entail — is rotation membership admin-editable data or a code change? What happens to daily caps and availability when one coach absorbs all four tiers' kickoffs — do caps need adjusting or removal for Mark?
+
+4. EXISTING STATE: Count any existing kickoff bookings assigned to Bruce Clark or Todd Rupp in dev and prod. What other roles or call types do Bruce and Todd serve (partner calls, private coaching, VA calls, accountability) — so removal is scoped to kickoff rotation only without collateral damage? What happens to their coach records if they stay in place but exit the kickoff rotation?
+
+5. UI CHANGES: Once assignment is Mark-only, does the kickoff step automatically show his photo/blurb/calendar (i.e., the UI already renders the assigned coach), or does the step need work to feature a single named coach? Anything else member-facing that names or pictures the kickoff coaches — emails, confirmations, reminders?
+
+6. BLAST RADIUS: Anything else this touches — partner assignment (assumed separate and unchanged), the FE-intensive calendar (assumed separate), the admin coach-profiles page, seeds that reference the rotation. Confirm or correct the assumptions.
+
+Inventory only — no writes.
