@@ -574,7 +574,7 @@ export function useBlitzGuideHtml(): {
     queryKey: ["blitz", "guide-html"],
     queryFn: async (): Promise<{ html: string }> => {
       const res = await authFetch("/blitz/guide");
-      if (!res.ok) throw new Error("Failed to load the Blitz guide");
+      if (!res.ok) throw new Error("Failed to load the Blitz\u2122 guide");
       return res.json();
     },
     staleTime: Infinity,
@@ -1244,7 +1244,7 @@ export default function Blitz() {
       )}
       {guideError && (
         <div className="py-16 text-center text-sm text-muted-foreground" data-testid="blitz-guide-error">
-          We couldn't load the guide. Please refresh the page to try again.
+          We couldn't load the Blitz™ guide. Please refresh the page to try again.
         </div>
       )}
       {guideHtml != null && (
