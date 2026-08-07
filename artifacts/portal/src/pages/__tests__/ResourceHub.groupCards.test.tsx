@@ -129,8 +129,9 @@ describe("ResourceHub — collapsible full-width cards (Task #2039)", () => {
     expect(screen.getByText("What a Headline Actually Does")).toBeTruthy();
     const read = screen.getByTestId("link-read-101");
     expect(read.getAttribute("href")).toBe("/resource-hub/view/item-101");
-    // View-only: no download or open-in-new-tab actions on file rows.
-    expect(screen.queryByTestId("button-download-101")).toBeNull();
+    // File rows offer Read AND Download (owner request 2026-08-07); no legacy
+    // blob-open ("view") action.
+    expect(screen.getByTestId("button-download-101")).toBeTruthy();
     expect(screen.queryByTestId("button-view-101")).toBeNull();
     // The other series stays collapsed independently.
     expect(screen.queryByTestId("row-series-part-111")).toBeNull();
@@ -147,7 +148,7 @@ describe("ResourceHub — collapsible full-width cards (Task #2039)", () => {
     expect(screen.getByText("Campaign Checklist")).toBeTruthy();
     expect(screen.getByText("Power Word Dictionary")).toBeTruthy();
     expect(screen.getByTestId("link-read-201")).toBeTruthy();
-    expect(screen.queryByTestId("button-download-201")).toBeNull();
+    expect(screen.getByTestId("button-download-201")).toBeTruthy();
   });
 
   it("renders external children inside a group with a working Open link", async () => {
@@ -165,7 +166,7 @@ describe("ResourceHub — collapsible full-width cards (Task #2039)", () => {
     expect(screen.queryByTestId("button-download-301")).toBeNull();
   });
 
-  it("exposes no download or blob-open controls anywhere on the hub (view-only)", async () => {
+  it("shows a Download action on every file row and none on external rows", async () => {
     renderPage();
     const user = userEvent.setup();
     await screen.findByText("Campaign Toolkit");
@@ -175,7 +176,14 @@ describe("ResourceHub — collapsible full-width cards (Task #2039)", () => {
     const testIds = Array.from(document.querySelectorAll("[data-testid]")).map(
       (el) => el.getAttribute("data-testid") ?? "",
     );
-    expect(testIds.some((t) => t.startsWith("button-download-"))).toBe(false);
+    // Every rendered file row (link-read-*) has a matching download button.
+    const readIds = testIds.filter((t) => t.startsWith("link-read-")).map((t) => t.replace("link-read-", ""));
+    expect(readIds.length).toBeGreaterThan(0);
+    for (const id of readIds) {
+      expect(testIds).toContain(`button-download-${id}`);
+    }
+    // External rows never get file actions; no legacy blob-open action anywhere.
+    expect(testIds).not.toContain("button-download-301");
     expect(testIds.some((t) => t.startsWith("button-view-"))).toBe(false);
   });
 });

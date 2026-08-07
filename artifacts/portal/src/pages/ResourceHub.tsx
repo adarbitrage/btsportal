@@ -13,6 +13,7 @@ import {
 import {
   BookOpen,
   ChevronDown,
+  Download,
   ExternalLink,
   FileText,
   Image as ImageIcon,
@@ -21,6 +22,8 @@ import {
   PenLine,
 } from "lucide-react";
 import { fetchResourceHub, type HubItem } from "@/lib/resource-hub-api";
+import { downloadDriveFile } from "@/lib/creative-drive-api";
+import { useToast } from "@/hooks/use-toast";
 
 /**
  * Resource Hub (Task #2028, layout reworked in Task #2039) — the single
@@ -28,10 +31,10 @@ import { fetchResourceHub, type HubItem } from "@/lib/resource-hub-api";
  * curation model. Every content card is a full-width collapsible stacked
  * vertically, matching the member-page conventions used elsewhere.
  *
- * VIEW-ONLY (LaunchPad+ gating task): file items link to their own in-portal
- * reading page (/resource-hub/view/:slug) — there are deliberately NO
- * download, save-as, or open-raw-PDF-in-new-tab actions anywhere on this
- * page. External items (Google-Docs copies etc.) still open in a new tab.
+ * File items link to their own in-portal reading page
+ * (/resource-hub/view/:slug) AND offer a Download (save-as) action — the
+ * earlier view-only restriction was reversed at the owner's request
+ * (2026-08-07). External items (Google-Docs copies etc.) open in a new tab.
  */
 
 function SectionDivider({ label }: { label: string }) {
@@ -43,8 +46,11 @@ function SectionDivider({ label }: { label: string }) {
   );
 }
 
-/** Read (file → in-portal reading page) or Open (external) action for a row. */
+/** Read + Download (file) or Open (external) actions for a row. */
 function RowActions({ item }: { item: HubItem }) {
+  const { toast } = useToast();
+  const [downloading, setDownloading] = useState(false);
+
   if (item.kind === "external" && item.externalUrl) {
     return (
       <Button asChild variant="outline" size="sm" className="h-8" data-testid={`button-open-${item.id}`}>
@@ -55,13 +61,49 @@ function RowActions({ item }: { item: HubItem }) {
       </Button>
     );
   }
+
+  const handleDownload = async () => {
+    if (!item.fileId || downloading) return;
+    setDownloading(true);
+    try {
+      await downloadDriveFile({ id: item.fileId, name: item.fileName ?? item.displayTitle });
+    } catch (error) {
+      toast({
+        title: "Download failed",
+        description: error instanceof Error ? error.message : "Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setDownloading(false);
+    }
+  };
+
   return (
-    <Button asChild variant="outline" size="sm" className="h-8" data-testid={`link-read-${item.id}`}>
-      <Link href={`/resource-hub/view/${item.slug}`}>
-        Read
-        <BookOpen className="w-3.5 h-3.5 ml-1.5" />
-      </Link>
-    </Button>
+    <>
+      <Button asChild variant="outline" size="sm" className="h-8" data-testid={`link-read-${item.id}`}>
+        <Link href={`/resource-hub/view/${item.slug}`}>
+          Read
+          <BookOpen className="w-3.5 h-3.5 ml-1.5" />
+        </Link>
+      </Button>
+      {item.fileId && (
+        <Button
+          variant="outline"
+          size="sm"
+          className="h-8"
+          onClick={handleDownload}
+          disabled={downloading}
+          data-testid={`button-download-${item.id}`}
+        >
+          {downloading ? "Saving…" : "Download"}
+          {downloading ? (
+            <Loader2 className="w-3.5 h-3.5 ml-1.5 animate-spin" />
+          ) : (
+            <Download className="w-3.5 h-3.5 ml-1.5" />
+          )}
+        </Button>
+      )}
+    </>
   );
 }
 

@@ -2,15 +2,18 @@ import { useQuery } from "@tanstack/react-query";
 import { Link, useRoute } from "wouter";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Loader2 } from "lucide-react";
+import { ArrowLeft, Download, Loader2 } from "lucide-react";
+import { useState } from "react";
 import { fetchResourceHub, type HubItem, type HubResponse } from "@/lib/resource-hub-api";
-import { fetchDriveFileBlob } from "@/lib/creative-drive-api";
+import { fetchDriveFileBlob, downloadDriveFile } from "@/lib/creative-drive-api";
 import { PdfCanvasViewer } from "@/components/pdf/PdfCanvasViewer";
+import { useToast } from "@/hooks/use-toast";
 
 /**
- * Per-item Resource Hub reading page (view-only gating task): each hub file
- * item gets its own in-portal page at /resource-hub/view/:slug that renders
- * the PDF as canvases (no browser PDF toolbar, no download/print controls).
+ * Per-item Resource Hub reading page: each hub file item gets its own
+ * in-portal page at /resource-hub/view/:slug that renders the PDF as
+ * canvases, plus a Download (save-as) action — the earlier view-only
+ * restriction was reversed at the owner's request (2026-08-07).
  * The route is gated on the same `resource-hub` content-access page key as
  * the hub itself, and the bytes ride the existing authenticated,
  * page-key-gated content endpoint.
@@ -36,6 +39,24 @@ export default function ResourceHubDocument() {
   const hubQuery = useQuery({ queryKey: ["resource-hub"], queryFn: fetchResourceHub });
   const item = flattenFileItems(hubQuery.data).find((i) => i.slug === slug) ?? null;
 
+  const { toast } = useToast();
+  const [downloading, setDownloading] = useState(false);
+  const handleDownload = async () => {
+    if (!item?.fileId || downloading) return;
+    setDownloading(true);
+    try {
+      await downloadDriveFile({ id: item.fileId, name: item.fileName ?? item.displayTitle });
+    } catch (error) {
+      toast({
+        title: "Download failed",
+        description: error instanceof Error ? error.message : "Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setDownloading(false);
+    }
+  };
+
   const docQuery = useQuery({
     queryKey: ["resource-hub-doc", item?.fileId],
     enabled: item !== null,
@@ -57,12 +78,29 @@ export default function ResourceHubDocument() {
             </Link>
           </Button>
           {item && (
-            <>
-              <h1 className="text-2xl font-bold" data-testid="text-document-title">
-                {item.displayTitle}
-              </h1>
-              {item.blurb && <p className="text-muted-foreground mt-1">{item.blurb}</p>}
-            </>
+            <div className="flex items-start justify-between gap-4">
+              <div className="min-w-0">
+                <h1 className="text-2xl font-bold" data-testid="text-document-title">
+                  {item.displayTitle}
+                </h1>
+                {item.blurb && <p className="text-muted-foreground mt-1">{item.blurb}</p>}
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-8 shrink-0 mt-1"
+                onClick={handleDownload}
+                disabled={downloading}
+                data-testid="button-download-document"
+              >
+                {downloading ? "Saving…" : "Download"}
+                {downloading ? (
+                  <Loader2 className="w-3.5 h-3.5 ml-1.5 animate-spin" />
+                ) : (
+                  <Download className="w-3.5 h-3.5 ml-1.5" />
+                )}
+              </Button>
+            </div>
           )}
         </div>
 

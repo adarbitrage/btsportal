@@ -191,9 +191,9 @@ router.get(
 /**
  * GET /api/creative-drive/files/:id/content
  * Streams the file bytes from object storage through the API (authenticated,
- * gated on the resource-hub page key). ALWAYS served inline — the Resource
- * Hub is view-only for members, so no member-reachable endpoint may offer
- * these files with an attachment (Save-As) disposition.
+ * gated on the resource-hub page key). Served inline; the portal's Download
+ * actions save the fetched blob client-side (view-only restriction reversed
+ * at the owner's request, 2026-08-07).
  */
 router.get(
   "/creative-drive/files/:id/content",
