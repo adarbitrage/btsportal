@@ -35,11 +35,21 @@ export interface RosterCoach {
   // spelling; the scrub rule tolerates spelling variants (see PRIVACY_RULES).
   // Omit / leave empty when the surname is unknown (nothing can be scrubbed).
   knownSurnames?: string[];
+  // GHL location (sub-account) the coach's booking calendar lives in. Most
+  // coaching calendars live in the legacy Cherrington coaching sub-account
+  // (COACHING_LOCATION_ID); coaches whose calendars moved to the
+  // "Build Test Scale" sub-account carry it explicitly. Defaults to
+  // COACHING_LOCATION_ID when omitted.
+  ghlLocationId?: string;
 }
 
+// "Build Test Scale" GHL sub-account — home of Sasha's & Bruce's BTS coaching
+// calendars (verified via GET /calendars/{id} on 2026-08-07).
+export const BTS_COACHING_LOCATION_ID = "7XrT9sAfQ4rSyuk5QhhC";
+
 export const COACHING_ROSTER: RosterCoach[] = [
-  { name: "Sasha", ghlCalendarId: "BdBxOw8kL1aF7VfJR5cc", sortOrder: 1, photoUrl: "/coaching-photos/sasha.png", userEmail: "sasha+coach@cherringtonmedia.com", knownSurnames: ["Bobylev"] },
-  { name: "Bruce", ghlCalendarId: "0feHbG6YfH2apzvdmR3U", sortOrder: 2, photoUrl: "/coaching-photos/bruce.jpg", knownSurnames: ["Clark"] },
+  { name: "Sasha", ghlCalendarId: "1YMxX5CjGEWpgSVPw0J0", ghlLocationId: BTS_COACHING_LOCATION_ID, sortOrder: 1, photoUrl: "/coaching-photos/sasha.png", userEmail: "sasha+coach@cherringtonmedia.com", knownSurnames: ["Bobylev"] },
+  { name: "Bruce", ghlCalendarId: "rPDG8OuP1lf4d92OtORh", ghlLocationId: BTS_COACHING_LOCATION_ID, sortOrder: 2, photoUrl: "/coaching-photos/bruce.jpg", knownSurnames: ["Clark"] },
   { name: "Michael", ghlCalendarId: "JF7LYxF5KRQImZpvSrHo", sortOrder: 3, photoUrl: "/coaching-photos/michael.png", knownSurnames: ["Wissbaum"] },
   { name: "Todd", ghlCalendarId: "JiTLouUKzGeYrsPtEmK5", sortOrder: 4, photoUrl: "/coaching-photos/todd.jpeg", knownSurnames: ["Rupp"] },
 ];
@@ -174,6 +184,10 @@ function zonedWallClockToUtc(
 // every boot and from the dev seed: existing rows (keyed by ghl_calendar_id) are
 // updated to both-capabilities-on; legacy demo coaches are cleaned up.
 export async function seedCoachRoster(): Promise<void> {
+  // Repair stale calendar ids BEFORE the roster upsert: the upsert conflicts on
+  // ghl_calendar_id, so if an existing coach row still carries an old id the
+  // upsert would INSERT a duplicate coach instead of updating them.
+  await repairStaleCoachCalendarIds();
   for (const c of COACHING_ROSTER) {
     // Resolve the coach's portal login (if any) to a user id so we can stamp
     // coaches.userId. Looked up by email rather than hard-coded so adding a new
@@ -193,7 +207,7 @@ export async function seedCoachRoster(): Promise<void> {
       .values({
         name: c.name,
         ghlCalendarId: c.ghlCalendarId,
-        ghlLocationId: COACHING_LOCATION_ID,
+        ghlLocationId: c.ghlLocationId ?? COACHING_LOCATION_ID,
         sortOrder: c.sortOrder,
         photoUrl: c.photoUrl,
         userId,
@@ -205,7 +219,7 @@ export async function seedCoachRoster(): Promise<void> {
         target: coachesTable.ghlCalendarId,
         set: {
           name: c.name,
-          ghlLocationId: COACHING_LOCATION_ID,
+          ghlLocationId: c.ghlLocationId ?? COACHING_LOCATION_ID,
           sortOrder: c.sortOrder,
           photoUrl: c.photoUrl,
           // Only overwrite userId when we resolved one; never clobber an
@@ -246,6 +260,68 @@ export async function seedCoachRoster(): Promise<void> {
   // current values.
   await migratePrivateCoachingCalendars();
   await seedVaRoster();
+}
+
+// One-time-per-value data repair: Sandy supplied new "Build Test Scale" GHL
+// calendar ids for Sasha & Bruce (Aug 2026). The roster seed is
+// ON CONFLICT DO NOTHING for coach_call_calendars (admin edits win), so already
+// -migrated rows must be repaired in place — this is also how the fix reaches
+// prod (startup-hook data-fix convention). Value-gated and idempotent: it only
+// rewrites rows still carrying a KNOWN stale id, so an admin who later edits
+// the calendar to something else is never clobbered, and it no-ops once applied.
+interface CalendarIdRepair {
+  staleIds: string[];
+  newId: string;
+  locationId: string;
+}
+
+const CALENDAR_ID_REPAIRS: CalendarIdRepair[] = [
+  // Sasha — "Sasha's BTS Coaching Calendar". BdBx… was the old seed constant;
+  // jJGb… is a since-DELETED GHL calendar that an earlier edit left on her rows.
+  {
+    staleIds: ["BdBxOw8kL1aF7VfJR5cc", "jJGbxUGR5n4yi8hrdJzs"],
+    newId: "1YMxX5CjGEWpgSVPw0J0",
+    locationId: BTS_COACHING_LOCATION_ID,
+  },
+  // Bruce — "Bruce's BTS Coaching Calendar".
+  {
+    staleIds: ["0feHbG6YfH2apzvdmR3U"],
+    newId: "rPDG8OuP1lf4d92OtORh",
+    locationId: BTS_COACHING_LOCATION_ID,
+  },
+];
+
+async function repairStaleCoachCalendarIds(): Promise<void> {
+  for (const r of CALENDAR_ID_REPAIRS) {
+    // Coach row (seed identity key) first, so the roster upsert matches.
+    const coachRows = await db
+      .update(coachesTable)
+      .set({ ghlCalendarId: r.newId, ghlLocationId: r.locationId })
+      .where(inArray(coachesTable.ghlCalendarId, r.staleIds))
+      .returning({ id: coachesTable.id });
+    // The booking-flow source of truth: the already-migrated private_coaching
+    // calendar rows.
+    const calRows = await db
+      .update(coachCallCalendarsTable)
+      .set({
+        bookingCalendarId: r.newId,
+        bookingLocationId: r.locationId,
+        isActive: true,
+        updatedAt: new Date(),
+      })
+      .where(
+        and(
+          eq(coachCallCalendarsTable.callType, "private_coaching"),
+          inArray(coachCallCalendarsTable.bookingCalendarId, r.staleIds),
+        ),
+      )
+      .returning({ id: coachCallCalendarsTable.id });
+    if (coachRows.length > 0 || calRows.length > 0) {
+      console.log(
+        `[Seed] Repaired stale GHL calendar id -> ${r.newId} (${coachRows.length} coach row(s), ${calRows.length} calendar row(s))`,
+      );
+    }
+  }
 }
 
 // Backfill a `private_coaching` row in coach_call_calendars for every coach that
