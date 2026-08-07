@@ -329,6 +329,7 @@ export default function SystemHealth() {
   const [secondsSinceRefresh, setSecondsSinceRefresh] = useState(0);
   const [refreshInFlight, setRefreshInFlight] = useState(0);
   const [voiceAgentRechecking, setVoiceAgentRechecking] = useState(false);
+  const [mismatchDigestRunning, setMismatchDigestRunning] = useState(false);
   const [ticketDeliveryHealth, setTicketDeliveryHealth] = useState<{ delivered: number; pending: number; skipped: number; failed: number; undelivered: number } | null>(null);
   const [silentRefreshError, setSilentRefreshError] = useState<string | null>(null);
   const [highlightedEventIds, setHighlightedEventIds] = useState<Set<number>>(() => new Set());
@@ -656,6 +657,33 @@ export default function SystemHealth() {
       setVoiceAgentRechecking(false);
     }
   }, [toast]);
+
+  // On-demand Machine mismatch digest run (task #2117). Runs the digest
+  // immediately server-side, reports the outcome in a toast, and refreshes
+  // the health snapshot so the panel reflects the fresh heartbeat.
+  const runMismatchDigest = useCallback(async () => {
+    setMismatchDigestRunning(true);
+    try {
+      const result = await adminPanelApi.runMachineMismatchDigest();
+      const label: Record<string, string> = {
+        sent: `Digest sent to ${result.recipient ?? "ops"} (${result.flaggedCount} flagged)`,
+        skipped_no_mismatches: "Ran cleanly — no mismatched orders in the window, email suppressed",
+        skipped_no_recipient: "Ran, but no ops recipient is configured",
+        skipped_sendgrid_not_configured: "Ran, but SendGrid is not configured",
+        failed: `Run failed: ${result.reason ?? "unknown error"}`,
+      };
+      toast({
+        title: "Machine mismatch digest run",
+        description: label[result.outcome] ?? result.outcome,
+        variant: result.outcome === "failed" ? "destructive" : "default",
+      });
+      await loadHealth(true);
+    } catch (err: any) {
+      toast({ title: "Error", description: err.message, variant: "destructive" });
+    } finally {
+      setMismatchDigestRunning(false);
+    }
+  }, [toast, loadHealth]);
 
   // Count pending vs. terminal-failed YSE grants so on-call can see at a
   // glance whether any paying customer is still waiting for portal access.
@@ -2286,6 +2314,10 @@ export default function SystemHealth() {
                   lastFlaggedCount: number | null;
                   lastRecipient: string | null;
                   lastReason: string | null;
+                  lastDbErrorCode: string | null;
+                  lastTrigger: "scheduled" | "retry" | "manual" | null;
+                  lastAttempt: number | null;
+                  nextRetryAt: string | null;
                   stale: boolean;
                 }
                 const mmd = health.services.machineMismatchDigest as MachineMismatchDigestStatus;
@@ -2347,6 +2379,16 @@ export default function SystemHealth() {
                             Last run failed
                           </Badge>
                         )}
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="ml-auto"
+                          onClick={runMismatchDigest}
+                          disabled={mismatchDigestRunning}
+                          data-testid="machine-mismatch-digest-run-now"
+                        >
+                          {mismatchDigestRunning ? "Running…" : "Run now"}
+                        </Button>
                       </CardTitle>
                       <p className="text-xs text-muted-foreground mt-1">
                         Once per day, ops are emailed every Machine order whose granted
@@ -2421,6 +2463,24 @@ export default function SystemHealth() {
                             data-testid="machine-mismatch-digest-reason"
                           >
                             Reason: {mmd.lastReason}
+                            {mmd.lastDbErrorCode ? ` (DB error ${mmd.lastDbErrorCode})` : ""}
+                          </p>
+                        )}
+                        {(mmd.lastAttempt ?? 0) > 0 && (
+                          <p
+                            className="mt-1 text-xs text-muted-foreground"
+                            data-testid="machine-mismatch-digest-attempt"
+                          >
+                            Last run was backoff retry #{mmd.lastAttempt}
+                            {mmd.lastTrigger === "manual" ? " (manual)" : ""}
+                          </p>
+                        )}
+                        {mmd.nextRetryAt && (
+                          <p
+                            className="mt-1 text-xs text-amber-700 dark:text-amber-300"
+                            data-testid="machine-mismatch-digest-next-retry"
+                          >
+                            Next backoff retry {formatRelativeTime(mmd.nextRetryAt) ?? new Date(mmd.nextRetryAt).toLocaleString()}
                           </p>
                         )}
                         {isStale && (

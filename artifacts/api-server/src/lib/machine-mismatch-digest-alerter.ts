@@ -173,6 +173,15 @@ function describeStatus(status: MachineMismatchDigestStatus): string {
   if (status.lastReason) {
     parts.push(`Reason: ${status.lastReason}`);
   }
+  if (status.lastDbErrorCode) {
+    parts.push(`DB error code: ${status.lastDbErrorCode}`);
+  }
+  if (status.lastAttempt != null && status.lastAttempt > 0) {
+    parts.push(`Attempt: retry ${status.lastAttempt}`);
+  }
+  if (status.nextRetryAt) {
+    parts.push(`Next backoff retry: ${status.nextRetryAt}`);
+  }
   parts.push(`Run interval: ${Math.round(status.intervalMs / 60000)}m`);
   return parts.join(" \u2014 ");
 }
@@ -226,6 +235,8 @@ function buildMessages(p: MachineMismatchDigestAlertPayload): AlertMessages {
         failed: p.health.failed,
         lastRanAt: p.status.lastRanAt,
         lastOutcome: p.status.lastOutcome,
+        lastReason: p.status.lastReason,
+        lastDbErrorCode: p.status.lastDbErrorCode,
         intervalMs: p.status.intervalMs,
         link: "/admin/system",
       },

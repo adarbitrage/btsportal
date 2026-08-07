@@ -1708,6 +1708,33 @@ export const adminPanelApi = {
     return res.json() as Promise<DigestWatchdogState>;
   },
 
+  // Fire the Machine mismatch digest immediately (task #2117) so ops can
+  // confirm recovery after a failed run without waiting for the next 24h tick.
+  async runMachineMismatchDigest() {
+    const res = await authFetch("/admin/machine-mismatch-digest/run", {
+      method: "POST",
+    });
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      throw new Error(
+        typeof body.error === "string" ? body.error : "Failed to run Machine mismatch digest",
+      );
+    }
+    return res.json() as Promise<{
+      outcome:
+        | "sent"
+        | "skipped_no_mismatches"
+        | "skipped_no_recipient"
+        | "skipped_sendgrid_not_configured"
+        | "failed";
+      flaggedCount: number;
+      recipient: string | null;
+      reason: string | null;
+      dbErrorCode: string | null;
+      status: unknown;
+    }>;
+  },
+
   async getChangeHistoryRetentionConfig() {
     const res = await authFetch("/admin/change-history-retention-config");
     if (!res.ok) throw new Error("Failed to fetch change-history retention config");

@@ -20,6 +20,7 @@ interface FakeFlaggedRow {
 const auditRows: FakeAuditRow[] = [];
 let flaggedQueryRows: FakeFlaggedRow[] = [];
 let flaggedQueryShouldThrow = false;
+let flaggedQueryErrorToThrow: Error | null = null;
 
 vi.mock("@workspace/db", () => {
   const select = (_cols: unknown) => ({
@@ -30,6 +31,9 @@ vi.mock("@workspace/db", () => {
             where: (_cond: unknown) => ({
               groupBy: (_col: unknown) => ({
                 orderBy: async (_o: unknown) => {
+                  if (flaggedQueryErrorToThrow) {
+                    throw flaggedQueryErrorToThrow;
+                  }
                   if (flaggedQueryShouldThrow) {
                     throw new Error("simulated DB outage");
                   }
@@ -106,8 +110,11 @@ vi.mock("../lib/external-order-mismatch", () => ({
 
 import {
   runMachineMismatchDigest,
+  runScheduledDigestAttempt,
+  describeDigestError,
   __setMachineMismatchDigestSenderForTests,
   __resetMachineMismatchDigestStateForTests,
+  __getMachineMismatchDigestRetryStateForTests,
   getMachineMismatchDigestStatus,
   MACHINE_MISMATCH_DIGEST_ACTION_TYPE,
   MACHINE_MISMATCH_DIGEST_ENTITY_TYPE,
@@ -128,6 +135,7 @@ beforeEach(() => {
   auditRows.length = 0;
   flaggedQueryRows = [];
   flaggedQueryShouldThrow = false;
+  flaggedQueryErrorToThrow = null;
   mockOpsAlertEmail.value = null;
   __setMachineMismatchDigestSenderForTests(null);
   __resetMachineMismatchDigestStateForTests();
@@ -347,5 +355,142 @@ describe("getMachineMismatchDigestStatus — stale flag", () => {
     // ...and stale again just past it.
     vi.advanceTimersByTime(1);
     expect(getMachineMismatchDigestStatus().stale).toBe(true);
+  });
+});
+
+describe("describeDigestError — cause-chain unwrapping", () => {
+  it("surfaces the underlying Postgres error code + message from err.cause", () => {
+    const pgErr = Object.assign(new Error("Authentication timed out"), {
+      code: "08P01",
+    });
+    const drizzleErr = new Error("Failed query: select ...", { cause: pgErr });
+    const detail = describeDigestError(drizzleErr);
+    expect(detail.reason).toBe(
+      "Failed query: select ... — caused by: [08P01] Authentication timed out",
+    );
+    expect(detail.dbErrorCode).toBe("08P01");
+    expect(detail.dbErrorMessage).toBe("Authentication timed out");
+  });
+
+  it("falls back to the top-level message when there is no cause", () => {
+    const detail = describeDigestError(new Error("plain failure"));
+    expect(detail.reason).toBe("plain failure");
+    expect(detail.dbErrorCode).toBeNull();
+    expect(detail.dbErrorMessage).toBeNull();
+  });
+
+  it("walks nested causes to the deepest coded error", () => {
+    const pgErr = Object.assign(new Error("deadlock detected"), { code: "40P01" });
+    const mid = new Error("wrapper", { cause: pgErr });
+    const top = new Error("Failed query: x", { cause: mid });
+    const detail = describeDigestError(top);
+    expect(detail.dbErrorCode).toBe("40P01");
+    expect(detail.dbErrorMessage).toBe("deadlock detected");
+  });
+});
+
+describe("failure detail capture in heartbeat + audit", () => {
+  it("records the DB error code and cause message in the run reason, status, and audit metadata", async () => {
+    flaggedQueryErrorToThrow = new Error("Failed query: select mismatch ...", {
+      cause: Object.assign(new Error("Authentication timed out"), { code: "08P01" }),
+    });
+    const result = await runMachineMismatchDigest(Date.now());
+    expect(result.outcome).toBe("failed");
+    expect(result.reason).toContain("[08P01] Authentication timed out");
+    expect(result.dbErrorCode).toBe("08P01");
+
+    const status = getMachineMismatchDigestStatus();
+    expect(status.lastReason).toContain("[08P01] Authentication timed out");
+    expect(status.lastDbErrorCode).toBe("08P01");
+
+    const audit = auditRows.at(-1)!;
+    const auditMeta = audit.metadata as Record<string, unknown>;
+    expect(auditMeta.dbErrorCode).toBe("08P01");
+    expect(auditMeta.dbErrorMessage).toBe("Authentication timed out");
+  });
+
+  it("stamps trigger and attempt on the heartbeat and audit metadata", async () => {
+    const result = await runMachineMismatchDigest(Date.now(), {
+      trigger: "manual",
+    });
+    expect(result.trigger).toBe("manual");
+    expect(result.attempt).toBe(0);
+    const status = getMachineMismatchDigestStatus();
+    expect(status.lastTrigger).toBe("manual");
+    expect(status.lastAttempt).toBe(0);
+    const audit = auditRows.at(-1)!;
+    const auditMeta = audit.metadata as Record<string, unknown>;
+    expect(auditMeta.trigger).toBe("manual");
+    expect(auditMeta.attempt).toBe(0);
+  });
+});
+
+describe("failure retry backoff", () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+    process.env.MACHINE_MISMATCH_DIGEST_RETRY_BACKOFF_MS = "1000";
+    process.env.MACHINE_MISMATCH_DIGEST_MAX_RETRIES = "2";
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+    delete process.env.MACHINE_MISMATCH_DIGEST_RETRY_BACKOFF_MS;
+    delete process.env.MACHINE_MISMATCH_DIGEST_MAX_RETRIES;
+  });
+
+  it("schedules a short-backoff retry after a failed scheduled run and self-heals on success", async () => {
+    flaggedQueryShouldThrow = true;
+    const first = await runScheduledDigestAttempt("scheduled", 0);
+    expect(first!.outcome).toBe("failed");
+    let retryState = __getMachineMismatchDigestRetryStateForTests();
+    expect(retryState.hasTimer).toBe(true);
+    expect(getMachineMismatchDigestStatus().nextRetryAt).not.toBeNull();
+
+    // DB recovers before the retry fires.
+    flaggedQueryShouldThrow = false;
+    await vi.advanceTimersByTimeAsync(1000);
+
+    const status = getMachineMismatchDigestStatus();
+    expect(status.lastOutcome).toBe("skipped_no_mismatches");
+    expect(status.lastTrigger).toBe("retry");
+    expect(status.lastAttempt).toBe(1);
+    retryState = __getMachineMismatchDigestRetryStateForTests();
+    expect(retryState.hasTimer).toBe(false);
+    expect(status.nextRetryAt).toBeNull();
+  });
+
+  it("stops retrying after the bounded number of attempts", async () => {
+    flaggedQueryShouldThrow = true;
+    await runScheduledDigestAttempt("scheduled", 0);
+    expect(__getMachineMismatchDigestRetryStateForTests().hasTimer).toBe(true);
+
+    // Retry 1 fails → retry 2 scheduled.
+    await vi.advanceTimersByTimeAsync(1000);
+    expect(getMachineMismatchDigestStatus().lastAttempt).toBe(1);
+    expect(__getMachineMismatchDigestRetryStateForTests().hasTimer).toBe(true);
+
+    // Retry 2 fails → max reached, no further retry.
+    await vi.advanceTimersByTimeAsync(1000);
+    expect(getMachineMismatchDigestStatus().lastAttempt).toBe(2);
+    expect(__getMachineMismatchDigestRetryStateForTests().hasTimer).toBe(false);
+    expect(getMachineMismatchDigestStatus().nextRetryAt).toBeNull();
+  });
+
+  it("a manual run failure does not schedule a retry, and a manual success clears a pending one", async () => {
+    flaggedQueryShouldThrow = true;
+    const failed = await runMachineMismatchDigest(Date.now(), { trigger: "manual" });
+    expect(failed.outcome).toBe("failed");
+    expect(__getMachineMismatchDigestRetryStateForTests().hasTimer).toBe(false);
+
+    // Now a scheduled failure leaves a pending retry...
+    await runScheduledDigestAttempt("scheduled", 0);
+    expect(__getMachineMismatchDigestRetryStateForTests().hasTimer).toBe(true);
+
+    // ...which a successful manual run clears.
+    flaggedQueryShouldThrow = false;
+    const ok = await runMachineMismatchDigest(Date.now(), { trigger: "manual" });
+    expect(ok.outcome).toBe("skipped_no_mismatches");
+    expect(__getMachineMismatchDigestRetryStateForTests().hasTimer).toBe(false);
+    expect(getMachineMismatchDigestStatus().nextRetryAt).toBeNull();
   });
 });

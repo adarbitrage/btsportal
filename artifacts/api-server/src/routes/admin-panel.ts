@@ -38,7 +38,12 @@ import {
 import { getQueueFallbackAuditCleanupStatus } from "../lib/queue-fallback-audit-cleanup";
 import { getAuthRateLimitAuditCleanupStatus } from "../lib/auth-rate-limit-audit-cleanup";
 import { getAuditLogRetentionStatus } from "../lib/audit-log-retention";
-import { getMachineMismatchDigestStatus } from "../lib/machine-mismatch-daily-digest";
+import {
+  getMachineMismatchDigestStatus,
+  runMachineMismatchDigest,
+  MACHINE_MISMATCH_DIGEST_ENTITY_TYPE,
+  MACHINE_MISMATCH_DIGEST_ENTITY_ID,
+} from "../lib/machine-mismatch-daily-digest";
 import {
   evaluateRateLimitAuditFailureAlert,
   getRateLimitAuditFailureAlertingState,
@@ -5584,6 +5589,51 @@ router.put(
  * `evaluateDigestHealth` decision the alerter acts on — so the displayed
  * state always matches what the watchdog would do.
  */
+/**
+ * On-demand digest run (task #2117). Lets an admin fire the Machine mismatch
+ * digest immediately from the System Health panel — e.g. to confirm recovery
+ * after a failed run — instead of waiting for the next 24h tick or backoff
+ * retry. The run itself writes its usual `machine_mismatch_digest` audit row
+ * (tagged trigger=manual); we additionally audit who pressed the button.
+ */
+router.post(
+  "/admin/machine-mismatch-digest/run",
+  requirePermission("settings:manage"),
+  async (req: Request, res: Response) => {
+    try {
+      const result = await runMachineMismatchDigest(Date.now(), {
+        trigger: "manual",
+      });
+      await logAdminAction(
+        req,
+        "run_machine_mismatch_digest",
+        MACHINE_MISMATCH_DIGEST_ENTITY_TYPE,
+        MACHINE_MISMATCH_DIGEST_ENTITY_ID,
+        `Manually triggered Machine mismatch digest run — ${result.outcome} (${result.flagged.length} flagged)`,
+        undefined,
+        {
+          outcome: result.outcome,
+          flaggedCount: result.flagged.length,
+          recipient: result.recipient,
+          reason: result.reason ?? null,
+          dbErrorCode: result.dbErrorCode ?? null,
+        },
+      );
+      res.json({
+        outcome: result.outcome,
+        flaggedCount: result.flagged.length,
+        recipient: result.recipient,
+        reason: result.reason ?? null,
+        dbErrorCode: result.dbErrorCode ?? null,
+        status: getMachineMismatchDigestStatus(),
+      });
+    } catch (error) {
+      console.error("[Admin] Manual machine mismatch digest run error:", error);
+      res.status(500).json({ error: "Failed to run machine mismatch digest" });
+    }
+  },
+);
+
 router.get(
   "/admin/machine-mismatch-digest-watchdog-state",
   requirePermission("settings:view"),

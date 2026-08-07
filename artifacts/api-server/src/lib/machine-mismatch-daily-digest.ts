@@ -73,6 +73,14 @@ export interface DigestRunResult {
   flagged: FlaggedOrder[];
   recipient: string | null;
   reason?: string;
+  /** Underlying Postgres error code (e.g. "08P01"), when a DB error caused the failure. */
+  dbErrorCode?: string | null;
+  /** Underlying Postgres error message, when a DB error caused the failure. */
+  dbErrorMessage?: string | null;
+  /** How this run was initiated. */
+  trigger: DigestRunTrigger;
+  /** 0 for a scheduled/manual run, 1..N for backoff retries after a failure. */
+  attempt: number;
 }
 
 function parseEnvInt(name: string, fallback: number): number {
@@ -95,6 +103,63 @@ function getWindowMs(): number {
     24 * 60 * 60 * 1000,
   );
 }
+
+/**
+ * Short-backoff retry cadence after a `failed` run (default 15 min). The
+ * production failure this recovers from (task #2117) was a transient
+ * "Authentication timed out" (08P01) burst against the prod DB — without a
+ * retry the digest silently waited the full 24h interval.
+ */
+function getRetryBackoffMs(): number {
+  return parseEnvInt(
+    "MACHINE_MISMATCH_DIGEST_RETRY_BACKOFF_MS",
+    15 * 60 * 1000,
+  );
+}
+
+/** Bounded number of backoff retries after a failed scheduled run. */
+function getMaxRetries(): number {
+  return parseEnvInt("MACHINE_MISMATCH_DIGEST_MAX_RETRIES", 3);
+}
+
+/**
+ * Unwrap an error's `cause` chain and pull out the underlying Postgres error
+ * (code + message) when present. Drizzle throws `DrizzleQueryError` whose
+ * `message` is just `Failed query: <sql>` — the real database error (e.g.
+ * `08P01 Authentication timed out`) rides on `err.cause`, which the previous
+ * implementation dropped, making the alert email useless for diagnosis.
+ */
+export function describeDigestError(err: unknown): {
+  reason: string;
+  dbErrorCode: string | null;
+  dbErrorMessage: string | null;
+} {
+  const topMessage =
+    err instanceof Error ? err.message : String(err);
+  let dbErrorCode: string | null = null;
+  let dbErrorMessage: string | null = null;
+  // Walk the cause chain (bounded, defensive against cycles) looking for the
+  // deepest error carrying a Postgres-style string `code`.
+  let cur: unknown = err;
+  for (let depth = 0; depth < 10 && cur instanceof Error; depth++) {
+    const next = (cur as Error & { cause?: unknown }).cause;
+    if (next instanceof Error) {
+      dbErrorMessage = next.message;
+      const code = (next as Error & { code?: unknown }).code;
+      dbErrorCode = typeof code === "string" ? code : dbErrorCode;
+      cur = next;
+    } else {
+      break;
+    }
+  }
+  const reason = dbErrorMessage
+    ? `${topMessage} — caused by: ${dbErrorCode ? `[${dbErrorCode}] ` : ""}${dbErrorMessage}`
+    : topMessage;
+  return { reason, dbErrorCode, dbErrorMessage };
+}
+
+/** How a given digest run was initiated. */
+export type DigestRunTrigger = "scheduled" | "retry" | "manual";
 
 type EmailSender = (msg: {
   to: string;
@@ -285,6 +350,9 @@ interface DigestRunState {
   lastFlaggedCount: number;
   lastRecipient: string | null;
   lastReason: string | null;
+  lastDbErrorCode: string | null;
+  lastTrigger: DigestRunTrigger;
+  lastAttempt: number;
 }
 
 let lastRun: DigestRunState | null = null;
@@ -305,6 +373,9 @@ function recordHeartbeat(result: DigestRunResult): void {
     lastFlaggedCount: result.flagged.length,
     lastRecipient: result.recipient,
     lastReason: result.reason ?? null,
+    lastDbErrorCode: result.dbErrorCode ?? null,
+    lastTrigger: result.trigger,
+    lastAttempt: result.attempt,
   };
 }
 
@@ -316,6 +387,14 @@ export interface MachineMismatchDigestStatus {
   lastFlaggedCount: number | null;
   lastRecipient: string | null;
   lastReason: string | null;
+  /** Underlying Postgres error code of the last failure (e.g. "08P01"), if any. */
+  lastDbErrorCode: string | null;
+  /** How the last run was initiated (scheduled / retry / manual). */
+  lastTrigger: DigestRunTrigger | null;
+  /** 0 for a scheduled/manual run, 1..N for backoff retries after a failure. */
+  lastAttempt: number | null;
+  /** ISO timestamp of the next scheduled backoff retry, when one is pending. */
+  nextRetryAt: string | null;
   /**
    * True when the heartbeat is older than 2× `intervalMs` — i.e. the job has
    * silently stopped firing. On a cold start (no run yet) this is computed
@@ -344,6 +423,10 @@ export function getMachineMismatchDigestStatus(): MachineMismatchDigestStatus {
     lastFlaggedCount: lastRun ? lastRun.lastFlaggedCount : null,
     lastRecipient: lastRun ? lastRun.lastRecipient : null,
     lastReason: lastRun ? lastRun.lastReason : null,
+    lastDbErrorCode: lastRun ? lastRun.lastDbErrorCode : null,
+    lastTrigger: lastRun ? lastRun.lastTrigger : null,
+    lastAttempt: lastRun ? lastRun.lastAttempt : null,
+    nextRetryAt: nextRetryAt ? nextRetryAt.toISOString() : null,
     stale,
   };
 }
@@ -352,6 +435,7 @@ export function getMachineMismatchDigestStatus(): MachineMismatchDigestStatus {
 export function __resetMachineMismatchDigestStateForTests(): void {
   lastRun = null;
   baselineSince = new Date();
+  clearPendingRetry();
 }
 
 async function recordRun(result: DigestRunResult): Promise<void> {
@@ -368,6 +452,10 @@ async function recordRun(result: DigestRunResult): Promise<void> {
         windowMs: result.windowMs,
         recipient: result.recipient,
         reason: result.reason ?? null,
+        dbErrorCode: result.dbErrorCode ?? null,
+        dbErrorMessage: result.dbErrorMessage ?? null,
+        trigger: result.trigger,
+        attempt: result.attempt,
         sampleOrderIds: result.flagged
           .slice(0, 10)
           .map((o) => o.externalOrderId),
@@ -385,15 +473,24 @@ async function recordRun(result: DigestRunResult): Promise<void> {
  * Run the digest once. Exposed for tests and any future on-demand admin
  * trigger; the scheduled job calls this on its interval.
  */
+export interface DigestRunOptions {
+  trigger?: DigestRunTrigger;
+  /** 0 for a scheduled/manual run, 1..N for backoff retries after a failure. */
+  attempt?: number;
+}
+
 export async function runMachineMismatchDigest(
   now: number = Date.now(),
+  opts: DigestRunOptions = {},
 ): Promise<DigestRunResult> {
+  const trigger = opts.trigger ?? "scheduled";
+  const attempt = opts.attempt ?? 0;
   const windowMs = getWindowMs();
   let flagged: FlaggedOrder[];
   try {
     flagged = await findFlaggedOrders(windowMs, now);
   } catch (err) {
-    const reason = err instanceof Error ? err.message : String(err);
+    const { reason, dbErrorCode, dbErrorMessage } = describeDigestError(err);
     console.error(
       "[MachineMismatchDigest] flagged-orders query failed:",
       err,
@@ -404,10 +501,18 @@ export async function runMachineMismatchDigest(
       flagged: [],
       recipient: null,
       reason,
+      dbErrorCode,
+      dbErrorMessage,
+      trigger,
+      attempt,
     };
     await recordRun(result);
     return result;
   }
+
+  // Any run that gets past the query proves the DB is reachable again — a
+  // pending backoff retry (from a previous failed scheduled run) is obsolete.
+  clearPendingRetry();
 
   if (flagged.length === 0) {
     const result: DigestRunResult = {
@@ -415,6 +520,8 @@ export async function runMachineMismatchDigest(
       windowMs,
       flagged: [],
       recipient: null,
+      trigger,
+      attempt,
     };
     await recordRun(result);
     return result;
@@ -428,6 +535,8 @@ export async function runMachineMismatchDigest(
       windowMs,
       flagged,
       recipient: null,
+      trigger,
+      attempt,
     };
     await recordRun(result);
     return result;
@@ -439,6 +548,8 @@ export async function runMachineMismatchDigest(
       windowMs,
       flagged,
       recipient: to,
+      trigger,
+      attempt,
     };
     await recordRun(result);
     return result;
@@ -461,7 +572,7 @@ export async function runMachineMismatchDigest(
       await gatedSendEmail({ to, from, subject, text, html });
     }
   } catch (err) {
-    const reason = err instanceof Error ? err.message : String(err);
+    const { reason, dbErrorCode, dbErrorMessage } = describeDigestError(err);
     console.error("[MachineMismatchDigest] email send failed:", err);
     const result: DigestRunResult = {
       outcome: "failed",
@@ -469,6 +580,10 @@ export async function runMachineMismatchDigest(
       flagged,
       recipient: to,
       reason,
+      dbErrorCode,
+      dbErrorMessage,
+      trigger,
+      attempt,
     };
     await recordRun(result);
     return result;
@@ -479,6 +594,8 @@ export async function runMachineMismatchDigest(
     windowMs,
     flagged,
     recipient: to,
+    trigger,
+    attempt,
   };
   await recordRun(result);
   return result;
@@ -487,15 +604,83 @@ export async function runMachineMismatchDigest(
 let jobInterval: ReturnType<typeof setInterval> | null = null;
 let started = false;
 
+// ---------------------------------------------------------------------------
+// Failure retry backoff (task #2117). A failed run used to silently wait the
+// full 24h interval; now a scheduled run that fails retries on a short
+// backoff (default 15 min, bounded attempts) so a transient DB error — like
+// the production "Authentication timed out" (08P01) burst — self-heals.
+// ---------------------------------------------------------------------------
+
+let retryTimer: ReturnType<typeof setTimeout> | null = null;
+/** When the pending backoff retry will fire; null when none is pending. */
+let nextRetryAt: Date | null = null;
+
+function clearPendingRetry(): void {
+  if (retryTimer) {
+    clearTimeout(retryTimer);
+    retryTimer = null;
+  }
+  nextRetryAt = null;
+}
+
+function scheduleRetry(attempt: number): void {
+  clearPendingRetry();
+  const backoffMs = getRetryBackoffMs();
+  if (backoffMs <= 0) return;
+  nextRetryAt = new Date(Date.now() + backoffMs);
+  console.log(
+    `[MachineMismatchDigest] scheduling retry attempt ${attempt}/${getMaxRetries()} in ${Math.round(backoffMs / 1000)}s`,
+  );
+  retryTimer = setTimeout(() => {
+    retryTimer = null;
+    nextRetryAt = null;
+    void runScheduledDigestAttempt("retry", attempt);
+  }, backoffMs);
+  retryTimer.unref?.();
+}
+
+/**
+ * Run one scheduled (or backoff-retry) attempt and, on a `failed` outcome,
+ * chain the next bounded backoff retry. Exported for tests; the interval and
+ * the retry timer both funnel through here so the heartbeat's trigger/attempt
+ * bookkeeping stays honest.
+ */
+export async function runScheduledDigestAttempt(
+  trigger: "scheduled" | "retry",
+  attempt: number = 0,
+): Promise<DigestRunResult | null> {
+  try {
+    const result = await runMachineMismatchDigest(Date.now(), {
+      trigger,
+      attempt,
+    });
+    if (result.outcome === "failed") {
+      if (attempt < getMaxRetries()) {
+        scheduleRetry(attempt + 1);
+      } else {
+        console.error(
+          `[MachineMismatchDigest] giving up after ${attempt} backoff retries; next attempt at the regular interval`,
+        );
+      }
+    }
+    return result;
+  } catch (err) {
+    // runMachineMismatchDigest handles its own failures; this only guards
+    // truly unexpected throws (e.g. audit plumbing) so the timer never dies.
+    console.error("[MachineMismatchDigest] scheduled run error:", err);
+    return null;
+  }
+}
+
 export function startMachineMismatchDigestJob(): void {
   if (started) return;
   started = true;
   const intervalMs = getRunIntervalMs();
   if (intervalMs <= 0) return;
   jobInterval = setInterval(() => {
-    runMachineMismatchDigest().catch((err) => {
-      console.error("[MachineMismatchDigest] scheduled run error:", err);
-    });
+    // A fresh interval tick supersedes any pending backoff retry.
+    clearPendingRetry();
+    void runScheduledDigestAttempt("scheduled", 0);
   }, intervalMs);
   jobInterval.unref?.();
   console.log(
@@ -508,5 +693,14 @@ export function stopMachineMismatchDigestJob(): void {
     clearInterval(jobInterval);
     jobInterval = null;
   }
+  clearPendingRetry();
   started = false;
+}
+
+/** Test hook: read the pending-retry schedule without mutating it. */
+export function __getMachineMismatchDigestRetryStateForTests(): {
+  nextRetryAt: Date | null;
+  hasTimer: boolean;
+} {
+  return { nextRetryAt, hasTimer: retryTimer !== null };
 }

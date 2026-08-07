@@ -80,6 +80,10 @@ function setStatus(opts: {
     lastFlaggedCount: null,
     lastRecipient: null,
     lastReason: opts.lastReason ?? null,
+    lastDbErrorCode: null,
+    lastTrigger: null,
+    lastAttempt: null,
+    nextRetryAt: null,
   });
 }
 
@@ -132,6 +136,10 @@ describe("machine-mismatch-digest-alerter", () => {
         lastFlaggedCount: null,
         lastRecipient: null,
         lastReason: null,
+        lastDbErrorCode: null,
+        lastTrigger: null,
+        lastAttempt: null,
+        nextRetryAt: null,
         stale: true,
       };
       const health = evaluateDigestHealth(status, T0);
@@ -148,6 +156,10 @@ describe("machine-mismatch-digest-alerter", () => {
         lastFlaggedCount: null,
         lastRecipient: null,
         lastReason: "boom",
+        lastDbErrorCode: null,
+        lastTrigger: null,
+        lastAttempt: null,
+        nextRetryAt: null,
         stale: false,
       };
       const health = evaluateDigestHealth(status, T0);
@@ -164,6 +176,10 @@ describe("machine-mismatch-digest-alerter", () => {
         lastFlaggedCount: null,
         lastRecipient: null,
         lastReason: null,
+        lastDbErrorCode: null,
+        lastTrigger: null,
+        lastAttempt: null,
+        nextRetryAt: null,
         stale: false,
       };
       const health = evaluateDigestHealth(status, T0);
