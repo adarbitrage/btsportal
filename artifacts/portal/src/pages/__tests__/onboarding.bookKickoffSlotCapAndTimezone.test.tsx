@@ -158,3 +158,74 @@ describe("kickoff coach card bio", () => {
     expect(container.querySelector("p.leading-relaxed")).not.toBeInTheDocument();
   });
 });
+
+// Task #2114: single-coach mode. When a tier's active pool is exactly ONE
+// coach (full tier is now Mark only), that coach is featured — photo, name,
+// blurb — above the slot picker up front, per-slot coach name labels are
+// dropped, and the pick-a-slot-then-reveal block never renders. With two or
+// more coaches the original multi-coach reveal behavior is the automatic
+// fallback.
+describe("single-coach featured mode (Task #2114)", () => {
+  it("features the sole coach (name + bio) above the picker before any slot is selected", () => {
+    const dateStr = futureDateStrInMonth(5);
+    useKickoffAvailability.mockReturnValue({
+      data: {
+        slots: buildSlots(2, dateStr),
+        coaches: [{ id: 1, displayName: "Mark", photoUrl: "/kickoff-photos/mark.jpg", bio: "Mark is the CEO of Build. Test. Scale. (BTS). Before moving into digital, he built and ran two successful businesses — a residential and commercial cleaning company, and a non-medical home health care company. Running those taught him what good systems and the right people can actually do. When digital and AI started reshaping how business gets done, he wanted in — and that's what led to BTS. Mark leads the team there alongside people he trusts and relies on daily, and together they're focused on helping new mentees build something real and scalable." }],
+      },
+      isLoading: false,
+      refetch: vi.fn(),
+    });
+
+    render(<OnboardingBookKickoff />);
+
+    const featured = screen.getByTestId("kickoff-featured-coach");
+    expect(featured).toBeInTheDocument();
+    expect(featured.textContent).toContain("Mark");
+    expect(featured.textContent).toContain("Mark is the CEO of Build. Test. Scale.");
+  });
+
+  it("omits per-slot coach name labels in single-coach mode", () => {
+    const dateStr = futureDateStrInMonth(6);
+    useKickoffAvailability.mockReturnValue({
+      data: {
+        slots: buildSlots(2, dateStr),
+        coaches: [{ id: 1, displayName: "Mark", photoUrl: null, bio: null }],
+      },
+      isLoading: false,
+      refetch: vi.fn(),
+    });
+
+    render(<OnboardingBookKickoff />);
+    selectFirstAvailableDay();
+
+    const slotButtons = screen.getAllByTestId(/^kickoff-slot-/);
+    expect(slotButtons.length).toBe(2);
+    for (const btn of slotButtons) {
+      expect(btn.textContent).not.toContain("Mark");
+    }
+  });
+
+  it("falls back to multi-coach reveal behavior when the pool has two coaches", () => {
+    const dateStr = futureDateStrInMonth(7);
+    useKickoffAvailability.mockReturnValue({
+      data: {
+        slots: buildSlots(2, dateStr),
+        coaches: [
+          { id: 1, displayName: "Coach A", photoUrl: null, bio: null },
+          { id: 2, displayName: "Coach B", photoUrl: null, bio: null },
+        ],
+      },
+      isLoading: false,
+      refetch: vi.fn(),
+    });
+
+    render(<OnboardingBookKickoff />);
+    expect(screen.queryByTestId("kickoff-featured-coach")).not.toBeInTheDocument();
+
+    selectFirstAvailableDay();
+    // Per-slot coach labels still render in multi-coach mode.
+    const slotButtons = screen.getAllByTestId(/^kickoff-slot-/);
+    expect(slotButtons.some((btn) => btn.textContent?.includes("Coach A"))).toBe(true);
+  });
+});

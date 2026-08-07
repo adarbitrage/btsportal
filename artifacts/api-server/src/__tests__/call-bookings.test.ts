@@ -11,6 +11,7 @@ import {
   callBookingsTable,
   productsTable,
   userProductsTable,
+  communicationLogTable,
 } from "@workspace/db";
 import { and, eq, inArray, ne } from "drizzle-orm";
 
@@ -158,6 +159,9 @@ afterAll(async () => {
     await db.delete(partnerAssignmentsTable).where(inArray(partnerAssignmentsTable.id, assignmentIds));
   }
   if (userIds.length > 0) {
+    // Booking lifecycle emails write communication_log rows keyed to the
+    // member — clear them first or the user delete below hits an FK.
+    await db.delete(communicationLogTable).where(inArray(communicationLogTable.userId, userIds));
     await db.delete(usersTable).where(inArray(usersTable.id, userIds));
   }
   await db.delete(kickoffCoachesTable).where(eq(kickoffCoachesTable.id, kickoffCoachId));

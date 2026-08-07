@@ -79,6 +79,13 @@ export default function OnboardingBookKickoff() {
   }, [availability]);
   const selectedCoach = selectedSlot ? coachesById.get(selectedSlot.coachId) ?? null : null;
 
+  // Task #2114: single-coach mode. When a tier's active pool is exactly one
+  // coach (e.g. full-tier kickoffs now run through Mark only), feature that
+  // coach — photo, name, blurb — above the slot picker up front instead of
+  // the pick-a-slot-then-reveal flow. The multi-coach reveal behavior below
+  // remains the automatic fallback if the pool ever grows again.
+  const soleCoach = (availability?.coaches?.length ?? 0) === 1 ? availability!.coaches[0] : null;
+
   const slotsByDate = useMemo(() => {
     const map = new Map<string, { startTime: string; coachId: number; durationMinutes: number }[]>();
     if (!availability?.slots) return map;
@@ -227,7 +234,36 @@ export default function OnboardingBookKickoff() {
           </p>
         </div>
 
-        {selectedCoach && selectedSlot && (
+        {soleCoach && (
+          <Card data-testid="kickoff-featured-coach">
+            <CardContent className="p-6">
+              <div className="flex flex-col sm:flex-row items-center sm:items-start gap-4 text-center sm:text-left">
+                {soleCoach.photoUrl ? (
+                  <img
+                    src={resolveCoachPhotoUrl(soleCoach.photoUrl) ?? undefined}
+                    alt={soleCoach.displayName}
+                    className="w-20 h-20 rounded-full object-cover shrink-0"
+                  />
+                ) : (
+                  <div className="w-20 h-20 rounded-full bg-primary/10 flex items-center justify-center text-lg font-bold text-primary shrink-0">
+                    {initials(soleCoach.displayName)}
+                  </div>
+                )}
+                <div className="min-w-0 space-y-1">
+                  <p className="font-bold text-lg text-foreground">{soleCoach.displayName}</p>
+                  <p className="text-xs text-muted-foreground">Your kickoff coach</p>
+                  {soleCoach.bio && (
+                    <p className="text-sm text-muted-foreground leading-relaxed whitespace-pre-line pt-1">
+                      {soleCoach.bio}
+                    </p>
+                  )}
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {!soleCoach && selectedCoach && selectedSlot && (
           <div className="flex items-center justify-center gap-3">
             {selectedCoach.photoUrl ? (
               <img
@@ -248,7 +284,7 @@ export default function OnboardingBookKickoff() {
             </div>
           </div>
         )}
-        {selectedCoach && selectedSlot && selectedCoach.bio && (
+        {!soleCoach && selectedCoach && selectedSlot && selectedCoach.bio && (
           <p className="text-xs text-muted-foreground leading-relaxed">{selectedCoach.bio}</p>
         )}
 
@@ -354,7 +390,7 @@ export default function OnboardingBookKickoff() {
                               )}
                             >
                               <span>{format(new Date(slot.startTime), "h:mm a")}</span>
-                              {slotCoach && (
+                              {slotCoach && !soleCoach && (
                                 <span
                                   className={cn(
                                     "text-[10px] font-normal",

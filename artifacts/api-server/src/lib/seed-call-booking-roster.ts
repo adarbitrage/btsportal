@@ -26,6 +26,8 @@ interface KickoffCoachRosterEntry {
   ghlCalendarId: string | null;
   isActive: boolean;
   tier: "launchpad" | "full";
+  /** Seeded only when the row has no bio yet (IS NULL) — never clobbers an admin-set value. */
+  bio?: string;
 }
 
 const PARTNER_ROSTER: PartnerRosterEntry[] = [
@@ -42,7 +44,13 @@ const PARTNER_ROSTER: PartnerRosterEntry[] = [
 ];
 
 const KICKOFF_COACH_ROSTER: KickoffCoachRosterEntry[] = [
-  { displayName: "Todd", ghlCalendarId: "Nx8nzFJxkxHQlQyx5ZSW", isActive: true, tier: "full" },
+  // Task #2114: full-tier kickoff calls move to Mark ONLY. Todd's and
+  // Bruce's rows are deactivated (never deleted — historical bookings join
+  // against them by id) and they exit the kickoff rotation only; both remain
+  // untouched on every other roster (strategic coaching, etc.). Prod
+  // pre-check (read-only, 2026-08-07): zero non-canceled future kickoff
+  // bookings for either coach.
+  { displayName: "Todd", ghlCalendarId: "Nx8nzFJxkxHQlQyx5ZSW", isActive: false, tier: "full" },
   // Task #2112: Sandy relayed a new calendar for Mark's kickoff row ("BTS
   // Mentorship Onboarding Call With Mark", replacing wvSF5RfAi8FlsgHRo8IQ).
   // Verified read-only via probe-mark-kickoff-calendar.ts before arming:
@@ -52,8 +60,16 @@ const KICKOFF_COACH_ROSTER: KickoffCoachRosterEntry[] = [
   // calendars this one is calendarType = class_booking (not personal) —
   // free-slots and appointment creation both work against it, and durations
   // are always read live from the calendar config, so no code change needed.
-  { displayName: "Mark", ghlCalendarId: "hDgKQotAHrjq5iRLeDaV", isActive: true, tier: "full" },
-  { displayName: "Bruce", ghlCalendarId: "wLvil3ING3i1d4oX7vg5", isActive: true, tier: "full" },
+  {
+    displayName: "Mark",
+    ghlCalendarId: "hDgKQotAHrjq5iRLeDaV",
+    isActive: true,
+    tier: "full",
+    // Task #2114: exact blurb supplied by user 2026-08-07. Seeded IS NULL
+    // only — admin edits via the coach editor always win.
+    bio: "Mark is the CEO of Build. Test. Scale. (BTS). Before moving into digital, he built and ran two successful businesses — a residential and commercial cleaning company, and a non-medical home health care company. Running those taught him what good systems and the right people can actually do. When digital and AI started reshaping how business gets done, he wanted in — and that's what led to BTS. Mark leads the team there alongside people he trusts and relies on daily, and together they're focused on helping new mentees build something real and scalable.",
+  },
+  { displayName: "Bruce", ghlCalendarId: "wLvil3ING3i1d4oX7vg5", isActive: false, tier: "full" },
   // Task #1655: Sandy relayed the real GHL calendar ID for Neil's dedicated
   // LaunchPad kickoff calendar ("BTS LaunchPad Kickoff with Neil"). Verified
   // read-only via probe-neil-launchpad-calendar.ts before arming this row:
@@ -86,7 +102,7 @@ export async function seedCallBookingRoster(): Promise<void> {
 
   for (const entry of KICKOFF_COACH_ROSTER) {
     const [existing] = await db
-      .select({ id: kickoffCoachesTable.id, ghlCalendarId: kickoffCoachesTable.ghlCalendarId })
+      .select({ id: kickoffCoachesTable.id, ghlCalendarId: kickoffCoachesTable.ghlCalendarId, bio: kickoffCoachesTable.bio })
       .from(kickoffCoachesTable)
       .where(eq(kickoffCoachesTable.displayName, entry.displayName))
       .limit(1);
@@ -97,6 +113,9 @@ export async function seedCallBookingRoster(): Promise<void> {
       // editor). Only overwrite ghlCalendarId when the seed itself carries a
       // real value — everything else (tier, display name, active flag,
       // location) stays fully re-seeded on every boot as before.
+      //
+      // Task #2114: same IS NULL guard for bio — seed the bio only when the
+      // row has none yet; an admin edit via the coach editor always wins.
       const values: Partial<typeof kickoffCoachesTable.$inferInsert> = {
         displayName: entry.displayName,
         ghlLocationId: BTS_LOCATION_ID,
@@ -106,6 +125,9 @@ export async function seedCallBookingRoster(): Promise<void> {
       if (entry.ghlCalendarId) {
         values.ghlCalendarId = entry.ghlCalendarId;
       }
+      if (entry.bio && existing.bio == null) {
+        values.bio = entry.bio;
+      }
       await db.update(kickoffCoachesTable).set(values).where(eq(kickoffCoachesTable.id, existing.id));
     } else {
       await db.insert(kickoffCoachesTable).values({
@@ -114,6 +136,7 @@ export async function seedCallBookingRoster(): Promise<void> {
         ghlLocationId: BTS_LOCATION_ID,
         isActive: entry.isActive,
         tier: entry.tier,
+        bio: entry.bio ?? null,
       });
     }
   }
