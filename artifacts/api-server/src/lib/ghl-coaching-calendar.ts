@@ -353,6 +353,8 @@ interface CalendarConfigResponse {
     slotIntervalUnit?: string;
     calendarType?: string;
     locationId?: string;
+    appoinmentPerSlot?: number;
+    appoinmentPerDay?: number;
   };
   name?: string;
   slotDuration?: number;
@@ -361,6 +363,9 @@ interface CalendarConfigResponse {
   slotIntervalUnit?: string;
   calendarType?: string;
   locationId?: string;
+  // GHL's field name really is misspelled "appoinment" in their API.
+  appoinmentPerSlot?: number;
+  appoinmentPerDay?: number;
 }
 
 export interface CalendarDetails {
@@ -371,6 +376,9 @@ export interface CalendarDetails {
   slotInterval: number | undefined;
   slotIntervalUnit: string | undefined;
   locationId: string | undefined;
+  /** Attendees GHL allows per slot (class_booking calendars); GHL spells it "appoinment". */
+  appointmentsPerSlot: number | undefined;
+  appointmentsPerDay: number | undefined;
 }
 
 /**
@@ -397,6 +405,8 @@ export async function getCalendarDetails(
     slotInterval: cal.slotInterval,
     slotIntervalUnit: cal.slotIntervalUnit,
     locationId: cal.locationId,
+    appointmentsPerSlot: cal.appoinmentPerSlot,
+    appointmentsPerDay: cal.appoinmentPerDay,
   };
 }
 
