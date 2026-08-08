@@ -23,8 +23,11 @@ import {
   useMemberPartnerAssignments,
   useReassignPartner,
   useEndPartnerAssignment,
+  useAdminKickoffCoaches,
+  useUpdateKickoffCoach,
   type AdminPartner,
   type PartnerInput,
+  type AdminKickoffCoach,
 } from "@/lib/partners-admin-api";
 
 interface PartnerForm {
@@ -52,6 +55,12 @@ export default function Partners() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [form, setForm] = useState<PartnerForm>(EMPTY_FORM);
+
+  const { data: kickoffData, isLoading: kickoffLoading } = useAdminKickoffCoaches();
+  const updateKickoffCoach = useUpdateKickoffCoach();
+  const [coachDialogOpen, setCoachDialogOpen] = useState(false);
+  const [editingCoach, setEditingCoach] = useState<AdminKickoffCoach | null>(null);
+  const [coachForm, setCoachForm] = useState({ bio: "", photoUrl: "", isActive: true });
 
   const [memberIdInput, setMemberIdInput] = useState("");
   const [activeMemberId, setActiveMemberId] = useState<number | null>(null);
@@ -98,6 +107,38 @@ export default function Partners() {
         toast({ title: "Partner created" });
       }
       setDialogOpen(false);
+    } catch (err) {
+      toast({
+        title: "Save failed",
+        description: err instanceof Error ? err.message : "Please try again",
+        variant: "destructive",
+      });
+    }
+  }
+
+  function openCoachEdit(coach: AdminKickoffCoach) {
+    setEditingCoach(coach);
+    setCoachForm({
+      bio: coach.bio,
+      photoUrl: coach.photoUrl ?? "",
+      isActive: coach.isActive,
+    });
+    setCoachDialogOpen(true);
+  }
+
+  async function handleCoachSave() {
+    if (!editingCoach) return;
+    try {
+      await updateKickoffCoach.mutateAsync({
+        id: editingCoach.id,
+        input: {
+          bio: coachForm.bio,
+          photoUrl: coachForm.photoUrl || null,
+          isActive: coachForm.isActive,
+        },
+      });
+      toast({ title: "Kickoff coach updated" });
+      setCoachDialogOpen(false);
     } catch (err) {
       toast({
         title: "Save failed",
@@ -217,6 +258,48 @@ export default function Partners() {
 
         <Card>
           <CardHeader>
+            <CardTitle>Kickoff Coaches</CardTitle>
+            <p className="text-sm text-muted-foreground">
+              Bio and photo shown to members on the Book Kickoff step. Edits take
+              effect immediately — no redeploy needed.
+            </p>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {kickoffLoading && <p className="text-sm text-muted-foreground">Loading…</p>}
+            {!kickoffLoading && (kickoffData?.coaches ?? []).length === 0 && (
+              <p className="text-sm text-muted-foreground">No kickoff coaches yet.</p>
+            )}
+            {(kickoffData?.coaches ?? []).map((coach) => (
+              <div
+                key={coach.id}
+                className="flex items-center justify-between rounded-lg border border-border/60 p-3"
+                data-testid={`row-kickoff-coach-${coach.id}`}
+              >
+                <div className="min-w-0 pr-3">
+                  <div className="flex items-center gap-2">
+                    <span className="font-medium text-foreground">{coach.displayName}</span>
+                    <Badge variant="outline">{coach.tier === "launchpad" ? "LaunchPad" : "Full"}</Badge>
+                    {!coach.isActive && <Badge variant="secondary">Inactive</Badge>}
+                  </div>
+                  <p className="text-xs text-muted-foreground truncate">
+                    {coach.bio ? coach.bio : "No bio set"}
+                  </p>
+                </div>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => openCoachEdit(coach)}
+                  data-testid={`button-edit-kickoff-coach-${coach.id}`}
+                >
+                  <Pencil className="h-4 w-4" />
+                </Button>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
             <CardTitle>Member Reassignment</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -320,6 +403,56 @@ export default function Partners() {
           </CardContent>
         </Card>
       </div>
+
+      <Dialog open={coachDialogOpen} onOpenChange={setCoachDialogOpen}>
+        <DialogContent data-testid="dialog-kickoff-coach-form">
+          <DialogHeader>
+            <DialogTitle>Edit Kickoff Coach{editingCoach ? ` — ${editingCoach.displayName}` : ""}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div>
+              <Label htmlFor="kickoff-coach-bio">Bio</Label>
+              <Textarea
+                id="kickoff-coach-bio"
+                rows={7}
+                value={coachForm.bio}
+                onChange={(e) => setCoachForm({ ...coachForm, bio: e.target.value })}
+                data-testid="input-kickoff-coach-bio"
+              />
+            </div>
+            <div>
+              <Label htmlFor="kickoff-coach-photo">Photo URL</Label>
+              <Input
+                id="kickoff-coach-photo"
+                value={coachForm.photoUrl}
+                onChange={(e) => setCoachForm({ ...coachForm, photoUrl: e.target.value })}
+                data-testid="input-kickoff-coach-photo"
+              />
+            </div>
+            <div className="flex items-center justify-between">
+              <Label htmlFor="kickoff-coach-active">Active (in kickoff rotation)</Label>
+              <Switch
+                id="kickoff-coach-active"
+                checked={coachForm.isActive}
+                onCheckedChange={(checked) => setCoachForm({ ...coachForm, isActive: checked })}
+                data-testid="switch-kickoff-coach-active"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setCoachDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={handleCoachSave}
+              disabled={updateKickoffCoach.isPending}
+              data-testid="button-save-kickoff-coach"
+            >
+              Save
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent data-testid="dialog-partner-form">

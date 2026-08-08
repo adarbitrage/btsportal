@@ -11,6 +11,7 @@ import {
   partnersTable,
   partnerAssignmentsTable,
   ghlSyncLogTable,
+  kickoffCoachesTable,
 } from "@workspace/db";
 import { eq, inArray } from "drizzle-orm";
 
@@ -23,6 +24,7 @@ const TEST_TAG = `admin-partners-${randomUUID().slice(0, 8)}`;
 
 const seededUserIds: number[] = [];
 const seededPartnerIds: number[] = [];
+const seededKickoffCoachIds: number[] = [];
 const seededProductIds: number[] = [];
 
 let app: ReturnType<typeof buildTestAppWithRouters>;
@@ -94,9 +96,88 @@ afterAll(async () => {
       .where(inArray(partnerAssignmentsTable.partnerId, seededPartnerIds));
     await db.delete(partnersTable).where(inArray(partnersTable.id, seededPartnerIds));
   }
+  if (seededKickoffCoachIds.length > 0) {
+    await db
+      .delete(kickoffCoachesTable)
+      .where(inArray(kickoffCoachesTable.id, seededKickoffCoachIds));
+  }
   if (seededUserIds.length > 0) {
     await db.delete(usersTable).where(inArray(usersTable.id, seededUserIds));
   }
+});
+
+async function insertKickoffCoach(suffix: string): Promise<number> {
+  const [row] = await db
+    .insert(kickoffCoachesTable)
+    .values({
+      displayName: `Kickoff Coach ${suffix} ${TEST_TAG}`,
+      ghlLocationId: "test-location",
+      isActive: false,
+      tier: "full",
+    })
+    .returning({ id: kickoffCoachesTable.id });
+  seededKickoffCoachIds.push(row.id);
+  return row.id;
+}
+
+// Task #2115: kickoff-coach bios (e.g. Mark's blurb on the Book Kickoff step)
+// must be editable from the admin panel without a redeploy — these routes are
+// the edit surface whose values always win over the IS NULL-guarded roster
+// seed.
+describe("kickoff coach admin routes", () => {
+  it("rejects list for members with no admin permission", async () => {
+    const res = await request(app).get("/api/admin/kickoff-coaches").set("Cookie", memberCookie);
+    expect(res.status).toBe(403);
+  });
+
+  it("lists coaches for a role holding partners:view", async () => {
+    const id = await insertKickoffCoach("list");
+    const res = await request(app).get("/api/admin/kickoff-coaches").set("Cookie", viewerCookie);
+    expect(res.status).toBe(200);
+    const coach = res.body.coaches.find((c: { id: number }) => c.id === id);
+    expect(coach).toBeTruthy();
+    expect(coach.bio).toBe(""); // null coalesced to ''
+  });
+
+  it("rejects PATCH for a role that lacks partners:manage", async () => {
+    const id = await insertKickoffCoach("patch-403");
+    const res = await request(app)
+      .patch(`/api/admin/kickoff-coaches/${id}`)
+      .set("Cookie", viewerCookie)
+      .send({ bio: "should not persist" });
+    expect(res.status).toBe(403);
+  });
+
+  it("updates the bio for a role holding partners:manage and persists it", async () => {
+    const id = await insertKickoffCoach("patch-ok");
+    const res = await request(app)
+      .patch(`/api/admin/kickoff-coaches/${id}`)
+      .set("Cookie", managerCookie)
+      .send({ bio: "Updated blurb from the admin panel." });
+    expect(res.status).toBe(200);
+    expect(res.body.bio).toBe("Updated blurb from the admin panel.");
+
+    const list = await request(app).get("/api/admin/kickoff-coaches").set("Cookie", managerCookie);
+    const coach = list.body.coaches.find((c: { id: number }) => c.id === id);
+    expect(coach.bio).toBe("Updated blurb from the admin panel.");
+  });
+
+  it("ignores calendar/tier fields and rejects an empty update", async () => {
+    const id = await insertKickoffCoach("patch-empty");
+    const res = await request(app)
+      .patch(`/api/admin/kickoff-coaches/${id}`)
+      .set("Cookie", managerCookie)
+      .send({ ghlCalendarId: "forged-calendar", tier: "launchpad" });
+    expect(res.status).toBe(400);
+  });
+
+  it("404s on a missing coach", async () => {
+    const res = await request(app)
+      .patch(`/api/admin/kickoff-coaches/999999999`)
+      .set("Cookie", managerCookie)
+      .send({ bio: "x" });
+    expect(res.status).toBe(404);
+  });
 });
 
 describe("GET /api/admin/partners", () => {

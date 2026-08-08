@@ -4,6 +4,7 @@ import {
   partnersTable,
   partnerAssignmentsTable,
   usersTable,
+  kickoffCoachesTable,
 } from "@workspace/db";
 import { eq, asc, desc, and, sql } from "drizzle-orm";
 import { requirePermission } from "../middleware/rbac";
@@ -168,6 +169,116 @@ router.patch(
       .from(partnerAssignmentsTable)
       .where(eq(partnerAssignmentsTable.partnerId, partnerId));
     res.json({ ...updated, activeAssignmentCount });
+  },
+);
+
+// ---------------------------------------------------------------------------
+// Kickoff coaches (Task #2115): the bio/photo shown on the member Book
+// Kickoff step is seeded from code only when NULL (IS NULL guard in
+// seed-call-booking-roster.ts) — these routes are the admin edit surface that
+// wins over the seed, so wording tweaks (e.g. Mark's blurb) never require a
+// redeploy. Same permission model as partners: partners:view to read,
+// partners:manage to edit.
+// ---------------------------------------------------------------------------
+
+const KICKOFF_COACH_COLUMNS = {
+  id: kickoffCoachesTable.id,
+  displayName: kickoffCoachesTable.displayName,
+  bio: sql<string>`coalesce(${kickoffCoachesTable.bio}, '')`.as("bio"),
+  photoUrl: kickoffCoachesTable.photoUrl,
+  isActive: kickoffCoachesTable.isActive,
+  tier: kickoffCoachesTable.tier,
+  ghlCalendarId: kickoffCoachesTable.ghlCalendarId,
+};
+
+function parseKickoffCoachBody(
+  body: Record<string, unknown>,
+): { values: Record<string, unknown> } | { error: string } {
+  const values: Record<string, unknown> = {};
+
+  if (body.displayName !== undefined) {
+    const displayName =
+      typeof body.displayName === "string" ? body.displayName.trim() : "";
+    if (!displayName) return { error: "Display name is required" };
+    if (displayName.length > DISPLAY_NAME_MAX) {
+      return { error: `Display name must be ${DISPLAY_NAME_MAX} characters or fewer` };
+    }
+    values.displayName = displayName;
+  }
+
+  if (body.bio !== undefined) {
+    const bio = typeof body.bio === "string" ? body.bio.trim() : "";
+    if (bio.length > BIO_MAX) {
+      return { error: `Bio must be ${BIO_MAX} characters or fewer` };
+    }
+    values.bio = bio || null;
+  }
+
+  if (body.photoUrl !== undefined) {
+    if (body.photoUrl === null) {
+      values.photoUrl = null;
+    } else {
+      const trimmed = typeof body.photoUrl === "string" ? body.photoUrl.trim() : "";
+      if (trimmed.length > PHOTO_URL_MAX) {
+        return { error: `Photo URL must be ${PHOTO_URL_MAX} characters or fewer` };
+      }
+      values.photoUrl = trimmed || null;
+    }
+  }
+
+  if (body.isActive !== undefined) {
+    if (typeof body.isActive !== "boolean") {
+      return { error: "isActive must be a boolean" };
+    }
+    values.isActive = body.isActive;
+  }
+
+  // Deliberately NO ghlCalendarId/tier editing here — calendar wiring is
+  // verified read-only against GHL before arming (see the roster seed's
+  // probe scripts) and tier moves are roster decisions, both stay code-owned.
+  return { values };
+}
+
+router.get(
+  "/admin/kickoff-coaches",
+  requirePermission("partners:view"),
+  async (_req: Request, res: Response): Promise<void> => {
+    const coaches = await db
+      .select(KICKOFF_COACH_COLUMNS)
+      .from(kickoffCoachesTable)
+      .orderBy(asc(kickoffCoachesTable.displayName));
+    res.json({ coaches });
+  },
+);
+
+router.patch(
+  "/admin/kickoff-coaches/:id",
+  requirePermission("partners:manage"),
+  async (req: Request, res: Response): Promise<void> => {
+    const coachId = parseId(req.params.id);
+    if (!coachId) {
+      res.status(400).json({ error: "Invalid coach id" });
+      return;
+    }
+    const parsed = parseKickoffCoachBody(req.body ?? {});
+    if ("error" in parsed) {
+      res.status(400).json({ error: parsed.error });
+      return;
+    }
+    if (Object.keys(parsed.values).length === 0) {
+      res.status(400).json({ error: "No fields to update" });
+      return;
+    }
+    const [updated] = await db
+      .update(kickoffCoachesTable)
+      .set(parsed.values)
+      .where(eq(kickoffCoachesTable.id, coachId))
+      .returning(KICKOFF_COACH_COLUMNS);
+    if (!updated) {
+      res.status(404).json({ error: "Kickoff coach not found" });
+      return;
+    }
+    res.json(updated);
   },
 );
 

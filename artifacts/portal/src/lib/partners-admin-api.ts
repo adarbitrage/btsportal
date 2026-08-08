@@ -91,6 +91,46 @@ export function useUpdatePartner() {
   });
 }
 
+const KICKOFF_LIST_KEY = "/api/admin/kickoff-coaches";
+
+export interface AdminKickoffCoach {
+  id: number;
+  displayName: string;
+  bio: string;
+  photoUrl: string | null;
+  isActive: boolean;
+  tier: "launchpad" | "full";
+  ghlCalendarId: string | null;
+}
+
+export interface KickoffCoachInput {
+  displayName?: string;
+  bio?: string;
+  photoUrl?: string | null;
+  isActive?: boolean;
+}
+
+export function useAdminKickoffCoaches() {
+  return useQuery({
+    queryKey: [KICKOFF_LIST_KEY],
+    queryFn: () => adminFetch<{ coaches: AdminKickoffCoach[] }>("/admin/kickoff-coaches"),
+  });
+}
+
+export function useUpdateKickoffCoach() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, input }: { id: number; input: KickoffCoachInput }) =>
+      adminFetch<AdminKickoffCoach>(`/admin/kickoff-coaches/${id}`, {
+        method: "PATCH",
+        body: JSON.stringify(input),
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [KICKOFF_LIST_KEY] });
+    },
+  });
+}
+
 export function useMemberPartnerAssignments(memberId: number | null) {
   return useQuery({
     queryKey: ["/api/admin/members", memberId, "partner-assignments"],
