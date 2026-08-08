@@ -1,5 +1,6 @@
 import { db, upgradePromptEventsTable } from "@workspace/db";
 import { lt } from "drizzle-orm";
+import { createRetryableIntervalJob } from "./interval-job-retry";
 
 const DEFAULT_RETENTION_DAYS = 90;
 const DEFAULT_RUN_INTERVAL_MS = 24 * 60 * 60 * 1000;
@@ -121,28 +122,28 @@ export function __resetUpgradePromptEventsCleanupStatusForTests(): void {
   baselineSince = new Date();
 }
 
-let jobInterval: ReturnType<typeof setInterval> | null = null;
+// Shared crash-proof scheduler (task #2118): failed runs log the underlying
+// DB error (code + message, not just the SQL text) and retry on a short
+// bounded backoff instead of silently waiting the full 24h interval.
+const job = createRetryableIntervalJob({
+  label: "UpgradePromptEventsCleanup",
+  envPrefix: "UPGRADE_PROMPT_EVENTS_CLEANUP",
+  getIntervalMs: getRunIntervalMs,
+  runAttempt: async () => {
+    await runUpgradePromptEventsCleanup();
+  },
+  runOnStart: true,
+});
 
 export function startUpgradePromptEventsCleanupJob(): void {
-  if (jobInterval) return;
   const intervalMs = getRunIntervalMs();
   const retentionDays = getRetentionDays();
-  jobInterval = setInterval(() => {
-    runUpgradePromptEventsCleanup().catch((err) => {
-      console.error("[UpgradePromptEventsCleanup] Unexpected error:", err);
-    });
-  }, intervalMs);
   console.log(
     `[UpgradePromptEventsCleanup] Started cleanup job (every ${intervalMs / 60000}m, retention ${retentionDays}d)`,
   );
-  runUpgradePromptEventsCleanup().catch((err) => {
-    console.error("[UpgradePromptEventsCleanup] Initial run failed:", err);
-  });
+  job.start();
 }
 
 export function stopUpgradePromptEventsCleanupJob(): void {
-  if (jobInterval) {
-    clearInterval(jobInterval);
-    jobInterval = null;
-  }
+  job.stop();
 }

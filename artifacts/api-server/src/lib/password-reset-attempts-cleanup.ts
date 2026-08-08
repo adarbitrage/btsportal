@@ -1,5 +1,6 @@
 import { db, passwordResetAttemptsTable } from "@workspace/db";
 import { lt } from "drizzle-orm";
+import { createRetryableIntervalJob } from "./interval-job-retry";
 
 const RUN_INTERVAL_MS = 24 * 60 * 60 * 1000;
 const RETENTION_DAYS = 7;
@@ -18,26 +19,26 @@ export async function runPasswordResetAttemptsCleanup(): Promise<number> {
   return deletedCount;
 }
 
-let jobInterval: ReturnType<typeof setInterval> | null = null;
+// Shared crash-proof scheduler (task #2118): failed runs log the underlying
+// DB error (code + message, not just the SQL text) and retry on a short
+// bounded backoff instead of silently waiting the full 24h interval.
+const job = createRetryableIntervalJob({
+  label: "PasswordResetAttemptsCleanup",
+  envPrefix: "PASSWORD_RESET_ATTEMPTS_CLEANUP",
+  getIntervalMs: () => RUN_INTERVAL_MS,
+  runAttempt: async () => {
+    await runPasswordResetAttemptsCleanup();
+  },
+  runOnStart: true,
+});
 
 export function startPasswordResetAttemptsCleanupJob(): void {
-  if (jobInterval) return;
-  jobInterval = setInterval(() => {
-    runPasswordResetAttemptsCleanup().catch((err) => {
-      console.error("[PasswordResetAttemptsCleanup] Unexpected error:", err);
-    });
-  }, RUN_INTERVAL_MS);
   console.log(
     `[PasswordResetAttemptsCleanup] Started cleanup job (every ${RUN_INTERVAL_MS / 60000}m, retention ${RETENTION_DAYS}d)`,
   );
-  runPasswordResetAttemptsCleanup().catch((err) => {
-    console.error("[PasswordResetAttemptsCleanup] Initial run failed:", err);
-  });
+  job.start();
 }
 
 export function stopPasswordResetAttemptsCleanupJob(): void {
-  if (jobInterval) {
-    clearInterval(jobInterval);
-    jobInterval = null;
-  }
+  job.stop();
 }

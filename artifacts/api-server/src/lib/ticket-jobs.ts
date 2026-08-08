@@ -1,6 +1,7 @@
 import { db, ticketsTable, ticketMessagesTable } from "@workspace/db";
 import { eq, and, lt, sql } from "drizzle-orm";
 import { checkSlaBreaches } from "./sla";
+import { createRetryableIntervalJob } from "./interval-job-retry";
 
 export async function autoCloseStaleTickets(): Promise<number> {
   const sevenDaysAgo = new Date();
@@ -74,34 +75,32 @@ export async function followUpAfterResolution(): Promise<number> {
   return resolvedTickets.length;
 }
 
-let jobInterval: ReturnType<typeof setInterval> | null = null;
+// Shared crash-proof scheduler (task #2118): failed runs log the underlying
+// DB error (code + message, not just the SQL text) and retry on a short
+// bounded backoff instead of silently waiting the full hourly interval.
+const job = createRetryableIntervalJob({
+  label: "TicketJobs",
+  envPrefix: "TICKET_JOBS",
+  getIntervalMs: () => 60 * 60 * 1000,
+  runAttempt: async () => {
+    const closed = await autoCloseStaleTickets();
+    if (closed > 0) console.log(`[TicketJobs] Auto-closed ${closed} stale tickets`);
+
+    const followedUp = await followUpAfterResolution();
+    if (followedUp > 0) console.log(`[TicketJobs] Sent ${followedUp} follow-ups`);
+
+    const slaResult = await checkSlaBreaches();
+    if (slaResult.warnings > 0 || slaResult.breaches > 0) {
+      console.log(`[TicketJobs] SLA check: ${slaResult.warnings} warnings, ${slaResult.breaches} breaches`);
+    }
+  },
+});
 
 export function startTicketJobs(): void {
-  if (jobInterval) return;
-
-  jobInterval = setInterval(async () => {
-    try {
-      const closed = await autoCloseStaleTickets();
-      if (closed > 0) console.log(`[TicketJobs] Auto-closed ${closed} stale tickets`);
-
-      const followedUp = await followUpAfterResolution();
-      if (followedUp > 0) console.log(`[TicketJobs] Sent ${followedUp} follow-ups`);
-
-      const slaResult = await checkSlaBreaches();
-      if (slaResult.warnings > 0 || slaResult.breaches > 0) {
-        console.log(`[TicketJobs] SLA check: ${slaResult.warnings} warnings, ${slaResult.breaches} breaches`);
-      }
-    } catch (err) {
-      console.error("[TicketJobs] Error running ticket jobs:", err);
-    }
-  }, 60 * 60 * 1000);
-
   console.log("[TicketJobs] Started ticket background jobs (hourly interval)");
+  job.start();
 }
 
 export function stopTicketJobs(): void {
-  if (jobInterval) {
-    clearInterval(jobInterval);
-    jobInterval = null;
-  }
+  job.stop();
 }

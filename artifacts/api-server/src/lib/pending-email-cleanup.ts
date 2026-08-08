@@ -1,5 +1,6 @@
 import { db, usersTable } from "@workspace/db";
 import { lt } from "drizzle-orm";
+import { createRetryableIntervalJob } from "./interval-job-retry";
 
 const RUN_INTERVAL_MS = 60 * 60 * 1000;
 
@@ -25,26 +26,26 @@ export async function runPendingEmailCleanup(): Promise<number> {
   return cleared.length;
 }
 
-let jobInterval: ReturnType<typeof setInterval> | null = null;
+// Shared crash-proof scheduler (task #2118): failed runs log the underlying
+// DB error (code + message, not just the SQL text) and retry on a short
+// bounded backoff instead of silently waiting the full interval.
+const job = createRetryableIntervalJob({
+  label: "PendingEmailCleanup",
+  envPrefix: "PENDING_EMAIL_CLEANUP",
+  getIntervalMs: () => RUN_INTERVAL_MS,
+  runAttempt: async () => {
+    await runPendingEmailCleanup();
+  },
+  runOnStart: true,
+});
 
 export function startPendingEmailCleanupJob(): void {
-  if (jobInterval) return;
-  jobInterval = setInterval(() => {
-    runPendingEmailCleanup().catch((err) => {
-      console.error("[PendingEmailCleanup] Unexpected error:", err);
-    });
-  }, RUN_INTERVAL_MS);
   console.log(
     `[PendingEmailCleanup] Started pending email cleanup job (every ${RUN_INTERVAL_MS / 60000}m)`,
   );
-  runPendingEmailCleanup().catch((err) => {
-    console.error("[PendingEmailCleanup] Initial run failed:", err);
-  });
+  job.start();
 }
 
 export function stopPendingEmailCleanupJob(): void {
-  if (jobInterval) {
-    clearInterval(jobInterval);
-    jobInterval = null;
-  }
+  job.stop();
 }
