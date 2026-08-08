@@ -285,6 +285,128 @@ describe("processCallBookingReminders — 24h email + kickoff vs partner variant
   });
 });
 
+describe("processCallBookingReminders — inactive-staff bookings still resolve staff info (roster change)", () => {
+  // Task #2116: with Todd and Bruce now inactive, historical/edge-case
+  // bookings whose staff_id points at an INACTIVE kickoff coach (or partner)
+  // must still resolve the real display name + photo — the resolver joins by
+  // id only, never by isActive — so reminder emails never bleed the
+  // "your kickoff coach"/"your accountability partner" placeholder for a
+  // coach who merely got deactivated after the booking was created.
+  let inactiveCoachId = 0;
+  let inactivePartnerId = 0;
+
+  beforeAll(async () => {
+    const [coach] = await db
+      .insert(kickoffCoachesTable)
+      .values({
+        displayName: `${TAG} Inactive Coach`,
+        photoUrl: "https://cdn.example.test/inactive-coach.png",
+        isActive: false,
+      })
+      .returning({ id: kickoffCoachesTable.id });
+    inactiveCoachId = coach.id;
+
+    const [partner] = await db
+      .insert(partnersTable)
+      .values({
+        displayName: `${TAG} Inactive Partner`,
+        photoUrl: "https://cdn.example.test/inactive-partner.png",
+        isActive: false,
+      })
+      .returning({ id: partnersTable.id });
+    inactivePartnerId = partner.id;
+  });
+
+  afterAll(async () => {
+    if (inactiveCoachId) {
+      await db.delete(kickoffCoachesTable).where(eq(kickoffCoachesTable.id, inactiveCoachId));
+    }
+    if (inactivePartnerId) {
+      await db.delete(partnersTable).where(eq(partnersTable.id, inactivePartnerId));
+    }
+  });
+
+  it("24h reminder email names the INACTIVE kickoff coach (name + photo), not the placeholder", async () => {
+    const memberId = await seedMember("inactive-coach-email");
+    await seedBooking({
+      type: "kickoff",
+      staffId: inactiveCoachId,
+      memberId,
+      scheduledAt: new Date(Date.now() + 3 * 60 * 60 * 1000),
+    });
+
+    await processCallBookingReminders();
+
+    const calls = emailCallsFor("kickoff_call_reminder", memberId);
+    expect(calls).toHaveLength(1);
+    const args = calls[0][0] as { variables: Record<string, string> };
+    expect(args.variables.staff_name).toBe(`${TAG} Inactive Coach`);
+    expect(args.variables.staff_name).not.toBe("your kickoff coach");
+    expect(args.variables.person_block_html).toContain(`${TAG} Inactive Coach`);
+    expect(args.variables.person_block_html).toContain(
+      "https://cdn.example.test/inactive-coach.png",
+    );
+    expect(args.variables.person_block_html).not.toContain("your kickoff coach");
+  });
+
+  it("24h reminder email names the INACTIVE partner (name + photo), not the placeholder", async () => {
+    const memberId = await seedMember("inactive-partner-email");
+    await seedBooking({
+      type: "partner",
+      staffId: inactivePartnerId,
+      memberId,
+      scheduledAt: new Date(Date.now() + 3 * 60 * 60 * 1000),
+    });
+
+    await processCallBookingReminders();
+
+    const calls = emailCallsFor("partner_call_reminder", memberId);
+    expect(calls).toHaveLength(1);
+    const args = calls[0][0] as { variables: Record<string, string> };
+    expect(args.variables.staff_name).toBe(`${TAG} Inactive Partner`);
+    expect(args.variables.person_block_html).toContain(`${TAG} Inactive Partner`);
+    expect(args.variables.person_block_html).toContain(
+      "https://cdn.example.test/inactive-partner.png",
+    );
+    expect(args.variables.person_block_html).not.toContain("your accountability partner");
+  });
+
+  it("1h SMS reminder names the INACTIVE kickoff coach, not the placeholder", async () => {
+    const memberId = await seedMember("inactive-coach-sms", { phone: "+15555550702" });
+    await seedBooking({
+      type: "kickoff",
+      staffId: inactiveCoachId,
+      memberId,
+      scheduledAt: new Date(Date.now() + 30 * 60 * 1000),
+    });
+
+    await processCallBookingReminders();
+
+    const calls = smsCallsFor("kickoff_call_reminder", memberId);
+    expect(calls).toHaveLength(1);
+    const args = calls[0][0] as { variables: Record<string, string> };
+    expect(args.variables.staff_name).toBe(`${TAG} Inactive Coach`);
+    expect(args.variables.staff_name).not.toBe("your kickoff coach");
+  });
+
+  it("a booking whose staff_id no longer resolves to ANY row falls back to the placeholder (never crashes)", async () => {
+    const memberId = await seedMember("missing-coach-email");
+    await seedBooking({
+      type: "kickoff",
+      staffId: 99999999,
+      memberId,
+      scheduledAt: new Date(Date.now() + 3 * 60 * 60 * 1000),
+    });
+
+    await processCallBookingReminders();
+
+    const calls = emailCallsFor("kickoff_call_reminder", memberId);
+    expect(calls).toHaveLength(1);
+    const args = calls[0][0] as { variables: Record<string, string> };
+    expect(args.variables.staff_name).toBe("your kickoff coach");
+  });
+});
+
 describe("processCallBookingReminders — 1h SMS opt-out + dedup", () => {
   it("texts the fully-eligible member (master SMS + partnerCallSmsOptIn + phone) inside the 1h window", async () => {
     const memberId = await seedMember("sms-yes", { phone: "+15555550701" });
